@@ -1,0 +1,63 @@
+/* Estilos mínimos para la vista de login */
+body {
+    font-family: system-ui, Arial, sans-serif;
+    background: #f7f7f7;
+    margin: 0;
+}
+
+.container {
+    max-width: 360px;
+    margin: 8vh auto;
+    background: #ffffff;
+    padding: 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.08);
+}
+
+h1 {
+    font-size: 20px;
+    margin: 0 0 16px;
+}
+
+label {
+    display: block;
+    margin: 12px 0 6px;
+    font-size: 14px;
+}
+
+input[type="text"],
+input[type="password"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+button {
+    margin-top: 18px;
+    width: 100%;
+    padding: 10px;
+    background: #2d6cdf;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #255ec0;
+}
+
+.error {
+    margin-top: 12px;
+    color: #b00020;
+    font-size: 13px;
+}
+
+.hint {
+    margin-top: 12px;
+    color: #666;
+    font-size: 12px;
+}
