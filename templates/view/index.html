@@ -12,6 +12,16 @@
             .table { border: 1px solid #444; }
             .table th, .table td { border: 1px solid #444 !important; }
         }
+        /* Estilo tipo Excel */
+        .excel-table thead th {
+            background: linear-gradient(#2e7d32, #1b5e20);
+            color: #fff;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .excel-table tbody td {
+            background-color: #f9fbf9;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -35,14 +45,26 @@
         <div class="card mb-4" id="uploadSection">
             <div class="card-body">
                 <h2 class="h6">Subir archivo</h2>
-                <div class="row g-2 align-items-center">
-                    <div class="col-sm-8">
-                        <input id="fileInput" type="file" class="form-control" />
-                    </div>
-                    <div class="col-sm-4">
-                        <button id="uploadBtn" class="btn btn-primary w-100">Subir</button>
-                    </div>
-                </div>
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <th>Archivo</th>
+                            <td id="tblFileName">-</td>
+                        </tr>
+                        <tr>
+                            <th>Seleccionar</th>
+                            <td><input id="fileInput" type="file" class="form-control" /></td>
+                        </tr>
+                        <tr>
+                            <th>Acción</th>
+                            <td><button id="uploadBtn" class="btn btn-primary">Subir</button></td>
+                        </tr>
+                        <tr>
+                            <th>Estado</th>
+                            <td id="tblStatus">-</td>
+                        </tr>
+                    </tbody>
+                </table>
                 <div id="uploadStatus" class="text-muted mt-2"></div>
             </div>
         </div>
@@ -50,16 +72,21 @@
         <div class="card mb-4 d-none" id="extractedDataSection">
             <div class="card-body">
                 <h2 class="h6">Datos extraídos del PDF</h2>
-                <table class="table table-sm">
-                    <tbody>
-                        <tr><th>Póliza N°</th><td id="valPoliza">-</td></tr>
-                        <tr><th>Ramo</th><td id="valRamo">-</td></tr>
-                        <tr><th>Vigencia desde</th><td id="valVigencia">-</td></tr>
-                        <tr><th>Vigencia hasta</th><td id="valVigenciaHasta">-</td></tr>
-                        <tr><th>Sede(s)</th><td id="valSede">-</td></tr>
-                        <tr><th>Contratante</th><td id="valContratante">-</td></tr>
-                        <tr><th>Dirección</th><td id="valDireccion">-</td></tr>
-                        <tr><th>Código SBS</th><td id="valCodigoSbs">-</td></tr>
+                <table class="table table-sm table-bordered excel-table">
+                    <thead>
+                        <tr>
+                            <th>Póliza N°</th>
+                            <th>Ramo</th>
+                            <th>Vigencia desde</th>
+                            <th>Vigencia hasta</th>
+                            <th>Sede(s)</th>
+                            <th>Contratante</th>
+                            <th>Dirección</th>
+                            <th>Código SBS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="excelTableBody">
+                        <!-- Las filas se agregarán dinámicamente -->
                     </tbody>
                 </table>
             </div>

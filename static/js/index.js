@@ -2,12 +2,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileInput = document.getElementById('fileInput');
     const uploadBtn = document.getElementById('uploadBtn');
     const exportBtn = document.getElementById('exportPdfBtn');
-    const statusEl = document.getElementById('uploadStatus');
+    // usar celda de tabla si existe; si no, usa div anterior
+    const statusEl = document.getElementById('tblStatus') || document.getElementById('uploadStatus');
     const section = document.getElementById('extractedDataSection');
+    const tblFileNameEl = document.getElementById('tblFileName');
+    const excelBody = document.getElementById('excelTableBody');
 
-    function setText(id, value) {
-        const el = document.getElementById(id);
-        if (el) el.textContent = value && value.trim() ? value : '-';
+    function addExcelRow(ex) {
+        if (!excelBody) return;
+        const tr = document.createElement('tr');
+        const cols = [
+            ex.poliza,
+            ex.ramo,
+            ex.vigencia_desde,
+            ex.vigencia_hasta,
+            ex.sede,
+            ex.contratante,
+            ex.direccion,
+            ex.codigo_sbs
+        ];
+        cols.forEach(val => {
+            const td = document.createElement('td');
+            td.textContent = (val && String(val).trim()) ? val : '-';
+            tr.appendChild(td);
+        });
+        excelBody.appendChild(tr);
     }
 
     uploadBtn?.addEventListener('click', async () => {
@@ -25,46 +44,33 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData();
             formData.append('file', file);
 
-            const resp = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
-
+            const resp = await fetch('/upload', { method: 'POST', body: formData });
             const data = await resp.json();
+
             if (resp.ok) {
-                statusEl.textContent = `OK: ${data.filename}`;
+                statusEl.textContent = `OK`;
                 statusEl.className = 'text-success mt-2';
                 fileInput.value = '';
+                if (tblFileNameEl) tblFileNameEl.textContent = data.filename || file.name;
 
                 // Tolerar ambos esquemas: 'extracted' y 'fields'
                 const ex = (data.extracted ?? data.fields ?? {});
 
-                setText('valPoliza', ex.poliza);
-                setText('valRamo', ex.ramo);
-                setText('valVigencia', ex.vigencia_desde);
-                setText('valVigenciaHasta', ex.vigencia_hasta);
-                setText('valSede', ex.sede);
-                setText('valContratante', ex.contratante);
-                setText('valDireccion', ex.direccion);
-                setText('valCodigoSbs', ex.codigo_sbs);
+                addExcelRow(ex);
 
-                // Mostrar la sección si al menos uno tiene valor
                 const hasValue = Object.values(ex).some(v => typeof v === 'string' && v.trim().length > 0);
-                if (hasValue) {
-                    section?.classList.remove('d-none');
-                }
+                if (hasValue) section?.classList.remove('d-none');
             } else {
                 statusEl.textContent = `Error: ${data.error || 'Error al subir'}`;
                 statusEl.className = 'text-danger mt-2';
             }
-        } catch (err) {
+        } catch {
             statusEl.textContent = 'Error de red al subir.';
             statusEl.className = 'text-danger mt-2';
         }
     });
 
     exportBtn?.addEventListener('click', () => {
-        // Exporta con "Imprimir" del navegador (elige "Guardar como PDF")
         window.print();
     });
 });
