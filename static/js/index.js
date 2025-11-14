@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const tblFileNameEl = document.getElementById('tblFileName');
     const excelBody = document.getElementById('excelTableBody');
 
+    let lastPdfUrl = null; // URL del último PDF subido
+
     function addExcelRow(ex) {
         if (!excelBody) return;
         const tr = document.createElement('tr');
@@ -53,6 +55,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 fileInput.value = '';
                 if (tblFileNameEl) tblFileNameEl.textContent = data.filename || file.name;
 
+                // Construye la URL pública al PDF en static/uploads
+                if (data.filename) {
+                    lastPdfUrl = `/static/uploads/${data.filename}`;
+                }
+
                 // Tolerar ambos esquemas: 'extracted' y 'fields'
                 const ex = (data.extracted ?? data.fields ?? {});
 
@@ -71,6 +78,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     exportBtn?.addEventListener('click', () => {
-        window.print();
+        if (lastPdfUrl) {
+            window.open(lastPdfUrl, '_blank');
+        } else {
+            // feedback si no hay PDF aún
+            const statusEl = document.getElementById('tblStatus') || document.getElementById('uploadStatus');
+            if (statusEl) {
+                statusEl.textContent = 'Primero sube un PDF para visualizar.';
+                statusEl.className = 'text-warning mt-2';
+            } else {
+                alert('Primero sube un PDF para visualizar.');
+            }
+        }
     });
 });

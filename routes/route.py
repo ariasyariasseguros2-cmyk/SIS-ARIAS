@@ -45,6 +45,5 @@ def upload():
         except Exception:
             extracted = parse_pdf_fields(save_path)
 
-    # Cambia 'fields' -> 'extracted' para coincidir con el frontend histórico
-    return {'filename': filename, 'extracted': extracted}, 200
+    return {'filename': filename, 'fields': extracted}, 200
 
