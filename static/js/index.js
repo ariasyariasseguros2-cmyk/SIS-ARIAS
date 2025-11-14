@@ -9,27 +9,71 @@ document.addEventListener('DOMContentLoaded', () => {
     const excelBody = document.getElementById('excelTableBody');
 
     let lastPdfUrl = null; // URL del último PDF subido
+    const FIELD_KEYS = [
+        'poliza',
+        'ramo',
+        'vigencia_desde',
+        'vigencia_hasta',
+        'sede',
+        'contratante',
+        'direccion',
+        'codigo_sbs'
+    ];
+
+    // Modal de edición
+    const editModalEl = document.getElementById('editModal');
+    let editModal = null;
+    if (editModalEl && window.bootstrap) {
+        editModal = new bootstrap.Modal(editModalEl);
+    }
+    let currentEditRow = null;
 
     function addExcelRow(ex) {
         if (!excelBody) return;
         const tr = document.createElement('tr');
-        const cols = [
-            ex.poliza,
-            ex.ramo,
-            ex.vigencia_desde,
-            ex.vigencia_hasta,
-            ex.sede,
-            ex.contratante,
-            ex.direccion,
-            ex.codigo_sbs
-        ];
-        cols.forEach(val => {
+
+        // celdas de datos (8 columnas)
+        FIELD_KEYS.forEach(key => {
             const td = document.createElement('td');
-            td.textContent = (val && String(val).trim()) ? val : '-';
+            const val = (ex[key] && String(ex[key]).trim()) ? ex[key] : '-';
+            td.textContent = val;
             tr.appendChild(td);
         });
+
+        // celda de acciones
+        const actionTd = document.createElement('td');
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn btn-sm btn-outline-primary btn-modern';
+        editBtn.innerHTML = '<i class="bi bi-pencil-square me-1"></i>Editar';
+        editBtn.addEventListener('click', () => startEditRow(tr));
+        actionTd.appendChild(editBtn);
+        tr.appendChild(actionTd);
+
         excelBody.appendChild(tr);
     }
+
+    function startEditRow(tr) {
+        currentEditRow = tr;
+        FIELD_KEYS.forEach((key, i) => {
+            const td = tr.cells[i];
+            const value = td.textContent === '-' ? '' : td.textContent.trim();
+            const input = document.getElementById(`edit_${key}`);
+            if (input) input.value = value;
+        });
+        editModal?.show();
+    }
+
+    function saveEditModal() {
+        if (!currentEditRow) return;
+        FIELD_KEYS.forEach((key, i) => {
+            const input = document.getElementById(`edit_${key}`);
+            const newVal = (input?.value || '').trim();
+            currentEditRow.cells[i].textContent = newVal.length ? newVal : '-';
+        });
+        editModal?.hide();
+        currentEditRow = null;
+    }
+    document.getElementById('editSaveBtn')?.addEventListener('click', saveEditModal);
 
     uploadBtn?.addEventListener('click', async () => {
         const file = fileInput?.files?.[0];

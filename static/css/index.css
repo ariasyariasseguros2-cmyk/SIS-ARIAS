@@ -1,0 +1,61 @@
+@media print {
+    #acciones, #uploadSection { display: none; }
+    .table { border: 1px solid #444; }
+    .table th, .table td { border: 1px solid #444 !important; }
+}
+
+/* Estilo tipo Excel */
+.excel-table thead th {
+    background: linear-gradient(#2e7d32, #1b5e20);
+    color: #fff;
+    text-align: center;
+    vertical-align: middle;
+    }
+    .excel-table tbody td {
+    background-color: #f9fbf9;
+}
+
+/* Elimina el bloque antiguo excel-table para evitar conflictos */
+:root {
+    --brand: #0d6efd;
+    --surface: #ffffff;
+    --header-bg: #1f7a3b; /* tono moderno del encabezado */
+    --header-fg: #ffffff;
+    --row-hover: #f8fafc;
+    --border-soft: #e9ecef;
+}
+
+.card {
+    border: none;
+    border-radius: .75rem;
+    box-shadow: 0 8px 28px rgba(0,0,0,.08);
+}
+
+.modern-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.modern-table thead th {
+    background: var(--header-bg);
+    color: var(--header-fg);
+    border: none;
+    font-weight: 600;
+    white-space: nowrap;           /* Evita saltos raros en encabezados */
+    padding: .75rem .85rem;        /* Ajusta altura para que no se vea “doble línea” */
+}
+
+.modern-table tbody td {
+    background: var(--surface);
+    border-top: 1px solid var(--border-soft);
+    vertical-align: middle;
+    padding: .7rem .85rem;
+}
+
+.modern-table tbody tr:hover {
+    background: var(--row-hover);
+}
+
+.actions-col { width: 130px; }
+
+.btn-modern { border-radius: 999px; }
