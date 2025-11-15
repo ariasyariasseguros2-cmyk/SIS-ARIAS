@@ -10,14 +10,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let lastPdfUrl = null; // URL del último PDF subido
     const FIELD_KEYS = [
-        'poliza',
-        'ramo',
+        'numero_proforma',
+        'ruc',
+        'emision',
+        'nro_tramite',
         'vigencia_desde',
-        'vigencia_hasta',
-        'sede',
+        'hasta',
         'contratante',
         'direccion',
-        'codigo_sbs'
+        'departamento',
+        'provincia',
+        'distrito',
+        'telefonos',
+        'ramo',
+        'moneda',
+        'prima_neta',
+        'prima_total',
+        'monto',
+        'porc_subagente',
+        'porc_compania'
     ];
 
     // Modal de edición
@@ -32,11 +43,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!excelBody) return;
         const tr = document.createElement('tr');
 
-        // celdas de datos (8 columnas)
         FIELD_KEYS.forEach(key => {
             const td = document.createElement('td');
-            const val = (ex[key] && String(ex[key]).trim()) ? ex[key] : '-';
-            td.textContent = val;
+            const raw = ex[key];
+            // Limpia “:” inicial y trim; convierte valores tipo ":" a vacío
+            const base = (typeof raw === 'string') ? raw : (raw ?? '');
+            const val = (typeof base === 'string') ? base.replace(/^\s*:\s*/, '').trim() : base;
+            td.textContent = val || '';
             tr.appendChild(td);
         });
 
@@ -56,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentEditRow = tr;
         FIELD_KEYS.forEach((key, i) => {
             const td = tr.cells[i];
-            const value = td.textContent === '-' ? '' : td.textContent.trim();
+            const value = td.textContent.trim();
             const input = document.getElementById(`edit_${key}`);
             if (input) input.value = value;
         });
@@ -68,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         FIELD_KEYS.forEach((key, i) => {
             const input = document.getElementById(`edit_${key}`);
             const newVal = (input?.value || '').trim();
-            currentEditRow.cells[i].textContent = newVal.length ? newVal : '-';
+            currentEditRow.cells[i].textContent = newVal;
         });
         editModal?.hide();
         currentEditRow = null;
@@ -107,9 +120,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Tolerar ambos esquemas: 'extracted' y 'fields'
                 const ex = (data.extracted ?? data.fields ?? {});
 
-                addExcelRow(ex);
+                // Mapear alias: si backend devolvió “vigencia_hasta”, usarlo como “hasta”
+                const uiEx = { ...ex, hasta: ex.hasta ?? ex.vigencia_hasta ?? '' };
 
-                const hasValue = Object.values(ex).some(v => typeof v === 'string' && v.trim().length > 0);
+                addExcelRow(uiEx);
+
+                const hasValue = Object.values(uiEx).some(v => {
+                    if (typeof v === 'string') return v.trim().length > 0;
+                    return v != null;
+                });
                 if (hasValue) section?.classList.remove('d-none');
             } else {
                 statusEl.textContent = `Error: ${data.error || 'Error al subir'}`;

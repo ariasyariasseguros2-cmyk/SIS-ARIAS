@@ -63,14 +63,25 @@
                     <table class="table table-hover table-sm align-middle modern-table">
                         <thead>
                             <tr>
-                                <th>Póliza N°</th>
-                                <th>Ramo</th>
+                                <th>N° Proforma</th>
+                                <th>R.U.C.</th>
+                                <th>Emisión</th>
+                                <th>Nro. Trámite</th>
                                 <th>Vigencia desde</th>
-                                <th>Vigencia hasta</th>
-                                <th>Sede(s)</th>
+                                <th>Hasta</th>
                                 <th>Contratante</th>
                                 <th>Dirección</th>
-                                <th>Código SBS</th>
+                                <th>Departamento</th>
+                                <th>Provincia</th>
+                                <th>Distrito</th>
+                                <th>Teléfonos</th>
+                                <th>Ramo</th>
+                                <th>Moneda</th>
+                                <th>Prima Neta</th>
+                                <th>Prima Total</th>
+                                <th>Monto</th>
+                                <th>% Subagente</th>
+                                <th>% Compañía</th>
                                 <th class="actions-col">Acciones</th>
                             </tr>
                         </thead>
@@ -82,6 +93,51 @@
             </div>
         </div>
 
+        <!-- Modal moderno para edición -->
+        <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editModalLabel">Editar datos del PDF</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-3"><div class="form-floating"><input id="edit_numero_proforma" type="text" class="form-control" placeholder="N° Proforma"><label for="edit_numero_proforma">N° Proforma</label></div></div>
+                            <div class="col-md-3"><div class="form-floating"><input id="edit_ruc" type="text" class="form-control" placeholder="R.U.C."><label for="edit_ruc">R.U.C.</label></div></div>
+                            <div class="col-md-3"><div class="form-floating"><input id="edit_emision" type="text" class="form-control" placeholder="Emisión"><label for="edit_emision">Emisión</label></div></div>
+                            <div class="col-md-3"><div class="form-floating"><input id="edit_nro_tramite" type="text" class="form-control" placeholder="Nro. Trámite"><label for="edit_nro_tramite">Nro. Trámite</label></div></div>
+
+                            <div class="col-md-3"><div class="form-floating"><input id="edit_vigencia_desde" type="text" class="form-control" placeholder="Vigencia desde"><label for="edit_vigencia_desde">Vigencia desde</label></div></div>
+                            <div class="col-md-3"><div class="form-floating"><input id="edit_hasta" type="text" class="form-control" placeholder="Hasta"><label for="edit_hasta">Hasta</label></div></div>
+                            <div class="col-md-6"><div class="form-floating"><input id="edit_contratante" type="text" class="form-control" placeholder="Contratante"><label for="edit_contratante">Contratante</label></div></div>
+
+                            <div class="col-md-6"><div class="form-floating"><input id="edit_direccion" type="text" class="form-control" placeholder="Dirección"><label for="edit_direccion">Dirección</label></div></div>
+                            <div class="col-md-2"><div class="form-floating"><input id="edit_departamento" type="text" class="form-control" placeholder="Departamento"><label for="edit_departamento">Departamento</label></div></div>
+                            <div class="col-md-2"><div class="form-floating"><input id="edit_provincia" type="text" class="form-control" placeholder="Provincia"><label for="edit_provincia">Provincia</label></div></div>
+                            <div class="col-md-2"><div class="form-floating"><input id="edit_distrito" type="text" class="form-control" placeholder="Distrito"><label for="edit_distrito">Distrito</label></div></div>
+                            <div class="col-md-2"><div class="form-floating"><input id="edit_telefonos" type="text" class="form-control" placeholder="Teléfonos"><label for="edit_telefonos">Teléfonos</label></div></div>
+
+                            <div class="col-md-4"><div class="form-floating"><input id="edit_ramo" type="text" class="form-control" placeholder="Ramo"><label for="edit_ramo">Ramo</label></div></div>
+                            <div class="col-md-4"><div class="form-floating"><input id="edit_moneda" type="text" class="form-control" placeholder="Moneda"><label for="edit_moneda">Moneda</label></div></div>
+                            <div class="col-md-4"><div class="form-floating"><input id="edit_prima_neta" type="text" class="form-control" placeholder="Prima Neta"><label for="edit_prima_neta">Prima Neta</label></div></div>
+
+                            <div class="col-md-4"><div class="form-floating"><input id="edit_prima_total" type="text" class="form-control" placeholder="Prima Total"><label for="edit_prima_total">Prima Total</label></div></div>
+                            <div class="col-md-4"><div class="form-floating"><input id="edit_monto" type="text" class="form-control" placeholder="Monto"><label for="edit_monto">Monto</label></div></div>
+                            <div class="col-md-4"><div class="form-floating"><input id="edit_porc_subagente" type="text" class="form-control" placeholder="% Subagente"><label for="edit_porc_subagente">% Subagente</label></div></div>
+
+                            <div class="col-md-4"><div class="form-floating"><input id="edit_porc_compania" type="text" class="form-control" placeholder="% Compañía"><label for="edit_porc_compania">% Compañía</label></div></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="editSaveBtn" type="button" class="btn btn-primary">
+                            <i class="bi bi-check2-circle me-1"></i>Guardar cambios
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="card">
             <div class="card-body p-0">
                 <table class="table table-striped table-hover m-0">
@@ -105,79 +161,6 @@
             </div>
         </div>
     </main>
-    <!-- Modal moderno para edición -->
-    <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="editModalLabel">Editar datos del PDF</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-          </div>
-          <div class="modal-body">
-            <div class="row g-3">
-              <div class="col-md-6">
-                <div class="form-floating">
-                  <input id="edit_poliza" type="text" class="form-control" placeholder="Póliza N°">
-                  <label for="edit_poliza">Póliza N°</label>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="form-floating">
-                  <input id="edit_ramo" type="text" class="form-control" placeholder="Ramo">
-                  <label for="edit_ramo">Ramo</label>
-                </div>
-              </div>
-
-              <div class="col-md-6">
-                <div class="form-floating">
-                  <input id="edit_vigencia_desde" type="text" class="form-control" placeholder="Vigencia desde">
-                  <label for="edit_vigencia_desde">Vigencia desde</label>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="form-floating">
-                  <input id="edit_vigencia_hasta" type="text" class="form-control" placeholder="Vigencia hasta">
-                  <label for="edit_vigencia_hasta">Vigencia hasta</label>
-                </div>
-              </div>
-
-              <div class="col-md-12">
-                <div class="form-floating">
-                  <input id="edit_sede" type="text" class="form-control" placeholder="Sede(s)">
-                  <label for="edit_sede">Sede(s)</label>
-                </div>
-              </div>
-
-              <div class="col-md-6">
-                <div class="form-floating">
-                  <input id="edit_contratante" type="text" class="form-control" placeholder="Contratante">
-                  <label for="edit_contratante">Contratante</label>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="form-floating">
-                  <input id="edit_direccion" type="text" class="form-control" placeholder="Dirección">
-                  <label for="edit_direccion">Dirección</label>
-                </div>
-              </div>
-
-              <div class="col-md-6">
-                <div class="form-floating">
-                  <input id="edit_codigo_sbs" type="text" class="form-control" placeholder="Código SBS">
-                  <label for="edit_codigo_sbs">Código SBS</label>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button id="editSaveBtn" type="button" class="btn btn-primary">
-              <i class="bi bi-check2-circle me-1"></i>Guardar cambios
-            </button>
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-          </div>
-        </div>
-      </div>
-    </div>
     <!-- Bootstrap JS para modales -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/index.js') }}"></script>
