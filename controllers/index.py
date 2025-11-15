@@ -89,22 +89,49 @@ def parse_pdf_fields(file_path):
         m = re.search(pat, sanitized, re.IGNORECASE | re.DOTALL)
         return m.group(1).strip() if m else None
 
-    extracted['numero_proforma'] = find(r'Número\s+de\s+Proforma\s*:\s*([^\n]+)')
-    # RUC: soporta que el valor esté en la línea siguiente al “:”
-    m_ruc = re.search(r'R\.?U\.?C\.?\s*:\s*(?:\n\s*)?([0-9]{8,})', sanitized, re.IGNORECASE)
+    # helper para probar varios patrones y devolver el primero que calce
+    def find_first(patterns):
+        for pat in patterns:
+            m = re.search(pat, sanitized, re.IGNORECASE | re.DOTALL)
+            if m:
+                return m.group(1).strip()
+        return None
+
+    # Número de Proforma (soporta "Número de Proforma" y "N° Proforma")
+    extracted['numero_proforma'] = find_first([
+        r'Número\s+de\s+Proforma\s*:\s*([0-9]{6,})',
+        r'N[°o]\s*Proforma\s*:\s*([0-9]{6,})',
+        r'Proforma\s*N(?:ro|[°º])\s*:\s*([0-9]{6,})'
+    ])
+
+    # RUC: capturar solo dígitos (8–11); tolera “doble :” y salto de línea
+    m_ruc = re.search(
+        r'R\.?U\.?C\.?\s*:\s*(?:\s*:)?\s*(?:\n\s*)?([0-9]{8,11})',
+        sanitized,
+        re.IGNORECASE
+    )
     extracted['ruc'] = m_ruc.group(1).strip() if m_ruc else None
     extracted['emision'] = find(r'Emisi[óo]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})')
     extracted['nro_tramite'] = find(r'Nro\.?\s*Tr[aá]mite\s*:\s*([^\n]+)')
     extracted['moneda'] = find(r'Moneda\s*:\s*([^\n]+)')
     extracted['telefonos'] = find(r'Tel[eé]fonos?\s*:\s*([^\n]+)')
 
-    # Distrito (con posible departamento entre paréntesis)
+    # Distrito (formatos con 1 o 2 paréntesis)
     m_dist = re.search(r'Distrito\s*:\s*([^\n]+)', sanitized, re.IGNORECASE)
     if m_dist:
         dist_raw = m_dist.group(1).strip()
-        m_dept = re.search(r'\(([^)]+)\)', dist_raw)
-        extracted['departamento'] = m_dept.group(1).strip() if m_dept else None
-        extracted['distrito'] = re.sub(r'\s*\([^)]+\)\s*', '', dist_raw).strip() or None
+        parts = re.findall(r'\(([^)]+)\)', dist_raw)
+        base = re.sub(r'\s*\([^)]+\)\s*', '', dist_raw).strip()  # ej. "PUCALLPA" / "YARINACOCHA"
+        if len(parts) >= 2:
+            # 2+ paréntesis: primero = distrito, último = departamento
+            extracted['distrito'] = parts[0].strip() or base
+            extracted['departamento'] = parts[-1].strip()
+        elif len(parts) == 1:
+            # 1 paréntesis: base es el distrito, paréntesis es el departamento
+            extracted['distrito'] = base or parts[0].strip()
+            extracted['departamento'] = parts[0].strip()
+        else:
+            extracted['distrito'] = base or None
 
     # Provincia desde Localidad
     extracted['provincia'] = find(r'Localidad\s*:\s*([^\n]+)')
@@ -118,14 +145,24 @@ def parse_pdf_fields(file_path):
         except:
             return None
 
-    m_total = re.search(r'Prima\s+Comercial\s*\+\s*IGV.*?S/\s*([\d\.,]+)', sanitized, re.IGNORECASE | re.DOTALL)
+    # Total: acepta "Prima Comercial + IGV" o "Prima Total"
+    m_total = re.search(
+        r'(?:Prima\s+Comercial\s*\+\s*IGV|Prima\s+Total)\s*.*?S/?\s*([\d\.,]+)',
+        sanitized,
+        re.IGNORECASE | re.DOTALL
+    )
     if m_total:
         total_val = parse_amount(m_total.group(1))
         if total_val is not None:
             extracted['prima_total'] = f'{total_val:.2f}'
             extracted['monto'] = f'{total_val:.2f}'
 
-    m_neta = re.search(r'Prima\s+Comercial(?!\s*\+).*?S/\s*([\d\.,]+)', sanitized, re.IGNORECASE | re.DOTALL)
+    # Neta: intenta "Prima Comercial" sin "+ IGV"
+    m_neta = re.search(
+        r'Prima\s+Comercial(?!\s*\+).*?S/?\s*([\d\.,]+)',
+        sanitized,
+        re.IGNORECASE | re.DOTALL
+    )
     if m_neta:
         net_val = parse_amount(m_neta.group(1))
         if net_val is not None:
@@ -133,7 +170,11 @@ def parse_pdf_fields(file_path):
 
     # Si no hay prima_neta pero hay IGV y total, calcular neta = total - IGV
     if not extracted['prima_neta'] and extracted['prima_total']:
-        m_igv = re.search(r'(?:Impuesto\s+General\s+a\s+las\s+Ventas|IGV)\s*.*?S/\s*([\d\.,]+)', sanitized, re.IGNORECASE | re.DOTALL)
+        m_igv = re.search(
+            r'(?:Impuesto\s+General\s+a\s+las\s+Ventas|IGV)\s*.*?S/?\s*([\d\.,]+)',
+            sanitized,
+            re.IGNORECASE | re.DOTALL
+        )
         if m_igv:
             igv_val = parse_amount(m_igv.group(1))
             tot_val = parse_amount(extracted['prima_total'])
@@ -201,19 +242,38 @@ def parse_pdf_fields_fitz(file_path):
     extracted['codigo_sbs'] = grab(r'(?:C[oó]?digo|Codigo)\s*SBS\s*:\s*([^\n]+)')
 
     # Nuevos campos (una línea)
-    extracted['numero_proforma'] = grab(r'Número\s+de\s+Proforma\s*:\s*([^\n]+)')
-    extracted['ruc'] = grab(r'R\.?U\.?C\.?\s*:\s*([^\n]+)')
+    # Número de Proforma (más tolerante)
+    extracted['numero_proforma'] = (
+        grab(r'Número\s+de\s+Proforma\s*:\s*([0-9]{6,})')
+        or grab(r'N[°o]\s*Proforma\s*:\s*([0-9]{6,})')
+        or grab(r'Proforma\s*N(?:ro|[°º])\s*:\s*([0-9]{6,})')
+    )
+
+    # RUC: solo dígitos; tolera “doble :” y salto de línea
+    m_ruc = re.search(
+        r'R\.?U\.?C\.?\s*:\s*(?:\s*:)?\s*(?:\n\s*)?([0-9]{8,11})',
+        text,
+        re.IGNORECASE
+    )
+    extracted['ruc'] = m_ruc.group(1).strip() if m_ruc else None
     extracted['emision'] = grab(r'Emisi[óo]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})')
     extracted['nro_tramite'] = grab(r'Nro\.?\s*Tr[aá]mite\s*:\s*([^\n]+)')
     extracted['moneda'] = grab_until_next(labels['moneda_lbl'])
     extracted['telefonos'] = grab_until_next(labels['telefonos_lbl'])
 
-    # Distrito y Provincia con lookahead
+    # Distrito (1 o 2 paréntesis) y Provincia
     dist_raw = grab_until_next(labels['distrito'])
     if dist_raw:
-        m_dept = re.search(r'\(([^)]+)\)', dist_raw)
-        extracted['departamento'] = m_dept.group(1).strip() if m_dept else None
-        extracted['distrito'] = re.sub(r'\s*\([^)]+\)\s*', '', dist_raw).strip() or None
+        parts = re.findall(r'\(([^)]+)\)', dist_raw)
+        base = re.sub(r'\s*\([^)]+\)\s*', '', dist_raw).strip()
+        if len(parts) >= 2:
+            extracted['distrito'] = parts[0].strip() or base
+            extracted['departamento'] = parts[-1].strip()
+        elif len(parts) == 1:
+            extracted['distrito'] = base or parts[0].strip()
+            extracted['departamento'] = parts[0].strip()
+        else:
+            extracted['distrito'] = base or None
 
     extracted['provincia'] = grab_until_next(labels['localidad'])
 
@@ -225,21 +285,36 @@ def parse_pdf_fields_fitz(file_path):
         except:
             return None
 
-    m_total = re.search(r'Prima\s+Comercial\s*\+\s*IGV.*?S/\s*([\d\.,]+)', text, re.IGNORECASE | re.DOTALL)
+    # Total: acepta "Prima Comercial + IGV" o "Prima Total"
+    m_total = re.search(
+        r'(?:Prima\s+Comercial\s*\+\s*IGV|Prima\s+Total)\s*.*?S/?\s*([\d\.,]+)',
+        text,
+        re.IGNORECASE | re.DOTALL
+    )
     if m_total:
         total_val = parse_amount(m_total.group(1))
         if total_val is not None:
             extracted['prima_total'] = f'{total_val:.2f}'
             extracted['monto'] = f'{total_val:.2f}'
 
-    m_neta = re.search(r'Prima\s+Comercial(?!\s*\+).*?S/\s*([\d\.,]+)', text, re.IGNORECASE | re.DOTALL)
+    # Neta: intenta "Prima Comercial" sin "+ IGV"
+    m_neta = re.search(
+        r'Prima\s+Comercial(?!\s*\+).*?S/?\s*([\d\.,]+)',
+        text,
+        re.IGNORECASE | re.DOTALL
+    )
     if m_neta:
         net_val = parse_amount(m_neta.group(1))
         if net_val is not None:
             extracted['prima_neta'] = f'{net_val:.2f}'
 
+    # Calcular neta si solo hay Total e IGV
     if not extracted.get('prima_neta') and extracted.get('prima_total'):
-        m_igv = re.search(r'(?:Impuesto\s+General\s+a\s+las\s+Ventas|IGV)\s*.*?S/\s*([\d\.,]+)', text, re.IGNORECASE | re.DOTALL)
+        m_igv = re.search(
+            r'(?:Impuesto\s+General\s+a\s+las\s+Ventas|IGV)\s*.*?S/?\s*([\d\.,]+)',
+            text,
+            re.IGNORECASE | re.DOTALL
+        )
         if m_igv:
             igv_val = parse_amount(m_igv.group(1))
             tot_val = parse_amount(extracted['prima_total'])
@@ -256,6 +331,9 @@ def parse_pdf_fields_fitz(file_path):
     for k, v in list(extracted.items()):
         if isinstance(v, str):
             v = re.sub(r'\s+', ' ', v).strip()
+            # Normalización: corregir “CALLARIA” -> “CALLERIA”
+            if isinstance(extracted.get('distrito'), str) and extracted['distrito'].upper() == 'CALLARIA':
+                extracted['distrito'] = 'CALLERIA'
             extracted[k] = v
     return extracted
 
