@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const section = document.getElementById('extractedDataSection');
     const tblFileNameEl = document.getElementById('tblFileName');
     const excelBody = document.getElementById('excelTableBody');
+    const folioHeaderEl = document.getElementById('folioHeader');
 
     let lastPdfUrl = null; // URL del último PDF subido
     const FIELD_KEYS = [
@@ -16,6 +17,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'nro_tramite',
         'vigencia_desde',
         'hasta',
+        // Mostrar columnas separadas
+        'poliza',
+        'contrato_nro',
         'contratante',
         'direccion',
         'departamento',
@@ -42,6 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function addExcelRow(ex) {
         if (!excelBody) return;
         const tr = document.createElement('tr');
+
+        // Ya no cambiaremos encabezado dinámico; ahora hay 2 columnas explícitas
+        // if (folioHeaderEl && ex.folio_label) { folioHeaderEl.textContent = ex.folio_label; }
 
         FIELD_KEYS.forEach(key => {
             const td = document.createElement('td');
@@ -122,6 +129,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Mapear alias: si backend devolvió “vigencia_hasta”, usarlo como “hasta”
                 const uiEx = { ...ex, hasta: ex.hasta ?? ex.vigencia_hasta ?? '' };
+
+                // Fallback en cliente: si no vino folio_id, usar poliza o contrato_nro
+                if (!uiEx.folio_id) {
+                    const cand = ex.poliza || ex.contrato_nro;
+                    if (cand) {
+                        uiEx.folio_id = cand;
+                        uiEx.folio_label = ex.contrato_nro ? 'Contrato Nro' : 'Póliza N°';
+                    }
+                }
+
+                // Mostrar la tabla solo si existe identificador (poliza o contrato)
+                if ((uiEx.folio_id ?? '').toString().trim().length === 0) {
+                    statusEl.textContent = 'El documento no tiene Póliza/Contrato para mostrar.';
+                    statusEl.className = 'text-warning mt-2';
+                    return;
+                }
 
                 addExcelRow(uiEx);
 

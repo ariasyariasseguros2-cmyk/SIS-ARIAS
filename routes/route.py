@@ -40,10 +40,23 @@ def upload():
             extracted = parse_pdf_fields_fitz(save_path)
             extra2 = parse_pdf_fields(save_path)
             for k, v in extra2.items():
-                if not extracted.get(k) and v:
+                cur = extracted.get(k)
+                if (cur is None or cur == '') and (v is not None and v != ''):
                     extracted[k] = v
+            # fallback del folio en servidor
+            if not extracted.get('folio_id'):
+                cand = extracted.get('poliza') or extracted.get('contrato_nro')
+                if cand:
+                    extracted['folio_id'] = cand
+                    extracted['folio_label'] = 'Contrato Nro' if extracted.get('contrato_nro') else 'Póliza N°'
         except Exception:
             extracted = parse_pdf_fields(save_path)
+            # fallback del folio también en parse alterno
+            if not extracted.get('folio_id'):
+                cand = extracted.get('poliza') or extracted.get('contrato_nro')
+                if cand:
+                    extracted['folio_id'] = cand
+                    extracted['folio_label'] = 'Contrato Nro' if extracted.get('contrato_nro') else 'Póliza N°'
 
     return {'filename': filename, 'fields': extracted}, 200
 

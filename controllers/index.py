@@ -70,6 +70,11 @@ def parse_pdf_fields(file_path):
         'porc_compania': None,
         # alias para la UI
         'hasta': None,
+        # NUEVO: soporte de Salud
+        'contrato_nro': None,
+        'doc_tipo': None,
+        'folio_id': None,
+        'folio_label': None,
     }
 
     # Fallbacks adicionales (por si el valor es solo números/fechas)
@@ -120,6 +125,11 @@ def parse_pdf_fields(file_path):
         r'Tr[aá]mite\s*/\s*Operaci[oó]n\s*:\s*([^\n]+)',
         r'Nro\s*Tr[aá]mite\s*[.:]\s*([^\n]+)',
         r'Tr[aá]mite\s*:\s*([^\n]+)'
+    ])
+    # NUEVO: Contrato Nro (SCTR Salud)
+    extracted['contrato_nro'] = find_first([
+        r'Contrato\s*N(?:ro|[°º])\s*:\s*([^\n]+)',
+        r'Contrato\s*Nro\.?\s*:\s*([^\n]+)'
     ])
     extracted['moneda'] = find(r'Moneda\s*:\s*([^\n]+)')
     extracted['telefonos'] = find(r'Tel[eé]fonos?\s*:\s*([^\n]+)')
@@ -206,6 +216,21 @@ def parse_pdf_fields(file_path):
             v = re.sub(r'\s+', ' ', v).strip()
             extracted[k] = v
 
+    # Determinar tipo de documento por Ramo
+    ramo_upper = (extracted.get('ramo') or '').upper()
+    if 'SCTR SALUD' in ramo_upper:
+        extracted['doc_tipo'] = 'SALUD'
+    elif 'SCTR PENSION' in ramo_upper or 'VIDA LEY' in ramo_upper or 'VIDA' in ramo_upper:
+        extracted['doc_tipo'] = 'VIDA'
+
+    # Seleccionar folio_id y folio_label: Póliza N° o Contrato Nro
+    if extracted.get('poliza'):
+        extracted['folio_id'] = extracted['poliza']
+        extracted['folio_label'] = 'Póliza N°'
+    elif extracted.get('contrato_nro'):
+        extracted['folio_id'] = extracted['contrato_nro']
+        extracted['folio_label'] = 'Contrato Nro'
+
     return extracted
 
 def parse_pdf_fields_fitz(file_path):
@@ -278,6 +303,11 @@ def parse_pdf_fields_fitz(file_path):
         grab(r'Tr[aá]mite\s*/\s*Operaci[oó]n\s*:\s*([^\n]+)') or
         grab(r'Nro\s*Tr[aá]mite\s*[.:]\s*([^\n]+)') or
         grab(r'Tr[aá]mite\s*:\s*([^\n]+)')
+    )
+    # NUEVO: Contrato Nro (SCTR Salud)
+    extracted['contrato_nro'] = (
+        grab(r'Contrato\s*N(?:ro|[°º])\s*:\s*([^\n]+)') or
+        grab(r'Contrato\s*Nro\.?\s*:\s*([^\n]+)')
     )
     extracted['moneda'] = grab_until_next(labels['moneda_lbl'])
     extracted['telefonos'] = grab_until_next(labels['telefonos_lbl'])
@@ -356,6 +386,22 @@ def parse_pdf_fields_fitz(file_path):
             if isinstance(extracted.get('distrito'), str) and extracted['distrito'].upper() == 'CALLARIA':
                 extracted['distrito'] = 'CALLERIA'
             extracted[k] = v
+
+    # Determinar tipo de documento por Ramo
+    ramo_upper = (extracted.get('ramo') or '').upper()
+    if 'SCTR SALUD' in ramo_upper:
+        extracted['doc_tipo'] = 'SALUD'
+    elif 'SCTR PENSION' in ramo_upper or 'VIDA LEY' in ramo_upper or 'VIDA' in ramo_upper:
+        extracted['doc_tipo'] = 'VIDA'
+
+    # Seleccionar folio_id y folio_label: Póliza N° o Contrato Nro
+    if extracted.get('poliza'):
+        extracted['folio_id'] = extracted['poliza']
+        extracted['folio_label'] = 'Póliza N°'
+    elif extracted.get('contrato_nro'):
+        extracted['folio_id'] = extracted['contrato_nro']
+        extracted['folio_label'] = 'Contrato Nro'
+
     return extracted
 
 def get_rows():
