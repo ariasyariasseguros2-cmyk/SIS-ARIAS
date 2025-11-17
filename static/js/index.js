@@ -130,18 +130,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Mapear alias: si backend devolvió “vigencia_hasta”, usarlo como “hasta”
                 const uiEx = { ...ex, hasta: ex.hasta ?? ex.vigencia_hasta ?? '' };
 
-                // Fallback en cliente: si no vino folio_id, usar poliza o contrato_nro
-                if (!uiEx.folio_id) {
-                    const cand = ex.poliza || ex.contrato_nro;
-                    if (cand) {
-                        uiEx.folio_id = cand;
-                        uiEx.folio_label = ex.contrato_nro ? 'Contrato Nro' : 'Póliza N°';
+                // Si el backend solo envía folio combinado, asignarlo a poliza/contrato
+                if (!uiEx.poliza && !uiEx.contrato_nro && uiEx.folio_id) {
+                    if ((uiEx.folio_label || '').toLowerCase().includes('contrato')) {
+                        uiEx.contrato_nro = uiEx.folio_id;
+                    } else {
+                        uiEx.poliza = uiEx.folio_id;
                     }
                 }
+                // Normalizar valores
+                uiEx.poliza = uiEx.poliza ?? ex.poliza ?? '';
+                uiEx.contrato_nro = uiEx.contrato_nro ?? ex.contrato_nro ?? '';
 
-                // Mostrar la tabla solo si existe identificador (poliza o contrato)
-                if ((uiEx.folio_id ?? '').toString().trim().length === 0) {
-                    statusEl.textContent = 'El documento no tiene Póliza/Contrato para mostrar.';
+                // Mostrar tabla si hay al menos uno
+                const hasFolio = ((uiEx.poliza || '').toString().trim().length > 0)
+                              || ((uiEx.contrato_nro || '').toString().trim().length > 0);
+                if (!hasFolio) {
+                    statusEl.textContent = 'El documento no tiene Póliza ni Contrato.';
                     statusEl.className = 'text-warning mt-2';
                     return;
                 }
