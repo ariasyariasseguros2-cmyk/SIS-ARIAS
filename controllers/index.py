@@ -562,6 +562,48 @@ def parse_text_fields_block(text):
 
     return extracted
 
+# NUEVO: helper para eliminar duplicados quedándose con el que tiene más información
+def dedupe_items(items):
+    def canonical_id(it):
+        folio = (it.get('folio_id') or it.get('poliza') or it.get('contrato_nro') or it.get('numero_proforma') or '').strip()
+        tipo = (it.get('doc_tipo') or '').upper().strip()
+        return f'{tipo}|{folio}' if folio else ''
+
+    def completeness_score(it):
+        score = 0
+        for k, v in it.items():
+            if k in ('folio_label',):
+                continue
+            if isinstance(v, str):
+                if v.strip():
+                    score += 1
+            elif v is not None:
+                score += 1
+        return score
+
+    best_map = {}
+    order_keys = []
+    noid_counter = 0
+
+    for it in items:
+        key = canonical_id(it)
+        if not key:
+            tmp_key = ('__noid__', noid_counter)
+            noid_counter += 1
+            best_map[tmp_key] = it
+            order_keys.append(tmp_key)
+            continue
+
+        if key not in best_map:
+            best_map[key] = it
+            order_keys.append(key)
+        else:
+            if completeness_score(it) > completeness_score(best_map[key]):
+                best_map[key] = it
+
+    result = [best_map[k] for k in order_keys]
+    return result
+
 def parse_pdf_items(file_path):
     # Devuelve una lista de registros, uno por página/sección
     doc = fitz.open(file_path)
@@ -580,4 +622,6 @@ def parse_pdf_items(file_path):
                 items.append(ex)
     finally:
         doc.close()
+    # NUEVO: aplicar deduplicación por (doc_tipo, folio/póliza/contrato/proforma)
+    items = dedupe_items(items)
     return items
