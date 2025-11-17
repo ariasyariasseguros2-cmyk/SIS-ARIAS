@@ -3,6 +3,7 @@ from werkzeug.utils import secure_filename
 import os
 from controllers.index import allowed_file, parse_pdf_fields, parse_pdf_fields_fitz, get_rows
 from controllers.index import parse_pdf_items
+from controllers.dashboard import get_dashboard_data
 
 bp = Blueprint('main', __name__)
 
@@ -12,7 +13,24 @@ def home():
     if 'user' not in session:
         return redirect(url_for('login'))
     rows = get_rows()
-    return render_template('view/index.html', rows=rows)
+    chart = get_dashboard_data()
+    return render_template('view/dashboard.html', rows=rows, chart=chart)
+
+@bp.route('/dashboard')
+def dashboard():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    rows = get_rows()
+    chart = get_dashboard_data()
+    return render_template('view/dashboard.html', rows=rows, chart=chart)
+
+@bp.route('/menu/<page>')
+def menu_page(page):
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    rows = get_rows()
+    chart = get_dashboard_data()
+    return render_template('view/dashboard.html', rows=rows, chart=chart, page=page)
 
 @bp.route('/upload', methods=['POST'])
 def upload():

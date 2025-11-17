@@ -1,0 +1,202 @@
+:root {
+  --sidebar-bg: #ffffff;
+  --sidebar-fg: #333;
+  --sidebar-border: #e9ecef;
+  --brand-bg: #343a40;
+  --brand-fg: #fff;
+  --online: #28a745;
+}
+
+* { box-sizing: border-box; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+  background: #eef2f7;
+}
+
+.sidebar {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  padding: 12px 12px 24px;
+  overflow-x: hidden;
+}
+
+.brand {
+  background: var(--brand-bg);
+  color: var(--brand-fg);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  margin-bottom: 12px;
+}
+
+.user-box {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 8px;
+  background: #f8f9fa;
+  margin-bottom: 10px;
+}
+
+.user-box .avatar {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+}
+
+.user-info .name { font-weight: 600; }
+.user-info .status { font-size: 12px; color: #666; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.dot.online { background: var(--online); }
+
+.nav-title {
+  font-size: 12px;
+  color: #888;
+  padding: 10px 8px 6px;
+}
+
+/* Lista del sidebar */
+.nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.nav-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: 8px;
+  color: var(--sidebar-fg);
+  cursor: default;
+}
+.nav-list li i { color: #495057; }
+.nav-list li.active {
+  background: #f1f3f5;
+  font-weight: 600;
+}
+
+.content { display: flex; flex-direction: column; }
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  background: #fff; padding: 10px 14px; border-bottom: 1px solid var(--sidebar-border);
+}
+.page { padding: 16px; }
+
+/* Submenús */
+.nav-group { margin-top: 4px; }
+.group-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border: none;
+  background: transparent;
+  color: var(--sidebar-fg);
+  border-radius: 8px;
+  cursor: pointer;
+  appearance: none;
+  outline: none;
+  box-shadow: none;
+}
+/* El título del grupo en una sola línea con elipsis */
+.group-toggle span {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;     /* una sola línea */
+  overflow: hidden;        /* oculta exceso */
+  text-overflow: ellipsis; /* muestra “…” si no entra */
+}
+.group-toggle:focus,
+.group-toggle:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+.group-toggle .caret {
+  margin-left: auto;
+  transition: transform .2s ease;
+  color: #6c757d;
+}
+.nav-group.open .group-toggle .caret { transform: rotate(90deg); }
+
+/* Grupo: botón + submenú en columna (no en fila) */
+.nav-group {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;   /* coloca el submenu debajo del botón */
+  align-items: stretch;     /* ambos hijos ocupan todo el ancho */
+  gap: 0;                   /* sin espacio extra horizontal */
+}
+
+/* El botón sigue ocupando todo el ancho */
+.group-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border: none;
+  background: transparent;
+  color: var(--sidebar-fg);
+  border-radius: 8px;
+  cursor: pointer;
+  appearance: none;
+  outline: none;
+  box-shadow: none;
+}
+.submenu {
+  list-style: none;
+  padding: 4px 0 8px 28px;
+  margin: 0;
+  display: none;
+  width: 100%;
+}
+.nav-group.open .submenu { display: block; }
+
+.submenu li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px;
+  color: #495057;
+}
+.submenu li i {
+  color: #6c757d;
+  flex: 0 0 auto;
+}
+/* El enlace del submenú también en una sola línea con elipsis */
+.submenu li a {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  width: 100%;
+  padding: 6px 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;     /* una sola línea */
+  overflow: hidden;        /* oculta exceso */
+  text-overflow: ellipsis; /* muestra “…” si no entra */
+}
+.submenu li.active,
+.submenu li a.active {
+  font-weight: 600;
+  color: #212529;
+}
+/* Separador visual entre grupos */
+.nav-group + .nav-group {
+  border-top: 1px solid var(--sidebar-border);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+.submenu li.disabled {
+  color: #a6a6a6;
+}
+.submenu li i { color: #6c757d; }
+.card-header { font-weight: 600; }
