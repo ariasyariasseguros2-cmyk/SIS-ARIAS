@@ -36,6 +36,16 @@ document.addEventListener('DOMContentLoaded', () => {
         'porc_subagente',
         'porc_compania'
     ];
+    // Campos que se marcarán en rojo dentro del modal si están vacíos
+    const REQUIRED_KEYS = [
+        'departamento',
+        'provincia',
+        'distrito',
+        'ramo',
+        'prima_total',
+        'prima_neta',
+        'monto'
+    ];
 
     // Modal de edición
     const editModalEl = document.getElementById('editModal');
@@ -45,12 +55,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     let currentEditRow = null;
 
+    // Marca en rojo (is-invalid) los campos requeridos que estén vacíos en el modal
+    function markMissingInEditModal() {
+        REQUIRED_KEYS.forEach(key => {
+            const input = document.getElementById(`edit_${key}`);
+            if (!input) return;
+            const isEmpty = (input.value || '').trim() === '';
+            input.classList.toggle('is-invalid', isEmpty);
+        });
+    }
+
+    // Actualiza la marca mientras el usuario escribe (solo dentro del modal)
+    function bindEditFieldValidation() {
+        REQUIRED_KEYS.forEach(key => {
+            const input = document.getElementById(`edit_${key}`);
+            if (!input) return;
+            input.addEventListener('input', () => {
+                const isEmpty = (input.value || '').trim() === '';
+                input.classList.toggle('is-invalid', isEmpty);
+            });
+        });
+    }
+    bindEditFieldValidation();
+
     function addExcelRow(ex) {
         if (!excelBody) return;
         const tr = document.createElement('tr');
 
-        // Ya no cambiaremos encabezado dinámico; ahora hay 2 columnas explícitas
-        // if (folioHeaderEl && ex.folio_label) { folioHeaderEl.textContent = ex.folio_label; }
+        // Guardar la URL del PDF asociada a esta fila
+        tr.dataset.pdfUrl = lastPdfUrl || '';
 
         FIELD_KEYS.forEach(key => {
             const td = document.createElement('td');
@@ -64,11 +97,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // celda de acciones
         const actionTd = document.createElement('td');
+        const actionWrap = document.createElement('div');
+        actionWrap.className = 'actions-stack';
+    
+        // Ver PDF
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'btn action-btn btn-view';
+        viewBtn.innerHTML = '<i class="bi bi-file-earmark-pdf"></i><span>Ver PDF</span>';
+        viewBtn.addEventListener('click', () => {
+            const url = tr.dataset.pdfUrl || lastPdfUrl;
+            if (url) {
+                window.open(url, '_blank');
+            } else {
+                const s = document.getElementById('tblStatus') || document.getElementById('uploadStatus');
+                if (s) {
+                    s.textContent = 'Primero sube un PDF para visualizar.';
+                    s.className = 'text-warning mt-2';
+                } else {
+                    alert('Primero sube un PDF para visualizar.');
+                }
+            }
+        });
+        actionWrap.appendChild(viewBtn);
+    
+        // Editar
         const editBtn = document.createElement('button');
-        editBtn.className = 'btn btn-sm btn-outline-primary btn-modern';
-        editBtn.innerHTML = '<i class="bi bi-pencil-square me-1"></i>Editar';
+        editBtn.className = 'btn action-btn btn-edit';
+        editBtn.innerHTML = '<i class="bi bi-pencil-square"></i><span>Editar</span>';
         editBtn.addEventListener('click', () => startEditRow(tr));
-        actionTd.appendChild(editBtn);
+        actionWrap.appendChild(editBtn);
+    
+        // Eliminar
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn action-btn btn-del';
+        delBtn.innerHTML = '<i class="bi bi-trash3"></i><span>Eliminar</span>';
+        delBtn.addEventListener('click', () => {
+            if (confirm('¿Eliminar esta fila?')) {
+                tr.remove();
+                if (excelBody.querySelectorAll('tr').length === 0) {
+                    section?.classList.add('d-none');
+                }
+            }
+        });
+        actionWrap.appendChild(delBtn);
+    
+        actionTd.appendChild(actionWrap);
         tr.appendChild(actionTd);
 
         excelBody.appendChild(tr);
@@ -82,6 +155,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const input = document.getElementById(`edit_${key}`);
             if (input) input.value = value;
         });
+        // Solo al abrir el modal, marcar los faltantes en rojo
+        markMissingInEditModal();
         editModal?.show();
     }
 
@@ -91,6 +166,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const input = document.getElementById(`edit_${key}`);
             const newVal = (input?.value || '').trim();
             currentEditRow.cells[i].textContent = newVal;
+        });
+        // Limpiar marcas al cerrar para que no queden persistentes
+        REQUIRED_KEYS.forEach(key => {
+            const input = document.getElementById(`edit_${key}`);
+            input?.classList.remove('is-invalid');
         });
         editModal?.hide();
         currentEditRow = null;

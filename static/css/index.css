@@ -58,4 +58,77 @@
 
 .actions-col { width: 130px; }
 
+/* Botones de Acciones: diseño compacto y moderno */
+.actions-stack {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    align-items: flex-end;
+}
+.action-btn {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 999px;
+    padding: .35rem .6rem;
+    font-weight: 500;
+    color: #222;
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    line-height: 1;
+    transition: .2s ease-in-out;
+}
+.action-btn i { font-size: 1rem; }
+.action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+
+/* Variantes por acción */
+.btn-view { color: #495057; border-color: #adb5bd; }
+.btn-view:hover { background: #f1f3f5; }
+
+.btn-edit { color: var(--brand); border-color: rgba(13,110,253,.35); }
+.btn-edit:hover { background: rgba(13,110,253,.08); }
+
+.btn-del { color: #c41e3a; border-color: rgba(196,30,58,.35); }
+.btn-del:hover { background: rgba(196,30,58,.08); }
+
+/* Guardar cambios */
+.btn-save {
+    border-radius: 999px;
+    padding: .6rem 1rem;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(13,110,253,.25);
+}
+.btn-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(13,110,253,.3);
+}
+
+/* Pie del modal cómodo y visible */
+.modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: var(--surface);
+}
+
+/* Responsivo: acciones en fila en pantallas pequeñas */
+@media (max-width: 576px) {
+    .actions-stack {
+        flex-direction: row;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: .5rem;
+    }
+}
 .btn-modern { border-radius: 999px; }
+
+/* Mostrar rojo solo en el modal usando Bootstrap .is-invalid */
+.form-control.is-invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 .2rem rgba(220,53,69,.08);
+}
+.form-floating > .form-control.is-invalid ~ label {
+    color: #dc3545;
+}
