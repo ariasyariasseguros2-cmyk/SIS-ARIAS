@@ -21,6 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'poliza',
         'contrato_nro',
         'contratante',
+        // NUEVO: asegurado
+        'asegurado',
         'direccion',
         'departamento',
         'provincia',

@@ -34,6 +34,8 @@ def parse_pdf_fields(file_path):
         'gestor': r'Gestor',
         'moneda_lbl': r'Moneda',
         'departamento_lbl': r'Departamento',
+        # NUEVO: asegurado
+        'asegurado': r'Asegura\w*',
     }
     # Unión para lookahead a “la próxima etiqueta”
     next_union = '|'.join(labels.values())
@@ -53,6 +55,8 @@ def parse_pdf_fields(file_path):
         'contratante': grab_line(labels['contratante']),
         'direccion': grab_line(labels['direccion']),
         'codigo_sbs': grab_line(labels['codigo_sbs']),
+        # NUEVO: asegurado
+        'asegurado': grab_line(labels['asegurado']),
         # nuevos campos
         'numero_proforma': None,
         'ruc': None,
@@ -278,6 +282,8 @@ def parse_pdf_fields_fitz(file_path):
     extracted['sede'] = grab_until_next(labels['sede'])
     extracted['contratante'] = grab_until_next(labels['contratante'])
     extracted['direccion'] = grab_until_next(labels['direccion'])
+    # NUEVO: asegurado
+    extracted['asegurado'] = grab_until_next(labels['asegurado'])
     extracted['codigo_sbs'] = grab(r'(?:C[oó]?digo|Codigo)\s*SBS\s*:\s*([^\n]+)')
 
     # Nuevos campos (una línea)
@@ -436,6 +442,8 @@ def parse_text_fields_block(text):
         'vigencia_hasta': r'Hasta',
         'provincia_lbl': r'(?:Localidad|Provincia)',
         'departamento_lbl': r'Departamento',
+        # NUEVO
+        'asegurado': r'Asegurado',
     }
     next_union = '|'.join(labels.values())
 
@@ -451,6 +459,8 @@ def parse_text_fields_block(text):
     extracted['sede'] = grab_until_next(labels['sede'])
     extracted['contratante'] = grab_until_next(labels['contratante'])
     extracted['direccion'] = grab_until_next(labels['direccion'])
+    # NUEVO: asegurado
+    extracted['asegurado'] = grab_until_next(labels['asegurado'])
     extracted['codigo_sbs'] = grab(r'(?:C[oó]?digo|Codigo)\s*SBS\s*:\s*([^\n]+)')
 
     extracted['numero_proforma'] = (
