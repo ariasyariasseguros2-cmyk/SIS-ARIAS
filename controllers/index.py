@@ -27,12 +27,13 @@ def parse_pdf_fields(file_path):
         'contratante': r'Contrata\w*',
         'direccion': r'Direcci\w*n',
         'codigo_sbs': r'C\w*digo\s*SBS',
-        # añadidas para poder cortar valores
-        'localidad': r'Localidad',
+        # añadidas/ajustadas
+        'localidad': r'(?:Localidad|Provincia)',
         'distrito': r'Distrito',
         'telefonos_lbl': r'Tel[eé]fonos?',
         'gestor': r'Gestor',
         'moneda_lbl': r'Moneda',
+        'departamento_lbl': r'Departamento',
     }
     # Unión para lookahead a “la próxima etiqueta”
     next_union = '|'.join(labels.values())
@@ -112,7 +113,14 @@ def parse_pdf_fields(file_path):
     )
     extracted['ruc'] = m_ruc.group(1).strip() if m_ruc else None
     extracted['emision'] = find(r'Emisi[óo]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})')
-    extracted['nro_tramite'] = find(r'Nro\.?\s*Tr[aá]mite\s*:\s*([^\n]+)')
+    # Nro. Trámite: múltiples variantes soportadas (incluye "Trámite / Operación")
+    extracted['nro_tramite'] = find_first([
+        r'(?:Nro\.?|N[°º.]|No\.?)\s*(?:de\s*)?Tr[aá]mite\s*:\s*([^\n]+)',
+        r'Tr[aá]mite\s*N(?:ro|[°º])\s*:\s*([^\n]+)',
+        r'Tr[aá]mite\s*/\s*Operaci[oó]n\s*:\s*([^\n]+)',
+        r'Nro\s*Tr[aá]mite\s*[.:]\s*([^\n]+)',
+        r'Tr[aá]mite\s*:\s*([^\n]+)'
+    ])
     extracted['moneda'] = find(r'Moneda\s*:\s*([^\n]+)')
     extracted['telefonos'] = find(r'Tel[eé]fonos?\s*:\s*([^\n]+)')
 
@@ -134,7 +142,10 @@ def parse_pdf_fields(file_path):
             extracted['distrito'] = base or None
 
     # Provincia desde Localidad
-    extracted['provincia'] = find(r'Localidad\s*:\s*([^\n]+)')
+    extracted['provincia'] = find_first([
+        r'Localidad\s*:\s*([^\n]+)',
+        r'Provincia\s*:\s*([^\n]+)'
+    ])
 
     # Importes: Prima Comercial + IGV (total) y Prima Comercial (neta)
     def parse_amount(num_str):
@@ -223,6 +234,9 @@ def parse_pdf_fields_fitz(file_path):
         'contratante': r'Contratante',
         'direccion': r'Direcci[oó]?n',
         'vigencia_hasta': r'Hasta',
+        # nuevas/ajustadas
+        'provincia_lbl': r'(?:Localidad|Provincia)',
+        'departamento_lbl': r'Departamento',
     }
     next_union = '|'.join(labels.values())
 
@@ -257,7 +271,14 @@ def parse_pdf_fields_fitz(file_path):
     )
     extracted['ruc'] = m_ruc.group(1).strip() if m_ruc else None
     extracted['emision'] = grab(r'Emisi[óo]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})')
-    extracted['nro_tramite'] = grab(r'Nro\.?\s*Tr[aá]mite\s*:\s*([^\n]+)')
+    # Nro. Trámite: variantes (incluye "Trámite / Operación")
+    extracted['nro_tramite'] = (
+        grab(r'(?:Nro\.?|N[°º.]|No\.?)\s*(?:de\s*)?Tr[aá]mite\s*:\s*([^\n]+)') or
+        grab(r'Tr[aá]mite\s*N(?:ro|[°º])\s*:\s*([^\n]+)') or
+        grab(r'Tr[aá]mite\s*/\s*Operaci[oó]n\s*:\s*([^\n]+)') or
+        grab(r'Nro\s*Tr[aá]mite\s*[.:]\s*([^\n]+)') or
+        grab(r'Tr[aá]mite\s*:\s*([^\n]+)')
+    )
     extracted['moneda'] = grab_until_next(labels['moneda_lbl'])
     extracted['telefonos'] = grab_until_next(labels['telefonos_lbl'])
 
@@ -275,7 +296,7 @@ def parse_pdf_fields_fitz(file_path):
         else:
             extracted['distrito'] = base or None
 
-    extracted['provincia'] = grab_until_next(labels['localidad'])
+    extracted['provincia'] = grab_until_next(labels['provincia_lbl'])
 
     # Importes (se mantienen con parsing numérico)
     def parse_amount(num_str):
