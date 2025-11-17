@@ -2,6 +2,7 @@ from flask import Blueprint, redirect, url_for, session, render_template, reques
 from werkzeug.utils import secure_filename
 import os
 from controllers.index import allowed_file, parse_pdf_fields, parse_pdf_fields_fitz, get_rows
+from controllers.index import parse_pdf_items
 
 bp = Blueprint('main', __name__)
 
@@ -34,6 +35,19 @@ def upload():
     os.makedirs(upload_folder, exist_ok=True)
     file.save(save_path)
 
+    # Primero intentamos extraer por páginas (varios ítems)
+    items = []
+    if filename.lower().endswith('.pdf'):
+        try:
+            items = parse_pdf_items(save_path)
+        except Exception:
+            items = []
+
+    if items and len(items) > 0:
+        # Cuando hay múltiples secciones (Salud y Pensión), retornamos lista
+        return {'filename': filename, 'items': items}, 200
+
+    # Fallback: comportamiento anterior (un solo objeto)
     extracted = {}
     if filename.lower().endswith('.pdf'):
         try:

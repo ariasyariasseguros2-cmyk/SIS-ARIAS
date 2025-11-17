@@ -411,3 +411,173 @@ def get_rows():
         {'id': 2, 'nombre': 'Ejemplo B', 'estado': 'Pendiente'},
         {'id': 3, 'nombre': 'Ejemplo C', 'estado': 'Inactivo'},
     ]
+
+def parse_text_fields_block(text):
+    # Parser “por bloque de texto” (una página), reutiliza la lógica de parse_pdf_fields_fitz
+    text = text or ""
+    text = re.sub(r'[ \t]+', ' ', text)
+    text = re.sub(r'\s*\n\s*', '\n', text)
+
+    extracted = {}
+
+    def grab(pattern):
+        m = re.search(pattern, text, re.IGNORECASE | re.MULTILINE | re.DOTALL)
+        return m.group(1).strip() if m else None
+
+    labels = {
+        'localidad': r'Localidad',
+        'distrito': r'Distrito',
+        'telefonos_lbl': r'Tel[eé]fonos?',
+        'gestor': r'Gestor',
+        'moneda_lbl': r'Moneda',
+        'sede': r'Sede\(s\)',
+        'contratante': r'Contratante',
+        'direccion': r'Direcci[oó]?n',
+        'vigencia_hasta': r'Hasta',
+        'provincia_lbl': r'(?:Localidad|Provincia)',
+        'departamento_lbl': r'Departamento',
+    }
+    next_union = '|'.join(labels.values())
+
+    def grab_until_next(label_pat):
+        rx = rf'{label_pat}\s*:\s*(.*?)(?=\s*(?:{next_union})\s*:|\n|$)'
+        m = re.search(rx, text, re.IGNORECASE | re.DOTALL)
+        return m.group(1).strip() if m else None
+
+    extracted['poliza'] = grab(r'(?:P[oó]?liza\s*N(?:ro|[°º])\s*:\s*|Poliza\s*:\s*)([^\n]+)')
+    extracted['ramo'] = grab(r'Ramo\s*:\s*([^\n]+)')
+    extracted['vigencia_desde'] = grab(r'Vigencia\s*desde\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})')
+    extracted['vigencia_hasta'] = grab(r'Hasta\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})')
+    extracted['sede'] = grab_until_next(labels['sede'])
+    extracted['contratante'] = grab_until_next(labels['contratante'])
+    extracted['direccion'] = grab_until_next(labels['direccion'])
+    extracted['codigo_sbs'] = grab(r'(?:C[oó]?digo|Codigo)\s*SBS\s*:\s*([^\n]+)')
+
+    extracted['numero_proforma'] = (
+        grab(r'Número\s+de\s+Proforma\s*:\s*([0-9]{6,})')
+        or grab(r'N[°o]\s*Proforma\s*:\s*([0-9]{6,})')
+        or grab(r'Proforma\s*N(?:ro|[°º])\s*:\s*([0-9]{6,})')
+    )
+
+    m_ruc = re.search(
+        r'R\.?U\.?C\.?\s*:\s*(?:\s*:)?\s*(?:\n\s*)?([0-9]{8,11})',
+        text,
+        re.IGNORECASE
+    )
+    extracted['ruc'] = m_ruc.group(1).strip() if m_ruc else None
+    extracted['emision'] = grab(r'Emisi[óo]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})')
+    extracted['nro_tramite'] = (
+        grab(r'(?:Nro\.?|N[°º.]|No\.?)\s*(?:de\s*)?Tr[aá]mite\s*:\s*([^\n]+)') or
+        grab(r'Tr[aá]mite\s*N(?:ro|[°º])\s*:\s*([^\n]+)') or
+        grab(r'Tr[aá]mite\s*/\s*Operaci[oó]n\s*:\s*([^\n]+)') or
+        grab(r'Nro\s*Tr[aá]mite\s*[.:]\s*([^\n]+)') or
+        grab(r'Tr[aá]mite\s*:\s*([^\n]+)')
+    )
+    extracted['contrato_nro'] = (
+        grab(r'Contrato\s*N(?:ro|[°º])\s*:\s*([^\n]+)') or
+        grab(r'Contrato\s*Nro\.?\s*:\s*([^\n]+)')
+    )
+    extracted['moneda'] = grab_until_next(labels['moneda_lbl'])
+    extracted['telefonos'] = grab_until_next(labels['telefonos_lbl'])
+
+    dist_raw = grab_until_next(labels['distrito'])
+    if dist_raw:
+        parts = re.findall(r'\(([^)]+)\)', dist_raw)
+        base = re.sub(r'\s*\([^)]+\)\s*', '', dist_raw).strip()
+        if len(parts) >= 2:
+            extracted['distrito'] = parts[0].strip() or base
+            extracted['departamento'] = parts[-1].strip()
+        elif len(parts) == 1:
+            extracted['distrito'] = base or parts[0].strip()
+            extracted['departamento'] = parts[0].strip()
+        else:
+            extracted['distrito'] = base or None
+
+    extracted['provincia'] = grab_until_next(labels['provincia_lbl'])
+
+    def parse_amount(num_str):
+        s = (num_str or '').replace(',', '.')
+        try:
+            return round(float(s), 2)
+        except:
+            return None
+
+    m_total = re.search(
+        r'(?:Prima\s+Comercial\s*\+\s*IGV|Prima\s+Total)\s*.*?S/?\s*([\d\.,]+)',
+        text,
+        re.IGNORECASE | re.DOTALL
+    )
+    if m_total:
+        total_val = parse_amount(m_total.group(1))
+        if total_val is not None:
+            extracted['prima_total'] = f'{total_val:.2f}'
+            extracted['monto'] = f'{total_val:.2f}'
+
+    m_neta = re.search(
+        r'Prima\s+Comercial(?!\s*\+).*?S/?\s*([\d\.,]+)',
+        text,
+        re.IGNORECASE | re.DOTALL
+    )
+    if m_neta:
+        net_val = parse_amount(m_neta.group(1))
+        if net_val is not None:
+            extracted['prima_neta'] = f'{net_val:.2f}'
+
+    if not extracted.get('prima_neta') and extracted.get('prima_total'):
+        m_igv = re.search(
+            r'(?:Impuesto\s+General\s+a\s+las\s+Ventas|IGV)\s*.*?S/?\s*([\d\.,]+)',
+            text,
+            re.IGNORECASE | re.DOTALL
+        )
+        if m_igv:
+            igv_val = parse_amount(m_igv.group(1))
+            tot_val = parse_amount(extracted['prima_total'])
+            if igv_val is not None and tot_val is not None:
+                extracted['prima_neta'] = f'{(tot_val - igv_val):.2f}'
+
+    extracted['porc_subagente'] = grab(r'(?:Sub[\s\-]?agente|Subagente)[^%\n]*?(\d+(?:[.,]\d+)?)\s*%')
+    extracted['porc_compania'] = grab(r'(?:Compa[nñ][ií]a|Compañ[ií]a)[^%\n]*?(\d+(?:[.,]\d+)?)\s*%')
+
+    extracted['hasta'] = extracted.get('vigencia_hasta') or extracted.get('hasta')
+
+    for k, v in list(extracted.items()):
+        if isinstance(v, str):
+            v = re.sub(r'\s+', ' ', v).strip()
+            if isinstance(extracted.get('distrito'), str) and extracted['distrito'].upper() == 'CALLARIA':
+                extracted['distrito'] = 'CALLERIA'
+            extracted[k] = v
+
+    ramo_upper = (extracted.get('ramo') or '').upper()
+    if 'SCTR SALUD' in ramo_upper:
+        extracted['doc_tipo'] = 'SALUD'
+    elif 'SCTR PENSION' in ramo_upper or 'VIDA LEY' in ramo_upper or 'VIDA' in ramo_upper:
+        extracted['doc_tipo'] = 'VIDA'
+
+    if extracted.get('poliza'):
+        extracted['folio_id'] = extracted['poliza']
+        extracted['folio_label'] = 'Póliza N°'
+    elif extracted.get('contrato_nro'):
+        extracted['folio_id'] = extracted['contrato_nro']
+        extracted['folio_label'] = 'Contrato Nro'
+
+    return extracted
+
+def parse_pdf_items(file_path):
+    # Devuelve una lista de registros, uno por página/sección
+    doc = fitz.open(file_path)
+    items = []
+    try:
+        for page in doc:
+            text = page.get_text("text") or ""
+            ex = parse_text_fields_block(text)
+            has_any = any([
+                (ex.get('ramo') or '').strip(),
+                (ex.get('poliza') or '').strip(),
+                (ex.get('contrato_nro') or '').strip(),
+                (ex.get('numero_proforma') or '').strip(),
+            ])
+            if has_any:
+                items.append(ex)
+    finally:
+        doc.close()
+    return items

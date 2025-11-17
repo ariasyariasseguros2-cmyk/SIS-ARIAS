@@ -124,40 +124,52 @@ document.addEventListener('DOMContentLoaded', () => {
                     lastPdfUrl = `/static/uploads/${data.filename}`;
                 }
 
-                // Tolerar ambos esquemas: 'extracted' y 'fields'
-                const ex = (data.extracted ?? data.fields ?? {});
-
-                // Mapear alias: si backend devolvió “vigencia_hasta”, usarlo como “hasta”
-                const uiEx = { ...ex, hasta: ex.hasta ?? ex.vigencia_hasta ?? '' };
-
-                // Si el backend solo envía folio combinado, asignarlo a poliza/contrato
-                if (!uiEx.poliza && !uiEx.contrato_nro && uiEx.folio_id) {
-                    if ((uiEx.folio_label || '').toLowerCase().includes('contrato')) {
-                        uiEx.contrato_nro = uiEx.folio_id;
-                    } else {
-                        uiEx.poliza = uiEx.folio_id;
-                    }
+                // NUEVO: soportar múltiples ítems
+                let items = [];
+                if (Array.isArray(data.items)) {
+                    items = data.items;
+                } else if (Array.isArray(data.fields)) {
+                    items = data.fields;
+                } else if (Array.isArray(data.extracted)) {
+                    items = data.extracted;
+                } else {
+                    const exObj = (data.extracted ?? data.fields ?? {});
+                    items = [exObj];
                 }
-                // Normalizar valores
-                uiEx.poliza = uiEx.poliza ?? ex.poliza ?? '';
-                uiEx.contrato_nro = uiEx.contrato_nro ?? ex.contrato_nro ?? '';
 
-                // Mostrar tabla si hay al menos uno
-                const hasFolio = ((uiEx.poliza || '').toString().trim().length > 0)
-                              || ((uiEx.contrato_nro || '').toString().trim().length > 0);
-                if (!hasFolio) {
+                // Renderizar cada ítem como fila
+                let anyShown = false;
+                for (const ex of items) {
+                    const uiEx = { ...ex, hasta: ex.hasta ?? ex.vigencia_hasta ?? '' };
+
+                    // Si solo se envía folio combinado, mapear a columnas separadas
+                    if (!uiEx.poliza && !uiEx.contrato_nro && uiEx.folio_id) {
+                        if ((uiEx.folio_label || '').toLowerCase().includes('contrato')) {
+                            uiEx.contrato_nro = uiEx.folio_id;
+                        } else {
+                            uiEx.poliza = uiEx.folio_id;
+                        }
+                    }
+                    uiEx.poliza = uiEx.poliza ?? '';
+                    uiEx.contrato_nro = uiEx.contrato_nro ?? '';
+
+                    const hasFolio = ((uiEx.poliza || '').toString().trim().length > 0)
+                                  || ((uiEx.contrato_nro || '').toString().trim().length > 0);
+                    if (!hasFolio) {
+                        // si esta página no tiene folio, la saltamos
+                        continue;
+                    }
+
+                    addExcelRow(uiEx);
+                    anyShown = true;
+                }
+
+                if (anyShown) {
+                    section?.classList.remove('d-none');
+                } else {
                     statusEl.textContent = 'El documento no tiene Póliza ni Contrato.';
                     statusEl.className = 'text-warning mt-2';
-                    return;
                 }
-
-                addExcelRow(uiEx);
-
-                const hasValue = Object.values(uiEx).some(v => {
-                    if (typeof v === 'string') return v.trim().length > 0;
-                    return v != null;
-                });
-                if (hasValue) section?.classList.remove('d-none');
             } else {
                 statusEl.textContent = `Error: ${data.error || 'Error al subir'}`;
                 statusEl.className = 'text-danger mt-2';
