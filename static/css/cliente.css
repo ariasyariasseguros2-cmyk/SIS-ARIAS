@@ -1,0 +1,35 @@
+/* Estilos específicos de la vista de Clientes */
+.page .btn-group .btn {
+    white-space: nowrap;
+}
+
+#clientesTable td, #clientesTable th {
+    vertical-align: middle;
+}
+
+#clientesTable thead th {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+#clientesTable tbody td {
+    font-size: 13px;
+}
+
+#clientesTable .btn-group .btn {
+    padding: 2px 8px;
+}
+
+#clientesTable .btn-outline-primary,
+#clientesTable .btn-outline-success,
+#clientesTable .btn-outline-danger {
+    border-width: 1px;
+}
+
+.input-group .form-control {
+    min-width: 0;
+}
+
+.dropdown-menu .dropdown-item {
+    font-size: 13px;
+}

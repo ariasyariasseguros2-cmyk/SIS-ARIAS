@@ -1,8 +1,7 @@
 from flask import Blueprint, redirect, url_for, session, render_template, request, current_app
 from werkzeug.utils import secure_filename
 import os
-from controllers.index import allowed_file, parse_pdf_fields, parse_pdf_fields_fitz, get_rows
-from controllers.index import parse_pdf_items
+from controllers.addPoliza import allowed_file, parse_pdf_fields, parse_pdf_fields_fitz, get_rows, parse_pdf_items
 from controllers.dashboard import get_dashboard_data
 
 bp = Blueprint('main', __name__)
@@ -28,6 +27,20 @@ def dashboard():
 def menu_page(page):
     if 'user' not in session:
         return redirect(url_for('login'))
+
+    # Clientes → renderiza su plantilla dedicada con sus datos
+    if page == 'clientes':
+        from controllers.cliente import get_clientes_data
+        data = get_clientes_data()
+        return render_template(
+            'view/cliente.html',
+            page='clientes',
+            title=data['title'],
+            rows=data['rows'],
+            filters=data['filters']
+        )
+
+    # Fallback: otras secciones usan el dashboard con etiqueta de sección
     rows = get_rows()
     chart = get_dashboard_data()
     return render_template('view/dashboard.html', rows=rows, chart=chart, page=page)
