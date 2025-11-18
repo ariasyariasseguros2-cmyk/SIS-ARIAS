@@ -1,0 +1,107 @@
+/* --- TITULOS --- */
+.section-title {
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-top: 1.5rem;
+  padding-bottom: .3rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+/* --- ANCHO Y ALTURA DEL MODAL --- */
+#addClienteModal .modal-dialog.modal-xl {
+  max-width: 1200px;
+}
+
+/* --- HEADER Y FOOTER --- */
+#addClienteModal .modal-header {
+  background: linear-gradient(90deg, #f8fafc, #eef2f7);
+  padding: 1rem 1.5rem;
+}
+
+#addClienteModal .modal-footer {
+  background: #f8fafc;
+  border-top: 1px solid #e5e7eb;
+  padding: .75rem 1.5rem;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+/* --- CAJAS DE SECCIÓN --- */
+#addClienteModal .section-box {
+  background: #ffffff;
+  border: 1px solid #dbe4f3;
+  border-radius: 10px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* --- FORMULARIO --- */
+#addClienteModal .modal-content {
+  display: flex;
+  flex-direction: column;
+  /* quita altura fija para que funcione el scroll de Bootstrap */
+  /* height: calc(100vh - 2rem); */
+  /* max-height: calc(100vh - 2rem); */
+}
+
+/* El cuerpo del modal desplazable */
+#addClienteModal .modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1rem 1.5rem;
+  padding-bottom: 6rem; /* evita que el footer tape contenido al final */
+}
+
+/* Ajuste explícito de alturas para asegurar el scroll con Bootstrap */
+#addClienteModal .modal-dialog.modal-dialog-scrollable {
+  /* limita la altura del contenedor del diálogo al viewport */
+  max-height: calc(100vh - 2rem);
+}
+
+#addClienteModal .modal-dialog.modal-dialog-scrollable .modal-body {
+  /* resta header (~4rem) + footer (~3rem) y márgenes del modal */
+  max-height: calc(100vh - 9rem);
+  overflow-y: auto;
+}
+
+#addClienteModal .modal-body .form-label {
+  font-weight: 600;
+  color: #374151;
+}
+
+/* --- AGRUPACIÓN DE RADIO BUTTONS --- */
+.radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  padding: .7rem 1rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+/* --- INPUT GROUP --- */
+#addClienteModal .input-group-text {
+  background-color: #eef2f7;
+  border-color: #e5e7eb;
+}
+
+/* --- ESPACIADO ENTRE SECCIONES --- */
+.section-box + .section-title {
+  margin-top: 2rem;
+}
+
+/* --- SCROLLBAR BONITA --- */
+#addClienteModal .modal-body::-webkit-scrollbar { width: 8px; }
+#addClienteModal .modal-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+#addClienteModal .modal-body::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* --- OVERRIDES que ROMPÍAN el scroll: ELIMINADOS --- */
+#addClienteModal .modal-dialog {
+  display: block !important;
+  max-height: none !important;
+}

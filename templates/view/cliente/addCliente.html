@@ -1,0 +1,257 @@
+<div class="modal fade" id="addClienteModal" tabindex="-1" aria-labelledby="addClienteModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <form id="addClienteForm" autocomplete="off" novalidate>
+        <div class="modal-header">
+          <h5 class="modal-title" id="addClienteModalLabel">
+            <i class="bi-person-plus me-1"></i> Añadir Clientes
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="alert alert-light border mb-3">
+            <a href="#" class="text-decoration-none"><i class="bi-arrow-left-circle"></i> Volver al listado Clientes</a>
+          </div>
+
+          <div class="section-title mb-2"><i class="bi-person-lines-fill me-1"></i> Añadir Clientes</div>
+
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label for="tipoPersona" class="form-label">Tipo de Persona *</label>
+              <select id="tipoPersona" name="tipoPersona" class="form-select" required>
+                <option value="NATURAL" selected>NATURAL</option>
+                <option value="JURIDICA">JURÍDICA</option>
+              </select>
+            </div>
+
+            <div class="col-md-8">
+              <label for="razonSocial" class="form-label">Razon Social / Nombres y Apellidos *</label>
+              <input type="text" id="razonSocial" name="razonSocial" class="form-control" required />
+            </div>
+
+            <div class="col-12">
+              <label class="form-label d-block">Tipo Documento *</label>
+              <div class="d-flex flex-wrap gap-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="tipoDocumento" id="docDNI" value="DNI/CE" checked required>
+                  <label class="form-check-label" for="docDNI">DNI/CEDULA</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="tipoDocumento" id="docRUC" value="RUC">
+                  <label class="form-check-label" for="docRUC">RUC</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="tipoDocumento" id="docCEX" value="CEX">
+                  <label class="form-check-label" for="docCEX">CEX</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="tipoDocumento" id="docPAS" value="PAS">
+                  <label class="form-check-label" for="docPAS">PAS</label>
+                </div>
+              </div>
+              <div class="form-text">CEX: Carnet de Extranjería - PAS: Pasaporte</div>
+            </div>
+
+            <div class="col-md-4">
+              <label for="numeroDocumento" class="form-label">Numero Documento *</label>
+              <input type="text" id="numeroDocumento" name="numeroDocumento" class="form-control" required />
+            </div>
+
+            <div class="col-md-8">
+              <label for="direccion" class="form-label">Dirección *</label>
+              <input type="text" id="direccion" name="direccion" class="form-control" required />
+            </div>
+
+            <div class="col-md-4">
+              <label for="distrito" class="form-label">Distrito / Barrio / Comuna *</label>
+              <input type="text" id="distrito" name="distrito" class="form-control" required />
+            </div>
+
+            <div class="col-md-4">
+              <label for="departamento" class="form-label">Departamento / Ciudad / Región *</label>
+              <input type="text" id="departamento" name="departamento" class="form-control" value="LIMA" required />
+            </div>
+
+            <div class="col-md-4">
+              <label for="provincia" class="form-label">Provincia / Región *</label>
+              <input type="text" id="provincia" name="provincia" class="form-control" value="LIMA" required />
+            </div>
+
+            <div class="col-md-4">
+              <label for="telefono1" class="form-label">Teléfono 1 *</label>
+              <input type="text" id="telefono1" name="telefono1" class="form-control" required />
+            </div>
+
+            <div class="col-md-4">
+              <label for="telefono2" class="form-label">Teléfono 2</label>
+              <input type="text" id="telefono2" name="telefono2" class="form-control" />
+            </div>
+
+            <div class="col-md-4">
+              <label for="email" class="form-label">Email *</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi-envelope"></i></span>
+                <input type="email" id="email" name="email" class="form-control" placeholder="Introduce una dirección de correo electrónico válida" required />
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label d-block">Recibir Notificaciones *</label>
+              <div class="d-flex gap-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="notif" id="notifSi" value="SI" checked required>
+                  <label class="form-check-label" for="notifSi">Sí</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="notif" id="notifNo" value="NO">
+                  <label class="form-check-label" for="notifNo">No</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <label for="fechaIngreso" class="form-label">Fecha ingreso</label>
+              <input type="date" id="fechaIngreso" name="fechaIngreso" class="form-control" />
+            </div>
+
+            <div class="col-md-4">
+              <label for="recomendadoPor" class="form-label">Recomendado por</label>
+              <input type="text" id="recomendadoPor" name="recomendadoPor" class="form-control" />
+            </div>
+
+            <div class="col-md-4">
+              <label for="cumpleanios" class="form-label">Cumpleaños o Aniversario</label>
+              <input type="date" id="cumpleanios" name="cumpleanios" class="form-control" />
+            </div>
+
+            <div class="col-md-8">
+              <label for="profesion" class="form-label">Profesión - Ocupación</label>
+              <input type="text" id="profesion" name="profesion" class="form-control" />
+            </div>
+
+            <div class="col-md-4">
+              <label for="licenciaConducir" class="form-label">Licencia de Conducir</label>
+              <input type="text" id="licenciaConducir" name="licenciaConducir" class="form-control" />
+            </div>
+
+            <div class="col-md-4">
+              <label for="vencimientoLicencia" class="form-label">Vencimiento de Licencia de Conducir</label>
+              <input type="date" id="vencimientoLicencia" name="vencimientoLicencia" class="form-control" />
+            </div>
+
+            <div class="col-md-8">
+              <label for="referencia" class="form-label">Referencia (de donde lo conoces)</label>
+              <input type="text" id="referencia" name="referencia" class="form-control" />
+            </div>
+
+            <div class="col-md-4">
+              <label for="subAgente" class="form-label">Sub Agente / Vendedor *</label>
+              <select id="subAgente" name="subAgente" class="form-select" required>
+                <option value="">** Selecciona un Sub Agente / Vendedor</option>
+                <option value="AAS">AAS</option>
+                <option value="ARAS Y ARAS">ARAS Y ARAS</option>
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label for="grupoEconomico" class="form-label">Grupo Económico</label>
+              <select id="grupoEconomico" name="grupoEconomico" class="form-select">
+                <option value="">** Selecciona un Grupo Económico</option>
+                <option value="GRUPO A">GRUPO A</option>
+                <option value="GRUPO B">GRUPO B</option>
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label for="giroNegocio" class="form-label">Giro del Negocio</label>
+              <select id="giroNegocio" name="giroNegocio" class="form-select">
+                <option value="">** Selecciona un Giro del Negocio</option>
+                <option value="COMERCIO">Comercio</option>
+                <option value="SERVICIOS">Servicios</option>
+                <option value="INDUSTRIA">Industria</option>
+              </select>
+            </div>
+          </div>
+
+          <hr class="my-4">
+
+          <div class="section-title mb-2"><i class="bi-person-check me-1"></i> Persona de Contacto</div>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label for="contactoNombre" class="form-label">Nombre *</label>
+              <input type="text" id="contactoNombre" name="contactoNombre" class="form-control" required />
+            </div>
+            <div class="col-md-4">
+              <label for="contactoEmail" class="form-label">Email *</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi-envelope"></i></span>
+                <input type="email" id="contactoEmail" name="contactoEmail" class="form-control" required />
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label for="contactoTelefono" class="form-label">Teléfono *</label>
+              <input type="text" id="contactoTelefono" name="contactoTelefono" class="form-control" required />
+            </div>
+          </div>
+
+          <hr class="my-4">
+
+          <!-- NUEVA SECCIÓN: Informe Siniestralidad -->
+          <div class="section-title mb-2"><i class="bi-clipboard2-pulse me-1"></i> Informe Siniestralidad</div>
+          <div class="section-box">
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label for="siniestrosReportados" class="form-label">Siniestros Reportados</label>
+                <input type="number" id="siniestrosReportados" name="siniestrosReportados" min="0" class="form-control" />
+              </div>
+              <div class="col-md-4">
+                <label for="ultimoSiniestro" class="form-label">Último Siniestro</label>
+                <input type="date" id="ultimoSiniestro" name="ultimoSiniestro" class="form-control" />
+              </div>
+              <div class="col-md-12">
+                <label for="detalleSiniestros" class="form-label">Detalle / Observaciones</label>
+                <textarea id="detalleSiniestros" name="detalleSiniestros" class="form-control" rows="3"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-4">
+
+          <!-- NUEVA SECCIÓN: Datos de Interés -->
+          <div class="section-title mb-2"><i class="bi-star me-1"></i> Datos de Interés</div>
+          <div class="section-box">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="referenciasInteres" class="form-label">Referencias</label>
+                <input type="text" id="referenciasInteres" name="referenciasInteres" class="form-control" />
+              </div>
+              <div class="col-md-6">
+                <label for="preferencias" class="form-label">Preferencias</label>
+                <input type="text" id="preferencias" name="preferencias" class="form-control" />
+              </div>
+              <div class="col-12">
+                <label for="notasInteres" class="form-label">Notas de interés</label>
+                <textarea id="notasInteres" name="notasInteres" class="form-control" rows="3"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-4">
+
+          <div class="section-title mb-2"><i class="bi-card-text me-1"></i> Más Información</div>
+          <div>
+            <label for="masInformacion" class="form-label">Más Información</label>
+            <textarea id="masInformacion" name="masInformacion" class="form-control" rows="6"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Volver</button>
+          <button type="button" class="btn btn-success" id="btnGuardarYAgregarOtro">Guardar y Añadir otro</button>
+          <button type="submit" class="btn btn-success" id="btnGuardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

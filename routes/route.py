@@ -33,7 +33,7 @@ def menu_page(page):
         from controllers.cliente import get_clientes_data
         data = get_clientes_data()
         return render_template(
-            'view/cliente.html',
+            'view/cliente/cliente.html',
             page='clientes',
             title=data['title'],
             rows=data['rows'],
