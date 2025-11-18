@@ -18,8 +18,43 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
-        if username == 'admin' and password == 'admin':
-            session['user'] = username
+
+        # Import lazy para evitar tocar imports globales
+        from models.db import get_connection
+
+        error = None
+        row = None
+
+        try:
+            cnx = get_connection()
+            cur = cnx.cursor(dictionary=True)
+            # Usar el SP para obtener el usuario
+            cur.execute("CALL sp_login_usuario(%s)", (username,))
+            row = cur.fetchone()
+            # Consumir cualquier conjunto de resultados adicional del SP
+            while cur.nextset():
+                pass
+            cur.close()
+            cnx.close()
+        except Exception:
+            error = 'Error de conexión a base de datos.'
+            return render_template('view/login.html', error=error)
+
+        def verify_password(plain: str, stored: str) -> bool:
+            # Acepta hash (Werkzeug) o texto plano
+            if stored == plain:
+                return True
+            try:
+                from werkzeug.security import check_password_hash
+                # Intentar validar formato hash típico
+                if stored and (stored.count('$') >= 2 or stored.startswith(('pbkdf2:', 'scrypt:', 'argon2:', 'sha256:'))):
+                    return check_password_hash(stored, plain)
+            except Exception:
+                pass
+            return False
+
+        if row and verify_password(password, row['password']):
+            session['user'] = row['username']
             return redirect(url_for('main.home'))
         else:
             error = 'Credenciales inválidas. Intenta nuevamente.'
