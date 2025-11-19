@@ -279,6 +279,21 @@ def parse_pdf_fields_fitz(file_path):
     extracted['ramo'] = grab(r'Ramo\s*:\s*([^\n]+)')
     extracted['vigencia_desde'] = grab(r'Vigencia\s*desde\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})')
     extracted['vigencia_hasta'] = grab(r'Hasta\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})')
+    # Fallbacks específicos para DESDE/HASTA sin “:”
+    if not extracted.get('vigencia_desde'):
+        m_desde = re.search(r'\bDESDE\b\s*[:\-]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', sanitized, re.IGNORECASE)
+        if m_desde:
+            extracted['vigencia_desde'] = m_desde.group(1).strip()
+    if not extracted.get('vigencia_hasta'):
+        m_hasta = re.search(r'\bHASTA\b\s*[:\-]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', sanitized, re.IGNORECASE)
+        if m_hasta:
+            extracted['vigencia_hasta'] = m_hasta.group(1).strip()
+        else:
+            m_vig_hasta = re.search(r'Vigencia\s*hasta\s*[:\-]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', sanitized, re.IGNORECASE)
+            if m_vig_hasta:
+                extracted['vigencia_hasta'] = m_vig_hasta.group(1).strip()
+    # Alias “Hasta” para el frontend
+    extracted['hasta'] = extracted.get('vigencia_hasta') or extracted.get('hasta')
     extracted['sede'] = grab_until_next(labels['sede'])
     extracted['contratante'] = grab_until_next(labels['contratante'])
     extracted['direccion'] = grab_until_next(labels['direccion'])
@@ -633,5 +648,103 @@ def parse_pdf_items(file_path):
     finally:
         doc.close()
     # NUEVO: aplicar deduplicación por (doc_tipo, folio/póliza/contrato/proforma)
+    items = dedupe_items(items)
+    return items
+
+def detect_issuer(text):
+    t = (text or "").upper()
+    if "MAPFRE" in t and ("ENTIDAD PRESTADORA" in t or "FACTURA ELECTRONICA" in t):
+        return "MAPFRE"
+    if "LA POSITIVA" in t and "EPS" in t:
+        return "LA_POSITIVA_EPS"
+    if "LA POSITIVA" in t and "VIDA" in t:
+        return "LA_POSITIVA_VIDA"
+    if "LA POSITIVA" in t and "SEGUROS" in t:
+        return "LA_POSITIVA_SEGUROS"
+    return None
+
+def _parse_mapfre_page(text):
+    base = parse_text_fields_block(text)
+    def grab(pat):
+        m = re.search(pat, text, re.IGNORECASE | re.MULTILINE | re.DOTALL)
+        return m.group(1).strip() if m else None
+    m = re.search(r'FECHA\s+EMISI[óo]N\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', text, re.IGNORECASE)
+    if m: base['emision'] = m.group(1).strip()
+    m = re.search(r'POLI?ZA\s*:\s*([0-9A-Z\-]+)', text, re.IGNORECASE)
+    if m and not base.get('poliza'): base['poliza'] = m.group(1).strip()
+    m = re.search(r'\bDESDE\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', text, re.IGNORECASE)
+    if m and not base.get('vigencia_desde'): base['vigencia_desde'] = m.group(1).strip()
+    m = re.search(r'\bHASTA\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', text, re.IGNORECASE)
+    if m and not base.get('vigencia_hasta'): base['vigencia_hasta'] = m.group(1).strip()
+    m = re.search(r'CONTRATANTE\s*:\s*([^\n]+)', text, re.IGNORECASE)
+    if m and not base.get('contratante'): base['contratante'] = m.group(1).strip()
+    m = re.search(r'DIRECCI[óo]N\s*:\s*([^\n]+)', text, re.IGNORECASE)
+    if m and not base.get('direccion'): base['direccion'] = m.group(1).strip()
+    ramo = grab(r'(Seguro\s+De\s+SCTR\s+(SALUD|PENSI[óo]N)|SCTR\s+(SALUD|PENSI[óo]N)|VIDA\s+LEY)')
+    if ramo and not base.get('ramo'): base['ramo'] = ramo
+    def parse_amount(s):
+        s = (s or '').replace(',', '.')
+        try: return round(float(s), 2)
+        except: return None
+    m_neta = re.search(r'Prima\s+Comercial\s+S/?\s*([\d\.,]+)', text, re.IGNORECASE)
+    if m_neta:
+        v = parse_amount(m_neta.group(1))
+        if v is not None: base['prima_neta'] = f'{v:.2f}'
+    m_igv = re.search(r'(Impuesto\s+Gral\.?\s*(?:A\s+Las\s+Ventas)?|IGV)\s+S/?\s*([\d\.,]+)', text, re.IGNORECASE)
+    m_total = re.search(r'(Importe\s+Total|Total)\s+S/?\s*([\d\.,]+)', text, re.IGNORECASE)
+    if m_total:
+        tv = parse_amount(m_total.group(2))
+        if tv is not None:
+            base['prima_total'] = f'{tv:.2f}'
+            base['monto'] = f'{tv:.2f}'
+            if not base.get('prima_neta') and m_igv:
+                igv = parse_amount(m_igv.group(2))
+                if igv is not None: base['prima_neta'] = f'{(tv - igv):.2f}'
+    ru = re.search(r'R\.?U\.?C\.?\s*:?[\s\n]*([0-9]{8,11})', text, re.IGNORECASE)
+    if ru: base['ruc'] = ru.group(1).strip()
+    base['hasta'] = base.get('vigencia_hasta') or base.get('hasta')
+    r = (base.get('ramo') or '').upper()
+    if 'SALUD' in r: base['doc_tipo'] = 'SALUD'
+    elif 'VIDA' in r or 'PENSI' in r: base['doc_tipo'] = 'VIDA'
+    if base.get('poliza') and not base.get('folio_id'):
+        base['folio_id'] = base['poliza']; base['folio_label'] = 'Póliza N°'
+    return base
+
+def _parse_la_positiva_page(text):
+    base = parse_text_fields_block(text)
+    r = (base.get('ramo') or '').upper()
+    if 'SALUD' in r: base['doc_tipo'] = 'SALUD'
+    elif 'VIDA' in r or 'PENSION' in r or 'VIDA LEY' in r: base['doc_tipo'] = 'VIDA'
+    if base.get('poliza') and not base.get('folio_id'):
+        base['folio_id'] = base['poliza']; base['folio_label'] = 'Póliza N°'
+    elif base.get('contrato_nro') and not base.get('folio_id'):
+        base['folio_id'] = base['contrato_nro']; base['folio_label'] = 'Contrato Nro'
+    return base
+
+def parse_provider_page(text, issuer=None):
+    prov = issuer or detect_issuer(text)
+    if prov == "MAPFRE":
+        return _parse_mapfre_page(text)
+    if prov in ("LA_POSITIVA_EPS", "LA_POSITIVA_VIDA", "LA_POSITIVA_SEGUROS"):
+        return _parse_la_positiva_page(text)
+    return parse_text_fields_block(text)
+
+def parse_pdf_items_provider(file_path, issuer=None):
+    doc = fitz.open(file_path)
+    items = []
+    try:
+        for page in doc:
+            text = page.get_text("text") or ""
+            ex = parse_provider_page(text, issuer)
+            has_any = any([
+                (ex.get('ramo') or '').strip(),
+                (ex.get('poliza') or '').strip(),
+                (ex.get('contrato_nro') or '').strip(),
+                (ex.get('numero_proforma') or '').strip(),
+            ])
+            if has_any:
+                items.append(ex)
+    finally:
+        doc.close()
     items = dedupe_items(items)
     return items

@@ -8,11 +8,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const tblFileNameEl = document.getElementById('tblFileName');
     const excelBody = document.getElementById('excelTableBody');
     const folioHeaderEl = document.getElementById('folioHeader');
+    const docSourceSelect = document.getElementById('docSource');
 
     let lastPdfUrl = null; // URL del último PDF subido
     const FIELD_KEYS = [
         'numero_proforma',
-        'ruc',
+        // Eliminado: 'ruc',
         'emision',
         'nro_tramite',
         'vigencia_desde',
@@ -24,10 +25,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // NUEVO: asegurado
         'asegurado',
         'direccion',
-        'departamento',
-        'provincia',
-        'distrito',
-        'telefonos',
+        // Eliminiado 'departamento',
+        // Eliminiado 'provincia',
+        //Eliminiado 'distrito',
+        // Eliminiado 'telefonos',
         'ramo',
         'moneda',
         'prima_neta',
@@ -191,6 +192,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const formData = new FormData();
             formData.append('file', file);
+            if (docSourceSelect) {
+                formData.append('issuer', (docSourceSelect.value || '').trim());
+            }
 
             const resp = await fetch('/upload', { method: 'POST', body: formData });
             const data = await resp.json();
