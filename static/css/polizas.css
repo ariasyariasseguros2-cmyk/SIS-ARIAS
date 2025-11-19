@@ -1,0 +1,2 @@
+/* Ajustes mínimos para la tabla de pólizas */
+#polizasTable td, #polizasTable th { vertical-align: middle; }

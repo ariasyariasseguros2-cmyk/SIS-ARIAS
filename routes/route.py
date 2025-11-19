@@ -40,6 +40,17 @@ def menu_page(page):
             filters=data['filters']
         )
 
+    # Pólizas → plantilla dedicada
+    if page == 'polizas':
+        from controllers.polizas import get_polizas_data
+        data = get_polizas_data()
+        return render_template(
+            'view/polizas.html',
+            page='polizas',
+            title=data['title'],
+            rows=data['rows']
+        )
+
     # Fallback: otras secciones usan el dashboard con etiqueta de sección
     rows = get_rows()
     chart = get_dashboard_data()

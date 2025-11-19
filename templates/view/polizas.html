@@ -2,12 +2,11 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
-    <title>Clientes | SIS-ARIAS</title>
+    <title>Pólizas | SIS-ARIAS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/cliente/cliente.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/cliente/addcliente.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/polizas.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 </head>
 <body>
@@ -24,6 +23,7 @@
             <div class="nav-title">Navegación</div>
             <ul class="nav-list">
                 <li><i class="bi-speedometer2"></i> <span>Escritorio</span></li>
+
                 <li class="nav-group">
                     <button class="group-toggle" type="button">
                         <i class="bi-people"></i> <span>Mis Contactos</span>
@@ -33,6 +33,7 @@
                         <li><i class="bi-people"></i> <a data-page="mis-contactos" href="{{ url_for('main.menu_page', page='mis-contactos') }}">Mis Contactos</a></li>
                     </ul>
                 </li>
+
                 <li class="nav-group">
                     <button class="group-toggle" type="button">
                         <i class="bi-briefcase"></i> <span>Solicitudes</span>
@@ -43,7 +44,7 @@
                         <li class="disabled"><i class="bi-download"></i> <a data-page="solicitudes-reporte" href="{{ url_for('main.menu_page', page='solicitudes-reporte') }}">Reporte de Tramites</a></li>
                     </ul>
                 </li>
-                <li class="active"><i class="bi-person"></i> <span>Clientes</span></li>
+
                 <li class="nav-group">
                     <button class="group-toggle">
                         <i class="bi-file-earmark-text"></i> <span>Pólizas</span>
@@ -55,6 +56,7 @@
                         <li><i class="bi-calendar3"></i> <a data-page="vencimientos-renovaciones" href="{{ url_for('main.menu_page', page='vencimientos-renovaciones') }}">Vencimientos y Renovaciones</a></li>
                     </ul>
                 </li>
+
                 <li class="nav-group">
                     <button class="group-toggle">
                         <i class="bi-credit-card"></i> <span>Cobranzas</span>
@@ -65,6 +67,7 @@
                         <li><i class="bi-send"></i> <a data-page="cobranzas-mail" href="{{ url_for('main.menu_page', page='cobranzas-mail') }}">Mail Masivo Cuotas Pendientes</a></li>
                     </ul>
                 </li>
+
                 <li class="nav-group">
                     <button class="group-toggle">
                         <i class="bi-exclamation-triangle"></i> <span>Siniestros</span>
@@ -75,6 +78,7 @@
                         <li><i class="bi-calendar3"></i> <a data-page="siniestros-fecha" href="{{ url_for('main.menu_page', page='siniestros-fecha') }}">Siniestros por Fecha</a></li>
                     </ul>
                 </li>
+
                 <li class="nav-group">
                     <button class="group-toggle">
                         <i class="bi-bar-chart"></i> <span>Estadísticas</span>
@@ -89,7 +93,7 @@
 
         <main class="content">
             <nav class="topbar">
-                <div class="title">Clientes</div>
+                <div class="title">{{ title }}</div>
                 <div class="actions">
                     <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('main.home') }}">Inicio</a>
                     <a class="btn btn-outline-danger btn-sm" href="{{ url_for('logout') }}">Cerrar sesión</a>
@@ -99,66 +103,45 @@
             <section class="page">
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <div class="d-flex align-items-center gap-2">
-                        <h1 class="h5 m-0"><i class="bi-people"></i> {{ title }}</h1>
-                        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addClienteModal">
-                            <i class="bi-plus-lg"></i> Añadir
-                        </button>
+                        <h1 class="h5 m-0"><i class="bi-file-earmark-text"></i> {{ title }}</h1>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <div class="dropdown">
-                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
-                                Filtros y Orden
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                {% for f in filters.orders %}
-                                <li><a class="dropdown-item" href="#" data-order="{{ f }}">{{ f }}</a></li>
-                                {% endfor %}
-                            </ul>
-                        </div>
                         <div class="input-group input-group-sm" style="width: 280px;">
                             <span class="input-group-text"><i class="bi-search"></i></span>
-                            <input id="searchInput" type="text" class="form-control" placeholder="Buscar">
+                            <input id="polizasSearch" type="text" class="form-control" placeholder="Buscar">
                         </div>
                     </div>
                 </div>
 
                 <div class="card">
                     <div class="card-body p-0">
-                        <table id="clientesTable" class="table table-striped table-hover m-0 align-middle"
-                               data-polizas-url="{{ url_for('main.menu_page', page='polizas') }}">
+                        <table id="polizasTable" class="table table-striped table-hover m-0 align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Fec.Reg</th>
-                                    <th>Nom. Razón Social</th>
-                                    <th>T. Doc</th>
-                                    <th>N° Doc</th>
-                                    <th>Telefono</th>
-                                    <th>S.Agente</th>
-                                    <th>Email</th>
-                                    <th>Dirección</th>
-                                    <th class="text-end">Acción</th>
+                                    <th>Póliza</th>
+                                    <th>Ramo</th>
+                                    <th>Contratante</th>
+                                    <th>Vigencia</th>
+                                    <th>Moneda</th>
+                                    <th>Prima Total</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for r in rows %}
                                 <tr>
-                                    <td>{{ r.fec_reg }}</td>
-                                    <td>{{ r.razon_social }}</td>
-                                    <td>{{ r.doc }}</td>
-                                    <td>{{ r.n_doc }}</td>
-                                    <td>{{ r.tel }}</td>
-                                    <td>{{ r.subagente }}</td>
-                                    <td><a href="mailto:{{ r.email }}">{{ r.email }}</a></td>
-                                    <td>{{ r.direccion }}</td>
-                                    <td class="text-end">
-                                        <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-primary"><i class="bi-file-earmark-text"></i> Pólizas</button>
-                                            <button class="btn btn-outline-success"><i class="bi-person-lines-fill"></i> Contactos</button>
-                                            <button class="btn btn-outline-danger"><i class="bi-filetype-pdf"></i> Pdf</button>
-                                        </div>
-                                    </td>
+                                    <td>{{ r.poliza }}</td>
+                                    <td>{{ r.ramo }}</td>
+                                    <td>{{ r.contratante }}</td>
+                                    <td>{{ r.vigencia_desde }} — {{ r.vigencia_hasta }}</td>
+                                    <td>{{ r.moneda }}</td>
+                                    <td>{{ r.prima_total }}</td>
                                 </tr>
                                 {% endfor %}
+                                {% if not rows %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">Sin datos</td>
+                                </tr>
+                                {% endif %}
                             </tbody>
                         </table>
                     </div>
@@ -167,10 +150,10 @@
         </main>
     </div>
 
-    {% include 'view/cliente/addCliente.html' %}
-
+    <script>
+        window.currentPage = "polizas";
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/cliente/cliente.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/cliente/addcliente.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/polizas.js') }}"></script>
 </body>
 </html>
