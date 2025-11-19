@@ -1,2 +1,32 @@
-/* Ajustes mínimos para la tabla de pólizas */
-#polizasTable td, #polizasTable th { vertical-align: middle; }
+/* Ajustes mínimos para la vista de pólizas */
+.filters-bar .btn-group .btn {
+    white-space: normal;
+}
+.filters-bar {
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+.filters-bar .btn-group {
+    flex-wrap: wrap;
+}
+.table td, .table th {
+    vertical-align: middle;
+}
+.table .btn-group .btn {
+    padding: 0.2rem 0.45rem;
+}
+.card-header {
+    background: #f8f9fa;
+}
+/* Evitar scroll horizontal de toda la página */
+.content {
+    overflow-x: hidden;
+}
+/* Si la tabla se desborda, que el scroll quede dentro de la tarjeta */
+.table-responsive {
+    overflow-x: auto;
+}
+/* Opcional: asegurar que la tabla ocupa todo el ancho disponible */
+#polizasTable {
+    width: 100%;
+}

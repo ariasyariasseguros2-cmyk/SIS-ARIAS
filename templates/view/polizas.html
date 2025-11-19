@@ -23,7 +23,6 @@
             <div class="nav-title">Navegación</div>
             <ul class="nav-list">
                 <li><i class="bi-speedometer2"></i> <span>Escritorio</span></li>
-
                 <li class="nav-group">
                     <button class="group-toggle" type="button">
                         <i class="bi-people"></i> <span>Mis Contactos</span>
@@ -33,7 +32,6 @@
                         <li><i class="bi-people"></i> <a data-page="mis-contactos" href="{{ url_for('main.menu_page', page='mis-contactos') }}">Mis Contactos</a></li>
                     </ul>
                 </li>
-
                 <li class="nav-group">
                     <button class="group-toggle" type="button">
                         <i class="bi-briefcase"></i> <span>Solicitudes</span>
@@ -44,7 +42,6 @@
                         <li class="disabled"><i class="bi-download"></i> <a data-page="solicitudes-reporte" href="{{ url_for('main.menu_page', page='solicitudes-reporte') }}">Reporte de Tramites</a></li>
                     </ul>
                 </li>
-
                 <li class="nav-group">
                     <button class="group-toggle">
                         <i class="bi-file-earmark-text"></i> <span>Pólizas</span>
@@ -56,7 +53,6 @@
                         <li><i class="bi-calendar3"></i> <a data-page="vencimientos-renovaciones" href="{{ url_for('main.menu_page', page='vencimientos-renovaciones') }}">Vencimientos y Renovaciones</a></li>
                     </ul>
                 </li>
-
                 <li class="nav-group">
                     <button class="group-toggle">
                         <i class="bi-credit-card"></i> <span>Cobranzas</span>
@@ -67,7 +63,6 @@
                         <li><i class="bi-send"></i> <a data-page="cobranzas-mail" href="{{ url_for('main.menu_page', page='cobranzas-mail') }}">Mail Masivo Cuotas Pendientes</a></li>
                     </ul>
                 </li>
-
                 <li class="nav-group">
                     <button class="group-toggle">
                         <i class="bi-exclamation-triangle"></i> <span>Siniestros</span>
@@ -78,7 +73,6 @@
                         <li><i class="bi-calendar3"></i> <a data-page="siniestros-fecha" href="{{ url_for('main.menu_page', page='siniestros-fecha') }}">Siniestros por Fecha</a></li>
                     </ul>
                 </li>
-
                 <li class="nav-group">
                     <button class="group-toggle">
                         <i class="bi-bar-chart"></i> <span>Estadísticas</span>
@@ -101,11 +95,21 @@
             </nav>
 
             <section class="page">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <div class="d-flex align-items-center gap-2">
-                        <h1 class="h5 m-0"><i class="bi-file-earmark-text"></i> {{ title }}</h1>
+                <!-- Barra de filtros superior -->
+                <div class="filters-bar d-flex align-items-center gap-2 mb-3">
+                    <div class="btn-group btn-group-sm">
+                        <a class="btn btn-success" href="#"><i class="bi-plus-lg"></i> Añadir</a>
+                        <a class="btn btn-outline-primary" href="#"><i class="bi-calendar3"></i> Vencen este Mes</a>
+                        <a class="btn btn-outline-secondary" href="#"><i class="bi-check-circle"></i> Ver Vigentes</a>
+                        <a class="btn btn-outline-dark" href="#"><i class="bi-list-ul"></i> Ver Todos</a>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
+                    <div class="ms-auto d-flex gap-2">
+                        <div class="btn-group btn-group-sm">
+                            <a class="btn btn-outline-secondary" href="#">Número de Póliza Histórica</a>
+                            <a class="btn btn-outline-secondary" href="#">Aviso de Cobranza</a>
+                            <a class="btn btn-outline-secondary" href="#">Placa/Motor</a>
+                            <a class="btn btn-outline-secondary" href="#">Titular y/o Dependiente</a>
+                        </div>
                         <div class="input-group input-group-sm" style="width: 280px;">
                             <span class="input-group-text"><i class="bi-search"></i></span>
                             <input id="polizasSearch" type="text" class="form-control" placeholder="Buscar">
@@ -113,36 +117,97 @@
                     </div>
                 </div>
 
+                <!-- Panel de datos del titular -->
+                <div class="card mb-3">
+                    <div class="card-header fw-semibold">
+                        <i class="bi-journal-text"></i> Pólizas
+                    </div>
+                    <div class="card-body py-3">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <div class="text-muted small">Nombre Completo</div>
+                                <div class="fw-semibold">{{ details.nombre_completo }}</div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-muted small">Tipo Documento</div>
+                                <div class="fw-semibold">{{ details.tipo_documento }}</div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-muted small">Numero Documento</div>
+                                <div class="fw-semibold">{{ details.numero_documento }}</div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-muted small">Telefono</div>
+                                <div class="fw-semibold">{{ details.telefono }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de pólizas -->
                 <div class="card">
                     <div class="card-body p-0">
-                        <table id="polizasTable" class="table table-striped table-hover m-0 align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Póliza</th>
-                                    <th>Ramo</th>
-                                    <th>Contratante</th>
-                                    <th>Vigencia</th>
-                                    <th>Moneda</th>
-                                    <th>Prima Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for r in rows %}
-                                <tr>
-                                    <td>{{ r.poliza }}</td>
-                                    <td>{{ r.ramo }}</td>
-                                    <td>{{ r.contratante }}</td>
-                                    <td>{{ r.vigencia_desde }} — {{ r.vigencia_hasta }}</td>
-                                    <td>{{ r.moneda }}</td>
-                                    <td>{{ r.prima_total }}</td>
-                                </tr>
-                                {% endfor %}
-                                {% if not rows %}
-                                <tr>
-                                    <td colspan="6" class="text-center text-muted py-4">Sin datos</td>
-                                </tr>
-                                {% endif %}
-                            </tbody>
+                        <div class="table-responsive">
+                            <table id="polizasTable" class="table table-striped table-hover m-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Contratante</th>
+                                        <th>Asegurado</th>
+                                        <th>Cía</th>
+                                        <th>Ram</th>
+                                        <th>Prod</th>
+                                        <th>Poliza</th>
+                                        <th>Nro</th>
+                                        <th>Moneda</th>
+                                        <th>Vig inicio</th>
+                                        <th>Vig Fin</th>
+                                        <th>Sub Agente</th>
+                                        <th>M.Asegurada</th>
+                                        <th class="text-end">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for r in rows %}
+                                    <tr>
+                                        <td>{{ r.contratante }}</td>
+                                        <td>{{ r.asegurado }}</td>
+                                        <td>{{ r.cia }}</td>
+                                        <td>{{ r.ramo }}</td>
+                                        <td>{{ r.producto }}</td>
+                                        <td>{{ r.poliza }}</td>
+                                        <td>{{ r.nro }}</td>
+                                        <td>{{ r.moneda }}</td>
+                                        <td>{{ r.vig_desde }}</td>
+                                        <td>{{ r.vig_hasta }}</td>
+                                        <td>{{ r.sub_agente }}</td>
+                                        <td>{{ r.asegurada }}</td>
+                                        <td class="text-end">
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-danger"><i class="bi-x-circle"></i> Anular</button>
+                                                <button class="btn btn-outline-success"><i class="bi-arrow-repeat"></i> Renovar</button>
+                                                <button class="btn btn-outline-primary"><i class="bi-cash-stack"></i> Primas</button>
+                                                <button class="btn btn-outline-secondary"><i class="bi-file-earmark"></i> Extracto</button>
+                                                <button class="btn btn-outline-warning"><i class="bi-exclamation-triangle"></i> Siniestros</button>
+                                                <button class="btn btn-outline-info"><i class="bi-clipboard-check"></i> Solicitudes</button>
+                                                <div class="btn-group">
+                                                    <button class="btn btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown">
+                                                        Acción
+                                                    </button>
+                                                    <ul class="dropdown-menu dropdown-menu-end">
+                                                        <li><a class="dropdown-item" href="#">Ver detalle</a></li>
+                                                        <li><a class="dropdown-item" href="#">Descargar</a></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% if not rows %}
+                                    <tr>
+                                        <td colspan="13" class="text-center text-muted py-4">Sin datos</td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
                         </table>
                     </div>
                 </div>

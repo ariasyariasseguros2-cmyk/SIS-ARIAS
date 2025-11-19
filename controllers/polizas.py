@@ -1,14 +1,28 @@
 def get_polizas_data():
-    # Dataset de ejemplo; integra BD cuando esté disponible
+    # Datos del titular/cliente mostrados en el panel superior
+    details = {
+        "nombre_completo": "RAMOS VARGAS MELGAR",
+        "tipo_documento": "DNI/CEDULA",
+        "numero_documento": "22888140",
+        "telefono": "930179202"
+    }
+
+    # Filas de la tabla de pólizas (ejemplo; integrar con BD después)
     rows = [
         {
-            "poliza": "P-000001",
-            "ramo": "SCTR Salud",
-            "contratante": "Empresa X SAC",
-            "vigencia_desde": "01/01/2025",
-            "vigencia_hasta": "31/12/2025",
+            "contratante": "RAMOS VARGAS MELGAR",
+            "asegurado": "RAMOS VARGAS MELGAR",
+            "cia": "Mapfre",
+            "ramo": "SOAT",
+            "producto": "CARGA",
+            "poliza": "3200524075804",
+            "nro": "345",
             "moneda": "PEN",
-            "prima_total": "1,500.00"
+            "vig_desde": "17-11-2025",
+            "vig_hasta": "17-11-2026",
+            "sub_agente": "RAMOS YORK PAMELA",
+            "asegurada": "A0C945"
         }
     ]
-    return {"title": "Pólizas", "rows": rows}
+
+    return {"title": "Pólizas", "rows": rows, "details": details}

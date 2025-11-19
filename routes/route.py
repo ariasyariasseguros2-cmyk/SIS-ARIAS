@@ -48,7 +48,8 @@ def menu_page(page):
             'view/polizas.html',
             page='polizas',
             title=data['title'],
-            rows=data['rows']
+            rows=data['rows'],
+            details=data.get('details', {})
         )
 
     # Fallback: otras secciones usan el dashboard con etiqueta de sección
