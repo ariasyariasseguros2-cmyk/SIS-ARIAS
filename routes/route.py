@@ -105,3 +105,15 @@ def upload():
 
     return {'filename': filename, 'fields': extracted}, 200
 
+
+@bp.route('/clientes/add', methods=['POST'])
+def clientes_add():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    data = (request.get_json(silent=True) or request.form.to_dict())
+    from controllers.addcliente import save_cliente
+    res = save_cliente(data)
+    status = 200 if res.get('ok') else 400
+    return res, status
+

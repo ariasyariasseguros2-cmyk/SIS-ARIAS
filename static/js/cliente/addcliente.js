@@ -56,23 +56,24 @@
     const payload = collectData();
 
     try {
-      // Si tienes un endpoint backend, descomenta lo siguiente y ajusta la URL:
-      // const resp = await fetch('/clientes/add', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(payload)
-      // });
-      // if (!resp.ok) throw new Error('Error al guardar');
-      // const result = await resp.json();
+      const resp = await fetch('/clientes/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok || !result.ok) {
+        const msg = (result.errors && result.errors.join(', ')) || 'Error al guardar';
+        throw new Error(msg);
+      }
 
-      console.log('Cliente a guardar:', payload);
-      alert('Cliente guardado (demo). Integra el endpoint para persistir.');
+      alert('Cliente guardado correctamente.');
       const modal = bootstrap.Modal.getInstance(modalEl);
       modal && modal.hide();
       form.reset();
     } catch (err) {
       console.error(err);
-      alert('Ocurrió un error guardando el cliente.');
+      alert(`Ocurrió un error guardando el cliente: ${err.message}`);
     }
   });
 
@@ -84,9 +85,22 @@
       return;
     }
     const payload = collectData();
-    console.log('Cliente a guardar (añadir otro):', payload);
-    alert('Cliente guardado (demo). Continúa con el siguiente.');
-    form.reset();
-    // Mantener el modal abierto para añadir otro
+    try {
+      const resp = await fetch('/clientes/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok || !result.ok) {
+        const msg = (result.errors && result.errors.join(', ')) || 'Error al guardar';
+        throw new Error(msg);
+      }
+      alert('Cliente guardado. Puedes añadir otro.');
+      form.reset();
+    } catch (err) {
+      console.error(err);
+      alert(`Error: ${err.message}`);
+    }
   });
 })();

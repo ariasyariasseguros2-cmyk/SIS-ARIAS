@@ -1,40 +1,34 @@
 # módulo: controllers/cliente.py
 def get_clientes_data():
-    rows = [
-        {
-            "id": 1,
-            "razon_social": "FLORES AMASIFUEN JUAN ENRIQUE",
-            "doc": "DNI/CE",
-            "n_doc": "76389670",
-            "tel": "958607386",
-            "subagente": "AAS",
-            "email": "enriquefloresamasifuen@gmail.com",
-            "direccion": "JR. LIDIA PINEDO CC.NN SAN FRANCISCO MZ. II LT. 03",
-            "estado": "Activo"
-        },
-        {
-            "id": 2,
-            "razon_social": "NEGOCIOS Y SERVICIOS JEFF EIRL",
-            "doc": "RUC",
-            "n_doc": "7060013861",
-            "tel": "985044531",
-            "subagente": "ARAS Y ARAS",
-            "email": "coordinaciones@ariasayarias.com",
-            "direccion": "Pasaje LA LUPUNA MZA. H LOTE. 19 A.H. LA LUPUNA",
-            "estado": "Activo"
-        },
-        {
-            "id": 3,
-            "razon_social": "CHANG CORPORATION SAC",
-            "doc": "RUC",
-            "n_doc": "20613815484",
-            "tel": "945 175 078",
-            "subagente": "ARAS Y ARAS",
-            "email": "segurospersonales@ariasayarias.com",
-            "direccion": "JR. RUPERTO PEREZ MAYNAS MZA. 2 LOTE. 1B (MEDIA CUADRA DEL BULEVAR DE VARINACOCHA)",
-            "estado": "Activo"
-        },
-    ]
+    from models.db import get_connection
+
+    rows = []
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute("CALL sp_list_clientes()")
+        db_rows = cur.fetchall()
+        while cur.nextset():
+            pass
+        cur.close()
+        cnx.close()
+
+        for dr in db_rows:
+            fec = dr.get('fecha_registro')
+            fec_str = fec.strftime('%d-%m-%Y') if hasattr(fec, 'strftime') else (str(fec) if fec else '')
+            rows.append({
+                'fec_reg': fec_str,
+                'razon_social': dr.get('razon_social'),
+                'doc': dr.get('tipo_documento'),
+                'n_doc': dr.get('numero_documento'),
+                'tel': dr.get('telefono'),
+                'subagente': dr.get('subagente'),
+                'email': dr.get('email'),
+                'direccion': dr.get('direccion'),
+            })
+    except Exception:
+        rows = []
+
     filters = {
         "orders": ["F. Reg.", "Razón Social", "Doc", "N.Doc", "Tel", "Email", "Subagente", "Dirección", "Estado"]
     }
