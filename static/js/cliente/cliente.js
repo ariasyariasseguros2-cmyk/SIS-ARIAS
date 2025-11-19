@@ -26,9 +26,31 @@
                 const razon = row?.querySelector('td:nth-child(2)')?.textContent?.trim() || '';
 
                 if (btn.classList.contains('btn-outline-primary')) {
-                    // Ir a la vista Pólizas
+                    // Ir a la vista Pólizas EN SEGURO (sin parámetros en URL)
                     if (polizasUrl) {
-                        window.location.href = polizasUrl;
+                        const tipoDoc = row?.querySelector('td:nth-child(3)')?.textContent?.trim() || '';
+                        const numeroDoc = row?.querySelector('td:nth-child(4)')?.textContent?.trim() || '';
+                        const telefono = row?.querySelector('td:nth-child(5)')?.textContent?.trim() || '';
+
+                        fetch('/clientes/select', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                nombre: razon,
+                                tipo_doc: tipoDoc,
+                                n_doc: numeroDoc,
+                                tel: telefono
+                            })
+                        })
+                        .then(r => r.json())
+                        .then(res => {
+                            if (res.ok) {
+                                window.location.href = polizasUrl; // sin query string
+                            } else {
+                                alert(res.errors?.[0] || 'No se pudo seleccionar el cliente.');
+                            }
+                        })
+                        .catch(() => alert('Error al seleccionar el cliente.'));
                     } else {
                         alert(`Abrir pólizas de: ${razon}`);
                     }

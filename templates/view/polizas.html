@@ -98,7 +98,10 @@
                 <!-- Barra de filtros superior -->
                 <div class="filters-bar d-flex align-items-center gap-2 mb-3">
                     <div class="btn-group btn-group-sm">
-                        <a class="btn btn-success" href="#"><i class="bi-plus-lg"></i> Añadir</a>
+                        <!-- Abrir en nueva pestaña -->
+                        <a class="btn btn-success" href="{{ url_for('main.menu_page', page='anadir-poliza') }}" target="_blank" rel="noopener noreferrer">
+                            <i class="bi-plus-lg"></i> Añadir
+                        </a>
                         <a class="btn btn-outline-primary" href="#"><i class="bi-calendar3"></i> Vencen este Mes</a>
                         <a class="btn btn-outline-secondary" href="#"><i class="bi-check-circle"></i> Ver Vigentes</a>
                         <a class="btn btn-outline-dark" href="#"><i class="bi-list-ul"></i> Ver Todos</a>

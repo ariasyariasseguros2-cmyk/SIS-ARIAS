@@ -43,7 +43,9 @@ def menu_page(page):
     # Pólizas → plantilla dedicada
     if page == 'polizas':
         from controllers.polizas import get_polizas_data
-        data = get_polizas_data()
+        # Tomar la selección almacenada en sesión (sin exponer en la URL)
+        selected = session.get('selected_cliente') or {}
+        data = get_polizas_data(selected)
         return render_template(
             'view/polizas.html',
             page='polizas',
@@ -51,6 +53,11 @@ def menu_page(page):
             rows=data['rows'],
             details=data.get('details', {})
         )
+
+    # NUEVO: página “Añadir Póliza”
+    if page == 'anadir-poliza':
+        from controllers.addPoliza import get_rows
+        return render_template('view/anadir.poliza.html', rows=get_rows())
 
     # Fallback: otras secciones usan el dashboard con etiqueta de sección
     rows = get_rows()
@@ -128,4 +135,21 @@ def clientes_add():
     res = save_cliente(data)
     status = 200 if res.get('ok') else 400
     return res, status
+
+
+@bp.route('/clientes/select', methods=['POST'])
+def clientes_select():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    payload = request.get_json(silent=True) or request.form.to_dict()
+    # Guardar sólo lo necesario; idealmente usa idCliente si lo tienes
+    selected = {
+        'nombre': payload.get('nombre'),
+        'tipo_doc': payload.get('tipo_doc'),
+        'n_doc': payload.get('n_doc'),
+        'tel': payload.get('tel'),
+    }
+    session['selected_cliente'] = selected
+    return {'ok': True}, 200
 
