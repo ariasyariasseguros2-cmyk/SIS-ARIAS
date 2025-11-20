@@ -182,3 +182,17 @@ def clientes_select():
     session['selected_cliente'] = selected
     return {'ok': True}, 200
 
+@bp.route('/polizas/save', methods=['POST'])
+def polizas_save():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    payload = request.get_json(silent=True) or {}
+    items = payload.get('items') or []
+    selected = payload.get('selected') or session.get('selected_cliente') or {}
+
+    from controllers.addPoliza import save_polizas
+    res = save_polizas(items, selected)
+    status = 200 if res.get('ok') else 400
+    return res, status
+

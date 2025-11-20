@@ -62,6 +62,8 @@
                 <div class="d-flex gap-2 align-items-center mb-2">
                     <input id="manualFolioInput" type="text" class="form-control" placeholder="Ingresar Póliza N° o Contrato Nro">
                     <button id="manualAddBtn" class="btn btn-success">Agregar manual</button>
+                    <!-- NUEVO: botón Guardar, oculto hasta que haya filas -->
+                    <button id="saveBoardBtn" class="btn btn-primary d-none">Guardar</button>
                 </div>
 
                 <div class="table-responsive">
@@ -190,6 +192,10 @@
                         </tr>
                     </thead>
                     <tbody>
+                        <!-- Antes de cargar el JS, exponer el cliente seleccionado -->
+                        <script>
+                            window.selectedCliente = {{ (selected or {}) | tojson | safe }};
+                        </script>
                         {% if selected and (selected.n_doc or selected.nombre or selected.razon_social) %}
                         <tr class="table-primary">
                             <td>{{ selected.nombre or selected.razon_social }}</td>

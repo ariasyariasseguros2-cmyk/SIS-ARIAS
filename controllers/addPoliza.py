@@ -748,3 +748,75 @@ def parse_pdf_items_provider(file_path, issuer=None):
         doc.close()
     items = dedupe_items(items)
     return items
+
+# función nueva para guardar las filas del tablero
+def save_polizas(items: list[dict], selected: dict) -> dict:
+    from models.db import get_connection
+    numero_documento = (selected.get('n_doc') or selected.get('numero_documento') or '').strip()
+    if not numero_documento:
+        return {'ok': False, 'errors': ['Falta numero_documento del cliente seleccionado']}
+
+    saved = 0
+    errors = []
+    cnx = None
+    cur = None
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor()
+        for it in items:
+            def norm(key, default=''):
+                val = (it.get(key) or default)
+                return str(val).strip()
+
+            def to_date(val):
+                v = (val or '').strip()
+                # convierte 'dd/mm/yyyy' -> 'yyyy-mm-dd' si aplica
+                import re
+                m = re.match(r'^(\d{2})/(\d{2})/(\d{4})$', v)
+                if m:
+                    return f'{m.group(3)}-{m.group(2)}-{m.group(1)}'
+                return v or None
+
+            def to_num(val):
+                s = str(val or '').replace(',', '.').strip()
+                try:
+                    return float(s)
+                except:
+                    return None
+
+            cur.execute(
+                "CALL sp_insert_poliza_por_numero(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (
+                    numero_documento,
+                    norm('asegurado'),
+                    norm('porc_compania'),
+                    norm('ramo'),
+                    norm('producto'),
+                    norm('poliza'),
+                    norm('contrato_nro'),
+                    norm('nro'),
+                    norm('moneda'),
+                    to_date(it.get('vigencia_desde') or it.get('vig_desde')),
+                    to_date(it.get('hasta') or it.get('vigencia_hasta') or it.get('vig_hasta')),
+                    norm('subagente') or (selected.get('subagente') or ''),
+                    to_num(it.get('asegurada') or it.get('monto')),
+                    to_num(it.get('prima_neta')),
+                    to_num(it.get('prima_total')),
+                    to_num(it.get('porc_subagente')),
+                    to_num(it.get('porc_compania')),
+                )
+            )
+            saved += 1
+        cnx.commit()
+        while cur.nextset():
+            pass
+        return {'ok': True, 'saved': saved}
+    except Exception as e:
+        errors.append(str(e))
+        return {'ok': False, 'errors': errors, 'saved': saved}
+    finally:
+        try:
+            cur and cur.close()
+            cnx and cnx.close()
+        except:
+            pass

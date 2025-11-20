@@ -14,6 +14,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const manualFolioInput = document.getElementById('manualFolioInput');
     const manualAddBtn = document.getElementById('manualAddBtn');
     let lastPdfUrl = null; // URL del último PDF subido
+    // NUEVO: botón Guardar
+    const saveBtn = document.getElementById('saveBoardBtn');
+    // MOVER A ÁMBITO SUPERIOR: mapa de proveedor → compañía legible
+    const CIA_BY_ISSUER = {
+        'MAPFRE': 'MAPFRE',
+        'LA_POSITIVA_EPS': 'LA POSITIVA',
+        'LA_POSITIVA_VIDA': 'LA POSITIVA',
+        'LA_POSITIVA_SEGUROS': 'LA POSITIVA',
+    };
+
     const FIELD_KEYS = [
         'numero_proforma',
         // Eliminado: 'ruc',
@@ -21,25 +31,14 @@ document.addEventListener('DOMContentLoaded', () => {
         'nro_tramite',
         'vigencia_desde',
         'hasta',
-        // Mostrar columnas separadas
         'poliza',
         'contrato_nro',
-        // 'contratante',
-        // NUEVO: asegurado
         'asegurado',
-        //'direccion',
-        // Eliminiado 'departamento',
-        // Eliminiado 'provincia',
-        //Eliminiado 'distrito',
-        // Eliminiado 'telefonos',
         'ramo',
         'moneda',
         'prima_neta',
         'prima_total',
         'monto',
-        // NUEVO
-        // 'subagente',
-        //'porc_subagente',
         'porc_compania'
     ];
     // Campos que se marcarán en rojo dentro del modal si están vacíos
@@ -83,6 +82,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     bindEditFieldValidation();
+
+    // NUEVO: mostrar/ocultar botón Guardar según haya filas
+    function updateSaveButtonVisibility() {
+        const hasRows = !!excelBody && excelBody.querySelectorAll('tr').length > 0;
+        if (saveBtn) saveBtn.classList.toggle('d-none', !hasRows);
+    }
 
     function addExcelRow(ex) {
         if (!excelBody) return;
@@ -147,6 +152,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (excelBody.querySelectorAll('tr').length === 0) {
                     section?.classList.add('d-none');
                 }
+                // NUEVO: actualizar visibilidad del botón Guardar tras eliminar
+                updateSaveButtonVisibility();
             }
         });
         actionWrap.appendChild(delBtn);
@@ -155,6 +162,8 @@ document.addEventListener('DOMContentLoaded', () => {
         tr.appendChild(actionTd);
 
         excelBody.appendChild(tr);
+        // NUEVO: actualizar visibilidad del botón Guardar
+        updateSaveButtonVisibility();
     }
 
     function startEditRow(tr) {
@@ -289,7 +298,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Renderizar cada ítem como fila
                 let anyShown = false;
-                let firstUiEx = null; // conservar datos para prellenar el modal
+                let firstUiEx = null;
+
+                // Dentro de uploadBtn?.addEventListener('click', async () => { ... })
                 for (const ex of items) {
                     const uiEx = { ...ex, hasta: ex.hasta ?? ex.vigencia_hasta ?? '' };
 
@@ -303,21 +314,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     uiEx.poliza = uiEx.poliza ?? '';
                     uiEx.contrato_nro = uiEx.contrato_nro ?? '';
-
-                    // NUEVO: si no viene 'subagente' del PDF, tomarlo del cliente seleccionado
-                    if (!uiEx.subagente) {
-                        uiEx.subagente = (window.selectedCliente && window.selectedCliente.subagente) || '';
-                    }
-
+                
+                    // NUEVO: mapa de proveedor → compañía legible
+                    // (Usar el mapa global; se quita la redeclaración local)
                     if (!firstUiEx) firstUiEx = uiEx;
-
+                
                     const hasFolio = ((uiEx.poliza || '').toString().trim().length > 0)
                                   || ((uiEx.contrato_nro || '').toString().trim().length > 0);
                     if (!hasFolio) {
                         // si esta página no tiene folio, la saltamos
                         continue;
                     }
-
+                
                     addExcelRow(uiEx);
                     anyShown = true;
                 }
@@ -356,6 +364,86 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 alert('Primero sube un PDF para visualizar.');
             }
+        }
+    });
+
+    // NUEVO: recolectar las filas del tablero para guardar
+    function collectTableItems() {
+        const items = [];
+        const rows = excelBody ? excelBody.querySelectorAll('tr') : [];
+        rows.forEach(tr => {
+            const item = {};
+            FIELD_KEYS.forEach(key => {
+                const td = tr.querySelector(`td[data-key="${key}"]`);
+                item[key] = (td?.textContent || '').trim();
+            });
+            // Si no hay subagente en la fila, tomar del cliente seleccionado
+            if (!item.subagente) {
+                item.subagente = (window.selectedCliente && window.selectedCliente.subagente) || '';
+            }
+            // NUEVO: si no hay compañía en la fila, inferir desde el selector de proveedor
+            const issuer = (docSourceSelect?.value || '').trim();
+            if (!item.cia) {
+                item.cia = CIA_BY_ISSUER[issuer] || issuer || '';
+            }
+            items.push(item);
+        });
+        return items;
+    }
+
+    // NUEVO: reiniciar tablero y estado de carga tras guardar
+    function resetBoardUI() {
+        try {
+            excelBody && (excelBody.innerHTML = '');
+            updateSaveButtonVisibility();
+            section?.classList.add('d-none');
+            if (tblFileNameEl) tblFileNameEl.textContent = '-';
+            if (statusEl) { statusEl.textContent = '-'; statusEl.className = ''; }
+            if (fileInput) fileInput.value = '';
+            if (manualFolioInput) manualFolioInput.value = '';
+            if (docSourceSelect) docSourceSelect.value = '';
+            lastPdfUrl = null;
+        } catch (e) {
+            console.warn('resetBoardUI error:', e);
+        }
+    }
+
+    // NUEVO: enviar al backend y reiniciar tablero
+    saveBtn?.addEventListener('click', async () => {
+        const items = collectTableItems();
+        if (!items.length) {
+            statusEl.textContent = 'No hay filas para guardar.';
+            statusEl.className = 'text-warning mt-2';
+            return;
+        }
+        statusEl.textContent = 'Guardando...';
+        statusEl.className = 'text-muted mt-2';
+
+        try {
+            const resp = await fetch('/polizas/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    items,
+                    selected: window.selectedCliente || {}
+                }),
+            });
+            const data = await resp.json();
+            if (resp.ok && data.ok) {
+                statusEl.textContent = `Guardado: ${data.saved ?? items.length} filas.`;
+                statusEl.className = 'text-success mt-2';
+                resetBoardUI();
+
+                // Si quieres redirigir al tablero de Pólizas al terminar:
+                // window.location.href = '/menu/polizas';
+            } else {
+                const detail = Array.isArray(data.errors) ? data.errors.join('; ') : (data.error || 'Error');
+                statusEl.textContent = `Error al guardar: ${detail}`;
+                statusEl.className = 'text-danger mt-2';
+            }
+        } catch (err) {
+            statusEl.textContent = 'Error de red al guardar.';
+            statusEl.className = 'text-danger mt-2';
         }
     });
 });
