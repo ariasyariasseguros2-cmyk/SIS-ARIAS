@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const folioHeaderEl = document.getElementById('folioHeader');
     const docSourceSelect = document.getElementById('docSource');
 
+    // NUEVO: elementos para ingreso manual
+    const manualFolioInput = document.getElementById('manualFolioInput');
+    const manualAddBtn = document.getElementById('manualAddBtn');
     let lastPdfUrl = null; // URL del último PDF subido
     const FIELD_KEYS = [
         'numero_proforma',
@@ -21,10 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Mostrar columnas separadas
         'poliza',
         'contrato_nro',
-        'contratante',
+        // 'contratante',
         // NUEVO: asegurado
         'asegurado',
-        'direccion',
+        //'direccion',
         // Eliminiado 'departamento',
         // Eliminiado 'provincia',
         //Eliminiado 'distrito',
@@ -34,7 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'prima_neta',
         'prima_total',
         'monto',
-        'porc_subagente',
+        // NUEVO
+        // 'subagente',
+        //'porc_subagente',
         'porc_compania'
     ];
     // Campos que se marcarán en rojo dentro del modal si están vacíos
@@ -90,15 +95,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const td = document.createElement('td');
             // Nuevo: etiqueta el TD con su clave para mapeo seguro
             td.dataset.key = key;
+            // Habilitar edición directa en el tablero
+            td.contentEditable = 'true';
+            // Mostrar en mayúsculas al insertar
             const raw = ex[key];
-            // Limpia “:” inicial y trim; convierte valores tipo ":" a vacío
             const base = (typeof raw === 'string') ? raw : (raw ?? '');
             const val = (typeof base === 'string') ? base.replace(/^\s*:\s*/, '').trim() : base;
-            td.textContent = val || '';
+            td.textContent = (val || '').toString().toUpperCase();
             tr.appendChild(td);
         });
 
-        // celda de acciones
+        // celda de acciones (no editable)
         const actionTd = document.createElement('td');
         const actionWrap = document.createElement('div');
         actionWrap.className = 'actions-stack';
@@ -164,16 +171,48 @@ document.addEventListener('DOMContentLoaded', () => {
         editModal?.show();
     }
 
-    function saveEditModal() {
-        if (!currentEditRow) return;
-        FIELD_KEYS.forEach((key) => {
+    // Prellenar el modal sin depender de una fila existente
+    function prefillEditFields(ex) {
+        FIELD_KEYS.forEach(key => {
             const input = document.getElementById(`edit_${key}`);
-            const newVal = (input?.value || '').trim();
-            // Escribir por data-key en lugar de índice
-            const td = currentEditRow.querySelector(`td[data-key="${key}"]`);
-            if (td) td.textContent = newVal;
+            if (!input) return;
+            const raw = ex[key];
+            const base = (typeof raw === 'string') ? raw : (raw ?? '');
+            const val = (typeof base === 'string') ? base.replace(/^\s*:\s*/, '').trim() : base;
+            input.value = val || '';
         });
-        // Limpiar marcas al cerrar para que no queden persistentes
+        // Marcar campos requeridos vacíos
+        markMissingInEditModal();
+    }
+
+    function saveEditModal() {
+        if (currentEditRow) {
+            FIELD_KEYS.forEach((key) => {
+                const input = document.getElementById(`edit_${key}`);
+                const newVal = (input?.value || '').trim();
+                const td = currentEditRow.querySelector(`td[data-key="${key}"]`);
+                if (td) td.textContent = newVal;
+            });
+            REQUIRED_KEYS.forEach(key => {
+                const input = document.getElementById(`edit_${key}`);
+                input?.classList.remove('is-invalid');
+            });
+            editModal?.hide();
+            currentEditRow = null;
+            return;
+        }
+
+        // Sin fila seleccionada: crear una nueva solo si hay folio (no rompe duplicación)
+        const ex = {};
+        FIELD_KEYS.forEach(key => {
+            const input = document.getElementById(`edit_${key}`);
+            ex[key] = (input?.value || '').trim();
+        });
+        const hasFolio = ((ex.poliza || '').length > 0) || ((ex.contrato_nro || '').length > 0);
+        if (hasFolio) {
+            addExcelRow({ ...ex, hasta: ex.hasta ?? ex.vigencia_hasta ?? '' });
+            section?.classList.remove('d-none');
+        }
         REQUIRED_KEYS.forEach(key => {
             const input = document.getElementById(`edit_${key}`);
             input?.classList.remove('is-invalid');
@@ -182,6 +221,26 @@ document.addEventListener('DOMContentLoaded', () => {
         currentEditRow = null;
     }
     document.getElementById('editSaveBtn')?.addEventListener('click', saveEditModal);
+
+    // NUEVO: agregar fila manual sin abrir modal (en mayúsculas)
+    manualAddBtn?.addEventListener('click', () => {
+        const folio = (manualFolioInput?.value || '').toUpperCase().trim();
+        if (!folio) {
+            const s = document.getElementById('tblStatus') || document.getElementById('uploadStatus');
+            if (s) {
+                s.textContent = 'Escribe un folio (Póliza o Contrato).';
+                s.className = 'text-warning mt-2';
+            }
+            return;
+        }
+        const ex = {};
+        FIELD_KEYS.forEach(k => { ex[k] = ''; });
+        ex.poliza = folio; // o usar ex.contrato_nro = folio;
+
+        addExcelRow({ ...ex, hasta: ex.hasta ?? ex.vigencia_hasta ?? '' });
+        section?.classList.remove('d-none');
+        manualFolioInput.value = '';
+    });
 
     uploadBtn?.addEventListener('click', async () => {
         const file = fileInput?.files?.[0];
@@ -230,6 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Renderizar cada ítem como fila
                 let anyShown = false;
+                let firstUiEx = null; // conservar datos para prellenar el modal
                 for (const ex of items) {
                     const uiEx = { ...ex, hasta: ex.hasta ?? ex.vigencia_hasta ?? '' };
 
@@ -243,6 +303,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     uiEx.poliza = uiEx.poliza ?? '';
                     uiEx.contrato_nro = uiEx.contrato_nro ?? '';
+
+                    // NUEVO: si no viene 'subagente' del PDF, tomarlo del cliente seleccionado
+                    if (!uiEx.subagente) {
+                        uiEx.subagente = (window.selectedCliente && window.selectedCliente.subagente) || '';
+                    }
+
+                    if (!firstUiEx) firstUiEx = uiEx;
 
                     const hasFolio = ((uiEx.poliza || '').toString().trim().length > 0)
                                   || ((uiEx.contrato_nro || '').toString().trim().length > 0);
@@ -258,8 +325,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (anyShown) {
                     section?.classList.remove('d-none');
                 } else {
-                    statusEl.textContent = 'El documento no tiene Póliza ni Contrato.';
-                    statusEl.className = 'text-warning mt-2';
+                    // Mostrar tablero y avisar para completar manualmente, sin abrir modal
+                    section?.classList.remove('d-none');
+                    const s = document.getElementById('tblStatus') || document.getElementById('uploadStatus');
+                    if (s) {
+                        s.textContent = 'No se detectaron datos. Completa manualmente en el tablero.';
+                        s.className = 'text-warning mt-2';
+                    }
+                    // No abrir modal; el input manual queda disponible
                 }
             } else {
                 statusEl.textContent = `Error: ${data.error || 'Error al subir'}`;

@@ -2,7 +2,7 @@ from flask import Blueprint, redirect, url_for, session, render_template, reques
 from werkzeug.utils import secure_filename
 import os
 from controllers.addPoliza import allowed_file, parse_pdf_fields, parse_pdf_fields_fitz, get_rows, parse_pdf_items, parse_pdf_items_provider
-from controllers.dashboard import get_dashboard_data
+
 
 bp = Blueprint('main', __name__)
 
@@ -57,7 +57,32 @@ def menu_page(page):
     # NUEVO: página “Añadir Póliza”
     if page == 'anadir-poliza':
         from controllers.addPoliza import get_rows
-        return render_template('view/anadir.poliza.html', rows=get_rows())
+        from controllers.cliente import get_clientes_data
+        cli_data = get_clientes_data()
+        selected = session.get('selected_cliente') or {}
+
+        # Hidratar datos faltantes del cliente seleccionado
+        if not selected.get('subagente'):
+            match = None
+            sel_doc = (selected.get('n_doc') or '').strip()
+            sel_name = (selected.get('razon_social') or selected.get('nombre') or '').strip()
+            for c in cli_data['rows']:
+                if sel_doc and c.get('n_doc') == sel_doc:
+                    match = c
+                    break
+                if not match and sel_name and c.get('razon_social') == sel_name:
+                    match = c
+            if match:
+                selected['subagente'] = match.get('subagente')
+                # Completar nombre si faltaba
+                selected['razon_social'] = selected.get('razon_social') or match.get('razon_social')
+
+        return render_template(
+            'view/anadir.poliza.html',
+            rows=get_rows(),
+            clientes_rows=cli_data['rows'],
+            selected=selected
+        )
 
     # Fallback: otras secciones usan el dashboard con etiqueta de sección
     rows = get_rows()
@@ -67,7 +92,8 @@ def menu_page(page):
 @bp.route('/upload', methods=['POST'])
 def upload():
     if 'user' not in session:
-        return redirect(url_for('login'))
+        # En llamadas XHR, devolver JSON claro en vez de redirect HTML
+        return {'error': 'No autenticado'}, 401
 
     if 'file' not in request.files:
         return {'error': 'No se envió archivo'}, 400
@@ -144,12 +170,14 @@ def clientes_select():
         return {'ok': False, 'errors': ['No autenticado']}, 401
 
     payload = request.get_json(silent=True) or request.form.to_dict()
-    # Guardar sólo lo necesario; idealmente usa idCliente si lo tienes
     selected = {
-        'nombre': payload.get('nombre'),
-        'tipo_doc': payload.get('tipo_doc'),
-        'n_doc': payload.get('n_doc'),
-        'tel': payload.get('tel'),
+        'nombre': payload.get('nombre') or payload.get('razon_social'),
+        'razon_social': payload.get('razon_social'),
+        'tipo_doc': payload.get('tipo_doc') or payload.get('doc') or payload.get('tipo_documento'),
+        'n_doc': payload.get('n_doc') or payload.get('numero_documento'),
+        'tel': payload.get('tel') or payload.get('telefono'),
+        # Acepta subagente con ambos nombres de campo
+        'subagente': payload.get('subagente') or payload.get('subAgente'),
     }
     session['selected_cliente'] = selected
     return {'ok': True}, 200

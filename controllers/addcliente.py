@@ -34,14 +34,17 @@ def save_cliente(data: dict) -> dict:
     subag = (data.get('subAgente') or '').strip()
     email = (data.get('email') or '').strip()
     direccion = (data.get('direccion') or '').strip()
+    estado = (data.get('estado') or 'Vigente').strip()           # NUEVO: coincide con SP
+    tipo_persona = int(data.get('tipoPersona') or 0)              # NUEVO: coincide con SP
 
     try:
         from models.db import get_connection
         cnx = get_connection()
         cur = cnx.cursor()
+        # Ajustado: 9 parámetros según tu SP sp_insert_cliente
         cur.execute(
-            "CALL sp_insert_cliente(%s,%s,%s,%s,%s,%s,%s)",
-            (razon, tipo_documento, numero, telefono, subag, email, direccion)
+            "CALL sp_insert_cliente(%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            (razon, tipo_documento, numero, telefono, subag, email, direccion, estado, tipo_persona)
         )
         cnx.commit()
         while cur.nextset():

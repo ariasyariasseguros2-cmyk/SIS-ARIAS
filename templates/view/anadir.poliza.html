@@ -55,12 +55,17 @@
         </div>
 
         <!-- Sección de datos extraídos -->
-        <div class="card mb-4 d-none" id="extractedDataSection">
+        <div class="card mb-4" id="extractedDataSection">
             <div class="card-body">
                 <h2 class="h6">Datos extraídos del PDF</h2>
-                <!-- Nuevo contenedor responsivo para evitar desbordes y desalineación -->
+
+                <div class="d-flex gap-2 align-items-center mb-2">
+                    <input id="manualFolioInput" type="text" class="form-control" placeholder="Ingresar Póliza N° o Contrato Nro">
+                    <button id="manualAddBtn" class="btn btn-success">Agregar manual</button>
+                </div>
+
                 <div class="table-responsive">
-                    <table class="table table-hover table-sm align-middle modern-table">
+                    <table class="table table-hover table-sm align-middle modern-table text-uppercase">
                         <thead>
                             <tr>
                                 <th>N° Proforma</th>
@@ -70,20 +75,18 @@
                                 <th>Nro. Trámite</th>
                                 <th>Fecha Vigencia</th>
                                 <th>Fecha Fin Vigencia</th>
-                                <!-- Reemplazar columna combinada por columnas separadas -->
                                 <th>N° Póliza</th>
                                 <th>N° Contrato</th>
-                                <th>Contratante</th>
-                                <!-- NUEVO: columna Asegurado -->
+                                <!--<th>Contratante</th> -->
                                 <th>Asegurado</th>
-                                <th>Dirección</th>
-                                 <!-- REMOVIDOS: Departamento, Provincia, Distrito, Teléfonos -->
+                                <!-- Eliminado <th>Dirección</th> -->
                                 <th>Ramo</th>
                                 <th>Moneda</th>
                                 <th>Prima Neta</th>
                                 <th>Prima Total</th>
                                 <th>Monto</th>
-                                <th>% Subagente</th>
+                                <!--Eliminado <th>Subagente</th> -->
+                                <!-- Eliminado<th>% Subagente</th> -->
                                 <th>% Compañía</th>
                                 <th class="actions-col">Acciones</th>
                             </tr>
@@ -129,18 +132,15 @@
 
                             <div class="col-md-3"><div class="form-floating"><input id="edit_vigencia_desde" type="text" class="form-control" placeholder="Vigencia desde"><label for="edit_vigencia_desde">Vigencia desde</label></div></div>
                             <div class="col-md-3"><div class="form-floating"><input id="edit_hasta" type="text" class="form-control" placeholder="Hasta"><label for="edit_hasta">Hasta</label></div></div>
-                            <div class="col-md-6"><div class="form-floating"><input id="edit_contratante" type="text" class="form-control" placeholder="Contratante"><label for="edit_contratante">Contratante</label></div></div>
 
                             <div class="col-md-6"><div class="form-floating"><input id="edit_asegurado" type="text" class="form-control" placeholder="Asegurado"><label for="edit_asegurado">Asegurado</label></div></div>
-                            <div class="col-md-6"><div class="form-floating"><input id="edit_direccion" type="text" class="form-control" placeholder="Dirección"><label for="edit_direccion">Dirección</label></div></div>
-                            <!-- REMOVIDOS: cuatro inputs de Departamento, Provincia, Distrito, Teléfonos -->
+                            <!-- REMOVIDOS: cuatro inputs de Departamento, Provincia, Distrito, Teléfonos direccion , Subagente, CONTRATANTE -->
                             <div class="col-md-4"><div class="form-floating"><input id="edit_ramo" type="text" class="form-control" placeholder="Ramo"><label for="edit_ramo">Ramo</label></div></div>
                             <div class="col-md-4"><div class="form-floating"><input id="edit_moneda" type="text" class="form-control" placeholder="Moneda"><label for="edit_moneda">Moneda</label></div></div>
                             <div class="col-md-4"><div class="form-floating"><input id="edit_prima_neta" type="text" class="form-control" placeholder="Prima Neta"><label for="edit_prima_neta">Prima Neta</label></div></div>
 
                             <div class="col-md-4"><div class="form-floating"><input id="edit_prima_total" type="text" class="form-control" placeholder="Prima Total"><label for="edit_prima_total">Prima Total</label></div></div>
                             <div class="col-md-4"><div class="form-floating"><input id="edit_monto" type="text" class="form-control" placeholder="Monto"><label for="edit_monto">Monto</label></div></div>
-                            <div class="col-md-4"><div class="form-floating"><input id="edit_porc_subagente" type="text" class="form-control" placeholder="% Subagente"><label for="edit_porc_subagente">% Subagente</label></div></div>
                             <div class="col-md-4"><div class="form-floating"><input id="edit_porc_compania" type="text" class="form-control" placeholder="% Compañía"><label for="edit_porc_compania">% Compañía</label></div></div>
 
                             <!-- Mover estos dentro del mismo .row g-3 -->
@@ -181,22 +181,35 @@
         </div>
         <div class="card">
             <div class="card-body p-0">
-                <table class="table table-striped table-hover m-0">
+                <table class="table table-striped table-hover m-0 text-uppercase">
                     <thead class="table-light">
                         <tr>
-                            <th>ID</th>
-                            <th>Nombre</th>
-                            <th>Estado</th>
+                            <th>Contratante</th>
+                            <th>N° Doc</th>
+                            <th>S. Agente</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for r in rows %}
+                        {% if selected and (selected.n_doc or selected.nombre or selected.razon_social) %}
+                        <tr class="table-primary">
+                            <td>{{ selected.nombre or selected.razon_social }}</td>
+                            <td>{{ selected.n_doc }}</td>
+                            <td>{{ selected.subagente }}</td>
+                        </tr>
+                        {% else %}
+                        {% for c in clientes_rows %}
                         <tr>
-                            <td>{{ r.id }}</td>
-                            <td>{{ r.nombre }}</td>
-                            <td>{{ r.estado }}</td>
+                            <td>{{ c.razon_social }}</td>
+                            <td>{{ c.n_doc }}</td>
+                            <td>{{ c.subagente }}</td>
                         </tr>
                         {% endfor %}
+                        {% if not clientes_rows %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-3">Sin clientes</td>
+                        </tr>
+                        {% endif %}
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
