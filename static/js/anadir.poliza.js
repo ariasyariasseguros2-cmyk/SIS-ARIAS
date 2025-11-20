@@ -88,6 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         FIELD_KEYS.forEach(key => {
             const td = document.createElement('td');
+            // Nuevo: etiqueta el TD con su clave para mapeo seguro
+            td.dataset.key = key;
             const raw = ex[key];
             // Limpia “:” inicial y trim; convierte valores tipo ":" a vacío
             const base = (typeof raw === 'string') ? raw : (raw ?? '');
@@ -150,9 +152,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function startEditRow(tr) {
         currentEditRow = tr;
-        FIELD_KEYS.forEach((key, i) => {
-            const td = tr.cells[i];
-            const value = td.textContent.trim();
+        FIELD_KEYS.forEach((key) => {
+            // Leer por data-key en lugar de índice
+            const td = tr.querySelector(`td[data-key="${key}"]`);
+            const value = (td?.textContent || '').trim();
             const input = document.getElementById(`edit_${key}`);
             if (input) input.value = value;
         });
@@ -163,10 +166,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveEditModal() {
         if (!currentEditRow) return;
-        FIELD_KEYS.forEach((key, i) => {
+        FIELD_KEYS.forEach((key) => {
             const input = document.getElementById(`edit_${key}`);
             const newVal = (input?.value || '').trim();
-            currentEditRow.cells[i].textContent = newVal;
+            // Escribir por data-key en lugar de índice
+            const td = currentEditRow.querySelector(`td[data-key="${key}"]`);
+            if (td) td.textContent = newVal;
         });
         // Limpiar marcas al cerrar para que no queden persistentes
         REQUIRED_KEYS.forEach(key => {

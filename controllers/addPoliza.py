@@ -281,15 +281,15 @@ def parse_pdf_fields_fitz(file_path):
     extracted['vigencia_hasta'] = grab(r'Hasta\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})')
     # Fallbacks específicos para DESDE/HASTA sin “:”
     if not extracted.get('vigencia_desde'):
-        m_desde = re.search(r'\bDESDE\b\s*[:\-]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', sanitized, re.IGNORECASE)
+        m_desde = re.search(r'\bDESDE\b\s*[:\-]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', text, re.IGNORECASE)
         if m_desde:
             extracted['vigencia_desde'] = m_desde.group(1).strip()
     if not extracted.get('vigencia_hasta'):
-        m_hasta = re.search(r'\bHASTA\b\s*[:\-]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', sanitized, re.IGNORECASE)
+        m_hasta = re.search(r'\bHASTA\b\s*[:\-]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', text, re.IGNORECASE)
         if m_hasta:
             extracted['vigencia_hasta'] = m_hasta.group(1).strip()
         else:
-            m_vig_hasta = re.search(r'Vigencia\s*hasta\s*[:\-]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', sanitized, re.IGNORECASE)
+            m_vig_hasta = re.search(r'Vigencia\s*hasta\s*[:\-]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', text, re.IGNORECASE)
             if m_vig_hasta:
                 extracted['vigencia_hasta'] = m_vig_hasta.group(1).strip()
     # Alias “Hasta” para el frontend
@@ -457,7 +457,7 @@ def parse_text_fields_block(text):
         'vigencia_hasta': r'Hasta',
         'provincia_lbl': r'(?:Localidad|Provincia)',
         'departamento_lbl': r'Departamento',
-        # NUEVO
+        # NUEVO: asegurado
         'asegurado': r'Asegurado',
     }
     next_union = '|'.join(labels.values())
