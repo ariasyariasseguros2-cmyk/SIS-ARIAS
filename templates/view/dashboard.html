@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
@@ -186,6 +186,16 @@
         window.chartData = {{ chart | tojson }};
         window.currentPage = "{{ page or '' }}";
     </script>
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h2 class="h6 m-0">Notas del tablero</h2>
+                <button id="btnSaveDashboard" class="btn btn-success btn-sm">Guardar notas</button>
+            </div>
+            <textarea id="dashboardNotes" class="form-control" rows="4" placeholder="Escribe aquí tus notas del tablero..."></textarea>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=2"></script>
 </body>
 </html>

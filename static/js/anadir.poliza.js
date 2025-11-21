@@ -1,449 +1,343 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const fileInput = document.getElementById('fileInput');
-    const uploadBtn = document.getElementById('uploadBtn');
-    const exportBtn = document.getElementById('exportPdfBtn');
-    // usar celda de tabla si existe; si no, usa div anterior
-    const statusEl = document.getElementById('tblStatus') || document.getElementById('uploadStatus');
-    const section = document.getElementById('extractedDataSection');
-    const tblFileNameEl = document.getElementById('tblFileName');
-    const excelBody = document.getElementById('excelTableBody');
-    const folioHeaderEl = document.getElementById('folioHeader');
-    const docSourceSelect = document.getElementById('docSource');
+(function () {
+  const fileEl = document.getElementById('pdfFile');
+  const issuerEl = document.getElementById('issuer');
+  const btnUpload = document.getElementById('btnUpload');
+  const btnSave = document.getElementById('btnSave');
+  const tbody = document.querySelector('#extractTable tbody');
+  const hint = document.getElementById('extractHint');
+  const subAgenteTopEl = document.getElementById('subAgenteTop');
+  let subAgenteEl = subAgenteTopEl || document.getElementById('subAgente');
 
-    // NUEVO: elementos para ingreso manual
-    const manualFolioInput = document.getElementById('manualFolioInput');
-    const manualAddBtn = document.getElementById('manualAddBtn');
-    let lastPdfUrl = null; // URL del último PDF subido
-    // NUEVO: botón Guardar
-    const saveBtn = document.getElementById('saveBoardBtn');
-    // MOVER A ÁMBITO SUPERIOR: mapa de proveedor → compañía legible
-    const CIA_BY_ISSUER = {
-        'MAPFRE': 'MAPFRE',
-        'LA_POSITIVA_EPS': 'LA POSITIVA',
-        'LA_POSITIVA_VIDA': 'LA POSITIVA',
-        'LA_POSITIVA_SEGUROS': 'LA POSITIVA',
+  let extractedItems = [];
+
+  // render() y normalizeItem
+  function ensureSubAgente() {
+    subAgenteEl = document.getElementById('subAgente');
+    if (subAgenteEl) return;
+
+    const host = Array.from(document.querySelectorAll('.card .card-body'))
+      .find(el => el.textContent.toLowerCase().includes('cliente seleccionado'));
+    if (!host) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <div class="d-flex gap-4 mt-2">
+        <div>
+          <span class="text-muted small">Sub Agente</span>
+          <select id="subAgente" class="form-select form-select-sm" style="min-width: 220px;">
+            <option value="">Selecciona...</option>
+            <option value="Arias y Arias">Arias y Arias</option>
+            <option value="Yuri Garcia">Yuri Garcia</option>
+          </select>
+        </div>
+      </div>
+    `;
+    host.appendChild(wrapper.firstElementChild);
+    subAgenteEl = document.getElementById('subAgente');
+  }
+
+  ensureSubAgente();
+
+  function populateSubAgenteOptions() {
+    const el = subAgenteTopEl || document.getElementById('subAgente');
+    if (!el) return;
+    const base = Array.from(el.options).map(o => o.value);
+    const incoming = (window.availableSubagentes || []).filter(x => !!x && x.trim() !== '');
+    incoming.forEach(val => {
+      if (!base.includes(val)) {
+        const opt = document.createElement('option');
+        opt.value = val;
+        opt.textContent = val;
+        el.appendChild(opt);
+      }
+    });
+  }
+  populateSubAgenteOptions();
+
+  // Preseleccionar si viene del servidor
+  if (subAgenteEl && window.selectedCliente) {
+    const val = window.selectedCliente.subagente || '';
+    if (val && !Array.from(subAgenteEl.options).some(o => o.value === val)) {
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = val;
+      subAgenteEl.appendChild(opt);
+    }
+    subAgenteEl.value = val;
+  }
+
+  // Persistir en memoria del cliente
+  (subAgenteTopEl || document.getElementById('subAgente'))?.addEventListener('change', (e) => {
+    window.selectedCliente = window.selectedCliente || {};
+    window.selectedCliente.subagente = e.target.value;
+
+    // Enviar al backend para persistir en sesión (clientes_select)
+    const payload = {
+      nombre: window.selectedCliente.nombre || window.selectedCliente.razon_social || '',
+      razon_social: window.selectedCliente.razon_social || '',
+      tipo_doc: window.selectedCliente.tipo_doc || '',
+      n_doc: window.selectedCliente.n_doc || '',
+      tel: window.selectedCliente.tel || '',
+      subagente: e.target.value
     };
+    fetch('/clientes/select', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(r => r.json())
+      .then(res => {
+        console.log('[clientes/select] persist subagente:', res);
+      })
+      .catch(err => console.warn('[clientes/select] error:', err));
+  });
 
-    const FIELD_KEYS = [
-        'numero_proforma',
-        // Eliminado: 'ruc',
-        'emision',
-        'nro_tramite',
-        'vigencia_desde',
-        'hasta',
-        'poliza',
-        'contrato_nro',
-        'asegurado',
-        'ramo',
-        'moneda',
-        'prima_neta',
-        'prima_total',
-        'monto',
-        'porc_compania'
-    ];
-    // Campos que se marcarán en rojo dentro del modal si están vacíos
-    const REQUIRED_KEYS = [
-        'departamento',
-        'provincia',
-        'distrito',
-        'ramo',
-        'prima_total',
-        'prima_neta',
-        'monto'
-    ];
-
-    // Modal de edición
-    const editModalEl = document.getElementById('editModal');
-    let editModal = null;
-    if (editModalEl && window.bootstrap) {
-        editModal = new bootstrap.Modal(editModalEl);
+  function ensureHeader() {
+    const thead = document.querySelector('#extractTable thead');
+    if (!thead) return;
+    const headers = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase());
+    const hasRamo = headers.includes('ramo');
+    const hasPrimaNeta = headers.includes('prima neta');
+    const hasAcciones = headers.includes('acciones');
+    const expectedCount = 14;
+    if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
+      thead.innerHTML = `
+        <tr>
+          <th>Póliza</th>
+          <th>Proforma/Recibo</th>
+          <th>Colectivo Asegurado</th>
+          <th>Ramo</th>
+          <th>Inicio Vigencia</th>
+          <th>Vencimiento</th>
+          <th>Moneda</th>
+          <th>Fecha Emisión</th>
+          <th>Forma Pago</th>
+          <th>Último Día Pago</th>
+          <th>Prima Comercial</th>
+          <th>Prima Neta</th>
+          <th>Prima + IGV</th>
+          <th class="actions-col">Acciones</th>
+        </tr>
+      `;
     }
-    let currentEditRow = null;
+  }
+  ensureHeader();
 
-    // Marca en rojo (is-invalid) los campos requeridos que estén vacíos en el modal
-    function markMissingInEditModal() {
-        REQUIRED_KEYS.forEach(key => {
-            const input = document.getElementById(`edit_${key}`);
-            if (!input) return;
-            const isEmpty = (input.value || '').trim() === '';
-            input.classList.toggle('is-invalid', isEmpty);
-        });
-    }
-
-    // Actualiza la marca mientras el usuario escribe (solo dentro del modal)
-    function bindEditFieldValidation() {
-        REQUIRED_KEYS.forEach(key => {
-            const input = document.getElementById(`edit_${key}`);
-            if (!input) return;
-            input.addEventListener('input', () => {
-                const isEmpty = (input.value || '').trim() === '';
-                input.classList.toggle('is-invalid', isEmpty);
-            });
-        });
-    }
-    bindEditFieldValidation();
-
-    // NUEVO: mostrar/ocultar botón Guardar según haya filas
-    function updateSaveButtonVisibility() {
-        const hasRows = !!excelBody && excelBody.querySelectorAll('tr').length > 0;
-        if (saveBtn) saveBtn.classList.toggle('d-none', !hasRows);
-    }
-
-    function addExcelRow(ex) {
-        if (!excelBody) return;
-        const tr = document.createElement('tr');
-
-        // Guardar la URL del PDF asociada a esta fila
-        tr.dataset.pdfUrl = lastPdfUrl || '';
-
-        FIELD_KEYS.forEach(key => {
-            const td = document.createElement('td');
-            // Nuevo: etiqueta el TD con su clave para mapeo seguro
-            td.dataset.key = key;
-            // Habilitar edición directa en el tablero
-            td.contentEditable = 'true';
-            // Mostrar en mayúsculas al insertar
-            const raw = ex[key];
-            const base = (typeof raw === 'string') ? raw : (raw ?? '');
-            const val = (typeof base === 'string') ? base.replace(/^\s*:\s*/, '').trim() : base;
-            td.textContent = (val || '').toString().toUpperCase();
-            tr.appendChild(td);
-        });
-
-        // celda de acciones (no editable)
-        const actionTd = document.createElement('td');
-        const actionWrap = document.createElement('div');
-        actionWrap.className = 'actions-stack';
-    
-        // Ver PDF
-        const viewBtn = document.createElement('button');
-        viewBtn.className = 'btn action-btn btn-view';
-        viewBtn.innerHTML = '<i class="bi bi-file-earmark-pdf"></i><span>Ver PDF</span>';
-        viewBtn.addEventListener('click', () => {
-            const url = tr.dataset.pdfUrl || lastPdfUrl;
-            if (url) {
-                window.open(url, '_blank');
-            } else {
-                const s = document.getElementById('tblStatus') || document.getElementById('uploadStatus');
-                if (s) {
-                    s.textContent = 'Primero sube un PDF para visualizar.';
-                    s.className = 'text-warning mt-2';
-                } else {
-                    alert('Primero sube un PDF para visualizar.');
-                }
-            }
-        });
-        actionWrap.appendChild(viewBtn);
-    
-        // Editar
-        const editBtn = document.createElement('button');
-        editBtn.className = 'btn action-btn btn-edit';
-        editBtn.innerHTML = '<i class="bi bi-pencil-square"></i><span>Editar</span>';
-        editBtn.addEventListener('click', () => startEditRow(tr));
-        actionWrap.appendChild(editBtn);
-    
-        // Eliminar
-        const delBtn = document.createElement('button');
-        delBtn.className = 'btn action-btn btn-del';
-        delBtn.innerHTML = '<i class="bi bi-trash3"></i><span>Eliminar</span>';
-        delBtn.addEventListener('click', () => {
-            if (confirm('¿Eliminar esta fila?')) {
-                tr.remove();
-                if (excelBody.querySelectorAll('tr').length === 0) {
-                    section?.classList.add('d-none');
-                }
-                // NUEVO: actualizar visibilidad del botón Guardar tras eliminar
-                updateSaveButtonVisibility();
-            }
-        });
-        actionWrap.appendChild(delBtn);
-    
-        actionTd.appendChild(actionWrap);
-        tr.appendChild(actionTd);
-
-        excelBody.appendChild(tr);
-        // NUEVO: actualizar visibilidad del botón Guardar
-        updateSaveButtonVisibility();
-    }
-
-    function startEditRow(tr) {
-        currentEditRow = tr;
-        FIELD_KEYS.forEach((key) => {
-            // Leer por data-key en lugar de índice
-            const td = tr.querySelector(`td[data-key="${key}"]`);
-            const value = (td?.textContent || '').trim();
-            const input = document.getElementById(`edit_${key}`);
-            if (input) input.value = value;
-        });
-        // Solo al abrir el modal, marcar los faltantes en rojo
-        markMissingInEditModal();
-        editModal?.show();
-    }
-
-    // Prellenar el modal sin depender de una fila existente
-    function prefillEditFields(ex) {
-        FIELD_KEYS.forEach(key => {
-            const input = document.getElementById(`edit_${key}`);
-            if (!input) return;
-            const raw = ex[key];
-            const base = (typeof raw === 'string') ? raw : (raw ?? '');
-            const val = (typeof base === 'string') ? base.replace(/^\s*:\s*/, '').trim() : base;
-            input.value = val || '';
-        });
-        // Marcar campos requeridos vacíos
-        markMissingInEditModal();
-    }
-
-    function saveEditModal() {
-        if (currentEditRow) {
-            FIELD_KEYS.forEach((key) => {
-                const input = document.getElementById(`edit_${key}`);
-                const newVal = (input?.value || '').trim();
-                const td = currentEditRow.querySelector(`td[data-key="${key}"]`);
-                if (td) td.textContent = newVal;
-            });
-            REQUIRED_KEYS.forEach(key => {
-                const input = document.getElementById(`edit_${key}`);
-                input?.classList.remove('is-invalid');
-            });
-            editModal?.hide();
-            currentEditRow = null;
-            return;
-        }
-
-        // Sin fila seleccionada: crear una nueva solo si hay folio (no rompe duplicación)
-        const ex = {};
-        FIELD_KEYS.forEach(key => {
-            const input = document.getElementById(`edit_${key}`);
-            ex[key] = (input?.value || '').trim();
-        });
-        const hasFolio = ((ex.poliza || '').length > 0) || ((ex.contrato_nro || '').length > 0);
-        if (hasFolio) {
-            addExcelRow({ ...ex, hasta: ex.hasta ?? ex.vigencia_hasta ?? '' });
-            section?.classList.remove('d-none');
-        }
-        REQUIRED_KEYS.forEach(key => {
-            const input = document.getElementById(`edit_${key}`);
-            input?.classList.remove('is-invalid');
-        });
-        editModal?.hide();
-        currentEditRow = null;
-    }
-    document.getElementById('editSaveBtn')?.addEventListener('click', saveEditModal);
-
-    // NUEVO: agregar fila manual sin abrir modal (en mayúsculas)
-    manualAddBtn?.addEventListener('click', () => {
-        const folio = (manualFolioInput?.value || '').toUpperCase().trim();
-        if (!folio) {
-            const s = document.getElementById('tblStatus') || document.getElementById('uploadStatus');
-            if (s) {
-                s.textContent = 'Escribe un folio (Póliza o Contrato).';
-                s.className = 'text-warning mt-2';
-            }
-            return;
-        }
-        const ex = {};
-        FIELD_KEYS.forEach(k => { ex[k] = ''; });
-        ex.poliza = folio; // o usar ex.contrato_nro = folio;
-
-        addExcelRow({ ...ex, hasta: ex.hasta ?? ex.vigencia_hasta ?? '' });
-        section?.classList.remove('d-none');
-        manualFolioInput.value = '';
+  function render(items) {
+    ensureHeader();
+    tbody.innerHTML = '';
+    items.forEach((it, idx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="numero_poliza">${it.numero_poliza || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="recibo">${it.recibo || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="colectivo_asegurado">${it.colectivo_asegurado || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="ramo">${it.ramo || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="inicio_vigencia">${it.inicio_vigencia || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="vencimiento">${it.vencimiento || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="forma_pago">${it.forma_pago || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${it.prima_neta || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${it.prima_comercial_igv || it.prima_total || it.monto || ''}</td>
+        <td class="actions-col">
+          <div class="actions-stack">
+            <button type="button" class="action-btn btn-del js-del" data-index="${idx}">
+              Eliminar
+            </button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
     });
+    btnSave.disabled = items.length === 0;
+    hint.textContent = items.length ? `Se extrajeron ${items.length} item(s). Revisa y guarda.` : 'Sube un PDF para ver información.';
+  }
 
-    uploadBtn?.addEventListener('click', async () => {
-        const file = fileInput?.files?.[0];
-        if (!file) {
-            statusEl.textContent = 'Selecciona un archivo.';
-            statusEl.className = 'text-danger mt-2';
-            return;
+  // Borrado de fila con delegación
+  tbody.addEventListener('click', (e) => {
+    const btn = e.target.closest('.js-del');
+    if (!btn) return;
+    const idx = parseInt(btn.getAttribute('data-index'), 10);
+    if (Number.isNaN(idx)) return;
+    extractedItems.splice(idx, 1);
+    render(extractedItems);
+  });
+
+  // Eliminar tabla completa
+  document.getElementById('btnClear')?.addEventListener('click', () => {
+    if (!extractedItems.length) { alert('No hay datos para eliminar.'); return; }
+    if (!confirm('¿Eliminar todos los ítems de la tabla?')) return;
+    extractedItems = [];
+    render(extractedItems);
+  });
+
+  // Normalizador defensivo en el cliente (sin mezclar neta en comercial)
+  function normalizeItem(it) {
+    return {
+      numero_poliza: it.numero_poliza || it.poliza || it.folio_id || it.contrato_nro || '',
+      recibo: it.recibo || it.numero_proforma || it.nro_tramite || '',
+      colectivo_asegurado: it.colectivo_asegurado || it.asegurado || it.contratante || '',
+      ramo: it.ramo || it.doc_tipo || '',
+      inicio_vigencia: it.inicio_vigencia || it.vigencia_desde || '',
+      vencimiento: it.vencimiento || it.vigencia_hasta || it.hasta || '',
+      moneda: it.moneda || '',
+      fecha_emision: it.fecha_emision || it.emision || '',
+      forma_pago: it.forma_pago || '',
+      ultimo_dia_pago: it.ultimo_dia_pago || '',
+      prima_comercial: it.prima_comercial || '',
+      prima_neta: it.prima_neta || '',
+      prima_total: it.prima_total || it.monto || '',
+      prima_comercial_igv: it.prima_comercial_igv || it.prima_total || it.monto || '',
+    };
+  }
+
+  btnUpload?.addEventListener('click', () => {
+    const file = fileEl?.files?.[0];
+    if (!file) { alert('Selecciona un PDF.'); return; }
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('issuer', issuerEl?.value || '');
+    fd.append('debug', '1'); // activar trazas del backend
+
+    fetch('/upload', { method: 'POST', body: fd })
+      .then(async (r) => {
+        const isJson = (r.headers.get('content-type') || '').includes('application/json');
+        const payload = isJson ? await r.json() : await r.text();
+        console.log('[upload] status:', r.status, 'payload:', payload);
+
+        // Mostrar trazas del servidor en consola del navegador
+        if (payload && Array.isArray(payload.debug)) {
+          payload.debug.forEach((line) => console.log('[server]', line));
         }
 
-        statusEl.textContent = 'Subiendo...';
-        statusEl.className = 'text-muted mt-2';
-
-        try {
-            const formData = new FormData();
-            formData.append('file', file);
-            if (docSourceSelect) {
-                formData.append('issuer', (docSourceSelect.value || '').trim());
-            }
-
-            const resp = await fetch('/upload', { method: 'POST', body: formData });
-            const data = await resp.json();
-
-            if (resp.ok) {
-                statusEl.textContent = `OK`;
-                statusEl.className = 'text-success mt-2';
-                fileInput.value = '';
-                if (tblFileNameEl) tblFileNameEl.textContent = data.filename || file.name;
-
-                // Construye la URL pública al PDF en static/uploads
-                if (data.filename) {
-                    lastPdfUrl = `/static/uploads/${data.filename}`;
-                }
-
-                // NUEVO: soportar múltiples ítems
-                let items = [];
-                if (Array.isArray(data.items)) {
-                    items = data.items;
-                } else if (Array.isArray(data.fields)) {
-                    items = data.fields;
-                } else if (Array.isArray(data.extracted)) {
-                    items = data.extracted;
-                } else {
-                    const exObj = (data.extracted ?? data.fields ?? {});
-                    items = [exObj];
-                }
-
-                // Renderizar cada ítem como fila
-                let anyShown = false;
-                let firstUiEx = null;
-
-                // Dentro de uploadBtn?.addEventListener('click', async () => { ... })
-                for (const ex of items) {
-                    const uiEx = { ...ex, hasta: ex.hasta ?? ex.vigencia_hasta ?? '' };
-
-                    // Si solo se envía folio combinado, mapear a columnas separadas
-                    if (!uiEx.poliza && !uiEx.contrato_nro && uiEx.folio_id) {
-                        if ((uiEx.folio_label || '').toLowerCase().includes('contrato')) {
-                            uiEx.contrato_nro = uiEx.folio_id;
-                        } else {
-                            uiEx.poliza = uiEx.folio_id;
-                        }
-                    }
-                    uiEx.poliza = uiEx.poliza ?? '';
-                    uiEx.contrato_nro = uiEx.contrato_nro ?? '';
-                
-                    // NUEVO: mapa de proveedor → compañía legible
-                    // (Usar el mapa global; se quita la redeclaración local)
-                    if (!firstUiEx) firstUiEx = uiEx;
-                
-                    const hasFolio = ((uiEx.poliza || '').toString().trim().length > 0)
-                                  || ((uiEx.contrato_nro || '').toString().trim().length > 0);
-                    if (!hasFolio) {
-                        // si esta página no tiene folio, la saltamos
-                        continue;
-                    }
-                
-                    addExcelRow(uiEx);
-                    anyShown = true;
-                }
-
-                if (anyShown) {
-                    section?.classList.remove('d-none');
-                } else {
-                    // Mostrar tablero y avisar para completar manualmente, sin abrir modal
-                    section?.classList.remove('d-none');
-                    const s = document.getElementById('tblStatus') || document.getElementById('uploadStatus');
-                    if (s) {
-                        s.textContent = 'No se detectaron datos. Completa manualmente en el tablero.';
-                        s.className = 'text-warning mt-2';
-                    }
-                    // No abrir modal; el input manual queda disponible
-                }
-            } else {
-                statusEl.textContent = `Error: ${data.error || 'Error al subir'}`;
-                statusEl.className = 'text-danger mt-2';
-            }
-        } catch {
-            statusEl.textContent = 'Error de red al subir.';
-            statusEl.className = 'text-danger mt-2';
+        if (!r.ok) {
+          alert(typeof payload === 'string' ? payload : (payload.error || 'Error al extraer datos.'));
+          return;
         }
-    });
 
-    exportBtn?.addEventListener('click', () => {
-        if (lastPdfUrl) {
-            window.open(lastPdfUrl, '_blank');
-        } else {
-            // feedback si no hay PDF aún
-            const statusEl = document.getElementById('tblStatus') || document.getElementById('uploadStatus');
-            if (statusEl) {
-                statusEl.textContent = 'Primero sube un PDF para visualizar.';
-                statusEl.className = 'text-warning mt-2';
-            } else {
-                alert('Primero sube un PDF para visualizar.');
-            }
+        let items = [];
+        if (payload.items && Array.isArray(payload.items)) {
+          items = payload.items.map(normalizeItem);
+        } else if (payload.fields && typeof payload.fields === 'object') {
+          items = [normalizeItem(payload.fields)];
         }
-    });
+        extractedItems = items;
+        render(extractedItems);
+      })
+      .catch((err) => {
+        console.error('[upload] fetch error:', err);
+        alert('Error de red al extraer datos del PDF.');
+      });
+  });
 
-    // NUEVO: recolectar las filas del tablero para guardar
-    function collectTableItems() {
-        const items = [];
-        const rows = excelBody ? excelBody.querySelectorAll('tr') : [];
-        rows.forEach(tr => {
-            const item = {};
-            FIELD_KEYS.forEach(key => {
-                const td = tr.querySelector(`td[data-key="${key}"]`);
-                item[key] = (td?.textContent || '').trim();
-            });
-            // Si no hay subagente en la fila, tomar del cliente seleccionado
-            if (!item.subagente) {
-                item.subagente = (window.selectedCliente && window.selectedCliente.subagente) || '';
-            }
-            // NUEVO: si no hay compañía en la fila, inferir desde el selector de proveedor
-            const issuer = (docSourceSelect?.value || '').trim();
-            if (!item.cia) {
-                item.cia = CIA_BY_ISSUER[issuer] || issuer || '';
-            }
-            items.push(item);
-        });
-        return items;
+  // Preseleccionar subagente si viene del servidor
+  if (subAgenteEl && window.selectedCliente) {
+    subAgenteEl.value = window.selectedCliente.subagente || '';
+  }
+
+  function ensureHeader() {
+    const thead = document.querySelector('#extractTable thead');
+    if (!thead) return;
+    const headers = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase());
+    const hasRamo = headers.includes('ramo');
+    const hasPrimaNeta = headers.includes('prima neta');
+    const hasAcciones = headers.includes('acciones');
+    const expectedCount = 14;
+    if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
+      thead.innerHTML = `
+        <tr>
+          <th>Póliza</th>
+          <th>Proforma/Recibo</th>
+          <th>Colectivo Asegurado</th>
+          <th>Ramo</th>
+          <th>Inicio Vigencia</th>
+          <th>Vencimiento</th>
+          <th>Moneda</th>
+          <th>Fecha Emisión</th>
+          <th>Forma Pago</th>
+          <th>Último Día Pago</th>
+          <th>Prima Comercial</th>
+          <th>Prima Neta</th>
+          <th>Prima + IGV</th>
+          <th class="actions-col">Acciones</th>
+        </tr>
+      `;
     }
+  }
+  ensureHeader();
 
-    // NUEVO: reiniciar tablero y estado de carga tras guardar
-    function resetBoardUI() {
-        try {
-            excelBody && (excelBody.innerHTML = '');
-            updateSaveButtonVisibility();
-            section?.classList.add('d-none');
-            if (tblFileNameEl) tblFileNameEl.textContent = '-';
-            if (statusEl) { statusEl.textContent = '-'; statusEl.className = ''; }
-            if (fileInput) fileInput.value = '';
-            if (manualFolioInput) manualFolioInput.value = '';
-            if (docSourceSelect) docSourceSelect.value = '';
-            lastPdfUrl = null;
-        } catch (e) {
-            console.warn('resetBoardUI error:', e);
+  // Editar celdas y actualizar datos
+  let autoSaveTimer = null;
+  function scheduleAutoSave() {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+      const selected = Object.assign({}, (window.selectedCliente || {}), {
+        subagente: (document.getElementById('subAgenteTop')?.value ||
+                    document.getElementById('subAgente')?.value ||
+                    (window.selectedCliente || {}).subagente || '')
+      });
+      fetch('/polizas/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: extractedItems, selected })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.ok) {
+          hint.textContent = `Cambios guardados automáticamente (${res.count}).`;
         }
+      })
+      .catch(err => console.warn('[autosave] error:', err));
+    }, 1200);
+  }
+
+  tbody.addEventListener('blur', (e) => {
+    const el = e.target.closest('.editable');
+    if (!el) return;
+    const idx = Number(el.dataset.index);
+    const field = el.dataset.field;
+    const val = el.textContent.trim();
+    if (!Number.isFinite(idx) || !field) return;
+    extractedItems[idx][field] = val;
+    scheduleAutoSave();
+  }, true);
+
+  tbody.addEventListener('keydown', (e) => {
+    const el = e.target.closest('.editable');
+    if (!el) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      el.blur();
     }
+  });
 
-    // NUEVO: enviar al backend y reiniciar tablero
-    saveBtn?.addEventListener('click', async () => {
-        const items = collectTableItems();
-        if (!items.length) {
-            statusEl.textContent = 'No hay filas para guardar.';
-            statusEl.className = 'text-warning mt-2';
-            return;
-        }
-        statusEl.textContent = 'Guardando...';
-        statusEl.className = 'text-muted mt-2';
+  // IMPORTANTE: ya existe ensureHeader() arriba; evita duplicarlo.
+  // Elimina cualquier segunda definición de ensureHeader() al final del archivo si estuviera presente.
 
-        try {
-            const resp = await fetch('/polizas/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    items,
-                    selected: window.selectedCliente || {}
-                }),
-            });
-            const data = await resp.json();
-            if (resp.ok && data.ok) {
-                statusEl.textContent = `Guardado: ${data.saved ?? items.length} filas.`;
-                statusEl.className = 'text-success mt-2';
-                resetBoardUI();
-
-                // Si quieres redirigir al tablero de Pólizas al terminar:
-                // window.location.href = '/menu/polizas';
-            } else {
-                const detail = Array.isArray(data.errors) ? data.errors.join('; ') : (data.error || 'Error');
-                statusEl.textContent = `Error al guardar: ${detail}`;
-                statusEl.className = 'text-danger mt-2';
-            }
-        } catch (err) {
-            statusEl.textContent = 'Error de red al guardar.';
-            statusEl.className = 'text-danger mt-2';
-        }
+  btnSave?.addEventListener('click', () => {
+    if (!extractedItems.length) { alert('No hay datos para guardar.'); return; }
+    const selected = Object.assign({}, (window.selectedCliente || {}), {
+      subagente: (document.getElementById('subAgenteTop')?.value ||
+                  document.getElementById('subAgente')?.value ||
+                  (window.selectedCliente || {}).subagente || '')
     });
-});
+    fetch('/polizas/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: extractedItems, selected })
+    })
+    .then(r => r.json())
+    .then(res => {
+      if (res.ok) {
+        alert(`Guardado: ${res.count} póliza(s).`);
+        extractedItems = [];
+        render(extractedItems);
+      } else {
+        alert(res.errors?.[0] || 'No se pudo guardar.');
+      }
+    })
+    .catch(() => alert('Error al guardar.'));
+  });
+})();

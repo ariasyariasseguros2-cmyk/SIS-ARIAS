@@ -1,228 +1,108 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <title>Panel | SIS-ARIAS</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/anadir.poliza.css') }}">
-    <!-- Bootstrap Icons para botones modernos -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <meta charset="utf-8">
+  <title>Añadir Póliza</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid">
-            <span class="navbar-brand">SIS-ARIAS</span>
-            <div class="d-flex">
-                <a class="btn btn-outline-light" href="{{ url_for('logout') }}">Cerrar sesión</a>
-            </div>
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h5 m-0">Añadir Póliza</h1>
+      <a href="{{ url_for('main.menu_page', page='polizas') }}" class="btn btn-outline-secondary btn-sm">Ver Pólizas</a>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label">Selecciona PDF de la póliza</label>
+            <input id="pdfFile" type="file" accept=".pdf" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Proveedor</label>
+            <select id="issuer" class="form-select">
+              <option value="">Auto</option>
+              <option value="positiva">La Positiva</option>
+              <option value="mapfre">MAPFRE</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Sub Agente</label>
+            <select id="subAgenteTop" class="form-select">
+              <option value="">Selecciona...</option>
+              <option value="Arias y Arias">Arias y Arias</option>
+              <option value="Yuri Garcia">Yuri Garcia</option>
+              {% for c in clientes_rows %}
+                {% if c.subagente %}
+                  <option value="{{ c.subagente }}">{{ c.subagente }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <button id="btnUpload" class="btn btn-primary">Extraer datos</button>
+          </div>
         </div>
-    </nav>
+      </div>
+    </div>
 
-    <main class="container py-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h1 class="h4 m-0">Listado</h1>
-            <div id="acciones" class="d-flex gap-2">
-                <button id="exportPdfBtn" class="btn btn-secondary">Ver PDF</button>
-            </div>
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="mb-2 small text-muted">Cliente seleccionado</div>
+        <div class="d-flex gap-4">
+          <div><span class="text-muted small">Nombre</span><div class="fw-semibold">{{ selected.razon_social or selected.nombre }}</div></div>
+          <div><span class="text-muted small">Documento</span><div class="fw-semibold">{{ selected.tipo_doc }} - {{ selected.n_doc }}</div></div>
+          <div><span class="text-muted small">Teléfono</span><div class="fw-semibold">{{ selected.tel }}</div></div>
+          <!-- Sub Agente ya está en la parte superior para mayor visibilidad -->
         </div>
+      </div>
+    </div>
 
-        <div class="card mb-4" id="uploadSection">
-            <div class="card-body">
-                <h2 class="h6">Subir archivo</h2>
-                <table class="table table-sm">
-                    <tbody>
-                        <tr>
-                            <th>Archivo</th>
-                            <td id="tblFileName">-</td>
-                        </tr>
-                        <tr>
-                            <th>Seleccionar</th>
-                            <td><input id="fileInput" type="file" class="form-control" /></td>
-                        </tr>
-                        <tr>
-                            <th>Acción</th>
-                            <td><button id="uploadBtn" class="btn btn-primary">Subir</button></td>
-                        </tr>
-                        <tr>
-                            <th>Estado</th>
-                            <td id="tblStatus">-</td>
-                        </tr>
-                    </tbody>
-                </table>
-                <div id="uploadStatus" class="text-muted mt-2"></div>
-            </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h2 class="h6 m-0">Datos extraídos</h2>
+          <div class="d-flex gap-2">
+            <button id="btnClear" class="btn btn-outline-danger btn-sm">Eliminar tabla</button>
+            <button id="btnSave" class="btn btn-success btn-sm" disabled>Guardar pólizas</button>
+          </div>
         </div>
-
-        <!-- Sección de datos extraídos -->
-        <div class="card mb-4" id="extractedDataSection">
-            <div class="card-body">
-                <h2 class="h6">Datos extraídos del PDF</h2>
-
-                <div class="d-flex gap-2 align-items-center mb-2">
-                    <input id="manualFolioInput" type="text" class="form-control" placeholder="Ingresar Póliza N° o Contrato Nro">
-                    <button id="manualAddBtn" class="btn btn-success">Agregar manual</button>
-                    <!-- NUEVO: botón Guardar, oculto hasta que haya filas -->
-                    <button id="saveBoardBtn" class="btn btn-primary d-none">Guardar</button>
-                </div>
-
-                <div class="table-responsive">
-                    <table class="table table-hover table-sm align-middle modern-table text-uppercase">
-                        <thead>
-                            <tr>
-                                <th>N° Proforma</th>
-                                <!-- Eliminado: <th>Tipo Documento</th> -->
-                                <!-- Eliminado: <th>R.U.C.</th> -->
-                                <th>Fecha Emisión</th>
-                                <th>Nro. Trámite</th>
-                                <th>Fecha Vigencia</th>
-                                <th>Fecha Fin Vigencia</th>
-                                <th>N° Póliza</th>
-                                <th>N° Contrato</th>
-                                <!--<th>Contratante</th> -->
-                                <th>Asegurado</th>
-                                <!-- Eliminado <th>Dirección</th> -->
-                                <th>Ramo</th>
-                                <th>Moneda</th>
-                                <th>Prima Neta</th>
-                                <th>Prima Total</th>
-                                <th>Monto</th>
-                                <!--Eliminado <th>Subagente</th> -->
-                                <!-- Eliminado<th>% Subagente</th> -->
-                                <th>% Compañía</th>
-                                <th class="actions-col">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="excelTableBody">
-                            <!-- Las filas se agregarán dinámicamente -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <div class="table-responsive">
+          <table class="table table-striped table-hover m-0 align-middle modern-table" id="extractTable">
+            <thead>
+              <tr>
+                <th>Póliza</th>
+                <th>Proforma/Recibo</th>
+                <th>Colectivo Asegurado</th>
+                <th>Ramo</th>
+                <th>Inicio Vigencia</th>
+                <th>Vencimiento</th>
+                <th>Moneda</th>
+                <th>Fecha Emisión</th>
+                <th>Forma Pago</th>
+                <th>Último Día Pago</th>
+                <th>Prima Comercial</th>
+                <th>Prima Neta</th>
+                <th>Prima + IGV</th>
+                <th class="actions-col">Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </div>
+        <div class="text-muted small mt-2" id="extractHint">Sube un PDF para ver información.</div>
+      </div>
+    </div>
+  </div>
 
-        <!-- Modal moderno para edición -->
-        <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-xl modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="editModalLabel">Editar datos del PDF</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <div class="form-floating">
-                                    <input id="edit_numero_proforma" type="text" class="form-control" placeholder="N° Proforma">
-                                    <label for="edit_numero_proforma">N° Proforma</label>
-                                </div>
-                            </div>
-                            <!-- Eliminado bloque de RUC -->
-                            <!-- <div class="col-md-3"><div class="form-floating"><input id="edit_ruc" type="text" class="form-control" placeholder="R.U.C."><label for="edit_ruc">R.U.C.</label></div></div> -->
-                            <div class="col-md-3">
-                                <div class="form-floating">
-                                    <input id="edit_emision" type="text" class="form-control" placeholder="Emisión">
-                                    <label for="edit_emision">Emisión</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-floating">
-                                    <input id="edit_nro_tramite" type="text" class="form-control" placeholder="Nro. Trámite">
-                                    <label for="edit_nro_tramite">Nro. Trámite</label>
-                                </div>
-                            </div>
-
-                            <div class="col-md-3"><div class="form-floating"><input id="edit_vigencia_desde" type="text" class="form-control" placeholder="Vigencia desde"><label for="edit_vigencia_desde">Vigencia desde</label></div></div>
-                            <div class="col-md-3"><div class="form-floating"><input id="edit_hasta" type="text" class="form-control" placeholder="Hasta"><label for="edit_hasta">Hasta</label></div></div>
-
-                            <div class="col-md-6"><div class="form-floating"><input id="edit_asegurado" type="text" class="form-control" placeholder="Asegurado"><label for="edit_asegurado">Asegurado</label></div></div>
-                            <!-- REMOVIDOS: cuatro inputs de Departamento, Provincia, Distrito, Teléfonos direccion , Subagente, CONTRATANTE -->
-                            <div class="col-md-4"><div class="form-floating"><input id="edit_ramo" type="text" class="form-control" placeholder="Ramo"><label for="edit_ramo">Ramo</label></div></div>
-                            <div class="col-md-4"><div class="form-floating"><input id="edit_moneda" type="text" class="form-control" placeholder="Moneda"><label for="edit_moneda">Moneda</label></div></div>
-                            <div class="col-md-4"><div class="form-floating"><input id="edit_prima_neta" type="text" class="form-control" placeholder="Prima Neta"><label for="edit_prima_neta">Prima Neta</label></div></div>
-
-                            <div class="col-md-4"><div class="form-floating"><input id="edit_prima_total" type="text" class="form-control" placeholder="Prima Total"><label for="edit_prima_total">Prima Total</label></div></div>
-                            <div class="col-md-4"><div class="form-floating"><input id="edit_monto" type="text" class="form-control" placeholder="Monto"><label for="edit_monto">Monto</label></div></div>
-                            <div class="col-md-4"><div class="form-floating"><input id="edit_porc_compania" type="text" class="form-control" placeholder="% Compañía"><label for="edit_porc_compania">% Compañía</label></div></div>
-
-                            <!-- Mover estos dentro del mismo .row g-3 -->
-                            <div class="col-md-3">
-                                <div class="form-floating">
-                                    <input id="edit_poliza" type="text" class="form-control" placeholder="Póliza N°">
-                                    <label for="edit_poliza">N° Póliza</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-floating">
-                                    <input id="edit_contrato_nro" type="text" class="form-control" placeholder="Contrato Nro">
-                                    <label for="edit_contrato_nro">N° Contrato</label>
-                                </div>
-                            </div>
-                            <div class="col-12">
-                                <label for="docSource" class="form-label">Proveedor (opcional)</label>
-                                <select id="docSource" class="form-select">
-                                    <option value="">Auto (detecta)</option>
-                                    <option value="MAPFRE">MAPFRE</option>
-                                    <option value="LA_POSITIVA_EPS">La Positiva EPS</option>
-                                    <option value="LA_POSITIVA_VIDA">La Positiva Vida</option>
-                                    <option value="LA_POSITIVA_SEGUROS">La Positiva Seguros</option>
-                                </select>
-                            </div>
-                            </div>
-                        </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button id="editSaveBtn" type="button" class="btn btn-primary btn-save">
-                            <i class="bi bi-check2-circle me-1"></i>Guardar cambios
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="card">
-            <div class="card-body p-0">
-                <table class="table table-striped table-hover m-0 text-uppercase">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Contratante</th>
-                            <th>N° Doc</th>
-                            <th>S. Agente</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Antes de cargar el JS, exponer el cliente seleccionado -->
-                        <script>
-                            window.selectedCliente = {{ (selected or {}) | tojson | safe }};
-                        </script>
-                        {% if selected and (selected.n_doc or selected.nombre or selected.razon_social) %}
-                        <tr class="table-primary">
-                            <td>{{ selected.nombre or selected.razon_social }}</td>
-                            <td>{{ selected.n_doc }}</td>
-                            <td>{{ selected.subagente }}</td>
-                        </tr>
-                        {% else %}
-                        {% for c in clientes_rows %}
-                        <tr>
-                            <td>{{ c.razon_social }}</td>
-                            <td>{{ c.n_doc }}</td>
-                            <td>{{ c.subagente }}</td>
-                        </tr>
-                        {% endfor %}
-                        {% if not clientes_rows %}
-                        <tr>
-                            <td colspan="3" class="text-center text-muted py-3">Sin clientes</td>
-                        </tr>
-                        {% endif %}
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </main>
-    <!-- Bootstrap JS para modales -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}"></script>
+  <script>
+    window.currentPage = "anadir-poliza";
+    window.selectedCliente = {{ selected|tojson }};
+    window.availableSubagentes = {{ clientes_rows | map(attribute='subagente') | list | tojson }};
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Dentro del bloque de scripts al final -->
+  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=12"></script>
 </body>
 </html>
