@@ -8,7 +8,74 @@
   const subAgenteTopEl = document.getElementById('subAgenteTop');
   let subAgenteEl = subAgenteTopEl || document.getElementById('subAgente');
 
-  let extractedItems = [];
+  // Ventana modal de carga
+  const loadingModalEl = document.getElementById('loadingModal');
+  const loadingModalMsgEl = document.getElementById('loadingModalMsg');
+  const loadingModalElapsedEl = document.getElementById('loadingModalElapsed');
+  let loadingModal, loadingInterval = null;
+  if (loadingModalEl && window.bootstrap) {
+    loadingModal = new bootstrap.Modal(loadingModalEl, { backdrop: 'static', keyboard: false });
+  }
+  function showLoading(msg) {
+    if (!loadingModal) return;
+    if (msg && loadingModalMsgEl) loadingModalMsgEl.textContent = msg;
+    loadingModal.show();
+    const start = performance.now();
+    clearInterval(loadingInterval);
+    loadingInterval = setInterval(() => {
+      const secs = ((performance.now() - start) / 1000).toFixed(1);
+      if (loadingModalElapsedEl) loadingModalElapsedEl.textContent = `${secs}s`;
+    }, 100);
+  }
+  function hideLoading() {
+    if (!loadingModal) return;
+    clearInterval(loadingInterval);
+    loadingInterval = null;
+    loadingModal.hide();
+  }
+
+  // NUEVO: SweetAlert2 modal como preferencia (tipo Angular Swal)
+  let swalInterval = null;
+  function openLoadingSwal(msg) {
+    if (window.Swal) {
+      Swal.fire({
+        title: msg || 'Procesando PDF…',
+        html: `
+          <div class="d-flex align-items-center gap-3">
+            <span class="spinner-border text-primary" role="status" aria-hidden="true"></span>
+            <div>Tiempo transcurrido: <b id="swalElapsed">0.0s</b></div>
+          </div>
+        `,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          const start = performance.now();
+          Swal.showLoading();
+          clearInterval(swalInterval);
+          swalInterval = setInterval(() => {
+            const secs = ((performance.now() - start) / 1000).toFixed(1);
+            const el = Swal.getHtmlContainer()?.querySelector('#swalElapsed');
+            if (el) el.textContent = `${secs}s`;
+          }, 100);
+        },
+        willClose: () => {
+          clearInterval(swalInterval);
+          swalInterval = null;
+        }
+      });
+    } else {
+      // Fallback al modal Bootstrap si no hay Swal
+      showLoading(msg || 'Procesando PDF…');
+    }
+  }
+  function closeLoadingSwal() {
+    if (window.Swal) {
+      Swal.close();
+    } else {
+      hideLoading();
+    }
+  }
 
   // render() y normalizeItem
   function ensureSubAgente() {
@@ -196,6 +263,15 @@
   btnUpload?.addEventListener('click', () => {
     const file = fileEl?.files?.[0];
     if (!file) { alert('Selecciona un PDF.'); return; }
+
+    // Mostrar ventana de carga tipo Swal
+    openLoadingSwal('Procesando PDF…');
+    const startTs = performance.now();
+    btnUpload.disabled = true;
+    issuerEl.disabled = true;
+    fileEl.disabled = true;
+    btnUpload.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Extrayendo…`;
+
     const fd = new FormData();
     fd.append('file', file);
     fd.append('issuer', issuerEl?.value || '');
@@ -207,7 +283,6 @@
         const payload = isJson ? await r.json() : await r.text();
         console.log('[upload] status:', r.status, 'payload:', payload);
 
-        // Mostrar trazas del servidor en consola del navegador
         if (payload && Array.isArray(payload.debug)) {
           payload.debug.forEach((line) => console.log('[server]', line));
         }
@@ -225,10 +300,23 @@
         }
         extractedItems = items;
         render(extractedItems);
+
+        const elapsed = ((performance.now() - startTs) / 1000).toFixed(2);
+        hint.textContent = items.length
+          ? `Se extrajeron ${items.length} ítem(s) en ${elapsed}s. Revisa y guarda.`
+          : `Sin datos. Procesado en ${elapsed}s.`;
       })
       .catch((err) => {
         console.error('[upload] fetch error:', err);
         alert('Error de red al extraer datos del PDF.');
+      })
+      .finally(() => {
+        // Ocultar ventana de carga y restaurar controles
+        closeLoadingSwal();
+        btnUpload.disabled = false;
+        issuerEl.disabled = false;
+        fileEl.disabled = false;
+        btnUpload.textContent = 'Extraer datos';
       });
   });
 

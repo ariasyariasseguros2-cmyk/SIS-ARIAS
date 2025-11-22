@@ -68,6 +68,14 @@
             <button id="btnSave" class="btn btn-success btn-sm" disabled>Guardar pólizas</button>
           </div>
         </div>
+    
+        <!-- Indicador de carga -->
+        <div id="extractLoading" class="alert alert-info py-2 d-flex align-items-center d-none">
+          <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          <span class="msg">Extrayendo datos…</span>
+          <span class="ms-auto small" id="extractElapsed"></span>
+        </div>
+    
         <div class="table-responsive">
           <table class="table table-striped table-hover m-0 align-middle modern-table" id="extractTable">
             <thead>
@@ -102,7 +110,10 @@
     window.availableSubagentes = {{ clientes_rows | map(attribute='subagente') | list | tojson }};
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <!-- Dentro del bloque de scripts al final -->
-  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=12"></script>
+
+<!-- SweetAlert2 (modal tipo Angular Swal) -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=15"></script>
 </body>
 </html>
