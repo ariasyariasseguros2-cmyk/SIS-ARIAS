@@ -89,21 +89,6 @@
       .find(el => el.textContent.toLowerCase().includes('cliente seleccionado'));
     if (!host) return;
 
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = `
-      <div class="d-flex gap-4 mt-2">
-        <div>
-          <span class="text-muted small">Sub Agente</span>
-          <select id="subAgente" class="form-select form-select-sm" style="min-width: 220px;">
-            <option value="">Selecciona...</option>
-            <option value="Arias y Arias">Arias y Arias</option>
-            <option value="Yuri Garcia">Yuri Garcia</option>
-          </select>
-        </div>
-      </div>
-    `;
-    host.appendChild(wrapper.firstElementChild);
-    subAgenteEl = document.getElementById('subAgente');
   }
 
   ensureSubAgente();

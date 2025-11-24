@@ -14,7 +14,7 @@
 
     <div class="card mb-3">
       <div class="card-body">
-        <!-- Dentro de la tarjeta de filtros superiores -->
+        <!-- Bloque de filtros superiores -->
         <div class="row g-3 align-items-end">
           <div class="col-md-3">
             <label class="form-label">Selecciona PDF de la póliza</label>
@@ -33,12 +33,8 @@
             <label class="form-label">Sub Agente</label>
             <select id="subAgenteTop" class="form-select">
               <option value="">Selecciona...</option>
-              <option value="Arias y Arias">Arias y Arias</option>
-              <option value="Yuri Garcia">Yuri Garcia</option>
-              {% for c in clientes_rows %}
-                {% if c.subagente %}
-                  <option value="{{ c.subagente }}">{{ c.subagente }}</option>
-                {% endif %}
+              {% for abbr in (subagentes_abbrs or []) %}
+                <option value="{{ abbr }}">{{ abbr }}</option>
               {% endfor %}
             </select>
           </div>
@@ -120,7 +116,7 @@
   <script>
     window.currentPage = "anadir-poliza";
     window.selectedCliente = {{ selected|tojson }};
-    window.availableSubagentes = {{ clientes_rows | map(attribute='subagente') | list | tojson }};
+    window.availableSubagentes = {{ subagentes_abbrs | tojson }};  // NUEVO: hidratar desde SP
     window.ramosAbbrs = {{ ramos_abbrs | tojson }};
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

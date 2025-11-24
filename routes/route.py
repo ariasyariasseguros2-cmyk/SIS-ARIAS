@@ -57,8 +57,9 @@ def menu_page(page):
     if page == 'anadir-poliza':
         from controllers.addPoliza import get_rows
         from controllers.cliente import get_clientes_data
-        from controllers.ramos import get_ramos  # NUEVO
-        from controllers.compania import get_aseguradoras  # NUEVO: asegurar import
+        from controllers.ramos import get_ramos
+        from controllers.compania import get_aseguradoras
+        from controllers.subagente import get_subagentes_abreviaciones  # NUEVO
         cli_data = get_clientes_data()
         selected = session.get('selected_cliente') or {}
 
@@ -83,8 +84,9 @@ def menu_page(page):
             rows=get_rows(),
             clientes_rows=cli_data['rows'],
             selected=selected,
-            ramos_abbrs=get_ramos(),              # se mantiene
-            aseguradoras_rows=get_aseguradoras()  # NUEVO: pasar proveedores a la vista
+            ramos_abbrs=get_ramos(),
+            aseguradoras_rows=get_aseguradoras(),
+            subagentes_abbrs=get_subagentes_abreviaciones()  # NUEVO
         )
 
     # Fallback: otras secciones usan el dashboard con etiqueta de sección
