@@ -57,6 +57,7 @@ def menu_page(page):
     if page == 'anadir-poliza':
         from controllers.addPoliza import get_rows
         from controllers.cliente import get_clientes_data
+        from controllers.ramos import get_ramos  # NUEVO
         cli_data = get_clientes_data()
         selected = session.get('selected_cliente') or {}
 
@@ -80,7 +81,8 @@ def menu_page(page):
             'view/anadir.poliza.html',
             rows=get_rows(),
             clientes_rows=cli_data['rows'],
-            selected=selected
+            selected=selected,
+            ramos_abbrs=get_ramos()  # NUEVO: pasar abreviaciones al template
         )
 
     # Fallback: otras secciones usan el dashboard con etiqueta de sección
@@ -146,7 +148,7 @@ def upload():
             "prima_neta": it.get("prima_neta"),
             "prima_total": it.get("prima_total") or it.get("monto"),
             "prima_comercial_igv": it.get("prima_comercial_igv") or it.get("prima_total") or it.get("monto"),
-            "ramo": it.get("ramo") or it.get("doc_tipo"),
+            "ramo": it.get("ramo") or it.get("doc_tipo"),  # <- REACTIVADO
         }
 
     if items and len(items) > 0:
@@ -338,39 +340,21 @@ def _parse_mapfre(text: str) -> Dict[str, str]:
 
 def _parse_positiva(text: str) -> List[Dict[str, str]]:
     items: List[Dict[str, str]] = []
-    # Detecta secciones por títulos
-    bloques = []
-    for title in [r"PROFORMA DE PAGO", r"Proforma de Cobertura \(Cobro\)", r"PROFORMA DE COBERTURA \(Cobro\)"]:
-        if re.search(title, text, re.IGNORECASE):
-            bloques.append(title)
-    # Si no detecta títulos, procesa como 1 bloque genérico
-    if not bloques:
-        bloques = [""]  # un solo bloque
 
-    # Extraer valores
-    numero_proforma = _find(r"N[uú]mero de Proforma\s*:\s*([0-9A-Z\-]+)", text)
-    poliza_nro = _find(r"P[oó]liza\s*Nro\s*:\s*([0-9A-Z\-]+)", text) or _find(r"P[oó]liza\s*N°\s*:\s*([0-9A-Z\-]+)", text)
-    vig_desde = _find(r"Vigencia Desde\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
-    vig_hasta = _find(r"Hasta\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text) or _find(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
-    moneda = _find(r"Moneda\s*:\s*([A-Za-z]+)", text)
-    emision = _find(r"Emisi[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
-    ramo = _find(r"Ramo\s*:\s*(.+)", text)
-    contratante = _find(r"Contratante\s*:\s*(.+)", text)
-    asegurado = _find(r"Asegurado\s*:\s*(.+)", text)
-    forma_pago = _find(r"Forma de Pago\s*:\s*(.+)", text)
-    ultimo_dia = _find(r"[ÚU]ltimo d[ií]a de Pago\s*:?[\s]*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
-
-    # Conceptos (antes buscábamos solo 'Prima Total'/'Prima Comercial')
-    prima_total = _money(_find(r"Prima Total\s*S?\/?\s*([0-9\.,]+)", text))
-    igv_val = _money(_find(r"Impuesto General a las Ventas\s*S?\/?\s*([0-9\.,]+)", text))
-    prima_comercial = _money(_find(r"Prima Comercial\s*S?\/?\s*([0-9\.,]+)", text)) or prima_total
-
-    # NUEVO: extraer desglose y la línea “Prima Comercial + IGV”
-    sobrevivencia = _money(_find(r"Sobrevivencia.*?S?\/?\s*([0-9\.,]+)", text, flags=re.IGNORECASE | re.DOTALL))
-    costos_emision = _money(_find(r"Costos?\s+de\s+Emisi[oó]n.*?S?\/?\s*([0-9\.,]+)", text, flags=re.IGNORECASE | re.DOTALL))
-    # si IGV no se detectó antes, intenta por 'IGV' simple
-    igv_val = igv_val or _money(_find(r"IGV.*?S?\/?\s*([0-9\.,]+)", text, flags=re.IGNORECASE | re.DOTALL))
-    total_plus_igv_line = _money(_find(r"Prima\s+Comercial\s*\+\s*IGV.*?S?\/?\s*([0-9\.,]+)", text, flags=re.IGNORECASE | re.DOTALL))
+    # Partir el PDF en bloques por títulos conocidos
+    markers = [r"PROFORMA DE PAGO", r"Proforma de Cobertura \(Cobro\)", r"PROFORMA DE COBERTURA \(Cobro\)"]
+    positions = []
+    for pat in markers:
+        for m in re.finditer(pat, text, re.IGNORECASE):
+            positions.append(m.start())
+    positions = sorted(set(positions))
+    blocks = []
+    if positions:
+        for i, start in enumerate(positions):
+            end = positions[i + 1] if i + 1 < len(positions) else len(text)
+            blocks.append(text[start:end])
+    else:
+        blocks = [text]
 
     def _sum(a: str | None, b: str | None) -> str | None:
         try:
@@ -378,41 +362,57 @@ def _parse_positiva(text: str) -> List[Dict[str, str]]:
         except Exception:
             return None
 
-    # Si no hay 'Prima Comercial', calcúlala del desglose
-    if not prima_comercial and (sobrevivencia or costos_emision):
-        prima_comercial = _sum(sobrevivencia, costos_emision)
+    for blk in blocks:
+        numero_proforma = _find(r"N[uú]mero de Proforma\s*:\s*([0-9A-Z\-]+)", blk)
+        poliza_nro = _find(r"P[oó]liza\s*Nro\s*:\s*([0-9A-Z\-]+)", blk) or _find(r"P[oó]liza\s*N°\s*:\s*([0-9A-Z\-]+)", blk) or _find(r"Poliza\s*:\s*([0-9A-Z\-]+)", blk)
+        contrato_nro = _find(r"Contrato\s+Nro\s*:\s*([0-9A-Z\-]+)", blk)
+        vig_desde = _find(r"Vigencia Desde\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
+        vig_hasta = _find(r"Hasta\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk) or _find(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
+        moneda = _find(r"Moneda\s*:\s*([A-Za-z]+)", blk)
+        emision = _find(r"Emisi[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
+        ramo = _find(r"Ramo\s*:\s*(.+)", blk)
+        contratante = _find(r"Contratante\s*:\s*(.+)", blk)
+        asegurado = _find(r"Asegurado\s*:\s*(.+)", blk)
+        forma_pago = _find(r"Forma de Pago\s*:\s*(.+)", blk)
+        ultimo_dia = _find(r"[ÚU]ltimo d[ií]a de Pago\s*:?[\s]*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
 
-    # Calcular / tomar “Prima Comercial + IGV”
-    total_con_igv = None
-    if total_plus_igv_line:
-        total_con_igv = total_plus_igv_line
-    elif prima_comercial and igv_val:
-        total_con_igv = _sum(prima_comercial, igv_val)
-    elif prima_total and igv_val:
-        total_con_igv = _sum(prima_total, igv_val)
+        prima_total = _money(_find(r"Prima Total\s*S?\/?\s*([0-9\.,]+)", blk))
+        igv_val = _money(_find(r"Impuesto General a las Ventas\s*S?\/?\s*([0-9\.,]+)", blk))
+        sobrevivencia = _money(_find(r"Sobrevivencia.*?S?\/?\s*([0-9\.,]+)", blk, flags=re.IGNORECASE | re.DOTALL))
+        costos_emision = _money(_find(r"Costos?\s+de\s+Emisi[oó]n.*?S?\/?\s*([0-9\.,]+)", blk, flags=re.IGNORECASE | re.DOTALL))
+        igv_val = igv_val or _money(_find(r"IGV.*?S?\/?\s*([0-9\.,]+)", blk, flags=re.IGNORECASE | re.DOTALL))
+        total_plus_igv_line = _money(_find(r"Prima\s+Comercial\s*\+\s*IGV.*?S?\/?\s*([0-9\.,]+)", blk, flags=re.IGNORECASE | re.DOTALL))
 
-    base = {
-        'numero_poliza': poliza_nro or _number(_find(r"Poliza\s*:\s*([0-9A-Z\-]+)", text)),
-        'recibo': numero_proforma,
-        'colectivo_asegurado': asegurado or contratante,
-        'inicio_vigencia': vig_desde,
-        'vencimiento': vig_hasta,
-        'moneda': moneda,
-        'fecha_emision': emision,
-        'forma_pago': forma_pago,
-        'ultimo_dia_pago': ultimo_dia,
-        'prima_comercial': prima_comercial or prima_total,
-        'prima_comercial_igv': total_con_igv or prima_total
-    }
+        prima_comercial = _money(_find(r"Prima Comercial\s*S?\/?\s*([0-9\.,]+)", blk)) or prima_total
+        if not prima_comercial and (sobrevivencia or costos_emision):
+            prima_comercial = _sum(sobrevivencia, costos_emision)
 
-    # Añadir siempre 'ramo' si existe; duplicar por bloques si corresponde
-    if bloques:
-        for b in bloques:
-            items.append({**base, **({'ramo': ramo} if ramo else {})})
-    else:
-        items.append({**base, **({'ramo': ramo} if ramo else {})})
+        total_con_igv = None
+        if total_plus_igv_line:
+            total_con_igv = total_plus_igv_line
+        elif prima_comercial and igv_val:
+            total_con_igv = _sum(prima_comercial, igv_val)
+        elif prima_total and igv_val:
+            total_con_igv = _sum(prima_total, igv_val)
 
-    return [{k: _clean(v) for k, v in it.items() if v} for it in items]
+        item = {
+            'numero_poliza': poliza_nro or contrato_nro,
+            'contrato_nro': contrato_nro,
+            'recibo': numero_proforma,
+            'colectivo_asegurado': asegurado or contratante,
+            'inicio_vigencia': vig_desde,
+            'vencimiento': vig_hasta,
+            'moneda': moneda,
+            'fecha_emision': emision,
+            'forma_pago': forma_pago,
+            'ultimo_dia_pago': ultimo_dia,
+            'prima_comercial': prima_comercial or prima_total,
+            'prima_comercial_igv': total_con_igv or prima_total,
+            'ramo': ramo
+        }
+        items.append({k: _clean(v) for k, v in item.items() if v})
+
+    return items
 
 def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Dict[str, str]]:
     text = _extract_text_fitz(path)

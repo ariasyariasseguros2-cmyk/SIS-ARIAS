@@ -1,4 +1,3 @@
-addpoliza.py
 
 def get_rows():
     # Filas de ayuda para la vista (placeholder)
@@ -11,8 +10,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
     # Aquí deberías insertar a DB. Por ahora validamos y devolvemos OK.
     if not items:
         return {"ok": False, "errors": ["No hay items para guardar."]}
-    # Ejemplo de normalización básica
-    normalized = []  # <- faltaba esta línea
+    normalized = []
     for it in items:
         normalized.append({
             "numero_poliza": it.get("numero_poliza"),
@@ -24,7 +22,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
             "fecha_emision": it.get("fecha_emision"),
             "forma_pago": it.get("forma_pago"),
             "ultimo_dia_pago": it.get("ultimo_dia_pago"),
-            "ramo": it.get("ramo"),
+            "ramo": it.get("ramo"),  # se mantiene guardado por fila
             "prima_comercial": it.get("prima_comercial"),
             "prima_neta": it.get("prima_neta"),
             "prima_total": it.get("prima_total"),

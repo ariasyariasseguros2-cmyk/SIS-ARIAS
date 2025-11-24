@@ -19,10 +19,12 @@
 :root {
     --brand: #0d6efd;
     --surface: #ffffff;
-    --header-bg: #1f7a3b; /* tono moderno del encabezado */
+    --header-bg: #1f7a3b;
     --header-fg: #ffffff;
     --row-hover: #f8fafc;
     --border-soft: #e9ecef;
+    --ramo-accent: #ffb100;       /* acento más contrastado */
+    --ramo-accent-bg: #fff6d6;    /* fondo más visible */
 }
 
 .card {
@@ -131,4 +133,43 @@
 }
 .form-floating > .form-control.is-invalid ~ label {
     color: #dc3545;
+}
+
+/* Encabezado Ramo con línea inferior de acento */
+.modern-table thead th.ramo-col {
+  background: var(--header-bg);
+  color: var(--header-fg);
+  border-bottom: 3px solid var(--ramo-accent);
+}
+
+/* Columna Ramo: más ancha para que el texto no se corte */
+.modern-table tbody td.ramo-col {
+  background: var(--ramo-accent-bg);
+  border-left: 3px solid var(--ramo-accent);
+  width: 240px; /* antes 180px */
+}
+
+/* Select de Ramo: texto grande, negrita y muy legible */
+.modern-table tbody td.ramo-col .form-select,
+.ramo-select {
+  border-color: var(--ramo-accent);
+  background-color: #fffdf3;
+  font-weight: 800;
+  font-size: 1.15rem;     /* más grande */
+  color: #0b132b;         /* más oscuro */
+  text-transform: uppercase;
+  letter-spacing: .2px;
+  padding: .5rem .75rem;  /* altura cómoda */
+}
+
+/* Focus notorio */
+.modern-table tbody td.ramo-col .form-select:focus {
+  box-shadow: 0 0 0 .28rem rgba(255, 177, 0, .25);
+  border-color: var(--ramo-accent);
+}
+
+/* Opciones dentro del desplegable también grandes */
+.ramo-select option {
+  font-size: 1.05rem;
+  font-weight: 700;
 }

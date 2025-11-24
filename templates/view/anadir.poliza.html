@@ -14,12 +14,13 @@
 
     <div class="card mb-3">
       <div class="card-body">
+        <!-- Dentro de la tarjeta de filtros superiores -->
         <div class="row g-3 align-items-end">
-          <div class="col-md-4">
+          <div class="col-md-3">
             <label class="form-label">Selecciona PDF de la póliza</label>
             <input id="pdfFile" type="file" accept=".pdf" class="form-control">
           </div>
-          <div class="col-md-3">
+          <div class="col-md-2">
             <label class="form-label">Proveedor</label>
             <select id="issuer" class="form-select">
               <option value="">Auto</option>
@@ -40,8 +41,19 @@
               {% endfor %}
             </select>
           </div>
+          <!-- REMOVIDO: bloque de Ramo superior
           <div class="col-md-2">
-            <button id="btnUpload" class="btn btn-primary">Extraer datos</button>
+            <label class="form-label">Ramo</label>
+            <select id="ramoTop" class="form-select">
+              <option value="">Selecciona...</option>
+              {% for abbr in (ramos_abbrs or []) %}
+                <option value="{{ abbr }}">{{ abbr }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          -->
+          <div class="col-md-2">
+            <button id="btnUpload" class="btn btn-primary w-100">Extraer datos</button>
           </div>
         </div>
       </div>
@@ -83,7 +95,7 @@
                 <th>Póliza</th>
                 <th>Proforma/Recibo</th>
                 <th>Colectivo Asegurado</th>
-                <th>Ramo</th>
+                <th class="ramo-col">Ramo</th>
                 <th>Inicio Vigencia</th>
                 <th>Vencimiento</th>
                 <th>Moneda</th>
@@ -108,6 +120,7 @@
     window.currentPage = "anadir-poliza";
     window.selectedCliente = {{ selected|tojson }};
     window.availableSubagentes = {{ clientes_rows | map(attribute='subagente') | list | tojson }};
+    window.ramosAbbrs = {{ ramos_abbrs | tojson }};
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 

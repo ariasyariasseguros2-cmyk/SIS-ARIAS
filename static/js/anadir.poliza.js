@@ -7,7 +7,10 @@
   const hint = document.getElementById('extractHint');
   const subAgenteTopEl = document.getElementById('subAgenteTop');
   let subAgenteEl = subAgenteTopEl || document.getElementById('subAgente');
+  // REMOVIDO: no usar selector superior de Ramo
+  // const ramoTopEl = document.getElementById('ramoTop');
 
+  let extractedItems = []; // asegurar variable global para render/autoguardado
   // Ventana modal de carga
   const loadingModalEl = document.getElementById('loadingModal');
   const loadingModalMsgEl = document.getElementById('loadingModalMsg');
@@ -165,14 +168,14 @@
     const hasRamo = headers.includes('ramo');
     const hasPrimaNeta = headers.includes('prima neta');
     const hasAcciones = headers.includes('acciones');
-    const expectedCount = 14;
+    const expectedCount = 14; // total de columnas con Ramo y Acciones
     if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
       thead.innerHTML = `
         <tr>
           <th>Póliza</th>
           <th>Proforma/Recibo</th>
           <th>Colectivo Asegurado</th>
-          <th>Ramo</th>
+          <th class="ramo-col">Ramo</th>
           <th>Inicio Vigencia</th>
           <th>Vencimiento</th>
           <th>Moneda</th>
@@ -189,6 +192,22 @@
   }
   ensureHeader();
 
+  // Helper: construir opciones del select de Ramo
+  function buildRamoOptions(selected) {
+    const abbrs = (window.ramosAbbrs || []).filter(x => !!x && x.trim() !== '');
+    const opts = [`<option value="">Selecciona...</option>`];
+    abbrs.forEach(val => {
+      const sel = (selected || '').trim() === val ? ' selected' : '';
+      opts.push(`<option value="${val}"${sel}>${val}</option>`);
+    });
+    return opts.join('');
+  }
+  function buildRamoSelect(selected) {
+    // Select tamaño normal (sin -sm) y con title para tooltip
+    const t = (selected || '').toString();
+    return `<select class="form-select ramo-select" title="${t.toUpperCase()}">${buildRamoOptions(selected)}</select>`;
+  }
+
   function render(items) {
     ensureHeader();
     tbody.innerHTML = '';
@@ -198,7 +217,7 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="numero_poliza">${it.numero_poliza || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="recibo">${it.recibo || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="colectivo_asegurado">${it.colectivo_asegurado || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="ramo">${it.ramo || ''}</td>
+        <td class="ramo-col" data-index="${idx}" data-field="ramo">${buildRamoSelect(it.ramo || '')}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="inicio_vigencia">${it.inicio_vigencia || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="vencimiento">${it.vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
@@ -210,9 +229,7 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${it.prima_comercial_igv || it.prima_total || it.monto || ''}</td>
         <td class="actions-col">
           <div class="actions-stack">
-            <button type="button" class="action-btn btn-del js-del" data-index="${idx}">
-              Eliminar
-            </button>
+            <button type="button" class="action-btn btn-del js-del" data-index="${idx}">Eliminar</button>
           </div>
         </td>
       `;
@@ -222,43 +239,87 @@
     hint.textContent = items.length ? `Se extrajeron ${items.length} item(s). Revisa y guarda.` : 'Sube un PDF para ver información.';
   }
 
-  // Borrado de fila con delegación
-  tbody.addEventListener('click', (e) => {
-    const btn = e.target.closest('.js-del');
-    if (!btn) return;
-    const idx = parseInt(btn.getAttribute('data-index'), 10);
-    if (Number.isNaN(idx)) return;
-    extractedItems.splice(idx, 1);
-    render(extractedItems);
-  });
+  // render() y normalizeItem
 
-  // Eliminar tabla completa
-  document.getElementById('btnClear')?.addEventListener('click', () => {
-    if (!extractedItems.length) { alert('No hay datos para eliminar.'); return; }
-    if (!confirm('¿Eliminar todos los ítems de la tabla?')) return;
-    extractedItems = [];
-    render(extractedItems);
-  });
-
-  // Normalizador defensivo en el cliente (sin mezclar neta en comercial)
+  // NEW: normalize payload item to UI schema
   function normalizeItem(it) {
+    const get = (k) => (it?.[k] ?? '').toString().trim();
     return {
-      numero_poliza: it.numero_poliza || it.poliza || it.folio_id || it.contrato_nro || '',
-      recibo: it.recibo || it.numero_proforma || it.nro_tramite || '',
-      colectivo_asegurado: it.colectivo_asegurado || it.asegurado || it.contratante || '',
-      ramo: it.ramo || it.doc_tipo || '',
-      inicio_vigencia: it.inicio_vigencia || it.vigencia_desde || '',
-      vencimiento: it.vencimiento || it.vigencia_hasta || it.hasta || '',
-      moneda: it.moneda || '',
-      fecha_emision: it.fecha_emision || it.emision || '',
-      forma_pago: it.forma_pago || '',
-      ultimo_dia_pago: it.ultimo_dia_pago || '',
-      prima_comercial: it.prima_comercial || '',
-      prima_neta: it.prima_neta || '',
-      prima_total: it.prima_total || it.monto || '',
-      prima_comercial_igv: it.prima_comercial_igv || it.prima_total || it.monto || '',
+      numero_poliza: get('numero_poliza') || get('poliza') || get('folio_id') || get('contrato_nro'),
+      recibo: get('recibo') || get('numero_proforma') || get('nro_tramite'),
+      colectivo_asegurado: get('colectivo_asegurado') || get('asegurado') || get('contratante'),
+      inicio_vigencia: get('inicio_vigencia') || get('vigencia_desde'),
+      vencimiento: get('vencimiento') || get('vigencia_hasta') || get('hasta'),
+      moneda: get('moneda'),
+      fecha_emision: get('fecha_emision') || get('emision'),
+      forma_pago: get('forma_pago'),
+      ultimo_dia_pago: get('ultimo_dia_pago'),
+      prima_comercial: get('prima_comercial'),
+      prima_neta: get('prima_neta'),
+      prima_total: get('prima_total') || get('monto'),
+      prima_comercial_igv: get('prima_comercial_igv') || get('prima_total') || get('monto'),
+      ramo: get('ramo') || get('doc_tipo')
     };
   }
+
+  // Helper: construir opciones del select de Ramo (se mantiene para la tabla por fila)
+  function buildRamoOptions(selected) {
+    const abbrs = (window.ramosAbbrs || []).filter(x => !!x && x.trim() !== '');
+    const opts = [`<option value="">Selecciona...</option>`];
+    abbrs.forEach(val => {
+      const sel = (selected || '').trim() === val ? ' selected' : '';
+      opts.push(`<option value="${val}"${sel}>${val}</option>`);
+    });
+    return opts.join('');
+  }
+  function buildRamoSelect(selected) {
+    return `<select class="form-select form-select-sm ramo-select">${buildRamoOptions(selected)}</select>`;
+  }
+
+  function render(items) {
+    ensureHeader();
+    tbody.innerHTML = '';
+    items.forEach((it, idx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="numero_poliza">${it.numero_poliza || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="recibo">${it.recibo || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="colectivo_asegurado">${it.colectivo_asegurado || ''}</td>
+        <td data-index="${idx}" data-field="ramo">${buildRamoSelect(it.ramo || '')}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="inicio_vigencia">${it.inicio_vigencia || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="vencimiento">${it.vencimiento || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="forma_pago">${it.forma_pago || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${it.prima_neta || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${it.prima_comercial_igv || it.prima_total || it.monto || ''}</td>
+        <td class="actions-col">
+          <div class="actions-stack">
+            <button type="button" class="action-btn btn-del js-del" data-index="${idx}">Eliminar</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    btnSave.disabled = items.length === 0;
+    hint.textContent = items.length ? `Se extrajeron ${items.length} item(s). Revisa y guarda.` : 'Sube un PDF para ver información.';
+  }
+
+  // Delegación: cambios en el select por fila (se mantiene)
+  tbody.addEventListener('change', (e) => {
+    const sel = e.target.closest('.ramo-select');
+    if (!sel) return;
+    const td = sel.closest('td');
+    const idx = Number(td?.dataset?.index);
+    if (!Number.isFinite(idx)) return;
+    extractedItems[idx].ramo = sel.value || '';
+    scheduleAutoSave();
+  });
+
+  // Al cambiar el Ramo superior, completar sólo filas sin valor
+  // ramoTopEl?.addEventListener('change', (e) => { ... }); // <- REMOVIDO
 
   btnUpload?.addEventListener('click', () => {
     const file = fileEl?.files?.[0];
@@ -294,10 +355,15 @@
 
         let items = [];
         if (payload.items && Array.isArray(payload.items)) {
-          items = payload.items.map(normalizeItem);
+          items = payload.items.map(normalizeItem); // FIX: function now exists
         } else if (payload.fields && typeof payload.fields === 'object') {
           items = [normalizeItem(payload.fields)];
         }
+
+        // NUEVO (REMOVIDO): no aplicar valor por defecto desde un selector superior de Ramo
+        // const ramoTop = ramoTopEl?.value || '';
+        // if (ramoTop) { items = items.map(it => { if (!it.ramo?.trim()) it.ramo = ramoTop; return it; }); }
+
         extractedItems = items;
         render(extractedItems);
 
@@ -332,7 +398,7 @@
     const hasRamo = headers.includes('ramo');
     const hasPrimaNeta = headers.includes('prima neta');
     const hasAcciones = headers.includes('acciones');
-    const expectedCount = 14;
+    const expectedCount = 14; // FIX: 14 columnas incluyendo Ramo
     if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
       thead.innerHTML = `
         <tr>
