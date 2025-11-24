@@ -58,6 +58,7 @@ def menu_page(page):
         from controllers.addPoliza import get_rows
         from controllers.cliente import get_clientes_data
         from controllers.ramos import get_ramos  # NUEVO
+        from controllers.compania import get_aseguradoras  # NUEVO: asegurar import
         cli_data = get_clientes_data()
         selected = session.get('selected_cliente') or {}
 
@@ -82,7 +83,8 @@ def menu_page(page):
             rows=get_rows(),
             clientes_rows=cli_data['rows'],
             selected=selected,
-            ramos_abbrs=get_ramos()  # NUEVO: pasar abreviaciones al template
+            ramos_abbrs=get_ramos(),              # se mantiene
+            aseguradoras_rows=get_aseguradoras()  # NUEVO: pasar proveedores a la vista
         )
 
     # Fallback: otras secciones usan el dashboard con etiqueta de sección

@@ -24,8 +24,9 @@
             <label class="form-label">Proveedor</label>
             <select id="issuer" class="form-select">
               <option value="">Auto</option>
-              <option value="positiva">La Positiva</option>
-              <option value="mapfre">MAPFRE</option>
+              {% for a in (aseguradoras_rows or []) %}
+                <option value="{{ a.slug }}">{{ a.nombre_corto }}</option>
+              {% endfor %}
             </select>
           </div>
           <div class="col-md-3">
