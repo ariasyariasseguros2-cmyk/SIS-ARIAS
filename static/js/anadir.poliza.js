@@ -6,6 +6,8 @@
   const tbody = document.querySelector('#extractTable tbody');
   const hint = document.getElementById('extractHint');
   const subAgenteTopEl = document.getElementById('subAgenteTop');
+  const ejecutivoTopEl = document.getElementById('ejecutivoTop');
+  const estadoTopEl = document.getElementById('estadoTop');
   let subAgenteEl = subAgenteTopEl || document.getElementById('subAgente');
   // REMOVIDO: no usar selector superior de Ramo
   // const ramoTopEl = document.getElementById('ramoTop');
@@ -153,7 +155,7 @@
     const hasRamo = headers.includes('ramo');
     const hasPrimaNeta = headers.includes('prima neta');
     const hasAcciones = headers.includes('acciones');
-    const expectedCount = 14; // total de columnas con Ramo y Acciones
+    const expectedCount = 13; // sin columna de Forma/Tipo Pago
     if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
       thead.innerHTML = `
         <tr>
@@ -165,7 +167,7 @@
           <th>Vencimiento</th>
           <th>Moneda</th>
           <th>Fecha Emisión</th>
-          <th>Forma Pago</th>
+          <!-- REMOVIDO: Tipo/Forma Pago -->
           <th>Último Día Pago</th>
           <th>Prima Comercial</th>
           <th>Prima Neta</th>
@@ -195,6 +197,10 @@
 
   function render(items) {
     ensureHeader();
+    const tbody = document.querySelector('#extractTable tbody');
+    const btnSave = document.getElementById('btnSave');
+    const hint = document.getElementById('extractHint');
+
     tbody.innerHTML = '';
     items.forEach((it, idx) => {
       const tr = document.createElement('tr');
@@ -207,7 +213,7 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="vencimiento">${it.vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="forma_pago">${it.forma_pago || ''}</td>
+        <!-- REMOVIDO: columna de Forma/Tipo Pago -->
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${it.prima_neta || ''}</td>
@@ -237,13 +243,13 @@
       vencimiento: get('vencimiento') || get('vigencia_hasta') || get('hasta'),
       moneda: get('moneda'),
       fecha_emision: get('fecha_emision') || get('emision'),
-      forma_pago: get('forma_pago'),
       ultimo_dia_pago: get('ultimo_dia_pago'),
       prima_comercial: get('prima_comercial'),
       prima_neta: get('prima_neta'),
       prima_total: get('prima_total') || get('monto'),
       prima_comercial_igv: get('prima_comercial_igv') || get('prima_total') || get('monto'),
-      ramo: get('ramo') || get('doc_tipo')
+      ramo: get('ramo') || get('doc_tipo'),
+      estado: get('estado') || '' // NUEVO
     };
   }
 
@@ -275,7 +281,6 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="vencimiento">${it.vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="forma_pago">${it.forma_pago || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${it.prima_neta || ''}</td>
@@ -345,9 +350,14 @@
           items = [normalizeItem(payload.fields)];
         }
 
-        // NUEVO (REMOVIDO): no aplicar valor por defecto desde un selector superior de Ramo
-        // const ramoTop = ramoTopEl?.value || '';
-        // if (ramoTop) { items = items.map(it => { if (!it.ramo?.trim()) it.ramo = ramoTop; return it; }); }
+        // Aplicar Tipo de Pago + Estado globales
+        const tipoPago = tipoPagoTopEl?.value || '';
+        const estado = estadoTopEl?.value || 'PENDIENTE';
+        items = items.map(it => ({
+          ...it,
+          forma_pago: tipoPago || it.forma_pago || '',
+          estado: estado || it.estado || 'PENDIENTE'
+        }));
 
         extractedItems = items;
         render(extractedItems);
@@ -395,7 +405,6 @@
           <th>Vencimiento</th>
           <th>Moneda</th>
           <th>Fecha Emisión</th>
-          <th>Forma Pago</th>
           <th>Último Día Pago</th>
           <th>Prima Comercial</th>
           <th>Prima Neta</th>
@@ -479,4 +488,55 @@
     })
     .catch(() => alert('Error al guardar.'));
   });
+
+  // NUEVO: cambio de Estado aplica a todas las filas y guarda
+  estadoTopEl?.addEventListener('change', (e) => {
+    const estado = e.target.value || 'PENDIENTE';
+    extractedItems = (extractedItems || []).map(it => ({ ...it, estado }));
+    render(extractedItems);
+    scheduleAutoSave();
+  });
+  // Opcional: persistir Ejecutivo seleccionado en memoria del cliente
+  ejecutivoTopEl?.addEventListener('change', (e) => {
+    window.selectedCliente = window.selectedCliente || {};
+    window.selectedCliente.ejecutivo = e.target.value || '';
+  });
+  // Cuando cambie Tipo de Pago global, actualizar todas las filas y autoguardar
+  tipoPagoTopEl?.addEventListener('change', (e) => {
+    const val = e.target.value || '';
+    extractedItems = (extractedItems || []).map(it => ({ ...it, forma_pago: val }));
+    render(extractedItems);
+    scheduleAutoSave();
+  });
+
+  // Asegurar encabezado sin columna Forma/Tipo Pago
+  function ensureHeader() {
+    const thead = document.querySelector('#extractTable thead');
+    if (!thead) return;
+    const headers = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase());
+    const hasRamo = headers.includes('ramo');
+    const hasPrimaNeta = headers.includes('prima neta');
+    const hasAcciones = headers.includes('acciones');
+    const expectedCount = 13; // sin columna Forma/Tipo Pago
+    if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
+      thead.innerHTML = `
+        <tr>
+          <th>Póliza</th>
+          <th>Proforma/Recibo</th>
+          <th>Colectivo Asegurado</th>
+          <th class="ramo-col">Ramo</th>
+          <th>Inicio Vigencia</th>
+          <th>Vencimiento</th>
+          <th>Moneda</th>
+          <th>Fecha Emisión</th>
+          <th>Último Día Pago</th>
+          <th>Prima Comercial</th>
+          <th>Prima Neta</th>
+          <th>Prima + IGV</th>
+          <th class="actions-col">Acciones</th>
+        </tr>
+      `;
+    }
+  }
+  ensureHeader();
 })();

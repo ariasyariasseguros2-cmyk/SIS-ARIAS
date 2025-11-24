@@ -27,6 +27,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
             "prima_neta": it.get("prima_neta"),
             "prima_total": it.get("prima_total"),
             "prima_comercial_igv": it.get("prima_comercial_igv"),
+            "estado": it.get("estado"),  # NUEVO
             "cliente": (selected or {}).get("razon_social") or (selected or {}).get("nombre"),
             "n_doc": (selected or {}).get("n_doc"),
             "subagente": (selected or {}).get("subagente"),

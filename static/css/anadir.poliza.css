@@ -173,3 +173,155 @@
   font-size: 1.05rem;
   font-weight: 700;
 }
+
+/* Cuadro inferior de filtros y carga */
+.filter-card {
+  border: 1px solid var(--border-soft);
+}
+.filter-card .form-label {
+  font-weight: 600;
+}
+/* Cuadro superior de carga (PDF + botón) */
+.upload-card {
+  border: 1px solid var(--border-soft);
+}
+
+/* Cuadro aparte para Proveedor / Sub Agente / Tipo de Pago */
+.inline-filter-card {
+  background: #f8fafc;
+  border: 1px solid var(--border-soft);
+}
+.inline-filter-card .form-label {
+  font-weight: 600;
+  margin-bottom: .25rem;
+}
+.inline-filter-card .form-select {
+  border-radius: .5rem;
+}
+.inline-filter-card .row > [class*="col-"] {
+  min-width: 180px;
+}
+.inline-filter-card .form-select {
+  height: calc(2.5rem + 2px);
+}
+
+/* Mantener estilos previos */
+.modern-table tbody tr:hover {
+    background: var(--row-hover);
+}
+
+.actions-col { width: 130px; }
+
+/* Botones de Acciones: diseño compacto y moderno */
+.actions-stack {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    align-items: flex-end;
+}
+.action-btn {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 999px;
+    padding: .35rem .6rem;
+    font-weight: 500;
+    color: #222;
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    line-height: 1;
+    transition: .2s ease-in-out;
+}
+.action-btn i { font-size: 1rem; }
+.action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+
+/* Variantes por acción */
+.btn-view { color: #495057; border-color: #adb5bd; }
+.btn-view:hover { background: #f1f3f5; }
+
+.btn-edit { color: var(--brand); border-color: rgba(13,110,253,.35); }
+.btn-edit:hover { background: rgba(13,110,253,.08); }
+
+.btn-del { color: #c41e3a; border-color: rgba(196,30,58,.35); }
+.btn-del:hover { background: rgba(196,30,58,.08); }
+
+/* Guardar cambios */
+.btn-save {
+    border-radius: 999px;
+    padding: .6rem 1rem;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(13,110,253,.25);
+}
+.btn-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(13,110,253,.3);
+}
+
+/* Pie del modal cómodo y visible */
+.modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: var(--surface);
+}
+
+/* Responsivo: acciones en fila en pantallas pequeñas */
+@media (max-width: 576px) {
+    .actions-stack {
+        flex-direction: row;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: .5rem;
+    }
+}
+.btn-modern { border-radius: 999px; }
+
+/* Mostrar rojo solo en el modal usando Bootstrap .is-invalid */
+.form-control.is-invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 .2rem rgba(220,53,69,.08);
+}
+.form-floating > .form-control.is-invalid ~ label {
+    color: #dc3545;
+}
+
+/* Encabezado Ramo con línea inferior de acento */
+.modern-table thead th.ramo-col {
+  background: var(--header-bg);
+  color: var(--header-fg);
+  border-bottom: 3px solid var(--ramo-accent);
+}
+
+/* Columna Ramo: más ancha para que el texto no se corte */
+.modern-table tbody td.ramo-col {
+  background: var(--ramo-accent-bg);
+  border-left: 3px solid var(--ramo-accent);
+  width: 240px; /* antes 180px */
+}
+
+/* Select de Ramo: texto grande, negrita y muy legible */
+.modern-table tbody td.ramo-col .form-select,
+.ramo-select {
+  border-color: var(--ramo-accent);
+  background-color: #fffdf3;
+  font-weight: 800;
+  font-size: 1.15rem;     /* más grande */
+  color: #0b132b;         /* más oscuro */
+  text-transform: uppercase;
+  letter-spacing: .2px;
+  padding: .5rem .75rem;  /* altura cómoda */
+}
+
+/* Focus notorio */
+.modern-table tbody td.ramo-col .form-select:focus {
+  box-shadow: 0 0 0 .28rem rgba(255, 177, 0, .25);
+  border-color: var(--ramo-accent);
+}
+
+/* Opciones dentro del desplegable también grandes */
+.ramo-select option {
+  font-size: 1.05rem;
+  font-weight: 700;
+}

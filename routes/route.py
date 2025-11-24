@@ -60,6 +60,7 @@ def menu_page(page):
         from controllers.ramos import get_ramos
         from controllers.compania import get_aseguradoras
         from controllers.subagente import get_subagentes_abreviaciones  # NUEVO
+        from controllers.ejecutivos import get_ejecutivos               # NUEVO
         cli_data = get_clientes_data()
         selected = session.get('selected_cliente') or {}
 
@@ -86,7 +87,8 @@ def menu_page(page):
             selected=selected,
             ramos_abbrs=get_ramos(),
             aseguradoras_rows=get_aseguradoras(),
-            subagentes_abbrs=get_subagentes_abreviaciones()  # NUEVO
+            subagentes_abbrs=get_subagentes_abreviaciones(),  # NUEVO
+            ejecutivos_rows=get_ejecutivos()                  # NUEVO
         )
 
     # Fallback: otras secciones usan el dashboard con etiqueta de sección
