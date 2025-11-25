@@ -28,6 +28,12 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
             "prima_total": it.get("prima_total"),
             "prima_comercial_igv": it.get("prima_comercial_igv"),
             "estado": it.get("estado"),  # NUEVO
+            # NUEVO: campos de comisiones
+            "comision_compania_pct": it.get("comision_compania_pct"),
+            "comision_compania_importe": it.get("comision_compania_importe"),
+            "comision_subagente_pct": it.get("comision_subagente_pct"),
+            "comision_subagente_importe": it.get("comision_subagente_importe"),
+            # cliente seleccionado
             "cliente": (selected or {}).get("razon_social") or (selected or {}).get("nombre"),
             "n_doc": (selected or {}).get("n_doc"),
             "subagente": (selected or {}).get("subagente"),

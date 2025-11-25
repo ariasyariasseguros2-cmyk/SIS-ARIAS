@@ -8,6 +8,12 @@
   const subAgenteTopEl = document.getElementById('subAgenteTop');
   const ejecutivoTopEl = document.getElementById('ejecutivoTop');
   const estadoTopEl = document.getElementById('estadoTop');
+  const tipoPagoTopEl = document.getElementById('tipoPagoTop');
+  // NUEVO: campos de comisiones
+  const pctComCompaniaEl   = document.getElementById('pctComCompania');
+  const impComCompaniaEl   = document.getElementById('impComCompania');
+  const pctComSubAgenteEl  = document.getElementById('pctComSubAgente');
+  const impComSubAgenteEl  = document.getElementById('impComSubAgente');
   let subAgenteEl = subAgenteTopEl || document.getElementById('subAgente');
   // REMOVIDO: no usar selector superior de Ramo
   // const ramoTopEl = document.getElementById('ramoTop');
@@ -345,18 +351,27 @@
 
         let items = [];
         if (payload.items && Array.isArray(payload.items)) {
-          items = payload.items.map(normalizeItem); // FIX: function now exists
+          items = payload.items.map(normalizeItem);
         } else if (payload.fields && typeof payload.fields === 'object') {
           items = [normalizeItem(payload.fields)];
         }
 
-        // Aplicar Tipo de Pago + Estado globales
+        // Aplicar Tipo de Pago + Estado + Comisiones globales
         const tipoPago = tipoPagoTopEl?.value || '';
-        const estado = estadoTopEl?.value || 'PENDIENTE';
+        const estado   = estadoTopEl?.value || 'PENDIENTE';
+        const pctCC    = pctComCompaniaEl?.value || '';
+        const impCC    = impComCompaniaEl?.value || '';
+        const pctSA    = pctComSubAgenteEl?.value || '';
+        const impSA    = impComSubAgenteEl?.value || '';
+
         items = items.map(it => ({
           ...it,
           forma_pago: tipoPago || it.forma_pago || '',
-          estado: estado || it.estado || 'PENDIENTE'
+          estado: estado || it.estado || 'PENDIENTE',
+          comision_compania_pct: pctCC,
+          comision_compania_importe: impCC,
+          comision_subagente_pct: pctSA,
+          comision_subagente_importe: impSA
         }));
 
         extractedItems = items;
