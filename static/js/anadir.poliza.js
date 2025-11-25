@@ -175,8 +175,8 @@
           <th>Fecha Emisión</th>
           <!-- REMOVIDO: Tipo/Forma Pago -->
           <th>Último Día Pago</th>
-          <th>Prima Comercial</th>
           <th>Prima Neta</th>
+          <th>Prima Comercial</th>
           <th>Prima + IGV</th>
           <th class="actions-col">Acciones</th>
         </tr>
@@ -221,8 +221,8 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
         <!-- REMOVIDO: columna de Forma/Tipo Pago -->
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${it.prima_neta || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${it.prima_comercial_igv || it.prima_total || it.monto || ''}</td>
         <td class="actions-col">
           <div class="actions-stack">
@@ -288,8 +288,8 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${it.prima_neta || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${it.prima_comercial_igv || it.prima_total || it.monto || ''}</td>
         <td class="actions-col">
           <div class="actions-stack">
@@ -421,8 +421,8 @@
           <th>Moneda</th>
           <th>Fecha Emisión</th>
           <th>Último Día Pago</th>
-          <th>Prima Comercial</th>
           <th>Prima Neta</th>
+          <th>Prima Comercial</th>
           <th>Prima + IGV</th>
           <th class="actions-col">Acciones</th>
         </tr>
@@ -545,8 +545,8 @@
           <th>Moneda</th>
           <th>Fecha Emisión</th>
           <th>Último Día Pago</th>
-          <th>Prima Comercial</th>
           <th>Prima Neta</th>
+          <th>Prima Comercial</th>
           <th>Prima + IGV</th>
           <th class="actions-col">Acciones</th>
         </tr>
