@@ -14,13 +14,18 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
     for it in items:
         # Calcular prima_neta = prima_comercial / 1.03
         prima_comercial_str = it.get("prima_comercial")
+        prima_neta_str = it.get("prima_neta")
         prima_neta_calc = None
+        prima_comercial_calc = None
         try:
             if prima_comercial_str:
                 val = float(str(prima_comercial_str).replace(',', '.').replace(' ', ''))
                 prima_neta_calc = f"{(val / 1.03):.2f}"
+            elif prima_neta_str:
+                val = float(str(prima_neta_str).replace(',', '.').replace(' ', ''))
+                prima_comercial_calc = f"{(val * 1.03):.2f}"
         except Exception:
-            prima_neta_calc = None
+            pass
 
         normalized.append({
             "numero_poliza": it.get("numero_poliza"),
@@ -32,13 +37,12 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
             "fecha_emision": it.get("fecha_emision"),
             "forma_pago": it.get("forma_pago"),
             "ultimo_dia_pago": it.get("ultimo_dia_pago"),
-            "ramo": it.get("ramo"),  # se mantiene guardado por fila
-            "prima_comercial": it.get("prima_comercial"),
+            "ramo": it.get("ramo"),
+            "prima_comercial": prima_comercial_calc if prima_comercial_calc is not None else it.get("prima_comercial"),
             "prima_neta": prima_neta_calc if prima_neta_calc is not None else it.get("prima_neta"),
             "prima_total": it.get("prima_total"),
             "prima_comercial_igv": it.get("prima_comercial_igv"),
-            "estado": it.get("estado"),  # NUEVO
-            # NUEVO: campos de comisiones
+            "estado": it.get("estado"),
             "comision_compania_pct": it.get("comision_compania_pct"),
             "comision_compania_importe": it.get("comision_compania_importe"),
             "comision_subagente_pct": it.get("comision_subagente_pct"),

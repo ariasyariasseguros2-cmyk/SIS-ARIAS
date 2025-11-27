@@ -156,11 +156,15 @@ def upload():
             "prima_comercial_igv": it.get("prima_comercial_igv") or it.get("prima_total") or it.get("monto"),
             "ramo": it.get("ramo") or it.get("doc_tipo"),  # <- REACTIVADO
         }
-        # Prima Neta = Prima Comercial / 1.03
+        # Si hay Prima Comercial, derive Prima Neta
         try:
             if res["prima_comercial"]:
                 val = float(str(res["prima_comercial"]).replace(',', '.').replace(' ', ''))
                 res["prima_neta"] = f"{(val / 1.03):.2f}"
+            # NUEVO: si falta Prima Comercial pero hay Prima Neta, derive Comercial
+            elif res["prima_neta"]:
+                val = float(str(res["prima_neta"]).replace(',', '.').replace(' ', ''))
+                res["prima_comercial"] = f"{(val * 1.03):.2f}"
         except Exception:
             pass
         return res
@@ -219,6 +223,15 @@ def upload():
         if pc:
             val = float(str(pc).replace(',', '.').replace(' ', ''))
             extracted['prima_neta'] = f"{(val / 1.03):.2f}"
+    except Exception:
+        pass
+
+    # NUEVO: si solo vino prima_neta, derive prima_comercial
+    try:
+        pn = extracted.get('prima_neta')
+        if pn and not extracted.get('prima_comercial'):
+            val = float(str(pn).replace(',', '.').replace(' ', ''))
+            extracted['prima_comercial'] = f"{(val * 1.03):.2f}"
     except Exception:
         pass
 

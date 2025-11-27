@@ -242,21 +242,29 @@
   function computePrimaNetaFromComercial(val) {
     const raw = (val || '').toString().trim();
     if (!raw) return '';
-    const num = parseFloat(
-      raw
-        .replace(/[^\d.,-]/g, '') // quita letras/monedas
-        .replace(',', '.')        // normaliza coma a punto
-    );
+    const num = parseFloat(raw.replace(/[^\d.,-]/g, '').replace(',', '.'));
     if (!Number.isFinite(num)) return '';
     return (num / 1.03).toFixed(2);
   }
 
-  // NUEVO: mover normalizeItem dentro del IIFE para acceder al helper anterior
+  // NUEVO: calcula Prima Comercial desde Prima Neta (val*1.03, con 2 decimales)
+  function computePrimaComercialFromNeta(val) {
+    const raw = (val || '').toString().trim();
+    if (!raw) return '';
+    const num = parseFloat(raw.replace(/[^\d.,-]/g, '').replace(',', '.'));
+    if (!Number.isFinite(num)) return '';
+    return (num * 1.03).toFixed(2);
+  }
+
+  // normalizeItem: fuerza ambos cálculos según el dato disponible
   function normalizeItem(src) {
     const it = { ...src };
+    // Si vino prima_comercial, derive prima_neta
     const neta = computePrimaNetaFromComercial(it.prima_comercial);
-    if (neta) {
-      it.prima_neta = neta;
+    if (neta) it.prima_neta = neta;
+    // Si falta prima_comercial pero hay prima_neta, derive comercial
+    if (!it.prima_comercial && it.prima_neta) {
+      it.prima_comercial = computePrimaComercialFromNeta(it.prima_neta);
     }
     return it;
   }
@@ -486,6 +494,13 @@
       extractedItems[idx]['prima_neta'] = neta;
       const netCell = tbody.querySelector(`td.editable[data-index="${idx}"][data-field="prima_neta"]`);
       if (netCell) netCell.textContent = neta;
+    }
+    // NUEVO: si cambia la Prima Neta, recalcular Prima Comercial y actualizar la celda
+    if (field === 'prima_neta') {
+      const comercial = computePrimaComercialFromNeta(val);
+      extractedItems[idx]['prima_comercial'] = comercial;
+      const comCell = tbody.querySelector(`td.editable[data-index="${idx}"][data-field="prima_comercial"]`);
+      if (comCell) comCell.textContent = comercial;
     }
 
     scheduleAutoSave();
