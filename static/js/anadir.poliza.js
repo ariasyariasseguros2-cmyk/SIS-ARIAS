@@ -238,25 +238,27 @@
 
   // render() y normalizeItem
 
-  // NEW: normalize payload item to UI schema
-  function normalizeItem(it) {
-    const get = (k) => (it?.[k] ?? '').toString().trim();
-    return {
-      numero_poliza: get('numero_poliza') || get('poliza') || get('folio_id') || get('contrato_nro'),
-      recibo: get('recibo') || get('numero_proforma') || get('nro_tramite'),
-      colectivo_asegurado: get('colectivo_asegurado') || get('asegurado') || get('contratante'),
-      inicio_vigencia: get('inicio_vigencia') || get('vigencia_desde'),
-      vencimiento: get('vencimiento') || get('vigencia_hasta') || get('hasta'),
-      moneda: get('moneda'),
-      fecha_emision: get('fecha_emision') || get('emision'),
-      ultimo_dia_pago: get('ultimo_dia_pago'),
-      prima_comercial: get('prima_comercial'),
-      prima_neta: get('prima_neta'),
-      prima_total: get('prima_total') || get('monto'),
-      prima_comercial_igv: get('prima_comercial_igv') || get('prima_total') || get('monto'),
-      ramo: get('ramo') || get('doc_tipo'),
-      estado: get('estado') || '' // NUEVO
-    };
+  // Helper: calcula Prima Neta desde Prima Comercial (val/1.03, con 2 decimales)
+  function computePrimaNetaFromComercial(val) {
+    const raw = (val || '').toString().trim();
+    if (!raw) return '';
+    const num = parseFloat(
+      raw
+        .replace(/[^\d.,-]/g, '') // quita letras/monedas
+        .replace(',', '.')        // normaliza coma a punto
+    );
+    if (!Number.isFinite(num)) return '';
+    return (num / 1.03).toFixed(2);
+  }
+
+  // NUEVO: mover normalizeItem dentro del IIFE para acceder al helper anterior
+  function normalizeItem(src) {
+    const it = { ...src };
+    const neta = computePrimaNetaFromComercial(it.prima_comercial);
+    if (neta) {
+      it.prima_neta = neta;
+    }
+    return it;
   }
 
   // Helper: construir opciones del select de Ramo (se mantiene para la tabla por fila)
@@ -336,55 +338,68 @@
 
     fetch('/upload', { method: 'POST', body: fd })
       .then(async (r) => {
-        const isJson = (r.headers.get('content-type') || '').includes('application/json');
-        const payload = isJson ? await r.json() : await r.text();
-        console.log('[upload] status:', r.status, 'payload:', payload);
+        try {
+          const ct = (r.headers.get('content-type') || '').toLowerCase();
+          const rawText = await r.text();
+          let payload;
+          if (ct.includes('application/json')) {
+            payload = JSON.parse(rawText);
+          } else {
+            // Fallback: intenta parsear como JSON, si no, usa texto
+            try { payload = JSON.parse(rawText); } catch { payload = rawText; }
+          }
 
-        if (payload && Array.isArray(payload.debug)) {
-          payload.debug.forEach((line) => console.log('[server]', line));
+          console.log('[upload] status:', r.status, 'payload:', payload);
+
+          if (payload && Array.isArray(payload.debug)) {
+            payload.debug.forEach((line) => console.log('[server]', line));
+          }
+
+          if (!r.ok) {
+            alert(typeof payload === 'string' ? payload : (payload.error || 'Error al extraer datos.'));
+            return;
+          }
+
+          let items = [];
+          if (payload.items && Array.isArray(payload.items)) {
+            items = payload.items.map(normalizeItem);
+          } else if (payload.fields && typeof payload.fields === 'object') {
+            items = [normalizeItem(payload.fields)];
+          }
+
+          // Aplicar Tipo de Pago + Estado + Comisiones globales
+          const tipoPago = tipoPagoTopEl?.value || '';
+          const estado   = estadoTopEl?.value || 'PENDIENTE';
+          const pctCC    = pctComCompaniaEl?.value || '';
+          const impCC    = impComCompaniaEl?.value || '';
+          const pctSA    = pctComSubAgenteEl?.value || '';
+          const impSA    = impComSubAgenteEl?.value || '';
+
+          items = items.map(it => ({
+            ...it,
+            forma_pago: tipoPago || it.forma_pago || '',
+            estado: estado || it.estado || 'PENDIENTE',
+            comision_compania_pct: pctCC,
+            comision_compania_importe: impCC,
+            comision_subagente_pct: pctSA,
+            comision_subagente_importe: impSA
+          }));
+
+          extractedItems = items;
+          render(extractedItems);
+
+          const elapsed = ((performance.now() - startTs) / 1000).toFixed(2);
+          hint.textContent = items.length
+            ? `Se extrajeron ${items.length} ítem(s) en ${elapsed}s. Revisa y guarda.`
+            : `Sin datos. Procesado en ${elapsed}s.`;
+        } catch (e) {
+          console.error('[upload] processing error:', e);
+          alert('Error procesando respuesta del servidor.');
         }
-
-        if (!r.ok) {
-          alert(typeof payload === 'string' ? payload : (payload.error || 'Error al extraer datos.'));
-          return;
-        }
-
-        let items = [];
-        if (payload.items && Array.isArray(payload.items)) {
-          items = payload.items.map(normalizeItem);
-        } else if (payload.fields && typeof payload.fields === 'object') {
-          items = [normalizeItem(payload.fields)];
-        }
-
-        // Aplicar Tipo de Pago + Estado + Comisiones globales
-        const tipoPago = tipoPagoTopEl?.value || '';
-        const estado   = estadoTopEl?.value || 'PENDIENTE';
-        const pctCC    = pctComCompaniaEl?.value || '';
-        const impCC    = impComCompaniaEl?.value || '';
-        const pctSA    = pctComSubAgenteEl?.value || '';
-        const impSA    = impComSubAgenteEl?.value || '';
-
-        items = items.map(it => ({
-          ...it,
-          forma_pago: tipoPago || it.forma_pago || '',
-          estado: estado || it.estado || 'PENDIENTE',
-          comision_compania_pct: pctCC,
-          comision_compania_importe: impCC,
-          comision_subagente_pct: pctSA,
-          comision_subagente_importe: impSA
-        }));
-
-        extractedItems = items;
-        render(extractedItems);
-
-        const elapsed = ((performance.now() - startTs) / 1000).toFixed(2);
-        hint.textContent = items.length
-          ? `Se extrajeron ${items.length} ítem(s) en ${elapsed}s. Revisa y guarda.`
-          : `Sin datos. Procesado en ${elapsed}s.`;
       })
       .catch((err) => {
         console.error('[upload] fetch error:', err);
-        alert('Error de red al extraer datos del PDF.');
+        alert('No se pudo conectar con el servidor (/upload).');
       })
       .finally(() => {
         // Ocultar ventana de carga y restaurar controles
@@ -464,6 +479,15 @@
     const val = el.textContent.trim();
     if (!Number.isFinite(idx) || !field) return;
     extractedItems[idx][field] = val;
+
+    // Si cambia la Prima Comercial, recalcular Prima Neta y actualizar la celda
+    if (field === 'prima_comercial') {
+      const neta = computePrimaNetaFromComercial(val);
+      extractedItems[idx]['prima_neta'] = neta;
+      const netCell = tbody.querySelector(`td.editable[data-index="${idx}"][data-field="prima_neta"]`);
+      if (netCell) netCell.textContent = neta;
+    }
+
     scheduleAutoSave();
   }, true);
 

@@ -140,7 +140,7 @@ def upload():
 
     # Normalización: mapear variantes de claves a las usadas por la UI
     def _normalize_to_ui(it: dict) -> dict:
-        return {
+        res = {
             "numero_poliza": it.get("numero_poliza") or it.get("poliza") or it.get("folio_id") or it.get("contrato_nro"),
             "recibo": it.get("recibo") or it.get("numero_proforma") or it.get("nro_tramite"),
             "colectivo_asegurado": it.get("colectivo_asegurado") or it.get("asegurado") or it.get("contratante"),
@@ -156,6 +156,14 @@ def upload():
             "prima_comercial_igv": it.get("prima_comercial_igv") or it.get("prima_total") or it.get("monto"),
             "ramo": it.get("ramo") or it.get("doc_tipo"),  # <- REACTIVADO
         }
+        # Prima Neta = Prima Comercial / 1.03
+        try:
+            if res["prima_comercial"]:
+                val = float(str(res["prima_comercial"]).replace(',', '.').replace(' ', ''))
+                res["prima_neta"] = f"{(val / 1.03):.2f}"
+        except Exception:
+            pass
+        return res
 
     if items and len(items) > 0:
         LOG('[upload] Origen de datos: provider parser (items).')
@@ -205,6 +213,14 @@ def upload():
                 if cand:
                     extracted['folio_id'] = cand
                     extracted['folio_label'] = 'Contrato Nro' if extracted.get('contrato_nro') else 'Póliza N°'
+    # Derivar Prima Neta desde Prima Comercial en el fallback (fields)
+    try:
+        pc = extracted.get('prima_comercial') or extracted.get('prima_total') or extracted.get('monto')
+        if pc:
+            val = float(str(pc).replace(',', '.').replace(' ', ''))
+            extracted['prima_neta'] = f"{(val / 1.03):.2f}"
+    except Exception:
+        pass
 
     return {'filename': filename, 'fields': extracted, 'debug': debug_logs}, 200
 

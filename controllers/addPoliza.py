@@ -12,6 +12,16 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
         return {"ok": False, "errors": ["No hay items para guardar."]}
     normalized = []
     for it in items:
+        # Calcular prima_neta = prima_comercial / 1.03
+        prima_comercial_str = it.get("prima_comercial")
+        prima_neta_calc = None
+        try:
+            if prima_comercial_str:
+                val = float(str(prima_comercial_str).replace(',', '.').replace(' ', ''))
+                prima_neta_calc = f"{(val / 1.03):.2f}"
+        except Exception:
+            prima_neta_calc = None
+
         normalized.append({
             "numero_poliza": it.get("numero_poliza"),
             "recibo": it.get("recibo"),
@@ -24,7 +34,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
             "ultimo_dia_pago": it.get("ultimo_dia_pago"),
             "ramo": it.get("ramo"),  # se mantiene guardado por fila
             "prima_comercial": it.get("prima_comercial"),
-            "prima_neta": it.get("prima_neta"),
+            "prima_neta": prima_neta_calc if prima_neta_calc is not None else it.get("prima_neta"),
             "prima_total": it.get("prima_total"),
             "prima_comercial_igv": it.get("prima_comercial_igv"),
             "estado": it.get("estado"),  # NUEVO
