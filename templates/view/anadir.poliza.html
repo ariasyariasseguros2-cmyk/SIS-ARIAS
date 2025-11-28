@@ -73,14 +73,17 @@
         </div>
         <!-- NUEVO: bloque de comisiones al costado (mismo card, debajo de Ejecutivo) -->
         <div class="row g-3 mt-1">
-          <div class="col-md-2">
-            <label class="form-label">% Comisión Compañía</label>
-            <input id="pctComCompania" type="number" step="0.01" class="form-control">
-          </div>
-          <div class="col-md-2">
-            <label class="form-label">Importe Comisión Compañía</label>
-            <input id="impComCompania" type="number" step="0.01" class="form-control">
-          </div>
+          {# Bloque removido: campos superiores de comisión compañía ya no van #}
+          {#
+            <div class="col-md-2">
+              <label class="form-label">% Comisión Compañía</label>
+              <input id="pctComCompania" type="number" step="0.01" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Importe Comisión Compañía</label>
+              <input id="impComCompania" type="number" step="0.01" class="form-control">
+            </div>
+          #}
           <div class="col-md-2">
             <label class="form-label">% Comisión Sub Agente</label>
             <input id="pctComSubAgente" type="number" step="0.01" class="form-control">
@@ -158,6 +161,8 @@
                 <th>Prima Neta</th>
                 <th>Prima Comercial</th>
                 <th>Prima + IGV</th>
+                <th>% Comisión Cía</th>
+                <th>Imp. Comisión Cía</th>
                 <th class="actions-col">Acciones</th>
               </tr>
             </thead>

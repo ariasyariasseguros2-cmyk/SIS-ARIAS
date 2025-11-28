@@ -32,6 +32,22 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
         except Exception:
             pass
 
+        # NUEVO: calcular Importe Comisión Compañía desde Prima Neta y % (soporta 1.1..100 como porcentaje)
+        # Calcular Importe Comisión Compañía en backend (por si el front no lo envía)
+        com_pct_str = it.get("comision_compania_pct")
+        com_importe_calc = None
+        try:
+            if com_pct_str:
+                pct_val = float(str(com_pct_str).replace(',', '.').replace(' ', ''))
+                # Si el valor es <=1, se interpreta como ratio (p.ej. 0.185); si es >1, como porcentaje (p.ej. 18.5)
+                ratio = pct_val if pct_val <= 1 else (pct_val / 100.0)
+                neta_base_str = (prima_neta_calc if prima_neta_calc is not None else it.get("prima_neta"))
+                neta_val = float(str(neta_base_str).replace(',', '.').replace(' ', '')) if neta_base_str else None
+                if neta_val is not None:
+                    com_importe_calc = f"{(neta_val * ratio):.2f}"
+        except Exception:
+            pass
+
         normalized.append({
             "numero_poliza": it.get("numero_poliza"),
             "recibo": it.get("recibo"),
@@ -49,7 +65,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
             "prima_comercial_igv": prima_comercial_igv_calc if prima_comercial_igv_calc is not None else it.get("prima_comercial_igv"),
             "estado": it.get("estado"),
             "comision_compania_pct": it.get("comision_compania_pct"),
-            "comision_compania_importe": it.get("comision_compania_importe"),
+            "comision_compania_importe": com_importe_calc if com_importe_calc is not None else it.get("comision_compania_importe"),
             "comision_subagente_pct": it.get("comision_subagente_pct"),
             "comision_subagente_importe": it.get("comision_subagente_importe"),
             # cliente seleccionado

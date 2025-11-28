@@ -15,10 +15,10 @@
   const pctComSubAgenteEl  = document.getElementById('pctComSubAgente');
   const impComSubAgenteEl  = document.getElementById('impComSubAgente');
   let subAgenteEl = subAgenteTopEl || document.getElementById('subAgente');
-  // REMOVIDO: no usar selector superior de Ramo
-  // const ramoTopEl = document.getElementById('ramoTop');
 
   let extractedItems = []; // asegurar variable global para render/autoguardado
+  let autoSaveTimer = null; // FIX: única declaración
+
   // Ventana modal de carga
   const loadingModalEl = document.getElementById('loadingModal');
   const loadingModalMsgEl = document.getElementById('loadingModalMsg');
@@ -129,7 +129,7 @@
     subAgenteEl.value = val;
   }
 
-  // Persistir en memoria del cliente
+  // Persistir en memoria del cliente y backend
   (subAgenteTopEl || document.getElementById('subAgente'))?.addEventListener('change', (e) => {
     window.selectedCliente = window.selectedCliente || {};
     window.selectedCliente.subagente = e.target.value;
@@ -154,37 +154,6 @@
       .catch(err => console.warn('[clientes/select] error:', err));
   });
 
-  function ensureHeader() {
-    const thead = document.querySelector('#extractTable thead');
-    if (!thead) return;
-    const headers = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase());
-    const hasRamo = headers.includes('ramo');
-    const hasPrimaNeta = headers.includes('prima neta');
-    const hasAcciones = headers.includes('acciones');
-    const expectedCount = 13; // sin columna de Forma/Tipo Pago
-    if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
-      thead.innerHTML = `
-        <tr>
-          <th>Póliza</th>
-          <th>Proforma/Recibo</th>
-          <th>Colectivo Asegurado</th>
-          <th class="ramo-col">Ramo</th>
-          <th>Inicio Vigencia</th>
-          <th>Vencimiento</th>
-          <th>Moneda</th>
-          <th>Fecha Emisión</th>
-          <!-- REMOVIDO: Tipo/Forma Pago -->
-          <th>Último Día Pago</th>
-          <th>Prima Neta</th>
-          <th>Prima Comercial</th>
-          <th>Prima + IGV</th>
-          <th class="actions-col">Acciones</th>
-        </tr>
-      `;
-    }
-  }
-  ensureHeader();
-
   // Helper: construir opciones del select de Ramo
   function buildRamoOptions(selected) {
     const abbrs = (window.ramosAbbrs || []).filter(x => !!x && x.trim() !== '');
@@ -196,49 +165,11 @@
     return opts.join('');
   }
   function buildRamoSelect(selected) {
-    // Select tamaño normal (sin -sm) y con title para tooltip
     const t = (selected || '').toString();
     return `<select class="form-select ramo-select" title="${t.toUpperCase()}">${buildRamoOptions(selected)}</select>`;
   }
 
-  function render(items) {
-    ensureHeader();
-    const tbody = document.querySelector('#extractTable tbody');
-    const btnSave = document.getElementById('btnSave');
-    const hint = document.getElementById('extractHint');
-
-    tbody.innerHTML = '';
-    items.forEach((it, idx) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="numero_poliza">${it.numero_poliza || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="recibo">${it.recibo || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="colectivo_asegurado">${it.colectivo_asegurado || ''}</td>
-        <td class="ramo-col" data-index="${idx}" data-field="ramo">${buildRamoSelect(it.ramo || '')}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="inicio_vigencia">${it.inicio_vigencia || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="vencimiento">${it.vencimiento || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
-        <!-- REMOVIDO: columna de Forma/Tipo Pago -->
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${it.prima_neta || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${it.prima_comercial_igv || it.prima_total || it.monto || ''}</td>
-        <td class="actions-col">
-          <div class="actions-stack">
-            <button type="button" class="action-btn btn-del js-del" data-index="${idx}">Eliminar</button>
-          </div>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
-    btnSave.disabled = items.length === 0;
-    hint.textContent = items.length ? `Se extrajeron ${items.length} item(s). Revisa y guarda.` : 'Sube un PDF para ver información.';
-  }
-
-  // render() y normalizeItem
-
-  // Helper: calcula Prima Neta desde Prima Comercial (val/1.03, con 2 decimales)
+  // Helpers de primas
   function computePrimaNetaFromComercial(val) {
     const raw = (val || '').toString().trim();
     if (!raw) return '';
@@ -246,7 +177,6 @@
     if (!Number.isFinite(num)) return '';
     return (num / 1.03).toFixed(2);
   }
-  // NUEVO: calcula Prima Comercial desde Prima Neta (val*1.03, con 2 decimales)
   function computePrimaComercialFromNeta(val) {
     const raw = (val || '').toString().trim();
     if (!raw) return '';
@@ -254,7 +184,6 @@
     if (!Number.isFinite(num)) return '';
     return (num * 1.03).toFixed(2);
   }
-  // Helper: calcula Prima + IGV desde Prima Comercial (val*1.18)
   function computePrimaIGVFromComercial(val) {
     const raw = (val || '').toString().trim();
     if (!raw) return '';
@@ -263,12 +192,36 @@
     return (num * 1.18).toFixed(2);
   }
 
+  // NUEVO: helpers para número y comisión compañía
+  function parseNumber(val) {
+    const raw = (val || '').toString().trim();
+    if (!raw) return NaN;
+    const num = parseFloat(raw.replace(/[^\d.,-]/g, '').replace(',', '.'));
+    return Number.isFinite(num) ? num : NaN;
+  }
+  function computeCommissionAmount(netaStr, pctStr) {
+    const neta = parseNumber(netaStr);
+    const pctVal = parseNumber(pctStr);
+    if (!Number.isFinite(neta) || !Number.isFinite(pctVal)) return '';
+    // Soporta 1.1, 1.2, ... hasta 100 como porcentaje; si el valor es <=1, se asume ratio directo (p.ej. 0.185)
+    const ratio = pctVal <= 1 ? pctVal : (pctVal / 100);
+    return (neta * ratio).toFixed(2);
+  }
+  function sumCommission(items) {
+    let total = 0;
+    (items || []).forEach(it => {
+      const v = parseNumber(it.comision_compania_importe);
+      if (Number.isFinite(v)) total += v;
+    });
+    return Number.isFinite(total) ? total.toFixed(2) : '';
+  }
+
   // normalizeItem: fuerza ambos cálculos según el dato disponible y aplica +IGV=1.18
   function normalizeItem(src) {
     const it = { ...src };
     let comercial = (it.prima_comercial || '').toString().trim();
     let neta = (it.prima_neta || '').toString().trim();
-  
+
     if (!comercial && neta) {
       comercial = computePrimaComercialFromNeta(neta);
       it.prima_comercial = comercial;
@@ -282,19 +235,37 @@
     return it;
   }
 
-  // Helper: construir opciones del select de Ramo (se mantiene para la tabla por fila)
-  function buildRamoOptions(selected) {
-    const abbrs = (window.ramosAbbrs || []).filter(x => !!x && x.trim() !== '');
-    const opts = [`<option value="">Selecciona...</option>`];
-    abbrs.forEach(val => {
-      const sel = (selected || '').trim() === val ? ' selected' : '';
-      opts.push(`<option value="${val}"${sel}>${val}</option>`);
-    });
-    return opts.join('');
+  function ensureHeader() {
+    const thead = document.querySelector('#extractTable thead');
+    if (!thead) return;
+    const headers = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase());
+    const hasRamo = headers.includes('ramo');
+    const hasPrimaNeta = headers.includes('prima neta');
+    const hasAcciones = headers.includes('acciones');
+    const expectedCount = 15; // +2 columnas: % Comisión Cía, Imp. Comisión Cía
+    if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
+      thead.innerHTML = `
+        <tr>
+          <th>Póliza</th>
+          <th>Proforma/Recibo</th>
+          <th>Colectivo Asegurado</th>
+          <th class="ramo-col">Ramo</th>
+          <th>Inicio Vigencia</th>
+          <th>Vencimiento</th>
+          <th>Moneda</th>
+          <th>Fecha Emisión</th>
+          <th>Último Día Pago</th>
+          <th>Prima Neta</th>
+          <th>Prima Comercial</th>
+          <th>Prima + IGV</th>
+          <th>% Comisión Cía</th>
+          <th>Imp. Comisión Cía</th>
+          <th class="actions-col">Acciones</th>
+        </tr>
+      `;
+    }
   }
-  function buildRamoSelect(selected) {
-    return `<select class="form-select form-select-sm ramo-select">${buildRamoOptions(selected)}</select>`;
-  }
+  ensureHeader();
 
   function render(items) {
     ensureHeader();
@@ -305,7 +276,7 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="numero_poliza">${it.numero_poliza || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="recibo">${it.recibo || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="colectivo_asegurado">${it.colectivo_asegurado || ''}</td>
-        <td data-index="${idx}" data-field="ramo">${buildRamoSelect(it.ramo || '')}</td>
+        <td class="ramo-col" data-index="${idx}" data-field="ramo">${buildRamoSelect(it.ramo || '')}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="inicio_vigencia">${it.inicio_vigencia || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="vencimiento">${it.vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
@@ -314,6 +285,12 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${it.prima_neta || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${it.prima_comercial_igv || it.prima_total || it.monto || ''}</td>
+        <td data-index="${idx}" data-field="comision_compania_pct">
+          <input type="number" step="0.01" class="form-control form-control-sm pct-comp" value="${it.comision_compania_pct || ''}">
+        </td>
+        <td data-index="${idx}" data-field="comision_compania_importe">
+          <input type="number" step="0.01" class="form-control form-control-sm imp-comp" value="${it.comision_compania_importe || ''}" readonly>
+        </td>
         <td class="actions-col">
           <div class="actions-stack">
             <button type="button" class="action-btn btn-del js-del" data-index="${idx}">Eliminar</button>
@@ -322,11 +299,13 @@
       `;
       tbody.appendChild(tr);
     });
-    btnSave.disabled = items.length === 0;
-    hint.textContent = items.length ? `Se extrajeron ${items.length} item(s). Revisa y guarda.` : 'Sube un PDF para ver información.';
+    if (btnSave) btnSave.disabled = items.length === 0;
+    if (hint) hint.textContent = items.length ? `Se extrajeron ${items.length} ítem(s). Revisa y guarda.` : 'Sube un PDF para ver información.';
+    const total = sumCommission(items);
+    if (impComCompaniaEl) impComCompaniaEl.value = items.length ? total : '';
   }
 
-  // Delegación: cambios en el select por fila (se mantiene)
+  // Delegación: cambios en el select por fila (Ramo)
   tbody.addEventListener('change', (e) => {
     const sel = e.target.closest('.ramo-select');
     if (!sel) return;
@@ -337,207 +316,17 @@
     scheduleAutoSave();
   });
 
-  // Al cambiar el Ramo superior, completar sólo filas sin valor
-  // ramoTopEl?.addEventListener('change', (e) => { ... }); // <- REMOVIDO
-
-  btnUpload?.addEventListener('click', () => {
-    const file = fileEl?.files?.[0];
-    if (!file) { alert('Selecciona un PDF.'); return; }
-
-    // Mostrar ventana de carga tipo Swal
-    openLoadingSwal('Procesando PDF…');
-    const startTs = performance.now();
-    btnUpload.disabled = true;
-    issuerEl.disabled = true;
-    fileEl.disabled = true;
-    btnUpload.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Extrayendo…`;
-
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('issuer', issuerEl?.value || '');
-    fd.append('debug', '1'); // activar trazas del backend
-
-    fetch('/upload', { method: 'POST', body: fd })
-      .then(async (r) => {
-        try {
-          const ct = (r.headers.get('content-type') || '').toLowerCase();
-          const rawText = await r.text();
-          let payload;
-          if (ct.includes('application/json')) {
-            payload = JSON.parse(rawText);
-          } else {
-            // Fallback: intenta parsear como JSON, si no, usa texto
-            try { payload = JSON.parse(rawText); } catch { payload = rawText; }
-          }
-
-          console.log('[upload] status:', r.status, 'payload:', payload);
-
-          if (payload && Array.isArray(payload.debug)) {
-            payload.debug.forEach((line) => console.log('[server]', line));
-          }
-
-          if (!r.ok) {
-            alert(typeof payload === 'string' ? payload : (payload.error || 'Error al extraer datos.'));
-            return;
-          }
-
-          let items = [];
-          if (payload.items && Array.isArray(payload.items)) {
-            items = payload.items.map(normalizeItem);
-          } else if (payload.fields && typeof payload.fields === 'object') {
-            items = [normalizeItem(payload.fields)];
-          }
-
-          // Aplicar Tipo de Pago + Estado + Comisiones globales
-          const tipoPago = tipoPagoTopEl?.value || '';
-          const estado   = estadoTopEl?.value || 'PENDIENTE';
-          const pctCC    = pctComCompaniaEl?.value || '';
-          const impCC    = impComCompaniaEl?.value || '';
-          const pctSA    = pctComSubAgenteEl?.value || '';
-          const impSA    = impComSubAgenteEl?.value || '';
-
-          items = items.map(it => ({
-            ...it,
-            forma_pago: tipoPago || it.forma_pago || '',
-            estado: estado || it.estado || 'PENDIENTE',
-            comision_compania_pct: pctCC,
-            comision_compania_importe: impCC,
-            comision_subagente_pct: pctSA,
-            comision_subagente_importe: impSA
-          }));
-
-          extractedItems = items;
-          render(extractedItems);
-
-          const elapsed = ((performance.now() - startTs) / 1000).toFixed(2);
-          hint.textContent = items.length
-            ? `Se extrajeron ${items.length} ítem(s) en ${elapsed}s. Revisa y guarda.`
-            : `Sin datos. Procesado en ${elapsed}s.`;
-        } catch (e) {
-          console.error('[upload] processing error:', e);
-          alert('Error procesando respuesta del servidor.');
-        }
-      })
-      .catch((err) => {
-        console.error('[upload] fetch error:', err);
-        alert('No se pudo conectar con el servidor (/upload).');
-      })
-      .finally(() => {
-        // Ocultar ventana de carga y restaurar controles
-        closeLoadingSwal();
-        btnUpload.disabled = false;
-        issuerEl.disabled = false;
-        fileEl.disabled = false;
-        btnUpload.textContent = 'Extraer datos';
-      });
-  });
-
-  // Preseleccionar subagente si viene del servidor
-  if (subAgenteEl && window.selectedCliente) {
-    subAgenteEl.value = window.selectedCliente.subagente || '';
-  }
-
-  function ensureHeader() {
-    const thead = document.querySelector('#extractTable thead');
-    if (!thead) return;
-    const headers = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase());
-    const hasRamo = headers.includes('ramo');
-    const hasPrimaNeta = headers.includes('prima neta');
-    const hasAcciones = headers.includes('acciones');
-    const expectedCount = 14; // FIX: 14 columnas incluyendo Ramo
-    if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
-      thead.innerHTML = `
-        <tr>
-          <th>Póliza</th>
-          <th>Proforma/Recibo</th>
-          <th>Colectivo Asegurado</th>
-          <th>Ramo</th>
-          <th>Inicio Vigencia</th>
-          <th>Vencimiento</th>
-          <th>Moneda</th>
-          <th>Fecha Emisión</th>
-          <th>Último Día Pago</th>
-          <th>Prima Neta</th>
-          <th>Prima Comercial</th>
-          <th>Prima + IGV</th>
-          <th class="actions-col">Acciones</th>
-        </tr>
-      `;
-    }
-  }
-  ensureHeader();
-
-  // Editar celdas y actualizar datos (+IGV dinámico con input)
-  let autoSaveTimer = null;
-  function scheduleAutoSave() {
-    clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(() => {
-      const selected = Object.assign({}, (window.selectedCliente || {}), {
-        subagente: (document.getElementById('subAgenteTop')?.value ||
-                    document.getElementById('subAgente')?.value ||
-                    (window.selectedCliente || {}).subagente || '')
-      });
-      fetch('/polizas/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: extractedItems, selected })
-      })
-      .then(r => r.json())
-      .then(res => {
-        if (res.ok) {
-          hint.textContent = `Cambios guardados automáticamente (${res.count}).`;
-        }
-      })
-      .catch(err => console.warn('[autosave] error:', err));
-    }, 1200);
-  }
-
-  // NUEVO: util para actualizar DOM de celdas calculadas
-  function updateComputedCells(idx, item) {
-    const tdNeta = document.querySelector(`#extractTable td.editable[data-index="${idx}"][data-field="prima_neta"]`);
-    const tdCom = document.querySelector(`#extractTable td.editable[data-index="${idx}"][data-field="prima_comercial"]`);
-    const tdIgv = document.querySelector(`#extractTable td.editable[data-index="${idx}"][data-field="prima_comercial_igv"]`);
-    if (tdNeta) tdNeta.textContent = item.prima_neta || '';
-    if (tdCom) tdCom.textContent = item.prima_comercial || '';
-    if (tdIgv) tdIgv.textContent = item.prima_comercial_igv || '';
-  }
-
-  // REEMPLAZO: manejador inicial de input ahora solo actualiza memoria y NO toca el DOM
-  tbody.addEventListener('input', (e) => {
-    const el = e.target.closest('.editable');
-    if (!el) return;
-    const idx = Number(el.dataset.index);
-    const field = el.dataset.field;
-    const value = (el.textContent || '').trim();
-    if (!Number.isFinite(idx) || !field) return;
-    extractedItems[idx] = extractedItems[idx] || {};
-    extractedItems[idx][field] = value;
-    // No actualizar DOM ni formatear aquí para no mover el caret
-  });
-
-  // REEMPLAZO: el blur inicial no hace nada (el formateo ocurre en focusout más abajo)
-  tbody.addEventListener('blur', (e) => {
-    const el = e.target.closest('.editable');
-    if (!el) return;
-    // No tocar contenido aquí
-  });
-
   // Helpers para buscar celdas y actualizar dependientes sin tocar la celda activa
   function getTd(index, field) {
     return tbody.querySelector(`td[data-index="${index}"][data-field="${field}"]`);
   }
-  function parseNumber(raw) {
-    const s = (raw || '').toString().trim();
-    if (!s) return NaN;
-    return parseFloat(s.replace(/[^\d.,-]/g, '').replace(',', '.'));
-  }
-  
+
   // Actualiza dependientes según el campo modificado (sin modificar el td activo)
   function updateDependents(index, sourceField, activeTd) {
     const item = extractedItems[index] || {};
     const comercial = (item.prima_comercial || '').toString().trim();
     const neta = (item.prima_neta || '').toString().trim();
-  
+
     if (sourceField === 'prima_comercial') {
       if (comercial) {
         const netaCalc = computePrimaNetaFromComercial(comercial);
@@ -575,30 +364,40 @@
         if (igvTd && igvTd !== activeTd) igvTd.textContent = '';
       }
     }
+
+    // Recalcular comisión de compañía para la fila
+    const pct = item.comision_compania_pct || (pctComCompaniaEl?.value || '');
+    item.comision_compania_importe = pct ? computeCommissionAmount(item.prima_neta || '', pct) : '';
+    const impTdInput = tbody.querySelector(`td[data-index="${index}"][data-field="comision_compania_importe"] .imp-comp`);
+    if (impTdInput) impTdInput.value = item.comision_compania_importe || '';
+
+    // Actualiza total superior
+    if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
   }
-  
-  // Delegación: edición de celdas contenteditable
+
+  // Delegación: edición de celdas contenteditable (memoria + dependientes)
   tbody.addEventListener('input', (e) => {
     const td = e.target.closest('td.editable');
     if (!td) return;
     const idx = Number(td.dataset.index);
     const field = td.dataset.field;
     if (!Number.isFinite(idx) || !field) return;
-  
-    extractedItems[idx][field] = td.textContent.trim();
-  
+
+    extractedItems[idx][field] = (td.textContent || '').trim();
+
     if (field === 'prima_comercial' || field === 'prima_neta') {
       updateDependents(idx, field, td);
     }
   });
-  
+
+  // Formateo en blur y guardado
   tbody.addEventListener('focusout', (e) => {
     const td = e.target.closest('td.editable');
     if (!td) return;
     const idx = Number(td.dataset.index);
     const field = td.dataset.field;
     if (!Number.isFinite(idx) || !field) return;
-  
+
     if (field === 'prima_comercial' || field === 'prima_neta' || field === 'prima_comercial_igv') {
       const num = parseNumber(td.textContent);
       const formatted = Number.isFinite(num) ? num.toFixed(2) : '';
@@ -607,14 +406,14 @@
     } else {
       extractedItems[idx][field] = td.textContent.trim();
     }
-  
+
     if (field === 'prima_comercial' || field === 'prima_neta') {
       updateDependents(idx, field, td);
     }
 
     scheduleAutoSave();
   });
-  
+
   // Evitar salto de línea dentro de celdas al presionar Enter
   tbody.addEventListener('keydown', (e) => {
     const td = e.target.closest('td.editable');
@@ -625,12 +424,53 @@
     }
   });
 
-  // Al subir PDF, normalizar y aplicar +IGV=1.18
+  // Delegación: cambio en % Comisión Cía por fila
+  tbody.addEventListener('input', (e) => {
+    const input = e.target.closest('input.pct-comp');
+    if (!input) return;
+    const td = input.closest('td');
+    const idx = Number(td?.dataset?.index);
+    if (!Number.isFinite(idx)) return;
+
+    const pct = input.value || '';
+    extractedItems[idx].comision_compania_pct = pct;
+    const neta = extractedItems[idx].prima_neta || '';
+    extractedItems[idx].comision_compania_importe = pct ? computeCommissionAmount(neta, pct) : '';
+    const impEl = input.closest('tr')?.querySelector('.imp-comp');
+    if (impEl) impEl.value = extractedItems[idx].comision_compania_importe || '';
+    if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+    scheduleAutoSave();
+  });
+
+  // Autoguardado
+  function scheduleAutoSave() {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+      const selected = Object.assign({}, (window.selectedCliente || {}), {
+        subagente: (document.getElementById('subAgenteTop')?.value ||
+                    document.getElementById('subAgente')?.value ||
+                    (window.selectedCliente || {}).subagente || '')
+      });
+      fetch('/polizas/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: extractedItems, selected })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.ok && hint) {
+          hint.textContent = `Cambios guardados automáticamente (${res.count}).`;
+        }
+      })
+      .catch(err => console.warn('[autosave] error:', err));
+    }, 800);
+  }
+
+  // Upload handler: normalizar, aplicar % superior y calcular importes por fila + total
   btnUpload?.addEventListener('click', () => {
     const file = fileEl?.files?.[0];
     if (!file) { alert('Selecciona un PDF.'); return; }
 
-    // Mostrar ventana de carga tipo Swal
     openLoadingSwal('Procesando PDF…');
     const startTs = performance.now();
     btnUpload.disabled = true;
@@ -641,7 +481,7 @@
     const fd = new FormData();
     fd.append('file', file);
     fd.append('issuer', issuerEl?.value || '');
-    fd.append('debug', '1'); // activar trazas del backend
+    fd.append('debug', '1');
 
     fetch('/upload', { method: 'POST', body: fd })
       .then(async (r) => {
@@ -652,7 +492,6 @@
           if (ct.includes('application/json')) {
             payload = JSON.parse(rawText);
           } else {
-            // Fallback: intenta parsear como JSON, si no, usa texto
             try { payload = JSON.parse(rawText); } catch { payload = rawText; }
           }
 
@@ -678,27 +517,31 @@
           const tipoPago = tipoPagoTopEl?.value || '';
           const estado   = estadoTopEl?.value || 'PENDIENTE';
           const pctCC    = pctComCompaniaEl?.value || '';
-          const impCC    = impComCompaniaEl?.value || '';
           const pctSA    = pctComSubAgenteEl?.value || '';
           const impSA    = impComSubAgenteEl?.value || '';
 
-          items = items.map(it => ({
-            ...it,
-            forma_pago: tipoPago || it.forma_pago || '',
-            estado: estado || it.estado || 'PENDIENTE',
-            comision_compania_pct: pctCC,
-            comision_compania_importe: impCC,
-            comision_subagente_pct: pctSA,
-            comision_subagente_importe: impSA
-          }));
+          items = items.map(it => {
+            const importeCC = pctCC ? computeCommissionAmount(it.prima_neta, pctCC) : '';
+            return {
+              ...it,
+              forma_pago: tipoPago || it.forma_pago || '',
+              estado: estado || it.estado || 'PENDIENTE',
+              comision_compania_pct: pctCC,
+              comision_compania_importe: importeCC,
+              comision_subagente_pct: pctSA,
+              comision_subagente_importe: impSA
+            };
+          });
 
-          extractedItems = items.map(normalizeItem);
+          extractedItems = items;
           render(extractedItems);
 
           const elapsed = ((performance.now() - startTs) / 1000).toFixed(2);
-          hint.textContent = items.length
-            ? `Se extrajeron ${items.length} ítem(s) en ${elapsed}s. Revisa y guarda.`
-            : `Sin datos. Procesado en ${elapsed}s.`;
+          if (hint) {
+            hint.textContent = items.length
+              ? `Se extrajeron ${items.length} ítem(s) en ${elapsed}s. Revisa y guarda.`
+              : `Sin datos. Procesado en ${elapsed}s.`;
+          }
         } catch (e) {
           console.error('[upload] processing error:', e);
           alert('Error procesando respuesta del servidor.');
@@ -709,7 +552,6 @@
         alert('No se pudo conectar con el servidor (/upload).');
       })
       .finally(() => {
-        // Ocultar ventana de carga y restaurar controles
         closeLoadingSwal();
         btnUpload.disabled = false;
         issuerEl.disabled = false;
@@ -723,33 +565,20 @@
     subAgenteEl.value = window.selectedCliente.subagente || '';
   }
 
-  function ensureHeader() {
-    const thead = document.querySelector('#extractTable thead');
-    if (!thead) return;
-    const headers = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase());
-    const hasRamo = headers.includes('ramo');
-    const hasPrimaNeta = headers.includes('prima neta');
-    const hasAcciones = headers.includes('acciones');
-    const expectedCount = 14; // FIX: 14 columnas incluyendo Ramo
-    if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
-      thead.innerHTML = `
-        <tr>
-          <th>Póliza</th>
-          <th>Proforma/Recibo</th>
-          <th>Colectivo Asegurado</th>
-          <th>Ramo</th>
-          <th>Inicio Vigencia</th>
-          <th>Vencimiento</th>
-          <th>Moneda</th>
-          <th>Fecha Emisión</th>
-          <th>Último Día Pago</th>
-          <th>Prima Neta</th>
-          <th>Prima Comercial</th>
-          <th>Prima + IGV</th>
-          <th class="actions-col">Acciones</th>
-        </tr>
-      `;
+  // Cambiar % Comisión Cía superior → recalcular todo y total
+  pctComCompaniaEl?.addEventListener('input', () => {
+    const pct = pctComCompaniaEl.value || '';
+    if (!extractedItems || !extractedItems.length) {
+      if (impComCompaniaEl) impComCompaniaEl.value = '';
+      return;
     }
-  }
-  ensureHeader();
+    extractedItems = extractedItems.map(it => ({
+      ...it,
+      comision_compania_pct: pct,
+      comision_compania_importe: pct ? computeCommissionAmount(it.prima_neta, pct) : ''
+    }));
+    render(extractedItems);
+    if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+    scheduleAutoSave();
+  });
 })();
