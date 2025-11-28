@@ -152,19 +152,25 @@ def upload():
             "ultimo_dia_pago": it.get("ultimo_dia_pago"),
             "prima_comercial": it.get("prima_comercial"),
             "prima_neta": it.get("prima_neta"),
-            "prima_total": it.get("prima_total") or it.get("monto"),
-            "prima_comercial_igv": it.get("prima_comercial_igv") or it.get("prima_total") or it.get("monto"),
-            "ramo": it.get("ramo") or it.get("doc_tipo"),  # <- REACTIVADO
+            "prima_total": it.get("prima_total"),
+            "prima_comercial_igv": it.get("prima_comercial_igv"),
+            "ramo": it.get("ramo") or it.get("doc_tipo"),
         }
-        # Si hay Prima Comercial, derive Prima Neta
         try:
+            # Derivar prima_neta desde prima_comercial si está disponible
             if res["prima_comercial"]:
                 val = float(str(res["prima_comercial"]).replace(',', '.').replace(' ', ''))
                 res["prima_neta"] = f"{(val / 1.03):.2f}"
-            # NUEVO: si falta Prima Comercial pero hay Prima Neta, derive Comercial
+            # Si no hay prima_comercial pero hay prima_neta, derivar comercial
             elif res["prima_neta"]:
                 val = float(str(res["prima_neta"]).replace(',', '.').replace(' ', ''))
                 res["prima_comercial"] = f"{(val * 1.03):.2f}"
+            # Calcular Prima + IGV como prima_comercial * 1.18 (override)
+            if res.get("prima_comercial"):
+                valc = float(str(res["prima_comercial"]).replace(',', '.').replace(' ', ''))
+                res["prima_comercial_igv"] = f"{(valc * 1.18):.2f}"
+            else:
+                res["prima_comercial_igv"] = None
         except Exception:
             pass
         return res
@@ -223,18 +229,22 @@ def upload():
         if pc:
             val = float(str(pc).replace(',', '.').replace(' ', ''))
             extracted['prima_neta'] = f"{(val / 1.03):.2f}"
+            extracted['prima_comercial'] = f"{val:.2f}"  # asegurar string formateado
+            extracted['prima_comercial_igv'] = f"{(val * 1.18):.2f}"
+        else:
+            extracted['prima_comercial_igv'] = None
     except Exception:
         pass
-
-    # NUEVO: si solo vino prima_neta, derive prima_comercial
+    # NUEVO: si solo vino prima_neta, derive prima_comercial y +IGV
     try:
         pn = extracted.get('prima_neta')
         if pn and not extracted.get('prima_comercial'):
             val = float(str(pn).replace(',', '.').replace(' ', ''))
-            extracted['prima_comercial'] = f"{(val * 1.03):.2f}"
+            pc = f"{(val * 1.03):.2f}"
+            extracted['prima_comercial'] = pc
+            extracted['prima_comercial_igv'] = f"{(float(pc) * 1.18):.2f}"
     except Exception:
         pass
-
     return {'filename': filename, 'fields': extracted, 'debug': debug_logs}, 200
 
 
