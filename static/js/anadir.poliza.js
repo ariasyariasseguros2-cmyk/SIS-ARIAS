@@ -9,6 +9,8 @@
   const ejecutivoTopEl = document.getElementById('ejecutivoTop');
   const estadoTopEl = document.getElementById('estadoTop');
   const tipoPagoTopEl = document.getElementById('tipoPagoTop');
+  // NUEVO: declarar el input superior de ramo/producto
+  const ramoProductoTopEl = document.getElementById('ramoProductoTop');
   // NUEVO: campos de comisiones
   const pctComCompaniaEl   = document.getElementById('pctComCompania');
   const impComCompaniaEl   = document.getElementById('impComCompania');
@@ -168,6 +170,11 @@
     const t = (selected || '').toString();
     return `<select class="form-select ramo-select" title="${t.toUpperCase()}">${buildRamoOptions(selected)}</select>`;
   }
+  // Eliminado: poblar opciones para “Ramos Producto” (ahora es texto)
+  function populateRamoProductoTopOptions() {
+    // Campo de texto: no se pueblan opciones
+  }
+  populateRamoProductoTopOptions();
 
   // Helpers de primas
   function computePrimaNetaFromComercial(val) {
@@ -278,6 +285,16 @@
 
   function render(items) {
     ensureHeader();
+    // NUEVO: aplicar valores top a los items si están presentes
+    const formaPagoTop = (tipoPagoTopEl?.value || '').trim();
+    const estadoTop = (estadoTopEl?.value || '').trim();
+    const ramoTop = (ramoProductoTopEl?.value || '').trim();
+    items.forEach(it => {
+      if (formaPagoTop && !it.forma_pago) it.forma_pago = formaPagoTop;
+      if (estadoTop && !it.estado) it.estado = estadoTop;
+      if (ramoTop && (!it.ramo || it.ramo.trim() === '')) it.ramo = ramoTop;
+    });
+
     tbody.innerHTML = '';
     items.forEach((it, idx) => {
       const tr = document.createElement('tr');

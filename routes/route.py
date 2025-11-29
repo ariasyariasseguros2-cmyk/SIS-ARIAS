@@ -1,6 +1,7 @@
 from flask import Blueprint, redirect, url_for, session, render_template, request, current_app
 from werkzeug.utils import secure_filename
 import os
+from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows
 
 
 bp = Blueprint('main', __name__)
@@ -10,7 +11,7 @@ bp = Blueprint('main', __name__)
 def home():
     if 'user' not in session:
         return redirect(url_for('login'))
-    rows = get_rows()
+    rows = get_dashboard_rows()
     chart = get_dashboard_data()
     return render_template('view/dashboard.html', rows=rows, chart=chart)
 
@@ -18,7 +19,7 @@ def home():
 def dashboard():
     if 'user' not in session:
         return redirect(url_for('login'))
-    rows = get_rows()
+    rows = get_dashboard_rows()
     chart = get_dashboard_data()
     return render_template('view/dashboard.html', rows=rows, chart=chart)
 
@@ -92,7 +93,7 @@ def menu_page(page):
         )
 
     # Fallback: otras secciones usan el dashboard con etiqueta de sección
-    rows = get_rows()
+    rows = get_dashboard_rows()
     chart = get_dashboard_data()
     return render_template('view/dashboard.html', rows=rows, chart=chart, page=page)
 
@@ -264,6 +265,8 @@ def clientes_select():
         'tel': payload.get('tel') or payload.get('telefono'),
         # Acepta subagente con ambos nombres de campo
         'subagente': payload.get('subagente') or payload.get('subAgente'),
+        'motivo': payload.get('motivo'),               # NUEVO
+        'ramos_producto': payload.get('ramos_producto')# NUEVO
     }
     session['selected_cliente'] = selected
     return {'ok': True}, 200

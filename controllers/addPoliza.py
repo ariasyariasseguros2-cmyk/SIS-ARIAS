@@ -79,6 +79,8 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
             "prima_total": it.get("prima_total"),
             "prima_comercial_igv": prima_comercial_igv_calc if prima_comercial_igv_calc is not None else it.get("prima_comercial_igv"),
             "estado": it.get("estado"),
+            "motivo": it.get("motivo"),                      # NUEVO
+            "ramos_producto": it.get("ramos_producto"),      # NUEVO
             "comision_compania_pct": it.get("comision_compania_pct"),
             "comision_compania_importe": com_importe_calc if com_importe_calc is not None else it.get("comision_compania_importe"),
             "comision_subagente_pct": it.get("comision_subagente_pct"),
