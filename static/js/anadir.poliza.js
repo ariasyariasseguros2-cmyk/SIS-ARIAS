@@ -203,9 +203,16 @@
     const neta = parseNumber(netaStr);
     const pctVal = parseNumber(pctStr);
     if (!Number.isFinite(neta) || !Number.isFinite(pctVal)) return '';
-    // Soporta 1.1, 1.2, ... hasta 100 como porcentaje; si el valor es <=1, se asume ratio directo (p.ej. 0.185)
     const ratio = pctVal <= 1 ? pctVal : (pctVal / 100);
     return (neta * ratio).toFixed(2);
+  }
+  // NUEVO: cálculo de Importe Comisión Sub Agente desde Importe Cía y % Sub Agente
+  function computeSubAgentCommissionAmount(compImportStr, subPctStr) {
+    const comp = parseNumber(compImportStr);
+    const pctVal = parseNumber(subPctStr);
+    if (!Number.isFinite(comp) || !Number.isFinite(pctVal)) return '';
+    const ratio = pctVal <= 1 ? pctVal : (pctVal / 100);
+    return (comp * ratio).toFixed(2);
   }
   function sumCommission(items) {
     let total = 0;
@@ -242,7 +249,7 @@
     const hasRamo = headers.includes('ramo');
     const hasPrimaNeta = headers.includes('prima neta');
     const hasAcciones = headers.includes('acciones');
-    const expectedCount = 15; // +2 columnas: % Comisión Cía, Imp. Comisión Cía
+    const expectedCount = 17; // incluye %/Imp Cía y %/Imp Sub Agente
     if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
       thead.innerHTML = `
         <tr>
@@ -260,6 +267,8 @@
           <th>Prima + IGV</th>
           <th>% Comisión Cía</th>
           <th>Imp. Comisión Cía</th>
+          <th>% Comisión Sub Agente</th>
+          <th>Imp. Comisión Sub Agente</th>
           <th class="actions-col">Acciones</th>
         </tr>
       `;
@@ -290,6 +299,12 @@
         </td>
         <td data-index="${idx}" data-field="comision_compania_importe">
           <input type="number" step="0.01" class="form-control form-control-sm imp-comp" value="${it.comision_compania_importe || ''}" readonly>
+        </td>
+        <td data-index="${idx}" data-field="comision_subagente_pct">
+          <input type="number" step="0.01" min="0" max="100" class="form-control form-control-sm pct-sub" value="${it.comision_subagente_pct || ''}">
+        </td>
+        <td data-index="${idx}" data-field="comision_subagente_importe">
+          <input type="number" step="0.01" class="form-control form-control-sm imp-sub" value="${it.comision_subagente_importe || ''}" readonly>
         </td>
         <td class="actions-col">
           <div class="actions-stack">
@@ -438,7 +453,32 @@
     extractedItems[idx].comision_compania_importe = pct ? computeCommissionAmount(neta, pct) : '';
     const impEl = input.closest('tr')?.querySelector('.imp-comp');
     if (impEl) impEl.value = extractedItems[idx].comision_compania_importe || '';
+    // NUEVO: recalcular subagente usando el importe compañía actualizado
+    const subPct = extractedItems[idx].comision_subagente_pct || '';
+    const impSubEl = input.closest('tr')?.querySelector('.imp-sub');
+    extractedItems[idx].comision_subagente_importe = subPct ? computeSubAgentCommissionAmount(extractedItems[idx].comision_compania_importe || '', subPct) : '';
+    if (impSubEl) impSubEl.value = extractedItems[idx].comision_subagente_importe || '';
+
     if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+    scheduleAutoSave();
+  });
+
+  // NUEVO: Delegación cambio en % Comisión Sub Agente por fila
+  tbody.addEventListener('input', (e) => {
+    const input = e.target.closest('input.pct-sub');
+    if (!input) return;
+    const td = input.closest('td');
+    const idx = Number(td?.dataset?.index);
+    if (!Number.isFinite(idx)) return;
+  
+    const subPct = input.value || '';
+    extractedItems[idx].comision_subagente_pct = subPct;
+  
+    const compImport = extractedItems[idx].comision_compania_importe || '';
+    extractedItems[idx].comision_subagente_importe = subPct ? computeSubAgentCommissionAmount(compImport, subPct) : '';
+    const impSubEl = input.closest('tr')?.querySelector('.imp-sub');
+    if (impSubEl) impSubEl.value = extractedItems[idx].comision_subagente_importe || '';
+  
     scheduleAutoSave();
   });
 

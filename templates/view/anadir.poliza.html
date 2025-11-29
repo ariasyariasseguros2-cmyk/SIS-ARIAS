@@ -73,25 +73,8 @@
         </div>
         <!-- NUEVO: bloque de comisiones al costado (mismo card, debajo de Ejecutivo) -->
         <div class="row g-3 mt-1">
-          {# Bloque removido: campos superiores de comisión compañía ya no van #}
-          {#
-            <div class="col-md-2">
-              <label class="form-label">% Comisión Compañía</label>
-              <input id="pctComCompania" type="number" step="0.01" class="form-control">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Importe Comisión Compañía</label>
-              <input id="impComCompania" type="number" step="0.01" class="form-control">
-            </div>
-          #}
-          <div class="col-md-2">
-            <label class="form-label">% Comisión Sub Agente</label>
-            <input id="pctComSubAgente" type="number" step="0.01" class="form-control">
-          </div>
-          <div class="col-md-2">
-            <label class="form-label">Importe Comisión Sub Agente</label>
-            <input id="impComSubAgente" type="number" step="0.01" class="form-control">
-          </div>
+          <!-- Bloque removido: campos superiores de comisión compañía ya no van -->
+          <!-- REMOVIDO: % Comisión Sub Agente e Importe Comisión Sub Agente del card superior -->
         </div>
       </div>
     </div>
@@ -182,6 +165,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=20"></script>
+  <!-- Al final del archivo, actualizar la versión para evitar caché -->
+  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=21"></script>
 </body>
 </html>

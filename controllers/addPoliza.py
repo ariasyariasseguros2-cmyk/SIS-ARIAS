@@ -48,6 +48,21 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
         except Exception:
             pass
 
+        # NUEVO: calcular Importe Comisión Sub Agente desde Importe Cía y % Sub Agente
+        sub_pct_str = it.get("comision_subagente_pct")
+        sub_importe_calc = None
+        try:
+            if sub_pct_str:
+                pct_val = float(str(sub_pct_str).replace(',', '.').replace(' ', ''))
+                ratio = pct_val if pct_val <= 1 else (pct_val / 100.0)
+                # base: importe compañía (calculado o enviado)
+                base_comp_str = com_importe_calc if com_importe_calc is not None else it.get("comision_compania_importe")
+                base_comp_val = float(str(base_comp_str).replace(',', '.').replace(' ', '')) if base_comp_str else None
+                if base_comp_val is not None:
+                    sub_importe_calc = f"{(base_comp_val * ratio):.2f}"
+        except Exception:
+            pass
+
         normalized.append({
             "numero_poliza": it.get("numero_poliza"),
             "recibo": it.get("recibo"),
@@ -67,7 +82,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
             "comision_compania_pct": it.get("comision_compania_pct"),
             "comision_compania_importe": com_importe_calc if com_importe_calc is not None else it.get("comision_compania_importe"),
             "comision_subagente_pct": it.get("comision_subagente_pct"),
-            "comision_subagente_importe": it.get("comision_subagente_importe"),
+            "comision_subagente_importe": sub_importe_calc if sub_importe_calc is not None else it.get("comision_subagente_importe"),
             # cliente seleccionado
             "cliente": (selected or {}).get("razon_social") or (selected or {}).get("nombre"),
             "n_doc": (selected or {}).get("n_doc"),
