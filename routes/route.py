@@ -105,7 +105,7 @@ def menu_page(page):
     # Fallback: otras secciones usan el dashboard con etiqueta de sección
     rows = get_dashboard_rows()
     chart = get_dashboard_data()
-    return render_template('view/dashboard.html', rows=rows, chart=chart, page=page)
+    return render_template('view/layout_dashboard.html', rows=rows, chart=chart, page=page)
 
 @bp.route('/upload', methods=['POST'])
 def upload():
