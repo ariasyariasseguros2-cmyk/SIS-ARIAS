@@ -1,0 +1,11 @@
+/* Estilos simples para aproximar la visual del ejemplo */
+#formReporteDiario .form-label {
+    font-weight: 600;
+}
+#formReporteDiario .form-control,
+#formReporteDiario .form-select {
+    min-height: 38px;
+}
+.card-header {
+    font-weight: 600;
+}

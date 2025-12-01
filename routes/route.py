@@ -13,7 +13,7 @@ def home():
         return redirect(url_for('login'))
     rows = get_dashboard_rows()
     chart = get_dashboard_data()
-    return render_template('view/dashboard.html', rows=rows, chart=chart)
+    return render_template('view/layout_dashboard.html', rows=rows, chart=chart)
 
 @bp.route('/dashboard')
 def dashboard():
@@ -21,7 +21,7 @@ def dashboard():
         return redirect(url_for('login'))
     rows = get_dashboard_rows()
     chart = get_dashboard_data()
-    return render_template('view/dashboard.html', rows=rows, chart=chart)
+    return render_template('view/layout_dashboard.html', rows=rows, chart=chart)
 
 @bp.route('/menu/<page>')
 def menu_page(page):
@@ -90,6 +90,16 @@ def menu_page(page):
             aseguradoras_rows=get_aseguradoras(),
             subagentes_abbrs=get_subagentes_abreviaciones(),  # NUEVO
             ejecutivos_rows=get_ejecutivos()                  # NUEVO
+        )
+
+    # NUEVO: Reporte Diario (acepta 'reporte-diaro' por el slug del menú)
+    if page in ('reporte-diario', 'reporte-diaro'):
+        from controllers.reporte_diario import get_filters
+        filters = get_filters()
+        return render_template(
+            'view/reporte-diario.dashboard.html',
+            page='reporte-diario',
+            filters=filters
         )
 
     # Fallback: otras secciones usan el dashboard con etiqueta de sección
