@@ -615,4 +615,34 @@
     if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
     scheduleAutoSave();
   });
+
+  // NUEVO: eliminar fila (botón "Eliminar" por fila)
+  tbody.addEventListener('click', (e) => {
+    const btn = e.target.closest('.js-del');
+    if (!btn) return;
+    const idx = Number(btn.dataset.index);
+    if (!Number.isFinite(idx)) return;
+  
+    // Eliminar del arreglo y re-renderizar
+    extractedItems.splice(idx, 1);
+    render(extractedItems);
+  
+    // Recalcular total superior y autoguardar
+    if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+    scheduleAutoSave();
+  });
+
+  // NUEVO: limpiar tabla (botón "Eliminar tabla")
+  const btnClear = document.getElementById('btnClear');
+  btnClear?.addEventListener('click', () => {
+    if (!extractedItems.length) {
+      // No hay nada que limpiar
+      return;
+    }
+    extractedItems = [];
+    render(extractedItems);
+    if (impComCompaniaEl) impComCompaniaEl.value = '';
+    if (hint) hint.textContent = 'Sube un PDF para ver información.';
+    scheduleAutoSave();
+  });
 })();
