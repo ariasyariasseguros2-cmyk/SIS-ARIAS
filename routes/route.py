@@ -469,9 +469,11 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
         prov = "positiva" if "la positiva" in text.lower() else ("mapfre" if "mapfre" in text.lower() else "")
 
     if prov == "mapfre":
-        item = _parse_mapfre(text)
+        # NUEVO: usar el parser dedicado en controllers/addMapfre.py
+        from controllers.addMapfre import parse_mapfre
+        item = parse_mapfre(text)
         return [item] if item else []
-    # La Positiva (EPS/Vida/Seguros)
+    # La Positiva (EPS/Vida/Seguros)    
     if prov in {"positiva", ""}:
         return _parse_positiva(text)
     return []
