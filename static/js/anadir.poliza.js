@@ -645,4 +645,55 @@
     if (hint) hint.textContent = 'Sube un PDF para ver información.';
     scheduleAutoSave();
   });
+
+  // NUEVO: click en Agregar póliza → inserta fila vacía
+  btnAgregarPoliza?.addEventListener('click', () => {
+    const formaPago = tipoPagoTopEl?.value || '';
+    const estado    = estadoTopEl?.value || 'PENDIENTE';
+    const ramoTop   = (document.getElementById('ramoProductoTop')?.value || '').trim();
+    const pctCC     = (document.getElementById('pctComCompania')?.value || '').trim();
+    const pctSA     = (document.getElementById('pctComSubAgente')?.value || '').trim();
+  
+    const blank = normalizeItem({
+      numero_poliza: '',
+      recibo: '',
+      colectivo_asegurado: '',
+      inicio_vigencia: '',
+      vencimiento: '',
+      moneda: '',
+      fecha_emision: '',
+      ultimo_dia_pago: '',
+      prima_neta: '',
+      prima_comercial: '',
+      prima_comercial_igv: '',
+      ramo: ramoTop || '',
+      forma_pago: formaPago,
+      estado: estado,
+      comision_compania_pct: pctCC,
+      comision_compania_importe: '',
+      comision_subagente_pct: pctSA,
+      comision_subagente_importe: ''
+    });
+  
+    // Si hay % compañía y prima_neta, calculamos (en blanco no aplica)
+    if (blank.comision_compania_pct && blank.prima_neta) {
+      blank.comision_compania_importe = computeCommissionAmount(blank.prima_neta, blank.comision_compania_pct);
+    }
+  
+    extractedItems.push(blank);
+    render(extractedItems);
+  
+    // Actualizar total de comisión compañía
+    const impComCompaniaEl = document.getElementById('impComCompania');
+    if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+  
+    // Enfocar primer campo (Póliza) de la nueva fila
+    const newIndex = extractedItems.length - 1;
+    setTimeout(() => {
+      const firstCell = tbody.querySelector(`td[data-index="${newIndex}"][data-field="numero_poliza"]`);
+      firstCell?.focus();
+    }, 0);
+  
+    scheduleAutoSave();
+  });
 })();
