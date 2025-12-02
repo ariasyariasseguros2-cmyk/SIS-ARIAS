@@ -89,6 +89,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
             "cliente": (selected or {}).get("razon_social") or (selected or {}).get("nombre"),
             "n_doc": (selected or {}).get("n_doc"),
             "subagente": (selected or {}).get("subagente"),
+            "tipo_doc": (selected or {}).get("tipo_doc"),  # NUEVO (opcional)
         })
     # Devuelve conteo para confirmar guardado
     return {"ok": True, "count": len(normalized)}

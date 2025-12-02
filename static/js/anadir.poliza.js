@@ -9,6 +9,8 @@
   const ejecutivoTopEl = document.getElementById('ejecutivoTop');
   const estadoTopEl = document.getElementById('estadoTop');
   const tipoPagoTopEl = document.getElementById('tipoPagoTop');
+  // NUEVO: referenciar el input de Tipo Doc
+  const tipoDocTopEl = document.getElementById('tipoDocTop');
   // NUEVO: declarar el input superior de ramo/producto
   const ramoProductoTopEl = document.getElementById('ramoProductoTop');
   // NUEVO: campos de comisiones
@@ -130,31 +132,6 @@
     }
     subAgenteEl.value = val;
   }
-
-  // Persistir en memoria del cliente y backend
-  (subAgenteTopEl || document.getElementById('subAgente'))?.addEventListener('change', (e) => {
-    window.selectedCliente = window.selectedCliente || {};
-    window.selectedCliente.subagente = e.target.value;
-
-    // Enviar al backend para persistir en sesión (clientes_select)
-    const payload = {
-      nombre: window.selectedCliente.nombre || window.selectedCliente.razon_social || '',
-      razon_social: window.selectedCliente.razon_social || '',
-      tipo_doc: window.selectedCliente.tipo_doc || '',
-      n_doc: window.selectedCliente.n_doc || '',
-      tel: window.selectedCliente.tel || '',
-      subagente: e.target.value
-    };
-    fetch('/clientes/select', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).then(r => r.json())
-      .then(res => {
-        console.log('[clientes/select] persist subagente:', res);
-      })
-      .catch(err => console.warn('[clientes/select] error:', err));
-  });
 
   // Helper: construir opciones del select de Ramo
   function buildRamoOptions(selected) {
