@@ -540,6 +540,11 @@
             return;
           }
 
+          // NUEVO: guardar nombre del PDF subido
+          if (payload && typeof payload.filename === 'string') {
+            lastUploadedFilename = payload.filename;
+          }
+
           let items = [];
           if (payload.items && Array.isArray(payload.items)) {
             items = payload.items.map(normalizeItem);
@@ -695,5 +700,50 @@
     }, 0);
   
     scheduleAutoSave();
+  });
+
+  // NUEVO: elementos del modal PDF
+  const btnVerPDF = document.getElementById('btnVerPDF');
+  const pdfModalEl = document.getElementById('pdfModal');
+  const pdfFrameEl = document.getElementById('pdfFrame');
+  const pdfOpenNewTabEl = document.getElementById('pdfOpenNewTab');
+  let pdfModalInstance = null;
+  let lastUploadedFilename = null;
+  if (pdfModalEl && window.bootstrap) {
+    pdfModalInstance = new bootstrap.Modal(pdfModalEl, { backdrop: 'static' });
+  }
+
+  // NUEVO: abrir modal y visualizar el PDF
+  btnVerPDF?.addEventListener('click', () => {
+    let src = '';
+    let label = 'Vista de PDF';
+    if (lastUploadedFilename) {
+      const safe = encodeURIComponent(lastUploadedFilename);
+      src = `/static/uploads/${safe}`;
+      label = `PDF: ${lastUploadedFilename}`;
+    } else if (fileEl?.files?.[0]) {
+      const blobUrl = URL.createObjectURL(fileEl.files[0]);
+      src = blobUrl;
+      label = `PDF local (no subido): ${fileEl.files[0].name}`;
+    } else {
+      alert('Aún no hay PDF para visualizar. Sube uno primero.');
+      return;
+    }
+
+    if (pdfFrameEl) pdfFrameEl.src = src;
+    if (pdfOpenNewTabEl) pdfOpenNewTabEl.href = src;
+    const titleEl = document.getElementById('pdfModalLabel');
+    if (titleEl) titleEl.textContent = label;
+
+    if (pdfModalInstance) {
+      pdfModalInstance.show();
+    } else {
+      window.open(src, '_blank', 'noopener');
+    }
+  });
+
+  // NUEVO: limpiar iframe al cerrar modal
+  pdfModalEl?.addEventListener('hidden.bs.modal', () => {
+    try { if (pdfFrameEl) pdfFrameEl.src = 'about:blank'; } catch {}
   });
 })();

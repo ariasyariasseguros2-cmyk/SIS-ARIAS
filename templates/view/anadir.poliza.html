@@ -136,11 +136,12 @@
         <div class="d-flex justify-content-between align-items-center mb-2">
           <h2 class="h6 m-0">Datos extraídos</h2>
           <div class="d-flex gap-2">
+            <button id="btnVerPDF" class="btn btn-info btn-sm">Ver PDF</button>
             <button id="btnAgregarPoliza" class="btn btn-primary btn-sm">Agregar póliza</button>
             <button id="btnClear" class="btn btn-outline-danger btn-sm">Eliminar tabla</button>
             <button id="btnSave" class="btn btn-success btn-sm" disabled>Guardar pólizas</button>
           </div>
-        </div>
+        </div>  
         <div id="extractLoading" class="alert alert-info py-2 d-flex align-items-center d-none">
           <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
           <span class="msg">Extrayendo datos…</span>
@@ -175,6 +176,8 @@
     </div>
   </div>
 
+  <!-- Incluir modal de visor PDF -->
+  {% include 'view/VerPolizaPDF.html' %}
   <script>
     window.currentPage = "anadir-poliza";
     window.selectedCliente = {{ selected|tojson }};
@@ -184,6 +187,6 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <!-- Al final del archivo, actualizar la versión para evitar caché -->
-  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=22"></script>
+  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=23"></script>
 </body>
 </html>
