@@ -1,13 +1,17 @@
 <!-- Modal para ver PDF de la póliza -->
-<div class="modal fade" id="pdfModal" tabindex="-1" aria-labelledby="pdfModalLabel" aria-hidden="true">
+<div class="modal fade" id="pdfModal" tabindex="-1" aria-labelledby="pdfModalLabel" aria-hidden="true" data-bs-keyboard="false">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 id="pdfModalLabel" class="modal-title">Vista de PDF</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        <h5 id="pdfModalLabel" class="modal-title me-auto">PDF: sedutiabrirpdf33994914153.pdf</h5>
+        <div class="ms-auto d-flex align-items-center gap-2">
+          <!-- Mostrar el botón: quitar d-none -->
+          <button id="pdfMinimizeBtn" type="button" class="btn btn-outline-secondary btn-sm" title="Minimizar">-</button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
       </div>
       <div class="modal-body p-0">
-        <iframe id="pdfFrame" src="about:blank" style="width:100%; min-height:75vh;" title="Póliza PDF"></iframe>
+        <iframe id="pdfFrame" src="about:blank" style="width:100%; min-height:75vh;" title="Póliza PDF" tabindex="0"></iframe>
       </div>
       <div class="modal-footer">
         <a id="pdfOpenNewTab" class="btn btn-outline-secondary" href="#" target="_blank" rel="noopener">Abrir en nueva pestaña</a>
@@ -16,3 +20,203 @@
     </div>
   </div>
 </div>
+<!-- Barra flotante para restaurar cuando está minimizado -->
+<div id="pdfMinibar" class="pdf-minibar d-none" role="button" aria-label="Restaurar PDF">PDF de Póliza — Restaurar</div>
+
+<style>
+  .pdf-minibar {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 1065;
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,.125);
+    box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,.15);
+    border-radius: 999px;
+    padding: 8px 16px;
+    color: #0d6efd;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+  }
+  .pdf-minibar:hover { background: #f8f9fa; }
+</style>
+
+<script>
+(function() {
+  const modalEl = document.getElementById('pdfModal');
+  const iframeEl = document.getElementById('pdfFrame');
+  const minimizeBtn = document.getElementById('pdfMinimizeBtn');
+  const minibarEl = document.getElementById('pdfMinibar');
+
+  let isMinimized = false;
+  let bsModal = null;
+  let currentPdfUrl = null;
+  let lastKnownSrc = null;
+
+  function ensureBootstrapInstance() {
+    if (!window.bootstrap) return null;
+    bsModal = bootstrap.Modal.getOrCreateInstance(modalEl, { keyboard: false });
+    return bsModal;
+  }
+
+  // Helper para setear/abrir PDF
+  // Forzar pequeña variación en la URL para evitar cache agresivo del visor
+  function withBust(url) {
+    if (!url || url.startsWith('blob:') || url.startsWith('data:')) return url;
+    const sep = url.includes('#') ? '&' : '#';
+    return `${url}${sep}v=${Date.now()}`;
+  }
+
+  // ACTUALIZADO: setear siempre trackers y aplicar bust al src del iframe
+  function setPdfSrc(url) {
+    currentPdfUrl = url;
+    lastKnownSrc = url;
+    const next = withBust(url);
+    if (iframeEl) iframeEl.src = next || 'about:blank';
+    const openBtn = document.getElementById('pdfOpenNewTab');
+    if (openBtn && url) { openBtn.href = url; }
+  }
+  // Exponer un helper global por si otra vista quiere abrir el modal con un PDF
+  window.openPdfInModal = function(url) {
+    setPdfSrc(url);
+    const inst = ensureBootstrapInstance();
+    inst?.show();
+  };
+
+  // Recarga el iframe para evitar que quede en blanco tras restaurar
+  function reloadIframe(forceBust = false) {
+    if (!iframeEl) return;
+    // fuente: currentPdfUrl -> lastKnownSrc -> atributo src -> propiedad src
+    let url = currentPdfUrl || lastKnownSrc || iframeEl.getAttribute('src') || iframeEl.src;
+    if (!url || url === 'about:blank') return;
+
+    // Evitar re-render bloqueado: añadir bust sólo si no es blob/data
+    if (forceBust && !url.startsWith('blob:') && !url.startsWith('data:')) {
+      const stamp = Date.now();
+      // Usar hash para no romper query existente
+      url = url.includes('#') ? `${url}&r=${stamp}` : `${url}#r=${stamp}`;
+    }
+
+    lastKnownSrc = url;
+    iframeEl.src = 'about:blank';
+    setTimeout(() => { iframeEl.src = url; }, 50);
+  }
+
+  // Registrar una sola vez el atajo global para Escape y Ctrl+M
+  window.addEventListener('keydown', (e) => {
+    if (!modalEl.classList.contains('show')) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      minimize();
+    }
+    if (e.ctrlKey && String(e.key).toLowerCase() === 'm') {
+      e.preventDefault();
+      minimize();
+    }
+  }, { capture: true });
+
+  // NUEVO: gestionar el foco según la posición del puntero respecto al iframe
+  let pointerHandler = null;
+  function attachPointerHandlers() {
+    const modalContentEl = modalEl.querySelector('.modal-content');
+    if (!modalContentEl) return;
+
+    pointerHandler = function(e) {
+      if (!modalEl.classList.contains('show')) return;
+      if (!iframeEl) return;
+      const rect = iframeEl.getBoundingClientRect();
+      const x = e.clientX, y = e.clientY;
+      const insideIframe =
+        x >= rect.left && x <= rect.right &&
+        y >= rect.top && y <= rect.bottom;
+
+      // Si el puntero está FUERA del iframe, trae el foco al modal
+      if (!insideIframe) {
+        try { iframeEl.blur(); } catch {}
+        modalContentEl.focus();
+      }
+    };
+
+    // Mueve el foco al salir del área del iframe o al moverse el puntero en el modal
+    modalEl.addEventListener('mousemove', pointerHandler);
+    iframeEl.addEventListener('mouseleave', pointerHandler);
+  }
+  function detachPointerHandlers() {
+    if (!pointerHandler) return;
+    modalEl.removeEventListener('mousemove', pointerHandler);
+    iframeEl.removeEventListener('mouseleave', pointerHandler);
+    pointerHandler = null;
+  }
+
+  function minimize() {
+    const inst = ensureBootstrapInstance();
+    if (!inst) return;
+    isMinimized = true;
+    inst.hide();
+  }
+
+  function restore() {
+    const inst = ensureBootstrapInstance();
+    if (!inst) return;
+    isMinimized = false;
+    minibarEl.classList.add('d-none');
+    inst.show();
+    setTimeout(() => reloadIframe(true), 100);
+  }
+
+  // Botón Minimizar con protección de eventos
+  if (minimizeBtn) {
+    minimizeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      minimize();
+    });
+  }
+  // Barra para restaurar
+  if (minibarEl) { minibarEl.addEventListener('click', restore); }
+
+  // Mostrar/ocultar la barra según el motivo del hidden
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    if (isMinimized) { minibarEl.classList.remove('d-none'); }
+    else { minibarEl.classList.add('d-none'); }
+    // NUEVO: limpiar handlers de puntero al cerrar
+    detachPointerHandlers();
+  });
+
+  // ACTUALIZADO: al mostrar, enfocar y adjuntar handlers de puntero
+  modalEl.addEventListener('shown.bs.modal', () => {
+    minibarEl.classList.add('d-none');
+
+    const modalContentEl = modalEl.querySelector('.modal-content');
+    if (modalContentEl) {
+      modalContentEl.setAttribute('tabindex', '-1');
+      modalContentEl.focus();
+    }
+
+    // NUEVO: activar comportamiento de foco con movimiento del puntero
+    attachPointerHandlers();
+
+    if (isMinimized) {
+      setTimeout(() => reloadIframe(true), 50);
+    } else {
+      const cur = iframeEl?.getAttribute('src') || iframeEl?.src;
+      if (cur && cur !== 'about:blank') {
+        currentPdfUrl = cur.replace(/[#&]v=\d+$/, '');
+        lastKnownSrc = currentPdfUrl;
+      }
+    }
+  });
+
+  // Al cargar el iframe, sincronizar URLs (sin listeners de teclado dentro)
+  iframeEl?.addEventListener('load', () => {
+    const cur = iframeEl?.getAttribute('src') || iframeEl?.src;
+    if (cur && cur !== 'about:blank') {
+      const base = cur.replace(/[#&]v=\d+$/, '');
+      currentPdfUrl = base;
+      lastKnownSrc = base;
+    }
+    // No agregar listeners de teclado dentro del iframe (causa registros repetidos)
+  });
+})();
+</script>
