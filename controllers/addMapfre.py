@@ -49,23 +49,25 @@ def parse_mapfre(text: str) -> Dict[str, str]:
         or _find(r"Poliza\s*:\s*([0-9A-Z\-]+)", text)
     )
 
-    # RECIBO: tolera saltos/espacios entre etiqueta y valor, y limpia dígitos
     rec_raw = (
-        _find(r"\bRECIBO\s*[:\-]?\s*([0-9\ \t\r\n]{5,})", flat)
-        or _find(r"\bRecibo\s*[:\-]?\s*([0-9\ \t\r\n]{5,})", flat)
-        or _find_after(r"\bRECIBO\b", text, r"([0-9]{5,})", window=200)
+        _find(r"\bRECIBO\W*(\d{5,})", flat)
+        or _find(r"\bRecibo\W*(\d{5,})", flat)
+        or _find(r"\bRECIBO\W*(\d{5,})", text)
+        or _find_after(r"\bRECIBO\b", text, r"([0-9]{5,})", window=300)
         or _find(r"(?:Ct\s*)?Cancelaci[oó]n\s+Recibo\s*([0-9]{5,})", text)
     )
+    pos = flat.upper().find("RECIBO")
+    if pos != -1:
+        print("[parse_mapfre] contexto RECIBO:", flat[pos-60:pos+60])
+    print("[parse_mapfre] RECIBO raw ->", rec_raw)
     item["recibo"] = _digits(rec_raw)
 
-    # Contratante / Asegurado / Colectivo
     item["colectivo_asegurado"] = (
         _find(r"Colectivo\s+Asegurado\s*:\s*(.+)", text)
         or _find(r"CONTRATANTE\s*:\s*(.+)", text)
         or _find(r"Asegurado\s*:\s*(.+)", text)
     )
 
-    # Vigencias: variantes EPS “Inicio de Vigencia” / “Vencimiento”
     item["inicio_vigencia"] = (
         _find(r"Inicio\s+de\s+Vigencia\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
         or _find(r"DESDE\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
@@ -75,13 +77,25 @@ def parse_mapfre(text: str) -> Dict[str, str]:
         or _find(r"HASTA\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
     )
 
-    # Moneda: tolera “Moneda : SOLES” con saltos/espacios irregulares
+    # Moneda: restringida a valores esperados
     item["moneda"] = (
-        _find(r"\bMoneda\s*[:\-]?\s*([A-ZÁÉÍÓÚ]+)", flat)
-        or _find(r"\bMONEDA\s*[:\-]?\s*([A-ZÁÉÍÓÚ]+)", flat)
-        or _find_after(r"\bMoneda\b", text, r"([A-ZÁÉÍÓÚ]+)", window=200)
-        or _find_after(r"\bMONEDA\b", text, r"([A-ZÁÉÍÓÚ]+)", window=200)
+        _find(r"\bMoneda\s*[:\-]?\s*(SOLES|DOLARES|DÓLARES|USD|PEN)", flat)
+        or _find(r"\bMONEDA\s*[:\-]?\s*(SOLES|DOLARES|DÓLARES|USD|PEN)", flat)
+        or _find_after(r"\bMoneda\b", text, r"(SOLES|DOLARES|DÓLARES|USD|PEN)", window=400)
+        or _find_after(r"\bMONEDA\b", text, r"(SOLES|DOLARES|DÓLARES|USD|PEN)", window=400)
     )
+
+    # Forma de Pago: evita capturar moneda
+    item["forma_pago"] = (
+        _find(r"Forma\s+de\s+Pago\s*[:\-]?\s*(MENSUAL|ANUAL|SEMESTRAL|TRIMESTRAL|BIMESTRAL|QUINCENAL|UNICO|ÚNICO)", flat)
+        or _find_after(r"Forma\s+de\s+Pago\b", text, r"(MENSUAL|ANUAL|SEMESTRAL|TRIMESTRAL|BIMESTRAL|QUINCENAL|UNICO|ÚNICO)", window=200)
+    )
+
+    # Corrección: si forma_pago contiene moneda, moverla a 'moneda'
+    if not item.get("moneda") and item.get("forma_pago") in {"SOLES", "DOLARES", "DÓLARES", "USD", "PEN"}:
+        item["moneda"] = item["forma_pago"]
+        item["forma_pago"] = None
+    
 
     # Fecha de Emisión
     item["fecha_emision"] = (

@@ -719,7 +719,8 @@
     let label = 'Vista de PDF';
     if (lastUploadedFilename) {
       const safe = encodeURIComponent(lastUploadedFilename);
-      src = `/static/uploads/${safe}`;
+      // CAMBIO: usar la ruta del servidor /uploads en vez de /static/uploads
+      src = `/uploads/${safe}`;
       label = `PDF: ${lastUploadedFilename}`;
     } else if (fileEl?.files?.[0]) {
       const blobUrl = URL.createObjectURL(fileEl.files[0]);

@@ -1,4 +1,4 @@
-from flask import Blueprint, redirect, url_for, session, render_template, request, current_app
+from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory
 from werkzeug.utils import secure_filename
 import os
 from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows
@@ -128,6 +128,12 @@ def upload():
     save_path = os.path.join(upload_folder, filename)
     os.makedirs(upload_folder, exist_ok=True)
     file.save(save_path)
+    # NUEVO: log para confirmar escritura del archivo
+    try:
+        exists = os.path.exists(save_path)
+        print(f"[upload] saved to {save_path} exists={exists}")
+    except Exception as e:
+        print(f"[upload] error verifying save path: {e}")
 
     issuer = (request.form.get('issuer') or '').strip() or None
     # Modo debug: si llega desde el cliente
@@ -469,9 +475,15 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
         prov = "positiva" if "la positiva" in text.lower() else ("mapfre" if "mapfre" in text.lower() else "")
 
     if prov == "mapfre":
-        # NUEVO: usar el parser dedicado en controllers/addMapfre.py
+        # NUEVO: usar fallback con filename si falta 'recibo'
         from controllers.addMapfre import parse_mapfre
         item = parse_mapfre(text)
+        # Si no se obtuvo 'recibo' del texto, intentar desde el filename
+        if item and not item.get('recibo'):
+            fname = os.path.basename(path)
+            m = re.search(r"(\d{6,})", fname)
+            if m:
+                item['recibo'] = m.group(1)
         return [item] if item else []
     # La Positiva (EPS/Vida/Seguros)    
     if prov in {"positiva", ""}:
@@ -539,4 +551,14 @@ def dashboard_notes():
         return {'ok': True}, 200
     except Exception as e:
         return {'ok': False, 'errors': [str(e)]}, 500
+
+# NUEVO: ruta para servir PDFs subidos desde UPLOAD_FOLDER
+@bp.route('/uploads/<path:filename>', methods=['GET'])
+def serve_upload(filename):
+    folder = current_app.config.get('UPLOAD_FOLDER')
+    safe = secure_filename(filename)
+    full = os.path.join(folder, safe)
+    if not os.path.isfile(full):
+        return {'error': 'Archivo no encontrado', 'path': full}, 404
+    return send_from_directory(folder, safe, as_attachment=False)
 
