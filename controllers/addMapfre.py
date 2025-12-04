@@ -96,11 +96,23 @@ def parse_mapfre(text: str) -> Dict[str, str]:
     print("[parse_mapfre] RECIBO raw ->", rec_raw)
     item["recibo"] = _digits(rec_raw)
 
-    item["colectivo_asegurado"] = (
-        _find(r"Colectivo\s+Asegurado\s*:\s*(.+)", text)
-        or _find(r"CONTRATANTE\s*:\s*(.+)", text)
-        or _find(r"Asegurado\s*:\s*(.+)", text)
-    )
+    # Colectivo Asegurado: tomar el texto entre la etiqueta y "Forma de Pago", 
+    # luego elegir la última frase en MAYÚSCULAS sin dígitos (evita CONTRATANTE).
+    cfrag = _find(r"Colectivo\s+Asegurado\s*:\s*(.+?)\s+Forma\s+de\s+Pago", flat)
+    item["colectivo_asegurado"] = None
+    if cfrag:
+        caps = re.findall(r"[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ ]{4,}", cfrag)
+        for cand in reversed(caps):
+            if not re.search(r"\d", cand):
+                item["colectivo_asegurado"] = cand.strip()
+                break
+    # Fallbacks si el bloque anterior no funciona
+    if not item.get("colectivo_asegurado"):
+        item["colectivo_asegurado"] = (
+            _find(r"Colectivo\s+Asegurado\s*:\s*([A-ZÁÉÍÓÚÑ0-9 \-\.]+)", text)
+            or _find_after(r"Actividad\s*:\s*", text, r"([A-ZÁÉÍÓÚÑ0-9 \-\.]{6,})", window=300)
+        )
+    print("colectivo_asegurado", item["colectivo_asegurado"])
 
     # Fechas: buscar cerca de cada etiqueta
     item["inicio_vigencia"] = (
@@ -117,6 +129,8 @@ def parse_mapfre(text: str) -> Dict[str, str]:
     item["vencimiento_aplicacion"] = (
         _find_date_near(r"Vencimiento\s+de\s+Aplicaci[oó]n\b", text, 160, 200)
         or _find_after(r"Vencimiento\s+de\s+Aplicaci[oó]n\b", text, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=200)
+        or _find(r"Vencimiento\s+de\s+Aplicaci[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+        or _find(r"Vencimiento\s+de\s+Aplicaci[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", flat)
     )
 
     # Moneda
@@ -145,11 +159,12 @@ def parse_mapfre(text: str) -> Dict[str, str]:
         or _find(r"Emisi[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
     )
 
-    # Último día de pago
+    # Último día de pago: SOLO fecha a la derecha de la etiqueta (evitar tomar la izquierda)
     item["ultimo_dia_pago"] = (
-        _find_date_near(r"[ÚU]ltimo\s+d[ií]a\s+de\s+Pago\b", text, 200, 200)
-        or _find_after(r"[ÚU]ltimo\s+d[ií]a\s+de\s+Pago\b", text, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=200)
+        _find_after(r"[ÚU]ltimo\s+d[ií]a\s+de\s+Pago\b", text, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=120)
+        or _find(r"[ÚU]ltimo\s+d[ií]a\s+de\s+Pago\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", flat)
     )
+    print("ultimo_dia_pago", item["ultimo_dia_pago"])
 
     # Ramo: código + descripción aunque el valor quede lejos de la etiqueta
     item["ramo"] = (
@@ -180,6 +195,27 @@ def parse_mapfre(text: str) -> Dict[str, str]:
         except Exception:
             return None
 
+    # Normalizar las tres fechas de la columna derecha (UDP, VA, V) por orden cronológico
+    _right_dates = {
+        "ultimo_dia_pago": item.get("ultimo_dia_pago"),
+        "vencimiento_aplicacion": item.get("vencimiento_aplicacion"),
+        "vencimiento": item.get("vencimiento"),
+    }
+    _valid = [(k, v, _as_date(v)) for k, v in _right_dates.items() if _as_date(v)]
+    if len({v for _, v, _ in _valid}) >= 2:
+        _ordered = sorted(_valid, key=lambda t: t[2])  # ascendente
+        item["ultimo_dia_pago"] = _ordered[0][1]
+        if len(_ordered) == 2:
+            item["vencimiento"] = _ordered[1][1]
+        else:
+            item["vencimiento_aplicacion"] = _ordered[1][1]
+            item["vencimiento"] = _ordered[2][1]
+        print("[parse_mapfre] fechas normalizadas ->",
+              "UD:", item["ultimo_dia_pago"],
+              "VA:", item.get("vencimiento_aplicacion"),
+              "V:", item["vencimiento"])
+
+    # Mantener corrección emisión/vigencia si vienen cruzadas
     iv = _as_date(item.get("inicio_vigencia"))
     fe = _as_date(item.get("fecha_emision"))
     if iv and fe and fe < iv:
@@ -191,9 +227,11 @@ def parse_mapfre(text: str) -> Dict[str, str]:
     if v and ud and ud > v:
         # intercambiar si quedaron cruzados
         item["vencimiento"], item["ultimo_dia_pago"] = item["ultimo_dia_pago"], item["vencimiento"]
+        print("vencimiento", item["vencimiento"],"ultimo_dia_pago", item["ultimo_dia_pago"], "vencimiento_aplicacion", item["vencimiento_aplicacion"])
         v, ud = ud, v
-    # Si sigue faltando último día de pago, usa 'venc. de aplicación' si es menor que vencimiento
-    if not ud and va and v and va < v:
+    # Regla Mapfre EPS: si Último Día >= Vencimiento (o igual) y hay Venc. de Aplicación menor, usarlo
+    if v and va and (not ud or ud >= v or ud == v) and va < v:
         item["ultimo_dia_pago"] = item.get("vencimiento_aplicacion")
+        print("ultimo_dia_pago", item["vencimiento_aplicacion"])
 
     return {k: _clean(v) for k, v in item.items() if v}
