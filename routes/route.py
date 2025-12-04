@@ -475,15 +475,30 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
         prov = "positiva" if "la positiva" in text.lower() else ("mapfre" if "mapfre" in text.lower() else "")
 
     if prov == "mapfre":
-        # NUEVO: usar fallback con filename si falta 'recibo'
+        import re, os
+        from controllers.addMapfreVidaLey import parse_mapfre_vidaley
         from controllers.addMapfre import parse_mapfre
-        item = parse_mapfre(text)
-        # Si no se obtuvo 'recibo' del texto, intentar desde el filename
+
+        text_lower = text.lower()
+        hint_vidaley = ("número de póliza" in text_lower or "numero de póliza" in text_lower) and ("colectivo asegurado" in text_lower or "contratante" in text_lower)
+
+        item = parse_mapfre_vidaley(text) if hint_vidaley else None
+        if not item or not item.get('numero_poliza'):
+            item = parse_mapfre(text)
+
+        # Corregir si el parser tomó la póliza como recibo
+        if item and item.get('recibo') and item.get('numero_poliza') and item['recibo'] == item['numero_poliza']:
+            m = re.search(r"\bRECIBO\s*:\s*([0-9]{6,12})", text, re.IGNORECASE | re.DOTALL)
+            if m:
+                item['recibo'] = m.group(1)
+
+        # Fallback desde nombre de archivo
         if item and not item.get('recibo'):
             fname = os.path.basename(path)
             m = re.search(r"(\d{6,})", fname)
             if m:
                 item['recibo'] = m.group(1)
+
         return [item] if item else []
     # La Positiva (EPS/Vida/Seguros)    
     if prov in {"positiva", ""}:
