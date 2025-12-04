@@ -472,7 +472,11 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
     text = _extract_text_fitz(path)
     prov = (issuer or "").lower()
     if not prov:
-        prov = "positiva" if "la positiva" in text.lower() else ("mapfre" if "mapfre" in text.lower() else "")
+        prov = (
+            "positiva" if "la positiva" in text.lower()
+            else ("mapfre" if "mapfre" in text.lower()
+            else ("sanitas" if "sanitas" in text.lower() else ""))
+        )
 
     if prov == "mapfre":
         import re, os
@@ -500,9 +504,14 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
                 item['recibo'] = m.group(1)
 
         return [item] if item else []
-    # La Positiva (EPS/Vida/Seguros)    
+    # La Positiva (EPS/Vida/Seguros)
     if prov in {"positiva", ""}:
         return _parse_positiva(text)
+    # Sanitas (EPS Salud / SCTR)
+    if prov == "sanitas":
+        from controllers.addSanitasSalud import parse_sanitas_salud
+        item = parse_sanitas_salud(text)
+        return [item] if item else []
     return []
 
 def parse_pdf_fields_fitz(path: str) -> Dict[str, str]:

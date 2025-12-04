@@ -1,0 +1,75 @@
+import re
+from typing import Dict, Optional
+
+def _clean(s: Optional[str]) -> str:
+    return (s or "").strip()
+
+def _find(pattern: str, text: str, flags=re.IGNORECASE | re.DOTALL) -> Optional[str]:
+    m = re.search(pattern, text, flags)
+    return m.group(1).strip() if m else None
+
+def _money(s: Optional[str]) -> Optional[str]:
+    if not s:
+        return None
+    m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+)", s)
+    return m.group(1) if m else s
+
+def parse_sanitas_salud(text: str) -> Dict[str, str]:
+    # Contrato / Póliza
+    contrato = _find(r"Contrato\s*:\s*([0-9A-Z\-]+)", text) or _find(r"CONTRATO\s*:\s*([0-9A-Z\-]+)", text)
+
+    # Proforma / Recibo (por etiqueta y fallback patrón PF-SCTR-***)
+    recibo = _find(r"(?:PROFORMA|Proforma)\s*:\s*([A-Z0-9\-]+)", text) \
+        or _find(r"\b(PF[-\s]?SCTR[-\s]?[0-9A-Z\-]+)\b", text)
+
+    # Vigencia: Desde ... hasta ...
+    m_vig = re.search(r"Vigencia\s*:\s*Desde\s*([0-9]{2}/[0-9]{2}/[0-9]{4}).*?hasta\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text, re.IGNORECASE | re.DOTALL)
+    inicio_vigencia = m_vig.group(1) if m_vig else _find(r"Desde\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    vencimiento = m_vig.group(2) if m_vig else _find(r"Hasta\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+
+    # Fecha emisión y vencimiento (superior derecho)
+    fecha_emision = _find(r"FECHA\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    ultimo_dia_pago = _find(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+
+    # Contratante / Colectivo
+    colectivo = _find(r"Contratante\s*:\s*(.+)", text) or _find(r"CONTRATANTE\s*:\s*(.+)", text)
+    if colectivo:
+        colectivo = colectivo.split("\n")[0].strip()
+
+    # Rubro / ramo
+    ramo = _find(r"Rubro\s*:\s*(.+)", text)
+    if ramo:
+        ramo = ramo.split("\n")[0].strip()
+
+    # Concepto: IMPORTE / IGV / TOTAL
+    importe = _money(_find(r"CONCEPTO.*?SCTR.*?IMPORTE\s*([0-9\.,]+)", text)) or _money(_find(r"\bIMPORTE\b\s*([0-9\.,]+)", text))
+    igv_val = _money(_find(r"\bIGV\b\s*([0-9\.,]+)", text))
+    total_con_igv = _money(_find(r"\bTOTAL\b\s*([0-9\.,]+)", text))
+
+    # Derivar prima comercial si falta
+    prima_comercial = importe
+    if not prima_comercial and total_con_igv and igv_val:
+        try:
+            tc = float(total_con_igv.replace(',', '.'))
+            igv = float(igv_val.replace(',', '.'))
+            prima_comercial = f"{(tc - igv):.2f}"  # 94.40 - 14.40 = 80.00
+        except Exception:
+            pass
+
+    item = {
+        "numero_poliza": _find(r"Contrato\s*:\s*([0-9A-Z\-]+)", text) or _find(r"CONTRATO\s*:\s*([0-9A-Z\-]+)", text),
+        "contrato_nro": _find(r"Contrato\s*:\s*([0-9A-Z\-]+)", text) or _find(r"CONTRATO\s*:\s*([0-9A-Z\-]+)", text),
+        "recibo": recibo,
+        "colectivo_asegurado": colectivo,
+        "inicio_vigencia": inicio_vigencia,
+        "vencimiento": vencimiento,
+        "fecha_emision": "",
+        "ultimo_dia_pago": "",
+        "ramo": ramo or "SCTR Salud",
+        "moneda": "SOLES",
+        "prima_comercial": prima_comercial,
+        "prima_comercial_igv": total_con_igv or (f"{float((prima_comercial or '0').replace(',', '.')) + float((igv_val or '0').replace(',', '.')):.2f}" if prima_comercial and igv_val else None),
+    }
+    print("item", item)
+    # Limpieza final: quitar claves vacías
+    return {k: _clean(v) for k, v in item.items() if v}
