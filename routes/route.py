@@ -475,7 +475,8 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
         prov = (
             "positiva" if "la positiva" in text.lower()
             else ("mapfre" if "mapfre" in text.lower()
-            else ("sanitas" if "sanitas" in text.lower() else ""))
+            else ("sanitas" if "sanitas" in text.lower()
+            else ("protecta" if "protecta" in text.lower() else "")))
         )
 
     if prov == "mapfre":
@@ -511,6 +512,11 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
     if prov == "sanitas":
         from controllers.addSanitasSalud import parse_sanitas_salud
         item = parse_sanitas_salud(text)
+        return [item] if item else []
+    # NUEVO: Protecta Pensión
+    if prov in {"protecta", "proctecta"}:
+        from controllers.addProctectaPension import parse_protecta_pension
+        item = parse_protecta_pension(text)
         return [item] if item else []
     return []
 

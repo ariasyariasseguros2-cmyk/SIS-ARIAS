@@ -1,0 +1,19 @@
+(function () {
+  if (window.currentPage !== "anadir-poliza") return;
+
+  const issuerSel = document.getElementById("issuer");
+  const pdfInput = document.getElementById("pdfFile");
+
+  // Heurística simple: si el nombre del archivo sugiere Proctecta/Pension, selecciona proveedor
+  pdfInput?.addEventListener("change", () => {
+    const f = pdfInput.files && pdfInput.files[0];
+    const name = (f?.name || "").toLowerCase();
+    if (name.includes("proctecta") || name.includes("pension")) {
+      const opt = [...issuerSel.options].find(o => (o.value || "").toLowerCase() === "proctecta");
+      if (opt) issuerSel.value = opt.value;
+      // Prellenar ramo producto si aplica
+      const ramoTop = document.getElementById("ramoProductoTop");
+      if (ramoTop && !ramoTop.value) ramoTop.value = "Pensión";
+    }
+  });
+})();
