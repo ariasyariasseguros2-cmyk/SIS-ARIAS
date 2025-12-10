@@ -468,7 +468,7 @@ def _parse_positiva(text: str) -> List[Dict[str, str]]:
 
     return items
 
-def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Dict[str, str]]:
+def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
     text = _extract_text_fitz(path)
     t = text.lower()
     prov = (issuer or "").lower()
@@ -513,9 +513,12 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
         text_lower = text.lower()
         hint_vidaley = ("número de póliza" in text_lower or "numero de póliza" in text_lower) and ("colectivo asegurado" in text_lower or "contratante" in text_lower)
 
-        item = parse_mapfre_vidaley(text) if hint_vidaley else None
+        # Primero intentamos el parser general de Mapfre (más robusto para EPS)
+        item = parse_mapfre(text)
+
+        # Si falla o no trae póliza, usamos el parser Vida Ley como fallback
         if not item or not item.get('numero_poliza'):
-            item = parse_mapfre(text)
+            item = parse_mapfre_vidaley(text) if hint_vidaley else parse_mapfre_vidaley(text)
 
         # Corregir si el parser tomó la póliza como recibo
         if item and item.get('recibo') and item.get('numero_poliza') and item['recibo'] == item['numero_poliza']:

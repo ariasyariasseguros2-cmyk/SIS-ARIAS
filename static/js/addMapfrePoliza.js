@@ -17,9 +17,14 @@
 
       const name = (f.name || '').toLowerCase();
       if (!issuerEl.value && name.includes('mapfre')) {
-        issuerEl.value = 'mapfre';
-        issuerEl.dispatchEvent(new Event('change'));
-        console.log('[addMapfrePoliza] proveedor preseleccionado: mapfre');
+        const opt = [...issuerEl.options].find(o => (o.value || '').toLowerCase() === 'mapfre');
+        if (opt) {
+          issuerEl.value = opt.value;
+          issuerEl.dispatchEvent(new Event('change'));
+          console.log('[addMapfrePoliza] proveedor preseleccionado: mapfre');
+        } else {
+          console.warn('[addMapfrePoliza] opción "mapfre" no encontrada en <select id="issuer">');
+        }
       }
     });
 
