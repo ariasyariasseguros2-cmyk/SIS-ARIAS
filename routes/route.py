@@ -472,12 +472,15 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
     text = _extract_text_fitz(path)
     prov = (issuer or "").lower()
     if not prov:
+        t = text.lower()
         prov = (
-            "positiva" if "la positiva" in text.lower()
-            else ("mapfre" if "mapfre" in text.lower()
-            else ("sanitas" if "sanitas" in text.lower()
-            else ("protecta" if "protecta" in text.lower() else "")))
+            "positiva" if "la positiva" in t
+            else ("mapfre" if "mapfre" in t
+            else ("sanitas" if "sanitas" in t
+            else ("protecta" if "protecta" in t
+            else ("pacifico" if ("pacifico" in t or "pacífico" in t) else ""))))
         )
+    print(f"[provider] detectado: {prov}")
 
     if prov == "mapfre":
         import re, os
@@ -517,6 +520,13 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
     if prov in {"protecta", "proctecta"}:
         from controllers.addProctectaPension import parse_protecta_pension
         item = parse_protecta_pension(text)
+        return [item] if item else []
+    if prov == "pacifico":
+        from controllers.addPacifico import parse_pacifico
+        # Traza: muestra inicio del texto
+        print("[provider] branch: pacifico; texto (head 600):", text[:600].replace("\n", "\\n"))
+        item = parse_pacifico(text)
+        print("[provider] pacifico item:", item)
         return [item] if item else []
     return []
 
