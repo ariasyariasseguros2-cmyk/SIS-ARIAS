@@ -470,20 +470,33 @@ def _parse_positiva(text: str) -> List[Dict[str, str]]:
 
 def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Dict[str, str]]:
     text = _extract_text_fitz(path)
+    t = text.lower()
     prov = (issuer or "").lower()
+
     if not prov:
-        t = text.lower()
-        prov = (
-            "positiva" if "la positiva" in t
-            else ("mapfre" if "mapfre" in t
-            else ("sanitas" if "sanitas" in t
-            else ("protecta" if "protecta" in t
-            else ("pacifico" if ("pacifico" in t or "pacífico" in t) else ""))))
-        )
+        # detección básica por contenido
+        if "la positiva" in t:
+            prov = "positiva"
+        elif "mapfre" in t:
+            prov = "mapfre"
+        elif "sanitas" in t:
+            prov = "sanitas"
+        elif "protecta" in t:
+            prov = "protecta"
+        elif "pacifico" in t or "pacífico" in t:
+            prov = "pacifico"
+        else:
+            prov = ""
+
+    # Heurística: PACIFICO EPS / FACTURA ELECTRÓNICA => usar parser de Salud
+    if (prov in {"", "pacifico"} and ("pacifico" in t or "pacífico" in t)):
+        if re.search(r"(entidad\s+prestadora\s+de\s+salud|eps|factura\s+electr[oó]nica)", t, re.IGNORECASE):
+            prov = "pacifico_salud"
+
     print(f"[provider] detectado: {prov}")
 
     if prov == "mapfre":
-        import re, os
+        import os  # usar re del módulo; evita UnboundLocalError
         from controllers.addMapfreVidaLey import parse_mapfre_vidaley
         from controllers.addMapfre import parse_mapfre
 
@@ -523,11 +536,17 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
         return [item] if item else []
     if prov == "pacifico":
         from controllers.addPacifico import parse_pacifico
-        # Traza: muestra inicio del texto
         print("[provider] branch: pacifico; texto (head 600):", text[:600].replace("\n", "\\n"))
         item = parse_pacifico(text)
         print("[provider] pacifico item:", item)
         return [item] if item else []
+    # NUEVO: Pacifico Salud
+    if prov == "pacifico_salud":
+        from controllers.addPacificoSalud import parse_pacifico_pension
+        item = parse_pacifico_pension(text)
+        print("[provider] pacifico_salud item:", item)
+        return [item] if item else []
+    
     return []
 
 def parse_pdf_fields_fitz(path: str) -> Dict[str, str]:
