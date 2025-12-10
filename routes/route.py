@@ -475,8 +475,17 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
 
     if not prov:
         # detección básica por contenido
-        if "la positiva" in t:
+        # Primero: Vida Ley de Mapfre por patrones de contenido
+        if re.search(r"\bmapfre\b", t) and (
+            re.search(r"\bvida\s+ley\b", t) or
+            re.search(r"decreto\s+legislativo\s*n?\s*688", t) or
+            "d.l.688" in t
+        ):
+            prov = "mapfre-vida-ley"
+        elif "la positiva" in t:
             prov = "positiva"
+        elif "mapfre-vida-ley" in t:
+            prov = "mapfre-vida-ley"
         elif "mapfre" in t:
             prov = "mapfre"
         # NUEVO: preferir Crecer si aparece, aunque también figure 'sanitasperu'
@@ -506,34 +515,16 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
     print(f"[provider] detectado: {prov}")
 
     if prov == "mapfre":
-        import os  # usar re del módulo; evita UnboundLocalError
-        from controllers.addMapfreVidaLey import parse_mapfre_vidaley
         from controllers.addMapfre import parse_mapfre
-
-        text_lower = text.lower()
-        hint_vidaley = ("número de póliza" in text_lower or "numero de póliza" in text_lower) and ("colectivo asegurado" in text_lower or "contratante" in text_lower)
-
-        # Primero intentamos el parser general de Mapfre (más robusto para EPS)
         item = parse_mapfre(text)
-
-        # Si falla o no trae póliza, usamos el parser Vida Ley como fallback
-        if not item or not item.get('numero_poliza'):
-            item = parse_mapfre_vidaley(text) if hint_vidaley else parse_mapfre_vidaley(text)
-
-        # Corregir si el parser tomó la póliza como recibo
-        if item and item.get('recibo') and item.get('numero_poliza') and item['recibo'] == item['numero_poliza']:
-            m = re.search(r"\bRECIBO\s*:\s*([0-9]{6,12})", text, re.IGNORECASE | re.DOTALL)
-            if m:
-                item['recibo'] = m.group(1)
-
-        # Fallback desde nombre de archivo
-        if item and not item.get('recibo'):
-            fname = os.path.basename(path)
-            m = re.search(r"(\d{6,})", fname)
-            if m:
-                item['recibo'] = m.group(1)
-
+        print("[provider] mapfre item:", item)
         return [item] if item else []
+    if prov == "mapfre-vida-ley":
+        from controllers.addMapfreVidaLey import parse_mapfre_vidaley
+        item = parse_mapfre_vidaley(text)
+        print("[provider] mapfre-vida-ley item:", item)
+        return [item] if item else []
+
     # La Positiva (EPS/Vida/Seguros)
     if prov in {"positiva", ""}:
         return _parse_positiva(text)

@@ -18,7 +18,9 @@ def get_aseguradoras() -> list[dict]:
             nombre = (dr.get('nombre_corto') or dr.get('nombre') or '').strip()
             low = nombre.lower()
             # Mapear al slug que tu parser espera
-            if 'mapfre' in low:
+            if 'mapfre' in low and ('vida' in low and 'ley' in low):
+                slug = 'mapfre-vida-ley'
+            elif 'mapfre' in low:
                 slug = 'mapfre'
             elif 'positiva' in low:
                 slug = 'positiva'

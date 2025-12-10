@@ -1,25 +1,19 @@
-(function () {
-  console.log('[addMapfreVidaLey] script cargado');
+document.getElementById("pdfFile")?.addEventListener("change", () => {
+  const input = document.getElementById("pdfFile");
+  const issuerSel = document.getElementById("issuer");
+  const f = input?.files && input.files[0];
+  const name = (f?.name || "").toLowerCase();
 
-  const fileEl = document.getElementById('pdfFile');
-  const issuerEl = document.getElementById('issuer');
-  if (!fileEl || !issuerEl) return;
+  // Ampliar heurística: “vida ley” en nombre (con espacio/guion/underscore)
+  const isVidaLey = /vida[\s\-_]?ley/.test(name);
 
-  fileEl.addEventListener('change', () => {
-    const f = fileEl.files && fileEl.files[0];
-    if (!f) return;
-    const name = (f.name || '').toLowerCase();
-    const looksVidaLey = name.includes('vida') || name.includes('ley') || name.includes('vidaley');
-
-    if (!issuerEl.value && looksVidaLey) {
-      const opt = [...issuerEl.options].find(o => (o.value || '').toLowerCase() === 'mapfre');
-      if (opt) {
-        issuerEl.value = opt.value;
-        issuerEl.dispatchEvent(new Event('change'));
-        console.log('[addMapfreVidaLey] proveedor preseleccionado: mapfre (vida ley)');
-      } else {
-        console.warn('[addMapfreVidaLey] opción "mapfre" no encontrada en <select id="issuer">');
-      }
-    }
-  });
-})();
+  if (isVidaLey || name.includes("vmapfre-vida-ley")) {
+    const opt = [...(issuerSel?.options || [])].find(
+      o => (o.value || "").toLowerCase() === "mapfre-vida-ley"
+    );
+    if (opt && issuerSel) issuerSel.value = opt.value;
+    // Prellenar ramo producto si aplica
+    const ramoTop = document.getElementById("ramoProductoTop");
+    if (ramoTop && !ramoTop.value) ramoTop.value = "Seguro de Vida";
+  }
+});
