@@ -488,8 +488,15 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
             prov = "protecta"
         elif "pacifico" in t or "pacífico" in t:
             prov = "pacifico"
+        elif "vida-ley-crecer" in t:
+            prov = "vida-ley-crecer"
         else:
             prov = ""
+    # NUEVO: anulación explícita si el contenido es Crecer Vida Ley (independiente del issuer)
+    if (re.search(r"\bcrecer\s+seguros\b", t) or "crecerseguros.pe" in t) and (
+        re.search(r"\bvida\s+ley\b", t) or re.search(r"decreto\s+legislativo\s*n?\s*688", t)
+    ):
+        prov = "vida-ley-crecer"
 
     # Heurística: PACIFICO EPS / FACTURA ELECTRÓNICA => usar parser de Salud
     if (prov in {"", "pacifico"} and ("pacifico" in t or "pacífico" in t)):
@@ -559,6 +566,11 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
         print("[provider] pacifico_salud item:", item)
         return [item] if item else []
     
+    if prov == "vida-ley-crecer":
+        from controllers.addCrecerVidaLey import parse_crecer_vidaley
+        item = parse_crecer_vidaley(text)
+        print("[provider] vida-ley-crecer item:", item)
+        return [item] if item else []
     return []
 
 def parse_pdf_fields_fitz(path: str) -> Dict[str, str]:
