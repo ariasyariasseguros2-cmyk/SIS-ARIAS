@@ -536,8 +536,11 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
         return [item] if item else []
     if prov == "pacifico":
         from controllers.addPacifico import parse_pacifico
+        from controllers.addPacificoVidaLey import parse_pacifico_vidaley  # NUEVO
         print("[provider] branch: pacifico; texto (head 600):", text[:600].replace("\n", "\\n"))
-        item = parse_pacifico(text)
+        # Detectar Vida Ley por contenido
+        hint_vidaley = re.search(r"\bvida\s+ley\b", text, re.IGNORECASE) or re.search(r"decreto\s+legislativo\s*n?\s*688", text, re.IGNORECASE)
+        item = parse_pacifico_vidaley(text) if hint_vidaley else parse_pacifico(text)
         print("[provider] pacifico item:", item)
         return [item] if item else []
     # NUEVO: Pacifico Salud
