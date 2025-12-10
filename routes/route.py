@@ -479,6 +479,9 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
             prov = "positiva"
         elif "mapfre" in t:
             prov = "mapfre"
+        # NUEVO: preferir Crecer si aparece, aunque también figure 'sanitasperu'
+        elif "crecer seguros" in t or re.search(r"\bcrecer\b", t):
+            prov = "crecer"
         elif "sanitas" in t:
             prov = "sanitas"
         elif "protecta" in t:
@@ -533,6 +536,12 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
     if prov in {"protecta", "proctecta"}:
         from controllers.addProctectaPension import parse_protecta_pension
         item = parse_protecta_pension(text)
+        return [item] if item else []
+    # NUEVO: Crecer Pensión
+    if prov == "crecer":
+        from controllers.addCrecerPension import parse_crecer_pension
+        item = parse_crecer_pension(text)
+        print("[provider] crecer pension item:", item)
         return [item] if item else []
     if prov == "pacifico":
         from controllers.addPacifico import parse_pacifico
