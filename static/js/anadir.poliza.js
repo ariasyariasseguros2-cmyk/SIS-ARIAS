@@ -25,6 +25,7 @@
   let subAgenteEl = subAgenteTopEl || document.getElementById('subAgente');
   let extractedItems = [];
   let autoSaveTimer = null;
+  const AUTO_SAVE_ENABLED = false;
 
   // Ventana modal de carga (Bootstrap) y alternativa con SweetAlert2
   const loadingModalEl = document.getElementById('loadingModal');
@@ -819,6 +820,7 @@
 
   // Autoguardado
   function scheduleAutoSave() {
+    if (!AUTO_SAVE_ENABLED) return;
     clearTimeout(autoSaveTimer);
     autoSaveTimer = setTimeout(async () => {
       const selected = Object.assign({}, (window.selectedCliente || {}), {
