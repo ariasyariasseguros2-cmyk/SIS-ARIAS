@@ -141,9 +141,13 @@ CREATE TABLE IF NOT EXISTS polizas (
 );
 
 DELIMITER $$
-CREATE PROCEDURE sp_get_cliente_id_por_numero(IN p_numero_documento VARCHAR(20))
+CREATE PROCEDURE sp_get_cliente_por_numero(IN p_numero_documento VARCHAR(20))
 BEGIN
-    SELECT idCliente
+    SELECT
+        razon_social,
+        tipo_documento,
+        numero_documento,
+        telefono
     FROM clientes
     WHERE numero_documento = p_numero_documento
     LIMIT 1;

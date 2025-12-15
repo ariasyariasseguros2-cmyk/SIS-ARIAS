@@ -10,11 +10,26 @@ def get_polizas_data(selected: dict | None = None) -> dict:
         if numero:
             cur.execute("CALL sp_list_polizas_por_numero(%s)", (numero,))
             rows = cur.fetchall() or []
+            try:
+                while cur.nextset():
+                    pass
+            except Exception:
+                pass
+
+            # Usar SP para datos del cliente
+            cur.execute("CALL sp_get_cliente_por_numero(%s)", (numero,))
+            cli = cur.fetchone() or {}
+            try:
+                while cur.nextset():
+                    pass
+            except Exception:
+                pass
+
             details = {
-                'nombre_completo': (selected.get('razon_social') or selected.get('nombre') or ''),
-                'tipo_documento': selected.get('tipo_doc') or '',
+                'nombre_completo': (cli.get('razon_social') or selected.get('razon_social') or selected.get('nombre') or ''),
+                'tipo_documento': (cli.get('tipo_documento') or selected.get('doc') or selected.get('tipo_doc') or selected.get('tipo_documento') or ''),
                 'numero_documento': numero,
-                'telefono': selected.get('tel') or '',
+                'telefono': (cli.get('telefono') or selected.get('tel') or selected.get('telefono') or ''),
             }
         else:
             # fallback si no hay cliente seleccionado: devuelve vacío
