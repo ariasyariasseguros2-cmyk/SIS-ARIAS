@@ -270,6 +270,15 @@
     const ramoProductoTop = (ramoProductoTopEl?.value || '').trim();
     const issuerText = issuerEl?.options[issuerEl.selectedIndex]?.text || (issuerEl?.value || '');
 
+    // NUEVO: asegurar que 'ramo' sea vacío si no coincide con las abreviaciones disponibles
+    const abbrs = (window.ramosAbbrs || []).map(s => (s || '').trim());
+    items.forEach(it => {
+      const r = (it.ramo || '').trim();
+      if (r && !abbrs.includes(r)) {
+        it.ramo = '';
+      }
+    });
+
     items.forEach(it => {
       if (formaPagoTop) it.forma_pago = formaPagoTop;
       if (estadoTop) it.estado = estadoTop;
@@ -744,11 +753,16 @@
       tipo_doc: (tipoDocTopEl?.value || '').trim() || ((window.selectedCliente || {}).tipo_doc || (window.selectedCliente || {}).tipo_documento || '')
     });
 
-    // NUEVO: asegurar 'asegurado' antes de enviar
+    // NUEVO: asegurar 'asegurado' y limpiar 'ramo' si no coincide con abbrs
+    const abbrs = (window.ramosAbbrs || []).map(s => (s || '').trim());
     const itemsForAuto = (extractedItems || []).map(it => {
       const copy = { ...it };
       if (copy.colectivo_asegurado && !copy.asegurado) {
         copy.asegurado = copy.colectivo_asegurado;
+      }
+      const r = (copy.ramo || '').trim();
+      if (r && !abbrs.includes(r)) {
+        copy.ramo = '';
       }
       return copy;
     });
