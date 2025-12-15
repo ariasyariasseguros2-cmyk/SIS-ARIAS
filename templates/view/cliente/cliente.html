@@ -54,7 +54,7 @@
             </thead>
             <tbody>
                 {% for r in rows %}
-                <tr>
+                <tr data-idcliente="{{ r.idCliente }}">
                     <td>{{ r.fec_reg }}</td>
                     <td>{{ r.razon_social }}</td>
                     <td>{{ r.doc }}</td>
@@ -80,13 +80,14 @@
 {% include 'view/cliente/addCliente.html' %}
 {% endblock %}
 
-{% block extra_js %}
-<script src="{{ url_for('static', filename='js/cliente/cliente.js') }}"></script>
-<script src="{{ url_for('static', filename='js/cliente/addcliente.js') }}"></script>
-{% endblock %}
-
 {% block before_js %}
 <script>
     window.currentPage = "{{ page }}";
 </script>
+{% endblock %}
+
+{% block extra_js_bottom %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/cliente/cliente.js') }}"></script>
+<script src="{{ url_for('static', filename='js/cliente/addcliente.js') }}"></script>
 {% endblock %}

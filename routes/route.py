@@ -279,10 +279,10 @@ def clientes_select():
         'tipo_doc': payload.get('tipo_doc') or payload.get('doc') or payload.get('tipo_documento'),
         'n_doc': payload.get('n_doc') or payload.get('numero_documento'),
         'tel': payload.get('tel') or payload.get('telefono'),
-        # Acepta subagente con ambos nombres de campo
         'subagente': payload.get('subagente') or payload.get('subAgente'),
-        'motivo': payload.get('motivo'),               # NUEVO
-        'ramos_producto': payload.get('ramos_producto')# NUEVO
+        'motivo': payload.get('motivo'),
+        'ramos_producto': payload.get('ramos_producto'),
+        'idCliente': payload.get('idCliente')
     }
     session['selected_cliente'] = selected
     return {'ok': True}, 200

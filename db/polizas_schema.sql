@@ -65,6 +65,7 @@ DELIMITER $$
 CREATE PROCEDURE sp_list_clientes ()
 BEGIN
     SELECT
+        idCliente,
         fecha_registro,
         razon_social,
         tipo_documento,
@@ -341,4 +342,42 @@ BEGIN
     ORDER BY nombre ASC;
 END $$
 
+DELIMITER ;
+
+-- Nuevo: obtener cliente por ID
+DELIMITER $$
+CREATE PROCEDURE sp_get_cliente_por_id(IN p_id INT)
+BEGIN
+    SELECT
+        razon_social,
+        tipo_documento,
+        numero_documento,
+        telefono
+    FROM clientes
+    WHERE idCliente = p_id
+    LIMIT 1;
+END$$
+DELIMITER ;
+
+-- Nuevo: listar pólizas por cliente_id
+DELIMITER $$
+CREATE PROCEDURE sp_list_polizas_por_cliente_id(IN p_cliente_id INT)
+BEGIN
+    SELECT 
+        c.razon_social AS contratante,
+        p.asegurado,
+        p.cia,
+        p.ramo,
+        p.poliza,
+        p.nro,
+        p.moneda,
+        DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
+        DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
+        p.sub_agente,
+        p.asegurada
+    FROM polizas p
+    INNER JOIN clientes c ON c.idCliente = p.cliente_id
+    WHERE p.cliente_id = p_cliente_id
+    ORDER BY p.creado_en DESC;
+END$$
 DELIMITER ;

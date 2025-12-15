@@ -31,6 +31,7 @@
                         const tipoDoc = row?.querySelector('td:nth-child(3)')?.textContent?.trim() || '';
                         const numeroDoc = row?.querySelector('td:nth-child(4)')?.textContent?.trim() || '';
                         const telefono = row?.querySelector('td:nth-child(5)')?.textContent?.trim() || '';
+                        const idCliente = row?.dataset?.idcliente || null;
 
                         fetch('/clientes/select', {
                             method: 'POST',
@@ -39,7 +40,8 @@
                                 nombre: razon,
                                 tipo_doc: tipoDoc,
                                 n_doc: numeroDoc,
-                                tel: telefono
+                                tel: telefono,
+                                idCliente: idCliente
                             })
                         })
                         .then(r => r.json())

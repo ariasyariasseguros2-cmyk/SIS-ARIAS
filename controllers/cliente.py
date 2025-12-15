@@ -17,6 +17,7 @@ def get_clientes_data():
             fec = dr.get('fecha_registro')
             fec_str = fec.strftime('%d-%m-%Y') if hasattr(fec, 'strftime') else (str(fec) if fec else '')
             rows.append({
+                'idCliente': dr.get('idCliente'),
                 'fec_reg': fec_str,
                 'razon_social': dr.get('razon_social'),
                 'doc': dr.get('tipo_documento'),
