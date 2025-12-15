@@ -85,7 +85,7 @@
           <!-- Nuevo: Tipo Doc en el mismo row, prellenado -->
           <div class="col-md-4">
             <label class="form-label" for="tipoDocTop">Tipo Doc</label>
-            <input id="tipoDocTop" type="text" class="form-control" placeholder="Escribe el tipo de documento">
+            <input id="tipoDocTop" type="text" class="form-control" placeholder="Escribe el tipo de documento" value="{{ selected.tipo_doc or selected.tipo_documento or '' }}">
           </div>
         </div>
         <!-- NUEVO: bloque de comisiones al costado (mismo card, debajo de Ejecutivo) -->

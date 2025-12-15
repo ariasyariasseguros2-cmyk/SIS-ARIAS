@@ -66,6 +66,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
         for row in normalized:
             args = (
                 numero_documento,
+                (selected or {}).get("tipo_doc") or (selected or {}).get("tipo_documento") or "",
                 row.get("colectivo_asegurado") or row.get("asegurado") or "",
                 row.get("cia") or "",
 
@@ -103,7 +104,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
 
             cur.execute(
                 "CALL sp_insert_poliza_por_numero("
-                "%s,%s,%s,%s,"          # doc, asegurado, cia, ramo
+                "%s,%s,%s,%s,%s,"        # doc, tipo_doc, asegurado, cia, ramo
                 "%s,%s,%s,%s,"          # poliza, recibo, contrato_nro, nro
                 "%s,%s,%s,%s,%s,%s,"    # moneda, fecha_emision, vig_desde, vig_hasta, ultimo_dia_pago, forma_pago
                 "%s,"                   # sub_agente

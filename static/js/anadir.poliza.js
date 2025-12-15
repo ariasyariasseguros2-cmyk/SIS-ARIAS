@@ -540,7 +540,10 @@
       prima_neta: '',
       prima_comercial: '',
       prima_comercial_igv: '',
-      ramo: ramoTop || '',
+      // Campo 'ramo' debe ser independiente: lo dejamos vacío
+      ramo: '',
+      // Prellenamos 'ramos_producto' con el valor superior
+      ramos_producto: ramoTop || '',
       forma_pago: formaPago,
       estado: estado,
       comision_compania_pct: pctCC,
@@ -548,7 +551,7 @@
       comision_subagente_pct: pctSA,
       comision_subagente_importe: ''
     });
-
+  
     if (blank.comision_compania_pct && blank.prima_neta) {
       blank.comision_compania_importe = computeCommissionAmount(blank.prima_neta, blank.comision_compania_pct);
     }
@@ -735,7 +738,9 @@
       subagente: (document.getElementById('subAgenteTop')?.value ||
                   document.getElementById('subAgente')?.value ||
                   (window.selectedCliente || {}).subagente || ''),
-      motivo: (motivoTop?.value || '').trim()
+      motivo: (motivoTop?.value || '').trim(),
+      ramos_producto: (ramoProductoTopEl?.value || '').trim(),
+      tipo_doc: (tipoDocTopEl?.value || '').trim() || ((window.selectedCliente || {}).tipo_doc || (window.selectedCliente || {}).tipo_documento || '')
     });
 
     // NUEVO: asegurar 'asegurado' antes de enviar

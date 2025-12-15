@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS polizas (
     forma_pago VARCHAR(30) NULL,
 
     sub_agente VARCHAR(100) NULL,
-
+    tipo_doc VARCHAR(10) NULL,
     asegurada VARCHAR(150) NULL,
     prima_comercial DECIMAL(15,2) NULL,
     prima_neta DECIMAL(15,2) NULL,
@@ -154,7 +154,7 @@ DELIMITER ;
 DELIMITER $$
 CREATE PROCEDURE sp_insert_poliza_por_numero (
     IN p_numero_documento VARCHAR(20),
-
+    IN p_tipo_doc VARCHAR(10),
     IN p_asegurado VARCHAR(150),
     IN p_cia VARCHAR(100),
     IN p_ramo VARCHAR(120),
@@ -205,7 +205,7 @@ BEGIN
         cliente_id, asegurado, cia, ramo,
         poliza, recibo, contrato_nro, nro,
         moneda, fecha_emision, vig_desde, vig_hasta, ultimo_dia_pago, forma_pago,
-        sub_agente,
+        sub_agente, tipo_doc,
         asegurada, prima_comercial, prima_neta, prima_comercial_igv, prima_total,
         porc_compania, imp_compania, porc_subagente, imp_subagente,
         ramos_producto, estado
@@ -213,7 +213,7 @@ BEGIN
         v_cliente_id, p_asegurado, p_cia, p_ramo,
         p_poliza, p_recibo, p_contrato_nro, p_nro,
         p_moneda, p_fecha_emision, p_vig_desde, p_vig_hasta, p_ultimo_dia_pago, p_forma_pago,
-        p_sub_agente,
+        p_sub_agente, p_tipo_doc,
         p_asegurada, p_prima_comercial, p_prima_neta, p_prima_comercial_igv, p_prima_total,
         p_porc_compania, p_imp_compania, p_porc_subagente, p_imp_subagente,
         p_ramos_producto, p_estado
