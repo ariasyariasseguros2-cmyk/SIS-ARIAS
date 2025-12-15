@@ -97,17 +97,17 @@ BEGIN
 END$$
 DELIMITER ;
 
--- Tabla Pólizas: extendida para cubrir campos del front “Añadir Póliza”
+-- Tabla polizas: quitar 'producto' y 'motivo', mantener 'cia' y 'ramos_producto'
 CREATE TABLE IF NOT EXISTS polizas (
     idPoliza INT AUTO_INCREMENT PRIMARY KEY,
     cliente_id INT NOT NULL,
 
-    asegurado VARCHAR(150) NULL,              -- Colectivo Asegurado / Asegurado
-    cia VARCHAR(100) NULL,                    -- Aseguradora
+    asegurado VARCHAR(150) NULL,
+    cia VARCHAR(100) NULL,
     ramo VARCHAR(120) NULL,
-    producto VARCHAR(120) NULL,               -- ramos_producto
-    poliza VARCHAR(50) NULL,                  -- número de póliza
-    recibo VARCHAR(50) NULL,                  -- Proforma/Recibo
+    -- producto VARCHAR(120) NULL,        -- ELIMINADO
+    poliza VARCHAR(50) NULL,
+    recibo VARCHAR(50) NULL,
     contrato_nro VARCHAR(50) NULL,
     nro VARCHAR(50) NULL,
 
@@ -120,18 +120,18 @@ CREATE TABLE IF NOT EXISTS polizas (
 
     sub_agente VARCHAR(100) NULL,
 
-    asegurada DECIMAL(15,2) NULL,             -- M. Asegurada si aplica
+    asegurada VARCHAR(150) NULL,
     prima_comercial DECIMAL(15,2) NULL,
     prima_neta DECIMAL(15,2) NULL,
     prima_comercial_igv DECIMAL(15,2) NULL,
     prima_total DECIMAL(15,2) NULL,
 
-    porc_compania DECIMAL(7,4) NULL,          -- % Comisión Compañía (acepta 0.185 o 18.5)
-    imp_compania DECIMAL(15,2) NULL,          -- Importe Comisión Compañía
-    porc_subagente DECIMAL(7,4) NULL,         -- % Comisión Sub Agente
-    imp_subagente DECIMAL(15,2) NULL,         -- Importe Comisión Sub Agente
+    porc_compania DECIMAL(7,4) NULL,
+    imp_compania DECIMAL(15,2) NULL,
+    porc_subagente DECIMAL(7,4) NULL,
+    imp_subagente DECIMAL(15,2) NULL,
 
-    motivo VARCHAR(200) NULL,
+    -- motivo VARCHAR(200) NULL,          -- ELIMINADO
     ramos_producto VARCHAR(120) NULL,
 
     estado VARCHAR(20) DEFAULT 'PENDIENTE',
@@ -158,7 +158,7 @@ CREATE PROCEDURE sp_insert_poliza_por_numero (
     IN p_asegurado VARCHAR(150),
     IN p_cia VARCHAR(100),
     IN p_ramo VARCHAR(120),
-    IN p_producto VARCHAR(120),
+    -- IN p_producto VARCHAR(120),        -- ELIMINADO
 
     IN p_poliza VARCHAR(50),
     IN p_recibo VARCHAR(50),
@@ -174,7 +174,7 @@ CREATE PROCEDURE sp_insert_poliza_por_numero (
 
     IN p_sub_agente VARCHAR(100),
 
-    IN p_asegurada DECIMAL(15,2),
+    IN p_asegurada VARCHAR(150),
     IN p_prima_comercial DECIMAL(15,2),
     IN p_prima_neta DECIMAL(15,2),
     IN p_prima_comercial_igv DECIMAL(15,2),
@@ -185,7 +185,7 @@ CREATE PROCEDURE sp_insert_poliza_por_numero (
     IN p_porc_subagente DECIMAL(7,4),
     IN p_imp_subagente DECIMAL(15,2),
 
-    IN p_motivo VARCHAR(200),
+    -- IN p_motivo VARCHAR(200),          -- ELIMINADO
     IN p_ramos_producto VARCHAR(120),
     IN p_estado VARCHAR(20)
 )
@@ -202,21 +202,21 @@ BEGIN
     END IF;
 
     INSERT INTO polizas (
-        cliente_id, asegurado, cia, ramo, producto,
+        cliente_id, asegurado, cia, ramo,
         poliza, recibo, contrato_nro, nro,
         moneda, fecha_emision, vig_desde, vig_hasta, ultimo_dia_pago, forma_pago,
         sub_agente,
         asegurada, prima_comercial, prima_neta, prima_comercial_igv, prima_total,
         porc_compania, imp_compania, porc_subagente, imp_subagente,
-        motivo, ramos_producto, estado
+        ramos_producto, estado
     ) VALUES (
-        v_cliente_id, p_asegurado, p_cia, p_ramo, p_producto,
+        v_cliente_id, p_asegurado, p_cia, p_ramo,
         p_poliza, p_recibo, p_contrato_nro, p_nro,
         p_moneda, p_fecha_emision, p_vig_desde, p_vig_hasta, p_ultimo_dia_pago, p_forma_pago,
         p_sub_agente,
         p_asegurada, p_prima_comercial, p_prima_neta, p_prima_comercial_igv, p_prima_total,
         p_porc_compania, p_imp_compania, p_porc_subagente, p_imp_subagente,
-        p_motivo, p_ramos_producto, p_estado
+        p_ramos_producto, p_estado
     );
 END$$
 DELIMITER ;
@@ -230,7 +230,7 @@ BEGIN
         p.asegurado,
         p.cia,
         p.ramo,
-        p.producto,
+        -- p.producto,                     -- ELIMINADO
         p.poliza,
         p.nro,
         p.moneda,

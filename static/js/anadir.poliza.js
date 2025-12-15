@@ -1,4 +1,5 @@
 (function () {
+  // Elementos principales
   const fileEl = document.getElementById('pdfFile');
   const issuerEl = document.getElementById('issuer');
   const btnUpload = document.getElementById('btnUpload');
@@ -9,21 +10,23 @@
   const ejecutivoTopEl = document.getElementById('ejecutivoTop');
   const estadoTopEl = document.getElementById('estadoTop');
   const tipoPagoTopEl = document.getElementById('tipoPagoTop');
-  // NUEVO: referenciar el input de Tipo Doc
-  const tipoDocTopEl = document.getElementById('tipoDocTop');
-  // NUEVO: declarar el input superior de ramo/producto
-  const ramoProductoTopEl = document.getElementById('ramoProductoTop');
-  // NUEVO: campos de comisiones
+  const tipoDocTopEl = document.getElementById('tipoDocTop'); // Referencia al input de Tipo Doc
+  const ramoProductoTopEl = document.getElementById('ramoProductoTop'); // Campo superior de ramo/producto (texto)
+  const motivoTop = document.getElementById('motivoTop'); // Campo superior de motivo (texto)
+  // Campos de comisiones (superior)
   const pctComCompaniaEl   = document.getElementById('pctComCompania');
   const impComCompaniaEl   = document.getElementById('impComCompania');
   const pctComSubAgenteEl  = document.getElementById('pctComSubAgente');
   const impComSubAgenteEl  = document.getElementById('impComSubAgente');
+  // Botones adicionales
+  const btnClear = document.getElementById('btnClear');
+  const btnAgregarPoliza = document.getElementById('btnAgregarPoliza');
+
   let subAgenteEl = subAgenteTopEl || document.getElementById('subAgente');
+  let extractedItems = [];
+  let autoSaveTimer = null;
 
-  let extractedItems = []; // asegurar variable global para render/autoguardado
-  let autoSaveTimer = null; // FIX: única declaración
-
-  // Ventana modal de carga
+  // Ventana modal de carga (Bootstrap) y alternativa con SweetAlert2
   const loadingModalEl = document.getElementById('loadingModal');
   const loadingModalMsgEl = document.getElementById('loadingModalMsg');
   const loadingModalElapsedEl = document.getElementById('loadingModalElapsed');
@@ -49,7 +52,7 @@
     loadingModal.hide();
   }
 
-  // NUEVO: SweetAlert2 modal como preferencia (tipo Angular Swal)
+  // SweetAlert2 como preferencia
   let swalInterval = null;
   function openLoadingSwal(msg) {
     if (window.Swal) {
@@ -147,10 +150,7 @@
     const t = (selected || '').toString();
     return `<select class="form-select ramo-select" title="${t.toUpperCase()}">${buildRamoOptions(selected)}</select>`;
   }
-  // Eliminado: poblar opciones para “Ramos Producto” (ahora es texto)
-  function populateRamoProductoTopOptions() {
-    // Campo de texto: no se pueblan opciones
-  }
+  function populateRamoProductoTopOptions() { /* Campo de texto: sin opciones */ }
   populateRamoProductoTopOptions();
 
   // Helpers de primas
@@ -176,7 +176,7 @@
     return (num * 1.18).toFixed(2);
   }
 
-  // NUEVO: helpers para número y comisión compañía
+  // Números y comisiones
   function parseNumber(val) {
     const raw = (val || '').toString().trim();
     if (!raw) return NaN;
@@ -207,7 +207,7 @@
     return Number.isFinite(total) ? total.toFixed(2) : '';
   }
 
-  // normalizeItem: fuerza ambos cálculos según el dato disponible y aplica +IGV=1.18
+  // Normalización de ítems
   function normalizeItem(src) {
     const it = { ...src };
     let comercial = (it.prima_comercial || '').toString().trim();
@@ -226,6 +226,7 @@
     return it;
   }
 
+  // Encabezado de la tabla
   function ensureHeader() {
     const thead = document.querySelector('#extractTable thead');
     if (!thead) return;
@@ -233,7 +234,7 @@
     const hasRamo = headers.includes('ramo');
     const hasPrimaNeta = headers.includes('prima neta');
     const hasAcciones = headers.includes('acciones');
-    const expectedCount = 17; // incluye %/Imp Cía y %/Imp Sub Agente
+    const expectedCount = 17;
     if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
       thead.innerHTML = `
         <tr>
@@ -260,16 +261,26 @@
   }
   ensureHeader();
 
+  // Renderizado
   function render(items) {
     ensureHeader();
-    // NUEVO: aplicar valores top a los items si están presentes
     const formaPagoTop = (tipoPagoTopEl?.value || '').trim();
     const estadoTop = (estadoTopEl?.value || '').trim();
-    const ramoTop = (ramoProductoTopEl?.value || '').trim();
+    const ramoProductoTop = (ramoProductoTopEl?.value || '').trim();
+    const issuerText = issuerEl?.options[issuerEl.selectedIndex]?.text || (issuerEl?.value || '');
+
     items.forEach(it => {
-      if (formaPagoTop && !it.forma_pago) it.forma_pago = formaPagoTop;
-      if (estadoTop && !it.estado) it.estado = estadoTop;
-      if (ramoTop && (!it.ramo || it.ramo.trim() === '')) it.ramo = ramoTop;
+      if (formaPagoTop) it.forma_pago = formaPagoTop;
+      if (estadoTop) it.estado = estadoTop;
+      if (ramoProductoTop && (!it.ramos_producto || it.ramos_producto.trim() === '')) {
+        it.ramos_producto = ramoProductoTop;
+      }
+      if (issuerText && !it.cia) it.cia = issuerText;
+
+      // NUEVO: asegurar 'asegurado' desde 'colectivo_asegurado'
+      if (it.colectivo_asegurado && !it.asegurado) {
+        it.asegurado = it.colectivo_asegurado;
+      }
     });
 
     tbody.innerHTML = '';
@@ -308,13 +319,14 @@
       `;
       tbody.appendChild(tr);
     });
+
     if (btnSave) btnSave.disabled = items.length === 0;
     if (hint) hint.textContent = items.length ? `Se extrajeron ${items.length} ítem(s). Revisa y guarda.` : 'Sube un PDF para ver información.';
     const total = sumCommission(items);
     if (impComCompaniaEl) impComCompaniaEl.value = items.length ? total : '';
   }
 
-  // Delegación: cambios en el select por fila (Ramo)
+  // Cambios en select de Ramo por fila
   tbody.addEventListener('change', (e) => {
     const sel = e.target.closest('.ramo-select');
     if (!sel) return;
@@ -325,12 +337,12 @@
     scheduleAutoSave();
   });
 
-  // Helpers para buscar celdas y actualizar dependientes sin tocar la celda activa
+  // Helper para celdas
   function getTd(index, field) {
     return tbody.querySelector(`td[data-index="${index}"][data-field="${field}"]`);
   }
 
-  // Actualiza dependientes según el campo modificado (sin modificar el td activo)
+  // Actualiza dependientes sin modificar la celda activa
   function updateDependents(index, sourceField, activeTd) {
     const item = extractedItems[index] || {};
     const comercial = (item.prima_comercial || '').toString().trim();
@@ -374,17 +386,22 @@
       }
     }
 
-    // Recalcular comisión de compañía para la fila
+    // Recalcular comisión de compañía y subagente
     const pct = item.comision_compania_pct || (pctComCompaniaEl?.value || '');
     item.comision_compania_importe = pct ? computeCommissionAmount(item.prima_neta || '', pct) : '';
     const impTdInput = tbody.querySelector(`td[data-index="${index}"][data-field="comision_compania_importe"] .imp-comp`);
     if (impTdInput) impTdInput.value = item.comision_compania_importe || '';
 
+    const subPct = item.comision_subagente_pct || (pctComSubAgenteEl?.value || '');
+    item.comision_subagente_importe = subPct ? computeSubAgentCommissionAmount(item.comision_compania_importe || '', subPct) : '';
+    const impSubTdInput = tbody.querySelector(`td[data-index="${index}"][data-field="comision_subagente_importe"] .imp-sub`);
+    if (impSubTdInput) impSubTdInput.value = item.comision_subagente_importe || '';
+
     // Actualiza total superior
     if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
   }
 
-  // Delegación: edición de celdas contenteditable (memoria + dependientes)
+  // Edición de celdas contenteditable
   tbody.addEventListener('input', (e) => {
     const td = e.target.closest('td.editable');
     if (!td) return;
@@ -393,7 +410,6 @@
     if (!Number.isFinite(idx) || !field) return;
 
     extractedItems[idx][field] = (td.textContent || '').trim();
-
     if (field === 'prima_comercial' || field === 'prima_neta') {
       updateDependents(idx, field, td);
     }
@@ -419,11 +435,10 @@
     if (field === 'prima_comercial' || field === 'prima_neta') {
       updateDependents(idx, field, td);
     }
-
     scheduleAutoSave();
   });
 
-  // Evitar salto de línea dentro de celdas al presionar Enter
+  // Evitar salto de línea en Enter
   tbody.addEventListener('keydown', (e) => {
     const td = e.target.closest('td.editable');
     if (!td) return;
@@ -433,7 +448,7 @@
     }
   });
 
-  // Delegación: cambio en % Comisión Cía por fila
+  // Cambio en % Comisión Cía por fila
   tbody.addEventListener('input', (e) => {
     const input = e.target.closest('input.pct-comp');
     if (!input) return;
@@ -447,7 +462,7 @@
     extractedItems[idx].comision_compania_importe = pct ? computeCommissionAmount(neta, pct) : '';
     const impEl = input.closest('tr')?.querySelector('.imp-comp');
     if (impEl) impEl.value = extractedItems[idx].comision_compania_importe || '';
-    // NUEVO: recalcular subagente usando el importe compañía actualizado
+
     const subPct = extractedItems[idx].comision_subagente_pct || '';
     const impSubEl = input.closest('tr')?.querySelector('.imp-sub');
     extractedItems[idx].comision_subagente_importe = subPct ? computeSubAgentCommissionAmount(extractedItems[idx].comision_compania_importe || '', subPct) : '';
@@ -457,17 +472,16 @@
     scheduleAutoSave();
   });
 
-  // NUEVO: Delegación cambio en % Comisión Sub Agente por fila
+  // Cambio en % Comisión Sub Agente por fila
   tbody.addEventListener('input', (e) => {
     const input = e.target.closest('input.pct-sub');
     if (!input) return;
     const td = input.closest('td');
     const idx = Number(td?.dataset?.index);
     if (!Number.isFinite(idx)) return;
-  
+
     const subPct = input.value || '';
     extractedItems[idx].comision_subagente_pct = subPct;
-  
     const compImport = extractedItems[idx].comision_compania_importe || '';
     extractedItems[idx].comision_subagente_importe = subPct ? computeSubAgentCommissionAmount(compImport, subPct) : '';
     const impSubEl = input.closest('tr')?.querySelector('.imp-sub');
@@ -476,48 +490,85 @@
     scheduleAutoSave();
   });
 
-  // Autoguardado
-  function scheduleAutoSave() {
-    clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(async () => {
-      const selected = Object.assign({}, (window.selectedCliente || {}), {
-        subagente: (document.getElementById('subAgenteTop')?.value ||
-                    document.getElementById('subAgente')?.value ||
-                    (window.selectedCliente || {}).subagente || '')
-      });
-      try {
-        const r = await fetch('/polizas/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: extractedItems, selected })
-        });
-    
-        const ct = (r.headers.get('content-type') || '').toLowerCase();
-        const raw = await r.text();
-        let payload;
-        try { payload = JSON.parse(raw); } catch { payload = { rawText: raw }; }
-    
-        console.log('[save] status:', r.status, 'payload:', payload);
-    
-        if (!r.ok || !payload?.ok) {
-            const msg = (payload?.errors && Array.isArray(payload.errors) && payload.errors.join('; '))
-                || payload?.error
-                || payload?.rawText
-                || 'Error al guardar pólizas.';
-            if (hint) hint.textContent = `Error al guardar: ${msg}`;
-            if (window.Swal) Swal.fire({ icon: 'error', title: 'No se guardó', text: msg });
-            return;
-        }
-    
-        if (hint) hint.textContent = `Cambios guardados automáticamente (${payload.count}).`;
-    } catch (err) {
-        console.error('[autosave] error:', err);
-        if (window.Swal) Swal.fire({ icon: 'error', title: 'Error de red', text: String(err) });
-    }
-    }, 800);
-  }
+  // Eliminar fila
+  tbody.addEventListener('click', (e) => {
+    const btn = e.target.closest('.js-del');
+    if (!btn) return;
+    const idx = Number(btn.dataset.index);
+    if (!Number.isFinite(idx)) return;
+    extractedItems.splice(idx, 1);
+    render(extractedItems);
 
-  // Upload handler: normalizar, aplicar % superior y calcular importes por fila + total
+    if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+
+    const newIndex = extractedItems.length - 1;
+    setTimeout(() => {
+      const firstCell = tbody.querySelector(`td[data-index="${newIndex}"][data-field="numero_poliza"]`);
+      firstCell?.focus();
+    }, 0);
+
+    scheduleAutoSave();
+  });
+
+  // Limpiar tabla
+  btnClear?.addEventListener('click', () => {
+    if (!extractedItems.length) return;
+    extractedItems = [];
+    render(extractedItems);
+    if (impComCompaniaEl) impComCompaniaEl.value = '';
+    if (hint) hint.textContent = 'Sube un PDF para ver información.';
+    scheduleAutoSave();
+  });
+
+  // Agregar póliza
+  btnAgregarPoliza?.addEventListener('click', () => {
+    const formaPago = tipoPagoTopEl?.value || '';
+    const estado    = estadoTopEl?.value || 'PENDIENTE';
+    const ramoTop   = (ramoProductoTopEl?.value || '').trim();
+    const pctCC     = (pctComCompaniaEl?.value || '').trim();
+    const pctSA     = (pctComSubAgenteEl?.value || '').trim();
+
+    const blank = normalizeItem({
+      numero_poliza: '',
+      recibo: '',
+      colectivo_asegurado: '',
+      inicio_vigencia: '',
+      vencimiento: '',
+      moneda: '',
+      fecha_emision: '',
+      ultimo_dia_pago: '',
+      prima_neta: '',
+      prima_comercial: '',
+      prima_comercial_igv: '',
+      ramo: ramoTop || '',
+      forma_pago: formaPago,
+      estado: estado,
+      comision_compania_pct: pctCC,
+      comision_compania_importe: '',
+      comision_subagente_pct: pctSA,
+      comision_subagente_importe: ''
+    });
+
+    if (blank.comision_compania_pct && blank.prima_neta) {
+      blank.comision_compania_importe = computeCommissionAmount(blank.prima_neta, blank.comision_compania_pct);
+    }
+
+    extractedItems.push(blank);
+    render(extractedItems);
+
+    if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+
+    const newIndex = extractedItems.length - 1;
+    setTimeout(() => {
+      const firstCell = tbody.querySelector(`td[data-index="${newIndex}"][data-field="numero_poliza"]`);
+      firstCell?.focus();
+    }, 0);
+
+    scheduleAutoSave();
+  });
+
+  // Upload handler
+  let lastUploadedFilename = null;
   btnUpload?.addEventListener('click', () => {
     const file = fileEl?.files?.[0];
     if (!file) { alert('Selecciona un PDF.'); return; }
@@ -557,7 +608,6 @@
             return;
           }
 
-          // NUEVO: guardar nombre del PDF subido
           if (payload && typeof payload.filename === 'string') {
             lastUploadedFilename = payload.filename;
           }
@@ -569,7 +619,6 @@
             items = [normalizeItem(payload.fields)];
           }
 
-          // Aplicar Tipo de Pago + Estado + Comisiones globales
           const tipoPago = tipoPagoTopEl?.value || '';
           const estado   = estadoTopEl?.value || 'PENDIENTE';
           const pctCC    = pctComCompaniaEl?.value || '';
@@ -621,7 +670,7 @@
     subAgenteEl.value = window.selectedCliente.subagente || '';
   }
 
-  // Cambiar % Comisión Cía superior → recalcular todo y total
+  // % Comisión Cía superior → recalcular todas las filas
   pctComCompaniaEl?.addEventListener('input', () => {
     const pct = pctComCompaniaEl.value || '';
     if (!extractedItems || !extractedItems.length) {
@@ -638,106 +687,22 @@
     scheduleAutoSave();
   });
 
-  // NUEVO: eliminar fila (botón "Eliminar" por fila)
-  tbody.addEventListener('click', (e) => {
-    const btn = e.target.closest('.js-del');
-    if (!btn) return;
-    const idx = Number(btn.dataset.index);
-    if (!Number.isFinite(idx)) return;
-  
-    // Eliminar del arreglo y re-renderizar
-    extractedItems.splice(idx, 1);
-    render(extractedItems);
-  
-    // Recalcular total superior y autoguardar
-    if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
-    scheduleAutoSave();
-  });
-
-  // NUEVO: limpiar tabla (botón "Eliminar tabla")
-  const btnClear = document.getElementById('btnClear');
-  btnClear?.addEventListener('click', () => {
-    if (!extractedItems.length) {
-      // No hay nada que limpiar
-      return;
-    }
-    extractedItems = [];
-    render(extractedItems);
-    if (impComCompaniaEl) impComCompaniaEl.value = '';
-    if (hint) hint.textContent = 'Sube un PDF para ver información.';
-    scheduleAutoSave();
-  });
-
-  // NUEVO: click en Agregar póliza → inserta fila vacía
-  btnAgregarPoliza?.addEventListener('click', () => {
-    const formaPago = tipoPagoTopEl?.value || '';
-    const estado    = estadoTopEl?.value || 'PENDIENTE';
-    const ramoTop   = (document.getElementById('ramoProductoTop')?.value || '').trim();
-    const pctCC     = (document.getElementById('pctComCompania')?.value || '').trim();
-    const pctSA     = (document.getElementById('pctComSubAgente')?.value || '').trim();
-  
-    const blank = normalizeItem({
-      numero_poliza: '',
-      recibo: '',
-      colectivo_asegurado: '',
-      inicio_vigencia: '',
-      vencimiento: '',
-      moneda: '',
-      fecha_emision: '',
-      ultimo_dia_pago: '',
-      prima_neta: '',
-      prima_comercial: '',
-      prima_comercial_igv: '',
-      ramo: ramoTop || '',
-      forma_pago: formaPago,
-      estado: estado,
-      comision_compania_pct: pctCC,
-      comision_compania_importe: '',
-      comision_subagente_pct: pctSA,
-      comision_subagente_importe: ''
-    });
-  
-    // Si hay % compañía y prima_neta, calculamos (en blanco no aplica)
-    if (blank.comision_compania_pct && blank.prima_neta) {
-      blank.comision_compania_importe = computeCommissionAmount(blank.prima_neta, blank.comision_compania_pct);
-    }
-  
-    extractedItems.push(blank);
-    render(extractedItems);
-  
-    // Actualizar total de comisión compañía
-    const impComCompaniaEl = document.getElementById('impComCompania');
-    if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
-  
-    // Enfocar primer campo (Póliza) de la nueva fila
-    const newIndex = extractedItems.length - 1;
-    setTimeout(() => {
-      const firstCell = tbody.querySelector(`td[data-index="${newIndex}"][data-field="numero_poliza"]`);
-      firstCell?.focus();
-    }, 0);
-  
-    scheduleAutoSave();
-  });
-
-  // NUEVO: elementos del modal PDF
+  // Modal PDF
   const btnVerPDF = document.getElementById('btnVerPDF');
   const pdfModalEl = document.getElementById('pdfModal');
   const pdfFrameEl = document.getElementById('pdfFrame');
   const pdfOpenNewTabEl = document.getElementById('pdfOpenNewTab');
   let pdfModalInstance = null;
-  let lastUploadedFilename = null;
   if (pdfModalEl && window.bootstrap) {
     pdfModalInstance = new bootstrap.Modal(pdfModalEl, { backdrop: 'static' });
   }
 
-  // NUEVO: abrir modal y visualizar el PDF
   btnVerPDF?.addEventListener('click', () => {
     let src = '';
     let label = 'Vista de PDF';
     if (lastUploadedFilename) {
       const safe = encodeURIComponent(lastUploadedFilename);
-      // CAMBIO: usar la ruta del servidor /uploads en vez de /static/uploads
-      src = `/uploads/${safe}`;
+      src = `/uploads/${safe}`; // ruta servidor
       label = `PDF: ${lastUploadedFilename}`;
     } else if (fileEl?.files?.[0]) {
       const blobUrl = URL.createObjectURL(fileEl.files[0]);
@@ -760,49 +725,131 @@
     }
   });
 
-  // NUEVO: limpiar iframe al cerrar modal
   pdfModalEl?.addEventListener('hidden.bs.modal', () => {
     try { if (pdfFrameEl) pdfFrameEl.src = 'about:blank'; } catch {}
   });
 
-  // Nuevo: click explícito en “Guardar pólizas” para forzar guardado y mostrar errores
+  // Guardado manual (btnSave)
   btnSave?.addEventListener('click', async () => {
-      const selected = Object.assign({}, (window.selectedCliente || {}), {
-          subagente: (document.getElementById('subAgenteTop')?.value ||
-                      document.getElementById('subAgente')?.value ||
-                      (window.selectedCliente || {}).subagente || '')
-      });
-  
-      try {
-          const r = await fetch('/polizas/save', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ items: extractedItems, selected })
-          });
-  
-          const ct = (r.headers.get('content-type') || '').toLowerCase();
-          const raw = await r.text();
-          let payload;
-          try { payload = JSON.parse(raw); } catch { payload = { rawText: raw }; }
-  
-          console.log('[save:manual] status:', r.status, 'payload:', payload);
-  
-          if (!r.ok || !payload?.ok) {
-              const msg = (payload?.errors && Array.isArray(payload.errors) && payload.errors.join('; '))
-                  || payload?.error
-                  || payload?.rawText
-                  || 'Error al guardar pólizas.';
-              if (window.Swal) Swal.fire({ icon: 'error', title: 'No se guardó', text: msg });
-              else alert(msg);
-              return;
-          }
-  
-          if (window.Swal) Swal.fire({ icon: 'success', title: 'Guardado', text: `Se insertaron ${payload.count} póliza(s).` });
-          if (hint) hint.textContent = `Guardado manual: ${payload.count}.`;
-      } catch (err) {
-          console.error('[save:manual] error:', err);
-          if (window.Swal) Swal.fire({ icon: 'error', title: 'Error de red', text: String(err) });
-          else alert('No se pudo conectar con el servidor (/polizas/save).');
+    const selected = Object.assign({}, (window.selectedCliente || {}), {
+      subagente: (document.getElementById('subAgenteTop')?.value ||
+                  document.getElementById('subAgente')?.value ||
+                  (window.selectedCliente || {}).subagente || ''),
+      motivo: (motivoTop?.value || '').trim()
+    });
+
+    // NUEVO: asegurar 'asegurado' antes de enviar
+    const itemsForAuto = (extractedItems || []).map(it => {
+      const copy = { ...it };
+      if (copy.colectivo_asegurado && !copy.asegurado) {
+        copy.asegurado = copy.colectivo_asegurado;
       }
+      return copy;
+    });
+
+    try {
+      const r = await fetch('/polizas/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: itemsForAuto, selected })
+      });
+
+      const ct = (r.headers.get('content-type') || '').toLowerCase();
+      const raw = await r.text();
+      let payload;
+      try { payload = JSON.parse(raw); } catch { payload = { rawText: raw }; }
+
+      console.log('[save:manual] status:', r.status, 'payload:', payload);
+
+      if (!r.ok || !payload?.ok) {
+        const msg = (payload?.errors && Array.isArray(payload.errors) && payload.errors.join('; '))
+          || payload?.error
+          || payload?.rawText
+          || 'Error al guardar pólizas.';
+        if (window.Swal) Swal.fire({ icon: 'error', title: 'No se guardó', text: msg });
+        else alert(msg);
+        return;
+      }
+
+      if (window.Swal) Swal.fire({ icon: 'success', title: 'Guardado', text: `Se insertaron ${payload.count} póliza(s).` });
+      if (hint) hint.textContent = `Guardado manual: ${payload.count}.`;
+    } catch (err) {
+      console.error('[save:manual] error:', err);
+      if (window.Swal) Swal.fire({ icon: 'error', title: 'Error de red', text: String(err) });
+      else alert('No se pudo conectar con el servidor (/polizas/save).');
+    }
   });
+
+  // Sincronizar cambios del bloque superior
+  issuerEl?.addEventListener('change', () => {
+    const text = issuerEl?.options[issuerEl.selectedIndex]?.text || (issuerEl?.value || '');
+    extractedItems = (extractedItems || []).map(it => ({ ...it, cia: text }));
+    render(extractedItems);
+  });
+
+  tipoPagoTopEl?.addEventListener('change', () => {
+    const val = (tipoPagoTopEl?.value || '').trim();
+    extractedItems = (extractedItems || []).map(it => ({ ...it, forma_pago: val }));
+    render(extractedItems);
+  });
+
+  estadoTopEl?.addEventListener('change', () => {
+    const val = (estadoTopEl?.value || '').trim();
+    extractedItems = (extractedItems || []).map(it => ({ ...it, estado: val }));
+    render(extractedItems);
+  });
+
+  ramoProductoTopEl?.addEventListener('input', () => {
+    const val = (ramoProductoTopEl?.value || '').trim();
+    if (!val) return;
+    extractedItems = (extractedItems || []).map(it => {
+      if (!it.ramos_producto || it.ramos_producto.trim() === '') {
+        return { ...it, ramos_producto: val };
+      }
+      return it;
+    });
+    render(extractedItems);
+    scheduleAutoSave();
+  });
+
+  // Autoguardado
+  function scheduleAutoSave() {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(async () => {
+      const selected = Object.assign({}, (window.selectedCliente || {}), {
+        subagente: (document.getElementById('subAgenteTop')?.value ||
+                    document.getElementById('subAgente')?.value ||
+                    (window.selectedCliente || {}).subagente || '')
+      });
+      try {
+        const r = await fetch('/polizas/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: extractedItems, selected })
+        });
+
+        const ct = (r.headers.get('content-type') || '').toLowerCase();
+        const raw = await r.text();
+        let payload;
+        try { payload = JSON.parse(raw); } catch { payload = { rawText: raw }; }
+
+        console.log('[save] status:', r.status, 'payload:', payload);
+
+        if (!r.ok || !payload?.ok) {
+          const msg = (payload?.errors && Array.isArray(payload.errors) && payload.errors.join('; '))
+            || payload?.error
+            || payload?.rawText
+            || 'Error al guardar pólizas.';
+          if (hint) hint.textContent = `Error al guardar: ${msg}`;
+          if (window.Swal) Swal.fire({ icon: 'error', title: 'No se guardó', text: msg });
+          return;
+        }
+
+        if (hint) hint.textContent = `Cambios guardados automáticamente (${payload.count}).`;
+      } catch (err) {
+        console.error('[autosave] error:', err);
+        if (window.Swal) Swal.fire({ icon: 'error', title: 'Error de red', text: String(err) });
+      }
+    }, 800);
+  }
 })();

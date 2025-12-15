@@ -46,8 +46,9 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
             row = dict(it or {})
             # Completar desde el bloque superior si falta en la fila
             if selected:
-                if not row.get("motivo") and selected.get("motivo"):
-                    row["motivo"] = selected["motivo"]
+                # Mapear Motivo al campo 'asegurada' si 'asegurada' está vacío
+                if not row.get("asegurada") and selected.get("motivo"):
+                    row["asegurada"] = selected["motivo"]
                 if not row.get("ramos_producto") and selected.get("ramos_producto"):
                     row["ramos_producto"] = selected["ramos_producto"]
                 if not row.get("subagente") and selected.get("subagente"):
@@ -69,7 +70,6 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                 row.get("cia") or "",
 
                 row.get("ramo") or "",
-                row.get("ramos_producto") or "",
 
                 row.get("numero_poliza") or "",
                 row.get("recibo") or "",
@@ -85,7 +85,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
 
                 row.get("subagente") or (selected or {}).get("subagente") or "",
 
-                parse_decimal(row.get("asegurada")),
+                row.get("asegurada") or "",
                 parse_decimal(row.get("prima_comercial")),
                 parse_decimal(row.get("prima_neta")),
                 parse_decimal(row.get("prima_comercial_igv")),
@@ -96,16 +96,21 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                 parse_decimal(row.get("comision_subagente_pct")),
                 parse_decimal(row.get("comision_subagente_importe")),
 
-                row.get("motivo") or "",
-                row.get("ramos_producto") or "",
+                row.get("ramos_producto") or (selected or {}).get("ramos_producto") or "",
+                # Quitado: motivo (se guarda en 'asegurada' según tu requerimiento)
                 row.get("estado") or "PENDIENTE",
             )
 
-            # FIX: agregar el placeholder faltante para total de 28 parámetros
             cur.execute(
-                "CALL sp_insert_poliza_por_numero(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,"
-                "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,"
-                "%s,%s,%s,%s)",  # <- ahora 28 %s
+                "CALL sp_insert_poliza_por_numero("
+                "%s,%s,%s,%s,"          # doc, asegurado, cia, ramo
+                "%s,%s,%s,%s,"          # poliza, recibo, contrato_nro, nro
+                "%s,%s,%s,%s,%s,%s,"    # moneda, fecha_emision, vig_desde, vig_hasta, ultimo_dia_pago, forma_pago
+                "%s,"                   # sub_agente
+                "%s,%s,%s,%s,%s,"       # asegurada, prima_comercial, prima_neta, prima_comercial_igv, prima_total
+                "%s,%s,%s,%s,"          # porc_compania, imp_compania, porc_subagente, imp_subagente
+                "%s,%s"                 # ramos_producto, estado
+                ")",
                 args
             )
 
