@@ -472,31 +472,48 @@
     extractedItems[idx].comision_subagente_importe = subPct ? computeSubAgentCommissionAmount(compImport, subPct) : '';
     const impSubEl = input.closest('tr')?.querySelector('.imp-sub');
     if (impSubEl) impSubEl.value = extractedItems[idx].comision_subagente_importe || '';
-  
+
     scheduleAutoSave();
   });
 
   // Autoguardado
   function scheduleAutoSave() {
     clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(() => {
+    autoSaveTimer = setTimeout(async () => {
       const selected = Object.assign({}, (window.selectedCliente || {}), {
         subagente: (document.getElementById('subAgenteTop')?.value ||
                     document.getElementById('subAgente')?.value ||
                     (window.selectedCliente || {}).subagente || '')
       });
-      fetch('/polizas/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: extractedItems, selected })
-      })
-      .then(r => r.json())
-      .then(res => {
-        if (res.ok && hint) {
-          hint.textContent = `Cambios guardados automáticamente (${res.count}).`;
+      try {
+        const r = await fetch('/polizas/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: extractedItems, selected })
+        });
+    
+        const ct = (r.headers.get('content-type') || '').toLowerCase();
+        const raw = await r.text();
+        let payload;
+        try { payload = JSON.parse(raw); } catch { payload = { rawText: raw }; }
+    
+        console.log('[save] status:', r.status, 'payload:', payload);
+    
+        if (!r.ok || !payload?.ok) {
+            const msg = (payload?.errors && Array.isArray(payload.errors) && payload.errors.join('; '))
+                || payload?.error
+                || payload?.rawText
+                || 'Error al guardar pólizas.';
+            if (hint) hint.textContent = `Error al guardar: ${msg}`;
+            if (window.Swal) Swal.fire({ icon: 'error', title: 'No se guardó', text: msg });
+            return;
         }
-      })
-      .catch(err => console.warn('[autosave] error:', err));
+    
+        if (hint) hint.textContent = `Cambios guardados automáticamente (${payload.count}).`;
+    } catch (err) {
+        console.error('[autosave] error:', err);
+        if (window.Swal) Swal.fire({ icon: 'error', title: 'Error de red', text: String(err) });
+    }
     }, 800);
   }
 
@@ -746,5 +763,46 @@
   // NUEVO: limpiar iframe al cerrar modal
   pdfModalEl?.addEventListener('hidden.bs.modal', () => {
     try { if (pdfFrameEl) pdfFrameEl.src = 'about:blank'; } catch {}
+  });
+
+  // Nuevo: click explícito en “Guardar pólizas” para forzar guardado y mostrar errores
+  btnSave?.addEventListener('click', async () => {
+      const selected = Object.assign({}, (window.selectedCliente || {}), {
+          subagente: (document.getElementById('subAgenteTop')?.value ||
+                      document.getElementById('subAgente')?.value ||
+                      (window.selectedCliente || {}).subagente || '')
+      });
+  
+      try {
+          const r = await fetch('/polizas/save', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ items: extractedItems, selected })
+          });
+  
+          const ct = (r.headers.get('content-type') || '').toLowerCase();
+          const raw = await r.text();
+          let payload;
+          try { payload = JSON.parse(raw); } catch { payload = { rawText: raw }; }
+  
+          console.log('[save:manual] status:', r.status, 'payload:', payload);
+  
+          if (!r.ok || !payload?.ok) {
+              const msg = (payload?.errors && Array.isArray(payload.errors) && payload.errors.join('; '))
+                  || payload?.error
+                  || payload?.rawText
+                  || 'Error al guardar pólizas.';
+              if (window.Swal) Swal.fire({ icon: 'error', title: 'No se guardó', text: msg });
+              else alert(msg);
+              return;
+          }
+  
+          if (window.Swal) Swal.fire({ icon: 'success', title: 'Guardado', text: `Se insertaron ${payload.count} póliza(s).` });
+          if (hint) hint.textContent = `Guardado manual: ${payload.count}.`;
+      } catch (err) {
+          console.error('[save:manual] error:', err);
+          if (window.Swal) Swal.fire({ icon: 'error', title: 'Error de red', text: String(err) });
+          else alert('No se pudo conectar con el servidor (/polizas/save).');
+      }
   });
 })();

@@ -303,6 +303,8 @@ def polizas_save():
 
     from controllers.addPoliza import save_polizas
     res = save_polizas(items, selected)
+    if not res.get('ok'):
+        current_app.logger.error('polizas_save error: %s', res.get('errors'))
     status = 200 if res.get('ok') else 400
     return res, status
 
