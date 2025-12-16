@@ -521,13 +521,9 @@
   });
 
   // Limpiar tabla
-  btnClear?.addEventListener('click', () => {
-    if (!extractedItems.length) return;
-    extractedItems = [];
-    render(extractedItems);
-    if (impComCompaniaEl) impComCompaniaEl.value = '';
-    if (hint) hint.textContent = 'Sube un PDF para ver información.';
-    scheduleAutoSave();
+  btnClear?.addEventListener('click', (e) => {
+    e.preventDefault();
+    resetAddPolizaView();
   });
 
   // Agregar póliza
@@ -741,6 +737,173 @@
   pdfModalEl?.addEventListener('hidden.bs.modal', () => {
     try { if (pdfFrameEl) pdfFrameEl.src = 'about:blank'; } catch {}
   });
+
+  // Guardado manual (btnSave)
+  btnSave?.addEventListener('click', async () => {
+    const selected = Object.assign({}, (window.selectedCliente || {}), {
+      subagente: (document.getElementById('subAgenteTop')?.value ||
+                  document.getElementById('subAgente')?.value ||
+                  (window.selectedCliente || {}).subagente || ''),
+      motivo: (motivoTop?.value || '').trim(),
+      ramos_producto: (ramoProductoTopEl?.value || '').trim(),
+      tipo_doc: (tipoDocTopEl?.value || '').trim() || ((window.selectedCliente || {}).tipo_doc || (window.selectedCliente || {}).tipo_documento || '')
+    });
+
+    // NUEVO: asegurar 'asegurado' y limpiar 'ramo' si no coincide con abbrs
+    const abbrs = (window.ramosAbbrs || []).map(s => (s || '').trim());
+    const itemsForAuto = (extractedItems || []).map(it => {
+      const copy = { ...it };
+      if (copy.colectivo_asegurado && !copy.asegurado) {
+        copy.asegurado = copy.colectivo_asegurado;
+      }
+      const r = (copy.ramo || '').trim();
+      if (r && !abbrs.includes(r)) {
+        copy.ramo = '';
+      }
+      return copy;
+    });
+
+    try {
+      const r = await fetch('/polizas/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: itemsForAuto, selected })
+      });
+
+      const ct = (r.headers.get('content-type') || '').toLowerCase();
+      const raw = await r.text();
+      let payload;
+      try { payload = JSON.parse(raw); } catch { payload = { rawText: raw }; }
+
+      console.log('[save:manual] status:', r.status, 'payload:', payload);
+
+      if (!r.ok || !payload?.ok) {
+        const msg = (payload?.errors && Array.isArray(payload.errors) && payload.errors.join('; '))
+          || payload?.error
+          || payload?.rawText
+          || 'Error al guardar pólizas.';
+        if (window.Swal) Swal.fire({ icon: 'error', title: 'No se guardó', text: msg });
+        else alert(msg);
+        return;
+      }
+
+      if (window.Swal) Swal.fire({ icon: 'success', title: 'Guardado', text: `Se insertaron ${payload.count} póliza(s).` });
+      if (hint) hint.textContent = `Guardado manual: ${payload.count}.`;
+      resetAddPolizaView();
+    } catch (err) {
+      console.error('[save:manual] error:', err);
+      if (window.Swal) Swal.fire({ icon: 'error', title: 'Error de red', text: String(err) });
+      else alert('No se pudo conectar con el servidor (/polizas/save).');
+    }
+  });
+
+  // Sincronizar cambios del bloque superior
+  issuerEl?.addEventListener('change', () => {
+    const text = issuerEl?.options[issuerEl.selectedIndex]?.text || (issuerEl?.value || '');
+    extractedItems = (extractedItems || []).map(it => ({ ...it, cia: text }));
+    render(extractedItems);
+  });
+
+  tipoPagoTopEl?.addEventListener('change', () => {
+    const val = (tipoPagoTopEl?.value || '').trim();
+    extractedItems = (extractedItems || []).map(it => ({ ...it, forma_pago: val }));
+    render(extractedItems);
+  });
+
+  estadoTopEl?.addEventListener('change', () => {
+    const val = (estadoTopEl?.value || '').trim();
+    extractedItems = (extractedItems || []).map(it => ({ ...it, estado: val }));
+    render(extractedItems);
+  });
+
+  ramoProductoTopEl?.addEventListener('input', () => {
+    const val = (ramoProductoTopEl?.value || '').trim();
+    if (!val) return;
+    extractedItems = (extractedItems || []).map(it => {
+      if (!it.ramos_producto || it.ramos_producto.trim() === '') {
+        return { ...it, ramos_producto: val };
+      }
+      return it;
+    });
+    render(extractedItems);
+    scheduleAutoSave();
+  });
+
+  // Autoguardado
+  function scheduleAutoSave() {
+    if (!AUTO_SAVE_ENABLED) return;
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(async () => {
+      const selected = Object.assign({}, (window.selectedCliente || {}), {
+        subagente: (document.getElementById('subAgenteTop')?.value ||
+                    document.getElementById('subAgente')?.value ||
+                    (window.selectedCliente || {}).subagente || '')
+      });
+      try {
+        const r = await fetch('/polizas/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: extractedItems, selected })
+        });
+
+        const ct = (r.headers.get('content-type') || '').toLowerCase();
+        const raw = await r.text();
+        let payload;
+        try { payload = JSON.parse(raw); } catch { payload = { rawText: raw }; }
+
+        console.log('[save] status:', r.status, 'payload:', payload);
+
+        if (!r.ok || !payload?.ok) {
+          const msg = (payload?.errors && Array.isArray(payload.errors) && payload.errors.join('; '))
+            || payload?.error
+            || payload?.rawText
+            || 'Error al guardar pólizas.';
+          if (hint) hint.textContent = `Error al guardar: ${msg}`;
+          if (window.Swal) Swal.fire({ icon: 'error', title: 'No se guardó', text: msg });
+          return;
+        }
+
+        if (hint) hint.textContent = `Cambios guardados automáticamente (${payload.count}).`;
+      } catch (err) {
+        console.error('[autosave] error:', err);
+        if (window.Swal) Swal.fire({ icon: 'error', title: 'Error de red', text: String(err) });
+      }
+    }, 800);
+  }
+
+  // NUEVO: función para resetear tabla y campos superiores
+  function resetAddPolizaView() {
+      extractedItems = [];
+      if (tbody) tbody.innerHTML = '';
+      if (btnSave) btnSave.disabled = true;
+      if (hint) hint.textContent = 'Sube un PDF para ver información.';
+      if (impComCompaniaEl) impComCompaniaEl.value = '';
+      if (pctComCompaniaEl) pctComCompaniaEl.value = '';
+      if (pctComSubAgenteEl) pctComSubAgenteEl.value = '';
+      if (impComSubAgenteEl) impComSubAgenteEl.value = '';
+      if (motivoTop) motivoTop.value = '';
+      if (ramoProductoTopEl) ramoProductoTopEl.value = '';
+      if (tipoDocTopEl) tipoDocTopEl.value = '';
+      if (issuerEl) issuerEl.value = '';
+      if (subAgenteTopEl) subAgenteTopEl.value = '';
+      if (ejecutivoTopEl) ejecutivoTopEl.value = '';
+      if (tipoPagoTopEl) tipoPagoTopEl.value = '';
+      if (estadoTopEl) estadoTopEl.value = '';
+      if (fileEl) fileEl.value = '';
+      const pdfFrameEl = document.getElementById('pdfFrame');
+      if (pdfFrameEl) pdfFrameEl.src = 'about:blank';
+      render(extractedItems);
+  }
+
+  // NUEVO: ejecutar el reset al cargar la página y al mostrar (bfcache)
+  let __resetInvoked = false;
+  function __resetOnce() {
+    if (__resetInvoked) return;
+    __resetInvoked = true;
+    resetAddPolizaView();
+  }
+  document.addEventListener('DOMContentLoaded', __resetOnce);
+  window.addEventListener('pageshow', () => { __resetOnce(); });
 
   // Guardado manual (btnSave)
   btnSave?.addEventListener('click', async () => {

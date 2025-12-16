@@ -35,6 +35,11 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
             except Exception:
                 return None
 
+        # Normalizador a MAYÚSCULAS para campos de texto
+        def U(s):
+            t = '' if s is None else str(s).strip()
+            return t.upper() if t else ''
+
         # VALIDACIÓN: cliente seleccionado (numero_documento)
         numero_documento = (selected or {}).get("n_doc") or (selected or {}).get("numero_documento") or ""
         if not numero_documento:
@@ -65,28 +70,27 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
 
         for row in normalized:
             args = (
-                numero_documento,
-                (selected or {}).get("tipo_doc") or (selected or {}).get("tipo_documento") or "",
-                row.get("colectivo_asegurado") or row.get("asegurado") or "",
-                row.get("cia") or "",
+                str(numero_documento).strip(),  # documento: numérico/texto, no necesita upper
+                U((selected or {}).get("tipo_doc") or (selected or {}).get("tipo_documento") or ""),
+                U(row.get("colectivo_asegurado") or row.get("asegurado") or ""),
+                U(row.get("cia") or ""),
+                U(row.get("ramo") or ""),
 
-                row.get("ramo") or "",
+                U(row.get("numero_poliza") or ""),
+                U(row.get("recibo") or ""),
+                U(row.get("contrato_nro") or ""),
+                U(row.get("nro") or ""),
 
-                row.get("numero_poliza") or "",
-                row.get("recibo") or "",
-                row.get("contrato_nro") or "",
-                row.get("nro") or "",
-
-                row.get("moneda") or "",
+                U(row.get("moneda") or ""),
                 parse_date(row.get("fecha_emision")),
                 parse_date(row.get("inicio_vigencia")),
                 parse_date(row.get("vencimiento")),
                 parse_date(row.get("ultimo_dia_pago")),
-                row.get("forma_pago") or "",
+                U(row.get("forma_pago") or ""),
 
-                row.get("subagente") or (selected or {}).get("subagente") or "",
+                U(row.get("subagente") or (selected or {}).get("subagente") or ""),
 
-                row.get("asegurada") or "",
+                U(row.get("asegurada") or ""),
                 parse_decimal(row.get("prima_comercial")),
                 parse_decimal(row.get("prima_neta")),
                 parse_decimal(row.get("prima_comercial_igv")),
@@ -97,9 +101,8 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                 parse_decimal(row.get("comision_subagente_pct")),
                 parse_decimal(row.get("comision_subagente_importe")),
 
-                row.get("ramos_producto") or (selected or {}).get("ramos_producto") or "",
-                # Quitado: motivo (se guarda en 'asegurada' según tu requerimiento)
-                row.get("estado") or "PENDIENTE",
+                U(row.get("ramos_producto") or (selected or {}).get("ramos_producto") or ""),
+                U(row.get("estado") or "PENDIENTE"),
             )
 
             cur.execute(

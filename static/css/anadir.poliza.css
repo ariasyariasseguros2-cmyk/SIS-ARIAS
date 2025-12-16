@@ -27,6 +27,22 @@
     --ramo-accent-bg: #fff6d6;    /* fondo más visible */
 }
 
+/* NUEVO: forzar mayúsculas en toda la página Añadir Póliza */
+body.text-uppercase,
+.upload-card,
+.inline-filter-card,
+.filter-card,
+.modern-table thead th,
+.modern-table tbody td,
+.modal-footer,
+.actions-stack .action-btn,
+.btn,
+.form-label,
+.form-select,
+.form-control {
+  text-transform: uppercase;
+}
+
 .card {
     border: none;
     border-radius: .75rem;

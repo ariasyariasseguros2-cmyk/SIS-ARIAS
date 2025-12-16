@@ -30,3 +30,13 @@
 #polizasTable {
     width: 100%;
 }
+
+/* NUEVO: forzar mayúsculas en la vista de pólizas (tablero/tablas/filtros) */
+.filters-bar,
+.filters-bar .btn,
+.card-header,
+#polizasTable th,
+#polizasTable td,
+.input-group .form-control {
+    text-transform: uppercase;
+}
