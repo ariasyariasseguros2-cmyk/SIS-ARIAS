@@ -235,7 +235,7 @@ BEGIN
         p.asegurado,
         p.cia,
         p.ramo,
-        -- p.producto,                     -- ELIMINADO
+        p.ramos_producto AS producto,
         p.poliza,
         p.nro,
         p.moneda,
@@ -368,6 +368,7 @@ BEGIN
         p.asegurado,
         p.cia,
         p.ramo,
+        p.ramos_producto AS producto,
         p.poliza,
         p.nro,
         p.moneda,

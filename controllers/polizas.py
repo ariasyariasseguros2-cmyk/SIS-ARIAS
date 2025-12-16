@@ -62,6 +62,10 @@ def get_polizas_data(selected: dict | None = None) -> dict:
             rows = []
             details = {'nombre_completo': '', 'tipo_documento': '', 'numero_documento': '', 'telefono': ''}
 
+        # Normalizar clave 'producto' desde 'ramos_producto' si aplica
+        for r in rows:
+            r['producto'] = r.get('producto') or r.get('ramos_producto') or ''
+
         cur.close()
         cnx.close()
     except Exception:
