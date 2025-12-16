@@ -26,6 +26,7 @@
   let extractedItems = [];
   let autoSaveTimer = null;
   const AUTO_SAVE_ENABLED = false;
+  let isSaving = false;
 
   // Ventana modal de carga (Bootstrap) y alternativa con SweetAlert2
   const loadingModalEl = document.getElementById('loadingModal');
@@ -738,32 +739,40 @@
     try { if (pdfFrameEl) pdfFrameEl.src = 'about:blank'; } catch {}
   });
 
-  // Guardado manual (btnSave)
+  // Guardado manual (btnSave) - UN SOLO HANDLER + GUARD CLAUSE
   btnSave?.addEventListener('click', async () => {
-    const selected = Object.assign({}, (window.selectedCliente || {}), {
-      subagente: (document.getElementById('subAgenteTop')?.value ||
-                  document.getElementById('subAgente')?.value ||
-                  (window.selectedCliente || {}).subagente || ''),
-      motivo: (motivoTop?.value || '').trim(),
-      ramos_producto: (ramoProductoTopEl?.value || '').trim(),
-      tipo_doc: (tipoDocTopEl?.value || '').trim() || ((window.selectedCliente || {}).tipo_doc || (window.selectedCliente || {}).tipo_documento || '')
-    });
-
-    // NUEVO: asegurar 'asegurado' y limpiar 'ramo' si no coincide con abbrs
-    const abbrs = (window.ramosAbbrs || []).map(s => (s || '').trim());
-    const itemsForAuto = (extractedItems || []).map(it => {
-      const copy = { ...it };
-      if (copy.colectivo_asegurado && !copy.asegurado) {
-        copy.asegurado = copy.colectivo_asegurado;
-      }
-      const r = (copy.ramo || '').trim();
-      if (r && !abbrs.includes(r)) {
-        copy.ramo = '';
-      }
-      return copy;
-    });
-
+    if (isSaving) return; // evita clics repetidos
+    isSaving = true;
     try {
+      if (btnSave) btnSave.disabled = true;
+
+      const selected = Object.assign({}, (window.selectedCliente || {}), {
+        subagente: (document.getElementById('subAgenteTop')?.value ||
+                    document.getElementById('subAgente')?.value ||
+                    (window.selectedCliente || {}).subagente || ''),
+        motivo: (motivoTop?.value || '').trim(),
+        ramos_producto: (ramoProductoTopEl?.value || '').trim(),
+        tipo_doc: (tipoDocTopEl?.value || '').trim() || ((window.selectedCliente || {}).tipo_doc || (window.selectedCliente || {}).tipo_documento || '')
+      });
+
+      // Asegurar 'asegurado' y limpiar 'ramo' si no coincide con abbrs; forzar ramos_producto desde el bloque superior si existe
+      const abbrs = (window.ramosAbbrs || []).map(s => (s || '').trim());
+      const itemsForAuto = (extractedItems || []).map(it => {
+        const copy = { ...it };
+        if (copy.colectivo_asegurado && !copy.asegurado) {
+          copy.asegurado = copy.colectivo_asegurado;
+        }
+        const r = (copy.ramo || '').trim();
+        if (r && !abbrs.includes(r)) {
+          copy.ramo = '';
+        }
+        const rpTop = (selected.ramos_producto || '').trim();
+        if (rpTop) {
+          copy.ramos_producto = rpTop;
+        }
+        return copy;
+      });
+
       const r = await fetch('/polizas/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -794,6 +803,9 @@
       console.error('[save:manual] error:', err);
       if (window.Swal) Swal.fire({ icon: 'error', title: 'Error de red', text: String(err) });
       else alert('No se pudo conectar con el servidor (/polizas/save).');
+    } finally {
+      isSaving = false;
+      if (btnSave) btnSave.disabled = (extractedItems || []).length === 0;
     }
   });
 
@@ -905,63 +917,7 @@
   document.addEventListener('DOMContentLoaded', __resetOnce);
   window.addEventListener('pageshow', () => { __resetOnce(); });
 
-  // Guardado manual (btnSave)
-  btnSave?.addEventListener('click', async () => {
-    const selected = Object.assign({}, (window.selectedCliente || {}), {
-      subagente: (document.getElementById('subAgenteTop')?.value ||
-                  document.getElementById('subAgente')?.value ||
-                  (window.selectedCliente || {}).subagente || ''),
-      motivo: (motivoTop?.value || '').trim(),
-      ramos_producto: (ramoProductoTopEl?.value || '').trim(),
-      tipo_doc: (tipoDocTopEl?.value || '').trim() || ((window.selectedCliente || {}).tipo_doc || (window.selectedCliente || {}).tipo_documento || '')
-    });
 
-    // NUEVO: asegurar 'asegurado' y limpiar 'ramo' si no coincide con abbrs
-    const abbrs = (window.ramosAbbrs || []).map(s => (s || '').trim());
-    const itemsForAuto = (extractedItems || []).map(it => {
-      const copy = { ...it };
-      if (copy.colectivo_asegurado && !copy.asegurado) {
-        copy.asegurado = copy.colectivo_asegurado;
-      }
-      const r = (copy.ramo || '').trim();
-      if (r && !abbrs.includes(r)) {
-        copy.ramo = '';
-      }
-      return copy;
-    });
-
-    try {
-      const r = await fetch('/polizas/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: itemsForAuto, selected })
-      });
-
-      const ct = (r.headers.get('content-type') || '').toLowerCase();
-      const raw = await r.text();
-      let payload;
-      try { payload = JSON.parse(raw); } catch { payload = { rawText: raw }; }
-
-      console.log('[save:manual] status:', r.status, 'payload:', payload);
-
-      if (!r.ok || !payload?.ok) {
-        const msg = (payload?.errors && Array.isArray(payload.errors) && payload.errors.join('; '))
-          || payload?.error
-          || payload?.rawText
-          || 'Error al guardar pólizas.';
-        if (window.Swal) Swal.fire({ icon: 'error', title: 'No se guardó', text: msg });
-        else alert(msg);
-        return;
-      }
-
-      if (window.Swal) Swal.fire({ icon: 'success', title: 'Guardado', text: `Se insertaron ${payload.count} póliza(s).` });
-      if (hint) hint.textContent = `Guardado manual: ${payload.count}.`;
-    } catch (err) {
-      console.error('[save:manual] error:', err);
-      if (window.Swal) Swal.fire({ icon: 'error', title: 'Error de red', text: String(err) });
-      else alert('No se pudo conectar con el servidor (/polizas/save).');
-    }
-  });
 
   // Sincronizar cambios del bloque superior
   issuerEl?.addEventListener('change', () => {

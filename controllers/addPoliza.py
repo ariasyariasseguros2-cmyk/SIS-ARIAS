@@ -54,8 +54,10 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                 # Mapear Motivo al campo 'asegurada' si 'asegurada' está vacío
                 if not row.get("asegurada") and selected.get("motivo"):
                     row["asegurada"] = selected["motivo"]
-                if not row.get("ramos_producto") and selected.get("ramos_producto"):
+                # SIEMPRE aplicar ramos_producto del bloque superior si existe
+                if selected.get("ramos_producto"):
                     row["ramos_producto"] = selected["ramos_producto"]
+                # Completar subagente si falta
                 if not row.get("subagente") and selected.get("subagente"):
                     row["subagente"] = selected["subagente"]
             normalized.append(row)
