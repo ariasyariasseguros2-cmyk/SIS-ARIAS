@@ -11,8 +11,9 @@
   const estadoTopEl = document.getElementById('estadoTop');
   const tipoPagoTopEl = document.getElementById('tipoPagoTop');
   const tipoDocTopEl = document.getElementById('tipoDocTop'); // Referencia al input de Tipo Doc
-  const ramoProductoTopEl = document.getElementById('ramoProductoTop'); // Campo superior de ramo/producto (texto)
-  const motivoTop = document.getElementById('motivoTop'); // Campo superior de motivo (texto)
+  const ramoProductoTopEl = document.getElementById('ramosProductoTop'); // Campo superior de ramo/producto (texto)
+  const aseguradaTopEl = document.getElementById('aseguradaTop'); // Campo superior de asegurada (texto)
+  const motivoTopEl = document.getElementById('motivoTop'); // Campo superior de motivo (texto)
   // Campos de comisiones (superior)
   const pctComCompaniaEl   = document.getElementById('pctComCompania');
   const impComCompaniaEl   = document.getElementById('impComCompania');
@@ -269,6 +270,8 @@
     const formaPagoTop = (tipoPagoTopEl?.value || '').trim();
     const estadoTop = (estadoTopEl?.value || '').trim();
     const ramoProductoTop = (ramoProductoTopEl?.value || '').trim();
+    const aseguradaTop = (aseguradaTopEl?.value || '').trim();
+    const motivoTop = (motivoTopEl?.value || '').trim();
     const issuerText = issuerEl?.options[issuerEl.selectedIndex]?.text || (issuerEl?.value || '');
 
     // NUEVO: asegurar que 'ramo' sea vacío si no coincide con las abreviaciones disponibles
@@ -285,6 +288,12 @@
       if (estadoTop) it.estado = estadoTop;
       if (ramoProductoTop && (!it.ramos_producto || it.ramos_producto.trim() === '')) {
         it.ramos_producto = ramoProductoTop;
+      }
+      if (aseguradaTop && (!it.asegurada || it.asegurada.trim() === '')) {
+        it.asegurada = aseguradaTop;
+      }
+      if (motivoTop && (!it.motivo || it.motivo.trim() === '')) {
+        it.motivo = motivoTop;
       }
       if (issuerText && !it.cia) it.cia = issuerText;
 
@@ -752,7 +761,9 @@
                     (window.selectedCliente || {}).subagente || ''),
         motivo: (motivoTop?.value || '').trim(),
         ramos_producto: (ramoProductoTopEl?.value || '').trim(),
-        tipo_doc: (tipoDocTopEl?.value || '').trim() || ((window.selectedCliente || {}).tipo_doc || (window.selectedCliente || {}).tipo_documento || '')
+        tipo_doc: (tipoDocTopEl?.value || '').trim() || ((window.selectedCliente || {}).tipo_doc || (window.selectedCliente || {}).tipo_documento || ''),
+        // NUEVO: ejecutivo desde el select superior
+        ejecutivo: (ejecutivoTopEl?.value || '').trim()
       });
 
       // Asegurar 'asegurado' y limpiar 'ramo' si no coincide con abbrs; forzar ramos_producto desde el bloque superior si existe

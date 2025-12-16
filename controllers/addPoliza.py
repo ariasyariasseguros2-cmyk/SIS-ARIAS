@@ -51,15 +51,21 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
             row = dict(it or {})
             # Completar desde el bloque superior si falta en la fila
             if selected:
-                # Mapear Motivo al campo 'asegurada' si 'asegurada' está vacío
-                if not row.get("asegurada") and selected.get("motivo"):
-                    row["asegurada"] = selected["motivo"]
+                # Completar asegurada si falta
+                if not row.get("asegurada") and selected.get("asegurada"):
+                    row["asegurada"] = selected["asegurada"]
+                # Completar motivo si falta
+                if not row.get("motivo") and selected.get("motivo"):
+                    row["motivo"] = selected["motivo"]
                 # SIEMPRE aplicar ramos_producto del bloque superior si existe
                 if selected.get("ramos_producto"):
                     row["ramos_producto"] = selected["ramos_producto"]
                 # Completar subagente si falta
                 if not row.get("subagente") and selected.get("subagente"):
                     row["subagente"] = selected["subagente"]
+                # NUEVO: completar ejecutivo si falta
+                if not row.get("ejecutivo") and selected.get("ejecutivo"):
+                    row["ejecutivo"] = selected["ejecutivo"]
             normalized.append(row)
 
         if not normalized:
@@ -72,7 +78,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
 
         for row in normalized:
             args = (
-                str(numero_documento).strip(),  # documento: numérico/texto, no necesita upper
+                str(numero_documento).strip(),  # documento
                 U((selected or {}).get("tipo_doc") or (selected or {}).get("tipo_documento") or ""),
                 U(row.get("colectivo_asegurado") or row.get("asegurado") or ""),
                 U(row.get("cia") or ""),
@@ -89,10 +95,11 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                 parse_date(row.get("vencimiento")),
                 parse_date(row.get("ultimo_dia_pago")),
                 U(row.get("forma_pago") or ""),
-
                 U(row.get("subagente") or (selected or {}).get("subagente") or ""),
-
+                # NUEVO: ejecutivo
+                U(row.get("ejecutivo") or (selected or {}).get("ejecutivo") or ""),
                 U(row.get("asegurada") or ""),
+                U(row.get("motivo") or (selected or {}).get("motivo") or ""),
                 parse_decimal(row.get("prima_comercial")),
                 parse_decimal(row.get("prima_neta")),
                 parse_decimal(row.get("prima_comercial_igv")),
@@ -112,8 +119,8 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                 "%s,%s,%s,%s,%s,"        # doc, tipo_doc, asegurado, cia, ramo
                 "%s,%s,%s,%s,"          # poliza, recibo, contrato_nro, nro
                 "%s,%s,%s,%s,%s,%s,"    # moneda, fecha_emision, vig_desde, vig_hasta, ultimo_dia_pago, forma_pago
-                "%s,"                   # sub_agente
-                "%s,%s,%s,%s,%s,"       # asegurada, prima_comercial, prima_neta, prima_comercial_igv, prima_total
+                "%s,%s,"                # sub_agente, ejecutivo
+                "%s,%s,%s,%s,%s,%s,"    # asegurada, motivo, prima_comercial, prima_neta, prima_comercial_igv, prima_total (FIXED: 6 placeholders)
                 "%s,%s,%s,%s,"          # porc_compania, imp_compania, porc_subagente, imp_subagente
                 "%s,%s"                 # ramos_producto, estado
                 ")",

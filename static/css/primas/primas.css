@@ -1,0 +1,4 @@
+.filters-bar .btn { white-space: nowrap; }
+.table thead th { font-weight: 600; }
+.table tbody td { vertical-align: middle; }
+.card-header .bi { margin-right: 6px; }

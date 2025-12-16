@@ -54,6 +54,20 @@ def menu_page(page):
             details=data.get('details', {})
         )
 
+    # Primas → plantilla dedicada
+    if page == 'primas':
+        from controllers.primas.primas import get_primas_data
+        selected = session.get('selected_cliente') or {}
+        numero_poliza = request.args.get('poliza') or None
+        data = get_primas_data(selected, numero_poliza)
+        return render_template(
+            'view/primas/primas.html',
+            page='primas',
+            title=data['title'],
+            rows=data['rows'],
+            details=data.get('details', {})
+        )
+
     # NUEVO: página “Añadir Póliza”
     if page == 'anadir-poliza':
         from controllers.addPoliza import get_rows

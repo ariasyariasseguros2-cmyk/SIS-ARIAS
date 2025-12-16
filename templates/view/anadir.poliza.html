@@ -73,17 +73,24 @@
           </div>
         </div>
         <!-- NUEVO: campos editables de Motivo y Ramos Producto -->
+        <!-- dentro del card de filtros -->
         <div class="row g-3 align-items-end mt-2">
+          <!-- Descripción/Asegurada -->
+          <div class="col-md-5">
+            <label class="form-label">Breve descripción de lo que se asegura</label>
+            <input id="aseguradaTop" type="text" class="form-control" placeholder="Describe lo asegurado" value="{{ selected.asegurada or '' }}">
+          </div>
+          <!-- Motivo -->
           <div class="col-md-5">
             <label class="form-label">Motivo</label>
-            <input id="motivoTop" type="text" class="form-control" placeholder="Describe el motivo" value="{{ selected.motivo or '' }}">
+            <input id="motivoTop" type="text" class="form-control" placeholder="Escribe el Motivo" value="{{ selected.motivo or '' }}">
           </div>
           <!-- Dentro del card de filtros, reemplazar el bloque de "Ramos Producto" -->
           <div class="col-md-3">
             <label class="form-label">Ramos Producto</label>
-            <input id="ramoProductoTop" type="text" class="form-control" placeholder="Escribe el producto/ramo" value="{{ selected.ramos_producto or '' }}">
+            <input id="ramosProductoTop" type="text" class="form-control" placeholder="Escribe el producto/ramo" value="{{ selected.ramos_producto or '' }}">
           </div>
-          <!-- Nuevo: Tipo Doc en el mismo row, prellenado -->
+          <!-- Tipo Doc -->
           <div class="col-md-4">
             <label class="form-label" for="tipoDocTop">Tipo Doc</label>
             <input id="tipoDocTop" type="text" class="form-control" placeholder="Escribe el tipo de documento" value="{{ selected.tipo_doc or selected.tipo_documento or '' }}">

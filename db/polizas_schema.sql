@@ -120,8 +120,10 @@ CREATE TABLE IF NOT EXISTS polizas (
     forma_pago VARCHAR(30) NULL,
 
     sub_agente VARCHAR(100) NULL,
+    ejecutivo VARCHAR(100) NULL,
     tipo_doc VARCHAR(10) NULL,
     asegurada VARCHAR(150) NULL,
+    motivo VARCHAR(200) NULL,
     prima_comercial DECIMAL(15,2) NULL,
     prima_neta DECIMAL(15,2) NULL,
     prima_comercial_igv DECIMAL(15,2) NULL,
@@ -178,8 +180,10 @@ CREATE PROCEDURE sp_insert_poliza_por_numero (
     IN p_forma_pago VARCHAR(30),
 
     IN p_sub_agente VARCHAR(100),
+    IN p_ejecutivo VARCHAR(100),
 
     IN p_asegurada VARCHAR(150),
+    IN p_motivo VARCHAR(200),
     IN p_prima_comercial DECIMAL(15,2),
     IN p_prima_neta DECIMAL(15,2),
     IN p_prima_comercial_igv DECIMAL(15,2),
@@ -210,16 +214,16 @@ BEGIN
         cliente_id, asegurado, cia, ramo,
         poliza, recibo, contrato_nro, nro,
         moneda, fecha_emision, vig_desde, vig_hasta, ultimo_dia_pago, forma_pago,
-        sub_agente, tipo_doc,
-        asegurada, prima_comercial, prima_neta, prima_comercial_igv, prima_total,
+        sub_agente, ejecutivo, tipo_doc,
+        asegurada, motivo, prima_comercial, prima_neta, prima_comercial_igv, prima_total,
         porc_compania, imp_compania, porc_subagente, imp_subagente,
         ramos_producto, estado
     ) VALUES (
         v_cliente_id, p_asegurado, p_cia, p_ramo,
         p_poliza, p_recibo, p_contrato_nro, p_nro,
         p_moneda, p_fecha_emision, p_vig_desde, p_vig_hasta, p_ultimo_dia_pago, p_forma_pago,
-        p_sub_agente, p_tipo_doc,
-        p_asegurada, p_prima_comercial, p_prima_neta, p_prima_comercial_igv, p_prima_total,
+        p_sub_agente, p_ejecutivo, p_tipo_doc,
+        p_asegurada, p_motivo, p_prima_comercial, p_prima_neta, p_prima_comercial_igv, p_prima_total,
         p_porc_compania, p_imp_compania, p_porc_subagente, p_imp_subagente,
         p_ramos_producto, p_estado
     );
@@ -380,5 +384,71 @@ BEGIN
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
     WHERE p.cliente_id = p_cliente_id
     ORDER BY p.creado_en DESC;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+-- sp_list_primas_por_poliza
+CREATE PROCEDURE sp_list_primas_por_poliza(IN p_poliza VARCHAR(50))
+BEGIN
+    SELECT
+        p.recibo,
+        p.poliza,
+        c.razon_social AS contratante,
+        p.cia AS compania,
+        p.ramo,
+        -- aquí antes estaba: 'Emision' AS tipo,
+        p.tipo_doc AS tipo,
+        p.prima_comercial,
+        p.prima_neta,
+        p.prima_comercial_igv,
+        DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
+        DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
+        p.nro AS nro_operacion,
+        p.motivo AS motivo
+    FROM polizas p
+    INNER JOIN clientes c ON c.idCliente = p.cliente_id
+    WHERE p.poliza = p_poliza
+    ORDER BY p.creado_en DESC;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+-- sp_list_primas_por_cliente_id
+CREATE PROCEDURE sp_list_primas_por_cliente_id(IN p_cliente_id INT)
+BEGIN
+    SELECT
+        p.ejecutivo AS Ejecutivo,          -- corregido: antes p.ejecutivos
+        p.poliza,
+        p.asegurado AS Asegurado,
+        p.cia AS compania,
+        p.ramo,
+        p.tipo_doc AS tipo,
+        p.prima_comercial,
+        p.prima_neta,
+        p.prima_comercial_igv,
+        DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
+        DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
+        p.nro AS nro_operacion,
+        p.motivo AS motivo
+    FROM polizas p
+    INNER JOIN clientes c ON c.idCliente = p.cliente_id
+    WHERE p.cliente_id = p_cliente_id
+    ORDER BY p.creado_en DESC;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE PROCEDURE sp_get_poliza_detalle_por_numero(IN p_poliza VARCHAR(50))
+BEGIN
+    SELECT
+        p.asegurado AS asegurado,          
+        p.ejecutivo AS ejecutivo,         
+        DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
+        DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta
+    FROM polizas p
+    INNER JOIN clientes c ON c.idCliente = p.cliente_id
+    WHERE p.poliza = p_poliza
+    LIMIT 1;
 END$$
 DELIMITER ;
