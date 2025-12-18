@@ -67,7 +67,21 @@ def menu_page(page):
             rows=data['rows'],
             details=data.get('details', {})
         )
-
+    # Cuotas → plantilla dedicada
+    if page == 'cuotas':
+        from controllers.cuotas.cuotas import get_cuotas_data
+        selected = session.get('selected_cliente') or {}
+        numero_poliza = request.args.get('poliza') or None
+        data = get_cuotas_data(selected, numero_poliza)
+        return render_template(
+            'view/cuotas/cuotas.html',
+            page='cuotas',
+            title=data['title'],
+            encabezado=data['encabezado'],
+            resumen=data['resumen'],
+            rows=data['rows'],
+            total_monto=data['total_monto']
+        )
     # NUEVO: página “Añadir Póliza”
     if page == 'anadir-poliza':
         from controllers.addPoliza import get_rows

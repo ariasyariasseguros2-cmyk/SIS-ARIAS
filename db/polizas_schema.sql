@@ -452,3 +452,35 @@ BEGIN
     LIMIT 1;
 END$$
 DELIMITER ;
+
+-- Tabla cuotas (mínima)
+CREATE TABLE IF NOT EXISTS cuotas (
+    idCuota INT AUTO_INCREMENT PRIMARY KEY,
+    poliza VARCHAR(50) NOT NULL,
+    cupon VARCHAR(50) NULL,
+    fecha_vencimiento DATE NULL,
+    moneda VARCHAR(10) DEFAULT 'S/.',
+    importe DECIMAL(15,2) NULL,
+    fecha_pago DATE NULL,
+    factura VARCHAR(50) NULL,
+    observacion VARCHAR(255) NULL,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+DELIMITER $$
+CREATE PROCEDURE sp_list_cuotas_por_poliza(IN p_poliza VARCHAR(50))
+BEGIN
+    SELECT
+        idCuota,
+        cupon,
+        DATE_FORMAT(fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
+        moneda,
+        FORMAT(importe, 2) AS importe,
+        DATE_FORMAT(fecha_pago, '%d-%m-%Y') AS fecha_pago,
+        factura,
+        observacion
+    FROM cuotas
+    WHERE poliza = p_poliza
+    ORDER BY fecha_vencimiento ASC, idCuota ASC;
+END$$
+DELIMITER ;

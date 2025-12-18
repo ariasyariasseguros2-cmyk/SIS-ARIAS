@@ -1,0 +1,119 @@
+{% extends 'view/layout_dashboard.html' %}
+
+{% block html_title %}Coutas | SIS-ARIAS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cuotas/cuotas.css') }}">
+{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="cuotas-header">
+  <div class="left">
+    <h2 class="section-title">
+      <span class="icon">💳</span> Cuotas
+    </h2>
+    <a href="#" class="btn btn-success btn-add" onclick="Cuotas.onAdd()">Añadir</a>
+  </div>
+  <div class="importe-card">
+    <div class="importe-icon">S/.</div>
+    <div class="importe-text">
+      <div class="importe-monto">{{ total_monto }}</div>
+      <div class="importe-label">IMPORTE TOTAL</div>
+    </div>
+  </div>
+</div>
+
+<div class="breadcrumb-line">
+  <a href="{{ url_for('main.menu_page', page='cuotas') }}" class="link-back">Volver al listado Cuotas</a>
+</div>
+
+<div class="cuotas-info">
+  <div class="contratante">
+    Contratante: {{ encabezado.contratante }} - Póliza: {{ encabezado.poliza }} - {{ encabezado.compania }} - {{ encabezado.ramo }}
+  </div>
+</div>
+
+<div class="summary-block">
+  <div class="summary-title">Cuotas</div>
+  <table class="summary-table">
+    <tbody>
+      <tr>
+        <th>Aviso Cob</th>
+        <td>{{ resumen.aviso_cob }}</td>
+        <th>Vigencia Inicio</th>
+        <td>{{ resumen.vig_inicio }}</td>
+      </tr>
+      <tr>
+        <th>Vigencia Fin</th>
+        <td>{{ resumen.vig_fin }}</td>
+        <th>Tipo Doc</th>
+        <td>{{ resumen.tipo_doc }}</td>
+      </tr>
+      <tr>
+        <th>Concepto</th>
+        <td colspan="3">{{ resumen.concepto }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="toolbar">
+  <div class="search-area">
+    <input id="cuotas-search" type="text" placeholder="Buscar" oninput="Cuotas.onSearch(this.value)">
+  </div>
+  <div class="page-size">
+    <label for="page-size"> </label>
+    <select id="page-size" onchange="Cuotas.onPageSize(this.value)">
+      <option value="10">10</option>
+      <option value="20" selected>20</option>
+      <option value="50">50</option>
+    </select>
+  </div>
+</div>
+
+<table class="cuotas-table" id="cuotas-table">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Cupón</th>
+      <th>Fecha Vencimiento</th>
+      <th>Moneda</th>
+      <th>Importe</th>
+      <th>Fecha de Pago</th>
+      <th>Factura</th>
+      <th>Observación</th>
+      <th>Acción</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ r.cupon }}</td>
+      <td>{{ r.fecha_vencimiento }}</td>
+      <td>{{ r.moneda }}</td>
+      <td>{{ r.importe }}</td>
+      <td>{{ r.fecha_pago or '' }}</td>
+      <td>{{ r.factura or '' }}</td>
+      <td>{{ r.observacion or '' }}</td>
+      <td class="actions">
+        <button class="btn btn-xs btn-pdf" onclick="Cuotas.onPDF({{ loop.index0 }})">PDF</button>
+        <button class="btn btn-xs btn-revert" onclick="Cuotas.onRevert({{ loop.index0 }})">Revertir</button>
+        <button class="btn btn-xs btn-details" onclick="Cuotas.onDetails({{ loop.index0 }})">Detalles</button>
+        <button class="btn btn-xs btn-edit" onclick="Cuotas.onEdit({{ loop.index0 }})">Editar</button>
+        <button class="btn btn-xs btn-delete" onclick="Cuotas.onDelete({{ loop.index0 }})">Eliminar</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/cuotas/cuotas.js') }}"></script>
+<script>
+  Cuotas.bootstrap();
+</script>
+{% endblock %}

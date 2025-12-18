@@ -23,7 +23,15 @@
             }
         }
         if (t.classList.contains('btn-cuotas')) {
-            alert('Acción Cuotas pendiente de implementación.');
+            const poliza = t.getAttribute('data-poliza')
+                || t.closest('tr')?.querySelector('td:nth-child(2)')?.textContent?.trim()
+                || '';
+            if (poliza) {
+                window.location.href = `/menu/cuotas?poliza=${encodeURIComponent(poliza)}`;
+            } else {
+                alert('No se pudo obtener el número de póliza.');
+            }
+            return;
         }
         if (t.classList.contains('btn-detalles')) {
             alert('Acción Detalles pendiente de implementación.');

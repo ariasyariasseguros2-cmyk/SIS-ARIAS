@@ -1,0 +1,55 @@
+/* Header */
+.cuotas-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 8px 0 16px;
+}
+.cuotas-header .left { display: flex; align-items: center; gap: 12px; }
+.section-title { margin: 0; font-size: 20px; font-weight: 600; }
+.section-title .icon { margin-right: 6px; }
+.btn { border: 1px solid #2e7d32; background: #2e7d32; color: #fff; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
+.btn-success { background: #2ecc71; border-color: #2ecc71; }
+
+/* Importe card */
+.importe-card {
+  display: flex; align-items: center; gap: 12px;
+  background: #f5fbff; border: 1px solid #cfe9ff; border-radius: 6px;
+  padding: 10px 14px;
+}
+.importe-icon {
+  width: 56px; height: 56px; border: 2px solid #cfe9ff; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center; font-weight: 700; color: #4a90e2; background: #e9f6ff;
+}
+.importe-text .importe-monto { font-size: 22px; font-weight: 700; }
+.importe-text .importe-label { font-size: 11px; color: #666; }
+
+/* Breadcrumb */
+.breadcrumb-line { margin: 6px 0 12px; font-size: 13px; }
+.link-back { color: #4a90e2; text-decoration: none; }
+.link-back:hover { text-decoration: underline; }
+
+/* Contratante text */
+.cuotas-info .contratante { font-size: 13px; color: #333; margin-bottom: 8px; }
+
+/* Summary */
+.summary-block { margin-bottom: 10px; }
+.summary-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.summary-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e5e7eb; }
+.summary-table th { width: 160px; background: #f9fafb; text-align: left; padding: 8px; border-right: 1px solid #e5e7eb; }
+.summary-table td { padding: 8px; border-top: 1px solid #f1f3f5; }
+
+/* Toolbar */
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }
+.toolbar input[type="text"] { width: 260px; padding: 6px 8px; border: 1px solid #cfd8dc; border-radius: 4px; }
+.toolbar select { padding: 6px 8px; border: 1px solid #cfd8dc; border-radius: 4px; }
+
+/* Table */
+.cuotas-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e5e7eb; }
+.cuotas-table thead th { background: #f9fafb; font-weight: 600; font-size: 13px; padding: 8px; border-bottom: 1px solid #e5e7eb; }
+.cuotas-table tbody td { padding: 8px; border-top: 1px solid #f1f3f5; font-size: 13px; }
+.actions .btn { margin-right: 4px; font-size: 12px; padding: 4px 8px; border-radius: 3px; }
+.btn-xs { font-size: 12px; }
+.btn-pdf { background: #e74c3c; border-color: #e74c3c; }
+.btn-revert { background: #3498db; border-color: #3498db; }
+.btn-details { background: #16a085; border-color: #16a085; }
+.btn-edit { background: #f1c40f; border-color: #f1c40f; color: #000; }
+.btn-delete { background: #7f8c8d; border-color: #7f8c8d; }
