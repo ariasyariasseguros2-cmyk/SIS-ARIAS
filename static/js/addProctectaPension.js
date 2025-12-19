@@ -4,11 +4,17 @@
   const issuerSel = document.getElementById("issuer");
   const pdfInput = document.getElementById("pdfFile");
 
-  // Heurística simple: si el nombre del archivo sugiere Proctecta/Pension, selecciona proveedor
+  // Heurística simple: si el nombre sugiere Protecta/Pensión/AC-SCTR, selecciona proveedor
   pdfInput?.addEventListener("change", () => {
     const f = pdfInput.files && pdfInput.files[0];
     const name = (f?.name || "").toLowerCase();
-    if (name.includes("proctecta") || name.includes("pension")) {
+    const looksProtecta =
+      name.includes("proctecta") ||
+      name.includes("protecta") ||
+      name.includes("pension") ||
+      /(^|\\b)ac[-_ ]?sctr/.test(name);
+
+    if (looksProtecta) {
       const opt = [...issuerSel.options].find(o => (o.value || "").toLowerCase() === "proctecta");
       if (opt) issuerSel.value = opt.value;
       // Prellenar ramo producto si aplica

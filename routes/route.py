@@ -522,10 +522,11 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
         # NUEVO: preferir Crecer si aparece, aunque también figure 'sanitasperu'
         elif "crecer seguros" in t or re.search(r"\bcrecer\b", t):
             prov = "crecer"
+        # NUEVO: detectar Protecta ANTES que Sanitas (por pasarela de pago Sanitas en PDFs de Protecta)
+        elif "protecta" in t or "protecta security" in t:
+            prov = "protecta"
         elif "sanitas" in t:
             prov = "sanitas"
-        elif "protecta" in t:
-            prov = "protecta"
         elif "pacifico" in t or "pacífico" in t:
             prov = "pacifico"
         elif "vida-ley-crecer" in t:
