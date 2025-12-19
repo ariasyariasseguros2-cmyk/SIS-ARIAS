@@ -47,7 +47,8 @@ def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
             pos += mm.end()
             return mm.group(1).strip()
 
-        COMPANY  = r"([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ \.&']{6,})"
+        # Patrón de empresa con sufijos legales y evitando conectores al inicio
+        COMPANY  = r"((?!(?:DE|OTRAS|ACTIVIDADES)\b)[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ \.&']{2,}?(?:S\.?A\.?C?|S\.?R\.?L|SRL|SAC|SA|EIRL))"
         ADDRESS  = r"([A-ZÁÉÍÓÚÑ0-9][A-ZÁÉÍÓÚÑ0-9 \.\-]+?)\s+(?=\d{4,6}\s*-\s)"
         ACTIVITY = r"(\d{4,6}\s*-\s+[A-Z0-9ÁÉÍÓÚÑ \.\-]+?)\s+(?=[A-ZÁÉÍÓÚÑ])"
         DATE     = r"([0-9]{2}/[0-9]{2}/[0-9]{4})"
@@ -61,6 +62,7 @@ def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
         ruc         = take(r"\b(\d{8,11})\b")
         direccion   = take(ADDRESS)
         actividad   = take(ACTIVITY)
+        # Colectivo: solo empresa antes de la siguiente fecha
         colectivo   = take(rf"{COMPANY}\s+(?={DATE})")
         iv          = take(DATE)
         v           = take(DATE)
@@ -106,9 +108,24 @@ def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
     item["recibo"] = rec_raw
 
     # Condiciones
-    item["colectivo_asegurado"] = cond.get("colectivo_asegurado")
+    # Extrae estrictamente entre "Colectivo Asegurado :" y "Inicio de Vigencia"
+    colectivo_label = _between(
+        r"\bColectivo\s+Asegurado\s*:\b",
+        r"\bInicio\s+de\s+Vigencia\b",
+        flat,
+        window=600
+    ) or _between(
+        r"\bColectivo\s+Asegurado\s*:\b",
+        r"\bVencimiento\b",
+        flat,
+        window=600
+    )
+
+    # Usa la etiqueta; si falla, respalda con "Contratante" y por último con el stream
+    item["colectivo_asegurado"] = _only_company(colectivo_label or cond.get("contratante") or cond.get("colectivo_asegurado"))
     item["inicio_vigencia"] = cond.get("inicio_vigencia")
     item["vencimiento"] = cond.get("vencimiento")
+    item["fecha_vecimiento"] = item["vencimiento"] or _find_after(r"\bVencimiento\b", flat, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=4000)
     item["ultimo_dia_pago"] = cond.get("ultimo_dia_pago")
     item["fecha_emision"] = cond.get("fecha_emision")
     item["moneda"] = cond.get("moneda")
@@ -120,5 +137,22 @@ def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
     item["prima_comercial_igv"] = _money(_find(r"Prima\s+Comercial\s*\+\s*IGV\s*:\s*S?\/?\s*([0-9\.,]+)", flat)) or _money(_find(r"(?:Importe\s+Total|Total)\s*:\s*S?\/?\s*([0-9\.,]+)", flat))
     print("item", item)
     return {k: _clean(v) for k, v in item.items() if v}
+
+# helpers (arriba del archivo)
+def _between(start_pat: str, end_pat: str, text: str, flags=re.IGNORECASE, window: int = 2000) -> Optional[str]:
+    # Devuelve el texto entre dos etiquetas
+    m_start = re.search(start_pat, text, flags)
+    if not m_start:
+        return None
+    frag = text[m_start.end(): m_start.end() + window]
+    m_end = re.search(end_pat, frag, flags)
+    return _clean(frag[:m_end.start()] if m_end else frag)
+
+def _only_company(s: Optional[str]) -> Optional[str]:
+    # Aísla nombre de empresa con sufijo legal, evitando prefijos como "DE/OTRAS/ACTIVIDADES"
+    if not s:
+        return None
+    m = re.search(r"((?!(?:DE|OTRAS|ACTIVIDADES)\b)[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9 \.&']{2,}?(?:S\.?A\.?C?|S\.?R\.?L|SRL|SAC|SA|EIRL))\b", s, re.IGNORECASE)
+    return m.group(1).strip() if m else s.strip()
     
 
