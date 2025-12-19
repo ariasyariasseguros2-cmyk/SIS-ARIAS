@@ -302,7 +302,45 @@ def parse_pacifico_pension(text: str) -> dict | None:
         if m_vig:
             ini_vig, fin_vig = m_vig.group(1), m_vig.group(2)
     inicio_vigencia = ini_vig
-    vencimiento = fin_vig
+    vencimiento = fin_vig  # Mantener el fin de vigencia tal cual
+
+    # Moneda: buscar token dentro de una ventana luego de la etiqueta; si es SOL -> SOLES
+    moneda = (
+        _find_after(r"\bMoneda\b", flat, r"(SOLES|DOLARES|D[ÓO]LARES|USD|PEN|SOL)", window=300)
+        or _find(r"\b(SOLES|DOLARES|D[ÓO]LARES|USD|PEN|SOL)\b", flat)
+        or _next_line_value(text, r"Moneda\s*:")
+    )
+    if moneda:
+        moneda = moneda.strip()
+        if moneda.upper() == "SOL":
+            moneda = "SOLES"
+
+    # Fechas: calcular último día de pago = emisión + 15 días, y usarlo también como fecha_vencimiento (UI)
+    from datetime import datetime, timedelta
+    def _sumar_dias(fecha_str: str, dias: int) -> str | None:
+        try:
+            d = datetime.strptime(fecha_str, "%d/%m/%Y")
+            d2 = d + timedelta(days=dias)
+            return d2.strftime("%d/%m/%Y")
+        except Exception:
+            return None
+
+    fecha_emision = (
+        _find_last(r"Fecha\s+de\s+Emisi[oó]n\s*:?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+        or _find_last(r"Fecha\s+Emisi[oó]n\s*:?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+        or _next_line_value(text, r"Fecha\s+de\s+Emisi[oó]n\s*:?")
+    )
+    ultimo_dia_pago = (
+        _find_after(r"Fecha\s+Vencimiento\b", flat, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=120)
+        or _find_last(r"Fecha\s+Vencimiento\s*:?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    )
+    fecha_vencimiento = None
+    if fecha_emision:
+        calc_ultimo = _sumar_dias(fecha_emision, 15)
+        if calc_ultimo:
+            ultimo_dia_pago = calc_ultimo
+            fecha_vencimiento = calc_ultimo  # para la columna “Fecha Vencimiento” del frontend
+    # Nota: NO tocar 'vencimiento' (fin de vigencia)
 
     # Moneda: buscar token dentro de una ventana luego de la etiqueta; si es SOL -> SOLES
     moneda = (
@@ -316,6 +354,14 @@ def parse_pacifico_pension(text: str) -> dict | None:
             moneda = "SOLES"
 
     # Fechas
+    from datetime import datetime, timedelta
+    def _sumar_dias(fecha_str: str, dias: int) -> str | None:
+        try:
+            d = datetime.strptime(fecha_str, "%d/%m/%Y")
+            d2 = d + timedelta(days=dias)
+            return d2.strftime("%d/%m/%Y")
+        except Exception:
+            return None
     fecha_emision = (
         _find_last(r"Fecha\s+de\s+Emisi[oó]n\s*:?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
         or _find_last(r"Fecha\s+Emisi[oó]n\s*:?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
@@ -326,6 +372,12 @@ def parse_pacifico_pension(text: str) -> dict | None:
         or _find_last(r"Fecha\s+Vencimiento\s*:?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
     )
 
+    # Regla solicitada: último día de pago = emisión + 15 días; vencimiento = último día de pago
+    if fecha_emision:
+        calc_ultimo = _sumar_dias(fecha_emision, 15)
+        if calc_ultimo:
+            ultimo_dia_pago = calc_ultimo
+            fecha_vencimiento = calc_ultimo  # para la columna “Fecha Vencimiento” del frontend
     # Montos: sin cambios
     prima_comercial = (
         _first_decimal_after(r"\bPRIMA\s+COMERCIAL\b", text, lookahead_lines=4, dot_only=False)
@@ -403,7 +455,8 @@ def parse_pacifico_pension(text: str) -> dict | None:
         "recibo": _clean(recibo),
         "colectivo_asegurado": _clean(asegurado),
         "inicio_vigencia": _clean(inicio_vigencia),
-        "vencimiento": _clean(vencimiento),
+        "vencimiento": _clean(vencimiento),                  # Fin de Vigencia
+        "fecha_vencimiento": _clean(fecha_vencimiento) or _clean(ultimo_dia_pago),  # Vencimiento (pago)
         "moneda": _clean(moneda),
         "fecha_emision": _clean(fecha_emision),
         "ultimo_dia_pago": _clean(ultimo_dia_pago),
