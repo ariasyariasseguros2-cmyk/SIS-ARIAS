@@ -338,6 +338,8 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
         "moneda": _clean(moneda),
         "fecha_emision": _clean(fecha_emision),
         "ultimo_dia_pago": _clean(ultimo_dia_pago),
+        "fecha_vencimiento": _clean(ultimo_dia_pago),
+        "fecha_vecimiento": _clean(ultimo_dia_pago),
         "prima_comercial": _clean(_money(prima_comercial)),
         "prima_comercial_igv": _clean(_money(total_cobrar)) or (
             _clean(prima_comercial) and _clean(igv_val) and
