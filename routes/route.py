@@ -2,7 +2,7 @@ from flask import Blueprint, redirect, url_for, session, render_template, reques
 from werkzeug.utils import secure_filename
 import os
 from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows
-
+from datetime import datetime, timedelta
 
 bp = Blueprint('main', __name__)
 
@@ -184,6 +184,15 @@ def upload():
             items = []
 
     # Normalización: mapear variantes de claves a las usadas por la UI
+    def _add_days_ddmmyyyy(date_str: str | None, days: int) -> str | None:
+        try:
+            if not date_str:
+                return None
+            dt = datetime.strptime(date_str.strip(), "%d/%m/%Y")
+            return (dt + timedelta(days=days)).strftime("%d/%m/%Y")
+        except Exception:
+            return None
+
     def _normalize_to_ui(it: dict) -> dict:
         res = {
             "numero_poliza": it.get("numero_poliza") or it.get("poliza") or it.get("folio_id") or it.get("contrato_nro"),
@@ -200,22 +209,36 @@ def upload():
             "prima_total": it.get("prima_total") or it.get("monto"),
             "prima_comercial_igv": it.get("prima_comercial_igv") or it.get("prima_total") or it.get("monto"),
             "ramo": it.get("ramo") or it.get("doc_tipo"),
-            # AQUI: aceptar 'fecha_vecimiento' como alias de 'fecha_vencimiento'
-            "fecha_vencimiento": it.get("fecha_vencimiento") or it.get("fecha_vecimiento") or it.get("vencimiento_pago") or it.get("expiracion"),
+            # fecha_vencimiento = fecha de vigencia (sin mezclar con pago)
+            "fecha_vencimiento": it.get("fecha_vencimiento") or it.get("vencimiento") or it.get("vigencia_hasta") or it.get("hasta") or it.get("expiracion"),
+            "fecha_vecimiento": it.get("fecha_vecimiento"),
         }
         # Si hay Prima Comercial, derive Prima Neta
         try:
             if res["prima_comercial"]:
                 val = float(str(res["prima_comercial"]).replace(',', '.').replace(' ', ''))
                 res["prima_neta"] = f"{(val / 1.03):.2f}"
-            # NUEVO: si falta Prima Comercial pero hay Prima Neta, derive Comercial
             elif res["prima_neta"]:
                 val = float(str(res["prima_neta"]).replace(',', '.').replace(' ', ''))
                 res["prima_comercial"] = f"{(val * 1.03):.2f}"
         except Exception:
             pass
-        return res
 
+        # Derivar ultimo_dia_pago = fecha_emision + 15 (si falta)
+        if not res.get("ultimo_dia_pago"):
+            cand = res.get("fecha_emision") or res.get("inicio_vigencia")
+            calc = _add_days_ddmmyyyy(cand, 15)
+            if calc:
+                res["ultimo_dia_pago"] = calc
+
+        # fecha_vecimiento DEBE ser igual a fecha de pago
+        if not it.get("fecha_vecimiento"):
+            res["fecha_vecimiento"] = res.get("ultimo_dia_pago") or _add_days_ddmmyyyy(res.get("fecha_emision"), 15)
+        else:
+            # si viene del PDF, preferimos igualarlo al último día de pago si existe
+            res["fecha_vecimiento"] = res.get("ultimo_dia_pago") or it.get("fecha_vecimiento")
+
+        return res
     if items and len(items) > 0:
         LOG('[upload] Origen de datos: provider parser (items).')
         items_ui = [_normalize_to_ui(it) for it in items]
@@ -279,6 +302,33 @@ def upload():
         if pn and not extracted.get('prima_comercial'):
             val = float(str(pn).replace(',', '.').replace(' ', ''))
             extracted['prima_comercial'] = f"{(val * 1.03):.2f}"
+    except Exception:
+        pass
+
+    # NUEVO: derivar ultimo_dia_pago = fecha_emision + 15 si falta
+    try:
+        if not extracted.get('ultimo_dia_pago'):
+            cand = extracted.get('fecha_emision') or extracted.get('inicio_vigencia')
+            calc = _add_days_ddmmyyyy(cand, 15)
+            if calc:
+                extracted['ultimo_dia_pago'] = calc
+    except Exception:
+        pass
+
+    # Ajuste de fechas:
+    # - fecha_vencimiento = vigencia (si existe)
+    # - fecha_vecimiento = fecha de pago (ultimo_dia_pago o emision+15)
+    try:
+        if not extracted.get('fecha_vencimiento'):
+            fv = (extracted.get('vencimiento')
+                  or extracted.get('vigencia_hasta')
+                  or extracted.get('hasta')
+                  or extracted.get('expiracion'))
+            if fv:
+                extracted['fecha_vencimiento'] = fv
+
+        # Sincroniza fecha_vecimiento a la fecha de pago
+        extracted['fecha_vecimiento'] = extracted.get('ultimo_dia_pago') or _add_days_ddmmyyyy(extracted.get('fecha_emision'), 15)
     except Exception:
         pass
 

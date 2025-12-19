@@ -268,6 +268,16 @@
   }
   ensureHeader();
 
+  // NUEVO: helper para generar botones de acción por fila
+  function buildActions(index) {
+    return `
+      <div class="d-flex gap-1">
+        <button type="button" class="btn btn-sm btn-outline-danger action-remove" data-index="${index}">Eliminar</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary action-duplicate" data-index="${index}">Duplicar</button>
+      </div>
+    `;
+  }
+
   // Renderizado
   function render(items) {
     ensureHeader();
@@ -328,7 +338,7 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vencimiento || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vecimiento || it.ultimo_dia_pago || it.fecha_vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${it.prima_neta || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${it.prima_comercial_igv || it.prima_total || it.monto || ''}</td>
@@ -345,9 +355,7 @@
           <input type="number" step="0.01" class="form-control form-control-sm imp-sub" value="${it.comision_subagente_importe || ''}" readonly>
         </td>
         <td class="actions-col">
-          <div class="actions-stack">
-            <button type="button" class="action-btn btn-del js-del" data-index="${idx}">Eliminar</button>
-          </div>
+          ${buildActions(idx)}
         </td>
       `;
       tbody.appendChild(tr);
@@ -523,24 +531,40 @@
     scheduleAutoSave();
   });
 
-  // Eliminar fila
+  // Acciones por fila (Eliminar/Duplicar)
   tbody.addEventListener('click', (e) => {
-    const btn = e.target.closest('.js-del');
-    if (!btn) return;
-    const idx = Number(btn.dataset.index);
+    const btnRemove = e.target.closest('.action-remove');
+    const btnDup = e.target.closest('.action-duplicate');
+    if (!btnRemove && !btnDup) return;
+
+    const idx = Number((btnRemove || btnDup)?.dataset?.index);
     if (!Number.isFinite(idx)) return;
-    extractedItems.splice(idx, 1);
-    render(extractedItems);
 
-    if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+    if (btnRemove) {
+      extractedItems.splice(idx, 1);
+      render(extractedItems);
+      if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+      const newIndex = Math.max(0, Math.min(idx, extractedItems.length - 1));
+      setTimeout(() => {
+        const firstCell = tbody.querySelector(`td[data-index="${newIndex}"][data-field="numero_poliza"]`);
+        firstCell?.focus();
+      }, 0);
+      scheduleAutoSave();
+      return;
+    }
 
-    const newIndex = extractedItems.length - 1;
-    setTimeout(() => {
-      const firstCell = tbody.querySelector(`td[data-index="${newIndex}"][data-field="numero_poliza"]`);
-      firstCell?.focus();
-    }, 0);
-
-    scheduleAutoSave();
+    if (btnDup) {
+      const copy = { ...(extractedItems[idx] || {}) };
+      extractedItems.splice(idx + 1, 0, copy);
+      render(extractedItems);
+      if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+      setTimeout(() => {
+        const firstCell = tbody.querySelector(`td[data-index="${idx + 1}"][data-field="numero_poliza"]`);
+        firstCell?.focus();
+      }, 0);
+      scheduleAutoSave();
+      return;
+    }
   });
 
   // Limpiar tabla
