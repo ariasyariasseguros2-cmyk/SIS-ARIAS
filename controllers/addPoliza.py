@@ -94,6 +94,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                 parse_date(row.get("inicio_vigencia")),
                 parse_date(row.get("vencimiento")),
                 parse_date(row.get("ultimo_dia_pago")),
+                parse_date(row.get("fecha_vencimiento")),  # NUEVO
                 U(row.get("forma_pago") or ""),
                 U(row.get("subagente") or (selected or {}).get("subagente") or ""),
                 # NUEVO: ejecutivo
@@ -118,9 +119,9 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                 "CALL sp_insert_poliza_por_numero("
                 "%s,%s,%s,%s,%s,"        # doc, tipo_doc, asegurado, cia, ramo
                 "%s,%s,%s,%s,"          # poliza, recibo, contrato_nro, nro
-                "%s,%s,%s,%s,%s,%s,"    # moneda, fecha_emision, vig_desde, vig_hasta, ultimo_dia_pago, forma_pago
+                "%s,%s,%s,%s,%s,%s,%s," # moneda, fecha_emision, vig_desde, vig_hasta, ultimo_dia_pago, fecha_vencimiento, forma_pago
                 "%s,%s,"                # sub_agente, ejecutivo
-                "%s,%s,%s,%s,%s,%s,"    # asegurada, motivo, prima_comercial, prima_neta, prima_comercial_igv, prima_total (FIXED: 6 placeholders)
+                "%s,%s,%s,%s,%s,%s,"    # asegurada, motivo, prima_comercial, prima_neta, prima_comercial_igv, prima_total
                 "%s,%s,%s,%s,"          # porc_compania, imp_compania, porc_subagente, imp_subagente
                 "%s,%s"                 # ramos_producto, estado
                 ")",

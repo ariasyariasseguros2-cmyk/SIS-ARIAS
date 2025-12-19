@@ -27,9 +27,12 @@ def parse_sanitas_salud(text: str) -> Dict[str, str]:
     inicio_vigencia = m_vig.group(1) if m_vig else _find(r"Desde\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
     vencimiento = m_vig.group(2) if m_vig else _find(r"Hasta\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
 
+    # Fecha vencimiento del encabezado (último día de pago)
+    fecha_vencimiento = _find(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+
     # Fecha emisión y vencimiento (superior derecho)
     fecha_emision = _find(r"FECHA\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
-    ultimo_dia_pago = _find(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    fecha_vencimiento = _find(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
 
     # Contratante / Colectivo
     colectivo = _find(r"Contratante\s*:\s*(.+)", text) or _find(r"CONTRATANTE\s*:\s*(.+)", text)
@@ -63,8 +66,9 @@ def parse_sanitas_salud(text: str) -> Dict[str, str]:
         "colectivo_asegurado": colectivo,
         "inicio_vigencia": inicio_vigencia,
         "vencimiento": vencimiento,
-        "fecha_emision": "",
-        "ultimo_dia_pago": "",
+        "fecha_emision": fecha_emision or "",
+        "ultimo_dia_pago": fecha_vencimiento,
+        "fecha_vencimiento": fecha_vencimiento or vencimiento or "",  # usar encabezado "Vencimiento"
         "ramo": ramo or "SCTR Salud",
         "moneda": "SOLES",
         "prima_comercial": prima_comercial,

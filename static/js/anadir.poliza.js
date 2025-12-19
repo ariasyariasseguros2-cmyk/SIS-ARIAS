@@ -226,6 +226,9 @@
     } else {
       it.prima_comercial_igv = '';
     }
+
+    // Sincronización de fechas eliminada: cada columna muestra solo lo que envía el backend
+
     return it;
   }
 
@@ -237,7 +240,7 @@
     const hasRamo = headers.includes('ramo');
     const hasPrimaNeta = headers.includes('prima neta');
     const hasAcciones = headers.includes('acciones');
-    const expectedCount = 17;
+    const expectedCount = 18; // actualizado: incluye "Fecha Vencimiento"
     if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
       thead.innerHTML = `
         <tr>
@@ -246,10 +249,11 @@
           <th>Colectivo Asegurado</th>
           <th class="ramo-col">Ramo</th>
           <th>Inicio Vigencia</th>
-          <th>Vencimiento</th>
+          <th>Fin Vigencias</th>
           <th>Moneda</th>
           <th>Fecha Emisión</th>
           <th>Último Día Pago</th>
+          <th>Fecha Vencimiento</th>
           <th>Prima Neta</th>
           <th>Prima Comercial</th>
           <th>Prima + IGV</th>
@@ -267,6 +271,11 @@
   // Renderizado
   function render(items) {
     ensureHeader();
+    console.log('[render] fechas', items.map(it => ({
+      ultimo_dia_pago: it.ultimo_dia_pago,
+      fecha_vencimiento: it.fecha_vencimiento,
+      vencimiento: it.vencimiento
+    })));
     const formaPagoTop = (tipoPagoTopEl?.value || '').trim();
     const estadoTop = (estadoTopEl?.value || '').trim();
     const ramoProductoTop = (ramoProductoTopEl?.value || '').trim();
@@ -301,6 +310,9 @@
       if (it.colectivo_asegurado && !it.asegurado) {
         it.asegurado = it.colectivo_asegurado;
       }
+
+      // REMOVIDO: 'vencimiento' ↔ 'fecha_vencimiento'
+      // (no se rellenan mutuamente)
     });
 
     tbody.innerHTML = '';
@@ -316,6 +328,7 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${it.prima_neta || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${it.prima_comercial_igv || it.prima_total || it.monto || ''}</td>
@@ -553,6 +566,7 @@
       moneda: '',
       fecha_emision: '',
       ultimo_dia_pago: '',
+      fecha_vencimiento: '',   // agregado: permite editar/ver la columna
       prima_neta: '',
       prima_comercial: '',
       prima_comercial_igv: '',
@@ -634,8 +648,10 @@
           let items = [];
           if (payload.items && Array.isArray(payload.items)) {
             items = payload.items.map(normalizeItem);
+            console.log('[upload] items normalizados:', items); // verificar fechas antes de render
           } else if (payload.fields && typeof payload.fields === 'object') {
             items = [normalizeItem(payload.fields)];
+            console.log('[upload] item normalizado (fields):', items[0]); // verificar fechas
           }
 
           const tipoPago = tipoPagoTopEl?.value || '';
@@ -667,7 +683,7 @@
               : `Sin datos. Procesado en ${elapsed}s.`;
           }
         } catch (e) {
-          console.error('[upload] processing error:', e);
+          console.error('[upload] processing error]:', e);
           alert('Error procesando respuesta del servidor.');
         }
       })

@@ -200,6 +200,7 @@ def upload():
             "prima_total": it.get("prima_total") or it.get("monto"),
             "prima_comercial_igv": it.get("prima_comercial_igv") or it.get("prima_total") or it.get("monto"),
             "ramo": it.get("ramo") or it.get("doc_tipo"),  # <- REACTIVADO
+            "fecha_vencimiento": it.get("fecha_vencimiento") or it.get("vencimiento_pago") or it.get("expiracion"),
         }
         # Si hay Prima Comercial, derive Prima Neta
         try:
