@@ -199,8 +199,9 @@ def upload():
             "prima_neta": it.get("prima_neta"),
             "prima_total": it.get("prima_total") or it.get("monto"),
             "prima_comercial_igv": it.get("prima_comercial_igv") or it.get("prima_total") or it.get("monto"),
-            "ramo": it.get("ramo") or it.get("doc_tipo"),  # <- REACTIVADO
-            "fecha_vencimiento": it.get("fecha_vencimiento") or it.get("vencimiento_pago") or it.get("expiracion"),
+            "ramo": it.get("ramo") or it.get("doc_tipo"),
+            # AQUI: aceptar 'fecha_vecimiento' como alias de 'fecha_vencimiento'
+            "fecha_vencimiento": it.get("fecha_vencimiento") or it.get("fecha_vecimiento") or it.get("vencimiento_pago") or it.get("expiracion"),
         }
         # Si hay Prima Comercial, derive Prima Neta
         try:

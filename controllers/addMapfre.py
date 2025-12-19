@@ -174,8 +174,11 @@ def parse_mapfre(text: str) -> Dict[str, str]:
     )
 
     # Prima
+    # NUEVO: primero intentar "Prima Comercial + IGV"
+    prima_com_igv = _find(r"Prima\s+Comercial\s*\+\s*IGV\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)
     prima_com = (
-        _find(r"Prima\s+Comercial\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)
+        prima_com_igv
+        or _find(r"Prima\s+Comercial\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)
         or _find(r"Prima\s+Resultante\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)
         or _money(_find(r"Prima\s*Total\s*[:]*\s*([0-9\.,]+)", text))
     )
@@ -184,7 +187,8 @@ def parse_mapfre(text: str) -> Dict[str, str]:
     # Total + IGV
     igv = _find(r"(?:Impuesto\s+Gral\.?\s+A\s+Las\s+Ventas|IGV)\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)
     total = _find(r"(?:Importe\s+Total|Total)\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)
-    item["prima_comercial_igv"] = total
+    # NUEVO: guardar "Prima Comercial + IGV" si existe, en 'prima_comercial_igv'
+    item["prima_comercial_igv"] = prima_com_igv or total
 
     # Heurísticas para corregir inversiones de fechas
     def _as_date(s: Optional[str]) -> Optional[tuple]:
@@ -202,6 +206,7 @@ def parse_mapfre(text: str) -> Dict[str, str]:
         "vencimiento": item.get("vencimiento"),
     }
     _valid = [(k, v, _as_date(v)) for k, v in _right_dates.items() if _as_date(v)]
+    # Nota: se mantiene la normalización original, sin forzar 'vencimiento' a la última fecha
     if len({v for _, v, _ in _valid}) >= 2:
         _ordered = sorted(_valid, key=lambda t: t[2])  # ascendente
         item["ultimo_dia_pago"] = _ordered[0][1]
@@ -233,5 +238,7 @@ def parse_mapfre(text: str) -> Dict[str, str]:
     if v and va and (not ud or ud >= v or ud == v) and va < v:
         item["ultimo_dia_pago"] = item.get("vencimiento_aplicacion")
         print("ultimo_dia_pago", item["vencimiento_aplicacion"])
+    # NUEVO: duplicar 'vencimiento' como 'fecha_vecimiento' para la UI
+    item["fecha_vecimiento"] = item.get("vencimiento")
 
     return {k: _clean(v) for k, v in item.items() if v}
