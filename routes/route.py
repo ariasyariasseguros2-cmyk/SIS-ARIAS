@@ -570,6 +570,8 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
             prov = "mapfre-vida-ley"
         elif "mapfre" in t:
             prov = "mapfre"
+        elif "lpv-vida-ley" in t:
+            prov = "lpv-vida-ley"
         # NUEVO: preferir Crecer si aparece, aunque también figure 'sanitasperu'
         elif "crecer seguros" in t or re.search(r"\bcrecer\b", t):
             prov = "crecer"
@@ -610,6 +612,17 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
 
     # La Positiva (EPS/Vida/Seguros)
     if prov in {"positiva", ""}:
+        # Detectar Vida Ley por contenido dentro de La Positiva
+        hint_vidaley = (
+            re.search(r"\bvida\s+ley\b", text, re.IGNORECASE) or
+            re.search(r"decreto\s+legislativo\s*n?\s*688", text, re.IGNORECASE) or
+            ("d.l.688" in t)
+        )
+        if hint_vidaley:
+            from controllers.addLPVLEY import parse_positiva_vidaley
+            item = parse_positiva_vidaley(text)
+            print("[provider] positiva-vida-ley item:", item)
+            return [item] if item else []
         return _parse_positiva(text)
     # Sanitas (EPS Salud / SCTR)
     if prov == "sanitas":
@@ -647,6 +660,13 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
         from controllers.addCrecerVidaLey import parse_crecer_vidaley
         item = parse_crecer_vidaley(text)
         print("[provider] vida-ley-crecer item:", item)
+        return [item] if item else []
+    
+    # NUEVO: LPV Vida Ley
+    if prov == "lpv-vida-ley":
+        from controllers.addLPVLEY import parse_positiva_vidaley
+        item = parse_positiva_vidaley(text)
+        print("[provider] lpv-vida-ley item:", item)
         return [item] if item else []
     return []
 
