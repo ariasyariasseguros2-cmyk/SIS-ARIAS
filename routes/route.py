@@ -565,10 +565,11 @@ def _parse_positiva(text: str) -> List[Dict[str, str]]:
 
     return items
 
-def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
+def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Dict[str, str]]:
     text = _extract_text_fitz(path)
     t = text.lower()
-    prov = (issuer or "").lower()
+    prov = (issuer or "").strip().lower() or None
+    low = (text or "").lower()
 
     if not prov:
         # detección básica por contenido
@@ -591,6 +592,8 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
             prov = "lpv-pension"
         elif "lpv-salud" in t:
             prov = "lpv-salud"
+        # QUITADO: no detectar 'lpv-vida-ley', 'lpv-pension', 'lpv-salud' por contenido del PDF
+        # Estos slugs deben venir desde el 'issuer' del cliente (UI).
         # NUEVO: preferir Crecer si aparece, aunque también figure 'sanitasperu'
         elif "crecer seguros" in t or re.search(r"\bcrecer\b", t):
             prov = "crecer"
@@ -605,16 +608,35 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
             prov = "vida-ley-crecer"
         else:
             prov = ""
-    # NUEVO: anulación explícita si el contenido es Crecer Vida Ley (independiente del issuer)
-    if (re.search(r"\bcrecer\s+seguros\b", t) or "crecerseguros.pe" in t) and (
-        re.search(r"\bvida\s+ley\b", t) or re.search(r"decreto\s+legislativo\s*n?\s*688", t)
-    ):
-        prov = "vida-ley-crecer"
 
-    # Heurística: PACIFICO EPS / FACTURA ELECTRÓNICA => usar parser de Salud
-    if (prov in {"", "pacifico"} and ("pacifico" in t or "pacífico" in t)):
-        if re.search(r"(entidad\s+prestadora\s+de\s+salud|eps|factura\s+electr[oó]nica)", t, re.IGNORECASE):
-            prov = "pacifico_salud"
+
+    # Backstop: corregir proveedor a Pacífico si el contenido lo indica claramente
+    # Evita ruta equivocada cuando el UI envió 'proctecta/protecta/positiva'.
+    if prov in ('proctecta', 'protecta', 'positiva', None):
+        if ('pacifico' in low or 'pacífico' in low or re.search(r'\bpf[-_ ]?sctr\b', low)):
+            prov = 'pacifico'
+
+    # Enrutamiento por proveedor (prioriza 'prov' si está presente)
+    items: List[Dict[str, str]] = []
+    if prov == 'pacifico':
+        # Heurística por contenido para distinguir producto
+        is_vida_ley = re.search(r'\bvida\s+ley\b', low) or re.search(r'\bcondicionado', low)
+        is_sctr = re.search(r'\bsctr\b', low) or re.search(r'\baccidentes\s+de\s+trabajo\b', low)
+
+        try:
+            if is_vida_ley:
+                from controllers.addPacificoVidaLey import parse_pacifico_vidaley
+                it = parse_pacifico_vidaley(text)
+                if it: items.append(it)
+            else:
+                # SCTR (Pensión/Salud) o genérico: usar el parser de Pacífico SCTR
+                from controllers.addPacificoSalud import parse_pacifico_pension
+                it = parse_pacifico_pension(text)
+                if it: items.append(it)
+        except Exception as e:
+            print(f"[provider] pacifico parse error: {e}")
+
+        return items
 
     print(f"[provider] detectado: {prov}")
 
@@ -722,8 +744,8 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
         return [item] if item else []
     # NUEVO: LPV Pension
     if prov == "lpv-pension":
-        from controllers.addLPVPENSION import parse_positiva_Pension_Salud
-        item = parse_positiva_Pension_Salud(text)
+        from controllers.addLPVPENSION import parse_positiva_Pension
+        item = parse_positiva_Pension(text)
         print("[provider] lpv-pension item:", item)
         return [item] if item else []
     # NUEVO: LPV Salud
@@ -744,7 +766,7 @@ def parse_pdf_fields(path: str) -> Dict[str, str]:
     text = _extract_text_pypdf2(path)
     if not text:
         return {}
-    items = parse_pdf_items_provider(path)
+    items = parse_pdf_items_provider(path, None)
     return items[0] if items else {}
 
 # -------- Opcional: usar PDF.co si configuras la API key --------

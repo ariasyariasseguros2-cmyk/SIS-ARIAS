@@ -22,8 +22,20 @@ def get_aseguradoras() -> list[dict]:
                 slug = 'mapfre-vida-ley'
             elif 'mapfre' in low:
                 slug = 'mapfre'
-            elif 'positiva' in low:
+            elif 'positiva' in low or 'lpv' in low:
+                # Slug genérico de La Positiva cuando no se distingue en UI
                 slug = 'positiva'
+            elif 'sanitas' in low:
+                slug = 'sanitas'
+            elif 'pacifico' in low or 'pacífico' in low:
+                slug = 'pacifico'
+            elif 'pacífico' in low or 'pacífico' in low:
+                slug = 'pacifico'
+            elif 'crecer' in low:
+                slug = 'crecer'
+            elif 'protecta' in low or 'proctecta' in low:
+                # Mantener compatibilidad con el JS que usa 'proctecta'
+                slug = 'proctecta'
             else:
                 # Desconocidos: usar auto-detección (cadena vacía)
                 slug = ''
