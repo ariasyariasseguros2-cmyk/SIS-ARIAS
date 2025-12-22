@@ -630,9 +630,20 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
         # Separar SCTR Salud vs Pensión por contenido
         hint_sctr = re.search(r"\bsctr\b", text, re.IGNORECASE)
         has_salud = re.search(r"\beps\b", text, re.IGNORECASE) or re.search(r"\bsalud\b", text, re.IGNORECASE)
-        has_pension = re.search(r"\bpensi[oó]n\b", text, re.IGNORECASE)
+        has_pension = re.search(r"\bpensi[o\u00f3]n\b", text, re.IGNORECASE)
 
         if hint_sctr or has_salud or has_pension:
+            # NUEVO: si hay ambos, parsear y devolver dos ítems
+            if has_salud and has_pension:
+                from controllers.addLPVSALUD import parse_positiva_Salud
+                from controllers.addLPVPENSION import parse_positiva_Pension
+                item_salud = parse_positiva_Salud(text)
+                item_pension = parse_positiva_Pension(text)
+                print("[provider] positiva-sctr ambos -> salud:", item_salud, "pension:", item_pension)
+                items = []
+                if item_salud: items.append(item_salud)
+                if item_pension: items.append(item_pension)
+                return items
             if has_salud:
                 from controllers.addLPVSALUD import parse_positiva_Salud
                 item = parse_positiva_Salud(text)

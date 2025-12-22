@@ -57,10 +57,15 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
     # Ramo: preferir el campo explícito; si no, inferir por texto
     ramo = _find(r"Ramo\s*:\s*(.+)", text)
     if not ramo:
-        if "pension" in t_low:
-            ramo = "SCTR PENSION"
-        elif "salud" in t_low or "eps" in t_low:
+        # Preferir SALUD/EPS si están ambos presentes en el texto
+        has_salud = ("salud" in t_low) or ("eps" in t_low)
+        has_pension = ("pensi\u00f3n" in t_low) or ("pension" in t_low)
+        if has_salud and has_pension:
             ramo = "SCTR SALUD"
+        elif has_salud:
+            ramo = "SCTR SALUD"
+        elif has_pension:
+            ramo = "SCTR PENSION"
         else:
             ramo = "La Positiva"
 
@@ -115,8 +120,8 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
     # NUEVO: Prima Comercial prioriza “SCTR SALUD”; luego lógica existente
     if sctr_salud_val:
         prima_comercial = sctr_salud_val
-        # Si detectamos la fila “SCTR SALUD”, fijamos el ramo por claridad
-        ramo = ramo or "SCTR SALUD"
+        # Fijar SALUD si detectamos la fila explícita de SALUD
+        ramo = "SCTR SALUD"
     else:
         if prima_neta and costos_emision:
             try:
