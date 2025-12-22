@@ -5,9 +5,10 @@ pdfInput?.addEventListener("change", () => {
   const f = pdfInput.files && pdfInput.files[0];
   const name = (f?.name || "").toLowerCase();
 
+  // Ajuste: no usar PF-SCTR para decidir Pacífico (también aparece en Sanitas)
   const looksPacifico =
-    name.includes("pacifico") ||
-    /(^|\b)pf[-_ ]?sctr/.test(name); // NUEVO: detectar patrón típico de Pacífico SCTR
+    name.includes("pacifico");
+    //name.includes("pacífico");
 
   if (looksPacifico) {
     const opt = [...issuerSel.options].find(o => (o.value || "").toLowerCase() === "pacifico");

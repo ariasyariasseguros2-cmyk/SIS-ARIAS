@@ -620,8 +620,13 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
     # Backstop: corregir proveedor a Pacífico si el contenido lo indica claramente
     # Evita ruta equivocada cuando el UI envió 'proctecta/protecta/positiva'.
     if prov in ('proctecta', 'protecta', 'positiva', None):
-        if ('pacifico' in low or 'pacífico' in low or re.search(r'\bpf[-_ ]?sctr\b', low)):
+        # QUITADO patrón PF-SCTR: también aparece en Sanitas
+        if ('pacifico' in low or 'pacífico' in low):
             prov = 'pacifico'
+
+    # NUEVO: si vino 'pacifico' desde UI pero el contenido dice 'sanitas', fuerza Sanitas
+    if prov == 'pacifico' and 'sanitas' in low:
+        prov = 'sanitas'
 
     # Enrutamiento por proveedor (prioriza 'prov' si está presente)
     items: List[Dict[str, str]] = []
