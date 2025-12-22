@@ -572,8 +572,10 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
             prov = "mapfre"
         elif "lpv-vida-ley" in t:
             prov = "lpv-vida-ley"
-        elif "lpv-salud-pension" in t:
-            prov = "lpv-salud-pension"
+        elif "lpv-pension" in t:
+            prov = "lpv-pension"
+        elif "lpv-salud" in t:
+            prov = "lpv-salud"
         # NUEVO: preferir Crecer si aparece, aunque también figure 'sanitasperu'
         elif "crecer seguros" in t or re.search(r"\bcrecer\b", t):
             prov = "crecer"
@@ -625,18 +627,28 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
             item = parse_positiva_vidaley(text)
             print("[provider] positiva-vida-ley item:", item)
             return [item] if item else []
-        # NUEVO: detectar SCTR/EPS Pensión por contenido
-        hint_sctr = (
-            re.search(r"\bsctr\b", text, re.IGNORECASE) or
-            re.search(r"\beps\b", text, re.IGNORECASE) or
-            re.search(r"\bsalud\b", text, re.IGNORECASE) or
-            re.search(r"\bpensi[oó]n\b", text, re.IGNORECASE)
-        )
-        if hint_sctr:
-            from controllers.addLPVPENSION import parse_positiva_Pension
-            item = parse_positiva_Pension(text)
-            print("[provider] positiva-sctr-salud-pension item:", item)
-            return [item] if item else []
+        # Separar SCTR Salud vs Pensión por contenido
+        hint_sctr = re.search(r"\bsctr\b", text, re.IGNORECASE)
+        has_salud = re.search(r"\beps\b", text, re.IGNORECASE) or re.search(r"\bsalud\b", text, re.IGNORECASE)
+        has_pension = re.search(r"\bpensi[oó]n\b", text, re.IGNORECASE)
+
+        if hint_sctr or has_salud or has_pension:
+            if has_salud:
+                from controllers.addLPVSALUD import parse_positiva_Salud
+                item = parse_positiva_Salud(text)
+                print("[provider] positiva-sctr-salud item:", item)
+                return [item] if item else []
+            elif has_pension:
+                from controllers.addLPVPENSION import parse_positiva_Pension
+                item = parse_positiva_Pension(text)
+                print("[provider] positiva-sctr-pension item:", item)
+                return [item] if item else []
+            else:
+                # Ambiguo: por ahora cae en Pensión (comportamiento previo)
+                from controllers.addLPVPENSION import parse_positiva_Pension
+                item = parse_positiva_Pension(text)
+                print("[provider] positiva-sctr item:", item)
+                return [item] if item else []
         return _parse_positiva(text)
     # Sanitas (EPS Salud / SCTR)
     if prov == "sanitas":
@@ -682,13 +694,18 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str]) -> list[dict]:
         item = parse_positiva_vidaley(text)
         print("[provider] lpv-vida-ley item:", item)
         return [item] if item else []
-    # NUEVO: LPV Salud Pension
-    if prov == "lpv-salud-pension":
+    # NUEVO: LPV Pension
+    if prov == "lpv-pension":
         from controllers.addLPVPENSION import parse_positiva_Pension_Salud
         item = parse_positiva_Pension_Salud(text)
-        print("[provider] lpv-salud-pension item:", item)
+        print("[provider] lpv-pension item:", item)
         return [item] if item else []
-    i   
+    # NUEVO: LPV Salud
+    if prov == "lpv-salud":
+        from controllers.addLPVSALUD import parse_positiva_Salud
+        item = parse_positiva_Salud(text)
+        print("[provider] lpv-salud item:", item)
+        return [item] if item else []
     return []
 
 def parse_pdf_fields_fitz(path: str) -> Dict[str, str]:
