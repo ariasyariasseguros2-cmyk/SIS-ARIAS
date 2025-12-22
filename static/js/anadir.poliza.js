@@ -245,18 +245,17 @@
       it.prima_comercial_igv = '';
     }
 
-    // Fechas:
-    // - Si viene "ultimo_dia_pago" del servidor, se respeta.
-    // - Si falta, se calcula como fecha_emision + 15.
-    // - "fecha_vencimiento" se iguala al "ultimo_dia_pago" si existe; si no, se calcula igualmente.
-    if (!it.ultimo_dia_pago && it.fecha_emision) {
+    // Regla de fechas (fallback):
+    // - Si NO viene ultimo_dia_pago, usar Emisión + 15
+    // - Si NO viene fecha_vencimiento, usar ultimo_dia_pago o Emisión + 15
+    if (it.fecha_emision) {
       const calcPago = addDaysToDateStr(it.fecha_emision, 15);
-      if (calcPago) {
+      if (!it.ultimo_dia_pago && calcPago) {
         it.ultimo_dia_pago = calcPago;
       }
-    }
-    if (!it.fecha_vencimiento) {
-      it.fecha_vencimiento = it.ultimo_dia_pago || (it.fecha_emision ? addDaysToDateStr(it.fecha_emision, 15) : '');
+      if (!it.fecha_vencimiento) {
+        it.fecha_vencimiento = it.ultimo_dia_pago || calcPago || '';
+      }
     }
 
     // Mantener "Fin Vigencias" (vencimiento) tal cual PDF para la columna "Fin Vigencias"
@@ -368,8 +367,8 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="vencimiento">${it.vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || addDaysToDateStr(it.fecha_emision, 15) || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vencimiento || it.ultimo_dia_pago || addDaysToDateStr(it.fecha_emision, 15) || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${it.prima_neta || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${it.prima_comercial_igv || it.prima_total || it.monto || ''}</td>

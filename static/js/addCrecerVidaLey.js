@@ -8,12 +8,13 @@ document.getElementById("pdfFile")?.addEventListener("change", () => {
   const isVidaLey = /vida[\s\-_]?ley/.test(name);
 
   if (isVidaLey || name.includes("vida-ley-crecer")) {
-    const opt = [...(issuerSel?.options || [])].find(
-      o => (o.value || "").toLowerCase() === "vida-ley-crecer"
-    );
+    const opt = [...(issuerSel?.options || [])].find(o => {
+      const v = (o.value || "").toLowerCase();
+      return v === "vida-ley-crecer" || v === "crecer-vida-ley";
+    });
     if (opt && issuerSel) issuerSel.value = opt.value;
-    // Prellenar ramo producto si aplica
-    const ramoTop = document.getElementById("ramoProductoTop");
+    // Prellenar ramo producto si aplica (id correcto en la UI)
+    const ramoTop = document.getElementById("ramosProductoTop") || document.getElementById("ramoProductoTop");
     if (ramoTop && !ramoTop.value) ramoTop.value = "Seguro de Vida";
   }
 });

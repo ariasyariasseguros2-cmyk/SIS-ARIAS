@@ -118,6 +118,7 @@ def parse_crecer_vidaley(text: str) -> Dict[str, str]:
     item["inicio_vigencia"] = cond.get("inicio_vigencia")
     item["vencimiento"] = cond.get("vencimiento")
     item["ultimo_dia_pago"] = cond.get("ultimo_dia_pago")
+    item["fecha_vencimiento"] = cond.get("ultimo_dia_pago")
     item["fecha_emision"] = cond.get("fecha_emision")
     item["moneda"] = cond.get("moneda")
     item["ramo"] = cond.get("actividad")
@@ -183,6 +184,54 @@ def parse_crecer_vidaley(text: str) -> Dict[str, str]:
         item["colectivo_asegurado"] = item["asegurados"]
 
     print("item", item)
+   # NUEVO: sincronizar 'ultimo_dia_pago' y 'fecha_vencimiento' = fecha_emision + 15 si falta
+    from datetime import datetime, timedelta
+    def _add_days_ddmmyyyy(date_str: Optional[str], days: int) -> Optional[str]:
+        try:
+            if not date_str:
+                return None
+            dt = datetime.strptime(date_str.strip(), "%d/%m/%Y")
+            return (dt + timedelta(days=days)).strftime("%d/%m/%Y")
+        except Exception:
+            return None
+
+    fe = item.get("fecha_emision") or cond.get("fecha_emision")
+    udp = item.get("ultimo_dia_pago") or cond.get("ultimo_dia_pago")
+    if not udp and fe:
+        udp = _add_days_ddmmyyyy(fe, 15)
+        if udp:
+            item["ultimo_dia_pago"] = udp
+
+    # 'fecha_vencimiento' (UI) debe ser igual al 'ultimo_dia_pago'
+    if not item.get("fecha_vencimiento"):
+        item["fecha_vencimiento"] = udp or _add_days_ddmmyyyy(fe, 15)
+
+    # Fecha de emisión: “Fecha de emisión: dd/mm/yyyy”
+    item["fecha_emision"] = item.get("fecha_emision") or _find(
+        r"Fecha\s+de\s+emisi[oó]n\s*:?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})",
+        flat
+    )
+
+    # Forma de pago: quedarse con la primera frase antes de coma
+    forma = item.get("forma_pago") or _find(r"Forma\s+de\s+Pago\s*:\s*([A-ZÁÉÍÓÚÑ0-9 ,\.\-]+)", text)
+    if forma:
+        item["forma_pago"] = forma.split(",")[0].strip()
+
+    # Asegurados (sección 6): capturar hasta la siguiente celda (“Beneficiario …”)
+    aseg = _find_after(
+        r"\bAsegurados\s*1?\b",
+        text,
+        r"(.+?)(?=\s+Beneficiario\b)",
+        window=800,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if aseg:
+        item["asegurados"] = re.sub(r"\s+", " ", aseg).strip()
+
+    # Fallback: usar Asegurados1 como Colectivo Asegurado si está vacío
+    if not item.get("colectivo_asegurado") and item.get("asegurados"):
+        item["colectivo_asegurado"] = item["asegurados"]
+
+    print("item", item)
     return {k: _clean(v) for k, v in item.items() if v}
     
-
