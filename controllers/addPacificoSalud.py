@@ -29,7 +29,7 @@ def _capture_block_after(label: str, text: str, end_labels: list[str]) -> str | 
     blk = re.sub(r"\s{2,}", " ", blk)
     return blk.strip(" :.-")
 
-def parse_pacifico_pension(text: str) -> dict | None:
+def parse_pacifico_salud(text: str) -> dict | None:
     def _canon(t: str) -> str:
         flat = re.sub(r"[\r\n]+", " ", t)
         return re.sub(r"\s{2,}", " ", flat)
@@ -467,16 +467,16 @@ def parse_pacifico_pension(text: str) -> dict | None:
         ) or None,
         "ramo": _clean(ramo),
     }
-    print("[pacifico] numero_poliza:", item.get("numero_poliza"))
-    print("[pacifico] recibo:", item.get("recibo"))
-    print("[pacifico] asegurado:", item.get("colectivo_asegurado"))
-    print("[pacifico] vigencia:", item.get("inicio_vigencia"), "al", item.get("vencimiento"))
-    print("[pacifico] moneda:", item.get("moneda"))
-    print("[pacifico] fecha_emision:", item.get("fecha_emision"))
-    print("[pacifico] ultimo_dia_pago:", item.get("ultimo_dia_pago"))
-    print("[pacifico] prima_comercial:", item.get("prima_comercial"))
-    print("[pacifico] total (com+igv):", item.get("prima_comercial_igv"))
-    print("[pacifico] ramo:", item.get("ramo"))
+    print("[pacifico salud] numero_poliza:", item.get("numero_poliza"))
+    print("[pacifico salud] recibo:", item.get("recibo"))
+    print("[pacifico salud] asegurado:", item.get("colectivo_asegurado"))
+    print("[pacifico salud] vigencia:", item.get("inicio_vigencia"), "al", item.get("vencimiento"))
+    print("[pacifico salud] moneda:", item.get("moneda"))
+    print("[pacifico salud] fecha_emision:", item.get("fecha_emision"))
+    print("[pacifico salud] ultimo_dia_pago:", item.get("ultimo_dia_pago"))
+    print("[pacifico salud] prima_comercial:", item.get("prima_comercial"))
+    print("[pacifico salud] total (com+igv):", item.get("prima_comercial_igv"))
+    print("[pacifico salud] ramo:", item.get("ramo"))
 
     item = {k: v for k, v in item.items() if v}
     print("[pacifico] item final:", item)

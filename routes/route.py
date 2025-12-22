@@ -572,7 +572,7 @@ def _parse_positiva(text: str) -> List[Dict[str, str]]:
 
     return items
 
-def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Dict[str, str]]:
+def parse_pdf_items_provider(path: str, issuer: str | None = None):
     text = _extract_text_fitz(path)
     t = text.lower()
     prov = (issuer or "").strip().lower() or None
@@ -633,17 +633,23 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
     if prov == 'pacifico':
         # Heurística por contenido para distinguir producto
         is_vida_ley = re.search(r'\bvida\s+ley\b', low) or re.search(r'\bcondicionado', low)
-        is_sctr = re.search(r'\bsctr\b', low) or re.search(r'\baccidentes\s+de\s+trabajo\b', low)
-
+        is_sctr_pension = re.search(r'\bsctr\b', low) or re.search(r'\baccidentes\s+de\s+trabajo\b', low)
+        is_sctr_salud = re.search(r'\bsctr\b', low) or re.search(r'\bsalud\b', low)
+        
         try:
             if is_vida_ley:
                 from controllers.addPacificoVidaLey import parse_pacifico_vidaley
                 it = parse_pacifico_vidaley(text)
                 if it: items.append(it)
-            else:
-                # SCTR (Pensión/Salud) o genérico: usar el parser de Pacífico SCTR
-                from controllers.addPacificoSalud import parse_pacifico_pension
+            elif is_sctr_pension:
+                # SCTR (Pensión/Salud) o genérico: usar el parser correcto
+                from controllers.addPacifico import parse_pacifico_pension
                 it = parse_pacifico_pension(text)
+                if it: items.append(it)
+            # Antes era "elif"; cambiamos a "if" para detectar ambos en un mismo PDF
+            if is_sctr_salud:
+                from controllers.addPacificoSalud import parse_pacifico_salud
+                it = parse_pacifico_salud(text)
                 if it: items.append(it)
         except Exception as e:
             print(f"[provider] pacifico parse error: {e}")
@@ -727,18 +733,18 @@ def parse_pdf_items_provider(path: str, issuer: Optional[str] = None) -> List[Di
         print("[provider] crecer pension item:", item)
         return [item] if item else []
     if prov == "pacifico":
-        from controllers.addPacifico import parse_pacifico
+        from controllers.addPacifico import parse_pacifico_pension
         from controllers.addPacificoVidaLey import parse_pacifico_vidaley  # NUEVO
         print("[provider] branch: pacifico; texto (head 600):", text[:600].replace("\n", "\\n"))
         # Detectar Vida Ley por contenido
         hint_vidaley = re.search(r"\bvida\s+ley\b", text, re.IGNORECASE) or re.search(r"decreto\s+legislativo\s*n?\s*688", text, re.IGNORECASE)
-        item = parse_pacifico_vidaley(text) if hint_vidaley else parse_pacifico(text)
+        item = parse_pacifico_vidaley(text) if hint_vidaley else parse_pacifico_pension(text)
         print("[provider] pacifico item:", item)
         return [item] if item else []
     # NUEVO: Pacifico Salud
     if prov == "pacifico_salud":
-        from controllers.addPacificoSalud import parse_pacifico_pension
-        item = parse_pacifico_pension(text)
+        from controllers.addPacificoSalud import parse_pacifico_salud
+        item = parse_pacifico_salud(text)
         print("[provider] pacifico_salud item:", item)
         return [item] if item else []
     
