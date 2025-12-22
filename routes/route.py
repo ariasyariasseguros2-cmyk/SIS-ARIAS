@@ -228,12 +228,19 @@ def upload():
         # - fecha_vencimiento (UI) = último día de pago
         cand = res.get("fecha_emision") or res.get("inicio_vigencia")
         calc = _add_days_ddmmyyyy(cand, 15)
-        if calc:
-            if not res.get("ultimo_dia_pago"):
-                res["ultimo_dia_pago"] = calc
-            res["fecha_vencimiento"] = calc
-            res["fecha_vecimiento"] = calc
-
+    
+        # 1) Completar último día de pago si falta
+        if not res.get("ultimo_dia_pago") and calc:
+            res["ultimo_dia_pago"] = calc
+    
+        # 2) Completar fecha_vencimiento si falta, prefiriendo último día de pago
+        if not res.get("fecha_vencimiento"):
+            res["fecha_vencimiento"] = res.get("ultimo_dia_pago") or calc
+    
+        # 3) Completar fecha_vecimiento (campo legacy) si falta, igual a fecha de pago
+        if not res.get("fecha_vecimiento"):
+            res["fecha_vecimiento"] = res.get("ultimo_dia_pago") or calc
+    
         return res
 
     if items and len(items) > 0:

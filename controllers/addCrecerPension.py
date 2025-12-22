@@ -65,11 +65,12 @@ def parse_crecer_pension(text: str) -> Dict[str, str]:
         "inicio_vigencia": inicio_vigencia,
         "vencimiento": vencimiento,
         "fecha_emision": fecha_emision,
-        "ultimo_dia_pago": "",#ultimo_dia_pago
+        "ultimo_dia_pago": ultimo_dia_pago,  # toma el “Vencimiento:” del encabezado superior
         "ramo": ramo or "SCTR Pensión",
         "moneda": "SOLES",
         "prima_comercial": prima_comercial,
         "prima_comercial_igv": total_con_igv or (f"{float((prima_comercial or '0').replace(',', '.')) + float((igv_val or '0').replace(',', '.')):.2f}" if prima_comercial and igv_val else None),
+        "fecha_vencimiento": ultimo_dia_pago or None  # reflejar en columna “Fecha Vencimiento” de la UI
     }
     print("item", item)
     # Limpieza final: quitar claves vacías

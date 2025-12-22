@@ -245,15 +245,18 @@
       it.prima_comercial_igv = '';
     }
 
-    // Regla de fechas (SIEMPRE):
-    // - Último día de pago = Fecha emisión + 15
-    // - Fecha Vencimiento (UI) = mismo último día de pago
-    if (it.fecha_emision) {
+    // Fechas:
+    // - Si viene "ultimo_dia_pago" del servidor, se respeta.
+    // - Si falta, se calcula como fecha_emision + 15.
+    // - "fecha_vencimiento" se iguala al "ultimo_dia_pago" si existe; si no, se calcula igualmente.
+    if (!it.ultimo_dia_pago && it.fecha_emision) {
       const calcPago = addDaysToDateStr(it.fecha_emision, 15);
       if (calcPago) {
         it.ultimo_dia_pago = calcPago;
-        it.fecha_vencimiento = calcPago;
       }
+    }
+    if (!it.fecha_vencimiento) {
+      it.fecha_vencimiento = it.ultimo_dia_pago || (it.fecha_emision ? addDaysToDateStr(it.fecha_emision, 15) : '');
     }
 
     // Mantener "Fin Vigencias" (vencimiento) tal cual PDF para la columna "Fin Vigencias"
