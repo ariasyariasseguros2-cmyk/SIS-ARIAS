@@ -211,6 +211,24 @@
   }
 
   // Normalización de ítems
+  // Helper: sumar días a fecha dd/mm/yyyy
+  function addDaysToDateStr(dateStr, days) {
+    const raw = (dateStr || '').toString().trim();
+    if (!raw) return '';
+    const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return '';
+    const d = parseInt(m[1], 10);
+    const mo = parseInt(m[2], 10) - 1;
+    const y = parseInt(m[3], 10);
+    const dt = new Date(y, mo, d);
+    if (isNaN(dt.getTime())) return '';
+    dt.setDate(dt.getDate() + (Number.isFinite(days) ? days : Number(days) || 0));
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const yyyy = dt.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
   function normalizeItem(src) {
     const it = { ...src };
     let comercial = (it.prima_comercial || '').toString().trim();
@@ -227,8 +245,18 @@
       it.prima_comercial_igv = '';
     }
 
-    // Sincronización de fechas eliminada: cada columna muestra solo lo que envía el backend
+    // Regla de fechas (SIEMPRE):
+    // - Último día de pago = Fecha emisión + 15
+    // - Fecha Vencimiento (UI) = mismo último día de pago
+    if (it.fecha_emision) {
+      const calcPago = addDaysToDateStr(it.fecha_emision, 15);
+      if (calcPago) {
+        it.ultimo_dia_pago = calcPago;
+        it.fecha_vencimiento = calcPago;
+      }
+    }
 
+    // Mantener "Fin Vigencias" (vencimiento) tal cual PDF para la columna "Fin Vigencias"
     return it;
   }
 
@@ -236,7 +264,7 @@
   function ensureHeader() {
     const thead = document.querySelector('#extractTable thead');
     if (!thead) return;
-    const headers = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase());
+    const headers = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase()); 
     const hasRamo = headers.includes('ramo');
     const hasPrimaNeta = headers.includes('prima neta');
     const hasAcciones = headers.includes('acciones');
@@ -337,8 +365,8 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="vencimiento">${it.vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vecimiento || it.ultimo_dia_pago || it.fecha_vencimiento || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || addDaysToDateStr(it.fecha_emision, 15) || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vencimiento || it.ultimo_dia_pago || addDaysToDateStr(it.fecha_emision, 15) || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${it.prima_neta || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${it.prima_comercial_igv || it.prima_total || it.monto || ''}</td>

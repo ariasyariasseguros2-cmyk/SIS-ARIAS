@@ -57,7 +57,6 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
     # Ramo: preferir el campo explícito; si no, inferir por texto
     ramo = _find(r"Ramo\s*:\s*(.+)", text)
     if not ramo:
-        # Preferir SALUD/EPS si están ambos presentes en el texto
         has_salud = ("salud" in t_low) or ("eps" in t_low)
         has_pension = ("pensi\u00f3n" in t_low) or ("pension" in t_low)
         if has_salud and has_pension:
@@ -68,6 +67,31 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
             ramo = "SCTR PENSION"
         else:
             ramo = "La Positiva"
+
+    # NUEVO: si el PDF contiene SALUD y PENSIÓN, forzar a tomar los encabezados de SALUD (últimas coincidencias)
+    has_salud = ("salud" in t_low) or ("eps" in t_low)
+    has_pension = ("pensi\u00f3n" in t_low) or ("pension" in t_low)
+    if has_salud and has_pension:
+        np_last = (
+            _find_last(r"N[úu]mero\s+de\s+Proforma\s*[:\n]\s*([0-9A-Z\-]+)", text)
+            or _find_last(r"\bProforma\s*:\s*([0-9A-Z\-]+)", text)
+            or _find_last(r"N[úu]mero\s+de\s+Proforma\s*([0-9A-Z\-]+)", text)
+            or _find_last(r"\bN[úu]mero\s*Proforma\s*[:\n]\s*([0-9A-Z\-]+)", text)
+        )
+        if np_last:
+            numero_proforma = np_last
+
+        contrato_last = _find_last(r"Contrato\s+Nro\s*:\s*([0-9A-Z\-]+)", text)
+        if contrato_last:
+            contrato_nro = contrato_last
+
+        poliza_last = (
+            _find_last(r"P[oó]liza\s*Nro\s*:\s*([0-9A-Z\-]+)", text)
+            or _find_last(r"P[oó]liza\s*N°\s*:\s*([0-9A-Z\-]+)", text)
+            or _find_last(r"Poliza\s*:\s*([0-9A-Z\-]+)", text)
+        )
+        if poliza_last:
+            poliza_nro = poliza_last
 
     # Conceptos: capturas y prioridades (usar última coincidencia del bloque)
     sobrevivencia = _money(_find_last(r"Sobrevivencia[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text, flags=re.IGNORECASE))
@@ -146,7 +170,7 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
                     prima_comercial_igv = base
 
     item = {
-        "numero_poliza": poliza_nro or contrato_nro,
+        "numero_poliza": (contrato_nro if (ramo and ramo.upper().startswith("SCTR SALUD") and contrato_nro) else (poliza_nro or contrato_nro)),
         "contrato_nro": contrato_nro,
         "recibo": numero_proforma,
         "colectivo_asegurado": colectivo_asegurado,

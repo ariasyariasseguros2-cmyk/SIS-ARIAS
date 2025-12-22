@@ -209,11 +209,10 @@ def upload():
             "prima_total": it.get("prima_total") or it.get("monto"),
             "prima_comercial_igv": it.get("prima_comercial_igv") or it.get("prima_total") or it.get("monto"),
             "ramo": it.get("ramo") or it.get("doc_tipo"),
-            # fecha_vencimiento = fecha de vigencia (sin mezclar con pago)
             "fecha_vencimiento": it.get("fecha_vencimiento") or it.get("vencimiento") or it.get("vigencia_hasta") or it.get("hasta") or it.get("expiracion"),
             "fecha_vecimiento": it.get("fecha_vecimiento"),
         }
-        # Si hay Prima Comercial, derive Prima Neta
+        # Si hay Prima Comercial, derive Prima Neta; o viceversa
         try:
             if res["prima_comercial"]:
                 val = float(str(res["prima_comercial"]).replace(',', '.').replace(' ', ''))
@@ -224,21 +223,19 @@ def upload():
         except Exception:
             pass
 
-        # Derivar ultimo_dia_pago = fecha_emision + 15 (si falta)
-        if not res.get("ultimo_dia_pago"):
-            cand = res.get("fecha_emision") or res.get("inicio_vigencia")
-            calc = _add_days_ddmmyyyy(cand, 15)
-            if calc:
+        # Regla de negocio de fechas (UI):
+        # - último día de pago = fecha_emision (+fallback inicio_vigencia) + 15
+        # - fecha_vencimiento (UI) = último día de pago
+        cand = res.get("fecha_emision") or res.get("inicio_vigencia")
+        calc = _add_days_ddmmyyyy(cand, 15)
+        if calc:
+            if not res.get("ultimo_dia_pago"):
                 res["ultimo_dia_pago"] = calc
-
-        # fecha_vecimiento DEBE ser igual a fecha de pago
-        if not it.get("fecha_vecimiento"):
-            res["fecha_vecimiento"] = res.get("ultimo_dia_pago") or _add_days_ddmmyyyy(res.get("fecha_emision"), 15)
-        else:
-            # si viene del PDF, preferimos igualarlo al último día de pago si existe
-            res["fecha_vecimiento"] = res.get("ultimo_dia_pago") or it.get("fecha_vecimiento")
+            res["fecha_vencimiento"] = calc
+            res["fecha_vecimiento"] = calc
 
         return res
+
     if items and len(items) > 0:
         LOG('[upload] Origen de datos: provider parser (items).')
         items_ui = [_normalize_to_ui(it) for it in items]
@@ -308,10 +305,28 @@ def upload():
     # NUEVO: derivar ultimo_dia_pago = fecha_emision + 15 si falta
     try:
         if not extracted.get('ultimo_dia_pago'):
-            cand = extracted.get('fecha_emision') or extracted.get('inicio_vigencia')
-            calc = _add_days_ddmmyyyy(cand, 15)
-            if calc:
-                extracted['ultimo_dia_pago'] = calc
+            # NUEVO: derivación SIEMPRE desde fecha_emision (+15)
+            try:
+                cand = extracted.get('fecha_emision') or extracted.get('inicio_vigencia')
+                calc = _add_days_ddmmyyyy(cand, 15)
+                if calc:
+                    extracted['ultimo_dia_pago'] = calc
+                    extracted['fecha_vencimiento'] = calc
+                    extracted['fecha_vecimiento'] = calc
+            except Exception:
+                pass
+            
+            # Ajuste de fechas (regla negocio):
+            # - fecha_vencimiento = fecha de pago (emisión + 15)
+            # - fecha_vecimiento = idem
+            try:
+                cand = extracted.get('fecha_emision') or extracted.get('inicio_vigencia')
+                calc = _add_days_ddmmyyyy(cand, 15)
+                if calc:
+                    extracted['fecha_vencimiento'] = calc
+                    extracted['fecha_vecimiento'] = calc
+            except Exception:
+                pass
     except Exception:
         pass
 
