@@ -1,6 +1,7 @@
 # NUEVO: parser específico para La Positiva – Vida Ley
 import re
 from typing import Optional, Dict
+from datetime import datetime, timedelta
 
 def _find(pattern: str, text: str, flags=re.IGNORECASE):
     m = re.search(pattern, text, flags)
@@ -44,7 +45,13 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
     # Vigencias: usar la última coincidencia por si hay múltiples bloques
     vig_desde = _find_last(r"Vigencia Desde\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
     vig_hasta = _find_last(r"Hasta\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
-    pago_venc = _find_last(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    # Capturar variantes de “Vencimiento”
+    pago_venc = (
+        _find_last(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+        or _find_last(r"Fecha\s+de\s+Vencimiento\s*[:\n]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+        or _find_last(r"Vencimiento\s+(?:Proforma|Recibo)\s*[:\n]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    )
+    fecha_venc = pago_venc
 
     moneda = _find(r"Moneda\s*:\s*([A-Za-z]+)", text)
     emision = _find(r"Emisi[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
@@ -168,17 +175,33 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
                     prima_comercial_igv = f"{float(base) + float(igv_val):.2f}"
                 except Exception:
                     prima_comercial_igv = base
+    # Fallback fechas: si falta último día de pago, calcular emision + 15
+    def _add_days(date_str: Optional[str], days: int) -> Optional[str]:
+        try:
+            if not date_str: return None
+            dt = datetime.strptime(date_str.strip(), "%d/%m/%Y")
+            return (dt + timedelta(days=days)).strftime("%d/%m/%Y")
+        except Exception:
+            return None
 
+    # NUEVO: Último día de pago = fin de vigencia + 15; si no hay, emisión + 15; luego el campo capturado
+    ultimo_por_vigencia = _add_days(emision, 15) if emision else None
+    ultimo_por_emision = _add_days(emision, 15) if emision else None
+    pago_venc = ultimo_por_vigencia or ultimo_por_emision or pago_venc
+
+    # Preferir el último día de pago como 'fecha_vencimiento'; si no, usar fin de vigencia
+    fecha_venc = pago_venc or vig_hasta
     item = {
         "numero_poliza": (contrato_nro if (ramo and ramo.upper().startswith("SCTR SALUD") and contrato_nro) else (poliza_nro or contrato_nro)),
         "contrato_nro": contrato_nro,
         "recibo": numero_proforma,
         "colectivo_asegurado": colectivo_asegurado,
         "inicio_vigencia": vig_desde,
-        "vencimiento": vig_hasta or pago_venc,
+        "vencimiento": vig_hasta,
         "moneda": moneda,
         "fecha_emision": emision,
         "ultimo_dia_pago": pago_venc,
+        "fecha_vencimiento": fecha_venc,
         "prima_neta": prima_neta,
         # Mantener compatibilidad: 'prima_total' representa la comercial sin IGV
         "prima_total": prima_comercial,
@@ -186,4 +209,5 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
         "prima_comercial_igv": prima_comercial_igv,
         "ramo": ramo,
     }
+    print("item salud", item)
     return {k: v for k, v in item.items() if v}

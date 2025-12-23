@@ -139,11 +139,13 @@ def parse_positiva_Pension(text: str) -> Dict[str, str]:
         except Exception:
             return None
 
-    if not pago_venc and emision:
-        pago_venc = _add_days(emision, 15)
-    if not fecha_venc:
-        # Preferir el último día de pago; si no, usar fin de vigencia
-        fecha_venc = pago_venc or vig_hasta
+    # NUEVO: Último día de pago = fin de vigencia + 15; si no hay, emisión + 15; luego el campo capturado
+    ultimo_por_vigencia = _add_days(emision, 15) if emision else None
+    ultimo_por_emision = _add_days(emision, 15) if emision else None
+    pago_venc = ultimo_por_vigencia or ultimo_por_emision or pago_venc
+
+    # Preferir el último día de pago como 'fecha_vencimiento'; si no, usar fin de vigencia
+    fecha_venc = pago_venc or vig_hasta
 
     item = {
         "numero_poliza": poliza_nro or contrato_nro,
@@ -163,5 +165,5 @@ def parse_positiva_Pension(text: str) -> Dict[str, str]:
         "prima_comercial_igv": prima_comercial_igv,
         "ramo": ramo,
     }
-    print("item", item)
+    print("item pension", item)
     return {k: v for k, v in item.items() if v}

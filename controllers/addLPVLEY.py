@@ -1,6 +1,7 @@
 # NUEVO: parser específico para La Positiva – Vida Ley
 import re
 from typing import Optional, Dict
+from datetime import datetime, timedelta
 
 def _find(pattern: str, text: str, flags=re.IGNORECASE):
     m = re.search(pattern, text, flags)
@@ -31,7 +32,12 @@ def parse_positiva_vidaley(text: str) -> Dict[str, str]:
     # Usar la última coincidencia para evitar capturar bloques anteriores
     vig_desde = _find_last(r"Vigencia Desde\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
     # “Vencimiento” (fecha de pago) y “Hasta” (fin de vigencia)
-    pago_venc = _find_last(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    pago_venc = (
+        _find_last(r"Vencimiento\s*[:\n]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+        or _find_last(r"Fecha\s+de\s+Vencimiento\s*[:\n]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+        or _find_last(r"Vencimiento\s+(?:Proforma|Recibo)\s*[:\n]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    )
+    fecha_venc = pago_venc
     vig_hasta = _find_last(r"Hasta\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
 
     moneda = _find(r"Moneda\s*:\s*([A-Za-z]+)", text)
@@ -48,7 +54,23 @@ def parse_positiva_vidaley(text: str) -> Dict[str, str]:
     # Conceptos: “Prima” y “IGV/Impuesto”
     prima_line = _find(r"\bPrima\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)
     prima_comercial = _money(prima_line)
+    
+    # Fallback fechas: si falta último día de pago, calcular emision + 15
+    def _add_days(date_str: Optional[str], days: int) -> Optional[str]:
+        try:
+            if not date_str: return None
+            dt = datetime.strptime(date_str.strip(), "%d/%m/%Y")
+            return (dt + timedelta(days=days)).strftime("%d/%m/%Y")
+        except Exception:
+            return None
 
+    # NUEVO: Último día de pago = fin de vigencia + 15; si no hay, emisión + 15; luego el campo capturado
+    ultimo_por_vigencia = _add_days(emision, 20) if emision else None
+    ultimo_por_emision = _add_days(emision, 20) if emision else None
+    pago_venc = ultimo_por_vigencia or ultimo_por_emision or pago_venc
+
+    # Preferir el último día de pago como 'fecha_vencimiento'; si no, usar fin de vigencia
+    fecha_venc = pago_venc or vig_hasta
     item = {
         "numero_poliza": poliza_nro,
         "recibo": numero_proforma,
@@ -59,8 +81,10 @@ def parse_positiva_vidaley(text: str) -> Dict[str, str]:
         "moneda": moneda,
         "fecha_emision": emision,
         "ultimo_dia_pago": pago_venc,  # fecha de pago
+        "fecha_vencimiento": fecha_venc,
         "prima_comercial": prima_comercial,
         "ramo": ramo,
     }
+    print("item vida ley", item)
     # Limpia entradas vacías
     return {k: v for k, v in item.items() if v}
