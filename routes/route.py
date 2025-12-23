@@ -246,7 +246,7 @@ def upload():
     if items and len(items) > 0:
         LOG('[upload] Origen de datos: provider parser (items).')
         items_ui = [_normalize_to_ui(it) for it in items]
-
+        LOG(f"[upload] fechas normalizadas: {[(x.get('ultimo_dia_pago'), x.get('fecha_vencimiento'), x.get('vencimiento')) for x in items_ui]}")
         # Dedupe por combinación clave y descartar muy vacíos
         unique = []
         seen = set()
