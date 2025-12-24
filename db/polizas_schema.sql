@@ -202,6 +202,9 @@ CREATE PROCEDURE sp_insert_poliza_por_numero (
 )
 BEGIN
     DECLARE v_cliente_id INT;
+    DECLARE v_exists INT DEFAULT 0;
+    DECLARE v_msg VARCHAR(255);
+    DECLARE v_key VARCHAR(50); -- clave para duplicados: contrato_nro o recibo
 
     SELECT idCliente INTO v_cliente_id
     FROM clientes
@@ -210,6 +213,29 @@ BEGIN
 
     IF v_cliente_id IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente no existe';
+    END IF;
+
+    -- Normalizar clave de duplicado: primero contrato_nro, si no, recibo
+    SET v_key = NULLIF(TRIM(IFNULL(p_contrato_nro, '')), '');
+    IF v_key IS NULL THEN
+        SET v_key = NULLIF(TRIM(IFNULL(p_recibo, '')), '');
+    END IF;
+
+    -- Validación de duplicados: poliza + (contrato_nro|recibo), acotado por cliente
+    IF COALESCE(p_poliza, '') <> '' AND COALESCE(v_key, '') <> '' THEN
+        SELECT COUNT(*) INTO v_exists
+        FROM polizas
+        WHERE cliente_id = v_cliente_id
+          AND poliza = p_poliza
+          AND (
+               contrato_nro = v_key
+            OR recibo = v_key
+          );
+
+        IF v_exists > 0 THEN
+            SET v_msg = CONCAT('Póliza ya existe con mismo número y contrato: ', p_poliza, ' / ', p_contrato_nro);
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+        END IF;
     END IF;
 
     INSERT INTO polizas (

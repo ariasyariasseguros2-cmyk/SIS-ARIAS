@@ -10,6 +10,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
     # Insertar en BD usando SP
     try:
         from models.db import get_connection
+        import mysql.connector
 
         def parse_date(s: str | None) -> str | None:
             if not s:
@@ -86,7 +87,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
 
                 U(row.get("numero_poliza") or ""),
                 U(row.get("recibo") or ""),
-                U(row.get("contrato_nro") or ""),
+                U(row.get("contrato_nro") or row.get("recibo") or ""),  # Fallback: contrato_nro = recibo
                 U(row.get("nro") or ""),
 
                 U(row.get("moneda") or ""),
@@ -115,24 +116,41 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                 U(row.get("estado") or "PENDIENTE"),
             )
 
-            cur.execute(
-                "CALL sp_insert_poliza_por_numero("
-                "%s,%s,%s,%s,%s,"        # doc, tipo_doc, asegurado, cia, ramo
-                "%s,%s,%s,%s,"          # poliza, recibo, contrato_nro, nro
-                "%s,%s,%s,%s,%s,%s,%s," # moneda, fecha_emision, vig_desde, vig_hasta, ultimo_dia_pago, fecha_vencimiento, forma_pago
-                "%s,%s,"                # sub_agente, ejecutivo
-                "%s,%s,%s,%s,%s,%s,"    # asegurada, motivo, prima_comercial, prima_neta, prima_comercial_igv, prima_total
-                "%s,%s,%s,%s,"          # porc_compania, imp_compania, porc_subagente, imp_subagente
-                "%s,%s"                 # ramos_producto, estado
-                ")",
-                args
-            )
-
-            while True:
-                if not cur.nextset():
-                    break
-
-            inserted += 1
+            try:
+                cur.execute(
+                    "CALL sp_insert_poliza_por_numero("
+                    "%s,%s,%s,%s,%s,"        # doc, tipo_doc, asegurado, cia, ramo
+                    "%s,%s,%s,%s,"          # poliza, recibo, contrato_nro, nro
+                    "%s,%s,%s,%s,%s,%s,%s," # moneda, fecha_emision, vig_desde, vig_hasta, ultimo_dia_pago, fecha_vencimiento, forma_pago
+                    "%s,%s,"                # sub_agente, ejecutivo
+                    "%s,%s,%s,%s,%s,%s,"    # asegurada, motivo, prima_comercial, prima_neta, prima_comercial_igv, prima_total
+                    "%s,%s,%s,%s,"          # porc_compania, imp_compania, porc_subagente, imp_subagente
+                    "%s,%s"                 # ramos_producto, estado
+                    ")",
+                    args
+                )
+                while cur.nextset():
+                    pass
+                inserted += 1
+            except mysql.connector.Error as err:
+                # Detecta SIGNAL SQLSTATE '45000' del SP (duplicado / cliente no existe)
+                if getattr(err, 'sqlstate', '') == '45000':
+                    try:
+                        cnx.rollback()
+                    except Exception:
+                        pass
+                    try:
+                        cur.close()
+                    except Exception:
+                        pass
+                    try:
+                        cnx.close()
+                    except Exception:
+                        pass
+                    # Devuelve el mensaje claro del SP
+                    return {"ok": False, "errors": [str(getattr(err, 'msg', err))]}
+                # Otros errores → deja que los maneje el except general
+                raise
 
         cnx.commit()
         cur.close()
