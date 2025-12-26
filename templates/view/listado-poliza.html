@@ -88,8 +88,22 @@
                 <span class="chip chip-warning">Siniestros</span>
                 <span class="chip chip-teal">Solicitudes</span>
               </div>
-              <div class="chips-row">
-                <span class="chip chip-muted">Acción</span>
+              <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-primary">Acción</button>
+                <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                  <span class="visually-hidden">Toggle Dropdown</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end action-menu">
+                  <li><a class="dropdown-item" href="#" data-action="anular"><i class="bi-toggle2-off"></i> Anular</a></li>
+                  <li><a class="dropdown-item" href="#" data-action="renovar"><i class="bi-check2-circle"></i> Renovar</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='primas') }}?poliza={{ r.poliza }}"><i class="bi-cash-stack"></i> Primas</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='cuotas') }}?poliza={{ r.poliza }}"><i class="bi-file-earmark-lock"></i> Extracto</a></li>
+                  <li><a class="dropdown-item" href="#" data-action="siniestros"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
+                  <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi-briefcase"></i> Solicitudes</a></li>
+                  <li><a class="dropdown-item" href="#" data-action="detalles"><i class="bi-info-circle"></i> Detalles</a></li>
+                  <li><a class="dropdown-item" href="#" data-action="editar"><i class="bi-pencil-square"></i> Editar</a></li>
+                  <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash"></i> Eliminar</a></li>
+                </ul>
               </div>
             </td>
           </tr>
