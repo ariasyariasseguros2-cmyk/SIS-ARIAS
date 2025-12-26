@@ -27,6 +27,19 @@ def save_cliente(data: dict) -> dict:
             return 'CE'
         return 'DNI'
 
+    # Nuevo: normaliza tipoPersona a entero (NATURAL=1, JURIDICA=2)
+    def normalize_tipo_persona(tp) -> int | None:
+        t = str(tp or '').strip().upper()
+        if not t:
+            return None
+        if t.isdigit():
+            return int(t)
+        if 'NAT' in t:   # NATURAL, P. NATURAL, etc.
+            return 1
+        if 'JUR' in t:   # JURIDICA, P. JURIDICA, etc.
+            return 2
+        return None
+
     tipo_documento = normalize_tipo_doc(data.get('tipoDocumento'))
     razon = (data.get('razonSocial') or '').strip()
     numero = (data.get('numeroDocumento') or '').strip()
@@ -34,14 +47,29 @@ def save_cliente(data: dict) -> dict:
     subag = (data.get('subAgente') or '').strip()
     email = (data.get('email') or '').strip()
     direccion = (data.get('direccion') or '').strip()
-    estado = (data.get('estado') or 'Vigente').strip()           # NUEVO: coincide con SP
-    tipo_persona = int(data.get('tipoPersona') or 0)              # NUEVO: coincide con SP
+    estado = (data.get('estado') or 'Vigente').strip()
+    tipo_persona = normalize_tipo_persona(data.get('tipoPersona'))
+
+    # Validación explícita de tipoPersona
+    if tipo_persona is None:
+        return {'ok': False, 'errors': ['tipoPersona inválida. Use NATURAL o JURIDICA']}
 
     try:
         from models.db import get_connection
         cnx = get_connection()
         cur = cnx.cursor()
-        # Ajustado: 9 parámetros según tu SP sp_insert_cliente
+
+        # Verificar existencia por numero_documento
+        cur.execute("CALL sp_get_cliente_por_numero(%s)", (numero,))
+        row = cur.fetchone()
+        while cur.nextset():
+            pass
+        if row:
+            cur.close()
+            cnx.close()
+            return {'ok': False, 'errors': [f'Cliente ya existe con ese número de documento {numero}']}
+
+        # Insertar si no existe
         cur.execute(
             "CALL sp_insert_cliente(%s,%s,%s,%s,%s,%s,%s,%s,%s)",
             (razon, tipo_documento, numero, telefono, subag, email, direccion, estado, tipo_persona)
