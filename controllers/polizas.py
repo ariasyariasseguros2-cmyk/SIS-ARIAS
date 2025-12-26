@@ -77,3 +77,57 @@ def get_polizas_data(selected: dict | None = None) -> dict:
         'rows': rows,
         'details': details,
     }
+
+# NUEVO: listar TODAS las pólizas (ignora cliente seleccionado)
+def get_polizas_all() -> dict:
+    rows = []
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+
+        # Primero intentamos con el SP, si existe
+        try:
+            cur.execute("CALL sp_list_polizas_all()")
+            rows = cur.fetchall() or []
+            try:
+                while cur.nextset():
+                    pass
+            except Exception:
+                pass
+        except Exception:
+            # Fallback directo si el SP no existe
+            cur.execute("""
+                SELECT 
+                    c.razon_social AS contratante,
+                    p.asegurado,
+                    p.cia,
+                    p.ramo,
+                    p.ramos_producto AS producto,
+                    p.poliza,
+                    p.nro,
+                    p.moneda,
+                    DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
+                    DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
+                    p.sub_agente,
+                    p.asegurada
+                FROM polizas p
+                INNER JOIN clientes c ON c.idCliente = p.cliente_id
+                ORDER BY p.creado_en DESC
+            """)
+            rows = cur.fetchall() or []
+
+        # Normalizar 'producto' si hiciera falta
+        for r in rows:
+            r['producto'] = r.get('producto') or r.get('ramos_producto') or ''
+
+        cur.close()
+        cnx.close()
+    except Exception:
+        rows = []
+
+    return {
+        'title': 'Pólizas',
+        'rows': rows,
+        'details': {},  # listado global no necesita cabecera de cliente
+    }

@@ -257,6 +257,28 @@ BEGIN
     );
 END$$
 DELIMITER ;
+-- NUEVO: listado global de pólizas (opcional, si prefieres usar SP)
+DELIMITER $$
+CREATE PROCEDURE sp_list_polizas_all()
+BEGIN
+    SELECT 
+        c.razon_social AS contratante,
+        p.asegurado,
+        p.cia,
+        p.ramo,
+        p.ramos_producto AS producto,
+        p.poliza,
+        p.nro,
+        p.moneda,
+        DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
+        DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
+        p.sub_agente,
+        p.asegurada
+    FROM polizas p
+    INNER JOIN clientes c ON c.idCliente = p.cliente_id
+    ORDER BY p.creado_en DESC;
+END$$
+DELIMITER ;
 
 -- Listado de pólizas por cliente (mantiene columnas usadas en la vista)
 DELIMITER $$

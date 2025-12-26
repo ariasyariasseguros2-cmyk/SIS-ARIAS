@@ -54,6 +54,43 @@ def menu_page(page):
             details=data.get('details', {})
         )
 
+    # NUEVO: Listado de pólizas con paginación (global: todas las pólizas)
+    if page == 'listado-poliza':
+        from controllers.polizas import get_polizas_all
+        data = get_polizas_all()
+
+        try:
+            page_num = int(request.args.get('page') or 1)
+        except Exception:
+            page_num = 1
+        try:
+            per_page = int(request.args.get('per_page') or 20)
+        except Exception:
+            per_page = 20
+
+        total = len(data.get('rows', []))
+        pages = max(1, (total + per_page - 1) // per_page)
+        page_num = max(1, min(page_num, pages))
+        start = (page_num - 1) * per_page
+        end = start + per_page
+        page_rows = data.get('rows', [])[start:end]
+
+        pagination = {
+            'page': page_num,
+            'per_page': per_page,
+            'total': total,
+            'pages': pages,
+            'has_prev': page_num > 1,
+            'has_next': page_num < pages
+        }
+
+        return render_template(
+            'view/listado-poliza.html',
+            page='listado-poliza',
+            page_rows=page_rows,
+            pagination=pagination
+        )
+
     # Primas → plantilla dedicada
     if page == 'primas':
         from controllers.primas.primas import get_primas_data

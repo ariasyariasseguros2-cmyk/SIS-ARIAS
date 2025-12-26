@@ -1,0 +1,75 @@
+/* Barra superior */
+.filters-bar {
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+.filters-bar .btn-group { flex-wrap: wrap; }
+.filters-bar .btn { white-space: nowrap; }
+
+/* Búsqueda y tamaño de página */
+.toolbar-search { width: 280px; }
+.toolbar-pagesize { width: 80px; }
+
+/* Links rápidos (píldoras) */
+.quick-links {
+  display: flex;
+  gap: .35rem;
+  flex-wrap: wrap;
+}
+.quick-links .qlink {
+  display: inline-block;
+  padding: .35rem .6rem;
+  border-radius: .3rem;
+  border: 1px solid #d9d9dd;
+  background: #f8f9fa;
+  color: #333;
+  font-size: .85rem;
+  text-decoration: none;
+}
+.quick-links .qlink:hover { background: #eef2f7; }
+
+/* Tabla */
+.table td, .table th { vertical-align: middle; }
+#polizasListTable { width: 100%; }
+.card-header { background: #f8f9fa; }
+
+/* Chips de acción */
+.chips-row { display: flex; justify-content: flex-end; gap: .25rem; margin-bottom: .25rem; }
+.chip {
+  display: inline-block;
+  font-size: .75rem;
+  font-weight: 600;
+  padding: .2rem .45rem;
+  border-radius: .25rem;
+  border: 1px solid transparent;
+  line-height: 1.2;
+}
+.chip-danger   { background: #dc3545; border-color: #c02f3d; color: #fff; }
+.chip-success  { background: #28a745; border-color: #23923e; color: #fff; }
+.chip-primary  { background: #0d6efd; border-color: #0b5ed7; color: #fff; }
+.chip-info     { background: #17a2b8; border-color: #148ea1; color: #fff; }
+.chip-warning  { background: #fd7e14; border-color: #ec6f07; color: #fff; }
+.chip-teal     { background: #20c997; border-color: #1bb387; color: #fff; }
+.chip-muted    { background: #e9ecef; border-color: #dee2e6; color: #333; }
+
+/* Ajustes generales */
+.content { overflow-x: hidden; }
+.table-responsive { overflow-x: auto; }
+
+/* Mayúsculas opcionales */
+.filters-bar,
+.quick-links .qlink,
+.card-header,
+#polizasListTable th,
+#polizasListTable td { text-transform: uppercase; }
+
+/* Paginación */
+.pagination-bar {
+  border-top: 1px solid #e5e7eb;
+  background: #f8f9fa;
+  padding: .4rem .6rem;
+}
+.btn.disabled {
+  pointer-events: none;
+  opacity: .6;
+}
