@@ -1,0 +1,51 @@
+renovar-poliza.css
+
+/* Estilos del modal Renovar Póliza */
+.modal-renovar .modal-dialog {
+  max-width: 980px;
+}
+
+.modal-renovar .modal-content {
+  border-radius: 10px;
+}
+
+.modal-renovar .modal-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.modal-renovar .modal-title {
+  font-weight: 600;
+}
+
+.modal-renovar .modal-body {
+  padding-top: 1rem;
+  padding-bottom: 0.5rem;
+}
+
+.modal-renovar .form-label {
+  font-weight: 600;
+  color: #333;
+}
+
+.modal-renovar .form-select,
+.modal-renovar .form-control {
+  height: 38px;
+}
+
+.modal-renovar .input-group-text {
+  background-color: #f8f9fa;
+  border-right: 0;
+}
+
+.modal-renovar .input-group .form-control {
+  border-left: 0;
+}
+
+.modal-renovar .btn-success {
+  min-width: 110px;
+}
+
+.modal-renovar .btn-secondary {
+  min-width: 90px;
+}

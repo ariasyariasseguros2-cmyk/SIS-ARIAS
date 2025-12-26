@@ -846,3 +846,12 @@ def serve_upload(filename):
         return {'error': 'Archivo no encontrado', 'path': full}, 404
     return send_from_directory(folder, safe, as_attachment=False)
 
+# dentro de routes/route.py (añadir el nuevo endpoint API)
+@bp.route('/api/aseguradoras', methods=['GET'])
+def api_aseguradoras():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+    from controllers.compania import get_aseguradoras
+    rows = get_aseguradoras() or []
+    return {'ok': True, 'rows': rows}, 200
+

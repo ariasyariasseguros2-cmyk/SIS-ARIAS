@@ -127,6 +127,9 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Renovar Póliza -->
+{% include 'view/renovar-poliza.html' %}
 {% endblock %}
 
 {% block before_js %}
@@ -138,4 +141,5 @@
 {% block extra_js_bottom %}
 {{ super() }}
 <script src="{{ url_for('static', filename='js/polizas.js') }}"></script>
+<script src="{{ url_for('static', filename='js/renovar-poliza.js') }}"></script>
 {% endblock %}

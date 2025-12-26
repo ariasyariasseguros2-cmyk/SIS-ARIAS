@@ -29,6 +29,27 @@
         }
       }
 
+      // NUEVO: abrir modal Renovar con datos de la fila
+      const label = btn.textContent.trim().toLowerCase();
+      if (label.includes('renovar')) {
+        const row = btn.closest('tr');
+        const pick = (n) => row?.querySelector(`td:nth-child(${n})`)?.textContent?.trim() || '';
+        const data = {
+          compania: pick(3),
+          ramo: pick(4),
+          producto: pick(5),
+          poliza: pick(6),
+          vig_inicio: pick(8),
+          vig_fin: pick(9)
+        };
+        if (window.openRenovarPolizaModal) {
+          window.openRenovarPolizaModal(data);
+        } else {
+          alert('Modal de Renovación no disponible.');
+        }
+        return;
+      }
+
       // Acciones (placeholders)
       table?.addEventListener('click', (e) => {
         const btn = e.target.closest('button');
