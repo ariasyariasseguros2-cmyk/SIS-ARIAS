@@ -43,6 +43,11 @@
   border-radius: .25rem;
   border: 1px solid transparent;
   line-height: 1.2;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.chip:hover {
+  opacity: 0.85;
 }
 .chip-danger   { background: #dc3545; border-color: #c02f3d; color: #fff; }
 .chip-success  { background: #28a745; border-color: #23923e; color: #fff; }

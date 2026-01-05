@@ -41,7 +41,9 @@
 </div>
 
 <!-- Tarjeta contenedora de la tabla -->
-<div class="card" data-base-url="{{ url_for('main.menu_page', page='listado-poliza') }}">
+<div class="card" 
+     data-base-url="{{ url_for('main.menu_page', page='listado-poliza') }}"
+     data-primas-url="{{ url_for('main.menu_page', page='primas') }}">
   <div class="card-header d-flex align-items-center gap-2">
     <i class="bi-shield"></i>
     <span>Listado de Pólizas</span>
@@ -66,7 +68,7 @@
         </thead>
         <tbody>
           {% for r in page_rows %}
-          <tr>
+          <tr data-poliza="{{ r.poliza }}">
             <td>{{ r.contratante }}</td>
             <td>{{ r.asegurado }}</td>
             <td>{{ r.cia }}</td>
@@ -79,14 +81,14 @@
             <td>{{ r.asegurada }}</td>
             <td class="text-end">
               <div class="chips-row">
-                <span class="chip chip-danger">Anular</span>
-                <span class="chip chip-success">Renovar</span>
-                <span class="chip chip-primary">Primas</span>
+                <span class="chip chip-danger" role="button" data-action="anular">Anular</span>
+                <span class="chip chip-success" role="button" data-action="renovar">Renovar</span>
+                <span class="chip chip-primary" role="button" data-action="primas">Primas</span>
               </div>
               <div class="chips-row">
-                <span class="chip chip-info">Extracto</span>
-                <span class="chip chip-warning">Siniestros</span>
-                <span class="chip chip-teal">Solicitudes</span>
+                <span class="chip chip-info" role="button" data-action="extracto">Extracto</span>
+                <span class="chip chip-warning" role="button" data-action="siniestros">Siniestros</span>
+                <span class="chip chip-teal" role="button" data-action="solicitudes">Solicitudes</span>
               </div>
               <div class="btn-group btn-group-sm">
                 <button type="button" class="btn btn-primary">Acción</button>

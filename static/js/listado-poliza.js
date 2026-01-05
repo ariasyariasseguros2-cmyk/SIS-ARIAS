@@ -28,4 +28,40 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
+
+  // Manejo de clicks en chips de acción
+  const listTable = document.getElementById('polizasListTable');
+  const cardContainer = document.querySelector('.card[data-base-url]'); // It has the urls
+
+  if (listTable && cardContainer) {
+    const primasUrl = cardContainer.getAttribute('data-primas-url');
+    const cuotasUrl = cardContainer.getAttribute('data-cuotas-url');
+
+    listTable.addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip[data-action]');
+      if (!chip) return;
+
+      const action = chip.getAttribute('data-action');
+      const row = chip.closest('tr');
+      const poliza = row?.getAttribute('data-poliza');
+
+      console.log('Click en chip:', action, poliza, 'PrimasURL:', primasUrl);
+
+      if (!poliza) {
+        console.warn('No se encontró póliza en la fila');
+        return;
+      }
+
+      if (action === 'primas' && primasUrl) {
+        window.location.href = `${primasUrl}?poliza=${encodeURIComponent(poliza)}`;
+      } else if (action === 'extracto' && cuotasUrl) {
+         window.location.href = `${cuotasUrl}?poliza=${encodeURIComponent(poliza)}`;
+      } else if (action === 'renovar') {
+        // Handled by renovar-poliza.js
+      } else {
+        console.log('Acción no implementada:', action, poliza);
+        // Implementar anular, siniestros, etc.
+      }
+    });
+  }
 });
