@@ -66,6 +66,9 @@
       const m = getRenovarModal();
 
       // Mapear valores con defaults
+      const form = document.getElementById('renovarPolizaForm');
+      if (form) form.dataset.originalData = JSON.stringify(data);
+
       document.getElementById('companiaSelect')?.setAttribute('data-original', data?.compania || data?.cia || '');
       document.getElementById('productoSelect')?.setAttribute('data-original', data?.producto || '');
       document.getElementById('polizaInput')?.setAttribute('data-original', data?.poliza || '');
@@ -166,6 +169,43 @@
         vig_fin: pick(9),
         sub_agente: pick(10),
         asegurada: pick(11),
+        tipo_vigencia: 'DECLARACION MENSUAL',
+        fecha_emision: ''
+      };
+
+      openRenovarPolizaModal(data);
+    });
+
+    // Listener para el listado de pólizas (polizasListTable)
+    const listTable = document.getElementById('polizasListTable');
+    listTable?.addEventListener('click', (e) => {
+      // Detectar clic en elemento con data-action="renovar"
+      const actionEl = e.target.closest('[data-action="renovar"]');
+      if (!actionEl) return;
+
+      e.preventDefault(); // Evitar navegación si es un enlace
+
+      const row = actionEl.closest('tr');
+      if (!row) return;
+
+      // Mapeo específico para listado-poliza.html
+      // Columnas: 
+      // 1:Contratante, 2:Asegurado, 3:Cía, 4:Ram, 5:Prod, 6:Póliza, 
+      // 7:VigInicio, 8:VigFin, 9:SubAgente, 10:M.Asegurada
+      const pick = (n) => row.querySelector(`td:nth-child(${n})`)?.textContent?.trim() || '';
+
+      const data = {
+        contratante: pick(1),
+        asegurado: pick(2),
+        compania: pick(3),
+        ramo: pick(4),
+        producto: pick(5),
+        poliza: pick(6),
+        moneda: '', // No hay columna moneda en este listado
+        vig_inicio: pick(7),
+        vig_fin: pick(8),
+        sub_agente: pick(9),
+        asegurada: pick(10),
         tipo_vigencia: 'DECLARACION MENSUAL',
         fecha_emision: ''
       };
