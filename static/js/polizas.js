@@ -14,51 +14,68 @@
 
     input?.addEventListener('input', (e) => filterRows(e.target.value));
 
-    // Navegación a PRIMAS
+    // Delegación de eventos para acciones en la tabla
     table?.addEventListener('click', (e) => {
-      const btn = e.target.closest('button');
-      if (!btn) return;
-
-      if (btn.dataset.action === 'primas') {
-        const primasUrl = table.getAttribute('data-primas-url');
-        const row = e.target.closest('tr');
-        const poliza = row?.querySelector('td:nth-child(6)')?.textContent?.trim() || '';
-        if (primasUrl && poliza) {
-          window.location.href = `${primasUrl}?poliza=${encodeURIComponent(poliza)}`;
-          return;
-        }
-      }
-
-      // NUEVO: abrir modal Renovar con datos de la fila
-      const label = btn.textContent.trim().toLowerCase();
-      if (label.includes('renovar')) {
-        const row = btn.closest('tr');
-        const pick = (n) => row?.querySelector(`td:nth-child(${n})`)?.textContent?.trim() || '';
-        const data = {
-          compania: pick(3),
-          ramo: pick(4),
-          producto: pick(5),
-          poliza: pick(6),
-          vig_inicio: pick(8),
-          vig_fin: pick(9)
-        };
-        if (window.openRenovarPolizaModal) {
-          window.openRenovarPolizaModal(data);
-        } else {
-          alert('Modal de Renovación no disponible.');
-        }
+      // Buscamos el elemento disparador que tenga data-action (chip, button, link)
+      const actionEl = e.target.closest('[data-action]');
+      
+      // Si no hay acción, o si es un link con href válido que no sea #, dejamos que el navegador actúe
+      if (!actionEl) return;
+      if (actionEl.tagName === 'A' && actionEl.getAttribute('href') && actionEl.getAttribute('href') !== '#') {
         return;
       }
 
-      // Acciones (placeholders)
-      table?.addEventListener('click', (e) => {
-        const btn = e.target.closest('button');
-        if (!btn) return;
-        const label = btn.textContent.trim();
-        const row = e.target.closest('tr');
-        const poliza = row?.querySelector('td:nth-child(6)')?.textContent?.trim() || '';
-        alert(`${label} — Póliza: ${poliza}`);
-      });
+      // Prevenir comportamiento default para botones o links con href="#"
+      e.preventDefault();
+
+      const action = actionEl.dataset.action;
+      const row = actionEl.closest('tr');
+      if (!row) return;
+
+      // Extraer datos de la fila (ajustar índices según las columnas de la tabla)
+      // 1: Contratante, 2: Asegurado, 3: Cía, 4: Ramo, 5: Producto, 6: Poliza, 
+      // 7: Moneda, 8: Vig Inicio, 9: Vig Fin, ...
+      const pick = (n) => row.querySelector(`td:nth-child(${n})`)?.textContent?.trim() || '';
+
+      const data = {
+        cia: pick(3),
+        ramo: pick(4),
+        producto: pick(5),
+        poliza: pick(6),
+        vig_inicio: pick(8),
+        vig_fin: pick(9)
+      };
+
+      console.log(`Ejecutando acción: ${action}`, data);
+
+      switch (action) {
+        case 'primas':
+          const primasUrl = table.getAttribute('data-primas-url');
+          if (primasUrl && data.poliza) {
+            window.location.href = `${primasUrl}?poliza=${encodeURIComponent(data.poliza)}`;
+          }
+          break;
+
+        case 'renovar':
+          if (typeof window.openRenovarPolizaModal === 'function') {
+            window.openRenovarPolizaModal(data);
+          } else {
+            alert('El modal de renovación no está cargado correctamente.');
+          }
+          break;
+
+        case 'extracto':
+            // Si el chip de extracto se clicó, redirigimos manualmente si tenemos la URL base
+            // (Asumimos que la lógica de URL es similar a primas pero con page='cuotas' o similar)
+            // Dado que no tenemos data-extracto-url, podemos intentar construirlo o mostrar alerta
+            alert(`Ver Extracto de Póliza: ${data.poliza}`);
+            break;
+
+        default:
+          // Acciones genéricas / placeholders
+          alert(`Acción "${action.toUpperCase()}" para la póliza ${data.poliza}`);
+          break;
+      }
     });
   });
 })();
