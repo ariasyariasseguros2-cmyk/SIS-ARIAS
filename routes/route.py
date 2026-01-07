@@ -119,6 +119,33 @@ def menu_page(page):
             rows=data['rows'],
             total_monto=data['total_monto']
         )
+    # NUEVO: Editar Póliza
+    if page == 'editar-poliza':
+        from controllers.editar_poliza import get_poliza_data
+        from controllers.ramos import get_ramos
+        from controllers.compania import get_aseguradoras
+        from controllers.subagente import get_subagentes_abreviaciones
+        from controllers.ejecutivos import get_ejecutivos
+        from controllers.cliente import get_clientes_data
+
+        poliza_id = request.args.get('id')
+        if not poliza_id:
+            return redirect(url_for('main.menu_page', page='listado-poliza'))
+        
+        poliza = get_poliza_data(poliza_id)
+        if not poliza:
+            return redirect(url_for('main.menu_page', page='listado-poliza'))
+
+        return render_template(
+            'view/editar-poliza.html',
+            poliza=poliza,
+            ramos_abbrs=get_ramos(),
+            aseguradoras_rows=get_aseguradoras(),
+            subagentes_abbrs=get_subagentes_abreviaciones(),
+            ejecutivos_rows=get_ejecutivos(),
+            clientes_data=get_clientes_data()
+        )
+
     # NUEVO: página “Añadir Póliza”
     if page == 'anadir-poliza':
         from controllers.addPoliza import get_rows
@@ -444,6 +471,18 @@ def polizas_save():
     res = save_polizas(items, selected)
     if not res.get('ok'):
         current_app.logger.error('polizas_save error: %s', res.get('errors'))
+    status = 200 if res.get('ok') else 400
+    return res, status
+
+
+@bp.route('/polizas/update', methods=['POST'])
+def polizas_update():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    data = request.get_json(silent=True) or request.form.to_dict()
+    from controllers.editar_poliza import update_poliza
+    res = update_poliza(data)
     status = 200 if res.get('ok') else 400
     return res, status
 

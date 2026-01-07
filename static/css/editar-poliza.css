@@ -1,0 +1,48 @@
+.edit-policy-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid rgba(0,0,0,.125);
+}
+
+.form-label {
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.form-control, .form-select {
+    font-size: 0.9rem;
+    border-color: #ced4da;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Toolbar buttons */
+.btn-light {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.btn-light:hover {
+    background-color: #e2e6ea;
+    border-color: #dae0e5;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.bi-check-square-fill {
+    color: #212529; 
+}

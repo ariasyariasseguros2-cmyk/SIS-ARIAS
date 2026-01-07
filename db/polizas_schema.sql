@@ -262,6 +262,7 @@ DELIMITER $$
 CREATE PROCEDURE sp_list_polizas_all()
 BEGIN
     SELECT 
+        p.idPoliza,
         c.razon_social AS contratante,
         p.asegurado,
         p.cia,
@@ -285,6 +286,7 @@ DELIMITER $$
 CREATE PROCEDURE sp_list_polizas_por_numero(IN p_numero_documento VARCHAR(20))
 BEGIN
     SELECT 
+        p.idPoliza,
         c.razon_social AS contratante,
         p.asegurado,
         p.cia,
@@ -418,6 +420,7 @@ DELIMITER $$
 CREATE PROCEDURE sp_list_polizas_por_cliente_id(IN p_cliente_id INT)
 BEGIN
     SELECT 
+        p.idPoliza,
         c.razon_social AS contratante,
         p.asegurado,
         p.cia,
@@ -532,5 +535,76 @@ BEGIN
     FROM cuotas
     WHERE poliza = p_poliza
     ORDER BY fecha_vencimiento ASC, idCuota ASC;
+END$$
+DELIMITER ;
+
+-- NEW PROCEDURES FOR EDITING
+
+DELIMITER $$
+CREATE PROCEDURE sp_get_poliza_by_id(IN p_id INT)
+BEGIN
+    SELECT 
+        p.*,
+        c.razon_social AS cliente_razon_social,
+        c.tipo_documento AS cliente_tipo_documento,
+        c.numero_documento AS cliente_numero_documento,
+        c.telefono AS cliente_telefono
+    FROM polizas p
+    INNER JOIN clientes c ON c.idCliente = p.cliente_id
+    WHERE p.idPoliza = p_id;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE PROCEDURE sp_update_poliza(
+    IN p_idPoliza INT,
+    IN p_asegurado VARCHAR(150),
+    IN p_cia VARCHAR(100),
+    IN p_ramo VARCHAR(120),
+    IN p_poliza VARCHAR(50),
+    IN p_moneda VARCHAR(20),
+    IN p_vig_desde DATE,
+    IN p_vig_hasta DATE,
+    IN p_sub_agente VARCHAR(100),
+    IN p_ejecutivo VARCHAR(100),
+    IN p_asegurada VARCHAR(150),
+    IN p_motivo VARCHAR(200),
+    IN p_prima_comercial DECIMAL(15,2),
+    IN p_prima_neta DECIMAL(15,2),
+    IN p_prima_comercial_igv DECIMAL(15,2),
+    IN p_prima_total DECIMAL(15,2),
+    IN p_porc_compania DECIMAL(7,4),
+    IN p_imp_compania DECIMAL(15,2),
+    IN p_porc_subagente DECIMAL(7,4),
+    IN p_imp_subagente DECIMAL(15,2),
+    IN p_ramos_producto VARCHAR(120),
+    IN p_tipo_doc VARCHAR(10),
+    IN p_estado VARCHAR(20)
+)
+BEGIN
+    UPDATE polizas SET
+        asegurado = p_asegurado,
+        cia = p_cia,
+        ramo = p_ramo,
+        poliza = p_poliza,
+        moneda = p_moneda,
+        vig_desde = p_vig_desde,
+        vig_hasta = p_vig_hasta,
+        sub_agente = p_sub_agente,
+        ejecutivo = p_ejecutivo,
+        asegurada = p_asegurada,
+        motivo = p_motivo,
+        prima_comercial = p_prima_comercial,
+        prima_neta = p_prima_neta,
+        prima_comercial_igv = p_prima_comercial_igv,
+        prima_total = p_prima_total,
+        porc_compania = p_porc_compania,
+        imp_compania = p_imp_compania,
+        porc_subagente = p_porc_subagente,
+        imp_subagente = p_imp_subagente,
+        ramos_producto = p_ramos_producto,
+        tipo_doc = p_tipo_doc,
+        estado = p_estado
+    WHERE idPoliza = p_idPoliza;
 END$$
 DELIMITER ;

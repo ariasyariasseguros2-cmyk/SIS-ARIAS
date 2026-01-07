@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Manejo de clicks en chips de acción
+  // Manejo de clicks en acciones (chips o dropdown items)
   const listTable = document.getElementById('polizasListTable');
   const cardContainer = document.querySelector('.card[data-base-url]'); // It has the urls
 
@@ -38,14 +38,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const cuotasUrl = cardContainer.getAttribute('data-cuotas-url');
 
     listTable.addEventListener('click', (e) => {
-      const chip = e.target.closest('.chip[data-action]');
-      if (!chip) return;
+      // Modificado para aceptar cualquier elemento con data-action, no solo chips
+      const target = e.target.closest('[data-action]');
+      if (!target) return;
 
-      const action = chip.getAttribute('data-action');
-      const row = chip.closest('tr');
+      const action = target.getAttribute('data-action');
+      const row = target.closest('tr');
       const poliza = row?.getAttribute('data-poliza');
 
-      console.log('Click en chip:', action, poliza, 'PrimasURL:', primasUrl);
+      console.log('Click en acción:', action, poliza, 'PrimasURL:', primasUrl);
 
       if (!poliza) {
         console.warn('No se encontró póliza en la fila');
@@ -58,6 +59,27 @@ document.addEventListener('DOMContentLoaded', () => {
          window.location.href = `${cuotasUrl}?poliza=${encodeURIComponent(poliza)}`;
       } else if (action === 'renovar') {
         // Handled by renovar-poliza.js
+      } else if (action === 'editar' || action === 'editar-poliza') {
+        // Si el elemento es un enlace <a> con href válido (que no sea #), dejamos que navegue
+        const href = target.getAttribute('href');
+        if (href && href !== '#' && !href.includes('javascript:')) {
+            // Check if href has ID. If it's just '...?id=' (empty), we might want to intercept.
+            if (href.includes('id=') && !href.endsWith('id=')) {
+                return; // Let browser handle navigation
+            }
+        }
+
+        // Fallback: usar data-id de la fila si el enlace falla o es una acción JS
+        const id = row?.getAttribute('data-id');
+        if (id) {
+            window.location.href = `${baseUrl.replace('listado-poliza', 'editar-poliza')}?id=${id}`;
+        } else {
+            console.warn('No se encontró ID de póliza para editar');
+            // If href exists but id is missing in row, maybe try following href anyway?
+            if (href && href !== '#') return; 
+            
+            alert('No se puede editar: falta el ID de la póliza (asegúrese de actualizar la BD).');
+        }
       } else {
         console.log('Acción no implementada:', action, poliza);
         // Implementar anular, siniestros, etc.
