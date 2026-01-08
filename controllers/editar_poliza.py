@@ -60,34 +60,59 @@ def get_poliza_data(poliza_id):
 
 def update_poliza(data):
     try:
+        pid = data.get('idPoliza')
+        if not pid:
+            return {'ok': False, 'error': 'ID de Póliza no proporcionado'}
+
+        # Obtener datos existentes para preservar campos no enviados
+        current = get_poliza_data(pid)
+        if not current:
+            return {'ok': False, 'error': 'Póliza no encontrada'}
+
         cnx = get_connection()
         cur = cnx.cursor()
         
-        # Prepare parameters matching sp_update_poliza order
+        # Helper: si la clave está en data, usar su valor (None si vacío).
+        # Si no está, usar valor actual de DB.
+        def val(key, default=None):
+            if key in data:
+                v = data[key]
+                # Convertir cadena vacía a None para la BD
+                return v if v != '' else None
+            return current.get(key, default)
+
+        def date_val(key_data, key_curr):
+            if key_data in data:
+                return _parse_date(data[key_data])
+            d = current.get(key_curr)
+            if hasattr(d, 'strftime'):
+                return d.strftime('%Y-%m-%d')
+            return d
+
         params = (
-            data.get('idPoliza'),
-            data.get('asegurado'),
-            data.get('cia'),
-            data.get('ramo'),
-            data.get('poliza'),
-            data.get('moneda'),
-            _parse_date(data.get('vig_desde')),
-            _parse_date(data.get('vig_hasta')),
-            data.get('sub_agente'),
-            data.get('ejecutivo'),
-            data.get('asegurada'),
-            data.get('motivo'),
-            data.get('prima_comercial') or 0,
-            data.get('prima_neta') or 0,
-            data.get('prima_comercial_igv') or 0,
-            data.get('prima_total') or 0,
-            data.get('porc_compania') or 0,
-            data.get('imp_compania') or 0,
-            data.get('porc_subagente') or 0,
-            data.get('imp_subagente') or 0,
-            data.get('ramos_producto'),
-            data.get('tipo_doc'),
-            data.get('estado')
+            pid,
+            val('asegurado'),
+            val('cia'),
+            val('ramo'),
+            val('poliza'),
+            val('moneda'),
+            date_val('vig_desde', 'vig_desde'),
+            date_val('vig_hasta', 'vig_hasta'),
+            val('sub_agente'),
+            val('ejecutivo'),
+            val('asegurada'), # descripcion
+            val('motivo'),    # tipoVigencia
+            val('prima_comercial', 0),
+            val('prima_neta', 0),
+            val('prima_comercial_igv', 0),
+            val('prima_total', 0),
+            val('porc_compania', 0),
+            val('imp_compania', 0),
+            val('porc_subagente', 0),
+            val('imp_subagente', 0),
+            val('ramos_producto'),
+            val('tipo_doc'),
+            val('estado')
         )
         
         cur.execute("""CALL sp_update_poliza(

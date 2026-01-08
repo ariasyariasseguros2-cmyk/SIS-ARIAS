@@ -28,7 +28,7 @@
                 <div class="row mb-3 align-items-center">
                     <label for="poliza" class="col-sm-3 col-form-label text-end fw-bold">Póliza <span class="text-danger">*</span></label>
                     <div class="col-sm-9">
-                        <input type="text" class="form-control" id="poliza" value="{{ poliza.poliza }}">
+                        <input type="text" class="form-control" id="poliza" value="{{ poliza.poliza or '' }}">
                     </div>
                 </div>
 
@@ -125,7 +125,7 @@
                 <div class="row mb-3 align-items-center">
                     <label for="comisionSubAgente" class="col-sm-3 col-form-label text-end fw-bold">% Comisión Sub Agente</label>
                     <div class="col-sm-9">
-                        <input type="number" class="form-control" id="comisionSubAgente" value="{{ poliza.porc_subagente }}">
+                        <input type="number" class="form-control" id="comisionSubAgente" value="{{ poliza.porc_subagente or '' }}">
                     </div>
                 </div>
 
@@ -256,7 +256,7 @@
         <button type="button" class="btn btn-light border">
             <i class="bi-arrow-counterclockwise"></i> Volver
         </button>
-        <button type="button" class="btn btn-success text-white">
+        <button type="button" class="btn btn-success text-white" id="btnGuardar">
             Guardar
         </button>
     </div>
@@ -268,4 +268,6 @@
 <script>
     window.currentPage = "listado-poliza"; // Or a specific page for sidebar highlighting
 </script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{{ url_for('static', filename='js/editar-poliza.js') }}"></script>
 {% endblock %}

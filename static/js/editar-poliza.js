@@ -1,7 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('editar-poliza.js loaded');
     const btnGuardar = document.getElementById('btnGuardar');
     if (btnGuardar) {
-        btnGuardar.addEventListener('click', async () => {
+        console.log('Button btnGuardar found');
+        btnGuardar.addEventListener('click', async (e) => {
+            e.preventDefault();
+            console.log('Button Guardar clicked');
+            
             // Collect form data
             const data = {
                 idPoliza: document.getElementById('idPoliza').value,
