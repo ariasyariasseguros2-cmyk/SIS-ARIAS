@@ -232,6 +232,28 @@ def parse_crecer_vidaley(text: str) -> Dict[str, str]:
     if not item.get("colectivo_asegurado") and item.get("asegurados"):
         item["colectivo_asegurado"] = item["asegurados"]
 
+    # Extraer RUC del cliente
+    # Prioridad 1: Valor extraído en el stream (si existe)
+    ruc_candidato = cond.get("ruc")
+
+    # Prioridad 2: Buscar etiqueta "RUC" seguida de un número, filtrando el de Crecer (20600098633)
+    if not ruc_candidato:
+        candidates_ruc = re.findall(r"RUC\s*[:]?\s*(\d{11})", text, re.IGNORECASE)
+        for cand in candidates_ruc:
+            if cand != "20600098633": # RUC de Crecer Seguros
+                ruc_candidato = cand
+                break
+                
+    # Fallback: Buscar cualquier número de 11 dígitos que empiece con 10 o 20
+    if not ruc_candidato:
+        all_candidates = re.findall(r"\b(10\d{9}|20\d{9})\b", text)
+        for cand in all_candidates:
+            if cand != "20600098633":
+                ruc_candidato = cand
+                break
+    
+    item["numero_documento_extracted"] = ruc_candidato
+
     print("item", item)
     return {k: _clean(v) for k, v in item.items() if v}
     

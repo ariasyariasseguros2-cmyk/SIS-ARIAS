@@ -57,6 +57,26 @@ def parse_crecer_pension(text: str) -> Dict[str, str]:
         except Exception:
             pass
 
+    # Extraer RUC del cliente
+    # Prioridad 1: Buscar etiqueta "DNI/RUC" seguida de un número (formato específico de Crecer)
+    ruc_candidato = _find(r"DNI/RUC\s*[:]?\s*(\d{8,11})", text)
+
+    # Prioridad 2: Buscar etiqueta "RUC" si no se halló DNI/RUC, filtrando el de Crecer (20600098633)
+    if not ruc_candidato:
+        candidates_ruc = re.findall(r"RUC\s*[:]?\s*(\d{11})", text, re.IGNORECASE)
+        for cand in candidates_ruc:
+            if cand != "20600098633": 
+                ruc_candidato = cand
+                break
+                
+    # Fallback: Buscar cualquier número de 11 dígitos que empiece con 10 o 20
+    if not ruc_candidato:
+        all_candidates = re.findall(r"\b(10\d{9}|20\d{9})\b", text)
+        for cand in all_candidates:
+            if cand != "20600098633":
+                ruc_candidato = cand
+                break
+
     item = {
         "numero_poliza": contrato,
         "contrato_nro": contrato,
@@ -70,7 +90,8 @@ def parse_crecer_pension(text: str) -> Dict[str, str]:
         "moneda": "SOLES",
         "prima_comercial": prima_comercial,
         "prima_comercial_igv": total_con_igv or (f"{float((prima_comercial or '0').replace(',', '.')) + float((igv_val or '0').replace(',', '.')):.2f}" if prima_comercial and igv_val else None),
-        "fecha_vencimiento": ultimo_dia_pago or None  # reflejar en columna “Fecha Vencimiento” de la UI
+        "fecha_vencimiento": ultimo_dia_pago or None,  # reflejar en columna “Fecha Vencimiento” de la UI
+        "numero_documento_extracted": ruc_candidato,
     }
     print("item", item)
     # Limpieza final: quitar claves vacías
