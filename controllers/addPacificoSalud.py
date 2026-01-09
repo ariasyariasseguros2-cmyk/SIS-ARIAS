@@ -450,6 +450,30 @@ def parse_pacifico_salud(text: str) -> dict | None:
         or _find(r"Ramo\s*:?\s*([^\n]+)", text)
     )
 
+    # Extraer RUC del cliente
+    ruc_candidato = None
+    
+    # 1. Buscar todos los candidatos RUC asociados a etiquetas explícitas (estricto)
+    candidates_labeled = re.findall(r"(?:R\.?U\.?C\.?)\s*[:]?\s*(\d{11})", text, re.IGNORECASE)
+    for cand in candidates_labeled:
+        if cand != "20431115825": 
+            ruc_candidato = cand
+            break
+    
+    # 2. Fallback: Buscar cualquier número de 11 dígitos que empiece con 10 o 20 en todo el texto (si no se halló antes)
+    if not ruc_candidato:
+        all_candidates = re.findall(r"\b(10\d{9}|20\d{9})\b", text)
+        for cand in all_candidates:
+            if cand != "20431115825":
+                ruc_candidato = cand
+                break
+            
+    # Fallback: Si no encuentra etiqueta explícita ni candidatos válidos, buscar DNI (8 dígitos)
+    if not ruc_candidato:
+        candidates_dni = re.findall(r"(?:D\.?N\.?I\.?)\s*[:]?\s*(\d{8})", text, re.IGNORECASE)
+        if candidates_dni:
+            ruc_candidato = candidates_dni[0]
+
     item = {
         "numero_poliza": _clean(numero_poliza),
         "recibo": _clean(recibo),
@@ -466,6 +490,7 @@ def parse_pacifico_salud(text: str) -> dict | None:
             f"{float(prima_comercial.replace(',', '.')) + float(igv_val.replace(',', '.')):.2f}"
         ) or None,
         "ramo": _clean(ramo),
+        "numero_documento_extracted": ruc_candidato,
     }
     print("[pacifico salud] numero_poliza:", item.get("numero_poliza"))
     print("[pacifico salud] recibo:", item.get("recibo"))
@@ -477,6 +502,7 @@ def parse_pacifico_salud(text: str) -> dict | None:
     print("[pacifico salud] prima_comercial:", item.get("prima_comercial"))
     print("[pacifico salud] total (com+igv):", item.get("prima_comercial_igv"))
     print("[pacifico salud] ramo:", item.get("ramo"))
+    print("[pacifico salud] ruc:", item.get("numero_documento_extracted"))
 
     item = {k: v for k, v in item.items() if v}
     print("[pacifico] item final:", item)
