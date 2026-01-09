@@ -66,6 +66,56 @@ def get_polizas_data(selected: dict | None = None) -> dict:
         for r in rows:
             r['producto'] = r.get('producto') or r.get('ramos_producto') or ''
 
+        # --- DEDUPLICACIÓN DE PÓLIZAS (Visualización) ---
+        # Agrupar por 'poliza' y mostrar solo la de vigencia más reciente
+        if rows:
+            def _to_int(d):
+                if not d: return 0
+                if hasattr(d, 'year'): 
+                    return d.year * 10000 + d.month * 100 + d.day
+                s = str(d).strip()
+                if '/' in s: # dd/mm/yyyy
+                    parts = s.split('/')
+                    if len(parts) == 3: 
+                        try: return int(parts[2])*10000 + int(parts[1])*100 + int(parts[0])
+                        except: pass
+                if '-' in s: # yyyy-mm-dd
+                    parts = s.split('-')
+                    if len(parts) == 3: 
+                        try: return int(parts[0])*10000 + int(parts[1])*100 + int(parts[2])
+                        except: pass
+                return 0
+
+            best_rows = {}
+            for r in rows:
+                p = str(r.get('poliza') or '')
+                if not p: continue
+                
+                if p not in best_rows:
+                    best_rows[p] = r
+                else:
+                    curr = best_rows[p]
+                    # Comparar vig_hasta (mayor es más reciente)
+                    if _to_int(r.get('vig_hasta')) > _to_int(curr.get('vig_hasta')):
+                        best_rows[p] = r
+                    elif _to_int(r.get('vig_hasta')) == _to_int(curr.get('vig_hasta')):
+                        # Desempate con vig_desde
+                        if _to_int(r.get('vig_desde')) > _to_int(curr.get('vig_desde')):
+                            best_rows[p] = r
+
+            # Reconstruir lista manteniendo orden de aparición
+            new_rows = []
+            seen = set()
+            for r in rows:
+                p = str(r.get('poliza') or '')
+                if not p:
+                    new_rows.append(r)
+                    continue
+                if p not in seen:
+                    seen.add(p)
+                    new_rows.append(best_rows[p])
+            rows = new_rows
+
         cur.close()
         cnx.close()
     except Exception:
