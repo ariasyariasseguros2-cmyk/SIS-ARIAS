@@ -36,13 +36,20 @@ document.addEventListener('DOMContentLoaded', () => {
     (function markActive() {
         const page = window.currentPage || '';
         if (!page) return;
-        const link = document.querySelector(`.submenu a[data-page="${page}"]`);
+        // Buscar en todo el sidebar, no solo submenús
+        const link = document.querySelector(`.sidebar a[data-page="${page}"]`);
         if (link) {
             link.classList.add('active');
+            // El LI directo (puede ser item de lista principal o de submenu)
             const li = link.closest('li');
             if (li) li.classList.add('active');
+            
+            // Si está dentro de un submenú, activar el grupo padre
             const group = link.closest('.nav-group');
-            if (group) group.classList.add('open');
+            if (group) {
+                group.classList.add('open');
+                group.classList.add('active-group');
+            }
         }
     })();
 });

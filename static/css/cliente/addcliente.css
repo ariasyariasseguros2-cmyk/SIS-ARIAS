@@ -17,7 +17,7 @@
 
 /* --- HEADER Y FOOTER --- */
 #addClienteModal .modal-header {
-  background: linear-gradient(90deg, #f8fafc, #eef2f7);
+  background: linear-gradient(90deg, #f8fafc, #fff);
   padding: 1rem 1.5rem;
 }
 
@@ -86,7 +86,7 @@
 
 /* --- INPUT GROUP --- */
 #addClienteModal .input-group-text {
-  background-color: #eef2f7;
+  background-color: #fff;
   border-color: #e5e7eb;
 }
 

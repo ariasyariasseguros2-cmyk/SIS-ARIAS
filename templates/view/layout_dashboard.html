@@ -22,11 +22,11 @@
             </div>
             <div class="nav-title">Navegación</div>
             <ul class="nav-list">
-                <li><i class="bi-speedometer2"></i> <a data-page="dashboard" href="{{ url_for('main.dashboard') }}"><span>Escritorio</span></a></li>
+                <li><i class="bi-speedometer2"></i> <a data-page="dashboard" href="{{ url_for('main.dashboard') }}"><span><strong>Escritorio</strong></span></a></li>
 
                 <li class="nav-group">
                     <button class="group-toggle" type="button">
-                        <i class="bi-people"></i> <span>Mis Contactos</span>
+                        <i class="bi-people"></i> <span><strong>Mis Contactos</strong></span>
                         <i class="bi-chevron-right caret"></i>
                     </button>
                     <ul class="submenu">
@@ -36,7 +36,7 @@
 
                 <li class="nav-group">
                     <button class="group-toggle" type="button">
-                        <i class="bi-briefcase"></i> <span>Solicitudes</span>
+                        <i class="bi-briefcase"></i> <span><strong>Solicitudes</strong></span>
                         <i class="bi-chevron-right caret"></i>
                     </button>
                     <ul class="submenu">
@@ -47,7 +47,7 @@
 
                 <li class="nav-group">
                     <button class="group-toggle" type="button">
-                        <i class="bi-person"></i> <span>Clientes</span>
+                        <i class="bi-person"></i> <span><strong>Clientes</strong></span>
                         <i class="bi-chevron-right caret"></i>
                     </button>
                     <ul class="submenu">
@@ -59,7 +59,7 @@
                 <!-- Grupo: Pólizas (cambiar destino a listado-pagado) -->
                 <li class="nav-group">
                     <button class="group-toggle">
-                        <i class="bi-file-earmark-text"></i> <span>Pólizas</span>
+                        <i class="bi-file-earmark-text"></i> <span><strong>Pólizas</strong></span>
                         <i class="bi-chevron-right caret"></i>
                     </button>
                     <ul class="submenu">
@@ -76,7 +76,7 @@
 
                 <li class="nav-group">
                     <button class="group-toggle">
-                        <i class="bi-credit-card"></i> <span>Cobranzas</span>
+                        <i class="bi-credit-card"></i> <span><strong>Cobranzas</strong></span>
                         <i class="bi-chevron-right caret"></i>
                     </button>
                     <ul class="submenu">
@@ -89,7 +89,7 @@
 
                 <li class="nav-group">
                     <button class="group-toggle">
-                        <i class="bi-cash-coin"></i> <span>Comisiones</span>
+                        <i class="bi-cash-coin"></i> <span><strong>Comisiones</strong></span>
                         <i class="bi-chevron-right caret"></i>
                     </button>
                     <ul class="submenu">
@@ -104,7 +104,7 @@
 
                 <li class="nav-group">
                     <button class="group-toggle">
-                        <i class="bi-exclamation-triangle"></i> <span>Siniestros</span>
+                        <i class="bi-exclamation-triangle"></i> <span><strong>Siniestros</strong></span>
                         <i class="bi-chevron-right caret"></i>
                     </button>
                     <ul class="submenu">
@@ -117,7 +117,7 @@
 
                 <li class="nav-group">
                     <button class="group-toggle">
-                        <i class="bi-bar-chart"></i> <span>Estadísticas</span>
+                        <i class="bi-bar-chart"></i> <span><strong>Estadísticas</strong></span>
                         <i class="bi-chevron-right caret"></i>
                     </button>
                     <ul class="submenu">
@@ -127,12 +127,17 @@
 
                 <li class="nav-group">
                     <button class="group-toggle">
-                        <i class="bi-people"></i> <span>Diario</span>
+                        <i class="bi-people"></i> <span><strong>Diario</strong></span>
                         <i class="bi-chevron-right caret"></i>
                     </button>
                     <ul class="submenu">
                         <li><i class="bi-download"></i> <a data-page="reporte-diario" href="{{ url_for('main.menu_page', page='reporte-diario') }}">Reporte Diario</a></li>
                     </ul>
+                </li>
+
+                <li style="margin-top: 50px;">
+                    <img src="https://img.icons8.com/ios/50/ffffff/logout-rounded.png" alt="Logout" style="width: 20px; height: 20px;">
+                    <a href="{{ url_for('logout') }}" style="color: inherit; text-decoration: none;"><span><strong>Cerrar sesión</strong></span></a>
                 </li>
             </ul>
         </aside>
@@ -142,7 +147,6 @@
                 <div class="title">{% block page_title %}SISNET{% endblock %}</div>
                 <div class="actions">
                     <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('main.home') }}">Inicio</a>
-                    <a class="btn btn-outline-danger btn-sm" href="{{ url_for('logout') }}">Cerrar sesión</a>
                 </div>
             </nav>
 

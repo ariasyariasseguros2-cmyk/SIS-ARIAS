@@ -1,4 +1,10 @@
 /* Estilos específicos de la vista de Clientes */
+/* Force pure white background for the whole page area */
+.page {
+    background-color: #FFFFFF !important;
+}
+
+/* Ensure no gray background on containers */
 .page .btn-group .btn {
     white-space: nowrap;
 }
@@ -28,8 +34,132 @@
 
 .input-group .form-control {
     min-width: 0;
+    background-color: #FFFFFF !important;
+    border: 1px solid #ced4da;
 }
 
 .dropdown-menu .dropdown-item {
     font-size: 13px;
+}
+
+
+/* Custom Buttons with Lift Effect - Only for Client Page */
+.btn-lift {
+    border-radius: 20px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    border: none;
+    color: #fff; /* Ensure text is white */
+    padding: 0.375rem 1.25rem; /* Wider padding: vertical 0.375rem, horizontal 1.25rem */
+    min-width: 100px; /* Optional: Ensure a minimum width for consistency */
+}
+
+
+/* Gradients */
+.btn-lift.btn-primary {
+    background: linear-gradient(to right, #399AD6, #1F59A3);
+}
+
+.btn-lift.btn-success {
+    /* Gradient Green matching the style */
+    background: linear-gradient(to right, #4cd964, #28a745);
+}
+
+.btn-lift.btn-danger {
+    /* Gradient Red matching the style */
+    background: linear-gradient(to right, #ff6b6b, #c0392b);
+}
+
+.btn-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    color: #fff; /* Keep text white on hover */
+}
+
+/* SAAS Table Redesign */
+.saas-table {
+    background-color: #FFFFFF;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.saas-table thead th {
+    background-color: #FFFFFF;
+    color: #555; /* Neutral dark grey for headers */
+    font-weight: 600;
+    font-size: 13px;
+    border-bottom: 2px solid #1E88E5; /* Blue header line */
+    padding: 16px 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.saas-table tbody tr {
+    background-color: #FFFFFF !important; /* Force white background */
+}
+
+.saas-table tbody td {
+    background-color: #FFFFFF;
+    border-bottom: 1px solid #e3f2fd; /* Very subtle blue divider */
+    padding: 14px 12px;
+    color: #333;
+    font-size: 14px;
+}
+
+/* Hover effect only on the text/row, keeping background white but maybe a subtle indicator */
+.saas-table tbody tr:hover td {
+    background-color: #fafafa; /* Extremely subtle hover if needed, or keep white */
+}
+
+/* Remove Bootstrap striped/hover defaults if they persist */
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+    --bs-table-accent-bg: transparent;
+    box-shadow: none;
+}
+.table-hover > tbody > tr:hover > * {
+    --bs-table-accent-bg: transparent;
+    box-shadow: none;
+}
+
+/* Rounded Search Input Style */
+.search-round .input-group-text {
+    border-top-left-radius: 50px !important;
+    border-bottom-left-radius: 50px !important;
+}
+
+.search-round .form-control {
+    border-top-right-radius: 50px !important;
+    border-bottom-right-radius: 50px !important;
+}
+
+/* Remove default focus glow to keep it clean, or style it */
+.search-round .form-control:focus {
+    box-shadow: none;
+    border-color: #ced4da;
+}
+
+/* Pagination Styling */
+.pagination .page-link {
+    color: #555;
+    border: 1px solid #dee2e6;
+    margin: 0 2px;
+    border-radius: 4px;
+    background-color: #fff;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #399AD6; /* Blue matching buttons */
+    border-color: #399AD6;
+    color: white;
+}
+
+.pagination .page-link:hover {
+    background-color: #e9ecef;
+    color: #333;
+}
+
+.pagination .page-item.active .page-link:hover {
+    background-color: #1F59A3;
+    border-color: #1F59A3;
+    color: white;
 }

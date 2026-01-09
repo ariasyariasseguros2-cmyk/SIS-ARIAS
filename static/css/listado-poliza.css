@@ -26,7 +26,7 @@
   font-size: .85rem;
   text-decoration: none;
 }
-.quick-links .qlink:hover { background: #eef2f7; }
+.quick-links .qlink:hover { background: #fff; }
 
 /* Tabla */
 .table td, .table th { vertical-align: middle; }

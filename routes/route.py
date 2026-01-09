@@ -32,12 +32,46 @@ def menu_page(page):
     if page == 'clientes':
         from controllers.cliente import get_clientes_data
         data = get_clientes_data()
+
+        # Pagination logic
+        try:
+            page_num = int(request.args.get('page') or 1)
+        except ValueError:
+            page_num = 1
+        
+        per_page = 20
+        all_rows = data['rows']
+        total = len(all_rows)
+        pages = max(1, (total + per_page - 1) // per_page)
+        
+        # Ensure page_num is valid
+        if pages > 0:
+            page_num = max(1, min(page_num, pages))
+        else:
+            page_num = 1
+
+        start = (page_num - 1) * per_page
+        end = start + per_page
+        sliced_rows = all_rows[start:end]
+
+        pagination = {
+            'page': page_num,
+            'per_page': per_page,
+            'total': total,
+            'pages': pages,
+            'has_prev': page_num > 1,
+            'has_next': page_num < pages,
+            'start_index': start + 1 if total > 0 else 0,
+            'end_index': min(end, total)
+        }
+
         return render_template(
             'view/cliente/cliente.html',
             page='clientes',
             title=data['title'],
-            rows=data['rows'],
-            filters=data['filters']
+            rows=sliced_rows,
+            filters=data['filters'],
+            pagination=pagination
         )
 
     # Pólizas → plantilla dedicada
