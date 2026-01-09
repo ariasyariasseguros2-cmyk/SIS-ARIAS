@@ -59,6 +59,18 @@ def parse_sanitas_salud(text: str) -> Dict[str, str]:
         except Exception:
             pass
 
+    # Extraer RUC/DNI del cliente
+    # Prioridad 1: Etiqueta "DNI/RUC" que usa Sanitas explícitamente para el cliente
+    ruc_candidato = _find(r"DNI/RUC\s*[:]?\s*(\d{8,11})", text)
+    
+    # Prioridad 2: Buscar RUC/DNI general pero filtrar el de Sanitas (20523470761)
+    if not ruc_candidato:
+        candidates = re.findall(r"(?:RUC|DNI)\s*[:]?\s*(\d{8,11})", text, re.IGNORECASE)
+        for cand in candidates:
+             if cand != "20523470761": # RUC de Sanitas Peru S.A. EPS
+                 ruc_candidato = cand
+                 break
+
     item = {
         "numero_poliza": _find(r"Contrato\s*:\s*([0-9A-Z\-]+)", text) or _find(r"CONTRATO\s*:\s*([0-9A-Z\-]+)", text),
         "contrato_nro": _find(r"Contrato\s*:\s*([0-9A-Z\-]+)", text) or _find(r"CONTRATO\s*:\s*([0-9A-Z\-]+)", text),
@@ -73,6 +85,7 @@ def parse_sanitas_salud(text: str) -> Dict[str, str]:
         "moneda": "SOLES",
         "prima_comercial": prima_comercial,
         "prima_comercial_igv": total_con_igv or (f"{float((prima_comercial or '0').replace(',', '.')) + float((igv_val or '0').replace(',', '.')):.2f}" if prima_comercial and igv_val else None),
+        "numero_documento_extracted": ruc_candidato,
     }
     print("item", item)
     # Limpieza final: quitar claves vacías
