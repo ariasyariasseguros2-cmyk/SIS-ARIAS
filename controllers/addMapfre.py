@@ -241,4 +241,19 @@ def parse_mapfre(text: str) -> Dict[str, str]:
     # NUEVO: duplicar 'vencimiento' como 'fecha_vecimiento' para la UI
     item["fecha_vecimiento"] = item.get("vencimiento")
 
+    # Extraer RUC del cliente
+    # Prioridad 1: Etiqueta explícita "RUC" seguida de un número
+    ruc_candidato = _find(r"RUC\s*[:]?\s*(\d{11})", text)
+    
+    # Prioridad 2: Buscar cualquier RUC (11 dígitos, empieza con 10 o 20) si no se halló
+    if not ruc_candidato:
+        candidates_ruc = re.findall(r"\b(10\d{9}|20\d{9})\b", text)
+        if candidates_ruc:
+            # Mapfre suele poner su propio RUC (20202380621) en el pie de página o encabezado, filtrarlo
+            for cand in candidates_ruc: 
+                    ruc_candidato = cand
+                    break
+                    
+    item["numero_documento_extracted"] = ruc_candidato
+
     return {k: _clean(v) for k, v in item.items() if v}

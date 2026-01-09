@@ -135,6 +135,26 @@ def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
     # Importes
     item["prima_comercial"] = _money(cond.get("prima_resultante")) or _money(_find(r"Prima\s+Comercial\s*:\s*S?\/?\s*([0-9\.,]+)", flat))
     item["prima_comercial_igv"] = _money(_find(r"Prima\s+Comercial\s*\+\s*IGV\s*:\s*S?\/?\s*([0-9\.,]+)", flat)) or _money(_find(r"(?:Importe\s+Total|Total)\s*:\s*S?\/?\s*([0-9\.,]+)", flat))
+    
+    # Extraer RUC del cliente
+    # Prioridad 1: Valor extraído en el stream (si existe)
+    ruc_candidato = cond.get("ruc")
+
+    # Prioridad 2: Buscar explícitamente "RUC :" seguido de un número
+    if not ruc_candidato:
+        ruc_candidato = _find(r"RUC\s*:\s*(\d{11})", flat)
+    
+    # Prioridad 3: Buscar cualquier RUC (11 dígitos, empieza con 10 o 20) si no se halló
+    if not ruc_candidato:
+        candidates_ruc = re.findall(r"\b(10\d{9}|20\d{9})\b", text)
+        if candidates_ruc:
+            # Mapfre suele poner su propio RUC (20202380621) en el pie de página o encabezado, filtrarlo
+            for cand in candidates_ruc:
+                    ruc_candidato = cand
+                    break
+    
+    item["numero_documento_extracted"] = ruc_candidato
+    
     print("item", item)
     return {k: _clean(v) for k, v in item.items() if v}
 
