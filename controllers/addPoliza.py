@@ -9,6 +9,9 @@ def get_rows():
 def save_polizas(items: list, selected: dict | None = None) -> dict:
     # Insertar en BD usando SP
     try:
+        if items:
+            print(f"[DEBUG] save_polizas items[0]: {items[0]}")
+
         from models.db import get_connection
         import mysql.connector
 
@@ -75,11 +78,32 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
         cnx = get_connection()
         cur = cnx.cursor()
 
+        # Validar si el cliente existe
+        cur.execute("SELECT idCliente FROM clientes WHERE numero_documento = %s LIMIT 1", (numero_documento,))
+        if not cur.fetchone():
+            cur.close()
+            cnx.close()
+            return {"ok": False, "errors": ["El cliente no existe debes registrar cliente nuevo"]}
+
         inserted = 0
 
         for row in normalized:
+            # NUEVO: Si la fila tiene un documento extraído (RUC/DNI), validar que exista en BD
+            # y usar ese documento para la inserción en lugar del seleccionado por defecto.
+            row_doc = row.get("numero_documento_extracted")
+            target_doc = numero_documento
+            if row_doc:
+                cur.execute("SELECT idCliente FROM clientes WHERE numero_documento = %s LIMIT 1", (row_doc,))
+                if not cur.fetchone():
+                    # Si el documento extraído del PDF no existe, bloquear TODO el proceso (o solo esta fila)
+                    # Según requerimiento: "no deberia añadir la poliza debe decir el cliente no existe"
+                    cur.close()
+                    cnx.close()
+                    return {"ok": False, "errors": [f"El cliente con documento {row_doc} (extraído del PDF) no existe. Debes registrar cliente nuevo."]}
+                target_doc = row_doc
+
             args = (
-                str(numero_documento).strip(),  # documento
+                str(target_doc).strip(),  # documento (puede ser el extraído o el seleccionado)
                 U((selected or {}).get("tipo_doc") or (selected or {}).get("tipo_documento") or ""),
                 U(row.get("colectivo_asegurado") or row.get("asegurado") or ""),
                 U(row.get("cia") or ""),

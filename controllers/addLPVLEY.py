@@ -47,6 +47,18 @@ def parse_positiva_vidaley(text: str) -> Dict[str, str]:
     contratante = _find(r"Contratante\s*:\s*(.+)", text)
     asegurado = _find(r"Asegurado\s*:\s*(.+)", text)
     colectivo_asegurado = (asegurado or contratante)
+    
+    # Extraer RUC (11 dígitos) o DNI (8 dígitos) asociado al contratante o asegurado
+    # Prioridad 1: Buscar explícitamente RUC (11 dígitos) soportando variaciones como "R.U.C.: :"
+    ruc_candidato = _find(r"R\.?U\.?C\.?[\s:\.]*(\d{11})", text)
+    
+    # Prioridad 2: Buscar explícitamente DNI (8 dígitos) si no hay RUC
+    if not ruc_candidato:
+        ruc_candidato = _find(r"D\.?N\.?I\.?[\s:\.]*(\d{8})", text)
+
+    # Prioridad 3: Fallback a búsqueda genérica de RUC (empieza con 10 o 20)
+    if not ruc_candidato:
+        ruc_candidato = _find(r"\b(10\d{9}|20\d{9})\b", text)
 
     # Ramo/marca de Vida Ley
     ramo = (_find(r"Ramo\s*:\s*(.+)", text) or "Vida Ley")
@@ -84,6 +96,7 @@ def parse_positiva_vidaley(text: str) -> Dict[str, str]:
         "fecha_vencimiento": fecha_venc,
         "prima_comercial": prima_comercial,
         "ramo": ramo,
+        "numero_documento_extracted": ruc_candidato,
     }
     print("item vida ley", item)
     # Limpia entradas vacías

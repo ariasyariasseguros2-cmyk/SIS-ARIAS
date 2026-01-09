@@ -191,6 +191,19 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
 
     # Preferir el último día de pago como 'fecha_vencimiento'; si no, usar fin de vigencia
     fecha_venc = pago_venc or vig_hasta
+
+    # Extraer RUC (11 dígitos) o DNI (8 dígitos) asociado al contratante o asegurado
+    # Prioridad 1: Buscar explícitamente RUC (11 dígitos) soportando variaciones como "R.U.C.: :"
+    ruc_candidato = _find(r"R\.?U\.?C\.?[\s:\.]*(\d{11})", text)
+    
+    # Prioridad 2: Buscar explícitamente DNI (8 dígitos) si no hay RUC
+    if not ruc_candidato:
+        ruc_candidato = _find(r"D\.?N\.?I\.?[\s:\.]*(\d{8})", text)
+
+    # Prioridad 3: Fallback a búsqueda genérica de RUC (empieza con 10 o 20)
+    if not ruc_candidato:
+        ruc_candidato = _find(r"\b(10\d{9}|20\d{9})\b", text)
+
     item = {
         "numero_poliza": (contrato_nro if (ramo and ramo.upper().startswith("SCTR SALUD") and contrato_nro) else (poliza_nro or contrato_nro)),
         "contrato_nro": contrato_nro,
@@ -208,6 +221,7 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
         "prima_comercial": prima_comercial,
         "prima_comercial_igv": prima_comercial_igv,
         "ramo": ramo,
+        "numero_documento_extracted": ruc_candidato,
     }
     print("item salud", item)
     return {k: v for k, v in item.items() if v}

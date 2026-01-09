@@ -275,6 +275,7 @@ def upload():
             "ramo": it.get("ramo") or it.get("doc_tipo"),
             "fecha_vencimiento": it.get("fecha_vencimiento") or it.get("vencimiento") or it.get("vigencia_hasta") or it.get("hasta") or it.get("expiracion"),
             "fecha_vecimiento": it.get("fecha_vecimiento"),
+            "numero_documento_extracted": it.get("numero_documento_extracted"),
         }
         # Si hay Prima Comercial, derive Prima Neta; o viceversa
         try:
