@@ -25,12 +25,13 @@
                 const row = e.target.closest('tr');
                 const razon = row?.querySelector('td:nth-child(2)')?.textContent?.trim() || '';
 
-                if (btn.classList.contains('btn-outline-primary')) {
+                if (btn.classList.contains('btn-primary') || btn.classList.contains('btn-outline-primary')) {
                     // Ir a la vista Pólizas EN SEGURO (sin parámetros en URL)
                     if (polizasUrl) {
                         const tipoDoc = row?.querySelector('td:nth-child(3)')?.textContent?.trim() || '';
                         const numeroDoc = row?.querySelector('td:nth-child(4)')?.textContent?.trim() || '';
                         const telefono = row?.querySelector('td:nth-child(5)')?.textContent?.trim() || '';
+                        const subAgente = row?.querySelector('td:nth-child(6)')?.textContent?.trim() || '';
                         const idCliente = row?.dataset?.idcliente || null;
 
                         fetch('/clientes/select', {
@@ -41,6 +42,7 @@
                                 tipo_doc: tipoDoc,
                                 n_doc: numeroDoc,
                                 tel: telefono,
+                                subagente: subAgente,
                                 idCliente: idCliente
                             })
                         })
@@ -57,9 +59,9 @@
                         alert(`Abrir pólizas de: ${razon}`);
                     }
                     return;
-                } else if (btn.classList.contains('btn-outline-success')) {
+                } else if (btn.classList.contains('btn-success') || btn.classList.contains('btn-outline-success')) {
                     alert(`Abrir contactos de: ${razon}`);
-                } else if (btn.classList.contains('btn-outline-danger')) {
+                } else if (btn.classList.contains('btn-danger') || btn.classList.contains('btn-outline-danger')) {
                     alert(`Generar PDF para: ${razon}`);
                 }
             });
