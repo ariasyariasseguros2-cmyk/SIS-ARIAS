@@ -215,6 +215,28 @@ def parse_pacifico_pension(text: str) -> dict | None:
         print("[pacifico] numero_poliza inválido capturado:", numero_poliza)
         numero_poliza = None
 
+    # Contratante (Nuevo)
+    contratante_blk = _capture_block_after(
+        r"Contratante\b", text,
+        ["Asegurado", "Dirección", "Plan", "Agente", "REG. PROD.", "CODIGO", "Moneda", "DOCUMENTO", "LIQUIDACION", "Vigencia", "POLIZA"]
+    )
+    print("[pacifico] contratante_blk:", contratante_blk)
+    contratante = None
+    if contratante_blk:
+        # Intentar limpiar código numérico al final si existe (ej: 12377047)
+        clean_blk = re.sub(r"\s+[0-9]+$", "", contratante_blk.strip())
+        # Buscar patrón de empresa
+        m_name = re.search(r"([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\.\- ]+(?:S\.A\.C\.?|S\.R\.L\.?|E\.I\.R\.L\.?|S\.A\.?|S\.A\.A\.?))", clean_blk, re.IGNORECASE)
+        contratante = m_name.group(1) if m_name else clean_blk
+    else:
+        contratante = (
+            _find_after(r"Contratante\b\s*:?", flat, r"([A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120})", window=200)
+            or _find(r"Contratante\s*:?\s*(.+)", text)
+        )
+    
+    if contratante:
+        contratante = re.sub(r"\bHAW\s+K\b", "HAWK", contratante, flags=re.IGNORECASE)
+
     # Asegurado (acotar a razón social vía bloque y patrón de S.A.C.)
     asegurado_blk = _capture_block_after(
         r"Asegurado\b", text,
@@ -342,6 +364,7 @@ def parse_pacifico_pension(text: str) -> dict | None:
     item = {
         "numero_poliza": _clean(numero_poliza),
         "recibo": _clean(recibo),
+        "contratante": _clean(contratante),
         "colectivo_asegurado": _clean(asegurado),
         "inicio_vigencia": _clean(inicio_vigencia),
         "vencimiento": _clean(vencimiento),
@@ -358,6 +381,7 @@ def parse_pacifico_pension(text: str) -> dict | None:
     }
     print("[pacifico] numero_poliza:", item.get("numero_poliza"))
     print("[pacifico] recibo:", item.get("recibo"))
+    print("[pacifico] contratante:", item.get("contratante"))
     print("[pacifico] asegurado:", item.get("colectivo_asegurado"))
     print("[pacifico] vigencia:", item.get("inicio_vigencia"), "al", item.get("vencimiento"))
     print("[pacifico] moneda:", item.get("moneda"))

@@ -44,10 +44,12 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
             t = '' if s is None else str(s).strip()
             return t.upper() if t else ''
 
-        # VALIDACIÓN: cliente seleccionado (numero_documento)
+        # VALIDACIÓN: cliente seleccionado (numero_documento o nombre)
         numero_documento = (selected or {}).get("n_doc") or (selected or {}).get("numero_documento") or ""
-        if not numero_documento:
-            return {"ok": False, "errors": ["Falta seleccionar cliente (documento)."]}
+        razon_social_selected = (selected or {}).get("razon_social") or (selected or {}).get("contratante") or ""
+        
+        if not numero_documento and not razon_social_selected:
+            return {"ok": False, "errors": ["Falta seleccionar cliente (documento o nombre)."]}
 
         # FIX: construir 'normalized' desde 'items' y completar campos globales
         normalized: list[dict] = []
@@ -78,29 +80,46 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
         cnx = get_connection()
         cur = cnx.cursor()
 
-        # Validar si el cliente existe
-        cur.execute("SELECT idCliente FROM clientes WHERE numero_documento = %s LIMIT 1", (numero_documento,))
-        if not cur.fetchone():
+        def find_client_doc(doc, name, cursor):
+            # Prioridad: documento
+            if doc:
+                cursor.execute("SELECT numero_documento FROM clientes WHERE numero_documento = %s LIMIT 1", (doc,))
+                res = cursor.fetchone()
+                if res: return res[0]
+            # Fallback: nombre (razon_social)
+            if name:
+                cursor.execute("SELECT numero_documento FROM clientes WHERE razon_social = %s LIMIT 1", (name,))
+                res = cursor.fetchone()
+                if res: return res[0]
+            return None
+
+        # Validar si el cliente existe (por documento o nombre)
+        found_doc = find_client_doc(numero_documento, razon_social_selected, cur)
+        if not found_doc:
             cur.close()
             cnx.close()
-            return {"ok": False, "errors": ["El cliente no existe debes registrar cliente nuevo"]}
+            return {"ok": False, "errors": ["El cliente no existe (ni por documento ni por nombre), debes registrar cliente nuevo"]}
+        
+        # Actualizar numero_documento con el encontrado (para usarlo como default)
+        numero_documento = found_doc
 
         inserted = 0
 
         for row in normalized:
-            # NUEVO: Si la fila tiene un documento extraído (RUC/DNI), validar que exista en BD
-            # y usar ese documento para la inserción en lugar del seleccionado por defecto.
+            # NUEVO: Validar cliente de la fila (por documento o nombre)
             row_doc = row.get("numero_documento_extracted")
-            target_doc = numero_documento
-            if row_doc:
-                cur.execute("SELECT idCliente FROM clientes WHERE numero_documento = %s LIMIT 1", (row_doc,))
-                if not cur.fetchone():
-                    # Si el documento extraído del PDF no existe, bloquear TODO el proceso (o solo esta fila)
-                    # Según requerimiento: "no deberia añadir la poliza debe decir el cliente no existe"
+            row_name = row.get("contratante") or row.get("razon_social")
+            
+            target_doc = numero_documento # Default: el seleccionado globalmente
+            
+            if row_doc or row_name:
+                found_row_doc = find_client_doc(row_doc, row_name, cur)
+                if not found_row_doc:
                     cur.close()
                     cnx.close()
-                    return {"ok": False, "errors": [f"El cliente con documento {row_doc} (extraído del PDF) no existe. Debes registrar cliente nuevo."]}
-                target_doc = row_doc
+                    err_ident = row_doc or row_name
+                    return {"ok": False, "errors": [f"El cliente '{err_ident}' (extraído del PDF) no existe. Debes registrar cliente nuevo."]}
+                target_doc = found_row_doc
 
             args = (
                 str(target_doc).strip(),  # documento (puede ser el extraído o el seleccionado)
