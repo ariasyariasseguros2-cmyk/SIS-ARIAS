@@ -145,19 +145,19 @@
 
     const table = document.getElementById('polizasTable');
     table?.addEventListener('click', (e) => {
-      const btn = e.target.closest('button');
-      if (!btn) return;
+      // Manejar clic en botón o chip con data-action="renovar"
+      const actionEl = e.target.closest('[data-action="renovar"]');
+      if (!actionEl) return;
+      e.preventDefault();
 
-      const label = btn.textContent.trim().toLowerCase();
-      if (!label.includes('renovar')) return;
-
-      const row = btn.closest('tr');
+      const row = actionEl.closest('tr');
       if (!row) return;
 
       // Mapeo según el orden de columnas en la tabla
       const pick = (n) => row.querySelector(`td:nth-child(${n})`)?.textContent?.trim() || '';
 
       const data = {
+        idPoliza: row.dataset.id || '',
         contratante: pick(1),
         asegurado: pick(2),
         compania: pick(3),
@@ -170,7 +170,7 @@
         sub_agente: pick(10),
         asegurada: pick(11),
         tipo_vigencia: 'DECLARACION MENSUAL',
-        fecha_emision: ''
+        fecha_emision: row.dataset.emision || ''
       };
 
       openRenovarPolizaModal(data);
@@ -195,6 +195,7 @@
       const pick = (n) => row.querySelector(`td:nth-child(${n})`)?.textContent?.trim() || '';
 
       const data = {
+        idPoliza: row.dataset.id || '',
         contratante: pick(1),
         asegurado: pick(2),
         compania: pick(3),
@@ -202,12 +203,12 @@
         producto: pick(5),
         poliza: pick(6),
         moneda: '', // No hay columna moneda en este listado
+        fecha_emision: row.dataset.emision || '',
         vig_inicio: pick(7),
         vig_fin: pick(8),
         sub_agente: pick(9),
         asegurada: pick(10),
-        tipo_vigencia: 'DECLARACION MENSUAL',
-        fecha_emision: ''
+        tipo_vigencia: 'DECLARACION MENSUAL'
       };
 
       openRenovarPolizaModal(data);
@@ -226,10 +227,61 @@
       document.getElementById('renovarPolizaForm')?.reset();
     });
 
-    // Si aún no hay envío al backend, cierra al pulsar "Renovar"
-    document.getElementById('btnRenovarPoliza')?.addEventListener('click', () => {
-      const m = getRenovarModal();
-      m?.hide();
+    // Envío al backend al pulsar "Renovar"
+    document.getElementById('btnRenovarPoliza')?.addEventListener('click', async () => {
+      const form = document.getElementById('renovarPolizaForm');
+      // Recuperar el ID de la póliza almacenado
+      let originalData = {};
+      try {
+        originalData = JSON.parse(form.dataset.originalData || '{}');
+      } catch(e) {}
+
+      const idPoliza = originalData.idPoliza;
+      
+      if (!idPoliza) {
+        alert("No se pudo identificar la póliza a renovar (Falta ID).");
+        return;
+      }
+
+      // Recoger datos del formulario
+      const payload = {
+        idPoliza: idPoliza,
+        compania: document.getElementById('companiaSelect').value,
+        producto: document.getElementById('productoSelect').value,
+        poliza: document.getElementById('polizaInput').value,
+        vig_fin: document.getElementById('vigFinInput').value,
+        ramo: document.getElementById('ramoInput').value,
+        tipo_vigencia: document.getElementById('tipoVigenciaSelect').value,
+        vig_inicio: document.getElementById('vigInicioInput').value,
+        fecha_emision: document.getElementById('fechaEmisionInput').value
+      };
+
+      const btn = document.getElementById('btnRenovarPoliza');
+      btn.disabled = true;
+      btn.textContent = "Renovando...";
+
+      try {
+        const res = await fetch('/api/polizas/renovar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        
+        if (json.ok) {
+          // Recargar para ver cambios
+          window.location.reload();
+        } else {
+          alert("Error al renovar: " + (json.error || json.errors || "Desconocido"));
+          btn.disabled = false;
+          btn.textContent = "Renovar";
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Error de conexión al renovar.");
+        btn.disabled = false;
+        btn.textContent = "Renovar";
+      }
     });
   });
 })();

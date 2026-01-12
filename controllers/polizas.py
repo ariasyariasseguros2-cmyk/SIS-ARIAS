@@ -149,6 +149,7 @@ def get_polizas_all() -> dict:
             # Fallback directo si el SP no existe
             cur.execute("""
                 SELECT 
+                    p.idPoliza,
                     c.razon_social AS contratante,
                     p.asegurado,
                     p.cia,
@@ -157,6 +158,7 @@ def get_polizas_all() -> dict:
                     p.poliza,
                     p.nro,
                     p.moneda,
+                    DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
                     DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
                     DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
                     p.sub_agente,

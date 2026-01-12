@@ -525,6 +525,35 @@ def polizas_update():
     return res, status
 
 
+@bp.route('/api/polizas/renovar', methods=['POST'])
+def polizas_renovar():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+    
+    data = request.get_json(silent=True) or {}
+    
+    # Construir payload para update_poliza
+    # Se mantienen los datos financieros existentes (no se resetean a 0)
+    update_payload = {
+        'idPoliza': data.get('idPoliza'),
+        'cia': data.get('compania'),
+        'ramos_producto': data.get('producto'),
+        'poliza': data.get('poliza'),
+        'vig_hasta': data.get('vig_fin'),
+        'ramo': data.get('ramo'),
+        'motivo': data.get('tipo_vigencia'), # mapeado a 'motivo'
+        'vig_desde': data.get('vig_inicio'),
+        'fecha_emision': data.get('fecha_emision'),
+        
+        # Al no enviar claves de primas, el controlador usará los valores actuales de la BD
+    }
+
+    from controllers.editar_poliza import update_poliza
+    res = update_poliza(update_payload)
+    status = 200 if res.get('ok') else 400
+    return res, status
+
+
 # Util: permitir archivos
 def allowed_file(filename: str) -> bool:
     ext = (filename or '').rsplit('.', 1)[-1].lower()
@@ -738,8 +767,8 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         if ('pacifico' in low or 'pacífico' in low):
             prov = 'pacifico'
 
-    # NUEVO: si vino 'pacifico' desde UI pero el contenido dice 'sanitas', fuerza Sanitas
-    if prov == 'pacifico' and 'sanitas' in low:
+    # NUEVO: si vino 'pacifico' o 'positiva' desde UI pero el contenido dice 'sanitas', fuerza Sanitas
+    if prov in ('pacifico', 'positiva', 'protecta') and 'sanitas' in low:
         prov = 'sanitas'
 
     # Enrutamiento por proveedor (prioriza 'prov' si está presente)

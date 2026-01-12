@@ -96,20 +96,21 @@ def update_poliza(data):
             val('ramo'),
             val('poliza'),
             val('moneda'),
+            date_val('fecha_emision', 'fecha_emision'),
             date_val('vig_desde', 'vig_desde'),
             date_val('vig_hasta', 'vig_hasta'),
             val('sub_agente'),
             val('ejecutivo'),
             val('asegurada'), # descripcion
             val('motivo'),    # tipoVigencia
-            val('prima_comercial', 0),
-            val('prima_neta', 0),
-            val('prima_comercial_igv', 0),
-            val('prima_total', 0),
-            val('porc_compania', 0),
-            val('imp_compania', 0),
-            val('porc_subagente', 0),
-            val('imp_subagente', 0),
+            val('prima_comercial'),
+            val('prima_neta'),
+            val('prima_comercial_igv'),
+            val('prima_total'),
+            val('porc_compania'),
+            val('imp_compania'),
+            val('porc_subagente'),
+            val('imp_subagente'),
             val('ramos_producto'),
             val('tipo_doc'),
             val('estado')
@@ -118,7 +119,7 @@ def update_poliza(data):
         cur.execute("""CALL sp_update_poliza(
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-            %s, %s, %s
+            %s, %s, %s, %s
         )""", params)
         
         cnx.commit()
