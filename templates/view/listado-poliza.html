@@ -69,7 +69,7 @@
         </thead>
         <tbody>
           {% for r in page_rows %}
-          <tr data-poliza="{{ r.poliza }}" data-id="{{ r.idPoliza }}">
+          <tr data-id="{{ r.idPoliza }}" data-emision="{{ r.fecha_emision }}" data-poliza="{{ r.poliza }}">
             <td>{{ r.contratante }}</td>
             <td>{{ r.asegurado }}</td>
             <td>{{ r.cia }}</td>
