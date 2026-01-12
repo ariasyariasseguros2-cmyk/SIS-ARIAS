@@ -1,7 +1,7 @@
 from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory
 from werkzeug.utils import secure_filename
 import os
-from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows
+from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards
 from datetime import datetime, timedelta
 
 bp = Blueprint('main', __name__)
@@ -13,15 +13,16 @@ def home():
         return redirect(url_for('login'))
     rows = get_dashboard_rows()
     chart = get_dashboard_data()
-    return render_template('view/layout_dashboard.html', rows=rows, chart=chart)
-
+    cards = get_dashboard_cards()
+    return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards)
 @bp.route('/dashboard')
 def dashboard():
     if 'user' not in session:
         return redirect(url_for('login'))
     rows = get_dashboard_rows()
     chart = get_dashboard_data()
-    return render_template('view/layout_dashboard.html', rows=rows, chart=chart)
+    cards = get_dashboard_cards()
+    return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards)
 
 @bp.route('/menu/<page>')
 def menu_page(page):

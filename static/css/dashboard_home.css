@@ -1,0 +1,27 @@
+.card-cyan {
+    background-color: #00B0F0;
+    color: white;
+}
+
+.card-red {
+    background-color: #D9534F;
+    color: white;
+}
+
+.card-green {
+    background-color: #00A65A;
+    color: white;
+}
+
+.card-orange {
+    background-color: #F39C12;
+    color: white;
+}
+
+.chart-production {
+    max-height: 300px;
+}
+
+.chart-distribution {
+    max-height: 200px;
+}

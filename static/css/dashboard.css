@@ -149,7 +149,7 @@
 .content { display: flex; flex-direction: column; }
 .topbar {
   display: flex; justify-content: space-between; align-items: center;
-  background: #fff; padding: 10px 14px; border-bottom: 1px solid var(--sidebar-border);
+  background: #fff; padding: 10px 14px; border-bottom: none;
 }
 .page { padding: 16px; }
 
@@ -310,3 +310,16 @@
 }
 
 .card-header { font-weight: 600; }
+
+/* Charts */
+.chart-production {
+  position: relative;
+  min-height: 300px;
+  width: 100%;
+}
+
+.chart-distribution {
+  position: relative;
+  min-height: 250px;
+  width: 100%;
+}

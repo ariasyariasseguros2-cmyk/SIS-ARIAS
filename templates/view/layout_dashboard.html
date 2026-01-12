@@ -145,8 +145,47 @@
         <main class="content">
             <nav class="topbar">
                 <div class="title">{% block page_title %}SISNET{% endblock %}</div>
-                <div class="actions">
-                    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('main.home') }}">Inicio</a>
+                <div class="actions d-flex align-items-center gap-2">
+                    <!-- Notification Dropdown -->
+                    <div class="dropdown">
+                        <button class="btn btn-light position-relative rounded-circle p-2 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="notificationBtn">
+                            <i class="bi-bell fs-5 text-secondary"></i>
+                            {% if notifications and notifications|length > 0 %}
+                            <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
+                                <span class="visually-hidden">New alerts</span>
+                            </span>
+                            {% endif %}
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end shadow border-0 p-0" aria-labelledby="notificationBtn" style="width: 300px;">
+                            <div class="p-2 border-bottom">
+                                <h6 class="dropdown-header fw-bold text-uppercase small text-muted p-0">Notificaciones</h6>
+                            </div>
+                            <div style="max-height: 300px; overflow-y: auto;">
+                                {% if notifications and notifications|length > 0 %}
+                                    <ul class="list-unstyled mb-0">
+                                        {% for notif in notifications %}
+                                        <li>
+                                            <a class="dropdown-item py-3 d-flex align-items-start text-wrap" href="#">
+                                                <div class="flex-grow-1">
+                                                    <p class="mb-1 small">{{ notif.message }}</p>
+                                                    <span class="text-muted" style="font-size: 0.75rem;">{{ notif.time }}</span>
+                                                </div>
+                                            </a>
+                                            <div style="height: 1px; background: linear-gradient(to right, #399AD6, #1F59A3);"></div>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    <div class="py-4 text-center text-muted">
+                                        <i class="bi-bell-slash fs-4 d-block mb-2"></i>
+                                        Sin notificaciones
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <a class="btn btn-outline-secondary btn-sm rounded-pill px-3" href="{{ url_for('main.home') }}">Inicio</a>
                 </div>
             </nav>
 

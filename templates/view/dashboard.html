@@ -1,0 +1,204 @@
+{% extends 'view/layout_dashboard.html' %}
+
+{% block html_title %}Dashboard | SISNET{% endblock %}
+{% block page_title %}
+    <h3 class="fw-bold mb-0 text-dark">Bienvenido de nuevo, {{ session.get('user', 'Usuario') }}!</h3>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    <!-- Section 1: Financial Metrics (Soles & Dolares) -->
+    <div class="row g-4 mb-4">
+        <!-- Card 1: Prima Neta S/. -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="text-muted mb-0">Prima Neta S/.</h6>
+                        <div class="icon-shape bg-light text-info rounded-circle p-2">
+                            <i class="bi-graph-up-arrow fs-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-1 fw-bold">{{ cards.prima_neta_soles }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Prima Neta US$ -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="text-muted mb-0">Prima Neta US$</h6>
+                        <div class="icon-shape bg-light text-danger rounded-circle p-2">
+                            <i class="bi-bar-chart-fill fs-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-1 fw-bold">{{ cards.prima_neta_dolares }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Comisiones S/. -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="text-muted mb-0">Comisiones S/.</h6>
+                        <div class="icon-shape bg-light text-success rounded-circle p-2">
+                            <i class="bi-pie-chart-fill fs-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-1 fw-bold">{{ cards.comision_soles }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Comisiones US$ -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="text-muted mb-0">Comisiones US$</h6>
+                        <div class="icon-shape bg-light text-warning rounded-circle p-2">
+                            <i class="bi-cash-coin fs-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-1 fw-bold">{{ cards.comision_dolares }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 2: Operational Metrics -->
+    <div class="row g-4 mb-4">
+        <!-- Card 1: Producción Total -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="text-muted mb-0">Producción Total (Mes)</h6>
+                        <div class="icon-shape bg-light text-primary rounded-circle p-2">
+                            <i class="bi-currency-dollar fs-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-1 fw-bold">{{ cards.total_production | default('$0') }}</h3>
+                    <div class="small">
+                        {% if cards.prod_diff >= 0 %}
+                        <span class="text-success fw-bold"><i class="bi-arrow-up"></i> {{ cards.prod_diff }}%</span>
+                        {% else %}
+                        <span class="text-danger fw-bold"><i class="bi-arrow-down"></i> {{ cards.prod_diff }}%</span>
+                        {% endif %}
+                        <span class="text-muted">vs mes anterior</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Card 2: Pólizas Activas -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="text-muted mb-0">Pólizas Activas</h6>
+                        <div class="icon-shape bg-light text-success rounded-circle p-2">
+                            <i class="bi-file-earmark-text fs-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-1 fw-bold">{{ cards.active_policies | default('0') }}</h3>
+                     <div class="small">
+                        <span class="text-muted">Total vigentes</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Clientes -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="text-muted mb-0">Clientes</h6>
+                        <div class="icon-shape bg-light text-info rounded-circle p-2">
+                            <i class="bi-people fs-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-1 fw-bold">{{ cards.total_clients | default('0') }}</h3>
+                     <div class="small">
+                        <span class="text-muted">Registrados</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+         <!-- Card 4: Renovaciones Pendientes -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="text-muted mb-0">Renovaciones</h6>
+                        <div class="icon-shape bg-light text-warning rounded-circle p-2">
+                            <i class="bi-clock-history fs-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-1 fw-bold">{{ cards.pending_renewals | default('0') }}</h3>
+                     <div class="small">
+                        <span class="text-muted">Próximo mes</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="row g-4">
+        <div class="col-12 col-xl-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 pt-4 ps-4">
+                    <h5 class="mb-0">Resumen de Producción (Últimos 12 meses)</h5>
+                </div>
+                <div class="card-body">
+                     <div class="chart-production">
+                        <canvas id="productionChart"></canvas>
+                     </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-4">
+             <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 pt-4 ps-4">
+                    <h5 class="mb-0">Distribución de Pólizas</h5>
+                </div>
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                    <div class="chart-distribution">
+                        <canvas id="distributionChart"></canvas>
+                    </div>
+                    <div class="mt-3 text-center">
+                        <div class="text-muted small">Total Pólizas Activas</div>
+                        <div class="h4 fw-bold mb-0">{{ cards.active_policies }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js_bottom %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    window.dashboardData = {
+        months: {{ chart.months | tojson }},
+        totals: {{ chart.totals | tojson }},
+        activePolicies: {{ cards.active_policies | default(0) }},
+        pendingRenewals: {{ cards.pending_renewals | default(0) }}
+    };
+</script>
+<script src="{{ url_for('static', filename='js/dashboard_home.js') }}"></script>
+{% endblock %}

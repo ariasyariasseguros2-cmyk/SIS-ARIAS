@@ -1,25 +1,53 @@
 /* --- TITULOS --- */
 .section-title {
   font-weight: 700;
-  color: #0f172a;
+  color: #334155;
+  font-size: 1rem;
   display: flex;
   align-items: center;
-  gap: .5rem;
-  margin-top: 1.5rem;
-  padding-bottom: .3rem;
-  border-bottom: 2px solid #e5e7eb;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  margin-bottom: 1.2rem;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
+.section-box {
+  background: #ffffff;
+  border: 1px solid #f1f5f9; /* Borde muy sutil */
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: none; /* Quitamos sombra para ser más plano/limpio */
+}
+/* Utilities Fallback */
+.bg-light-subtle {
+  background-color: #f8fafc !important;
+}
 /* --- ANCHO Y ALTURA DEL MODAL --- */
-#addClienteModal .modal-dialog.modal-xl {
-  max-width: 1200px;
+#addClienteModal .modal-content {
+  border-radius: 24px; /* Más redondeado */
+  border: none;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  background-color: #ffffff;
 }
 
-/* --- HEADER Y FOOTER --- */
+/* --- HEADER --- */
 #addClienteModal .modal-header {
-  background: linear-gradient(90deg, #f8fafc, #fff);
-  padding: 1rem 1.5rem;
+  background: #ffffff;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 24px 24px 0 0;
 }
+#addClienteModal .modal-title {
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 1.25rem;
+}
+#addClienteModal .modal-body {
+  padding: 2rem;
+  background-color: #ffffff;
+}
+
 
 #addClienteModal .modal-footer {
   background: #f8fafc;
@@ -72,6 +100,11 @@
   font-weight: 600;
   color: #374151;
 }
+/* Scrollbar fina y discreta */
+#addClienteModal .modal-body::-webkit-scrollbar { width: 6px; }
+#addClienteModal .modal-body::-webkit-scrollbar-track { background: transparent; }
+#addClienteModal .modal-body::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+#addClienteModal .modal-body::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
 
 /* --- AGRUPACIÓN DE RADIO BUTTONS --- */
 .radio-group {
