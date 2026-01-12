@@ -37,7 +37,12 @@
             alert('Acción Detalles pendiente de implementación.');
         }
         if (t.classList.contains('btn-editar')) {
-            alert('Acción Editar pendiente de implementación.');
+            const id = t.getAttribute('data-id');
+            if (id) {
+                window.location.href = `/menu/editar-primas?id=${id}`;
+            } else {
+                alert('No se pudo obtener el ID del registro.');
+            }
         }
         if (t.classList.contains('btn-eliminar')) {
             if (confirm('¿Eliminar este registro?')) {

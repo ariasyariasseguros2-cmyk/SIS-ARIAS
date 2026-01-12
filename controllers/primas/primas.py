@@ -35,6 +35,12 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
             except Exception:
                 rows = rows
 
+        # Si no hay poliza definida pero hay resultados, tomamos la poliza del primer resultado
+        if not pol and rows:
+            pol = rows[0].get('poliza') or rows[0].get('numero_poliza')
+            if pol:
+                details['poliza'] = pol
+
         # Encabezado de vigencia/ejecutivo si hay un SP disponible
         if pol:
             try:
@@ -42,7 +48,7 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
                 det = cur.fetchone() or {}
                 while cur.nextset():
                     pass
-                details['ejecutivo'] = det.get('ejecutivo') or details['ejecutivo']
+                details['ejecutivo'] = det.get('ejecutivo') or det.get('Ejecutivo') or details['ejecutivo']
                 details['asegurado'] = det.get('asegurado') or details['asegurado']
                 details['vig_desde'] = det.get('vig_desde') or details['vig_desde']
                 details['vig_hasta'] = det.get('vig_hasta') or details['vig_hasta']
@@ -75,6 +81,7 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
             'nro_operacion': r.get('nro_operacion') or r.get('operacion'),
             'motivo': r.get('motivo') or '',
             'pdf_url': r.get('pdf_url') or '',
+            'idPrima': r.get('idPoliza') or r.get('idPrima') # idPoliza identifies the row
         })
 
     return {

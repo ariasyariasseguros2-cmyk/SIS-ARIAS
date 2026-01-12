@@ -181,6 +181,37 @@ def menu_page(page):
             clientes_data=get_clientes_data()
         )
 
+    # NUEVO: Editar Primas (Misma tabla que polizas pero diferente vista)
+    if page == 'editar-primas':
+        from controllers.editar_poliza import get_poliza_data
+        from controllers.ramos import get_ramos
+        from controllers.compania import get_aseguradoras
+        from controllers.subagente import get_subagentes_abreviaciones
+        from controllers.cliente import get_clientes_data
+
+        prima_id = request.args.get('id')
+        if not prima_id:
+            return redirect(url_for('main.menu_page', page='primas'))
+        
+        # Reuse get_poliza_data because Primas are Polizas rows
+        prima = get_poliza_data(prima_id)
+        if not prima:
+            return redirect(url_for('main.menu_page', page='primas'))
+        
+        # Inject idPrima property if missing (it's actually idPoliza)
+        if prima and 'idPrima' not in prima:
+            prima['idPrima'] = prima.get('idPoliza')
+
+        return render_template(
+            'view/primas/editar-primas.html',
+            prima=prima,
+            # We pass similar helpers
+            ramos_abbrs=get_ramos(),
+            aseguradoras_rows=get_aseguradoras(),
+            subagentes_abbrs=get_subagentes_abreviaciones(),
+            clientes_data=get_clientes_data()
+        )
+
     # NUEVO: página “Añadir Póliza”
     if page == 'anadir-poliza':
         from controllers.addPoliza import get_rows
@@ -525,6 +556,23 @@ def polizas_update():
     status = 200 if res.get('ok') else 400
     return res, status
 
+# NUEVO: Endpoint para actualizar Primas (que en realidad son pólizas)
+@bp.route('/primas/update', methods=['POST'])
+def primas_update():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    data = request.get_json(silent=True) or request.form.to_dict()
+    # Mapeo de campos de Primas a Pólizas
+    # La UI envía idPrima, pero el controlador espera idPoliza
+    if 'idPrima' in data:
+        data['idPoliza'] = data.pop('idPrima')
+    
+    # Reutilizamos el controlador de pólizas ya que comparten tabla
+    from controllers.editar_poliza import update_poliza
+    res = update_poliza(data)
+    status = 200 if res.get('ok') else 400
+    return res, status
 
 @bp.route('/api/polizas/renovar', methods=['POST'])
 def polizas_renovar():

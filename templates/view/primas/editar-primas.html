@@ -1,0 +1,289 @@
+{% extends 'view/layout_dashboard.html' %}
+
+{% block html_title %}Editar Primas/Plan de Pagos | SIS-ARIAS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/primas/editar-primas.css') }}">
+{% endblock %}
+
+{% block page_title %}Editar Primas/Plan de Pagos{% endblock %}
+
+{% block content %}
+<div class="edit-primas-container">
+    <div class="mb-3">
+        <a href="{{ url_for('main.menu_page', page='primas') }}" class="text-decoration-none text-secondary">
+            <i class="bi-chevron-left"></i> Volver al listado Primas/Plan de Pagos
+        </a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-white border-bottom-0 pt-3 pb-2">
+            <h5 class="mb-0 text-dark fw-bold">
+                <i class="bi-check-square-fill me-2 text-dark"></i>Editar Primas/Plan de Pagos
+            </h5>
+        </div>
+        <div class="card-body pt-0">
+            <!-- Ejecutivo info header like in the screenshot if possible, otherwise just form -->
+             {% if prima and prima.ejecutivo %}
+            <div class="mb-3 fw-bold">
+                <i class="bi-check-square"></i> Ejecutivo: {{ prima.ejecutivo }} - Póliza: {{ prima.poliza }} - Ramo: {{ prima.ramo }}
+            </div>
+            {% endif %}
+
+            <form id="editPrimasForm">
+                <input type="hidden" id="idPrima" value="{{ prima.idPrima if prima else '' }}">
+
+                <!-- Tipo Doc -->
+                <div class="row mb-3 align-items-center">
+                    <label for="tipoDoc" class="col-sm-3 col-form-label text-end fw-bold">Tipo Doc <span class="text-danger">*</span></label>
+                    <div class="col-sm-9">
+                        <select class="form-select" id="tipoDoc">
+                            <option value="EMISION" {% if prima and prima.tipo_doc == 'EMISION' %}selected{% endif %}>EMISION</option>
+                            <option value="RENOVACION" {% if prima and prima.tipo_doc == 'RENOVACION' %}selected{% endif %}>RENOVACION</option>
+                            <option value="ENDOSO" {% if prima and prima.tipo_doc == 'ENDOSO' %}selected{% endif %}>ENDOSO</option>
+                            <option value="ANULACION" {% if prima and prima.tipo_doc == 'ANULACION' %}selected{% endif %}>ANULACION</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Solicitud -->
+                <div class="row mb-3 align-items-center">
+                    <label for="solicitud" class="col-sm-3 col-form-label text-end fw-bold">Solicitud</label>
+                    <div class="col-sm-9">
+                        <select class="form-select text-muted" id="solicitud" disabled>
+                            <option selected>** Selecciona un Solicitud</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Contratante -->
+                <div class="row mb-3 align-items-center">
+                    <label for="contratante" class="col-sm-3 col-form-label text-end fw-bold">Contratante <span class="text-danger">*</span></label>
+                    <div class="col-sm-9">
+                         <select class="form-select" id="contratante">
+                            {% if clientes_data and clientes_data.rows %}
+                            <option value="">Selecciona...</option>
+                            {% for c in clientes_data.rows %}
+                            <option value="{{ c.razon_social }}" {% if prima and c.razon_social == prima.cliente_razon_social %}selected{% endif %}>{{ c.razon_social }}</option>
+                            {% endfor %}
+                            {% else %}
+                            <option value="{{ prima.cliente_razon_social if prima else '' }}" selected>{{ prima.cliente_razon_social if prima else '' }}</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Compañía -->
+                <div class="row mb-3 align-items-center">
+                    <label for="compania" class="col-sm-3 col-form-label text-end fw-bold">Compañía</label>
+                    <div class="col-sm-9">
+                        <select class="form-select" id="compania">
+                            <option value="">Selecciona...</option>
+                             {% if aseguradoras_rows %}
+                                {% for a in aseguradoras_rows %}
+                                <option value="{{ a.nombre_corto }}" {% if prima and a.nombre_corto == prima.cia %}selected{% endif %}>{{ a.nombre_corto }}</option>
+                                {% endfor %}
+                             {% else %}
+                                <option value="{{ prima.cia if prima else '' }}" selected>{{ prima.cia if prima else '' }}</option>
+                             {% endif %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Ramo Producto -->
+                <div class="row mb-3 align-items-center">
+                    <label for="ramoProducto" class="col-sm-3 col-form-label text-end fw-bold">Ramo Producto</label>
+                    <div class="col-sm-9">
+                        <select class="form-select" id="ramoProducto">
+                            <option value="">Selecciona...</option>
+                             {% if ramos_abbrs %}
+                                {% for r in ramos_abbrs %}
+                                <option value="{{ r }}" {% if prima and r == prima.ramo %}selected{% endif %}>{{ r }}</option>
+                                {% endfor %}
+                             {% else %}
+                                <option value="{{ prima.ramo if prima else '' }}" selected>{{ prima.ramo if prima else '' }}</option>
+                             {% endif %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Vigencia Inicio -->
+                <div class="row mb-3 align-items-center">
+                    <label for="vigenciaInicio" class="col-sm-3 col-form-label text-end fw-bold">Vigencia Inicio <span class="text-danger">*</span></label>
+                    <div class="col-sm-4">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="vigenciaInicio" value="{{ prima.vig_desde if prima else '' }}">
+                            <span class="input-group-text"><i class="bi-calendar"></i></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vigencia Fin -->
+                <div class="row mb-3 align-items-center">
+                    <label for="vigenciaFin" class="col-sm-3 col-form-label text-end fw-bold">Vigencia Fin <span class="text-danger">*</span></label>
+                    <div class="col-sm-4">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="vigenciaFin" value="{{ prima.vig_hasta if prima else '' }}">
+                            <span class="input-group-text"><i class="bi-calendar"></i></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tipo de Pago -->
+                <div class="row mb-3 align-items-center">
+                    <label for="tipoPago" class="col-sm-3 col-form-label text-end fw-bold">Tipo de Pago</label>
+                    <div class="col-sm-9">
+                        <select class="form-select" id="tipoPago">
+                            <option value="CONTADO" {% if prima and prima.forma_pago == 'CONTADO' %}selected{% endif %}>CONTADO</option>
+                            <option value="CREDITO" {% if prima and prima.forma_pago == 'CREDITO' %}selected{% endif %}>CREDITO</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Moneda -->
+                <div class="row mb-3 align-items-center">
+                    <label for="moneda" class="col-sm-3 col-form-label text-end fw-bold">Moneda <span class="text-danger">*</span></label>
+                    <div class="col-sm-9">
+                        <select class="form-select" id="moneda">
+                            <option value="US$" {% if prima and prima.moneda in ['US$', 'DOLARES', 'USD'] %}selected{% endif %}>US$</option>
+                            <option value="S/." {% if prima and prima.moneda in ['S/.', 'SOLES', 'PEN'] %}selected{% endif %}>S/.</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Prima Comercial -->
+                <div class="row mb-3 align-items-center">
+                    <label for="primaComercial" class="col-sm-3 col-form-label text-end fw-bold">Prima Comercial</label>
+                    <div class="col-sm-9">
+                        <input type="number" step="0.01" class="form-control" id="primaComercial" value="{{ prima.prima_comercial if prima else '' }}">
+                    </div>
+                </div>
+
+                <!-- Prima Neta -->
+                <div class="row mb-3 align-items-center">
+                    <label for="primaNeta" class="col-sm-3 col-form-label text-end fw-bold">Prima Neta <span class="text-danger">*</span></label>
+                    <div class="col-sm-9">
+                        <input type="number" step="0.01" class="form-control" id="primaNeta" value="{{ prima.prima_neta if prima else '' }}">
+                    </div>
+                </div>
+
+                <!-- Prima Total / Bruta -->
+                <div class="row mb-3 align-items-center">
+                    <label for="primaTotal" class="col-sm-3 col-form-label text-end fw-bold">Prima Total / Bruta <span class="text-danger">*</span></label>
+                    <div class="col-sm-9">
+                        <input type="number" step="0.01" class="form-control" id="primaTotal" value="{{ prima.prima_comercial_igv if prima else '' }}">
+                    </div>
+                </div>
+
+                <!-- Motivo -->
+                <div class="row mb-3 align-items-center">
+                    <label for="motivo" class="col-sm-3 col-form-label text-end fw-bold">Motivo <span class="text-danger">*</span></label>
+                    <div class="col-sm-9">
+                        <input type="text" class="form-control" id="motivo" value="{{ prima.motivo if prima else '' }}">
+                    </div>
+                </div>
+
+                <!-- Número de Operación -->
+                <div class="row mb-3 align-items-center">
+                    <label for="nroOperacion" class="col-sm-3 col-form-label text-end fw-bold">Número de Operación</label>
+                    <div class="col-sm-9">
+                        <input type="text" class="form-control" id="nroOperacion" value="{{ prima.nro if prima else '' }}">
+                    </div>
+                </div>
+
+                <!-- % Comisión Compañía -->
+                <div class="row mb-3 align-items-center">
+                    <label for="comisionCompania" class="col-sm-3 col-form-label text-end fw-bold">% Comisión Compañía <span class="text-danger">*</span></label>
+                    <div class="col-sm-9">
+                        <input type="number" step="0.01" class="form-control" id="comisionCompania" value="{{ prima.porc_compania if prima else '' }}">
+                    </div>
+                </div>
+
+                <!-- Importe Comisión Compañía -->
+                <div class="row mb-3 align-items-center">
+                    <label for="importeComisionCompania" class="col-sm-3 col-form-label text-end fw-bold">Importe Comisión Compañía <span class="text-danger">*</span></label>
+                    <div class="col-sm-9">
+                        <input type="number" step="0.01" class="form-control" id="importeComisionCompania" value="{{ prima.imp_compania if prima else '' }}">
+                    </div>
+                </div>
+
+                <!-- Sub Agente -->
+                <div class="row mb-3 align-items-center">
+                    <label for="subAgente" class="col-sm-3 col-form-label text-end fw-bold">Sub Agente <span class="text-danger">*</span></label>
+                    <div class="col-sm-9">
+                        <select class="form-select" id="subAgente">
+                            <option value="">Selecciona...</option>
+                             <!-- Add options here -->
+                             {% if subagentes_abbrs %}
+                                {% for sa in subagentes_abbrs %}
+                                <option value="{{ sa }}" {% if prima and sa == prima.sub_agente %}selected{% endif %}>{{ sa }}</option>
+                                {% endfor %}
+                             {% endif %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- % Comisión Sub Agente -->
+                <div class="row mb-3 align-items-center">
+                    <label for="comisionSubAgente" class="col-sm-3 col-form-label text-end fw-bold">% Comisión Sub Agente <span class="text-danger">*</span></label>
+                    <div class="col-sm-9">
+                        <input type="number" step="0.01" class="form-control" id="comisionSubAgente" value="{{ prima.porc_subagente if prima else '' }}">
+                    </div>
+                </div>
+
+                <!-- Importe Comisión Sub Agente -->
+                <div class="row mb-3 align-items-center">
+                    <label for="importeComisionSubAgente" class="col-sm-3 col-form-label text-end fw-bold">Importe Comisión Sub Agente <span class="text-danger">*</span></label>
+                    <div class="col-sm-9">
+                        <input type="number" step="0.01" class="form-control" id="importeComisionSubAgente" value="{{ prima.imp_subagente if prima else '' }}">
+                    </div>
+                </div>
+
+                 <!-- Num. de la primera cuota -->
+                <div class="row mb-3 align-items-center">
+                    <label for="numPrimeraCuota" class="col-sm-3 col-form-label text-end fw-bold">Num. de la primera cuota</label>
+                    <div class="col-sm-9">
+                        <input type="text" class="form-control" id="numPrimeraCuota" value="{{ prima.recibo if prima else '' }}">
+                    </div>
+                </div>
+
+                <!-- Más Información -->
+                <div class="row mb-3">
+                    <label for="masInformacion" class="col-sm-3 col-form-label text-end fw-bold">Más Información</label>
+                    <div class="col-sm-9">
+                        <!-- Toolbar simulation -->
+                        <div class="border rounded-top p-2 bg-light d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-light border"><i class="bi-magic"></i></button>
+                            <button type="button" class="btn btn-sm btn-light border fw-bold">B</button>
+                            <button type="button" class="btn btn-sm btn-light border text-decoration-underline">U</button>
+                            <button type="button" class="btn btn-sm btn-light border"><i class="bi-eraser"></i></button>
+                            <!-- Simpler toolbar -->
+                            <button type="button" class="btn btn-sm btn-light border"><i class="bi-list-ul"></i></button>
+                        </div>
+                        <textarea class="form-control rounded-bottom rounded-top-0 border-top-0" id="masInformacion" rows="8">{{ prima.mas_informacion if prima else '' }}</textarea>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-5">
+        <button type="button" class="btn btn-light border">
+            <i class="bi-arrow-counterclockwise"></i> Volver
+        </button>
+        <button type="button" class="btn btn-success text-white" id="btnGuardar">
+            Guardar
+        </button>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block before_js %}
+<script>
+    window.currentPage = "primas"; 
+</script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{{ url_for('static', filename='js/primas/editar-primas.js') }}"></script>
+{% endblock %}

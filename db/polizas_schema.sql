@@ -448,6 +448,7 @@ DELIMITER $$
 CREATE PROCEDURE sp_list_primas_por_poliza(IN p_poliza VARCHAR(50))
 BEGIN
     SELECT
+        p.idPoliza,  -- Added ID
         p.recibo,
         p.poliza,
         c.razon_social AS contratante,
@@ -474,8 +475,11 @@ DELIMITER $$
 CREATE PROCEDURE sp_list_primas_por_cliente_id(IN p_cliente_id INT)
 BEGIN
     SELECT
+        p.idPoliza,  -- Added ID
+        p.recibo,
         p.ejecutivo AS Ejecutivo,          -- corregido: antes p.ejecutivos
         p.poliza,
+        c.razon_social AS contratante,
         p.asegurado AS Asegurado,
         p.cia AS compania,
         p.ramo,
@@ -499,7 +503,7 @@ CREATE PROCEDURE sp_get_poliza_detalle_por_numero(IN p_poliza VARCHAR(50))
 BEGIN
     SELECT
         p.asegurado AS asegurado,          
-        p.ejecutivo AS ejecutivo,         
+        p.ejecutivo AS Ejecutivo,         
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta
     FROM polizas p
@@ -583,7 +587,10 @@ CREATE PROCEDURE sp_update_poliza(
     IN p_imp_subagente DECIMAL(15,2),
     IN p_ramos_producto VARCHAR(120),
     IN p_tipo_doc VARCHAR(10),
-    IN p_estado VARCHAR(20)
+    IN p_estado VARCHAR(20),
+    IN p_nro VARCHAR(50), -- Nuevo
+    IN p_forma_pago VARCHAR(30), -- Nuevo
+    IN p_recibo VARCHAR(50) -- Nuevo
 )
 BEGIN
     UPDATE polizas SET
@@ -609,7 +616,10 @@ BEGIN
         imp_subagente = p_imp_subagente,
         ramos_producto = p_ramos_producto,
         tipo_doc = p_tipo_doc,
-        estado = p_estado
+        estado = p_estado,
+        nro = p_nro,
+        forma_pago = p_forma_pago,
+        recibo = p_recibo
     WHERE idPoliza = p_idPoliza;
 END$$
 DELIMITER ;
