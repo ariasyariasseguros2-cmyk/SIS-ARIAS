@@ -6,24 +6,24 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/listado-poliza.css') }}">
 {% endblock %}
 
-{% block page_title %}Pólizas{% endblock %}
+{% block page_title %}  {% endblock %}
 
 {% block content %}
 <!-- Barra superior: acciones rápidas y filtros -->
 <div class="filters-bar d-flex align-items-center gap-2 mb-3">
-  <div class="btn-group btn-group-sm">
-    <a class="btn btn-outline-primary" href="#"><i class="bi-calendar3"></i> Vencen este Mes</a>
-    <a class="btn btn-outline-success" href="#"><i class="bi-check-circle"></i> Ver Vigentes</a>
-    <a class="btn btn-outline-dark" href="#"><i class="bi-list-ul"></i> Ver Todos</a>
+  <div class="d-flex gap-2">
+    <a class="btn btn-primary btn-lift" href="#"><i class="bi-calendar3"></i> Vencen este Mes</a>
+    <a class="btn btn-success btn-lift" href="#"><i class="bi-check-circle"></i> Ver Vigentes</a>
+    <a class="btn btn-dark btn-lift" href="#"><i class="bi-list-ul"></i> Ver Todos</a>
   </div>
 
   <div class="ms-auto d-flex align-items-center gap-2">
-    <div class="input-group input-group-sm toolbar-search">
-      <span class="input-group-text"><i class="bi-search"></i></span>
-      <input type="text" class="form-control" placeholder="Buscar">
+    <div class="input-group input-group-sm toolbar-search search-round">
+      <span class="input-group-text bg-white"><i class="bi-search"></i></span>
+      <input type="text" class="form-control ps-0" placeholder="Buscar">
     </div>
     <div class="toolbar-pagesize">
-      <select id="page-size" class="form-select form-select-sm">
+      <select id="page-size" class="form-select form-select-sm rounded-pill">
         <option value="10" {% if pagination.per_page == 10 %}selected{% endif %}>10</option>
         <option value="20" {% if pagination.per_page == 20 %}selected{% endif %}>20</option>
         <option value="50" {% if pagination.per_page == 50 %}selected{% endif %}>50</option>
@@ -45,13 +45,10 @@
      data-base-url="{{ url_for('main.menu_page', page='listado-poliza') }}"
      data-edit-url="{{ url_for('main.menu_page', page='editar-poliza') }}"
      data-primas-url="{{ url_for('main.menu_page', page='primas') }}">
-  <div class="card-header d-flex align-items-center gap-2">
-    <i class="bi-shield"></i>
-    <span>Listado de Pólizas</span>
-  </div>
+  
   <div class="card-body p-0">
     <div class="table-responsive">
-      <table class="table table-striped table-hover table-sm m-0 align-middle" id="polizasListTable">
+      <table class="table table-hover table-sm m-0 align-middle" id="polizasListTable">
         <thead>
           <tr>
             <th>Contratante</th>
@@ -81,32 +78,30 @@
             <td>{{ r.sub_agente }}</td>
             <td>{{ r.asegurada }}</td>
             <td class="text-end">
-              <div class="chips-row">
-                <span class="chip chip-danger" role="button" data-action="anular">Anular</span>
-                <span class="chip chip-success" role="button" data-action="renovar">Renovar</span>
-                <span class="chip chip-primary" role="button" data-action="primas">Primas</span>
-              </div>
-              <div class="chips-row">
-                <span class="chip chip-info" role="button" data-action="extracto">Extracto</span>
-                <span class="chip chip-warning" role="button" data-action="siniestros">Siniestros</span>
-                <span class="chip chip-teal" role="button" data-action="solicitudes">Solicitudes</span>
-              </div>
-              <div class="btn-group btn-group-sm">
-                <button type="button" class="btn btn-primary">Acción</button>
-                <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
-                  <span class="visually-hidden">Toggle Dropdown</span>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end action-menu">
-                  <li><a class="dropdown-item" href="#" data-action="anular"><i class="bi-toggle2-off"></i> Anular</a></li>
-                  <li><a class="dropdown-item" href="#" data-action="renovar"><i class="bi-check2-circle"></i> Renovar</a></li>
-                  <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='primas') }}?poliza={{ r.poliza }}"><i class="bi-cash-stack"></i> Primas</a></li>
-                  <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='cuotas') }}?poliza={{ r.poliza }}"><i class="bi-file-earmark-lock"></i> Extracto</a></li>
-                  <li><a class="dropdown-item" href="#" data-action="siniestros"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
-                  <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi-briefcase"></i> Solicitudes</a></li>
-                  <li><a class="dropdown-item" href="#" data-action="detalles"><i class="bi-info-circle"></i> Detalles</a></li>
-                  <li><a class="dropdown-item" href="#" data-action="editar"><i class="bi-pencil-square"></i> Editar</a></li>
-                  <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash"></i> Eliminar</a></li>
-                </ul>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; max-width: 240px; margin-left: auto;">
+                <!-- Fila 1 -->
+                <a href="#" class="btn btn-danger btn-sm btn-lift w-100" data-action="anular">ANULAR</a>
+                <a href="#" class="btn btn-success btn-sm btn-lift w-100" data-action="renovar">RENOVAR</a>
+                
+                <!-- Fila 2 -->
+                <a href="{{ url_for('main.menu_page', page='primas') }}?poliza={{ r.poliza }}" class="btn btn-primary btn-sm btn-lift w-100">PRIMAS</a>
+                
+                <!-- Botón Acción con Dropdown -->
+                <div class="btn-group btn-group-sm w-100">
+                  <button type="button" class="btn btn-primary btn-sm btn-lift w-100" style="border-top-right-radius: 0; border-bottom-right-radius: 0;">ACCIÓN</button>
+                  <button type="button" class="btn btn-primary btn-sm btn-lift dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" style="min-width: 30px !important; width: 30px; padding-left: 0; padding-right: 0; border-top-left-radius: 0; border-bottom-left-radius: 0;">
+                    <span class="visually-hidden">Toggle Dropdown</span>
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end action-menu shadow border-0">
+                    <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='cuotas') }}?poliza={{ r.poliza }}"><i class="bi-file-text"></i> Extracto</a></li>
+                    <li><a class="dropdown-item" href="#" data-action="siniestros"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
+                    <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi-briefcase"></i> Solicitudes</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="#" data-action="detalles"><i class="bi-info-circle"></i> Detalles</a></li>
+                    <li><a class="dropdown-item" href="#" data-action="editar"><i class="bi-pencil-square"></i> Editar</a></li>
+                    <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash"></i> Eliminar</a></li>
+                  </ul>
+                </div>
               </div>
             </td>
           </tr>

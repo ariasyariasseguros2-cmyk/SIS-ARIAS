@@ -11,25 +11,22 @@
 {% block content %}
 <!-- Barra superior con acciones y búsqueda -->
 <div class="filters-bar d-flex align-items-center gap-2 mb-3">
-    <div class="btn-group btn-group-sm">
-        <a class="btn btn-success" href="#"><i class="bi-plus-lg"></i> Añadir</a>
-        <a class="btn btn-outline-primary" href="#"><i class="bi-calendar3"></i> Vencen este Mes</a>
-        <a class="btn btn-outline-secondary" href="#"><i class="bi-check-circle"></i> Ver Vigentes</a>
-        <a class="btn btn-outline-dark" href="#"><i class="bi-list-ul"></i> Ver Todos</a>
+    <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-success btn-lift" href="#"><i class="bi-plus-lg"></i> Añadir</a>
+        <a class="btn btn-primary btn-lift" href="#"><i class="bi-calendar3"></i> Vencen este Mes</a>
+        <a class="btn btn-success btn-lift" href="#"><i class="bi-check-circle"></i> Ver Vigentes</a>
+        <a class="btn btn-dark btn-lift" href="#"><i class="bi-list-ul"></i> Ver Todos</a>
     </div>
     <div class="ms-auto d-flex gap-2">
-        <div class="input-group input-group-sm" style="width: 280px;">
-            <span class="input-group-text"><i class="bi-search"></i></span>
-            <input id="primasSearch" type="text" class="form-control" placeholder="Buscar">
+        <div class="input-group input-group-sm search-round" style="width: 280px;">
+            <span class="input-group-text bg-white" style="border-top-left-radius: 50px; border-bottom-left-radius: 50px; border-right: none;"><i class="bi-search"></i></span>
+            <input id="primasSearch" type="text" class="form-control" placeholder="Buscar" style="border-top-right-radius: 50px; border-bottom-right-radius: 50px; border-left: none;">
         </div>
     </div>
 </div>
 
 <!-- Encabezado con datos principales -->
 <div class="card mb-3">
-    <div class="card-header fw-semibold">
-        <i class="bi-cash-stack"></i> Primas / Plan de Pagos
-    </div>
     <div class="card-body py-3">
         <div class="row g-3">
             <div class="col-md-3">
@@ -92,12 +89,12 @@
                         <td>{{ r.nro_operacion }}</td>
                         <td>{{ r.motivo }}</td>
                         <td class="text-end">
-                            <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-primary btn-cuotas" data-poliza="{{ r.poliza }}"><i class="bi-list-ol"></i> Cuotas</button>
-                                <button class="btn btn-outline-secondary btn-pdf" data-pdf="{{ r.pdf_url }}"><i class="bi-file-earmark-pdf"></i> Pdf</button>
-                                <button class="btn btn-outline-info btn-detalles"><i class="bi-eye"></i> Detalles</button>
-                                <button class="btn btn-outline-success btn-editar" data-id="{{ r.idPrima }}"><i class="bi-pencil"></i> Editar</button>
-                                <button class="btn btn-outline-danger btn-eliminar"><i class="bi-trash"></i> Eliminar</button>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; max-width: 250px; margin-left: auto;">
+                                <button class="btn btn-primary btn-lift btn-cuotas w-100" data-poliza="{{ r.poliza }}">Cuotas</button>
+                                <button class="btn btn-secondary btn-lift btn-pdf w-100" data-pdf="{{ r.pdf_url }}">Pdf</button>
+                                <button class="btn btn-info btn-lift btn-detalles w-100">Detalles</button>
+                                <button class="btn btn-success btn-lift btn-editar w-100" style="grid-column-start: 2;">Editar</button>
+                                <button class="btn btn-danger btn-lift btn-eliminar w-100">Eliminar</button>
                             </div>
                         </td>
                     </tr>

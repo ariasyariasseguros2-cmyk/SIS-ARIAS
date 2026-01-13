@@ -6,32 +6,178 @@
 .filters-bar .btn-group { flex-wrap: wrap; }
 .filters-bar .btn { white-space: nowrap; }
 
+/* Custom Buttons with Lift Effect */
+.btn-lift {
+    border-radius: 50px; /* Rounded pill shape */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    border: none;
+    color: #fff !important;
+    padding: 0.25rem 0.75rem; /* Reduced padding */
+    min-width: 70px; /* Reduced min-width */
+    font-size: 0.7rem; /* Smaller font size */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-weight: 600;
+    text-transform: uppercase; /* Ensure uppercase */
+    letter-spacing: 0.5px;
+}
+
+/* Gradients */
+.btn-lift.btn-primary {
+    background: linear-gradient(to right, #399AD6, #1F59A3);
+}
+
+.btn-lift.btn-success {
+    background: linear-gradient(to right, #4cd964, #28a745);
+}
+
+.btn-lift.btn-danger {
+    background: linear-gradient(to right, #ff6b6b, #c0392b);
+}
+
+.btn-lift.btn-secondary {
+    background: linear-gradient(to right, #6c757d, #545b62);
+}
+
+.btn-lift.btn-dark {
+    background: linear-gradient(to right, #343a40, #212529);
+}
+
+.btn-lift.btn-warning {
+    background: linear-gradient(to right, #f0ad4e, #ec971f);
+}
+
+.btn-lift.btn-info {
+    background: linear-gradient(to right, #17a2b8, #117a8b);
+    color: #fff !important;
+}
+
+.btn-lift.btn-teal {
+    background: linear-gradient(to right, #20c997, #198754);
+    color: #fff !important;
+}
+
+.btn-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
 /* Búsqueda y tamaño de página */
 .toolbar-search { width: 280px; }
 .toolbar-pagesize { width: 80px; }
 
-/* Links rápidos (píldoras) */
+/* Search Round Styling */
+.search-round .input-group-text {
+    border-top-left-radius: 50px !important;
+    border-bottom-left-radius: 50px !important;
+    background-color: #fff;
+    border-right: none;
+}
+
+.search-round .form-control {
+    border-top-right-radius: 50px !important;
+    border-bottom-right-radius: 50px !important;
+    border-left: none;
+}
+
+.search-round .form-control:focus {
+    box-shadow: none;
+    border-color: #ced4da;
+}
+
+/* Links rápidos (texto limpio con separadores) */  
 .quick-links {
   display: flex;
-  gap: .35rem;
+  align-items: center;
+  gap: 0;
   flex-wrap: wrap;
+  background-color: #fff;
+  padding: 8px 0;
+  border-bottom: 1px solid #e3f2fd; /* Division al terminar las opciones */
+  margin-bottom: 1rem;
 }
+
 .quick-links .qlink {
   display: inline-block;
-  padding: .35rem .6rem;
-  border-radius: .3rem;
-  border: 1px solid #d9d9dd;
-  background: #f8f9fa;
-  color: #333;
+  padding: 0 15px;
+  border-radius: 0;
+  border: none;
+  border-right: 2px solid #1E88E5; /* Division de azul */
+  background: transparent;
+  color: #555;
   font-size: .85rem;
   text-decoration: none;
+  font-weight: 600;
+  line-height: 1;
 }
-.quick-links .qlink:hover { background: #fff; }
+
+.quick-links .qlink:last-child {
+  border-right: none;
+}
+
+.quick-links .qlink:hover {
+  background: transparent;
+  color: #1E88E5;
+}
+
+/* Eliminar bordes de la tarjeta contenedora y sombras */
+.card, .card-body {
+    border: none !important;
+    box-shadow: none !important;
+    background-color: #ffffff !important;
+    border-radius: 0 !important;
+}
 
 /* Tabla */
 .table td, .table th { vertical-align: middle; }
-#polizasListTable { width: 100%; }
-.card-header { background: #f8f9fa; }
+#polizasListTable { 
+    width: 100%;
+    background-color: #FFFFFF;
+    border-collapse: collapse; /* Cambiado a collapse para línea continua perfecta */
+    border-spacing: 0;
+    border: none !important;
+}
+
+/* Asegurar que no haya bordes grises alrededor de la tabla */
+.table-responsive {
+    border: none !important;
+    box-shadow: none !important;
+    overflow-x: auto;
+}
+
+#polizasListTable thead th {
+    background-color: #FFFFFF;
+    color: #555;
+    font-weight: 600;
+    font-size: 13px;
+    border-bottom: 2px solid #1E88E5 !important; /* Borde inferior azul grueso */
+    padding: 16px 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+}
+
+#polizasListTable tbody td {
+    background-color: #FFFFFF;
+    border: none !important; /* Elimina todos los bordes de celdas */
+    padding: 14px 12px;
+    color: #333;
+    font-size: 14px;
+}
+
+/* Eliminar bordes por defecto de Bootstrap en la tabla */
+.table>:not(caption)>*>* {
+    border-bottom-width: 0;
+    box-shadow: none;
+    border-color: transparent;
+}
+
+.card-header { background: transparent; border-bottom: none; font-weight: bold; text-transform: uppercase; }
 
 /* Chips de acción */
 .chips-row { display: flex; justify-content: flex-end; gap: .25rem; margin-bottom: .25rem; }
@@ -70,8 +216,8 @@
 
 /* Paginación */
 .pagination-bar {
-  border-top: 1px solid #e5e7eb;
-  background: #f8f9fa;
+  border-top: none;
+  background: #FFFFFF;
   padding: .4rem .6rem;
 }
 .btn.disabled {

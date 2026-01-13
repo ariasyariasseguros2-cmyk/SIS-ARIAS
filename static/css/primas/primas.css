@@ -2,3 +2,146 @@
 .table thead th { font-weight: 600; }
 .table tbody td { vertical-align: middle; }
 .card-header .bi { margin-right: 6px; }
+
+/* Custom Buttons with Lift Effect */
+.btn-lift {
+    border-radius: 50px; /* Rounded pill shape */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    border: none;
+    color: #fff !important;
+    padding: 0.375rem 1rem;
+    min-width: 120px;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Gradients */
+.btn-lift.btn-primary {
+    background: linear-gradient(to right, #399AD6, #1F59A3);
+}
+
+.btn-lift.btn-success {
+    background: linear-gradient(to right, #4cd964, #28a745);
+}
+
+.btn-lift.btn-danger {
+    background: linear-gradient(to right, #ff6b6b, #c0392b);
+}
+
+.btn-lift.btn-dark {
+    background: linear-gradient(to right, #343a40, #212529);
+}
+
+.btn-lift.btn-warning {
+    background: linear-gradient(to right, #f0ad4e, #ec971f);
+}
+
+.btn-lift.btn-info {
+    background: linear-gradient(to right, #17a2b8, #117a8b);
+    color: #fff !important;
+}
+
+/* Table Specific Button Overrides */
+.table .btn-lift {
+    min-width: auto !important;
+    padding: 0.25rem 0.75rem !important;
+    font-size: 0.75rem !important;
+    height: auto;
+}
+
+.btn-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Search bar styles */
+.search-round .input-group-text,
+.search-round .form-control {
+    border-color: #dee2e6;
+}
+
+.search-round .input-group-text {
+    padding-left: 15px;
+}
+
+.search-round .form-control:focus {
+    box-shadow: none;
+    border-color: #399AD6;
+}
+
+/* Table Clean Styles - SAAS Look */
+.card {
+    border: none !important;
+    box-shadow: none !important;
+    background: #fff !important;
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #e9ecef;
+    padding-left: 0;
+}
+
+.table-responsive {
+    border: none !important;
+}
+
+.table {
+    border-collapse: collapse !important;
+    --bs-table-bg: #fff;
+    --bs-table-striped-bg: #fff;
+}
+
+.table > :not(caption) > * > * {
+    background-color: #fff !important;
+    border-bottom-width: 0;
+    box-shadow: none !important;
+}
+
+/* Header with blue bottom border */
+.table thead {
+    border-bottom: 2px solid #0d6efd !important;
+}
+
+.table thead th {
+    background-color: #fff !important;
+    border: none !important;
+    color: #495057;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    white-space: nowrap;
+}
+
+/* Rows with light blue separator */
+.table tbody tr {
+    border-bottom: 1px solid #eef2f7 !important;
+}
+
+.table tbody td {
+    border: none !important;
+    padding-top: 1.2rem;
+    padding-bottom: 1.2rem;
+    color: #333;
+    font-size: 0.85rem;
+}
+
+/* Hover effect */
+.table-hover > tbody > tr:hover > * {
+    --bs-table-accent-bg: transparent;
+    background-color: #f8f9fa !important;
+}
+
+/* Remove default table borders */
+.table-bordered, .table-bordered > thead > tr > th, .table-bordered > tbody > tr > td {
+    border: none !important;
+}
