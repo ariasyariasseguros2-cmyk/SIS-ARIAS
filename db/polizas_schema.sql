@@ -652,3 +652,34 @@ BEGIN
     END IF;
 END$$
 DELIMITER ;
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_reporte_archivos_poliza(IN p_busqueda VARCHAR(100))
+BEGIN
+    SELECT 
+        pa.idArchivo,
+        pa.ruta_archivo,
+        pa.nombre_original,
+        p.idPoliza,
+        p.poliza,
+        COALESCE(NULLIF(p.contrato_nro, ''), p.recibo) AS aviso_cob,
+        DATE_FORMAT(p.vig_desde, '%Y-%m-%d') AS vig_desde,
+        DATE_FORMAT(p.vig_hasta, '%Y-%m-%d') AS vig_hasta,
+        p.tipo_doc,
+        c.razon_social AS contratante,
+        DATE_FORMAT(pa.creado_en, '%Y-%m-%d %H:%i') AS fecha_subida
+    FROM poliza_archivos pa
+    INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
+    INNER JOIN clientes c ON p.cliente_id = c.idCliente
+    WHERE p_busqueda IS NULL OR p_busqueda = '' 
+       OR p.poliza LIKE CONCAT('%', p_busqueda, '%')
+       OR c.razon_social LIKE CONCAT('%', p_busqueda, '%')
+       OR pa.nombre_original LIKE CONCAT('%', p_busqueda, '%')
+       OR p.contrato_nro LIKE CONCAT('%', p_busqueda, '%')
+       OR p.recibo LIKE CONCAT('%', p_busqueda, '%')
+    ORDER BY pa.creado_en DESC
+    LIMIT 100;
+END$$
+
+DELIMITER ;

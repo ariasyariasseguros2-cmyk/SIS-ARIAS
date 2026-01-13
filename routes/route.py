@@ -15,6 +15,9 @@ def home():
     chart = get_dashboard_data()
     cards = get_dashboard_cards()
     return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards)
+from controllers.reportes.reporte_archivos_poliza import bp as reporte_archivos_bp
+bp.register_blueprint(reporte_archivos_bp)
+
 @bp.route('/dashboard')
 def dashboard():
     if 'user' not in session:
@@ -125,6 +128,10 @@ def menu_page(page):
             page_rows=page_rows,
             pagination=pagination
         )
+
+    # REPORTE: Archivos Póliza
+    if page == 'reporte-archivos-poliza':
+        return render_template('view/reportes/reporte-archivos-poliza.html')
 
     # Primas → plantilla dedicada
     if page == 'primas':
