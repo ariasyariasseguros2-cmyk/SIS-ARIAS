@@ -123,6 +123,19 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                     cnx.close()
                     err_ident = row_doc or row_name
                     return {"ok": False, "errors": [f"El cliente '{err_ident}' (extraído del PDF) no existe. Debes registrar cliente nuevo."]}
+                
+                # VALIDACIÓN ADICIONAL: Si se seleccionó un cliente explícito y el PDF trae otro, RECHAZAR.
+                # numero_documento viene del 'selected' global. found_row_doc es lo que hallamos en la BD para el PDF.
+                if numero_documento and found_row_doc != numero_documento:
+                    cur.close()
+                    cnx.close()
+                    return {
+                        "ok": False, 
+                        "errors": [
+                            f"El PDF corresponde al cliente {found_row_doc}, pero estás intentando guardarlo en la cuenta de {numero_documento}. Verifica el archivo o cambia de cliente."
+                        ]
+                    }
+                
                 target_doc = found_row_doc
 
             args = (
