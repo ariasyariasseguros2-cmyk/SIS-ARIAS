@@ -24,7 +24,7 @@ DELIMITER ;
 CREATE TABLE IF NOT EXISTS clientes (
     idCliente INT AUTO_INCREMENT PRIMARY KEY,
     razon_social VARCHAR(150) NOT NULL,
-    tipo_documento ENUM('DNI', 'RUC', 'CE', 'PAS') NOT NULL,
+    tipo_documento ENUM('DNI', 'RUC', 'CE', 'PAS', 'CEX', 'DNI/CEDULA') NOT NULL,
     numero_documento VARCHAR(20) NOT NULL UNIQUE,
     telefono VARCHAR(20),
     subagente VARCHAR(100),
@@ -32,14 +32,14 @@ CREATE TABLE IF NOT EXISTS clientes (
     direccion VARCHAR(200),
     estado VARCHAR(20) DEFAULT 'Vigente',
     tipo_persona TINYINT NULL,
-    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_registro DATETIME,
     fecha_actualizacion TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP
 );
 
 DELIMITER $$
 CREATE PROCEDURE sp_insert_cliente (
     IN p_razon_social VARCHAR(150),
-    IN p_tipo_documento VARCHAR(10),
+    IN p_tipo_documento VARCHAR(20),
     IN p_numero_documento VARCHAR(20),
     IN p_telefono VARCHAR(20),
     IN p_subagente VARCHAR(100),
@@ -144,6 +144,18 @@ CREATE TABLE IF NOT EXISTS polizas (
     FOREIGN KEY (cliente_id) REFERENCES clientes(idCliente)
 );
 
+-- Tabla para archivos de pólizas (separada)
+CREATE TABLE IF NOT EXISTS poliza_archivos (
+    idArchivo INT AUTO_INCREMENT PRIMARY KEY,
+    poliza_id INT NOT NULL,
+    numero_poliza VARCHAR(50),
+    ruta_archivo VARCHAR(255) NOT NULL,
+    nombre_original VARCHAR(255),
+    origen VARCHAR(50) DEFAULT 'CARGA_MASIVA',
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (poliza_id) REFERENCES polizas(idPoliza) ON DELETE CASCADE
+);
+
 DELIMITER $$
 CREATE PROCEDURE sp_get_cliente_por_numero(IN p_numero_documento VARCHAR(20))
 BEGIN
@@ -198,13 +210,15 @@ CREATE PROCEDURE sp_insert_poliza_por_numero (
 
     -- IN p_motivo VARCHAR(200),          -- ELIMINADO
     IN p_ramos_producto VARCHAR(120),
-    IN p_estado VARCHAR(20)
+    IN p_estado VARCHAR(20),
+    IN p_pdf_path VARCHAR(255)
 )
 BEGIN
     DECLARE v_cliente_id INT;
     DECLARE v_exists INT DEFAULT 0;
     DECLARE v_msg VARCHAR(255);
     DECLARE v_key VARCHAR(50); -- clave para duplicados: contrato_nro o recibo
+    DECLARE v_poliza_id INT;
 
     SELECT idCliente INTO v_cliente_id
     FROM clientes
@@ -255,6 +269,13 @@ BEGIN
         p_porc_compania, p_imp_compania, p_porc_subagente, p_imp_subagente,
         p_ramos_producto, p_estado
     );
+
+    SET v_poliza_id = LAST_INSERT_ID();
+
+    IF p_pdf_path IS NOT NULL AND p_pdf_path <> '' THEN
+        INSERT INTO poliza_archivos (poliza_id, numero_poliza, ruta_archivo, nombre_original)
+        VALUES (v_poliza_id, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1));
+    END IF;
 END$$
 DELIMITER ;
 -- NUEVO: listado global de pólizas (opcional, si prefieres usar SP)
@@ -275,7 +296,8 @@ BEGIN
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
         p.sub_agente,
-        p.asegurada
+        p.asegurada,
+    (SELECT ruta_archivo FROM poliza_archivos WHERE poliza_id = p.idPoliza ORDER BY idArchivo DESC LIMIT 1) AS pdf_path
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
     ORDER BY p.creado_en DESC;
@@ -300,7 +322,8 @@ BEGIN
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
         p.sub_agente,
-        p.asegurada
+        p.asegurada,
+    (SELECT ruta_archivo FROM poliza_archivos WHERE poliza_id = p.idPoliza ORDER BY idArchivo DESC LIMIT 1) AS pdf_path
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
     WHERE c.numero_documento = p_numero_documento
@@ -435,7 +458,8 @@ BEGIN
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
         p.sub_agente,
-        p.asegurada
+        p.asegurada,
+    (SELECT ruta_archivo FROM poliza_archivos WHERE poliza_id = p.idPoliza ORDER BY idArchivo DESC LIMIT 1) AS pdf_path
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
     WHERE p.cliente_id = p_cliente_id
@@ -621,5 +645,10 @@ BEGIN
         forma_pago = p_forma_pago,
         recibo = p_recibo
     WHERE idPoliza = p_idPoliza;
+
+    IF p_pdf_path IS NOT NULL AND p_pdf_path <> '' THEN
+        INSERT INTO poliza_archivos (poliza_id, numero_poliza, ruta_archivo, nombre_original, origen)
+        VALUES (p_idPoliza, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1), 'EDICION');
+    END IF;
 END$$
 DELIMITER ;

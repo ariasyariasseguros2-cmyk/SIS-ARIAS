@@ -28,6 +28,7 @@
   let autoSaveTimer = null;
   const AUTO_SAVE_ENABLED = false;
   let isSaving = false;
+  let lastUploadedFilename = null;
 
   // Ventana modal de carga (Bootstrap) y alternativa con SweetAlert2
   const loadingModalEl = document.getElementById('loadingModal');
@@ -655,7 +656,6 @@
   });
 
   // Upload handler
-  let lastUploadedFilename = null;
   btnUpload?.addEventListener('click', () => {
     const file = fileEl?.files?.[0];
     if (!file) { alert('Selecciona un PDF.'); return; }
@@ -829,11 +829,12 @@
         subagente: (document.getElementById('subAgenteTop')?.value ||
                     document.getElementById('subAgente')?.value ||
                     (window.selectedCliente || {}).subagente || ''),
-        motivo: (motivoTop?.value || '').trim(),
+        motivo: (motivoTopEl?.value || '').trim(),
         ramos_producto: (ramoProductoTopEl?.value || '').trim(),
         tipo_doc: (tipoDocTopEl?.value || '').trim() || ((window.selectedCliente || {}).tipo_doc || (window.selectedCliente || {}).tipo_documento || ''),
         // NUEVO: ejecutivo desde el select superior
-        ejecutivo: (ejecutivoTopEl?.value || '').trim()
+        ejecutivo: (ejecutivoTopEl?.value || '').trim(),
+        pdf_filename: lastUploadedFilename
       });
 
       // Asegurar 'asegurado' y limpiar 'ramo' si no coincide con abbrs; forzar ramos_producto desde el bloque superior si existe
@@ -853,6 +854,9 @@
         }
         return copy;
       });
+
+      // NUEVO: Log para verificar lo que se envía
+      console.log('[save:manual] sending selected:', selected);
 
       const r = await fetch('/polizas/save', {
         method: 'POST',
@@ -930,7 +934,8 @@
       const selected = Object.assign({}, (window.selectedCliente || {}), {
         subagente: (document.getElementById('subAgenteTop')?.value ||
                     document.getElementById('subAgente')?.value ||
-                    (window.selectedCliente || {}).subagente || '')
+                    (window.selectedCliente || {}).subagente || ''),
+        pdf_filename: lastUploadedFilename
       });
       try {
         const r = await fetch('/polizas/save', {
@@ -1040,7 +1045,8 @@
       const selected = Object.assign({}, (window.selectedCliente || {}), {
         subagente: (document.getElementById('subAgenteTop')?.value ||
                     document.getElementById('subAgente')?.value ||
-                    (window.selectedCliente || {}).subagente || '')
+                    (window.selectedCliente || {}).subagente || ''),
+        pdf_filename: lastUploadedFilename
       });
       try {
         const r = await fetch('/polizas/save', {
