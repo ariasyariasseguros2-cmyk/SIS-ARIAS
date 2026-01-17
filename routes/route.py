@@ -34,7 +34,7 @@ def menu_page(page):
 
     # Clientes → renderiza su plantilla dedicada con sus datos
     if page == 'clientes':
-        from controllers.cliente import get_clientes_data
+        from controllers.clientes.cliente import get_clientes_data
         data = get_clientes_data()
 
         # Pagination logic
@@ -504,10 +504,53 @@ def clientes_add():
         return {'ok': False, 'errors': ['No autenticado']}, 401
 
     data = (request.get_json(silent=True) or request.form.to_dict())
-    from controllers.addcliente import save_cliente
+    from controllers.clientes.addcliente import save_cliente
     res = save_cliente(data)
     status = 200 if res.get('ok') else 400
     return res, status
+
+
+@bp.route('/clientes/extract-pdf', methods=['POST'])
+def clientes_extract_pdf():
+    """Endpoint para extraer información de cliente desde un PDF."""
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    if 'pdf_file' not in request.files:
+        return {'ok': False, 'errors': ['No se envió ningún archivo PDF']}, 400
+
+    file = request.files['pdf_file']
+
+    if file.filename == '':
+        return {'ok': False, 'errors': ['Nombre de archivo vacío']}, 400
+
+    if not file.filename.lower().endswith('.pdf'):
+        return {'ok': False, 'errors': ['El archivo debe ser un PDF']}, 400
+
+    try:
+        # Guardar archivo temporalmente
+        filename = secure_filename(file.filename)
+        temp_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'temp_' + filename)
+        file.save(temp_path)
+
+        # Procesar PDF
+        from controllers.clientes.pdf_extractor import process_pdf_file
+        result = process_pdf_file(temp_path)
+
+        # Eliminar archivo temporal
+        try:
+            os.remove(temp_path)
+        except:
+            pass
+
+        if result.get('ok'):
+            return {'ok': True, 'data': result.get('data', {}), 'debug': result.get('raw_text', '')}, 200
+        else:
+            return {'ok': False, 'errors': [result.get('error', 'Error procesando PDF')]}, 400
+
+    except Exception as e:
+        current_app.logger.error(f'Error en extract-pdf: {e}')
+        return {'ok': False, 'errors': [str(e)]}, 500
 
 
 @bp.route('/clientes/select', methods=['POST'])
@@ -1053,4 +1096,3 @@ def api_aseguradoras():
     from controllers.compania import get_aseguradoras
     rows = get_aseguradoras() or []
     return {'ok': True, 'rows': rows}, 200
-
