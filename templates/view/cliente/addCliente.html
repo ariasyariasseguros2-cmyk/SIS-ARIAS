@@ -18,7 +18,29 @@
             </a>
           </div>
 
-          <!-- SECCIÓN 1: IDENTIFICACIÓN Y DATOS PRINCIPALES -->
+          <!--coso de pdf -->
+          <div class="mb-5">
+            <div class="alert alert-info d-flex align-items-start" role="alert">
+              <i class="bi-file-earmark-pdf fs-4 me-3"></i>
+              <div class="flex-grow-1">
+                <h6 class="alert-heading mb-2">
+                  <i class="bi-magic"></i> Auto-rellenar desde PDF
+                </h6>
+                <p class="mb-2 small">Carga un PDF de póliza o documento del cliente para extraer automáticamente sus datos.</p>
+                <div class="d-flex gap-2 align-items-center">
+                  <input type="file" id="pdfFileInput" accept=".pdf" class="form-control form-control-sm" style="max-width: 300px;" />
+                  <button type="button" id="btnExtractPDF" class="btn btn-sm btn-primary">
+                    <i class="bi-upload me-1"></i> Extraer Datos
+                  </button>
+                  <button type="button" id="btnClearPDF" class="btn btn-sm btn-outline-secondary" style="display:none;">
+                    <i class="bi-x-circle"></i> Limpiar
+                  </button>
+                </div>
+                <div id="pdfExtractionStatus" class="mt-2 small" style="display:none;"></div>
+              </div>
+            </div>
+          </div>
+            <!-- SECCIÓN 1: DATOS DE IDENTIFICACIÓN -->
           <div class="mb-5">
             <h6 class="section-title text-primary"><i class="bi-person-badge me-2"></i> Datos de Identificación</h6>
             <div class="section-box">
