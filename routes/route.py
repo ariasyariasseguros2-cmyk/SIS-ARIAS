@@ -219,6 +219,35 @@ def menu_page(page):
             clientes_data=get_clientes_data()
         )
 
+        # NUEVO: Avisos - Documentos
+    if page == 'avisos':
+        from controllers.editar_poliza import get_poliza_data
+        
+        prima_id = request.args.get('id')
+        if not prima_id:
+             return redirect(url_for('main.menu_page', page='primas'))
+        
+        prima = get_poliza_data(prima_id)
+        if not prima:
+             return redirect(url_for('main.menu_page', page='primas'))
+
+        # Prepare documents list
+        documents = []
+        pdf_url = prima.get('pdf_url')
+        if pdf_url:
+             documents.append({
+                 'name': pdf_url, 
+                 'url': pdf_url
+             })
+
+        return render_template(
+            'view/avisos/avisos.html',
+            page='avisos',
+            prima=prima,
+            documents=documents
+        )
+
+
     # NUEVO: página “Añadir Póliza”
     if page == 'anadir-poliza':
         from controllers.addPoliza import get_rows

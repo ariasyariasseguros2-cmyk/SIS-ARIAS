@@ -6,21 +6,49 @@
 .cuotas-header .left { display: flex; align-items: center; gap: 12px; }
 .section-title { margin: 0; font-size: 20px; font-weight: 600; }
 .section-title .icon { margin-right: 6px; }
-.btn { border: 1px solid #2e7d32; background: #2e7d32; color: #fff; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
-.btn-success { background: #2ecc71; border-color: #2ecc71; }
 
 /* Importe card */
 .importe-card {
-  display: flex; align-items: center; gap: 12px;
-  background: #f5fbff; border: 1px solid #cfe9ff; border-radius: 6px;
-  padding: 10px 14px;
+  display: flex; align-items: center; gap: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+
+.importe-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+}
+
 .importe-icon {
-  width: 56px; height: 56px; border: 2px solid #cfe9ff; border-radius: 6px;
-  display: flex; align-items: center; justify-content: center; font-weight: 700; color: #4a90e2; background: #e9f6ff;
+  width: 52px; height: 52px;
+  border: none;
+  border-radius: 50%; /* Circular */
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: #1E88E5; /* Primary Blue */
+  background: #e3f2fd; /* Light Blue bg */
 }
-.importe-text .importe-monto { font-size: 22px; font-weight: 700; }
-.importe-text .importe-label { font-size: 11px; color: #666; }
+
+.importe-text .importe-monto {
+  font-size: 26px;
+  font-weight: 800;
+  color: #1e293b; /* Dark slate */
+  line-height: 1.1;
+}
+
+.importe-text .importe-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b; /* Slate gray */
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
 
 /* Breadcrumb */
 .breadcrumb-line { margin: 6px 0 12px; font-size: 13px; }
@@ -39,17 +67,273 @@
 
 /* Toolbar */
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }
-.toolbar input[type="text"] { width: 260px; padding: 6px 8px; border: 1px solid #cfd8dc; border-radius: 4px; }
-.toolbar select { padding: 6px 8px; border: 1px solid #cfd8dc; border-radius: 4px; }
+.toolbar input[type="text"] { width: 260px; padding: 6px 8px; border: 1px solid #cfd8dc; border-radius: 50px; }
+/* Reset search focus to avoid blue glow */
+.toolbar input[type="text"]:focus {
+  border-color: #cfd8dc;
+  box-shadow: none;
+}
+
+.toolbar select {
+    padding: 6px 8px;
+    border: 1px solid #cfd8dc;
+    border-radius: 50px;
+    /* Remove default arrow */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: none !important;
+    text-align: center;
+    width: auto;
+    min-width: 50px;
+    cursor: pointer;
+}
+.toolbar select:focus {
+    box-shadow: none;
+    border-color: #cfd8dc;
+}
+
+.search-round .input-group-text {
+  border-top-left-radius: 50px !important;
+  border-bottom-left-radius: 50px !important;
+}
+
+.search-round .form-control {
+  border-top-right-radius: 50px !important;
+  border-bottom-right-radius: 50px !important;
+}
+/* Ensure input group text focus doesn't glow blue */
+.search-round .form-control:focus {
+    box-shadow: none;
+    border-color: #cfd8dc;
+}
 
 /* Table */
-.cuotas-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e5e7eb; }
-.cuotas-table thead th { background: #f9fafb; font-weight: 600; font-size: 13px; padding: 8px; border-bottom: 1px solid #e5e7eb; }
-.cuotas-table tbody td { padding: 8px; border-top: 1px solid #f1f3f5; font-size: 13px; }
-.actions .btn { margin-right: 4px; font-size: 12px; padding: 4px 8px; border-radius: 3px; }
-.btn-xs { font-size: 12px; }
+.cuotas-table {
+    background-color: #FFFFFF;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.cuotas-table thead th {
+    background-color: #FFFFFF;
+    color: #555;
+    font-weight: 600;
+    font-size: 13px;
+    border-bottom: 2px solid #1E88E5; /* Blue header line */
+    padding: 16px 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.cuotas-table tbody tr {
+    background-color: #FFFFFF !important; /* Force white background */
+}
+
+.cuotas-table tbody td {
+    background-color: #FFFFFF;
+    border-bottom: 1px solid #e3f2fd;
+    padding: 14px 12px;
+    color: #333;
+    font-size: 13px;
+    vertical-align: middle;
+}
+
+.cuotas-table tbody tr:hover td {
+    background-color: #fafafa;
+}
+
+.actions .btn { font-size: 12px; }
 .btn-pdf { background: #e74c3c; border-color: #e74c3c; }
 .btn-revert { background: #3498db; border-color: #3498db; }
 .btn-details { background: #16a085; border-color: #16a085; }
 .btn-edit { background: #f1c40f; border-color: #f1c40f; color: #000; }
 .btn-delete { background: #7f8c8d; border-color: #7f8c8d; }
+
+/* Custom Buttons with Lift Effect */
+.btn-lift {
+    border-radius: 50px; /* Rounded pill shape */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    border: none;
+    color: #fff !important;
+    padding: 0.375rem 1rem;
+    min-width: 100px;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Compact buttons in table */
+.actions .btn-lift {
+    min-width: auto;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.7rem;
+    border-radius: 50px;
+}
+
+/* Gradients */
+.btn-lift.btn-success {
+    background: linear-gradient(to right, #4cd964, #28a745);
+}
+
+.btn-lift.btn-pdf {
+    background: linear-gradient(to right, #ff6b6b, #c0392b);
+    border: none;
+}
+
+.btn-lift.btn-revert {
+    background: linear-gradient(to right, #3498db, #2980b9);
+    border: none;
+}
+
+.btn-lift.btn-details {
+    background: linear-gradient(to right, #1abc9c, #16a085);
+    border: none;
+}
+
+.btn-lift.btn-edit {
+    background: linear-gradient(to right, #f1c40f, #f39c12);
+    color: #fff !important;
+    border: none;
+}
+
+.btn-lift.btn-delete {
+    background: linear-gradient(to right, #95a5a6, #7f8c8d);
+    border: none;
+}
+
+.btn-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.btn-lift:active {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Modal Detalles */
+.cuota-details {
+  font-size: 0.9rem;
+}
+
+.cuota-details-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.cuota-details-value {
+  color: #1e293b;
+}
+
+.cuota-details .row + .row {
+  margin-top: 0.25rem;
+}
+
+.cuota-edit {
+  font-size: 0.9rem;
+}
+
+.cuota-edit .form-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.5px;
+  color: #64748b;
+}
+
+.cuota-edit .form-control,
+.cuota-edit textarea {
+  border-radius: 0.5rem;
+}
+
+.cuota-edit-section {
+  font-size: 0.9rem;
+}
+
+#cuotaConfirmModal .modal-content,
+#cuotaDetailsModal .modal-content,
+#cuotaEditModal .modal-content {
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.25);
+}
+
+#cuotaConfirmModal .modal-header,
+#cuotaDetailsModal .modal-header,
+#cuotaEditModal .modal-header {
+  border-bottom: none;
+  padding-bottom: 0.25rem;
+}
+
+#cuotaConfirmModal .modal-title,
+#cuotaDetailsModal .modal-title,
+#cuotaEditModal .modal-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+#cuotaConfirmModal .modal-body,
+#cuotaDetailsModal .modal-body,
+#cuotaEditModal .modal-body {
+  padding-top: 0;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+#cuotaConfirmModal .modal-footer,
+#cuotaDetailsModal .modal-footer,
+#cuotaEditModal .modal-footer {
+  border-top: none;
+  padding-top: 0.5rem;
+}
+
+#cuotaConfirmModal .btn-danger {
+  border-radius: 999px;
+  padding-inline: 1.5rem;
+  background: linear-gradient(to right, #ff6b6b, #c0392b);
+  border: none;
+  font-weight: 600;
+}
+
+#cuotaConfirmModal .btn-outline-secondary {
+  border-radius: 999px;
+  padding-inline: 1.4rem;
+  font-weight: 500;
+}
+
+#cuotaDetailsModal .btn-secondary {
+  border-radius: 999px;
+  padding-inline: 1.5rem;
+  font-weight: 500;
+}
+
+#cuotaEditModal .btn-success {
+  border-radius: 999px;
+  padding-inline: 1.6rem;
+  background: linear-gradient(to right, #4cd964, #28a745);
+  border: none;
+  font-weight: 600;
+}
+
+#cuotaEditModal .btn-outline-secondary {
+  border-radius: 999px;
+  padding-inline: 1.4rem;
+  font-weight: 500;
+}
+
+.cuota-edit .btn-doc {
+  border-radius: 999px;
+  padding-inline: 1.1rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}

@@ -6,52 +6,57 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/primas/primas.css') }}">
 {% endblock %}
 
-{% block page_title %}{{ title }}{% endblock %}
+{% block page_title %}{% endblock %}
 
 {% block content %}
-<!-- Barra superior con acciones y búsqueda -->
+<!-- Barra superior con título y acción -->
 <div class="filters-bar d-flex align-items-center gap-2 mb-3">
-    <div class="d-flex gap-2 flex-wrap">
+    <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-receipt text-primary"></i>
+        <span class="fw-bold text-dark">Primas / Plan de Pagos</span>
         <a class="btn btn-success btn-lift" href="#"><i class="bi-plus-lg"></i> Añadir</a>
-        <a class="btn btn-primary btn-lift" href="#"><i class="bi-calendar3"></i> Vencen este Mes</a>
-        <a class="btn btn-success btn-lift" href="#"><i class="bi-check-circle"></i> Ver Vigentes</a>
-        <a class="btn btn-dark btn-lift" href="#"><i class="bi-list-ul"></i> Ver Todos</a>
-    </div>
-    <div class="ms-auto d-flex gap-2">
-        <div class="input-group input-group-sm search-round" style="width: 280px;">
-            <span class="input-group-text bg-white" style="border-top-left-radius: 50px; border-bottom-left-radius: 50px; border-right: none;"><i class="bi-search"></i></span>
-            <input id="primasSearch" type="text" class="form-control" placeholder="Buscar" style="border-top-right-radius: 50px; border-bottom-right-radius: 50px; border-left: none;">
-        </div>
     </div>
 </div>
 
 <!-- Encabezado con datos principales -->
-<div class="card mb-3">
-    <div class="card-body py-3">
-        <div class="row g-3">
-            <div class="col-md-3">
-                <div class="text-muted small">Ejecutivo</div>
-                <div class="fw-semibold">{{ details.ejecutivo }}</div>
+<div class="card mb-3 header-card">
+    <div class="card-body p-4">
+        <div class="d-flex flex-column gap-3">
+            <!-- Info Asegurado -->
+            <div class="d-flex align-items-center gap-2 p-3 bg-light rounded-3 border-start border-4 border-primary">
+                <i class="bi bi-person-badge text-primary fs-4"></i>
+                <div>
+                    <div class="fw-bold text-dark">Asegurado: {{ details.asegurado }}</div>
+                    <div class="small text-muted">
+                        Póliza: <span class="fw-medium text-dark">{{ details.poliza }}</span>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-3">
-                <div class="text-muted small">Póliza</div>
-                <div class="fw-semibold">{{ details.poliza }}</div>
-            </div>
-            <div class="col-md-3">
-                <div class="text-muted small">Asegurado</div>
-                <div class="fw-semibold">{{ details.asegurado }}</div>
-            </div>
-            <div class="col-md-3">
-                <div class="text-muted small">Vigencia</div>
-                <div class="fw-semibold">{{ details.vig_desde }} al {{ details.vig_hasta }}</div>
+
+            <!-- Grid Resumen -->
+            <div class="row g-3 mt-1">
+                <div class="col-6 col-md-3">
+                    <label class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Ejecutivo</label>
+                    <div class="fs-6 text-dark fw-medium">{{ details.ejecutivo }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Vigencia</label>
+                    <div class="fs-6 text-dark fw-medium">{{ details.vig_desde }} al {{ details.vig_hasta }}</div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Tabla de primas -->
-<div class="card">
-    <div class="card-body p-0">
+<div class="card card-bordered">
+    <div class="card-body pt-2 pb-0">
+        <div class="d-flex justify-content-end mb-2">
+            <div class="input-group input-group-sm search-round" style="width: 280px;">
+                <span class="input-group-text bg-white" style="border-top-left-radius: 50px; border-bottom-left-radius: 50px; border-right: none;"><i class="bi-search"></i></span>
+                <input id="primasSearch" type="text" class="form-control" placeholder="Buscar" style="border-top-right-radius: 50px; border-bottom-right-radius: 50px; border-left: none;">
+            </div>
+        </div>
         <div class="table-responsive">
             <table id="primasTable" class="table table-striped table-hover m-0 align-middle">
                 <thead class="table-light">
@@ -91,7 +96,7 @@
                         <td class="text-end">
                             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; max-width: 250px; margin-left: auto;">
                                 <button class="btn btn-primary btn-lift btn-cuotas w-100" data-poliza="{{ r.poliza }}">Cuotas</button>
-                                <button class="btn btn-secondary btn-lift btn-pdf w-100" data-pdf="{{ r.pdf_url }}">Pdf</button>
+                                <a href="{{ url_for('main.menu_page', page='avisos') }}?id={{ r.idPrima }}" class="btn btn-secondary btn-lift w-100">Pdf</a>
                                 <button class="btn btn-info btn-lift btn-detalles w-100">Detalles</button>
                                 <button class="btn btn-success btn-lift btn-editar w-100" data-id="{{ r.idPrima }}" style="grid-column-start: 2;">Editar</button>
                                 <button class="btn btn-danger btn-lift btn-eliminar w-100">Eliminar</button>

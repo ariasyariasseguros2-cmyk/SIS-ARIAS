@@ -8,112 +8,296 @@
 
 {% block page_title %}{{ title }}{% endblock %}
 
+{% block before_js %}
+<script>
+  window.currentPage = "{{ page }}";
+  window.currentUser = "{{ session.get('user', '') }}";
+</script>
+{% endblock %}
+
 {% block content %}
-<div class="cuotas-header">
-  <div class="left">
-    <h2 class="section-title">
-      <span class="icon">💳</span> Cuotas
-    </h2>
-    <a href="#" class="btn btn-success btn-add" onclick="Cuotas.onAdd()">Añadir</a>
+<div class="mb-3">
+  <div class="d-flex align-items-center">
+    <div class="d-flex align-items-center gap-2">
+      <h1 class="h5 m-0 d-flex align-items-center section-title">
+        <span class="icon me-2">💳</span> Cuotas
+      </h1>
+      <button type="button" class="btn btn-success btn-sm btn-lift btn-add" onclick="Cuotas.onAdd()">Añadir</button>
+    </div>
   </div>
-  <div class="importe-card">
-    <div class="importe-icon">S/.</div>
-    <div class="importe-text">
-      <div class="importe-monto">{{ total_monto }}</div>
-      <div class="importe-label">IMPORTE TOTAL</div>
+  <div class="mt-3">
+    <div class="d-inline-flex importe-card">
+      <div class="importe-icon">S/.</div>
+      <div class="importe-text">
+        <div class="importe-monto">{{ total_monto }}</div>
+        <div class="importe-label">IMPORTE TOTAL</div>
+      </div>
     </div>
   </div>
 </div>
 
-<div class="breadcrumb-line">
-  <a href="{{ url_for('main.menu_page', page='cuotas') }}" class="link-back">Volver al listado Cuotas</a>
+<div class="breadcrumb-line mb-2">
+  <a href="{{ url_for('main.menu_page', page='primas', poliza=encabezado.poliza) }}" class="link-back">Volver al listado Primas</a>
 </div>
 
-<div class="cuotas-info">
-  <div class="contratante">
-    Contratante: {{ encabezado.contratante }} - Póliza: {{ encabezado.poliza }} - {{ encabezado.compania }} - {{ encabezado.ramo }}
+<div class="card mb-3">
+  <div class="card-body p-4">
+    <div class="d-flex flex-column gap-3">
+      <!-- Info Contratante -->
+      <div class="d-flex align-items-center gap-2 p-3 bg-light rounded-3 border-start border-4 border-primary">
+        <i class="bi bi-building text-primary fs-4"></i>
+        <div>
+          <div class="fw-bold text-dark">Contratante: {{ encabezado.contratante }}</div>
+          <div class="small text-muted">
+            Póliza: <span class="fw-medium text-dark">{{ encabezado.poliza }}</span>
+            <span class="mx-1">|</span> {{ encabezado.compania }}
+            <span class="mx-1">|</span> {{ encabezado.ramo }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid Resumen -->
+      <div class="row g-3 mt-1">
+        <div class="col-6 col-md-3">
+          <label class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Aviso Cob</label>
+          <div class="fs-6 text-dark fw-medium">{{ resumen.aviso_cob }}</div>
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Vigencia Inicio</label>
+          <div class="fs-6 text-dark fw-medium">{{ resumen.vig_inicio }}</div>
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Vigencia Fin</label>
+          <div class="fs-6 text-dark fw-medium">{{ resumen.vig_fin }}</div>
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Tipo Doc</label>
+          <div class="fs-6 text-dark fw-medium">{{ resumen.tipo_doc }}</div>
+        </div>
+        <div class="col-12 pt-2 border-top">
+          <label class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Concepto</label>
+          <div class="fs-6 text-dark">{{ resumen.concepto }}</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="summary-block">
-  <div class="summary-title">Cuotas</div>
-  <table class="summary-table">
-    <tbody>
-      <tr>
-        <th>Aviso Cob</th>
-        <td>{{ resumen.aviso_cob }}</td>
-        <th>Vigencia Inicio</th>
-        <td>{{ resumen.vig_inicio }}</td>
-      </tr>
-      <tr>
-        <th>Vigencia Fin</th>
-        <td>{{ resumen.vig_fin }}</td>
-        <th>Tipo Doc</th>
-        <td>{{ resumen.tipo_doc }}</td>
-      </tr>
-      <tr>
-        <th>Concepto</th>
-        <td colspan="3">{{ resumen.concepto }}</td>
-      </tr>
-    </tbody>
-  </table>
+<div class="card">
+  <div class="card-body pt-2 pb-0">
+    <div class="d-flex justify-content-end mb-2">
+      <div class="d-flex align-items-center gap-2 toolbar">
+        <div class="search-area">
+          <div class="input-group input-group-sm search-round">
+            <span class="input-group-text bg-white border-end-0">
+              <i class="bi-search"></i>
+            </span>
+            <input id="cuotas-search"
+                   type="text"
+                   class="form-control border-start-0 ps-0"
+                   placeholder="Buscar"
+                   oninput="Cuotas.onSearch(this.value)">
+          </div>
+        </div>
+        <div class="page-size">
+          <select id="page-size"
+                  class="form-select form-select-sm"
+                  onchange="Cuotas.onPageSize(this.value)">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table m-0 align-middle cuotas-table" id="cuotas-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Cupón</th>
+              <th>Fecha Vencimiento</th>
+              <th>Moneda</th>
+              <th>Importe</th>
+              <th>Fecha de Pago</th>
+              <th>Factura</th>
+              <th>Observación</th>
+              <th class="text-end">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+            <tr data-documento="{{ r.documento or '' }}">
+              <td>{{ loop.index }}</td>
+              <td>{{ r.cupon }}</td>
+              <td>{{ r.fecha_vencimiento }}</td>
+              <td>{{ r.moneda }}</td>
+              <td>{{ r.importe }}</td>
+              <td>{{ r.fecha_pago or '' }}</td>
+              <td>{{ r.factura or '' }}</td>
+              <td>{{ r.observacion or '' }}</td>
+              <td class="text-end actions">
+                <div class="d-flex gap-2 justify-content-end flex-wrap">
+                  <button class="btn btn-sm btn-lift btn-pdf" onclick="Cuotas.onPDF({{ loop.index0 }})">PDF</button>
+                  <button class="btn btn-sm btn-lift btn-revert" onclick="Cuotas.onRevert({{ loop.index0 }})">Revertir</button>
+                  <button class="btn btn-sm btn-lift btn-details" onclick="Cuotas.onDetails({{ loop.index0 }})">Detalles</button>
+                  <button class="btn btn-sm btn-lift btn-edit" onclick="Cuotas.onEdit({{ loop.index0 }})">Editar</button>
+                  <button class="btn btn-sm btn-lift btn-delete" onclick="Cuotas.onDelete({{ loop.index0 }})">Eliminar</button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+  </div>
+</div>
+<!-- Modal Detalles -->
+<div class="modal fade" id="cuotaDetailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detalles de la cuota</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="cuota-details">
+          <div class="row g-3 border-bottom pb-3 mb-3">
+            <div class="col-6 col-md-3">
+              <div class="cuota-details-label"># Secuencia</div>
+              <div id="detailSecuencia" class="cuota-details-value fw-semibold"></div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="cuota-details-label">Número Cupón</div>
+              <div id="detailCupon" class="cuota-details-value fw-semibold"></div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="cuota-details-label">Fecha Vencimiento</div>
+              <div id="detailFechaVenc" class="cuota-details-value fw-semibold"></div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="cuota-details-label">Importe</div>
+              <div id="detailImporte" class="cuota-details-value fw-semibold"></div>
+            </div>
+          </div>
+          <div class="row g-3">
+            <div class="col-6 col-md-3">
+              <div class="cuota-details-label">Fecha de Pago</div>
+              <div id="detailFechaPago" class="cuota-details-value"></div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="cuota-details-label">Factura</div>
+              <div id="detailFactura" class="cuota-details-value"></div>
+            </div>
+            <div class="col-12">
+              <div class="cuota-details-label">Documento Descargar Fichero</div>
+              <div id="detailDocumento" class="cuota-details-value"></div>
+            </div>
+            <div class="col-12">
+              <div class="cuota-details-label">Observación</div>
+              <div id="detailObservacion" class="cuota-details-value"></div>
+            </div>
+            <div class="col-12">
+              <div class="cuota-details-label">Usuario quien subió</div>
+              <div id="detailUsuario" class="cuota-details-value"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div class="toolbar">
-  <div class="search-area">
-    <input id="cuotas-search" type="text" placeholder="Buscar" oninput="Cuotas.onSearch(this.value)">
-  </div>
-  <div class="page-size">
-    <label for="page-size"> </label>
-    <select id="page-size" onchange="Cuotas.onPageSize(this.value)">
-      <option value="10">10</option>
-      <option value="20" selected>20</option>
-      <option value="50">50</option>
-    </select>
+<!-- Modal Editar -->
+<div class="modal fade" id="cuotaEditModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar cuota</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="cuota-edit">
+          <div class="row g-3 border-bottom pb-3 mb-3">
+            <div class="col-6 col-md-3">
+              <label class="form-label small text-uppercase fw-bold"># Secuencia</label>
+              <input id="editSecuencia" type="text" class="form-control form-control-sm" readonly>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small text-uppercase fw-bold">Número Cupón</label>
+              <input id="editCupon" type="text" class="form-control form-control-sm" readonly>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small text-uppercase fw-bold">Fecha Vencimiento</label>
+              <input id="editFechaVenc" type="text" class="form-control form-control-sm">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small text-uppercase fw-bold">Importe</label>
+              <input id="editImporte" type="text" class="form-control form-control-sm">
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-6 col-md-3">
+              <label class="form-label small text-uppercase fw-bold">Fecha de Pago</label>
+              <input id="editFechaPago" type="text" class="form-control form-control-sm">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small text-uppercase fw-bold">Factura</label>
+              <input id="editFactura" type="text" class="form-control form-control-sm">
+            </div>
+          </div>
+          <div class="cuota-edit-section border-top pt-3 mt-2">
+            <div class="mb-2 form-label small text-uppercase fw-bold">Documento Descargar Fichero</div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <input id="editDocumentoNombre" type="text" class="form-control form-control-sm" placeholder="Nombre de archivo" readonly>
+              <button type="button" class="btn btn-outline-secondary btn-sm btn-doc" id="btnEditDocumentoVer">Ver</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm btn-doc" id="btnEditDocumentoEliminar">Eliminar</button>
+              <label class="btn btn-outline-secondary btn-sm mb-0 btn-doc">
+                Reemplazar
+                <input id="editDocumentoFile" type="file" accept=".pdf,.jpg,.jpeg,.png" hidden>
+              </label>
+            </div>
+          </div>
+          <div class="cuota-edit-section mt-3">
+            <label class="form-label small text-uppercase fw-bold mb-1" for="editObservacion">Observación</label>
+            <textarea id="editObservacion" class="form-control form-control-sm" rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success btn-sm" id="btnGuardarCuota">Guardar</button>
+      </div>
+    </div>
   </div>
 </div>
 
-<table class="cuotas-table" id="cuotas-table">
-  <thead>
-    <tr>
-      <th>#</th>
-      <th>Cupón</th>
-      <th>Fecha Vencimiento</th>
-      <th>Moneda</th>
-      <th>Importe</th>
-      <th>Fecha de Pago</th>
-      <th>Factura</th>
-      <th>Observación</th>
-      <th>Acción</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for r in rows %}
-    <tr>
-      <td>{{ loop.index }}</td>
-      <td>{{ r.cupon }}</td>
-      <td>{{ r.fecha_vencimiento }}</td>
-      <td>{{ r.moneda }}</td>
-      <td>{{ r.importe }}</td>
-      <td>{{ r.fecha_pago or '' }}</td>
-      <td>{{ r.factura or '' }}</td>
-      <td>{{ r.observacion or '' }}</td>
-      <td class="actions">
-        <button class="btn btn-xs btn-pdf" onclick="Cuotas.onPDF({{ loop.index0 }})">PDF</button>
-        <button class="btn btn-xs btn-revert" onclick="Cuotas.onRevert({{ loop.index0 }})">Revertir</button>
-        <button class="btn btn-xs btn-details" onclick="Cuotas.onDetails({{ loop.index0 }})">Detalles</button>
-        <button class="btn btn-xs btn-edit" onclick="Cuotas.onEdit({{ loop.index0 }})">Editar</button>
-        <button class="btn btn-xs btn-delete" onclick="Cuotas.onDelete({{ loop.index0 }})">Eliminar</button>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="modal fade" id="cuotaConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmar acción</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p id="cuotaConfirmMessage" class="mb-0"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" id="btnCuotaConfirmCancel">Cancelar</button>
+        <button type="button" class="btn btn-danger btn-sm" id="btnCuotaConfirmOk">Aceptar</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
-{% block extra_js %}
+{% block extra_js_bottom %}
+{{ super() }}
 <script src="{{ url_for('static', filename='js/cuotas/cuotas.js') }}"></script>
 <script>
-  Cuotas.bootstrap();
+  Cuotas.init();
 </script>
 {% endblock %}

@@ -1,0 +1,281 @@
+.btn-add.btn-lift {
+  border-radius: 999px;
+  background: linear-gradient(to right, #4cd964, #28a745);
+  border: none;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.35);
+  padding-inline: 1.25rem;
+  font-size: 0.8rem;
+}
+
+.btn-add.btn-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 14px rgba(40, 167, 69, 0.45);
+}
+
+.btn-add.btn-lift:active {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(40, 167, 69, 0.4);
+}
+
+.avisos-card {
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: none;
+}
+
+.avisos-card-header {
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.75rem;
+}
+
+.avisos-resumen-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.avisos-resumen-value {
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+
+.avisos-table-card {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.avisos-table-card .table {
+  border-collapse: collapse;
+}
+
+.avisos-table-card thead {
+  position: relative;
+}
+
+.avisos-table-card thead::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(to right, #399AD6, #1F59A3);
+}
+
+.avisos-table-card thead th {
+  background-color: #fff;
+  border: none;
+  color: #495057;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  white-space: nowrap;
+}
+
+.avisos-table-card tbody tr {
+  border-bottom: 1px solid #eef2f7;
+}
+
+.avisos-table-card tbody td {
+  border: none;
+  padding-top: 1.1rem;
+  padding-bottom: 1.1rem;
+  font-size: 0.85rem;
+  color: #334155;
+}
+
+.avisos-table-card tbody .btn {
+  border-radius: 999px;
+  border: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.avisos-table-card tbody .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.avisos-table-card tbody .btn-danger {
+  background: linear-gradient(to right, #dc3545, #b02a37);
+}
+
+.avisos-table-card tbody .btn-primary {
+  background: linear-gradient(to right, #399AD6, #1F59A3);
+}
+
+.avisos-table-card tbody .btn-success {
+  background: linear-gradient(to right, #4cd964, #28a745);
+}
+
+.avisos-table-card tbody .btn-warning {
+  background: linear-gradient(to right, #ffc107, #e0a800);
+}
+
+.avisos-table-card .table-hover > tbody > tr:hover > * {
+  background-color: #f8fafc;
+}
+
+.avisos-table-card .toolbar .search-round .input-group-text {
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
+}
+
+.avisos-table-card .toolbar .search-round .form-control {
+  border-top-right-radius: 999px;
+  border-bottom-right-radius: 999px;
+}
+
+.avisos-table-card .toolbar .search-round .form-control:focus {
+  box-shadow: none !important;
+  border-color: #dee2e6 !important;
+}
+
+.avisos-table-card .toolbar .page-size .form-select-sm,
+.avisos-table-card .toolbar .page-size .form-select {
+  border-radius: 999px;
+}
+
+.avisos-modal .modal-content {
+  border-radius: 28px;
+  border: none;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+}
+
+.avisos-modal .modal-header {
+  padding: 1.25rem 1.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.avisos-modal .modal-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #0f172a;
+}
+
+.avisos-modal .modal-body {
+  padding: 1.5rem 1.75rem 1.25rem;
+  font-size: 0.9rem;
+  color: #475569;
+  background-color: #ffffff;
+}
+
+.avisos-modal .modal-footer {
+  border-top: none;
+  padding: 0.75rem 1.75rem 1.75rem;
+  background-color: #ffffff;
+}
+
+.avisos-modal .card {
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: none;
+}
+
+.avisos-modal .form-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+}
+
+.avisos-modal .form-control {
+  border-radius: 0.75rem;
+}
+
+.avisos-modal .btn-lift {
+  min-width: 120px;
+  font-size: 0.85rem;
+}
+
+.avisos-upload-card {
+  border-radius: 1.5rem;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.avisos-file-input {
+  border-radius: 999px;
+  padding-inline: 1.25rem;
+  height: 3rem;
+  border-color: #e2e8f0;
+}
+
+.avisos-file-input:focus {
+  box-shadow: 0 0 0 0.15rem rgba(57, 154, 214, 0.25);
+  border-color: #399ad6;
+}
+
+.avisos-modal .btn-success.btn-lift {
+  border-radius: 999px;
+  background: linear-gradient(to right, #4cd964, #28a745);
+  border: none;
+  box-shadow: 0 3px 10px rgba(40, 167, 69, 0.45);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.avisos-modal .btn-success.btn-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(40, 167, 69, 0.5);
+}
+
+.avisos-modal .btn-success.btn-lift:active {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(40, 167, 69, 0.45);
+}
+
+.avisos-modal .btn-light.btn-lift {
+  border-radius: 999px;
+  background: linear-gradient(to right, #f9fafb, #e5e7eb);
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 2px 8px rgba(148, 163, 184, 0.35);
+  color: #111827;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.avisos-modal .btn-light.btn-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 14px rgba(148, 163, 184, 0.45);
+}
+
+.avisos-modal .btn-light.btn-lift:active {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(148, 163, 184, 0.4);
+}
+
+/* Overrides for Blue Theme elements */
+.btn-primary {
+  background: linear-gradient(to right, #399AD6, #1F59A3) !important;
+  border: none !important;
+  box-shadow: 0 2px 6px rgba(31, 89, 163, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(31, 89, 163, 0.45);
+}
+
+.text-primary {
+  color: #1F59A3 !important;
+}
+
+.border-primary {
+  border-color: #399AD6 !important;
+}
+
+/* Specific fix for card header left border to use gradient logic (simulated with border-color for now to keep rounded corners safe, or use image) */
+.avisos-card-header.border-primary {
+    border-left-color: #399AD6 !important;
+}
+
+.avisos-file-input:focus {
+  box-shadow: 0 0 0 0.15rem rgba(57, 154, 214, 0.25);
+  border-color: #399AD6;
+}
