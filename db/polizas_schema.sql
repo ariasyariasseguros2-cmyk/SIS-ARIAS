@@ -26,14 +26,61 @@ CREATE TABLE IF NOT EXISTS clientes (
     razon_social VARCHAR(150) NOT NULL,
     tipo_documento ENUM('DNI', 'RUC', 'CE', 'PAS', 'CEX', 'DNI/CEDULA') NOT NULL,
     numero_documento VARCHAR(20) NOT NULL UNIQUE,
+
+    -- Contacto y ubicación
     telefono VARCHAR(20),
-    subagente VARCHAR(100),
+    celular VARCHAR(20),
+    telefono_sec VARCHAR(20),
     email VARCHAR(150),
     direccion VARCHAR(200),
+    departamento VARCHAR(100),
+    provincia VARCHAR(100),
+    distrito VARCHAR(100),
+
+    -- Relación con subagente
+    subagente VARCHAR(100),
+    idProductor INT NULL,
+
+    -- Estado y tipo
     estado VARCHAR(20) DEFAULT 'Vigente',
     tipo_persona TINYINT NULL,
-    fecha_registro DATETIME,
-    fecha_actualizacion TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP
+
+    -- Fechas de sistema
+    fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
+
+    -- Perfil y clasificación
+    profesion VARCHAR(150) NULL,
+    fecha_ingreso DATE NULL,
+    fecha_nacimiento DATE NULL,
+    licencia_num VARCHAR(50) NULL,
+    licencia_venc DATE NULL,
+    grupo_economico VARCHAR(100) NULL,
+    giro_negocio VARCHAR(100) NULL,
+    referencia VARCHAR(200) NULL,
+    recomendado_por VARCHAR(150) NULL,
+
+    -- Contacto de emergencia
+    recibir_notificaciones TINYINT(1) DEFAULT 0,
+    contacto_nombre VARCHAR(150) NULL,
+    contacto_email VARCHAR(150) NULL,
+    contacto_telefono VARCHAR(20) NULL,
+
+    -- Información adicional
+    referencias_interes TEXT NULL,
+    notas TEXT NULL,
+
+    -- Siniestralidad
+    siniestros_reportados INT NULL,
+    ultimo_siniestro DATE NULL,
+    detalle_siniestros TEXT NULL,
+    preferencias TEXT NULL,
+
+    -- Foreign Key a tabla subagente
+    CONSTRAINT fk_clientes_subagente FOREIGN KEY (idProductor)
+        REFERENCES SubAgente(idProductor) ON DELETE SET NULL
+        
+
 );
 
 DELIMITER $$
@@ -42,21 +89,62 @@ CREATE PROCEDURE sp_insert_cliente (
     IN p_tipo_documento VARCHAR(20),
     IN p_numero_documento VARCHAR(20),
     IN p_telefono VARCHAR(20),
+    IN p_celular VARCHAR(20),
+    IN p_telefono_sec VARCHAR(20),
     IN p_subagente VARCHAR(100),
+    IN p_idProductor INT,
     IN p_email VARCHAR(150),
     IN p_direccion VARCHAR(200),
+    IN p_departamento VARCHAR(100),
+    IN p_provincia VARCHAR(100),
+    IN p_distrito VARCHAR(100),
     IN p_estado VARCHAR(20),
-    IN p_tipo_persona TINYINT
+    IN p_tipo_persona TINYINT,
+    IN p_profesion VARCHAR(150),
+    IN p_fecha_ingreso DATE,
+    IN p_fecha_nacimiento DATE,
+    IN p_licencia_num VARCHAR(50),
+    IN p_licencia_venc DATE,
+    IN p_grupo_economico VARCHAR(100),
+    IN p_giro_negocio VARCHAR(100),
+    IN p_referencia VARCHAR(200),
+    IN p_recomendado_por VARCHAR(150),
+    IN p_recibir_notificaciones TINYINT,
+    IN p_contacto_nombre VARCHAR(150),
+    IN p_contacto_email VARCHAR(150),
+    IN p_contacto_telefono VARCHAR(20),
+    IN p_referencias_interes TEXT,
+    IN p_notas TEXT,
+    IN p_siniestros_reportados INT,
+    IN p_ultimo_siniestro DATE,
+    IN p_detalle_siniestros TEXT,
+    IN p_preferencias TEXT
 )
 BEGIN
     INSERT INTO clientes (
         razon_social, tipo_documento, numero_documento,
-        telefono, subagente, email, direccion,
-        estado, tipo_persona
+        telefono, celular, telefono_sec,
+        subagente, idProductor,
+        email, direccion, departamento, provincia, distrito,
+        estado, tipo_persona,
+        profesion, fecha_ingreso, fecha_nacimiento,
+        licencia_num, licencia_venc,
+        grupo_economico, giro_negocio, referencia, recomendado_por,
+        recibir_notificaciones, contacto_nombre, contacto_email, contacto_telefono,
+        referencias_interes, notas,
+        siniestros_reportados, ultimo_siniestro, detalle_siniestros, preferencias
     ) VALUES (
         p_razon_social, p_tipo_documento, p_numero_documento,
-        p_telefono, p_subagente, p_email, p_direccion,
-        p_estado, p_tipo_persona
+        p_telefono, p_celular, p_telefono_sec,
+        p_subagente, p_idProductor,
+        p_email, p_direccion, p_departamento, p_provincia, p_distrito,
+        p_estado, p_tipo_persona,
+        p_profesion, p_fecha_ingreso, p_fecha_nacimiento,
+        p_licencia_num, p_licencia_venc,
+        p_grupo_economico, p_giro_negocio, p_referencia, p_recomendado_por,
+        p_recibir_notificaciones, p_contacto_nombre, p_contacto_email, p_contacto_telefono,
+        p_referencias_interes, p_notas,
+        p_siniestros_reportados, p_ultimo_siniestro, p_detalle_siniestros, p_preferencias
     );
 END$$
 DELIMITER ;
@@ -130,9 +218,9 @@ CREATE TABLE IF NOT EXISTS polizas (
     prima_comercial_igv DECIMAL(15,2) NULL,
     prima_total DECIMAL(15,2) NULL,
 
-    porc_compania DECIMAL(7,4) NULL,
+    porc_compania DECIMAL(5,2) NULL,
     imp_compania DECIMAL(15,2) NULL,
-    porc_subagente DECIMAL(7,4) NULL,
+    porc_subagente DECIMAL(5,2) NULL,
     imp_subagente DECIMAL(15,2) NULL,
 
     -- motivo VARCHAR(200) NULL,          -- ELIMINADO
@@ -203,9 +291,9 @@ CREATE PROCEDURE sp_insert_poliza_por_numero (
     IN p_prima_comercial_igv DECIMAL(15,2),
     IN p_prima_total DECIMAL(15,2),
 
-    IN p_porc_compania DECIMAL(7,4),
+    IN p_porc_compania DECIMAL(5,2),
     IN p_imp_compania DECIMAL(15,2),
-    IN p_porc_subagente DECIMAL(7,4),
+    IN p_porc_subagente DECIMAL(5,2),
     IN p_imp_subagente DECIMAL(15,2),
 
     -- IN p_motivo VARCHAR(200),          -- ELIMINADO
@@ -605,16 +693,17 @@ CREATE PROCEDURE sp_update_poliza(
     IN p_prima_neta DECIMAL(15,2),
     IN p_prima_comercial_igv DECIMAL(15,2),
     IN p_prima_total DECIMAL(15,2),
-    IN p_porc_compania DECIMAL(7,4),
+    IN p_porc_compania DECIMAL(5,2),
     IN p_imp_compania DECIMAL(15,2),
-    IN p_porc_subagente DECIMAL(7,4),
+    IN p_porc_subagente DECIMAL(5,2),
     IN p_imp_subagente DECIMAL(15,2),
     IN p_ramos_producto VARCHAR(120),
     IN p_tipo_doc VARCHAR(10),
     IN p_estado VARCHAR(20),
     IN p_nro VARCHAR(50), -- Nuevo
     IN p_forma_pago VARCHAR(30), -- Nuevo
-    IN p_recibo VARCHAR(50) -- Nuevo
+    IN p_recibo VARCHAR(50), -- Nuevo
+    IN p_pdf_path VARCHAR(255) -- Nuevo
 )
 BEGIN
     UPDATE polizas SET
