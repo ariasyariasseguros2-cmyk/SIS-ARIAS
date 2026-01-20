@@ -69,13 +69,18 @@ def menu_page(page):
             'end_index': min(end, total)
         }
 
+        from controllers.subagente import get_subagentes_abreviaciones
+
+        subagentes_data = get_subagentes_abreviaciones()
+
         return render_template(
             'view/cliente/cliente.html',
             page='clientes',
             title=data['title'],
             rows=sliced_rows,
             filters=data['filters'],
-            pagination=pagination
+            pagination=pagination,
+            subagentes_abbrs=subagentes_data
         )
 
     # Pólizas → plantilla dedicada
@@ -168,7 +173,7 @@ def menu_page(page):
         from controllers.compania import get_aseguradoras
         from controllers.subagente import get_subagentes_abreviaciones
         from controllers.ejecutivos import get_ejecutivos
-        from controllers.cliente import get_clientes_data
+        from controllers.clientes.cliente import get_clientes_data
 
         poliza_id = request.args.get('id')
         if not poliza_id:
@@ -194,7 +199,7 @@ def menu_page(page):
         from controllers.ramos import get_ramos
         from controllers.compania import get_aseguradoras
         from controllers.subagente import get_subagentes_abreviaciones
-        from controllers.cliente import get_clientes_data
+        from controllers.clientes.cliente import get_clientes_data
 
         prima_id = request.args.get('id')
         if not prima_id:
@@ -251,7 +256,7 @@ def menu_page(page):
     # NUEVO: página “Añadir Póliza”
     if page == 'anadir-poliza':
         from controllers.addPoliza import get_rows
-        from controllers.cliente import get_clientes_data
+        from controllers.clientes.cliente import get_clientes_data
         from controllers.ramos import get_ramos
         from controllers.compania import get_aseguradoras
         from controllers.subagente import get_subagentes_abreviaciones  # NUEVO
@@ -537,6 +542,16 @@ def clientes_add():
     res = save_cliente(data)
     status = 200 if res.get('ok') else 400
     return res, status
+
+
+@bp.route('/api/subagentes', methods=['GET'])
+def api_get_subagentes():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    from controllers.subagente import get_subagentes_abreviaciones
+    subagentes = get_subagentes_abreviaciones()
+    return {'ok': True, 'subagentes': subagentes}, 200
 
 
 @bp.route('/clientes/extract-pdf', methods=['POST'])
