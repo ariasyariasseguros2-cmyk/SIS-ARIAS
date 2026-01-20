@@ -82,7 +82,9 @@
                     </div>
                     <div class="vr mx-2 d-none d-md-block"></div>
                     <div class="flex-grow-1" style="min-width: 200px;">
-                      <input type="text" id="numeroDocumento" name="numeroDocumento" class="form-control border-0 bg-white shadow-sm" placeholder="Número de Documento" required />
+                      <input type="text" id="numeroDocumento" name="numeroDocumento" class="form-control border-0 bg-white shadow-sm" placeholder="Número de Documento" required minlength="8" maxlength="11" pattern="[0-9]+" />
+                      <div class="invalid-feedback">Ingrese un número de documento válido (solo números, 8-11 dígitos).</div>
+                      <div class="form-text text-success small mt-1"><i class="bi-info-circle-fill"></i> <span id="docTypeHint">DNI: 8 dígitos | RUC: 11 dígitos</span></div>
                     </div>
                   </div>
                   <div class="form-text mt-1 small ms-1"><i class="bi-info-circle"></i> CEX: Carnet de Extranjería - PAS: Pasaporte</div>
@@ -126,19 +128,25 @@
                   <label for="email" class="form-label">Correo Electrónico <span class="text-danger">*</span></label>
                   <div class="input-group">
                     <span class="input-group-text"><i class="bi-envelope-at"></i></span>
-                    <input type="email" id="email" name="email" class="form-control" placeholder="cliente@ejemplo.com" required />
+                    <input type="email" id="email" name="email" class="form-control" placeholder="cliente@ejemplo.com" required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$" />
                   </div>
+                  <div class="invalid-feedback">Ingrese un correo electrónico válido.</div>
+                  <div class="valid-feedback"><i class="bi-check-circle-fill"></i> Email válido</div>
                 </div>
                 <div class="col-md-3">
                   <label for="telefono1" class="form-label">Celular Principal <span class="text-danger">*</span></label>
                   <div class="input-group">
                     <span class="input-group-text"><i class="bi-phone"></i></span>
-                    <input type="text" id="telefono1" name="telefono1" class="form-control" placeholder="999 999 999" required />
+                    <input type="text" id="telefono1" name="telefono1" class="form-control" placeholder="999999999" required pattern="[0-9]{9}" minlength="9" maxlength="9" />
                   </div>
+                  <div class="invalid-feedback">Ingrese un celular válido (9 dígitos).</div>
+                  <div class="valid-feedback"><i class="bi-check-circle-fill"></i> Celular válido</div>
                 </div>
                 <div class="col-md-3">
                   <label for="telefono2" class="form-label">Teléfono Secundario</label>
-                  <input type="text" id="telefono2" name="telefono2" class="form-control" placeholder="Opcional" />
+                  <input type="text" id="telefono2" name="telefono2" class="form-control" placeholder="Opcional" pattern="[0-9]{7,9}" minlength="7" maxlength="9" />
+                  <div class="invalid-feedback">Ingrese un teléfono válido (7-9 dígitos).</div>
+                  <div class="valid-feedback"><i class="bi-check-circle-fill"></i> Teléfono válido</div>
                 </div>
 
                 <!-- Notificaciones -->
@@ -200,10 +208,9 @@
                 <div class="col-md-4">
                   <label for="subAgente" class="form-label">Sub Agente / Vendedor <span class="text-danger">*</span></label>
                   <select id="subAgente" name="subAgente" class="form-select" required>
-                    <option value="">Seleccionar...</option>
-                    <option value="AAS">AAS</option>
-                    <option value="ARAS Y ARAS">ARAS Y ARAS</option>
+                    <option value="">Cargando...</option>
                   </select>
+                  <div class="invalid-feedback">Por favor seleccione un sub agente.</div>
                 </div>
                 <div class="col-md-4">
                   <label for="grupoEconomico" class="form-label">Grupo Económico</label>
@@ -227,10 +234,12 @@
                 <div class="col-md-6">
                   <label for="referencia" class="form-label">Referencia (¿De dónde lo conoces?)</label>
                   <input type="text" id="referencia" name="referencia" class="form-control" />
+                  <div class="valid-feedback"><i class="bi-check-circle-fill"></i> Referencia ingresada</div>
                 </div>
                 <div class="col-md-6">
                   <label for="recomendadoPor" class="form-label">Recomendado Por</label>
                   <input type="text" id="recomendadoPor" name="recomendadoPor" class="form-control" />
+                  <div class="valid-feedback"><i class="bi-check-circle-fill"></i> Recomendación ingresada</div>
                 </div>
               </div>
             </div>

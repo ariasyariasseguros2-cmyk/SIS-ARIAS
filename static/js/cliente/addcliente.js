@@ -5,6 +5,216 @@
 
   const modalEl = document.getElementById('addClienteModal');
 
+      // Cargar subagentes
+  async function loadSubagentes() {
+    const selectSubAgente = document.getElementById('subAgente');
+    if (!selectSubAgente) return;
+
+    try {
+      const resp = await fetch('/api/subagentes');
+      const result = await resp.json();
+
+      if (result.ok && result.subagentes) {
+         selectSubAgente.innerHTML = '<option value="">Seleccionar...</option>';
+
+        result.subagentes.forEach(subagente => {
+          const option = document.createElement('option');
+          option.value = subagente;
+          option.textContent = subagente;
+          selectSubAgente.appendChild(option);
+        });
+
+        console.log('Subagentes cargados:', result.subagentes.length);
+      }
+    } catch (err) {
+      console.error('Error cargando subagentes:', err);
+    }
+  }
+
+
+  if (modalEl) {
+    modalEl.addEventListener('show.bs.modal', () => {
+      loadSubagentes();
+      setupRealtimeValidation();
+    });
+  }
+
+  // Validación en tiempo real
+  function setupRealtimeValidation() {
+    // Validar número de documento
+    const numeroDoc = document.getElementById('numeroDocumento');
+    if (numeroDoc) {
+      numeroDoc.addEventListener('input', (e) => {
+        // Solo permitir números
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+
+        const val = e.target.value;
+        if (val.length >= 8 && val.length <= 11) {
+          e.target.classList.remove('is-invalid');
+          e.target.classList.add('is-valid');
+        } else if (val.length > 0) {
+          e.target.classList.remove('is-valid');
+        }
+      });
+    }
+
+    // Validar teléfonos
+    const telefono1 = document.getElementById('telefono1');
+    if (telefono1) {
+      telefono1.addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        if (e.target.value.length === 9) {
+          e.target.classList.remove('is-invalid');
+          e.target.classList.add('is-valid');
+        } else if (e.target.value.length > 0) {
+          e.target.classList.remove('is-valid');
+        }
+      });
+    }
+
+    const telefono2 = document.getElementById('telefono2');
+    if (telefono2) {
+      telefono2.addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        const len = e.target.value.length;
+        if (len === 0 || (len >= 7 && len <= 9)) {
+          e.target.classList.remove('is-invalid');
+          if (len > 0) e.target.classList.add('is-valid');
+        } else {
+          e.target.classList.remove('is-valid');
+        }
+      });
+    }
+
+    const contactoTel = document.getElementById('contactoTelefono');
+    if (contactoTel) {
+      contactoTel.addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        const len = e.target.value.length;
+        if (len >= 7 && len <= 9) {
+          e.target.classList.remove('is-invalid');
+          e.target.classList.add('is-valid');
+        } else if (len > 0) {
+          e.target.classList.remove('is-valid');
+        }
+      });
+    }
+
+    // Validar emails
+    const email = document.getElementById('email');
+    if (email) {
+      email.addEventListener('blur', (e) => {
+        const val = e.target.value.trim();
+        if (val && /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(val)) {
+          e.target.classList.remove('is-invalid');
+          e.target.classList.add('is-valid');
+        } else if (val) {
+          e.target.classList.remove('is-valid');
+          e.target.classList.add('is-invalid');
+        }
+      });
+    }
+
+    const contactoEmail = document.getElementById('contactoEmail');
+    if (contactoEmail) {
+      contactoEmail.addEventListener('blur', (e) => {
+        const val = e.target.value.trim();
+        if (val && /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(val)) {
+          e.target.classList.remove('is-invalid');
+          e.target.classList.add('is-valid');
+        } else if (val) {
+          e.target.classList.remove('is-valid');
+          e.target.classList.add('is-invalid');
+        }
+      });
+    }
+
+    // Validar textos requeridos
+    const requiredTextFields = ['razonSocial', 'direccion', 'distrito', 'contactoNombre'];
+    requiredTextFields.forEach(id => {
+      const field = document.getElementById(id);
+      if (field) {
+        field.addEventListener('blur', (e) => {
+          const val = e.target.value.trim();
+          if (val.length >= 3) {
+            e.target.classList.remove('is-invalid');
+            e.target.classList.add('is-valid');
+          } else if (val.length > 0) {
+            e.target.classList.remove('is-valid');
+            e.target.classList.add('is-invalid');
+          }
+        });
+      }
+    });
+
+    // Validar select requerido
+    const subAgente = document.getElementById('subAgente');
+    if (subAgente) {
+      subAgente.addEventListener('change', (e) => {
+        if (e.target.value) {
+          e.target.classList.remove('is-invalid');
+          e.target.classList.add('is-valid');
+        } else {
+          e.target.classList.remove('is-valid');
+        }
+      });
+    }
+
+    // Validar vencimiento de licencia (no puede ser menor a la fecha actual)
+    const vencimientoLicencia = document.getElementById('vencimientoLicencia');
+    if (vencimientoLicencia) {
+      // Establecer fecha mínima como hoy
+      const today = new Date().toISOString().split('T')[0];
+      vencimientoLicencia.setAttribute('min', today);
+
+      vencimientoLicencia.addEventListener('change', (e) => {
+        const selectedDate = e.target.value;
+        if (selectedDate) {
+          const selected = new Date(selectedDate);
+          const now = new Date();
+          now.setHours(0, 0, 0, 0); // Resetear horas para comparar solo fechas
+
+          if (selected < now) {
+            e.target.classList.remove('is-valid');
+            e.target.classList.add('is-invalid');
+            e.target.setCustomValidity('La fecha de vencimiento debe ser mayor o igual a la fecha actual');
+          } else {
+            e.target.classList.remove('is-invalid');
+            e.target.classList.add('is-valid');
+            e.target.setCustomValidity('');
+          }
+        }
+      });
+
+      vencimientoLicencia.addEventListener('blur', (e) => {
+        if (e.target.value) {
+          e.target.dispatchEvent(new Event('change'));
+        }
+      });
+    }
+
+    // Agregar feedback visual a campos opcionales cuando se llenan
+    const optionalFieldsWithFeedback = [
+      'profesion', 'fechaIngreso', 'cumpleanios', 'licenciaConducir',
+      'grupoEconomico', 'giroNegocio', 'referencia', 'recomendadoPor'
+    ];
+
+    optionalFieldsWithFeedback.forEach(id => {
+      const field = document.getElementById(id);
+      if (field) {
+        const eventType = field.tagName === 'SELECT' ? 'change' : 'input';
+        field.addEventListener(eventType, (e) => {
+          if (e.target.value && e.target.value.trim() !== '') {
+            e.target.classList.add('is-valid');
+            e.target.classList.remove('is-invalid');
+          } else {
+            e.target.classList.remove('is-valid', 'is-invalid');
+          }
+        });
+      }
+    });
+  }
+
   // extractor de pdf
   const pdfFileInput = document.getElementById('pdfFileInput');
   const btnExtractPDF = document.getElementById('btnExtractPDF');
@@ -215,9 +425,60 @@
   function collectData() {
     const fd = new FormData(form);
     // Convierte FormData a objeto plano
-    const payload = Object.fromEntries(fd.entries());
-    // Normaliza radios booleanos
+    const payload = {};
+
+    // Procesar todos los campos del formulario
+    for (const [key, value] of fd.entries()) {
+      payload[key] = value;
+    }
+
+    // Normaliza radios booleanos para notificaciones
     payload.recibirNotificaciones = (fd.get('notif') || 'SI') === 'SI';
+
+    // Asegurar que todos los campos del formulario estén incluidos
+    // Datos de identificación
+    payload.tipoPersona = document.getElementById('tipoPersona')?.value || '';
+    payload.razonSocial = document.getElementById('razonSocial')?.value || '';
+    payload.tipoDocumento = document.querySelector('input[name="tipoDocumento"]:checked')?.value || '';
+    payload.numeroDocumento = document.getElementById('numeroDocumento')?.value || '';
+
+    // Ubicación y contacto
+    payload.direccion = document.getElementById('direccion')?.value || '';
+    payload.departamento = document.getElementById('departamento')?.value || '';
+    payload.provincia = document.getElementById('provincia')?.value || '';
+    payload.distrito = document.getElementById('distrito')?.value || '';
+    payload.email = document.getElementById('email')?.value || '';
+    payload.telefono1 = document.getElementById('telefono1')?.value || '';
+    payload.telefono2 = document.getElementById('telefono2')?.value || '';
+
+    // Perfil y clasificación
+    payload.profesion = document.getElementById('profesion')?.value || '';
+    payload.fechaIngreso = document.getElementById('fechaIngreso')?.value || '';
+    payload.cumpleanios = document.getElementById('cumpleanios')?.value || '';
+    payload.licenciaConducir = document.getElementById('licenciaConducir')?.value || '';
+    payload.vencimientoLicencia = document.getElementById('vencimientoLicencia')?.value || '';
+    payload.subAgente = document.getElementById('subAgente')?.value || '';
+    payload.grupoEconomico = document.getElementById('grupoEconomico')?.value || '';
+    payload.giroNegocio = document.getElementById('giroNegocio')?.value || '';
+    payload.referencia = document.getElementById('referencia')?.value || '';
+    payload.recomendadoPor = document.getElementById('recomendadoPor')?.value || '';
+
+    // Persona de contacto
+    payload.contactoNombre = document.getElementById('contactoNombre')?.value || '';
+    payload.contactoEmail = document.getElementById('contactoEmail')?.value || '';
+    payload.contactoTelefono = document.getElementById('contactoTelefono')?.value || '';
+
+    // Información adicional - Siniestralidad
+    payload.siniestrosReportados = document.getElementById('siniestrosReportados')?.value || '';
+    payload.ultimoSiniestro = document.getElementById('ultimoSiniestro')?.value || '';
+    payload.detalleSiniestros = document.getElementById('detalleSiniestros')?.value || '';
+
+    payload.referenciasInteres = document.getElementById('referenciasInteres')?.value || '';
+    payload.preferencias = document.getElementById('preferencias')?.value || '';
+    payload.notasInteres = document.getElementById('notasInteres')?.value || '';
+
+    payload.masInformacion = document.getElementById('masInformacion')?.value || '';
+
     return payload;
   }
 
@@ -311,7 +572,9 @@
       }
       alert('Cliente guardado. Puedes añadir otro.');
       form.reset();
-      // Limpiar estado del PDF
+      form.classList.remove('was-validated');
+      form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+      form.querySelectorAll('.is-valid').forEach(el => el.classList.remove('is-valid'));
       if (pdfFileInput) pdfFileInput.value = '';
       if (pdfStatus) pdfStatus.style.display = 'none';
       if (btnClearPDF) btnClearPDF.style.display = 'none';
