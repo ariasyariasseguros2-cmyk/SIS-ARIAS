@@ -61,6 +61,8 @@
             <th>Vig Fin</th>
             <th>Sub Agente</th>
             <th>M.Asegurada</th>
+            <th>Registrado Por</th>
+            <th>Editado Por</th>
             <th class="text-end">Acción</th>
           </tr>
         </thead>
@@ -77,6 +79,8 @@
             <td>{{ r.vig_hasta }}</td>
             <td>{{ r.sub_agente }}</td>
             <td>{{ r.asegurada }}</td>
+            <td>{{ r.usuario_registro }}</td>
+            <td>{{ r.usuario_edicion }}</td>
             <td class="text-end">
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; max-width: 240px; margin-left: auto;">
                 <!-- Fila 1 -->

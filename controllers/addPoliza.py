@@ -1,4 +1,8 @@
 
+from models.db import get_connection
+import mysql.connector
+from flask import session
+
 def get_rows():
     # Filas de ayuda para la vista (placeholder)
     return [
@@ -15,9 +19,6 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
         if selected:
             print(f"[DEBUG] save_polizas selected: {selected}")
             print(f"[DEBUG] pdf_filename in selected: {selected.get('pdf_filename')}")
-
-        from models.db import get_connection
-        import mysql.connector
 
         def parse_date(s: str | None) -> str | None:
             if not s:
@@ -174,7 +175,8 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
 
                 U(row.get("ramos_producto") or (selected or {}).get("ramos_producto") or ""),
                 U(row.get("estado") or "PENDIENTE"),
-                f"uploads/{(selected or {}).get('pdf_filename')}" if (selected or {}).get("pdf_filename") else None
+                f"uploads/{(selected or {}).get('pdf_filename')}" if (selected or {}).get("pdf_filename") else None,
+                session.get('user')
             )
 
             try:
@@ -186,7 +188,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                     "%s,%s,"                # sub_agente, ejecutivo
                     "%s,%s,%s,%s,%s,%s,"    # asegurada, motivo, prima_comercial, prima_neta, prima_comercial_igv, prima_total
                     "%s,%s,%s,%s,"          # porc_compania, imp_compania, porc_subagente, imp_subagente
-                    "%s,%s,%s"              # ramos_producto, estado, pdf_path
+                    "%s,%s,%s,%s"           # ramos_producto, estado, pdf_path, usuario_registro
                     ")",
                     args
                 )

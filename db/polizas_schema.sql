@@ -321,6 +321,8 @@ CREATE TABLE IF NOT EXISTS polizas (
     ramos_producto VARCHAR(120) NULL,
 
     estado VARCHAR(20) DEFAULT 'PENDIENTE',
+    usuario_registro VARCHAR(50) NULL,
+    usuario_edicion VARCHAR(50) NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (cliente_id) REFERENCES clientes(idCliente)
@@ -393,7 +395,8 @@ CREATE PROCEDURE sp_insert_poliza_por_numero (
     -- IN p_motivo VARCHAR(200),          -- ELIMINADO
     IN p_ramos_producto VARCHAR(120),
     IN p_estado VARCHAR(20),
-    IN p_pdf_path VARCHAR(255)
+    IN p_pdf_path VARCHAR(255),
+    IN p_usuario_registro VARCHAR(50)
 )
 BEGIN
     DECLARE v_cliente_id INT;
@@ -441,7 +444,7 @@ BEGIN
         sub_agente, ejecutivo, tipo_doc,
         asegurada, motivo, prima_comercial, prima_neta, prima_comercial_igv, prima_total,
         porc_compania, imp_compania, porc_subagente, imp_subagente,
-        ramos_producto, estado
+        ramos_producto, estado, usuario_registro
     ) VALUES (
         v_cliente_id, p_asegurado, p_cia, p_ramo,
         p_poliza, p_recibo, p_contrato_nro, p_nro,
@@ -449,7 +452,7 @@ BEGIN
         p_sub_agente, p_ejecutivo, p_tipo_doc,
         p_asegurada, p_motivo, p_prima_comercial, p_prima_neta, p_prima_comercial_igv, p_prima_total,
         p_porc_compania, p_imp_compania, p_porc_subagente, p_imp_subagente,
-        p_ramos_producto, p_estado
+        p_ramos_producto, p_estado, p_usuario_registro
     );
 
     SET v_poliza_id = LAST_INSERT_ID();
@@ -479,6 +482,8 @@ BEGIN
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
         p.sub_agente,
         p.asegurada,
+        p.usuario_registro,
+        p.usuario_edicion,
     (SELECT ruta_archivo FROM poliza_archivos WHERE poliza_id = p.idPoliza ORDER BY idArchivo DESC LIMIT 1) AS pdf_path
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
@@ -505,6 +510,8 @@ BEGIN
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
         p.sub_agente,
         p.asegurada,
+        p.usuario_registro,
+        p.usuario_edicion,
     (SELECT ruta_archivo FROM poliza_archivos WHERE poliza_id = p.idPoliza ORDER BY idArchivo DESC LIMIT 1) AS pdf_path
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
@@ -547,6 +554,8 @@ BEGIN
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
         p.sub_agente,
         p.asegurada,
+        p.usuario_registro,
+        p.usuario_edicion,
     (SELECT ruta_archivo FROM poliza_archivos WHERE poliza_id = p.idPoliza ORDER BY idArchivo DESC LIMIT 1) AS pdf_path
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
@@ -703,10 +712,12 @@ CREATE PROCEDURE sp_update_poliza(
     IN p_nro VARCHAR(50), -- Nuevo
     IN p_forma_pago VARCHAR(30), -- Nuevo
     IN p_recibo VARCHAR(50), -- Nuevo
-    IN p_pdf_path VARCHAR(255) -- Nuevo
+    IN p_pdf_path VARCHAR(255), -- Nuevo
+    IN p_usuario_edicion VARCHAR(50)
 )
 BEGIN
     UPDATE polizas SET
+        usuario_edicion = p_usuario_edicion,
         asegurado = p_asegurado,
         cia = p_cia,
         ramo = p_ramo,

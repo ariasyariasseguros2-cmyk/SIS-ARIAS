@@ -1,5 +1,6 @@
 from models.db import get_connection
 from datetime import datetime
+from flask import session
 
 def _parse_date(d_str):
     if not d_str: return None
@@ -117,14 +118,15 @@ def update_poliza(data):
             val('nro_operacion', 'nro'), # Mapeo data['nro_operacion'] -> DB['nro']
             val('tipo_pago', 'forma_pago'), # Mapeo data['tipo_pago'] -> DB['forma_pago']
             val('recibo', 'recibo'), # Nuevo campo recibo (usado como primera cuota)
-            None # p_pdf_path, no soportado en este form por ahora
+            None, # p_pdf_path, no soportado en este form por ahora
+            session.get('user') # p_usuario_edicion
         )
         
-        # Updated call with 3 new parameters at the end (nro, forma_pago, recibo)
+        # Updated call with 4 new parameters at the end (nro, forma_pago, recibo, pdf_path, usuario_edicion)
         cur.execute("""CALL sp_update_poliza(
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-            %s, %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s, %s
         )""", params)
         
         cnx.commit()
