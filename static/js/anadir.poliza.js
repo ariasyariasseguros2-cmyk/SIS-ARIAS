@@ -11,6 +11,7 @@
   const estadoTopEl = document.getElementById('estadoTop');
   const tipoPagoTopEl = document.getElementById('tipoPagoTop');
   const tipoDocTopEl = document.getElementById('tipoDocTop'); // Referencia al input de Tipo Doc
+  const nroOperacionTopEl = document.getElementById('nroOperacionTop'); // NUEVO: Nro Operación global
   const ramoProductoTopEl = document.getElementById('ramosProductoTop'); // Campo superior de ramo/producto (texto)
   const aseguradaTopEl = document.getElementById('aseguradaTop'); // Campo superior de asegurada (texto)
   const motivoTopEl = document.getElementById('motivoTop'); // Campo superior de motivo (texto)
@@ -271,7 +272,7 @@
     const hasRamo = headers.includes('ramo');
     const hasPrimaNeta = headers.includes('prima neta');
     const hasAcciones = headers.includes('acciones');
-    const expectedCount = 18; // actualizado: incluye "Fecha Vencimiento"
+    const expectedCount = 18; // actualizado: se removió "Nro Operación" (19 -> 18)
     if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
       thead.innerHTML = `
         <tr>
@@ -322,6 +323,7 @@
     const ramoProductoTop = (ramoProductoTopEl?.value || '').trim();
     const aseguradaTop = (aseguradaTopEl?.value || '').trim();
     const motivoTop = (motivoTopEl?.value || '').trim();
+    const nroOpTop = (nroOperacionTopEl?.value || '').trim(); // NUEVO: Nro Operación
     const issuerText = issuerEl?.options[issuerEl.selectedIndex]?.text || (issuerEl?.value || '');
 
     // NUEVO: asegurar que 'ramo' sea vacío si no coincide con las abreviaciones disponibles
@@ -344,6 +346,9 @@
       }
       if (motivoTop && (!it.motivo || it.motivo.trim() === '')) {
         it.motivo = motivoTop;
+      }
+      if (nroOpTop && (!it.nro || it.nro.trim() === '')) {
+        it.nro = nroOpTop;
       }
       if (issuerText && !it.cia) it.cia = issuerText;
 
@@ -611,10 +616,12 @@
     const ramoTop   = (ramoProductoTopEl?.value || '').trim();
     const pctCC     = (pctComCompaniaEl?.value || '').trim();
     const pctSA     = (pctComSubAgenteEl?.value || '').trim();
+    const nroOpTop  = (nroOperacionTopEl?.value || '').trim(); // NUEVO
 
     const blank = normalizeItem({
       numero_poliza: '',
       recibo: '',
+      nro: nroOpTop, // prellenar con global
       colectivo_asegurado: '',
       inicio_vigencia: '',
       vencimiento: '',
@@ -839,6 +846,8 @@
 
       // Asegurar 'asegurado' y limpiar 'ramo' si no coincide con abbrs; forzar ramos_producto desde el bloque superior si existe
       const abbrs = (window.ramosAbbrs || []).map(s => (s || '').trim());
+      const nroOpTopSave = (nroOperacionTopEl?.value || '').trim(); // NUEVO: leer valor al guardar
+
       const itemsForAuto = (extractedItems || []).map(it => {
         const copy = { ...it };
         if (copy.colectivo_asegurado && !copy.asegurado) {
@@ -851,6 +860,10 @@
         const rpTop = (selected.ramos_producto || '').trim();
         if (rpTop) {
           copy.ramos_producto = rpTop;
+        }
+        // NUEVO: aplicar nro operación global si existe (sobrescribe o rellena)
+        if (nroOpTopSave) {
+          copy.nro = nroOpTopSave;
         }
         return copy;
       });
