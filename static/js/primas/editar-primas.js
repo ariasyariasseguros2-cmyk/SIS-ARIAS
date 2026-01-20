@@ -1,4 +1,116 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Cálculo automático: Prima Neta = Prima Comercial / 1.03
+    const txtPrimaComercial = document.getElementById('primaComercial');
+    const txtPrimaNeta = document.getElementById('primaNeta');
+    
+    if (txtPrimaComercial && txtPrimaNeta) {
+        // Obtenemos referencia al campo Prima Total / IGV si existe
+        const txtPrimaTotal = document.getElementById('primaTotal');
+        // Referencias para Comisión Compañía
+        const txtPorcCompania = document.getElementById('comisionCompania');
+        const txtImpCompania = document.getElementById('importeComisionCompania');
+        // Referencias para Comisión Sub Agente
+        const txtPorcSubAgente = document.getElementById('comisionSubAgente');
+        const txtImpSubAgente = document.getElementById('importeComisionSubAgente');
+
+        // Función auxiliar para calcular importe comisión sub agente
+        const updateImporteSubAgente = () => {
+            if (!txtPorcSubAgente || !txtImpSubAgente || !txtImpCompania) return;
+            const impCia = parseFloat(txtImpCompania.value);
+            const porc = parseFloat(txtPorcSubAgente.value);
+            if (!isNaN(impCia) && !isNaN(porc)) {
+                // Imp. Comisión Sub Agente = Imp. Comisión Cía * (% SubAgente / 100)
+                txtImpSubAgente.value = (impCia * (porc / 100)).toFixed(2);
+            } else {
+                txtImpSubAgente.value = '';
+            }
+        };
+
+        // Función auxiliar para calcular importe comisión cía
+        const updateImporteCompania = () => {
+            if (!txtPorcCompania || !txtImpCompania) return;
+            const neta = parseFloat(txtPrimaNeta.value);
+            const porc = parseFloat(txtPorcCompania.value);
+            if (!isNaN(neta) && !isNaN(porc)) {
+                txtImpCompania.value = (neta * (porc / 100)).toFixed(2);
+                // Si cambia importe Cía, recalcular sub agente
+                updateImporteSubAgente();
+            } else {
+                txtImpCompania.value = '';
+                if (txtImpSubAgente) txtImpSubAgente.value = '';
+            }
+        };
+
+        // Función para actualizar TODO basado en Prima Comercial
+        const updateFromComercial = () => {
+            if (document.activeElement !== txtPrimaComercial) return;
+            const val = parseFloat(txtPrimaComercial.value);
+            if (!isNaN(val) && val !== 0) {
+                // Prima Neta = Comercial / 1.03
+                txtPrimaNeta.value = (val / 1.03).toFixed(2);
+                // Prima Total = Comercial * 1.18
+                if (txtPrimaTotal) txtPrimaTotal.value = (val * 1.18).toFixed(2);
+                // Actualizar comisión
+                updateImporteCompania();
+            } else {
+                txtPrimaNeta.value = '';
+                if (txtPrimaTotal) txtPrimaTotal.value = '';
+                if (txtImpCompania) txtImpCompania.value = '';
+                if (txtImpSubAgente) txtImpSubAgente.value = '';
+            }
+        };
+
+        // Función para actualizar TODO basado en Prima Neta
+        const updateFromNeta = () => {
+            if (document.activeElement !== txtPrimaNeta) return;
+            const val = parseFloat(txtPrimaNeta.value);
+            if (!isNaN(val) && val !== 0) {
+                // Prima Comercial = Neta * 1.03
+                const comercial = val * 1.03;
+                txtPrimaComercial.value = comercial.toFixed(2);
+                // Prima Total = Comercial * 1.18
+                if (txtPrimaTotal) txtPrimaTotal.value = (comercial * 1.18).toFixed(2);
+                // Actualizar comisión
+                updateImporteCompania();
+            } else {
+                txtPrimaComercial.value = '';
+                if (txtPrimaTotal) txtPrimaTotal.value = '';
+                if (txtImpCompania) txtImpCompania.value = '';
+                if (txtImpSubAgente) txtImpSubAgente.value = '';
+            }
+        };
+
+        // Asignar eventos a AMBOS inputs
+        txtPrimaComercial.addEventListener('input', updateFromComercial);
+        txtPrimaNeta.addEventListener('input', updateFromNeta);
+        
+        if (txtPorcCompania) {
+            txtPorcCompania.addEventListener('input', updateImporteCompania);
+        }
+        
+        if (txtPorcSubAgente) {
+            txtPorcSubAgente.addEventListener('input', updateImporteSubAgente);
+        }
+
+        // Limpieza bidireccional (cuando se borra manualmente)
+        txtPrimaComercial.addEventListener('keyup', function() {
+             if (this.value.trim() === '') {    
+                 txtPrimaNeta.value = '';
+                 if (txtPrimaTotal) txtPrimaTotal.value = '';
+                 if (txtImpCompania) txtImpCompania.value = '';
+                 if (txtImpSubAgente) txtImpSubAgente.value = '';
+             }
+        });
+        txtPrimaNeta.addEventListener('keyup', function() {
+             if (this.value.trim() === '') {
+                 txtPrimaComercial.value = '';
+                 if (txtPrimaTotal) txtPrimaTotal.value = '';
+                 if (txtImpCompania) txtImpCompania.value = '';
+                 if (txtImpSubAgente) txtImpSubAgente.value = '';
+             }
+        });
+    }
+
     const btnGuardar = document.getElementById('btnGuardar');
     if (btnGuardar) {
         btnGuardar.addEventListener('click', async (e) => {

@@ -116,14 +116,15 @@ def update_poliza(data):
             val('estado'),
             val('nro_operacion', 'nro'), # Mapeo data['nro_operacion'] -> DB['nro']
             val('tipo_pago', 'forma_pago'), # Mapeo data['tipo_pago'] -> DB['forma_pago']
-            val('recibo', 'recibo') # Nuevo campo recibo (usado como primera cuota)
+            val('recibo', 'recibo'), # Nuevo campo recibo (usado como primera cuota)
+            None # p_pdf_path, no soportado en este form por ahora
         )
         
         # Updated call with 3 new parameters at the end (nro, forma_pago, recibo)
         cur.execute("""CALL sp_update_poliza(
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-            %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s
         )""", params)
         
         cnx.commit()

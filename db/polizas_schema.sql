@@ -20,6 +20,100 @@ BEGIN
 END$$
 DELIMITER ;
 
+-- Table Ramos
+CREATE TABLE ramos (
+    idRamo INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    abreviacion VARCHAR(50),
+    codigo VARCHAR(50),
+    grupo VARCHAR(100),
+    estado ENUM('Activo','Inactivo') DEFAULT 'Activo'
+);
+
+-- SP listar ramos -> nombre; abreviacion
+DELIMITER $$
+
+CREATE PROCEDURE sp_listar_ramos()
+BEGIN
+    SELECT
+        nombre,
+        abreviacion
+    FROM ramos
+    ORDER BY nombre ASC;
+END $$
+
+DELIMITER ;
+
+-- Table asegudoras = proveedor 
+CREATE TABLE aseguradoras (
+    idAseguradora INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    nombre_corto VARCHAR(50),
+    ruc VARCHAR(15),
+    tel1 VARCHAR(20),
+    central_emergencia VARCHAR(20),
+    logo VARCHAR(255)  -- ruta o nombre del archivo del logo
+);
+
+-- SP Listado de asegudora 
+DELIMITER $$
+
+CREATE PROCEDURE sp_listar_aseguradoras()
+BEGIN
+    SELECT
+        nombre_corto
+    FROM aseguradoras
+    ORDER BY nombre_corto ASC;
+END $$
+
+DELIMITER ;
+
+-- Table de SUB AGENTE 
+CREATE TABLE SubAgente (
+    idProductor INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(150) NOT NULL,
+    abreviacion VARCHAR(100),
+    email VARCHAR(120),
+    telefono VARCHAR(20),
+    celular VARCHAR(20)
+);
+
+-- SP lista SUB AGENTE
+DELIMITER $$
+
+CREATE PROCEDURE sp_listar_SubAgente_abreviacion()
+BEGIN
+    SELECT abreviacion
+    FROM SubAgente
+    ORDER BY abreviacion ASC;
+END $$
+
+DELIMITER ;
+
+-- Table de ejecutivos
+CREATE TABLE ejecutivos (
+    idEjecutivo INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(150) NOT NULL,
+    abreviacion VARCHAR(100),
+    grupo VARCHAR(100)
+);
+
+-- SP Listado de ejecutivos por nombre
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_listar_ejecutivos()
+BEGIN
+    SELECT 
+        nombre,
+        abreviacion,
+        grupo
+    FROM ejecutivos
+    ORDER BY nombre ASC;
+END $$
+
+DELIMITER ;
+
 -- Tabla clientes (ajustada del ejemplo del usuario)
 CREATE TABLE IF NOT EXISTS clientes (
     idCliente INT AUTO_INCREMENT PRIMARY KEY,
@@ -417,100 +511,6 @@ BEGIN
     WHERE c.numero_documento = p_numero_documento
     ORDER BY p.creado_en DESC;
 END$$
-DELIMITER ;
-
--- Table Ramos
-CREATE TABLE ramos (
-    idRamo INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    abreviacion VARCHAR(50),
-    codigo VARCHAR(50),
-    grupo VARCHAR(100),
-    estado ENUM('Activo','Inactivo') DEFAULT 'Activo'
-);
-
--- SP listar ramos -> nombre; abreviacion
-DELIMITER $$
-
-CREATE PROCEDURE sp_listar_ramos()
-BEGIN
-    SELECT
-        nombre,
-        abreviacion
-    FROM ramos
-    ORDER BY nombre ASC;
-END $$
-
-DELIMITER ;
-
--- Table asegudoras = proveedor 
-CREATE TABLE aseguradoras (
-    idAseguradora INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    nombre_corto VARCHAR(50),
-    ruc VARCHAR(15),
-    tel1 VARCHAR(20),
-    central_emergencia VARCHAR(20),
-    logo VARCHAR(255)  -- ruta o nombre del archivo del logo
-);
-
--- SP Listado de asegudora 
-DELIMITER $$
-
-CREATE PROCEDURE sp_listar_aseguradoras()
-BEGIN
-    SELECT
-        nombre_corto
-    FROM aseguradoras
-    ORDER BY nombre_corto ASC;
-END $$
-
-DELIMITER ;
-
--- Table de SUB AGENTE 
-CREATE TABLE SubAgente (
-    idProductor INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(150) NOT NULL,
-    abreviacion VARCHAR(100),
-    email VARCHAR(120),
-    telefono VARCHAR(20),
-    celular VARCHAR(20)
-);
-
--- SP lista SUB AGENTE
-DELIMITER $$
-
-CREATE PROCEDURE sp_listar_SubAgente_abreviacion()
-BEGIN
-    SELECT abreviacion
-    FROM SubAgente
-    ORDER BY abreviacion ASC;
-END $$
-
-DELIMITER ;
-
--- Table de ejecutivos
-CREATE TABLE ejecutivos (
-    idEjecutivo INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(150) NOT NULL,
-    abreviacion VARCHAR(100),
-    grupo VARCHAR(100)
-);
-
--- SP Listado de ejecutivos por nombre
-
-DELIMITER $$
-
-CREATE PROCEDURE sp_listar_ejecutivos()
-BEGIN
-    SELECT 
-        nombre,
-        abreviacion,
-        grupo
-    FROM ejecutivos
-    ORDER BY nombre ASC;
-END $$
-
 DELIMITER ;
 
 -- Nuevo: obtener cliente por ID
