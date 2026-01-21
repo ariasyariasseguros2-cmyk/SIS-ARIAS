@@ -49,7 +49,7 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
                     'importe': pr.get('prima_comercial_igv') or pr.get('prima_total') or pr.get('prima_neta') or '',
                     'fecha_pago': '',
                     'factura': pr.get('nro_operacion') or pr.get('recibo') or '',
-                    'observacion': pr.get('tipo') or 'EMISION'
+                    'observacion': '',
                 }]
             cur.close()
             cnx.close()

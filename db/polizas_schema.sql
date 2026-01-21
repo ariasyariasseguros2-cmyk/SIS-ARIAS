@@ -461,6 +461,21 @@ BEGIN
         INSERT INTO poliza_archivos (poliza_id, numero_poliza, ruta_archivo, nombre_original)
         VALUES (v_poliza_id, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1));
     END IF;
+
+    -- Insertar cuota inicial automática
+    INSERT INTO cuotas (
+        poliza, cupon, fecha_vencimiento, moneda, importe, 
+        fecha_pago, factura, observacion
+    ) VALUES (
+        p_poliza, 
+        p_recibo, 
+        p_fecha_vencimiento, 
+        p_moneda, 
+        p_prima_comercial_igv, 
+        NULL, 
+        NULL, 
+        NULL, 
+    );
 END$$
 DELIMITER ;
 -- NUEVO: listado global de pólizas (opcional, si prefieres usar SP)
@@ -640,11 +655,13 @@ CREATE TABLE IF NOT EXISTS cuotas (
     poliza VARCHAR(50) NOT NULL,
     cupon VARCHAR(50) NULL,
     fecha_vencimiento DATE NULL,
-    moneda VARCHAR(10) DEFAULT 'S/.',
+    moneda VARCHAR(10) NULL,
     importe DECIMAL(15,2) NULL,
     fecha_pago DATE NULL,
     factura VARCHAR(50) NULL,
     observacion VARCHAR(255) NULL,
+    usuario_registro VARCHAR(50) NULL,
+    usuario_edicion VARCHAR(50) NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -810,7 +827,7 @@ BEGIN
     WHERE p.vig_hasta BETWEEN p_fecha_inicio AND p_fecha_fin
     ORDER BY p.vig_hasta ASC;
 END$$
-DELIMITER
+DELIMITER ;
 
 DELIMITER $$
 
@@ -821,8 +838,7 @@ FROM SubAgente
 WHERE abreviacion = p_abreviacion
     LIMIT 1;
 END$$
-
-DELIMITER
+DELIMITER ;
 
 DELIMITER $$
 
@@ -902,4 +918,4 @@ SET razon_social = p_razon_social,
 WHERE idCliente = p_idCliente;
 END$$
 
-DELIMITER
+DELIMITER;
