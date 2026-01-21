@@ -800,6 +800,7 @@ BEGIN
         p.recibo AS aviso_cobranza,
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
+        (SELECT DATE_FORMAT(MAX(q.fecha_pago), '%d/%m/%Y') FROM cuotas q WHERE q.poliza = p.poliza) AS fecha_pago,
         p.moneda,
         p.prima_comercial_igv AS prima_neta,
         p.prima_comercial_igv AS prima_total,
