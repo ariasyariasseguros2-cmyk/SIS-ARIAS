@@ -3,6 +3,7 @@ from werkzeug.utils import secure_filename
 import os
 from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards
 from datetime import datetime, timedelta
+from controllers.reportes.vencimientos_renovaciones import bp as vencimientos_bp
 
 bp = Blueprint('main', __name__)
 
@@ -17,6 +18,8 @@ def home():
     return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards)
 from controllers.reportes.reporte_archivos_poliza import bp as reporte_archivos_bp
 bp.register_blueprint(reporte_archivos_bp)
+
+bp.register_blueprint(vencimientos_bp)
 
 @bp.route('/dashboard')
 def dashboard():
@@ -137,6 +140,10 @@ def menu_page(page):
     # REPORTE: Archivos Póliza
     if page == 'reporte-archivos-poliza':
         return render_template('view/reportes/reporte-archivos-poliza.html')
+
+    # REPORTE: Vencimientos y Renovaciones
+    if page == 'vencimientos-renovaciones':
+        return render_template('view/reportes/vencimientos-renovaciones.html')
 
     # Primas → plantilla dedicada
     if page == 'primas':

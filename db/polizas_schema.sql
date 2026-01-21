@@ -781,5 +781,32 @@ BEGIN
     ORDER BY pa.creado_en DESC
     LIMIT 100;
 END$$
+DELIMITER 
 
-DELIMITER ;
+DELIMITER $$
+
+CREATE PROCEDURE sp_reporte_vencimientos(
+    IN p_fecha_inicio DATE,
+    IN p_fecha_fin DATE
+)
+BEGIN
+    SELECT 
+        p.cia AS compania,
+        p.ramo,
+        p.ramos_producto AS producto,
+        c.tipo_documento,
+        c.numero_documento,
+        p.poliza,
+        p.recibo AS aviso_cobranza,
+        DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
+        DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
+        p.moneda,
+        p.prima_comercial_igv AS prima_neta,
+        p.prima_comercial_igv AS prima_total,
+        p.estado
+    FROM polizas p
+    INNER JOIN clientes c ON c.idCliente = p.cliente_id
+    WHERE p.vig_hasta BETWEEN p_fecha_inicio AND p_fecha_fin
+    ORDER BY p.vig_hasta ASC;
+END$$
+DELIMITER 
