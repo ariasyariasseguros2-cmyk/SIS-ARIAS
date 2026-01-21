@@ -45,10 +45,10 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
                 rows = [{
                     'cupon': pr.get('recibo') or '1',
                     'fecha_vencimiento': pr.get('vig_fin') or '',
-                    'moneda': pr.get('moneda') or '',
+                    'moneda': 'S/.',
                     'importe': pr.get('prima_comercial_igv') or pr.get('prima_total') or pr.get('prima_neta') or '',
                     'fecha_pago': '',
-                    'factura':'',
+                    'factura': pr.get('nro_operacion') or pr.get('recibo') or '',
                     'observacion': '',
                 }]
             cur.close()
@@ -99,3 +99,127 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
         'rows': rows,
         'total_monto': total_monto
     }
+
+def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
+    import re
+    text = ""
+    try:
+        import pdfplumber
+        with pdfplumber.open(filepath) as pdf:
+            for page in pdf.pages:
+                text += (page.extract_text() or "") + "\n"
+    except ImportError:
+        try:
+            from PyPDF2 import PdfReader
+            reader = PdfReader(filepath)
+            for page in reader.pages:
+                text += (page.extract_text() or "") + "\n"
+        except Exception:
+            return {}
+    except Exception as e:
+        print(f"Error extracting text: {e}")
+        return {}
+
+    # Normalizar texto
+    text_upper = text.upper()
+    
+    data = {
+        'cupon': '',
+        'fecha_vencimiento': '',
+        'importe': '',
+        'factura': '',
+        'fecha_pago': '',
+        'observacion': ''
+    }
+
+    # Regex Helpers
+    def find_val(pattern, txt):
+        m = re.search(pattern, txt, re.IGNORECASE)
+        return m.group(1).strip() if m else ''
+
+    # --- Detección de Proveedor ---
+    is_crecer = 'CRECER' in text_upper and 'SEGUROS' in text_upper
+    is_sanitas = 'SANITAS' in text_upper
+
+    if is_crecer:
+        # Lógica específica para Crecer Seguros
+        
+        # Factura: F### - ########
+        # Ejemplo: F008 - 00116916
+        m_fac = re.search(r'(F\d{3}\s*-\s*\d+)', text, re.IGNORECASE)
+        if m_fac:
+            data['factura'] = m_fac.group(1).replace(' ', '') # F008-00116916
+
+        # Cupón: NO EXTRAER (Solicitado por usuario)
+        # data['cupon'] = ...
+
+        # Fecha Vencimiento: NO EXTRAER (Solicitado por usuario)
+        # data['fecha_vencimiento'] = ...
+
+        # Importe Total
+        # Ejemplo: IMPORTE TOTAL (S/) 118.00
+        # Buscar "IMPORTE TOTAL" y tomar el número al final de la línea o bloque
+        m_imp = re.search(r'IMPORTE\s+TOTAL.*?(?:S/|USD|\$)?\s*([\d,]+\.\d{2})', text, re.IGNORECASE | re.DOTALL)
+        if m_imp:
+             data['importe'] = m_imp.group(1).replace(',', '') # Asumimos 1,234.56 -> 1234.56
+        
+        # Fecha Pago: Usar FECHA DE EMISIÓN
+        data['fecha_pago'] = find_val(r'FECHA\s+DE\s+EMISI[ÓO]N\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+
+        # Póliza para observación
+        poliza = find_val(r'N[úu]mero\s+de\s+p[óo]liza\s*[:.]?\s*([0-9A-Z\-]+)', text)
+        if poliza:
+            data['observacion'] = f"Póliza: {poliza}"
+
+    elif is_sanitas:
+       # Lógica específica para Sanitas
+       
+       # Factura: Nro. F###-#######
+       # Busca primero el patrón específico Fxxx-xxxxxxxx
+       m_fac = re.search(r'(F\d{3}\s*-\s*\d+)', text, re.IGNORECASE)
+       if not m_fac:
+           # Fallback: buscar con prefijo Nro. o Factura
+           m_fac = re.search(r'(?:Nro\.?|FACTURA\s+ELECTR[ÓO]NICA)\s*[:.]?\s*(F\d{3}[-\s]\d+)', text, re.IGNORECASE)
+       
+       if m_fac:
+           data['factura'] = m_fac.group(1).replace(' ', '')
+
+       # Importe Total: Importe Total 164.07
+       m_imp = re.search(r'Importe\s+Total\s*([\d,]+\.\d{2})', text, re.IGNORECASE)
+       if m_imp:
+            data['importe'] = m_imp.group(1).replace(',', '')
+
+       # Fecha Pago: Usar FECHA DE EMISIÓN
+       data['fecha_pago'] = find_val(r'Fecha\s+de\s+Emisi[óo]n\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+
+       # Observación: Contrato o Referencia de pago
+       contrato = find_val(r'Contrato\s*[:.]?\s*(\d+)', text)
+       if contrato:
+            data['observacion'] = f"Contrato: {contrato}"
+
+    else:
+        # --- Lógica Genérica (Existente) ---
+        
+        # 1. Cupon / Recibo - NO EXTRAER (Solicitado por usuario)
+        # data['cupon'] = find_val(r'(?:RECIBO|CUP[ÓO]N|OPERACI[ÓO]N|NRO\.?\s*OP)\s*[:.]?\s*([0-9\-]+)', text)
+        
+        # 2. Fecha Vencimiento - NO EXTRAER (Solicitado por usuario)
+        # data['fecha_vencimiento'] = find_val(r'(?:VENCIMIENTO|VENCE|VIGENCIA\s*HASTA)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+        
+        # 3. Importe / Total
+        m_importe = re.search(r'(?:TOTAL|IMPORTE|MONTO|NETO\s*A\s*PAGAR)\s*[:.]?\s*(?:S/\.|USD|\$)?\s*([\d,]+\.?\d{2})', text, re.IGNORECASE)
+        if m_importe:
+            val = m_importe.group(1).replace(',', '') 
+            data['importe'] = val
+
+        # 4. Factura
+        data['factura'] = find_val(r'(?:FACTURA|NRO\.?\s*FAC|F0\d+-\d+)\s*[:.]?\s*([FfEeBb]\d{2,3}-\d+)', text)
+        if not data['factura']:
+             m_fac = re.search(r'([FfEeBb]\d{2,3}-\d{5,8})', text)
+             if m_fac:
+                 data['factura'] = m_fac.group(1)
+
+        # 5. Fecha Pago
+        data['fecha_pago'] = find_val(r'(?:PAGADO|FECHA\s*PAGO)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+
+    return data

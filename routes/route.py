@@ -7,6 +7,36 @@ from controllers.reportes.vencimientos_renovaciones import bp as vencimientos_bp
 
 bp = Blueprint('main', __name__)
 
+@bp.route('/cuotas/extract', methods=['POST'])
+def extract_cuota():
+    if 'file' not in request.files:
+        return {'ok': False, 'error': 'No file part'}, 400
+    file = request.files['file']
+    if file.filename == '':
+        return {'ok': False, 'error': 'No selected file'}, 400
+    
+    if file:
+        try:
+            filename = secure_filename(file.filename)
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+            if not os.path.exists(upload_folder):
+                os.makedirs(upload_folder)
+            
+            filepath = os.path.join(upload_folder, filename)
+            file.save(filepath)
+            
+            from controllers.cuotas.cuotas import extract_cuota_from_pdf
+            data = extract_cuota_from_pdf(filepath)
+            
+            # Clean up
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                
+            return {'ok': True, 'data': data}
+        except Exception as e:
+            return {'ok': False, 'error': str(e)}, 500
+            
+    return {'ok': False, 'error': 'Unknown error'}, 500
 
 @bp.route('/home')
 def home():

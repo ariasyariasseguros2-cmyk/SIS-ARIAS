@@ -205,10 +205,245 @@ const Cuotas = (() => {
       recalcTotal();
     });
   }
-  function onAdd() { alert('Añadir nueva cuota (pendiente de implementación)'); }
+  function onAdd() { 
+    const modalEl = document.getElementById('cuotaAddModal');
+    if (!modalEl) return;
+    
+    // Reset form
+    const form = document.getElementById('addCuotaForm');
+    if (form) form.reset();
+    
+    // Reset Upload Zone
+    const zone = document.getElementById('dropZone');
+    if (zone) {
+      const content = zone.querySelector('.upload-content');
+      const prev = zone.querySelector('.file-preview');
+      const btnExtract = document.getElementById('btnExtractData');
+      const fileInput = document.getElementById('addDocumentoFile');
+      
+      if (content) content.classList.remove('d-none');
+      if (prev) prev.classList.add('d-none');
+      if (btnExtract) btnExtract.disabled = true;
+      if (fileInput) fileInput.value = '';
+    }
 
-  // Eventos adicionales del modal de edición
+    const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+  }
+
+  // Eventos adicionales del modal de edición y Añadir
   document.addEventListener('DOMContentLoaded', () => {
+    // --- Logic for Add Modal ---
+    const dropZone = document.getElementById('dropZone');
+    const addFileInput = document.getElementById('addDocumentoFile');
+    const btnExtract = document.getElementById('btnExtractData');
+    const removeFileBtn = document.getElementById('removeFileBtn');
+
+    if (dropZone && addFileInput) {
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+          dropZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+          dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+          dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+          const dt = e.dataTransfer;
+          handleFiles(dt.files);
+        }, false);
+
+        addFileInput.addEventListener('change', function() {
+            handleFiles(this.files);
+        });
+
+        function handleFiles(files) {
+            if (files.length > 0) {
+                const file = files[0];
+                const content = dropZone.querySelector('.upload-content');
+                const prev = dropZone.querySelector('.file-preview');
+                const nameEl = document.getElementById('fileNamePreview');
+                const sizeEl = document.getElementById('fileSizePreview');
+
+                if (content) content.classList.add('d-none');
+                if (prev) prev.classList.remove('d-none');
+                if (nameEl) nameEl.textContent = file.name;
+                if (sizeEl) sizeEl.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+                if (btnExtract) btnExtract.disabled = false;
+            }
+        }
+    }
+
+    if (removeFileBtn) {
+      removeFileBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // prevent triggering dropZone click if any
+        const zone = document.getElementById('dropZone');
+        const content = zone.querySelector('.upload-content');
+        const prev = zone.querySelector('.file-preview');
+        const btnExtract = document.getElementById('btnExtractData');
+        const fileInput = document.getElementById('addDocumentoFile');
+
+        if (content) content.classList.remove('d-none');
+        if (prev) prev.classList.add('d-none');
+        if (btnExtract) btnExtract.disabled = true;
+        if (fileInput) fileInput.value = '';
+      });
+    }
+
+    if (btnExtract) {
+      btnExtract.addEventListener('click', async () => {
+         const btn = btnExtract;
+         const spinner = btn.querySelector('.spinner-border');
+         const fileInput = document.getElementById('addDocumentoFile');
+         
+         if (!fileInput || !fileInput.files || !fileInput.files.length) {
+             alert('Por favor seleccione un archivo primero.');
+             return;
+         }
+
+         btn.disabled = true;
+         if (spinner) spinner.classList.remove('d-none');
+         
+         try {
+             const formData = new FormData();
+             formData.append('file', fileInput.files[0]);
+             
+             const response = await fetch('/cuotas/extract', {
+                 method: 'POST',
+                 body: formData
+             });
+             
+             const result = await response.json();
+             
+             if (result.ok) {
+                 const data = result.data;
+                 const setVal = (id, val) => {
+                     const el = document.getElementById(id);
+                     if (el && val) el.value = val;
+                 };
+                 
+                 // Populate fields
+                 // Auto-increment sequence
+                 const tbody = document.querySelector('#cuotas-table tbody');
+                 const nextSeq = tbody ? tbody.rows.length + 1 : 1;
+                 setVal('addSecuencia', nextSeq);
+                 
+                 // data.cupon se ignora por solicitud
+                 // if (data.cupon) setVal('addCupon', data.cupon);
+                 
+                 // data.fecha_vencimiento se ignora por solicitud
+                 /*
+                 if (data.fecha_vencimiento) {
+                     // Convert dd/mm/yyyy to yyyy-mm-dd
+                     const parts = data.fecha_vencimiento.split(/[-/]/);
+                     if (parts.length === 3) {
+                         const date = new Date(parts[2], parts[1] - 1, parts[0]);
+                         if (!isNaN(date.getTime())) {
+                             const y = date.getFullYear();
+                             const m = String(date.getMonth() + 1).padStart(2, '0');
+                             const d = String(date.getDate()).padStart(2, '0');
+                             setVal('addFechaVenc', `${y}-${m}-${d}`);
+                         }
+                     }
+                 }
+                 */
+                 
+                 if (data.importe) setVal('addImporte', data.importe);
+                 
+                 if (data.fecha_pago) {
+                      const parts = data.fecha_pago.split(/[-/]/);
+                      if (parts.length === 3) {
+                          const date = new Date(parts[2], parts[1] - 1, parts[0]);
+                          if (!isNaN(date.getTime())) {
+                             const y = date.getFullYear();
+                             const m = String(date.getMonth() + 1).padStart(2, '0');
+                             const d = String(date.getDate()).padStart(2, '0');
+                             setVal('addFechaPago', `${y}-${m}-${d}`);
+                          }
+                      }
+                 }
+                 
+                 if (data.factura) setVal('addFactura', data.factura);
+                 setVal('addObservacion', 'Datos extraídos automáticamente del PDF.');
+             } else {
+                 alert('No se pudieron extraer datos: ' + (result.error || 'Revise el archivo'));
+             }
+         } catch (e) {
+             console.error(e);
+             alert('Error al procesar el archivo. Asegúrese de que sea un PDF válido.');
+         } finally {
+             if (spinner) spinner.classList.add('d-none');
+             btn.disabled = false;
+         }
+      });
+    }
+
+    const btnSaveNew = document.getElementById('btnSaveNewCuota');
+    if (btnSaveNew) {
+      btnSaveNew.addEventListener('click', () => {
+          const getVal = (id) => {
+             const el = document.getElementById(id);
+             return el ? el.value.trim() : '';
+          };
+          
+          const sec = getVal('addSecuencia');
+          const venc = getVal('addFechaVenc');
+          const imp = getVal('addImporte');
+          
+          if (!sec || !venc || !imp) {
+              alert('Por favor complete los campos obligatorios (*).');
+              return;
+          }
+
+          // Add to table
+          const tbody = document.querySelector('#cuotas-table tbody');
+          if (tbody) {
+            const rowCount = tbody.rows.length;
+            const tr = document.createElement('tr');
+            const fileInput = document.getElementById('addDocumentoFile');
+            const fileName = (fileInput && fileInput.files[0]) ? fileInput.files[0].name : '';
+            
+            tr.dataset.documento = fileName;
+            
+            tr.innerHTML = `
+              <td>${rowCount + 1}</td>
+              <td>${getVal('addCupon')}</td>
+              <td>${venc}</td>
+              <td>USD</td>
+              <td>${parseFloat(imp).toFixed(2)}</td>
+              <td>${getVal('addFechaPago')}</td>
+              <td>${getVal('addFactura')}</td>
+              <td>${getVal('addObservacion')}</td>
+              <td class="text-end actions">
+                <div class="d-flex gap-2 justify-content-end flex-wrap">
+                  <button class="btn btn-sm btn-lift btn-pdf" onclick="Cuotas.onPDF(${rowCount})">PDF</button>
+                  <button class="btn btn-sm btn-lift btn-revert" onclick="Cuotas.onRevert(${rowCount})">Revertir</button>
+                  <button class="btn btn-sm btn-lift btn-details" onclick="Cuotas.onDetails(${rowCount})">Detalles</button>
+                  <button class="btn btn-sm btn-lift btn-edit" onclick="Cuotas.onEdit(${rowCount})">Editar</button>
+                  <button class="btn btn-sm btn-lift btn-delete" onclick="Cuotas.onDelete(${rowCount})">Eliminar</button>
+                </div>
+              </td>
+            `;
+            tbody.appendChild(tr);
+            
+            // Re-init list and total
+            allRows.push(tr); // Update internal list
+            recalcTotal();
+            
+            // Close modal
+            const modalEl = document.getElementById('cuotaAddModal');
+            if (modalEl) {
+               const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+               modal.hide();
+            }
+          }
+      });
+    }
+
     const btnGuardar = document.getElementById('btnGuardarCuota');
     if (btnGuardar) {
       btnGuardar.addEventListener('click', () => {
