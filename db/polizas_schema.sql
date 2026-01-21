@@ -595,6 +595,7 @@ BEGIN
         p.prima_comercial,
         p.prima_neta,
         p.prima_comercial_igv,
+        p.moneda,
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
         p.nro AS nro_operacion,
