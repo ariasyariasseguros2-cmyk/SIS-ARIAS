@@ -1,0 +1,276 @@
+<!-- Modal Editar Cliente -->
+<div class="modal fade" id="editClienteModal" tabindex="-1" aria-labelledby="editClienteModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="editClienteModalLabel">
+                    <i class="bi-pencil-square me-2"></i>Editar Cliente
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formEditCliente" class="needs-validation" novalidate>
+                    <input type="hidden" id="edit_idCliente" name="idCliente">
+
+                    <!-- Sección 1: Datos Básicos -->
+                    <div class="section-card">
+                        <h6 class="section-title">
+                            <i class="bi-person-badge"></i> Datos Básicos
+                        </h6>
+                        <div class="row g-3">
+                            <!-- Tipo de Persona -->
+                            <div class="col-md-4">
+                                <label class="form-label">Tipo de Persona <span class="text-danger">*</span></label>
+                                <select id="edit_tipo_persona" name="tipo_persona" class="form-select" required>
+                                    <option value="">Seleccionar...</option>
+                                    <option value="1">Natural</option>
+                                    <option value="2">Jurídica</option>
+                                </select>
+                            </div>
+
+                            <!-- Tipo de Documento -->
+                            <div class="col-md-4">
+                                <label class="form-label">Tipo de Documento <span class="text-danger">*</span></label>
+                                <select id="edit_tipo_documento" name="tipo_documento" class="form-select" required>
+                                    <option value="">Seleccionar...</option>
+                                    <option value="DNI">DNI</option>
+                                    <option value="RUC">RUC</option>
+                                    <option value="CE">CE</option>
+                                    <option value="PAS">PAS</option>
+                                    <option value="CEX">CEX</option>
+                                    <option value="DNI/CEDULA">DNI/CEDULA</option>
+                                </select>
+                            </div>
+
+                            <!-- Número de Documento -->
+                            <div class="col-md-4">
+                                <label class="form-label">Número de Documento <span class="text-danger">*</span></label>
+                                <input type="text" id="edit_numero_documento" name="numero_documento" class="form-control" required>
+                            </div>
+
+                            <!-- Razón Social / Nombre -->
+                            <div class="col-12">
+                                <label class="form-label">Razón Social / Nombre Completo <span class="text-danger">*</span></label>
+                                <input type="text" id="edit_razon_social" name="razon_social" class="form-control" required>
+                            </div>
+
+                            <!-- Estado -->
+                            <div class="col-md-6">
+                                <label class="form-label">Estado</label>
+                                <select id="edit_estado" name="estado" class="form-select">
+                                    <option value="Vigente">Vigente</option>
+                                    <option value="Inactivo">Inactivo</option>
+                                </select>
+                            </div>
+
+                            <!-- Profesión -->
+                            <div class="col-md-6">
+                                <label class="form-label">Profesión / Ocupación</label>
+                                <input type="text" id="edit_profesion" name="profesion" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección 2: Datos de Contacto -->
+                    <div class="section-card">
+                        <h6 class="section-title">
+                            <i class="bi-telephone"></i> Datos de Contacto
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Teléfono</label>
+                                <input type="text" id="edit_telefono" name="telefono" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Celular</label>
+                                <input type="text" id="edit_celular" name="celular" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Teléfono Secundario</label>
+                                <input type="text" id="edit_telefono_sec" name="telefono_sec" class="form-control">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Email</label>
+                                <input type="email" id="edit_email" name="email" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección 3: Ubicación -->
+                    <div class="section-card">
+                        <h6 class="section-title">
+                            <i class="bi-geo-alt"></i> Ubicación
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Dirección</label>
+                                <input type="text" id="edit_direccion" name="direccion" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Departamento</label>
+                                <input type="text" id="edit_departamento" name="departamento" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Provincia</label>
+                                <input type="text" id="edit_provincia" name="provincia" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Distrito</label>
+                                <input type="text" id="edit_distrito" name="distrito" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección 4: Relación Comercial -->
+                    <div class="section-card">
+                        <h6 class="section-title">
+                            <i class="bi-briefcase"></i> Relación Comercial
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Sub-Agente</label>
+                                <select id="edit_subagente" name="subagente" class="form-select">
+                                    <option value="">Seleccionar...</option>
+                                    {% if subagentes_abbrs %}
+                                        {% for sub in subagentes_abbrs %}
+                                        <option value="{{ sub }}">{{ sub }}</option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Grupo Económico</label>
+                                <input type="text" id="edit_grupo_economico" name="grupo_economico" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Giro de Negocio</label>
+                                <input type="text" id="edit_giro_negocio" name="giro_negocio" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Recomendado Por</label>
+                                <input type="text" id="edit_recomendado_por" name="recomendado_por" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección 5: Fechas Importantes -->
+                    <div class="section-card">
+                        <h6 class="section-title">
+                            <i class="bi-calendar-event"></i> Fechas Importantes
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Fecha de Ingreso</label>
+                                <input type="date" id="edit_fecha_ingreso" name="fecha_ingreso" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Fecha de Nacimiento</label>
+                                <input type="date" id="edit_fecha_nacimiento" name="fecha_nacimiento" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Último Siniestro</label>
+                                <input type="date" id="edit_ultimo_siniestro" name="ultimo_siniestro" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección 6: Licencia de Conducir -->
+                    <div class="section-card">
+                        <h6 class="section-title">
+                            <i class="bi-credit-card-2-front"></i> Licencia de Conducir
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Número de Licencia</label>
+                                <input type="text" id="edit_licencia_num" name="licencia_num" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Fecha de Vencimiento</label>
+                                <input type="date" id="edit_licencia_venc" name="licencia_venc" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección 7: Contacto de Emergencia -->
+                    <div class="section-card">
+                        <h6 class="section-title">
+                            <i class="bi-person-lines-fill"></i> Contacto de Emergencia
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="edit_recibir_notificaciones" name="recibir_notificaciones">
+                                    <label class="form-check-label" for="edit_recibir_notificaciones">
+                                        Recibir notificaciones
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Nombre Contacto</label>
+                                <input type="text" id="edit_contacto_nombre" name="contacto_nombre" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Email Contacto</label>
+                                <input type="email" id="edit_contacto_email" name="contacto_email" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Teléfono Contacto</label>
+                                <input type="text" id="edit_contacto_telefono" name="contacto_telefono" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección 8: Siniestralidad -->
+                    <div class="section-card">
+                        <h6 class="section-title">
+                            <i class="bi-exclamation-triangle"></i> Siniestralidad
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Siniestros Reportados</label>
+                                <input type="number" id="edit_siniestros_reportados" name="siniestros_reportados" class="form-control" min="0">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Detalle de Siniestros</label>
+                                <textarea id="edit_detalle_siniestros" name="detalle_siniestros" class="form-control" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección 9: Información Adicional -->
+                    <div class="section-card">
+                        <h6 class="section-title">
+                            <i class="bi-info-circle"></i> Información Adicional
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Referencia</label>
+                                <textarea id="edit_referencia" name="referencia" class="form-control" rows="2"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Referencias de Interés</label>
+                                <textarea id="edit_referencias_interes" name="referencias_interes" class="form-control" rows="2"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Notas</label>
+                                <textarea id="edit_notas" name="notas" class="form-control" rows="3"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Preferencias</label>
+                                <textarea id="edit_preferencias" name="preferencias" class="form-control" rows="2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi-x-circle me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-warning" id="btnGuardarEditCliente">
+                    <i class="bi-check-circle me-1"></i>Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

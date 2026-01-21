@@ -1147,3 +1147,23 @@ def api_aseguradoras():
     from controllers.compania import get_aseguradoras
     rows = get_aseguradoras() or []
     return {'ok': True, 'rows': rows}, 200
+
+#Metodos para editar y ver detalle de clienes.
+@bp.route('/clientes/edit', methods=['POST'])
+def clientes_edit():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    from controllers.clientes.editcliente import editar_cliente_route
+    return editar_cliente_route()
+
+
+@bp.route('/clientes/detalle/<int:idCliente>', methods=['GET'])
+def clientes_detalle(idCliente):
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    from controllers.clientes.editcliente import get_cliente_detalle_route
+    return get_cliente_detalle_route(idCliente)
+
+

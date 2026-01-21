@@ -809,4 +809,96 @@ BEGIN
     WHERE p.vig_hasta BETWEEN p_fecha_inicio AND p_fecha_fin
     ORDER BY p.vig_hasta ASC;
 END$$
-DELIMITER 
+DELIMITER
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_get_idProductor_por_abreviacion(IN p_abreviacion VARCHAR(100))
+BEGIN
+SELECT idProductor
+FROM SubAgente
+WHERE abreviacion = p_abreviacion
+    LIMIT 1;
+END$$
+
+DELIMITER
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_update_cliente (
+    IN p_idCliente INT,
+    IN p_razon_social VARCHAR(150),
+    IN p_tipo_documento VARCHAR(20),
+    IN p_numero_documento VARCHAR(20),
+    IN p_telefono VARCHAR(20),
+    IN p_celular VARCHAR(20),
+    IN p_telefono_sec VARCHAR(20),
+    IN p_subagente VARCHAR(100),
+    IN p_idProductor INT,
+    IN p_email VARCHAR(150),
+    IN p_direccion VARCHAR(200),
+    IN p_departamento VARCHAR(100),
+    IN p_provincia VARCHAR(100),
+    IN p_distrito VARCHAR(100),
+    IN p_estado VARCHAR(20),
+    IN p_tipo_persona TINYINT,
+    IN p_profesion VARCHAR(150),
+    IN p_fecha_ingreso DATE,
+    IN p_fecha_nacimiento DATE,
+    IN p_licencia_num VARCHAR(50),
+    IN p_licencia_venc DATE,
+    IN p_grupo_economico VARCHAR(100),
+    IN p_giro_negocio VARCHAR(100),
+    IN p_referencia VARCHAR(200),
+    IN p_recomendado_por VARCHAR(150),
+    IN p_recibir_notificaciones TINYINT,
+    IN p_contacto_nombre VARCHAR(150),
+    IN p_contacto_email VARCHAR(150),
+    IN p_contacto_telefono VARCHAR(20),
+    IN p_referencias_interes TEXT,
+    IN p_notas TEXT,
+    IN p_siniestros_reportados INT,
+    IN p_ultimo_siniestro DATE,
+    IN p_detalle_siniestros TEXT,
+    IN p_preferencias TEXT
+)
+BEGIN
+UPDATE clientes
+SET razon_social = p_razon_social,
+    tipo_documento = p_tipo_documento,
+    numero_documento = p_numero_documento,
+    telefono = p_telefono,
+    celular = p_celular,
+    telefono_sec = p_telefono_sec,
+    subagente = p_subagente,
+    idProductor = p_idProductor,
+    email = p_email,
+    direccion = p_direccion,
+    departamento = p_departamento,
+    provincia = p_provincia,
+    distrito = p_distrito,
+    estado = p_estado,
+    tipo_persona = p_tipo_persona,
+    profesion = p_profesion,
+    fecha_ingreso = p_fecha_ingreso,
+    fecha_nacimiento = p_fecha_nacimiento,
+    licencia_num = p_licencia_num,
+    licencia_venc = p_licencia_venc,
+    grupo_economico = p_grupo_economico,
+    giro_negocio = p_giro_negocio,
+    referencia = p_referencia,
+    recomendado_por = p_recomendado_por,
+    recibir_notificaciones = p_recibir_notificaciones,
+    contacto_nombre = p_contacto_nombre,
+    contacto_email = p_contacto_email,
+    contacto_telefono = p_contacto_telefono,
+    referencias_interes = p_referencias_interes,
+    notas = p_notas,
+    siniestros_reportados = p_siniestros_reportados,
+    ultimo_siniestro = p_ultimo_siniestro,
+    detalle_siniestros = p_detalle_siniestros,
+    preferencias = p_preferencias
+WHERE idCliente = p_idCliente;
+END$$
+
+DELIMITER

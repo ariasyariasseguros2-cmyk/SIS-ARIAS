@@ -65,6 +65,7 @@
                     <td>{{ r.direccion }}</td>
                     <td class="text-end">
                         <div class="d-flex gap-2 justify-content-end">
+                            <button class="btn btn-warning btn-sm btn-lift btn-edit-cliente" data-id="{{ r.idCliente }}"><i class="bi-pencil"></i> Editar</button>
                             <button class="btn btn-primary btn-sm btn-lift"><i></i> Pólizas</button>
                             <button class="btn btn-success btn-sm btn-lift"><i></i> Contactos</button>
                             <button class="btn btn-danger btn-sm btn-lift"><i></i> Pdf</button>
@@ -114,6 +115,7 @@
 </div>
 
 {% include 'view/cliente/addCliente.html' %}
+{% include 'view/cliente/editCliente.html' %}
 {% endblock %}
 
 {% block before_js %}
@@ -126,4 +128,5 @@
 {{ super() }}
 <script src="{{ url_for('static', filename='js/cliente/cliente.js') }}"></script>
 <script src="{{ url_for('static', filename='js/cliente/addcliente.js') }}"></script>
+<script src="{{ url_for('static', filename='js/cliente/editcliente.js') }}"></script>
 {% endblock %}
