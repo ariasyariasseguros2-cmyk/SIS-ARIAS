@@ -474,7 +474,7 @@ BEGIN
         p_prima_comercial_igv, 
         NULL, 
         NULL, 
-        NULL, 
+        NULL
     );
 END$$
 DELIMITER ;
@@ -798,7 +798,7 @@ BEGIN
     ORDER BY pa.creado_en DESC
     LIMIT 100;
 END$$
-DELIMITER 
+DELIMITER ;
 
 DELIMITER $$
 
@@ -918,4 +918,4 @@ SET razon_social = p_razon_social,
 WHERE idCliente = p_idCliente;
 END$$
 
-DELIMITER;
+DELIMITER ;
