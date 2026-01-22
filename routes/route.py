@@ -1216,4 +1216,11 @@ def clientes_detalle(idCliente):
     from controllers.clientes.editcliente import get_cliente_detalle_route
     return get_cliente_detalle_route(idCliente)
 
+@bp.route('/clientes/delete', methods=['POST'])
+def clientes_delete():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    from controllers.clientes.deletecliente import eliminar_cliente_route
+    return eliminar_cliente_route()
 

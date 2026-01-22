@@ -176,6 +176,9 @@ CREATE TABLE IF NOT EXISTS clientes (
     usuario_modificacion VARCHAR(50) NULL COMMENT 'Último usuario que modificó el cliente',
     fecha_modificacion DATETIME NULL ON UPDATE CURRENT_TIMESTAMP COMMENT 'Última fecha de modificación',
 
+    -- Borrado lógico
+    activo BOOLEAN NOT NULL DEFAULT TRUE COMMENT '1=activo, 0=eliminado lógicamente',
+
     --
     -- Foreign Key a tabla subagente
     CONSTRAINT fk_clientes_subagente FOREIGN KEY (idProductor)
@@ -183,6 +186,9 @@ CREATE TABLE IF NOT EXISTS clientes (
         
 
 );
+
+    -- ACTUALIZA EL ROW ACTIVE A 1 PARA REGISTROS EXISTENTES (NO FUNCIONAL TEMPORALMENTE)
+    UPDATE clientes SET activo = 1 WHERE activo IS NULL AND idCliente IS NOT NULL;
 
 DELIMITER $$
 CREATE PROCEDURE sp_insert_cliente (
@@ -269,7 +275,7 @@ BEGIN
         estado,
         tipo_persona
     FROM clientes
-    WHERE estado = 'Vigente'
+    WHERE activo = 1
     ORDER BY fecha_registro DESC;
 END$$
 DELIMITER ;
@@ -279,7 +285,7 @@ CREATE PROCEDURE sp_buscar_cliente (IN p_texto VARCHAR(150))
 BEGIN
     SELECT *
     FROM clientes
-    WHERE estado = 'Vigente'
+    WHERE activo = 1
       AND (
             razon_social LIKE CONCAT('%', p_texto, '%')
          OR numero_documento LIKE CONCAT('%', p_texto, '%')
@@ -360,6 +366,7 @@ BEGIN
         telefono
     FROM clientes
     WHERE numero_documento = p_numero_documento
+      AND activo = 1
     LIMIT 1;
 END$$
 DELIMITER ;
@@ -556,6 +563,7 @@ BEGIN
         telefono
     FROM clientes
     WHERE idCliente = p_id
+      AND activo = 1
     LIMIT 1;
 END$$
 DELIMITER ;
@@ -955,6 +963,41 @@ SET razon_social = p_razon_social,
 WHERE idCliente = p_idCliente;
 END$$
 
+DELIMITER ;
+
+DELIMITER $$
+CREATE PROCEDURE sp_delete_cliente(
+    IN p_idCliente INT,
+    IN p_usuario_modificacion VARCHAR(50)
+)
+BEGIN
+    UPDATE clientes
+    SET
+        activo = 0,
+        usuario_modificacion = p_usuario_modificacion,
+        fecha_modificacion = NOW()
+    WHERE idCliente = p_idCliente
+      AND activo = 1;
+
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
+DELIMITER ;
+DELIMITER $$
+CREATE PROCEDURE sp_restore_cliente(
+    IN p_idCliente INT,
+    IN p_usuario_modificacion VARCHAR(50)
+)
+BEGIN
+    UPDATE clientes
+    SET
+        activo = 1,
+        usuario_modificacion = p_usuario_modificacion,
+        fecha_modificacion = NOW()
+    WHERE idCliente = p_idCliente
+      AND activo = 0;
+
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
 DELIMITER ;
 
 -- Índices de auditoría para consultas de auditoría

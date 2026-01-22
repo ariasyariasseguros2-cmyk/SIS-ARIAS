@@ -61,6 +61,30 @@
                     return;
                 } else if (btn.classList.contains('btn-success') || btn.classList.contains('btn-outline-success')) {
                     alert(`Abrir contactos de: ${razon}`);
+                } else if (btn.classList.contains('btn-delete-cliente')) {
+                    // Eliminar cliente (borrado lógico)
+                    const idCliente = btn.getAttribute('data-id');
+                    const nombreCliente = btn.getAttribute('data-nombre');
+
+                    if (!confirm(`¿Está seguro de eliminar al cliente "${nombreCliente}"?\n\nEsta acción se puede revertir desde la base de datos.`)) {
+                        return;
+                    }
+
+                    fetch('/clientes/delete', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({idCliente: idCliente})
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.ok) {
+                            alert('Cliente eliminado correctamente');
+                            location.reload();
+                        } else {
+                            alert('Error: ' + (data.errors || ['Desconocido']).join(', '));
+                        }
+                    })
+                    .catch(err => alert('Error de red: ' + err));
                 } else if (btn.classList.contains('btn-danger') || btn.classList.contains('btn-outline-danger')) {
                     alert(`Generar PDF para: ${razon}`);
                 }
