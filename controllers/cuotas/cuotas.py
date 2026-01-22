@@ -100,6 +100,35 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
         'total_monto': total_monto
     }
 
+def save_cuota(data: Dict[str, object]) -> bool:
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor()
+        
+        # sp_insert_cuota parameters:
+        # p_poliza, p_cupon, p_fecha_vencimiento, p_moneda, p_importe,
+        # p_fecha_pago, p_factura, p_observacion, p_usuario
+        
+        cur.execute("CALL sp_insert_cuota(%s, %s, %s, %s, %s, %s, %s, %s, %s)", (
+            data.get('poliza'),
+            data.get('cupon'),
+            data.get('fecha_vencimiento'), # Ensure DATE format YYYY-MM-DD
+            data.get('moneda', 'S/.'),
+            data.get('importe'),
+            data.get('fecha_pago'), # Ensure DATE format
+            data.get('factura'),
+            data.get('observacion'),
+            data.get('usuario', 'SYSTEM')
+        ))
+        cnx.commit()
+        cur.close()
+        cnx.close()
+        return True
+    except Exception as e:
+        print(f"Error saving cuota: {e}")
+        return False
+
 def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
     import re
     text = ""

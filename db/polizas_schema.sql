@@ -684,6 +684,29 @@ BEGIN
 END$$
 DELIMITER ;
 
+DELIMITER $$
+CREATE PROCEDURE sp_insert_cuota(
+    IN p_poliza VARCHAR(50),
+    IN p_cupon VARCHAR(50),
+    IN p_fecha_vencimiento DATE,
+    IN p_moneda VARCHAR(10),
+    IN p_importe DECIMAL(15,2),
+    IN p_fecha_pago DATE,
+    IN p_factura VARCHAR(50),
+    IN p_observacion VARCHAR(255),
+    IN p_usuario VARCHAR(50)
+)
+BEGIN
+    INSERT INTO cuotas (
+        poliza, cupon, fecha_vencimiento, moneda, importe,
+        fecha_pago, factura, observacion, usuario_registro
+    ) VALUES (
+        p_poliza, p_cupon, p_fecha_vencimiento, p_moneda, p_importe,
+        p_fecha_pago, p_factura, p_observacion, p_usuario
+    );
+END$$
+DELIMITER ;
+
 -- NEW PROCEDURES FOR EDITING
 
 DELIMITER $$

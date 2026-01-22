@@ -12,6 +12,7 @@
 <script>
   window.currentPage = "{{ page }}";
   window.currentUser = "{{ session.get('user', '') }}";
+  window.currentPoliza = "{{ encabezado.poliza }}";
 </script>
 {% endblock %}
 
@@ -276,101 +277,8 @@
 </div>
 
 <!-- Modal Añadir -->
-<div class="modal fade" id="cuotaAddModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content border-0 shadow-lg">
-      <div class="modal-header bg-primary text-white border-0">
-        <h5 class="modal-title d-flex align-items-center gap-2 fw-bold">
-           <i class="bi bi-plus-circle-fill"></i> Añadir Cuotas
-        </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body p-4 bg-light">
-        
-        <!-- Drag & Drop Zone -->
-        <div class="card border-0 mb-4 shadow-sm">
-          <div class="card-body p-0">
-            <div class="upload-zone p-4 text-center border rounded-3 border-2 border-dashed" id="dropZone" style="border-color: #cbd5e1 !important; background-color: #f8fafc; transition: all 0.2s ease;">
-               <div class="upload-content">
-                 <i class="bi bi-cloud-arrow-up fs-1 text-primary mb-2 d-block"></i>
-                 <p class="mb-2 fw-bold text-dark">Arrastra y suelta tu documento aquí</p>
-                 <p class="text-muted small mb-3">o haz clic para seleccionar</p>
-                 <input type="file" id="addDocumentoFile" class="d-none" accept=".pdf,.jpg,.jpeg,.png">
-                 <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-4 fw-medium" onclick="document.getElementById('addDocumentoFile').click()">Seleccionar archivo</button>
-               </div>
-               <div class="file-preview d-none d-flex align-items-center justify-content-between p-3 bg-white rounded-3 mt-3 shadow-sm border">
-                  <div class="d-flex align-items-center gap-3">
-                    <div class="rounded-circle bg-danger bg-opacity-10 p-2 text-danger">
-                      <i class="bi bi-file-earmark-pdf fs-4"></i>
-                    </div>
-                    <div class="text-start">
-                       <div class="fw-bold text-dark text-truncate" style="max-width: 200px;" id="fileNamePreview">documento.pdf</div>
-                       <div class="small text-muted" id="fileSizePreview">1.2 MB</div>
-                    </div>
-                  </div>
-                  <button type="button" class="btn btn-sm btn-light text-danger rounded-circle shadow-sm" id="removeFileBtn" title="Eliminar archivo"><i class="bi bi-x-lg"></i></button>
-               </div>
-            </div>
-          </div>
-        </div>
+{% include 'view/cuotas/modal_add_cuota.html' %}
 
-        <div class="d-flex justify-content-center mb-4">
-           <button type="button" class="btn btn-primary btn-lg rounded-pill px-5 d-flex align-items-center gap-2 shadow btn-lift btn-extract position-relative overflow-hidden" id="btnExtractData" disabled>
-             <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-             <i class="bi bi-magic"></i> <span class="btn-text">Extraer datos</span>
-           </button>
-        </div>
-
-        <div class="card border-0 shadow-sm">
-          <div class="card-body p-4">
-            <form id="addCuotaForm" class="row g-3">
-                <div class="col-12 col-md-6">
-                  <label class="form-label fw-bold small text-uppercase text-muted"># Secuencia <span class="text-danger">*</span></label>
-                  <input type="number" class="form-control bg-light" id="addSecuencia" required placeholder="Ej: 1">
-                </div>
-                <div class="col-12 col-md-6">
-                  <label class="form-label fw-bold small text-uppercase text-muted">Número Cupón</label>
-                  <input type="text" class="form-control bg-light" id="addCupon" placeholder="Ej: 232680041">
-                </div>
-                <div class="col-12 col-md-6">
-                   <label class="form-label fw-bold small text-uppercase text-muted">Fecha Vencimiento <span class="text-danger">*</span></label>
-                   <input type="date" class="form-control bg-light" id="addFechaVenc" required>
-                </div>
-                <div class="col-12 col-md-6">
-                   <label class="form-label fw-bold small text-uppercase text-muted">Importe <span class="text-danger">*</span></label>
-                   <div class="input-group">
-                     <span class="input-group-text bg-light border-end-0 text-muted">S/.</span>
-                     <input type="number" step="0.01" class="form-control bg-light border-start-0" id="addImporte" required placeholder="0.00">
-                   </div>
-                </div>
-                 <div class="col-12 col-md-6">
-                   <label class="form-label fw-bold small text-uppercase text-muted">Fecha de Pago</label>
-                   <input type="date" class="form-control bg-light" id="addFechaPago">
-                </div>
-                <div class="col-12 col-md-6">
-                  <label class="form-label fw-bold small text-uppercase text-muted">Factura</label>
-                  <input type="text" class="form-control bg-light" id="addFactura" placeholder="Nro. Factura">
-                </div>
-                 <div class="col-12">
-                  <label class="form-label fw-bold small text-uppercase text-muted">Observación</label>
-                  <textarea class="form-control bg-light" id="addObservacion" rows="2" placeholder="Observaciones adicionales..."></textarea>
-                </div>
-            </form>
-          </div>
-        </div>
-
-      </div>
-      <div class="modal-footer border-top-0 pt-2 pb-4 px-4 bg-light rounded-bottom-3">
-        <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-medium" data-bs-dismiss="modal">
-          <i class="bi bi-arrow-left me-1"></i> Volver
-        </button>
-        <button type="button" class="btn btn-success rounded-pill px-4 fw-medium shadow-sm btn-lift" id="btnSaveNewCuota">
-          Guardar
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <div class="modal fade" id="cuotaConfirmModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -394,6 +302,7 @@
 {% block extra_js_bottom %}
 {{ super() }}
 <script src="{{ url_for('static', filename='js/cuotas/cuotas.js') }}"></script>
+<script src="{{ url_for('static', filename='js/cuotas/add_cuota_modal.js') }}"></script>
 <script>
   Cuotas.init();
 </script>

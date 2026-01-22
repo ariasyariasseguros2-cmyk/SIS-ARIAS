@@ -1,25 +1,27 @@
+
 document.addEventListener('DOMContentLoaded', function() {
     const filterForm = document.getElementById('filterForm');
     const tableBody = document.querySelector('#resultsTable tbody');
 
-    filterForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const fechaInicio = document.getElementById('fechaInicio').value;
-        const fechaFin = document.getElementById('fechaFin').value;
+    if (filterForm) {
+        filterForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const fechaInicio = document.getElementById('fechaInicio').value;
+            const fechaFin = document.getElementById('fechaFin').value;
 
-        if (!fechaInicio || !fechaFin) {
-            alert('Por favor seleccione ambas fechas.');
-            return;
-        }
+            if (!fechaInicio || !fechaFin) {
+                alert('Por favor seleccione ambas fechas.');
+                return;
+            }
 
-        fetchData(fechaInicio, fechaFin);
-    });
+            fetchData(fechaInicio, fechaFin);
+        });
+    }
 
     async function fetchData(inicio, fin) {
         try {
             // Show loading state
-            // colspan matches header count (14)
             tableBody.innerHTML = `<tr><td colspan="14" class="text-center py-4 text-muted">Cargando datos...</td></tr>`;
 
             const url = `/api/reportes/vencimientos-renovaciones?fecha_inicio=${inicio}&fecha_fin=${fin}`;
@@ -43,6 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const primaNeta = row.prima_neta ? parseFloat(row.prima_neta).toFixed(2) : '0.00';
             const primaTotal = row.prima_total ? parseFloat(row.prima_total).toFixed(2) : '0.00';
 
+            // Changed button to call CuotaModal.open
             return `
                 <tr>
                     <td>${row.compania || '-'}</td>
@@ -59,9 +62,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${primaTotal}</td>
                     <td><span class="badge bg-${getStatusColor(row.estado)}">${row.estado || '-'}</span></td>
                     <td>
-                        <a href="/menu/cuotas?poliza=${encodeURIComponent(row.poliza || '')}" target="_blank" class="btn btn-sm btn-info text-white">
+                        <button type="button" onclick="CuotaModal.open('${row.poliza || ''}')" class="btn btn-sm btn-info text-white">
                             Cuotas
-                        </a>
+                        </button>
                     </td>
                 </tr>
             `;

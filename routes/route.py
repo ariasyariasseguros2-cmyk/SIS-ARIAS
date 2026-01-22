@@ -38,6 +38,26 @@ def extract_cuota():
             
     return {'ok': False, 'error': 'Unknown error'}, 500
 
+@bp.route('/cuotas/save', methods=['POST'])
+def save_cuota_route():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'Unauthorized'}, 401
+    
+    data = request.json
+    if not data:
+        return {'ok': False, 'error': 'No data'}, 400
+        
+    # Add user context
+    data['usuario'] = session['user']
+    
+    from controllers.cuotas.cuotas import save_cuota
+    success = save_cuota(data)
+    
+    if success:
+        return {'ok': True}
+    else:
+        return {'ok': False, 'error': 'Database error'}, 500
+
 @bp.route('/home')
 def home():
     if 'user' not in session:
