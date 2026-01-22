@@ -170,6 +170,13 @@ CREATE TABLE IF NOT EXISTS clientes (
     detalle_siniestros TEXT NULL,
     preferencias TEXT NULL,
 
+    -- Auditoría: registro de usuarios
+    usuario_creacion VARCHAR(50) NULL COMMENT 'Usuario que registró el cliente',
+    fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'Fecha de creación del registro',
+    usuario_modificacion VARCHAR(50) NULL COMMENT 'Último usuario que modificó el cliente',
+    fecha_modificacion DATETIME NULL ON UPDATE CURRENT_TIMESTAMP COMMENT 'Última fecha de modificación',
+
+    --
     -- Foreign Key a tabla subagente
     CONSTRAINT fk_clientes_subagente FOREIGN KEY (idProductor)
         REFERENCES SubAgente(idProductor) ON DELETE SET NULL
@@ -212,7 +219,8 @@ CREATE PROCEDURE sp_insert_cliente (
     IN p_siniestros_reportados INT,
     IN p_ultimo_siniestro DATE,
     IN p_detalle_siniestros TEXT,
-    IN p_preferencias TEXT
+    IN p_preferencias TEXT,
+    IN p_usuario_creacion VARCHAR(50)
 )
 BEGIN
     INSERT INTO clientes (
@@ -226,7 +234,8 @@ BEGIN
         grupo_economico, giro_negocio, referencia, recomendado_por,
         recibir_notificaciones, contacto_nombre, contacto_email, contacto_telefono,
         referencias_interes, notas,
-        siniestros_reportados, ultimo_siniestro, detalle_siniestros, preferencias
+        siniestros_reportados, ultimo_siniestro, detalle_siniestros, preferencias,
+        usuario_creacion
     ) VALUES (
         p_razon_social, p_tipo_documento, p_numero_documento,
         p_telefono, p_celular, p_telefono_sec,
@@ -238,7 +247,8 @@ BEGIN
         p_grupo_economico, p_giro_negocio, p_referencia, p_recomendado_por,
         p_recibir_notificaciones, p_contacto_nombre, p_contacto_email, p_contacto_telefono,
         p_referencias_interes, p_notas,
-        p_siniestros_reportados, p_ultimo_siniestro, p_detalle_siniestros, p_preferencias
+        p_siniestros_reportados, p_ultimo_siniestro, p_detalle_siniestros, p_preferencias,
+        p_usuario_creacion
     );
 END$$
 DELIMITER ;
@@ -878,7 +888,8 @@ CREATE PROCEDURE sp_update_cliente (
     IN p_siniestros_reportados INT,
     IN p_ultimo_siniestro DATE,
     IN p_detalle_siniestros TEXT,
-    IN p_preferencias TEXT
+    IN p_preferencias TEXT,
+    IN p_usuario_modificacion VARCHAR(50)
 )
 BEGIN
 UPDATE clientes
@@ -915,8 +926,16 @@ SET razon_social = p_razon_social,
     siniestros_reportados = p_siniestros_reportados,
     ultimo_siniestro = p_ultimo_siniestro,
     detalle_siniestros = p_detalle_siniestros,
-    preferencias = p_preferencias
+    preferencias = p_preferencias,
+    usuario_modificacion = p_usuario_modificacion,
+    fecha_modificacion = NOW()
 WHERE idCliente = p_idCliente;
 END$$
 
 DELIMITER ;
+
+-- Índices de auditoría para consultas de auditoría
+ALTER TABLE clientes
+  ADD INDEX idx_usuario_creacion (usuario_creacion),
+  ADD INDEX idx_usuario_modificacion (usuario_modificacion);
+
