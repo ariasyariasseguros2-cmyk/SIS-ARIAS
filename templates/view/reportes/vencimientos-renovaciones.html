@@ -17,12 +17,22 @@
             <!-- Filter Form -->
             <form id="filterForm" class="row g-3 mb-4 align-items-end">
                 <div class="col-md-3">
-                    <label for="fechaInicio" class="form-label fw-bold">Del</label>
-                    <input type="date" class="form-control" id="fechaInicio" name="fecha_inicio">
+                    <label for="usuarioSelect" class="form-label fw-bold">Usuario</label>
+                    <select class="form-select" id="usuarioSelect" name="usuario">
+                        <option value="">Todos los usuarios</option>
+                        <!-- Populated by JS -->
+                    </select>
                 </div>
                 <div class="col-md-3">
-                    <label for="fechaFin" class="form-label fw-bold">Al</label>
-                    <input type="date" class="form-control" id="fechaFin" name="fecha_fin">
+                    <label for="estadoSelect" class="form-label fw-bold">Estado</label>
+                    <select class="form-select" id="estadoSelect" name="estado">
+                        <option value="">Todos los estados</option>
+                        <option value="PENDIENTE">Pendiente</option>
+                        <option value="CANCELADO">Cancelado</option>
+                        <option value="SIN PRIMA">Sin Prima</option>
+                        <option value="VIGENTE">Vigente</option>
+                        <option value="ANULADO">Anulado</option>
+                    </select>
                 </div>
                 <div class="col-md-3">
                     <button type="submit" class="btn btn-success text-white w-100">
@@ -42,7 +52,7 @@
                             <th scope="col">TIPO DOCUMENTO</th>
                             <th scope="col">NRO DOCUMENTO</th>
                             <th scope="col">POLIZA CERTIFACDO</th>
-                            <th scope="col">AVIZO DE COBRANZA</th>
+                            <th scope="col">PROFORMA/CUPÓN</th>
                             <th scope="col">INICIO</th>
                             <th scope="col">VENCE</th>
                             <th scope="col">FECHA DE PAGO</th>
@@ -56,7 +66,7 @@
                         <!-- Rows will be populated by JS -->
                         <tr class="placeholder-row">
                             <td colspan="14" class="text-center py-4 text-muted">
-                                Seleccione un rango de fechas y haga clic en Procesar.
+                                Seleccione filtros y haga clic en Procesar.
                             </td>
                         </tr>
                     </tbody>

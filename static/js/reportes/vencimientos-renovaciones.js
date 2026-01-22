@@ -2,29 +2,45 @@
 document.addEventListener('DOMContentLoaded', function() {
     const filterForm = document.getElementById('filterForm');
     const tableBody = document.querySelector('#resultsTable tbody');
+    const usuarioSelect = document.getElementById('usuarioSelect');
+
+    // Load users on init
+    loadUsuarios();
 
     if (filterForm) {
         filterForm.addEventListener('submit', function(e) {
             e.preventDefault();
             
-            const fechaInicio = document.getElementById('fechaInicio').value;
-            const fechaFin = document.getElementById('fechaFin').value;
+            const usuario = document.getElementById('usuarioSelect').value;
+            const estado = document.getElementById('estadoSelect').value;
 
-            if (!fechaInicio || !fechaFin) {
-                alert('Por favor seleccione ambas fechas.');
-                return;
-            }
-
-            fetchData(fechaInicio, fechaFin);
+            fetchData(usuario, estado);
         });
     }
 
-    async function fetchData(inicio, fin) {
+    async function loadUsuarios() {
+        if (!usuarioSelect) return;
+        try {
+            const response = await fetch('/api/reportes/usuarios');
+            const users = await response.json();
+            
+            users.forEach(u => {
+                const option = document.createElement('option');
+                option.value = u.username;
+                option.textContent = u.username;
+                usuarioSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading users:', error);
+        }
+    }
+
+    async function fetchData(usuario, estado) {
         try {
             // Show loading state
             tableBody.innerHTML = `<tr><td colspan="14" class="text-center py-4 text-muted">Cargando datos...</td></tr>`;
 
-            const url = `/api/reportes/vencimientos-renovaciones?fecha_inicio=${inicio}&fecha_fin=${fin}`;
+            const url = `/api/reportes/vencimientos-renovaciones?usuario=${encodeURIComponent(usuario)}&estado=${encodeURIComponent(estado)}`;
             const response = await fetch(url);
             const data = await response.json();
             renderTable(data);

@@ -20,6 +20,16 @@ BEGIN
 END$$
 DELIMITER ;
 
+DELIMITER $$
+CREATE PROCEDURE sp_listar_usuarios()
+BEGIN
+    SELECT username 
+    FROM usuarios 
+    WHERE estado = 1
+    ORDER BY username ASC;
+END$$
+DELIMITER ;
+
 -- Table Ramos
 CREATE TABLE ramos (
     idRamo INT AUTO_INCREMENT PRIMARY KEY,
@@ -845,8 +855,8 @@ DELIMITER ;
 DELIMITER $$
 
 CREATE PROCEDURE sp_reporte_vencimientos(
-    IN p_fecha_inicio DATE,
-    IN p_fecha_fin DATE
+    IN p_usuario VARCHAR(50),
+    IN p_estado VARCHAR(50)
 )
 BEGIN
     SELECT 
@@ -866,7 +876,8 @@ BEGIN
         p.estado
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
-    WHERE p.vig_hasta BETWEEN p_fecha_inicio AND p_fecha_fin
+    WHERE (p_usuario IS NULL OR p_usuario = '' OR p.usuario_registro = p_usuario)
+    AND (p_estado IS NULL OR p_estado = '' OR p.estado = p_estado)
     ORDER BY p.vig_hasta ASC;
 END$$
 DELIMITER ;
