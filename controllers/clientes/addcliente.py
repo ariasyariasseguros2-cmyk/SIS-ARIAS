@@ -130,8 +130,11 @@ def parse_date(date_str: str | None) -> str | None:
         return None
 
 def save_cliente(data: dict) -> dict:
-    from flask import current_app
+    from flask import current_app, session
     current_app.logger.info(f"[addcliente] Payload recibido: {data}")
+
+    # Obtener usuario de la sesión
+    usuario_actual = session.get('user', 'SISTEMA')
 
     ok, errors = validate_cliente_payload(data)
     if not ok:
@@ -269,7 +272,7 @@ def save_cliente(data: dict) -> dict:
             """CALL sp_insert_cliente(
                 %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
                 %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                %s,%s,%s,%s
+                %s,%s,%s,%s,%s
             )""",
             (
                 razon, tipo_documento, numero,
@@ -282,7 +285,8 @@ def save_cliente(data: dict) -> dict:
                 grupo_economico, giro_negocio, referencia, recomendado_por,
                 recibir_notificaciones, contacto_nombre, contacto_email, contacto_telefono,
                 referencias_interes, notas,
-                siniestros_reportados, ultimo_siniestro, detalle_siniestros, preferencias
+                siniestros_reportados, ultimo_siniestro, detalle_siniestros, preferencias,
+                usuario_actual
             )
         )
         cnx.commit()

@@ -9,9 +9,12 @@ def editar_cliente_route():
         return jsonify({'status': 'error', 'message': 'No autorizado'}), 401
 
     try:
+        # Obtener usuario de la sesión
+        usuario_actual = session.get('user', 'SISTEMA')
+
         data = request.get_json()
 
-        # Validar que se recibió el ID del cliente
+
         if not data or 'idCliente' not in data:
             return jsonify({
                 'status': 'error',
@@ -98,7 +101,8 @@ def editar_cliente_route():
             siniestros_reportados,
             ultimo_siniestro,
             data.get('detalle_siniestros', ''),
-            data.get('preferencias', '')
+            data.get('preferencias', ''),
+            usuario_actual
         ])
 
         conn.commit()

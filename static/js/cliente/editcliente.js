@@ -297,9 +297,29 @@
     // Limpiar el formulario cuando se cierra el modal
     document.getElementById('editClienteModal')?.addEventListener('hidden.bs.modal', function() {
         const form = document.getElementById('formEditCliente');
-        form.reset();
-        form.classList.remove('was-validated');
+        if (form) {
+            form.reset();
+            form.classList.remove('was-validated');
+        }
         currentEditingClienteId = null;
+
+        setTimeout(() => {
+            try {
+                const openModals = document.querySelectorAll('.modal.show');
+                if (!openModals || openModals.length === 0) {
+
+                    document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+
+
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
+                }
+            } catch (e) {
+
+                console.error('Error limpiando modal/backdrop:', e);
+            }
+        }, 200);
     });
 
 })();
