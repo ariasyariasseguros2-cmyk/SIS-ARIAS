@@ -1,7 +1,7 @@
 
 {% extends "view/layout_dashboard.html" %}
 
-{% block page_title %}Reporte Archivos Póliza{% endblock %}
+{% block page_title %}Reporte Archivos Póliza -     Clientes  {% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='reportes/reporte-archivos-poliza.css') }}">
@@ -10,7 +10,7 @@
 {% block content %}
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="h4 m-0">Reporte de Archivos de Pólizas</h2>
+        <h2 class="h4 m-0">Reporte de Archivos de Pólizas - Clientes</h2>
     </div>
 
     <div class="card shadow-sm">
@@ -33,20 +33,18 @@
                 <table class="table table-hover align-middle" id="filesTable">
                     <thead class="table-light">
                         <tr>
-                            <th scope="col" style="width: 50px;">Pdf</th>
-                            <th scope="col">Aviso Cob / Contrato</th>
-                            <th scope="col">Vigencia Inicio</th>
-                            <th scope="col">Vigencia Fin</th>
-                            <th scope="col">Tipo Doc</th>
-                            <th scope="col">Concepto</th>
-                            <th scope="col">Póliza</th>
-                            <th scope="col">Cliente</th>
+                            <th scope="col" style="width: 50px;" class="text-center">Acciones</th>
+                            <th scope="col">Origen</th>
+                            <th scope="col">Poliza/Nro Documento</th>
+                            <th scope="col">Contratante</th>
+                            <th scope="col" class="text-center">Cantidad</th>
+                            <th scope="col">Fecha/Hora</th>
                         </tr>
                     </thead>
                     <tbody>
                         <!-- Rows will be populated by JS -->
                         <tr class="placeholder-row">
-                            <td colspan="8" class="text-center py-4 text-muted">
+                            <td colspan="6" class="text-center py-4 text-muted">
                                 Cargando archivos...
                             </td>
                         </tr>

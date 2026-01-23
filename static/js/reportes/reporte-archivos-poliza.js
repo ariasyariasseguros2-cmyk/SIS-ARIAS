@@ -49,8 +49,21 @@ document.addEventListener('DOMContentLoaded', function() {
         tableBody.innerHTML = data.map(row => {
             const contratante = row.contratante || '-';
             
-            // Format date (assuming backend sends 'YYYY-MM-DD HH:MM:SS' or similar)
-            let fecha = row.ultima_fecha || '-';
+            // Format date
+            let fecha = '-';
+            if (row.ultima_fecha) {
+                const date = new Date(row.ultima_fecha);
+                if (!isNaN(date.getTime())) {
+                    const day = String(date.getUTCDate()).padStart(2, '0');
+                    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                    const year = date.getUTCFullYear();
+                    const hours = String(date.getUTCHours()).padStart(2, '0');
+                    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+                    fecha = `${day}/${month}/${year} ${hours}:${minutes}`;
+                } else {
+                    fecha = row.ultima_fecha;
+                }
+            }
             
             return `
                 <tr>
