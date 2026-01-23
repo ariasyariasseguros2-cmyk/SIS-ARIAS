@@ -45,15 +45,20 @@
 
 /* Custom Buttons with Lift Effect - Only for Client Page */
 .btn-lift {
-    border-radius: 20px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-radius: 12px; /* menos redondeado */
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
     position: relative;
     border: none;
     color: #fff; /* Ensure text is white */
-    padding: 0.375rem 1.25rem; /* Wider padding: vertical 0.375rem, horizontal 1.25rem */
-    min-width: 100px; /* Optional: Ensure a minimum width for consistency */
+    padding: 0.25rem 0.6rem; /* Más delgado: vertical 0.25rem, horizontal 0.6rem */
+    font-size: 13px; /* tamaño de texto moderado */
+    line-height: 1;
+    min-width: auto; /* permitir que el ancho se ajuste al contenido */
+    white-space: nowrap; /* evitar que el texto haga wrap y se vea "bugueado" */
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem; /* espacio entre icono y texto si aplica */
 }
-
 
 /* Gradients */
 .btn-lift.btn-primary {
@@ -71,9 +76,23 @@
 }
 
 .btn-lift:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
     color: #fff; /* Keep text white on hover */
+}
+
+/* Specific adjustments for small button variants to keep them thin */
+.btn-lift.btn-sm,
+#clientesTable .btn-sm.btn-lift {
+    padding: 0.18rem 0.5rem;
+    font-size: 12px;
+}
+
+/* Make sure icon-only or short buttons look compact */
+.btn-lift.btn-icon {
+    padding: 0.25rem 0.45rem;
+    min-width: 36px;
+    justify-content: center;
 }
 
 /* SAAS Table Redesign */
@@ -193,4 +212,42 @@
 }
 
 /* Alineación y tamaño apropiado para botones en la tabla */
-#clientesTable .btn-pdf-cliente { min-width: 72px; padding: .35rem .85rem; }
+#clientesTable .btn-pdf-cliente { min-width: 72px; padding: .28rem .7rem; font-size: 13px; }
+
+/* Small utility: ensure action cell content doesn't wrap awkwardly */
+#clientesTable td .d-flex { gap: 0.6rem; }
+#clientesTable td .btn { font-weight: 600; }
+
+/* Ajuste: hacer los botones de la columna Accion más grandes y con forma 'pill' como en la foto */
+#clientesTable td .btn-lift {
+    padding: 0.5rem 1.15rem !important; /* mayor acolchonamiento */
+    border-radius: 26px !important; /* pill pronunciado */
+    min-height: 42px !important; /* altura consistente */
+    font-size: 15px !important; /* texto más legible */
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.07) !important;
+    gap: 0.6rem !important;
+}
+
+/* Evitar que la variante .btn-sm dentro de la tabla reduzca demasiado los botones */
+#clientesTable td .btn-lift.btn-sm {
+    padding: 0.48rem 1.05rem !important;
+    font-size: 15px !important;
+}
+
+/* Ajuste fino para íconos dentro de los botones de acción */
+#clientesTable td .btn-lift .bi {
+    font-size: 1.05em;
+    vertical-align: -.05em;
+}
+
+/* Asegurar tamaños mínimos por tipo para mayor consistencia visual */
+#clientesTable .btn-edit-cliente { min-width: 94px !important; }
+#clientesTable .btn-pdf-cliente  { min-width: 82px !important; }
+#clientesTable .btn-primary      { min-width: 94px !important; }
+#clientesTable .btn-success      { min-width: 94px !important; }
+#clientesTable .btn-danger       { min-width: 94px !important; }
+
+/* Si quieres usar la versión compacta en casos puntuales */
+.btn-lift--compact { padding: 0.18rem 0.5rem !important; font-size: 12px !important; }
