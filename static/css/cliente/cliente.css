@@ -163,3 +163,34 @@
     border-color: #1F59A3;
     color: white;
 }
+
+.btn-delete {
+    background-color: #ef9a9a;
+    border-color: #ef9a9a;
+    color: #fff;
+}
+
+.btn-delete:hover {
+    background-color: #e57373;
+    border-color: #e57373;
+    color: #fff;
+}
+
+/* Botón PDF específico: asegurar fondo y contraste */
+.btn-pdf-cliente {
+    background: linear-gradient(to right, #6c757d, #545b62) !important; /* gris secundario sólido */
+    color: #fff !important;
+    border: none !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+}
+
+/* En caso de que venga con clase outline por accidente */
+.btn-pdf-cliente.btn-outline-secondary,
+.btn-pdf-cliente[class*="btn-outline-"] {
+    background: linear-gradient(to right, #6c757d, #545b62) !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+/* Alineación y tamaño apropiado para botones en la tabla */
+#clientesTable .btn-pdf-cliente { min-width: 72px; padding: .35rem .85rem; }

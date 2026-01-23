@@ -136,6 +136,53 @@ def menu_page(page):
             subagentes_abbrs=subagentes_data
         )
 
+    # Clientes Anulados -> reutiliza la vista de clientes pero con datos anulados
+    if page == 'clientes-anulados':
+        from controllers.clientes.cliente import get_clientes_anulados_data
+        data = get_clientes_anulados_data()
+
+        try:
+            page_num = int(request.args.get('page') or 1)
+        except ValueError:
+            page_num = 1
+
+        per_page = 20
+        all_rows = data['rows']
+        total = len(all_rows)
+        pages = max(1, (total + per_page - 1) // per_page)
+        if pages > 0:
+            page_num = max(1, min(page_num, pages))
+        else:
+            page_num = 1
+
+        start = (page_num - 1) * per_page
+        end = start + per_page
+        sliced_rows = all_rows[start:end]
+
+        pagination = {
+            'page': page_num,
+            'per_page': per_page,
+            'total': total,
+            'pages': pages,
+            'has_prev': page_num > 1,
+            'has_next': page_num < pages,
+            'start_index': start + 1 if total > 0 else 0,
+            'end_index': min(end, total)
+        }
+
+        from controllers.subagente import get_subagentes_abreviaciones
+        subagentes_data = get_subagentes_abreviaciones()
+
+        return render_template(
+            'view/cliente/cliente.html',
+            page='clientes-anulados',
+            title=data['title'],
+            rows=sliced_rows,
+            filters=data['filters'],
+            pagination=pagination,
+            subagentes_abbrs=subagentes_data
+        )
+
     # Pólizas → plantilla dedicada
     if page == 'polizas':
         from controllers.polizas import get_polizas_data
@@ -1251,3 +1298,10 @@ def clientes_delete():
     from controllers.clientes.deletecliente import eliminar_cliente_route
     return eliminar_cliente_route()
 
+@bp.route('/clientes/restore', methods=['POST'])
+def clientes_restore():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    from controllers.clientes.restorecliente import restaurar_cliente_route
+    return restaurar_cliente_route()

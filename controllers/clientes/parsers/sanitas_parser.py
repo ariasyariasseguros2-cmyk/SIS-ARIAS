@@ -1,4 +1,3 @@
-
 import re
 from typing import Dict, Optional, List
 
@@ -9,6 +8,9 @@ class SanitasParser:
     def __init__(self, text: str):
         self.text = text
         self.normalized_text = self._normalize_text(text)
+
+    # RUCs que deben ser ignorados (por ejemplo el RUC de la propia compañia)
+    EXCLUDED_RUCS = {"20523470761"}
 
     def _normalize_text(self, text: str) -> str:
         text = re.sub(r'([a-zñ])([A-ZÁÉÍÓÚÑ])', r'\1 \2', text)
@@ -166,6 +168,9 @@ class SanitasParser:
                 match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
                 if match:
                     ruc = match.group(1)
+                    # Ignorar RUCs excluidos (por ejemplo el RUC de la compañia)
+                    if ruc in self.EXCLUDED_RUCS:
+                        continue
                     # Validar que sea un RUC válido
                     if ruc.startswith(('10', '20')):
                         return ruc
@@ -173,6 +178,8 @@ class SanitasParser:
 
         rucs = re.findall(r'\b(\d{11})\b', self.text)
         for ruc in rucs:
+            if ruc in self.EXCLUDED_RUCS:
+                continue
             if ruc.startswith(('10', '20')):
                 return ruc
 

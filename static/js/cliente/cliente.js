@@ -22,6 +22,9 @@
             table.addEventListener('click', (e) => {
                 const btn = e.target.closest('button');
                 if (!btn) return;
+                // Ignorar botones de restaurar para no activar la rama que redirige a pólizas
+                if (btn.classList.contains('btn-restore-cliente')) return;
+
                 const row = e.target.closest('tr');
                 const razon = row?.querySelector('td:nth-child(2)')?.textContent?.trim() || '';
 

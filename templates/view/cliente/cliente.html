@@ -1,5 +1,5 @@
 {% extends 'view/layout_dashboard.html' %}
-{% set page = 'clientes' %}
+{# page se recibe desde el controlador: 'clientes' o 'clientes-anulados' #}
 
 {% block html_title %}Clientes | SIS-ARIAS{% endblock %}
 {% block page_title %}{% endblock %}
@@ -13,9 +13,12 @@
 <div class="d-flex align-items-center justify-content-between mb-3">
     <div class="d-flex align-items-center gap-2">
         <h1 class="h5 m-0"><i class="bi-people"></i> {{ title }}</h1>
+        {# Ocultar botón Añadir cuando estemos en Clientes Anulados #}
+        {% if page != 'clientes-anulados' %}
         <button class="btn btn-success btn-sm btn-lift" data-bs-toggle="modal" data-bs-target="#addClienteModal">
             <i class="bi-plus-lg"></i> Añadir
         </button>
+        {% endif %}
     </div>
     <div class="d-flex align-items-center gap-2">
         <div class="dropdown">
@@ -49,7 +52,10 @@
                     <th>S.Agente</th>
                     <th>Email</th>
                     <th>Dirección</th>
+                    {# Mostrar columna Acción solo si no estamos en anulados #}
+                    {% if page != 'clientes-anulados' %}
                     <th class="text-end">Acción</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -63,14 +69,24 @@
                     <td>{{ r.subagente }}</td>
                     <td><a href="mailto:{{ r.email }}">{{ r.email }}</a></td>
                     <td>{{ r.direccion }}</td>
+                    {# Renderizar celda de acciones solo en lista normal de clientes #}
+                    {% if page != 'clientes-anulados' %}
                     <td class="text-end">
                         <div class="d-flex gap-2 justify-content-end">
-                            <button class="btn btn-warning btn-sm btn-lift btn-edit-cliente" data-id="{{ r.idCliente }}"><i class="bi-pencil"></i> Editar</button>
-                            <button class="btn btn-primary btn-sm btn-lift"><i></i> Pólizas</button>
-                            <button class="btn btn-success btn-sm btn-lift"><i></i> Contactos</button>
-                            <button class="btn btn-danger btn-sm btn-lift btn-delete-cliente" data-id="{{ r.idCliente }}" data-nombre="{{ r.razon_social }}"><i class="bi-trash"></i> Eliminar</button>
+                            <button type="button" class="btn btn-warning btn-sm btn-lift btn-edit-cliente" data-id="{{ r.idCliente }}"><i class="bi-pencil"></i> Editar</button>
+                            <button type="button" class="btn btn-secondary btn-sm btn-lift btn-pdf-cliente" data-id="{{ r.idCliente }}"><i class="bi-file-earmark-pdf"></i> PDF</button>
+                            <button type="button" class="btn btn-primary btn-sm btn-lift">Pólizas</button>
+                            <button type="button" class="btn btn-success btn-sm btn-lift">Contactos</button>
+                            <button type="button" class="btn btn-danger btn-sm btn-lift btn-delete-cliente" data-id="{{ r.idCliente }}" data-nombre="{{ r.razon_social }}"><i class="bi-trash"></i> Eliminar</button>
                         </div>
                     </td>
+                    {% else %}
+                    <td class="text-end">
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button type="button" class="btn btn-sm btn-info btn-lift btn-restore-cliente" data-id="{{ r.idCliente }}"><i class="bi-arrow-clockwise"></i> Restaurar</button>
+                        </div>
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -83,7 +99,7 @@
                 <ul class="pagination pagination-sm m-0">
                     <!-- Prev -->
                     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                        <a class="page-link" href="{{ (url_for('main.menu_page', page='clientes') ~ '?page=' ~ (pagination.page-1)) if pagination.has_prev else '#' }}" aria-label="Previous">
+                        <a class="page-link" href="{{ (url_for('main.menu_page', page=page) ~ '?page=' ~ (pagination.page-1)) if pagination.has_prev else '#' }}" aria-label="Previous">
                             <span aria-hidden="true">&lsaquo;</span>
                         </a>
                     </li>
@@ -91,7 +107,7 @@
                     {% for p in range(1, pagination.pages + 1) %}
                         {% if p == 1 or p == pagination.pages or (p >= pagination.page - 2 and p <= pagination.page + 2) %}
                             <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                                <a class="page-link" href="{{ url_for('main.menu_page', page='clientes') }}?page={{ p }}">{{ p }}</a>
+                                <a class="page-link" href="{{ url_for('main.menu_page', page=page) }}?page={{ p }}">{{ p }}</a>
                             </li>
                         {% elif p == pagination.page - 3 or p == pagination.page + 3 %}
                             <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -100,7 +116,7 @@
 
                     <!-- Next -->
                     <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                        <a class="page-link" href="{{ (url_for('main.menu_page', page='clientes') ~ '?page=' ~ (pagination.page+1)) if pagination.has_next else '#' }}" aria-label="Next">
+                        <a class="page-link" href="{{ (url_for('main.menu_page', page=page) ~ '?page=' ~ (pagination.page+1)) if pagination.has_next else '#' }}" aria-label="Next">
                             <span aria-hidden="true">&rsaquo;</span>
                         </a>
                     </li>
@@ -114,8 +130,11 @@
     </div>
 </div>
 
+{# No incluir ventanas de añadir/editar cuando estemos en clientes anulados #}
+{% if page != 'clientes-anulados' %}
 {% include 'view/cliente/addCliente.html' %}
 {% include 'view/cliente/editCliente.html' %}
+{% endif %}
 {% endblock %}
 
 {% block before_js %}
@@ -127,6 +146,10 @@
 {% block extra_js_bottom %}
 {{ super() }}
 <script src="{{ url_for('static', filename='js/cliente/cliente.js') }}"></script>
+{% if page != 'clientes-anulados' %}
 <script src="{{ url_for('static', filename='js/cliente/addcliente.js') }}"></script>
 <script src="{{ url_for('static', filename='js/cliente/editcliente.js') }}"></script>
+{% else %}
+<script src="{{ url_for('static', filename='js/cliente/restorecliente.js') }}"></script>
+{% endif %}
 {% endblock %}
