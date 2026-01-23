@@ -430,9 +430,13 @@ def upload():
         return {'error': 'Tipo de archivo no permitido'}, 400
 
     upload_folder = current_app.config.get('UPLOAD_FOLDER')
+    
+    # NUEVO: Guardar en subcarpeta 'polizas'
+    polizas_folder = os.path.join(upload_folder, 'polizas')
+    os.makedirs(polizas_folder, exist_ok=True)
+    
     filename = secure_filename(file.filename)
-    save_path = os.path.join(upload_folder, filename)
-    os.makedirs(upload_folder, exist_ok=True)
+    save_path = os.path.join(polizas_folder, filename)
     file.save(save_path)
     # NUEVO: log para confirmar escritura del archivo
     try:
@@ -1260,11 +1264,34 @@ def dashboard_notes():
 @bp.route('/uploads/<path:filename>', methods=['GET'])
 def serve_upload(filename):
     folder = current_app.config.get('UPLOAD_FOLDER')
+    
+    # 1. Soporte para subcarpetas (ej: polizas/archivo.pdf)
+    # Evitamos secure_filename en la ruta completa para no romper los slashes
+    if '/' in filename or '\\' in filename:
+        # Extraer subcarpeta y archivo
+        parts = filename.replace('\\', '/').split('/')
+        # Solo permitimos subcarpeta 'polizas' u 'clientes' por seguridad
+        if parts[0] in ['polizas', 'clientes']:
+             sub = parts[0]
+             name = secure_filename(parts[-1])
+             target_dir = os.path.join(folder, sub)
+             if os.path.isfile(os.path.join(target_dir, name)):
+                 return send_from_directory(target_dir, name, as_attachment=False)
+
+    # 2. Comportamiento estándar (archivo en raíz de uploads)
     safe = secure_filename(filename)
     full = os.path.join(folder, safe)
-    if not os.path.isfile(full):
-        return {'error': 'Archivo no encontrado', 'path': full}, 404
-    return send_from_directory(folder, safe, as_attachment=False)
+    
+    if os.path.isfile(full):
+        return send_from_directory(folder, safe, as_attachment=False)
+        
+    # 3. Fallback: Buscar en 'polizas' si no se especificó ruta (para previews recién subidos)
+    full_poliza = os.path.join(folder, 'polizas', safe)
+    if os.path.isfile(full_poliza):
+        return send_from_directory(os.path.join(folder, 'polizas'), safe, as_attachment=False)
+
+    return {'error': 'Archivo no encontrado', 'path': full}, 404
+
 
 # dentro de routes/route.py (añadir el nuevo endpoint API)
 @bp.route('/api/aseguradoras', methods=['GET'])

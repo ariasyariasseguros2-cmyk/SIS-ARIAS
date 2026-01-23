@@ -175,7 +175,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
 
                 U(row.get("ramos_producto") or (selected or {}).get("ramos_producto") or ""),
                 U(row.get("estado") or "PENDIENTE"),
-                f"uploads/{(selected or {}).get('pdf_filename')}" if (selected or {}).get("pdf_filename") else None,
+                f"uploads/polizas/{(selected or {}).get('pdf_filename')}" if (selected or {}).get("pdf_filename") else None,
                 session.get('user')
             )
 
