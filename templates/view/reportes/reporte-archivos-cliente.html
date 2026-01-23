@@ -1,0 +1,62 @@
+{% extends "view/layout_dashboard.html" %}
+
+{% block page_title %}Archivos del Cliente{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='reportes/reporte-archivos-poliza.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <a class="btn btn-primary btn-lg" href="{{ url_for('main.menu_page', page='clientes') }}" onclick="history.back(); return false;">&larr; Regresar</a>
+        <h2 class="h4 m-0">Archivos del Cliente</h2>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="filesClientTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" style="width: 50px;">Ver</th>
+                            <th scope="col">Nombre</th>
+                            <th scope="col">Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="placeholder-row">
+                            <td colspan="3" class="text-center py-4 text-muted">Cargando archivos...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Viewer -->
+<div class="modal fade" id="pdfModalClient" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content h-100">
+            <div class="modal-header">
+                <h5 class="modal-title text-truncate" id="pdfModalTitleClient">Visor de Documento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0" style="height: 80vh;">
+                <iframe id="pdfFrameClient" src="" width="100%" height="100%" style="border: none;"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block before_js %}
+<script>
+    window.clienteId = "{{ cliente_id or '' }}";
+</script>
+{% endblock %}
+
+{% block extra_js_bottom %}
+<script src="{{ url_for('static', filename='js/reportes/reporte-archivos-cliente.js') }}"></script>
+{% endblock %}

@@ -74,7 +74,7 @@
                     <td class="text-end">
                         <div class="d-flex gap-2 justify-content-end">
                             <button type="button" class="btn btn-warning btn-sm btn-lift btn-edit-cliente" data-id="{{ r.idCliente }}"><i class="bi-pencil"></i> Editar</button>
-                            <button type="button" class="btn btn-secondary btn-sm btn-lift btn-pdf-cliente" data-id="{{ r.idCliente }}"><i class="bi-file-earmark-pdf"></i> PDF</button>
+                            <a href="{{ url_for('main.reporte_archivos_cliente.index') }}?cliente_id={{ r.idCliente }}" class="btn btn-secondary btn-sm btn-lift btn-pdf-cliente"><i class="bi-file-earmark-pdf"></i> PDF</a>
                             <button type="button" class="btn btn-primary btn-sm btn-lift">Pólizas</button>
                             <button type="button" class="btn btn-success btn-sm btn-lift">Contactos</button>
                             <button type="button" class="btn btn-danger btn-sm btn-lift btn-delete-cliente" data-id="{{ r.idCliente }}" data-nombre="{{ r.razon_social }}"><i class="bi-trash"></i> Eliminar</button>
