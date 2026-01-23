@@ -522,12 +522,32 @@
     }
 
     const payload = collectData();
+    let body;
+    let headers = {};
+
+    // Verificar si hay archivo PDF seleccionado
+    const file = pdfFileInput && pdfFileInput.files[0];
+    if (file) {
+      const formData = new FormData();
+      // Agregar todos los campos del payload al FormData
+      for (const key in payload) {
+        if (payload.hasOwnProperty(key)) {
+          formData.append(key, payload[key]);
+        }
+      }
+      formData.append('pdf_file', file);
+      body = formData;
+      // No establecer Content-Type explícitamente para FormData, el navegador lo hace con boundary
+    } else {
+      body = JSON.stringify(payload);
+      headers['Content-Type'] = 'application/json';
+    }
 
     try {
       const resp = await fetch('/clientes/add', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        headers: headers,
+        body: body
       });
       const result = await resp.json().catch(() => ({}));
       if (!resp.ok || !result.ok) {
@@ -559,11 +579,30 @@
       return;
     }
     const payload = collectData();
+    let body;
+    let headers = {};
+
+    // Verificar si hay archivo PDF seleccionado
+    const file = pdfFileInput && pdfFileInput.files[0];
+    if (file) {
+      const formData = new FormData();
+      for (const key in payload) {
+        if (payload.hasOwnProperty(key)) {
+          formData.append(key, payload[key]);
+        }
+      }
+      formData.append('pdf_file', file);
+      body = formData;
+    } else {
+      body = JSON.stringify(payload);
+      headers['Content-Type'] = 'application/json';
+    }
+
     try {
       const resp = await fetch('/clientes/add', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        headers: headers,
+        body: body
       });
       const result = await resp.json().catch(() => ({}));
       if (!resp.ok || !result.ok) {

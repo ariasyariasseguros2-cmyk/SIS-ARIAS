@@ -223,6 +223,7 @@ def save_cliente(data: dict) -> dict:
 
     ultimo_siniestro = parse_date(data.get('ultimoSiniestro'))
     detalle_siniestros = (data.get('detalleSiniestros') or '').strip()
+    pdf_path = (data.get('pdf_path') or '').strip()
 
     if tipo_persona is None:
         return {'ok': False, 'errors': ['tipoPersona inválida. Use NATURAL o JURIDICA']}
@@ -272,7 +273,7 @@ def save_cliente(data: dict) -> dict:
             """CALL sp_insert_cliente(
                 %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
                 %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                %s,%s,%s,%s,%s
+                %s,%s,%s,%s,%s,%s
             )""",
             (
                 razon, tipo_documento, numero,
@@ -286,7 +287,7 @@ def save_cliente(data: dict) -> dict:
                 recibir_notificaciones, contacto_nombre, contacto_email, contacto_telefono,
                 referencias_interes, notas,
                 siniestros_reportados, ultimo_siniestro, detalle_siniestros, preferencias,
-                usuario_actual
+                usuario_actual, pdf_path
             )
         )
         cnx.commit()

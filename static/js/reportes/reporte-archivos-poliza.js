@@ -1,6 +1,7 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
+    const btnDownloadAll = document.getElementById('btnDownloadAll');
     const tableBody = document.querySelector('#filesTable tbody');
     const pdfModal = new bootstrap.Modal(document.getElementById('pdfModal'));
     const pdfFrame = document.getElementById('pdfFrame');
@@ -19,6 +20,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 300);
     });
 
+    // Download All Handler
+    if (btnDownloadAll) {
+        btnDownloadAll.addEventListener('click', function() {
+            const query = searchInput.value;
+            window.location.href = `/api/reportes/download-zip?search=${encodeURIComponent(query)}`;
+        });
+    }
+
     async function fetchFiles(query = '') {
         try {
             const url = `/api/reportes/archivos-poliza?search=${encodeURIComponent(query)}`;
@@ -33,52 +42,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderTable(data) {
         if (!data || data.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No se encontraron archivos</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No se encontraron archivos</td></tr>`;
             return;
         }
 
         tableBody.innerHTML = data.map(row => {
-            // Determine "Concepto" based on Tipo Doc or just mirror it as requested
-            const concepto = (row.tipo_doc || '').toUpperCase();
-            const avisoCob = row.aviso_cob || '-';
+            const contratante = row.contratante || '-';
             
-            // Build file url - assuming uploads are served from /uploads/
-            // Note: row.ruta_archivo might be "uploads/file.pdf" or just "file.pdf"
-            // We'll fix the path client side if needed, but backend usually stores relative path.
-            let fileUrl = row.ruta_archivo;
-            if (!fileUrl.startsWith('/') && !fileUrl.startsWith('http')) {
-                fileUrl = '/' + fileUrl; 
-            }
-
+            // Format date (assuming backend sends 'YYYY-MM-DD HH:MM:SS' or similar)
+            let fecha = row.ultima_fecha || '-';
+            
             return `
                 <tr>
                     <td class="text-center">
-                        <button class="btn btn-sm btn-outline-danger btn-pdf" 
-                                data-url="${fileUrl}" 
-                                data-name="${row.nombre_original || 'Documento'}">
-                            <i class="bi-file-earmark-pdf-fill"></i>
+                        <button class="btn btn-outline-primary btn-sm btn-zip-group" 
+                                data-id="${row.identificador}" 
+                                data-type="${row.tipo_origen}"
+                                title="Descargar todos los archivos">
+                            <i class="bi-file-zip"></i>
                         </button>
                     </td>
-                    <td>${avisoCob}</td>
-                    <td>${row.vig_desde || '-'}</td>
-                    <td>${row.vig_hasta || '-'}</td>
-                    <td>${row.tipo_doc || '-'}</td>
-                    <td>${concepto}</td>
-                    <td class="small text-muted">${row.poliza || '-'}</td>
-                    <td class="small text-truncate" style="max-width: 200px;" title="${row.contratante}">${row.contratante || '-'}</td>
+                    <td><span class="badge bg-light text-dark border">${row.tipo_origen || '-'}</span></td>
+                    <td class="fw-bold">${row.identificador || '-'}</td>
+                    <td class="small text-truncate" style="max-width: 300px;" title="${contratante}">${contratante}</td>
+                    <td class="text-center"><span class="badge bg-secondary">${row.cantidad_archivos || 0}</span></td>
+                    <td class="small text-muted">${fecha}</td>
                 </tr>
             `;
         }).join('');
 
         // Attach event listeners to buttons
-        document.querySelectorAll('.btn-pdf').forEach(btn => {
+        document.querySelectorAll('.btn-zip-group').forEach(btn => {
             btn.addEventListener('click', function() {
-                const url = this.dataset.url;
-                const name = this.dataset.name;
-                
-                pdfFrame.src = url;
-                pdfModalTitle.textContent = name;
-                pdfModal.show();
+                const id = this.dataset.id;
+                const type = this.dataset.type;
+                window.location.href = `/api/reportes/download-zip?identificador=${encodeURIComponent(id)}&tipo=${encodeURIComponent(type)}`;
             });
         });
     }

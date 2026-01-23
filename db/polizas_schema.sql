@@ -236,9 +236,12 @@ CREATE PROCEDURE sp_insert_cliente (
     IN p_ultimo_siniestro DATE,
     IN p_detalle_siniestros TEXT,
     IN p_preferencias TEXT,
-    IN p_usuario_creacion VARCHAR(50)
+    IN p_usuario_creacion VARCHAR(50),
+    IN p_pdf_path VARCHAR(255)
 )
 BEGIN
+    DECLARE v_cliente_id INT;
+
     INSERT INTO clientes (
         razon_social, tipo_documento, numero_documento,
         telefono, celular, telefono_sec,
@@ -266,6 +269,13 @@ BEGIN
         p_siniestros_reportados, p_ultimo_siniestro, p_detalle_siniestros, p_preferencias,
         p_usuario_creacion
     );
+
+    SET v_cliente_id = LAST_INSERT_ID();
+
+    IF p_pdf_path IS NOT NULL AND p_pdf_path <> '' THEN
+        INSERT INTO cliente_archivos (cliente_id, numero_documento, ruta_archivo, nombre_original)
+        VALUES (v_cliente_id, p_numero_documento, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1));
+    END IF;
 END$$
 DELIMITER ;
 
@@ -365,6 +375,206 @@ CREATE TABLE IF NOT EXISTS poliza_archivos (
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (poliza_id) REFERENCES polizas(idPoliza) ON DELETE CASCADE
 );
+
+-- Tabla para archivos de clientes
+CREATE TABLE IF NOT EXISTS cliente_archivos (
+    idArchivo INT AUTO_INCREMENT PRIMARY KEY,
+    cliente_id INT NOT NULL,
+    numero_documento VARCHAR(20),
+    ruta_archivo VARCHAR(255) NOT NULL,
+    nombre_original VARCHAR(255),
+    origen VARCHAR(50) DEFAULT 'ALTA_CLIENTE',
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cliente_id) REFERENCES clientes(idCliente) ON DELETE CASCADE
+);
+
+
+DELIMITER $$
+CREATE PROCEDURE sp_reporte_archivos_detalle(
+    IN p_busqueda VARCHAR(100),
+    IN p_identificador VARCHAR(50),
+    IN p_tipo_origen VARCHAR(20)
+)
+BEGIN
+    -- Archivos de Pólizas
+    SELECT 
+        pa.idArchivo,
+        pa.ruta_archivo,
+        pa.nombre_original,
+        p.poliza AS identificador,
+        'POLIZA' AS tipo_origen
+    FROM poliza_archivos pa
+    INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
+    INNER JOIN clientes c ON p.cliente_id = c.idCliente
+    WHERE (p_busqueda IS NULL OR p_busqueda = '' 
+           OR p.poliza LIKE CONCAT('%', p_busqueda, '%')
+           OR c.razon_social LIKE CONCAT('%', p_busqueda, '%')
+           OR pa.nombre_original LIKE CONCAT('%', p_busqueda, '%')
+           OR p.contrato_nro LIKE CONCAT('%', p_busqueda, '%')
+           OR p.recibo LIKE CONCAT('%', p_busqueda, '%'))
+      AND (p_identificador IS NULL OR p_identificador = '' OR p.poliza = p_identificador)
+      AND (p_tipo_origen IS NULL OR p_tipo_origen = '' OR 'POLIZA' = p_tipo_origen)
+    
+    UNION ALL
+    
+    -- Archivos de Clientes
+    SELECT 
+        ca.idArchivo,
+        ca.ruta_archivo,
+        ca.nombre_original,
+        ca.numero_documento AS identificador,
+        'CLIENTE' AS tipo_origen
+    FROM cliente_archivos ca
+    INNER JOIN clientes c ON ca.cliente_id = c.idCliente
+    WHERE (p_busqueda IS NULL OR p_busqueda = '' 
+           OR c.razon_social LIKE CONCAT('%', p_busqueda, '%')
+           OR ca.nombre_original LIKE CONCAT('%', p_busqueda, '%')
+           OR ca.numero_documento LIKE CONCAT('%', p_busqueda, '%'))
+      AND (p_identificador IS NULL OR p_identificador = '' OR ca.numero_documento = p_identificador)
+      AND (p_tipo_origen IS NULL OR p_tipo_origen = '' OR 'CLIENTE' = p_tipo_origen);
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE PROCEDURE sp_reporte_archivos_resumen(IN p_busqueda VARCHAR(100))
+BEGIN
+    SELECT 
+        identificador,
+        tipo_origen,
+        contratante,
+        COUNT(*) AS cantidad_archivos,
+        MAX(fecha_subida) AS ultima_fecha
+    FROM (
+        -- Archivos de Pólizas
+        SELECT 
+            p.poliza AS identificador,
+            'POLIZA' AS tipo_origen,
+            c.razon_social AS contratante,
+            pa.creado_en AS fecha_subida
+        FROM poliza_archivos pa
+        INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
+        INNER JOIN clientes c ON p.cliente_id = c.idCliente
+        WHERE p_busqueda IS NULL OR p_busqueda = '' 
+           OR p.poliza LIKE CONCAT('%', p_busqueda, '%')
+           OR c.razon_social LIKE CONCAT('%', p_busqueda, '%')
+           OR pa.nombre_original LIKE CONCAT('%', p_busqueda, '%')
+           OR p.contrato_nro LIKE CONCAT('%', p_busqueda, '%')
+           OR p.recibo LIKE CONCAT('%', p_busqueda, '%')
+        
+        UNION ALL
+        
+        -- Archivos de Clientes
+        SELECT 
+            ca.numero_documento AS identificador,
+            'CLIENTE' AS tipo_origen,
+            c.razon_social AS contratante,
+            ca.creado_en AS fecha_subida
+        FROM cliente_archivos ca
+        INNER JOIN clientes c ON ca.cliente_id = c.idCliente
+        WHERE p_busqueda IS NULL OR p_busqueda = '' 
+           OR c.razon_social LIKE CONCAT('%', p_busqueda, '%')
+           OR ca.nombre_original LIKE CONCAT('%', p_busqueda, '%')
+           OR ca.numero_documento LIKE CONCAT('%', p_busqueda, '%')
+    ) AS combined
+    GROUP BY identificador, tipo_origen, contratante
+    ORDER BY ultima_fecha DESC
+    LIMIT 100;
+END$$
+DELIMITER ;
+
+
+DELIMITER $$
+CREATE PROCEDURE sp_reporte_archivos_detalle(
+    IN p_busqueda VARCHAR(100),
+    IN p_identificador VARCHAR(50),
+    IN p_tipo_origen VARCHAR(20)
+)
+BEGIN
+    -- Archivos de Pólizas
+    SELECT 
+        pa.idArchivo,
+        pa.ruta_archivo,
+        pa.nombre_original,
+        p.poliza AS identificador,
+        'POLIZA' AS tipo_origen
+    FROM poliza_archivos pa
+    INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
+    INNER JOIN clientes c ON p.cliente_id = c.idCliente
+    WHERE (p_busqueda IS NULL OR p_busqueda = '' 
+           OR p.poliza LIKE CONCAT('%', p_busqueda, '%')
+           OR c.razon_social LIKE CONCAT('%', p_busqueda, '%')
+           OR pa.nombre_original LIKE CONCAT('%', p_busqueda, '%')
+           OR p.contrato_nro LIKE CONCAT('%', p_busqueda, '%')
+           OR p.recibo LIKE CONCAT('%', p_busqueda, '%'))
+      AND (p_identificador IS NULL OR p_identificador = '' OR p.poliza = p_identificador)
+      AND (p_tipo_origen IS NULL OR p_tipo_origen = '' OR 'POLIZA' = p_tipo_origen)
+    
+    UNION ALL
+    
+    -- Archivos de Clientes
+    SELECT 
+        ca.idArchivo,
+        ca.ruta_archivo,
+        ca.nombre_original,
+        ca.numero_documento AS identificador,
+        'CLIENTE' AS tipo_origen
+    FROM cliente_archivos ca
+    INNER JOIN clientes c ON ca.cliente_id = c.idCliente
+    WHERE (p_busqueda IS NULL OR p_busqueda = '' 
+           OR c.razon_social LIKE CONCAT('%', p_busqueda, '%')
+           OR ca.nombre_original LIKE CONCAT('%', p_busqueda, '%')
+           OR ca.numero_documento LIKE CONCAT('%', p_busqueda, '%'))
+      AND (p_identificador IS NULL OR p_identificador = '' OR ca.numero_documento = p_identificador)
+      AND (p_tipo_origen IS NULL OR p_tipo_origen = '' OR 'CLIENTE' = p_tipo_origen);
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE PROCEDURE sp_reporte_archivos_resumen(IN p_busqueda VARCHAR(100))
+BEGIN
+    SELECT 
+        identificador,
+        tipo_origen,
+        contratante,
+        COUNT(*) AS cantidad_archivos,
+        MAX(fecha_subida) AS ultima_fecha
+    FROM (
+        -- Archivos de Pólizas
+        SELECT 
+            p.poliza AS identificador,
+            'POLIZA' AS tipo_origen,
+            c.razon_social AS contratante,
+            pa.creado_en AS fecha_subida
+        FROM poliza_archivos pa
+        INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
+        INNER JOIN clientes c ON p.cliente_id = c.idCliente
+        WHERE p_busqueda IS NULL OR p_busqueda = '' 
+           OR p.poliza LIKE CONCAT('%', p_busqueda, '%')
+           OR c.razon_social LIKE CONCAT('%', p_busqueda, '%')
+           OR pa.nombre_original LIKE CONCAT('%', p_busqueda, '%')
+           OR p.contrato_nro LIKE CONCAT('%', p_busqueda, '%')
+           OR p.recibo LIKE CONCAT('%', p_busqueda, '%')
+        
+        UNION ALL
+        
+        -- Archivos de Clientes
+        SELECT 
+            ca.numero_documento AS identificador,
+            'CLIENTE' AS tipo_origen,
+            c.razon_social AS contratante,
+            ca.creado_en AS fecha_subida
+        FROM cliente_archivos ca
+        INNER JOIN clientes c ON ca.cliente_id = c.idCliente
+        WHERE p_busqueda IS NULL OR p_busqueda = '' 
+           OR c.razon_social LIKE CONCAT('%', p_busqueda, '%')
+           OR ca.nombre_original LIKE CONCAT('%', p_busqueda, '%')
+           OR ca.numero_documento LIKE CONCAT('%', p_busqueda, '%')
+    ) AS combined
+    GROUP BY identificador, tipo_origen, contratante
+    ORDER BY ultima_fecha DESC
+    LIMIT 100;
+END$$
+DELIMITER ;
 
 DELIMITER $$
 CREATE PROCEDURE sp_get_cliente_por_numero(IN p_numero_documento VARCHAR(20))
@@ -824,36 +1034,6 @@ DELIMITER ;
 
 DELIMITER $$
 
-CREATE PROCEDURE sp_reporte_archivos_poliza(IN p_busqueda VARCHAR(100))
-BEGIN
-    SELECT 
-        pa.idArchivo,
-        pa.ruta_archivo,
-        pa.nombre_original,
-        p.idPoliza,
-        p.poliza,
-        COALESCE(NULLIF(p.contrato_nro, ''), p.recibo) AS aviso_cob,
-        DATE_FORMAT(p.vig_desde, '%Y-%m-%d') AS vig_desde,
-        DATE_FORMAT(p.vig_hasta, '%Y-%m-%d') AS vig_hasta,
-        p.tipo_doc,
-        c.razon_social AS contratante,
-        DATE_FORMAT(pa.creado_en, '%Y-%m-%d %H:%i') AS fecha_subida
-    FROM poliza_archivos pa
-    INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
-    INNER JOIN clientes c ON p.cliente_id = c.idCliente
-    WHERE p_busqueda IS NULL OR p_busqueda = '' 
-       OR p.poliza LIKE CONCAT('%', p_busqueda, '%')
-       OR c.razon_social LIKE CONCAT('%', p_busqueda, '%')
-       OR pa.nombre_original LIKE CONCAT('%', p_busqueda, '%')
-       OR p.contrato_nro LIKE CONCAT('%', p_busqueda, '%')
-       OR p.recibo LIKE CONCAT('%', p_busqueda, '%')
-    ORDER BY pa.creado_en DESC
-    LIMIT 100;
-END$$
-DELIMITER ;
-
-DELIMITER $$
-
 CREATE PROCEDURE sp_reporte_vencimientos(
     IN p_usuario VARCHAR(50),
     IN p_estado VARCHAR(50)
@@ -1015,4 +1195,5 @@ DELIMITER ;
 ALTER TABLE clientes
   ADD INDEX idx_usuario_creacion (usuario_creacion),
   ADD INDEX idx_usuario_modificacion (usuario_modificacion);
+
 

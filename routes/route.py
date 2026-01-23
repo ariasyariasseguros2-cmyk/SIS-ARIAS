@@ -594,7 +594,34 @@ def clientes_add():
     if 'user' not in session:
         return {'ok': False, 'errors': ['No autenticado']}, 401
 
-    data = (request.get_json(silent=True) or request.form.to_dict())
+    # Manejar upload de archivo si existe
+    data = {}
+    if request.files or request.form:
+         # Si es multipart/form-data, los campos están en form
+         data = request.form.to_dict()
+    else:
+         # Si es JSON puro
+         data = request.get_json(silent=True) or {}
+
+    pdf_file = request.files.get('pdf_file')
+    if pdf_file and pdf_file.filename:
+         from werkzeug.utils import secure_filename
+         import os
+         import time
+         
+         filename = secure_filename(pdf_file.filename)
+         # Usar timestamp para evitar colisiones
+         ts = int(time.time())
+         filename = f"{ts}_{filename}"
+         
+         upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'clientes')
+         os.makedirs(upload_folder, exist_ok=True)
+         
+         save_path = os.path.join(upload_folder, filename)
+         pdf_file.save(save_path)
+         
+         data['pdf_path'] = f"static/uploads/clientes/{filename}"
+
     from controllers.clientes.addcliente import save_cliente
     res = save_cliente(data)
     status = 200 if res.get('ok') else 400
