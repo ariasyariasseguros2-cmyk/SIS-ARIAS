@@ -682,17 +682,56 @@ END$$
 DELIMITER ;
 
 -- Nuevo: obtener cliente por ID
+
 DELIMITER $$
 CREATE PROCEDURE sp_get_cliente_por_id(IN p_id INT)
 BEGIN
-    SELECT
-        razon_social,
-        tipo_documento,
-        numero_documento,
-        telefono
-    FROM clientes
-    WHERE idCliente = p_id
-      AND activo = 1
+SELECT
+    idCliente,
+    razon_social,
+    tipo_documento,
+    numero_documento,
+    telefono,
+    celular,
+    telefono_sec,
+    email,
+    direccion,
+    departamento,
+    provincia,
+    distrito,
+    subagente,
+    idProductor,
+    estado,
+    tipo_persona,
+    fecha_registro,
+    fecha_actualizacion,
+    profesion,
+    fecha_ingreso,
+    fecha_nacimiento,
+    licencia_num,
+    licencia_venc,
+    grupo_economico,
+    giro_negocio,
+    referencia,
+    recomendado_por,
+    recibir_notificaciones,
+    contacto_nombre,
+    contacto_email,
+    contacto_telefono,
+    referencias_interes,
+    notas,
+    siniestros_reportados,
+    ultimo_siniestro,
+    detalle_siniestros,
+    preferencias,
+    usuario_creacion,
+    fecha_creacion,
+    usuario_modificacion,
+    fecha_modificacion,
+    activo
+FROM clientes
+WHERE idCliente = p_id
+  AND activo = 1
     LIMIT 1;
 END$$
 DELIMITER ;
