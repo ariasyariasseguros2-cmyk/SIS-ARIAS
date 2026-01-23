@@ -15,15 +15,32 @@
     <div class="card shadow-sm">
         <div class="card-body">
             <!-- Filter Form -->
-            <form id="filterForm" class="row g-3 mb-4 align-items-end">
-                <div class="col-md-3">
-                    <label for="usuarioSelect" class="form-label fw-bold">Usuario</label>
-                    <select class="form-select" id="usuarioSelect" name="usuario">
-                        <option value="">Todos los usuarios</option>
-                        <!-- Populated by JS -->
-                    </select>
+            <form id="filterForm" class="row g-3 mb-4 align-items-end" data-current-user="{{ session.get('user', '') }}">
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Usuarios</label>
+                    <div class="dropdown" id="usuarioDropdownContainer">
+                        <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start text-truncate" type="button" id="usuarioDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                            Cargando...
+                        </button>
+                        <ul class="dropdown-menu w-100 p-2" aria-labelledby="usuarioDropdownBtn" id="usuarioDropdownMenu" style="max-height: 300px; overflow-y: auto;">
+                            <!-- Populated by JS -->
+                        </ul>
+                        <input type="hidden" name="usuario" id="usuarioValue">
+                    </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Ramo</label>
+                    <div class="dropdown" id="ramoDropdownContainer">
+                        <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start text-truncate" type="button" id="ramoDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                            Cargando...
+                        </button>
+                        <ul class="dropdown-menu w-100 p-2" aria-labelledby="ramoDropdownBtn" id="ramoDropdownMenu" style="max-height: 300px; overflow-y: auto;">
+                            <!-- Populated by JS -->
+                        </ul>
+                        <input type="hidden" name="ramo" id="ramoValue">
+                    </div>
+                </div>
+                <div class="col-md-2">
                     <label for="estadoSelect" class="form-label fw-bold">Estado</label>
                     <select class="form-select" id="estadoSelect" name="estado">
                         <option value="">Todos los estados</option>
@@ -34,7 +51,15 @@
                         <option value="ANULADO">Anulado</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
+                    <label for="fechaDesde" class="form-label fw-bold">Desde</label>
+                    <input type="date" class="form-control" id="fechaDesde" name="fecha_desde">
+                </div>
+                <div class="col-md-2"> 
+                    <label for="fechaHasta" class="form-label fw-bold">Hasta</label>
+                    <input type="date" class="form-control" id="fechaHasta" name="fecha_hasta">
+                </div>
+                <div class="col-md-2">
                     <button type="submit" class="btn btn-success text-white w-100">
                         Procesar Archivo
                     </button>
@@ -51,13 +76,13 @@
                             <th scope="col">PRODUCTO</th>
                             <th scope="col">TIPO DOCUMENTO</th>
                             <th scope="col">NRO DOCUMENTO</th>
-                            <th scope="col">POLIZA CERTIFACDO</th>
+                            <th scope="col">POLIZA</th>
                             <th scope="col">PROFORMA/CUPÓN</th>
                             <th scope="col">INICIO</th>
                             <th scope="col">VENCE</th>
                             <th scope="col">FECHA DE PAGO</th>
-                            <th scope="col">S/. PRIMA TOTAL</th>
-                            <th scope="col">TOTAL GENERAL</th>
+                            <th scope="col">PRIMA NETA</th>
+                            <th scope="col">PRIMA TOTAL</th>
                             <th scope="col">ESTADO</th>
                             <th scope="col">ACCIONES</th>
                         </tr>

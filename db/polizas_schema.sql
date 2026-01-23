@@ -983,8 +983,11 @@ DELIMITER ;
 DELIMITER $$
 
 CREATE PROCEDURE sp_reporte_vencimientos(
-    IN p_usuario VARCHAR(50),
-    IN p_estado VARCHAR(50)
+    IN p_usuarios VARCHAR(255),
+    IN p_estado VARCHAR(50),
+    IN p_fecha_desde DATE,
+    IN p_fecha_hasta DATE,
+    IN p_ramo TEXT
 )
 BEGIN
     SELECT 
@@ -999,13 +1002,16 @@ BEGIN
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
         (SELECT DATE_FORMAT(MAX(q.fecha_pago), '%d/%m/%Y') FROM cuotas q WHERE q.poliza = p.poliza) AS fecha_pago,
         p.moneda,
-        p.prima_comercial_igv AS prima_neta,
+        p.prima_neta AS prima_neta,
         p.prima_comercial_igv AS prima_total,
         p.estado
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
-    WHERE (p_usuario IS NULL OR p_usuario = '' OR p.usuario_registro = p_usuario)
+    WHERE (p_usuarios IS NULL OR p_usuarios = '' OR FIND_IN_SET(p.usuario_registro, p_usuarios))
     AND (p_estado IS NULL OR p_estado = '' OR p.estado = p_estado)
+    AND (p_fecha_desde IS NULL OR p.vig_hasta >= p_fecha_desde)
+    AND (p_fecha_hasta IS NULL OR p.vig_hasta <= p_fecha_hasta)
+    AND (p_ramo IS NULL OR p_ramo = '' OR FIND_IN_SET(p.ramo, p_ramo))
     ORDER BY p.vig_hasta ASC;
 END$$
 DELIMITER ;

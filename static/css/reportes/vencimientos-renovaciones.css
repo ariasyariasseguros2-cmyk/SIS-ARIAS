@@ -2,3 +2,34 @@
 .placeholder-row {
     background-color: #f8f9fa;
 }
+
+#usuarioDropdownMenu,
+#ramoDropdownMenu {
+    max-height: 300px;
+    overflow-y: auto;
+    padding-top: 0;
+}
+
+#usuarioDropdownBtn,
+#ramoDropdownBtn {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Green checkboxes as requested */
+.usuario-checkbox:checked,
+.ramo-checkbox:checked {
+    background-color: #198754;
+    border-color: #198754;
+}
+
+/* Sticky Search Bar in Dropdown */
+.dropdown-search-container {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background-color: white;
+    padding: 0.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
