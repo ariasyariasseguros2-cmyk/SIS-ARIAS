@@ -11,7 +11,7 @@ def get_ramos() -> list[str]:
         db_rows = cur.fetchall() or []
         cur.close()
         cnx.close()
-        rows = [r['abreviacion'] for r in db_rows if r and r.get('abreviacion')]
+        rows = [r['nombre'] for r in db_rows if r and r.get('nombre')]
     except Exception:
         rows = []
     return rows

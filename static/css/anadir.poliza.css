@@ -162,7 +162,8 @@ body.text-uppercase,
 .modern-table tbody td.ramo-col {
   background: var(--ramo-accent-bg);
   border-left: 3px solid var(--ramo-accent);
-  width: 240px; /* antes 180px */
+  min-width: 150px; /* Aumentado para mostrar texto completo */
+  width: auto;
 }
 
 /* Select de Ramo: texto grande, negrita y muy legible */
