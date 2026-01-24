@@ -12,7 +12,7 @@
   const tipoPagoTopEl = document.getElementById('tipoPagoTop');
   const tipoDocTopEl = document.getElementById('tipoDocTop'); // Referencia al input de Tipo Doc
   const nroOperacionTopEl = document.getElementById('nroOperacionTop'); // NUEVO: Nro Operación global
-  const ramoProductoTopEl = document.getElementById('ramosProductoTop'); // Campo superior de ramo/producto (texto)
+  // const ramoProductoTopEl = document.getElementById('ramosProductoTop'); // ELIMINADO
   const aseguradaTopEl = document.getElementById('aseguradaTop'); // Campo superior de asegurada (texto)
   const motivoTopEl = document.getElementById('motivoTop'); // Campo superior de motivo (texto)
   // Campos de comisiones (superior)
@@ -270,16 +270,18 @@
     if (!thead) return;
     const headers = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase()); 
     const hasRamo = headers.includes('ramo');
+    const hasProducto = headers.includes('producto');
     const hasPrimaNeta = headers.includes('prima neta');
     const hasAcciones = headers.includes('acciones');
-    const expectedCount = 18; // actualizado: se removió "Nro Operación" (19 -> 18)
-    if (!hasRamo || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
+    const expectedCount = 19; // actualizado: 18 + 1 (Producto)
+    if (!hasRamo || !hasProducto || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
       thead.innerHTML = `
         <tr>
           <th>Póliza</th>
           <th>Proforma/Recibo</th>
           <th>Colectivo Asegurado</th>
           <th class="ramo-col">Ramo</th>
+          <th>Producto</th>
           <th>Inicio Vigencia</th>
           <th>Fin Vigencias</th>
           <th>Moneda</th>
@@ -320,7 +322,7 @@
     })));
     const formaPagoTop = (tipoPagoTopEl?.value || '').trim();
     const estadoTop = (estadoTopEl?.value || '').trim();
-    const ramoProductoTop = (ramoProductoTopEl?.value || '').trim();
+    // const ramoProductoTop = (ramoProductoTopEl?.value || '').trim(); // ELIMINADO
     const aseguradaTop = (aseguradaTopEl?.value || '').trim();
     const motivoTop = (motivoTopEl?.value || '').trim();
     const nroOpTop = (nroOperacionTopEl?.value || '').trim(); // NUEVO: Nro Operación
@@ -338,9 +340,9 @@
     items.forEach(it => {
       if (formaPagoTop) it.forma_pago = formaPagoTop;
       if (estadoTop) it.estado = estadoTop;
-      if (ramoProductoTop && (!it.ramos_producto || it.ramos_producto.trim() === '')) {
-        it.ramos_producto = ramoProductoTop;
-      }
+      // if (ramoProductoTop && (!it.ramos_producto || it.ramos_producto.trim() === '')) {
+      //   it.ramos_producto = ramoProductoTop;
+      // }
       if (aseguradaTop && (!it.asegurada || it.asegurada.trim() === '')) {
         it.asegurada = aseguradaTop;
       }
@@ -369,6 +371,7 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="recibo">${it.recibo || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="colectivo_asegurado">${it.colectivo_asegurado || ''}</td>
         <td class="ramo-col" data-index="${idx}" data-field="ramo">${buildRamoSelect(it.ramo || '')}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="ramos_producto">${it.ramos_producto || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="inicio_vigencia">${it.inicio_vigencia || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="vencimiento">${it.vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
@@ -509,6 +512,25 @@
       extractedItems[idx][field] = td.textContent.trim();
     }
 
+    // NUEVO: Auto-relleno de 'ramos_producto'
+    // Si se edita Producto en una fila, y las demás filas tienen ese campo vacío, replicarlo.
+    if (field === 'ramos_producto') {
+      const val = extractedItems[idx][field];
+      if (val) {
+        let changed = false;
+        extractedItems.forEach((it, i) => {
+          if (i !== idx && (!it.ramos_producto || it.ramos_producto.trim() === '')) {
+            it.ramos_producto = val;
+            // Actualizar celda visualmente
+            const cell = getTd(i, 'ramos_producto');
+            if (cell) cell.textContent = val;
+            changed = true;
+          }
+        });
+        if (changed) scheduleAutoSave();
+      }
+    }
+
     if (field === 'prima_comercial' || field === 'prima_neta') {
       updateDependents(idx, field, td);
     }
@@ -613,7 +635,7 @@
   btnAgregarPoliza?.addEventListener('click', () => {
     const formaPago = tipoPagoTopEl?.value || '';
     const estado    = estadoTopEl?.value || 'PENDIENTE';
-    const ramoTop   = (ramoProductoTopEl?.value || '').trim();
+    // const ramoTop   = (ramoProductoTopEl?.value || '').trim(); // REMOVED
     const pctCC     = (pctComCompaniaEl?.value || '').trim();
     const pctSA     = (pctComSubAgenteEl?.value || '').trim();
     const nroOpTop  = (nroOperacionTopEl?.value || '').trim(); // NUEVO
@@ -634,8 +656,8 @@
       prima_comercial_igv: '',
       // Campo 'ramo' debe ser independiente: lo dejamos vacío
       ramo: '',
-      // Prellenamos 'ramos_producto' con el valor superior
-      ramos_producto: ramoTop || '',
+      // Prellenamos 'ramos_producto' con el del cliente si existe
+      ramos_producto: (window.selectedCliente && window.selectedCliente.ramos_producto) || '',
       forma_pago: formaPago,
       estado: estado,
       comision_compania_pct: pctCC,
@@ -720,11 +742,17 @@
           const pctCC    = pctComCompaniaEl?.value || '';
           const pctSA    = pctComSubAgenteEl?.value || '';
           const impSA    = impComSubAgenteEl?.value || '';
+          // NUEVO: Obtener producto por defecto del cliente si existe
+          const defaultProducto = (window.selectedCliente && window.selectedCliente.ramos_producto) || '';
 
           items = items.map(it => {
             const importeCC = pctCC ? computeCommissionAmount(it.prima_neta, pctCC) : '';
+            // Si no viene producto del PDF, usar el del cliente
+            const rProd = (it.ramos_producto && it.ramos_producto.trim()) ? it.ramos_producto : defaultProducto;
+            
             return {
               ...it,
+              ramos_producto: rProd,
               forma_pago: tipoPago || it.forma_pago || '',
               estado: estado || it.estado || 'PENDIENTE',
               comision_compania_pct: pctCC,
@@ -837,7 +865,7 @@
                     document.getElementById('subAgente')?.value ||
                     (window.selectedCliente || {}).subagente || ''),
         motivo: (motivoTopEl?.value || '').trim(),
-        ramos_producto: (ramoProductoTopEl?.value || '').trim(),
+        // ramos_producto: (ramoProductoTopEl?.value || '').trim(), // REMOVED
         tipo_doc: (tipoDocTopEl?.value || '').trim() || ((window.selectedCliente || {}).tipo_doc || (window.selectedCliente || {}).tipo_documento || ''),
         // NUEVO: ejecutivo desde el select superior
         ejecutivo: (ejecutivoTopEl?.value || '').trim(),
@@ -857,10 +885,10 @@
         if (r && !abbrs.includes(r)) {
           copy.ramo = '';
         }
-        const rpTop = (selected.ramos_producto || '').trim();
-        if (rpTop) {
-          copy.ramos_producto = rpTop;
-        }
+        // const rpTop = (selected.ramos_producto || '').trim(); // REMOVED
+        // if (rpTop) {
+        //   copy.ramos_producto = rpTop;
+        // }
         // NUEVO: aplicar nro operación global si existe (sobrescribe o rellena)
         if (nroOpTopSave) {
           copy.nro = nroOpTopSave;
@@ -926,6 +954,7 @@
     render(extractedItems);
   });
 
+  /* REMOVED: ramoProductoTopEl listener
   ramoProductoTopEl?.addEventListener('input', () => {
     const val = (ramoProductoTopEl?.value || '').trim();
     if (!val) return;
@@ -938,6 +967,7 @@
     render(extractedItems);
     scheduleAutoSave();
   });
+  */
 
   // Autoguardado
   function scheduleAutoSave() {
