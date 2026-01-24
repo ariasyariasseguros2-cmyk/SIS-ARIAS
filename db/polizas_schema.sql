@@ -996,6 +996,7 @@ BEGIN
         p.ramos_producto AS producto,
         c.tipo_documento,
         c.numero_documento,
+        c.razon_social AS contratante,
         p.poliza,
         p.recibo AS aviso_cobranza,
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,

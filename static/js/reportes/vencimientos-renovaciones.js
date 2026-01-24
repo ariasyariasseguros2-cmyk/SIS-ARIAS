@@ -329,6 +329,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${row.producto || '-'}</td>
                     <td>${row.tipo_documento || '-'}</td>
                     <td>${row.numero_documento || '-'}</td>
+                    <td>${row.contratante || '-'}</td>
                     <td>${row.poliza || '-'}</td>
                     <td>${row.aviso_cobranza || '-'}</td>
                     <td>${row.vig_desde || '-'}</td>
