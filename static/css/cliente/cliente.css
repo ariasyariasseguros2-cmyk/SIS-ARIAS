@@ -38,8 +38,91 @@
     border: 1px solid #ced4da;
 }
 
+
+.dropdown-menu {
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    border: 1px solid #e0e0e0;
+    padding: 8px 0;
+    min-width: 220px;
+    opacity: 0;
+    transition: opacity 0.15s ease-in-out;
+}
+
+.dropdown-menu.show {
+    opacity: 1;
+}
+
 .dropdown-menu .dropdown-item {
-    font-size: 13px;
+    font-size: 15px;
+    padding: 12px 20px;
+    color: #333;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-left: 3px solid transparent;
+}
+
+.dropdown-menu .dropdown-item i {
+    font-size: 16px;
+    color: #1976d2;
+    width: 20px;
+    text-align: center;
+}
+
+.dropdown-menu .dropdown-item:hover {
+    background: linear-gradient(to right, #e3f2fd, #bbdefb);
+    color: #1976d2;
+    padding-left: 24px;
+    transform: translateX(2px);
+    border-left-color: #1976d2;
+}
+
+.dropdown-menu .dropdown-item:hover i {
+    color: #0d47a1;
+    transform: scale(1.1);
+}
+
+.dropdown-menu .dropdown-item:active {
+    background: linear-gradient(to right, #bbdefb, #90caf9);
+    color: #1565c0;
+}
+
+/* Botón del dropdown más grande y atractivo */
+.dropdown-toggle {
+    padding: 10px 20px !important;
+    font-size: 15px !important;
+    font-weight: 500 !important;
+    border-radius: 24px !important;
+    border: 2px solid #1976d2 !important;
+    color: #1976d2 !important;
+    background-color: #fff !important;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.1);
+}
+
+.dropdown-toggle i {
+    margin-right: 6px;
+}
+
+.dropdown-toggle:hover {
+    background: linear-gradient(to right, #1976d2, #1565c0) !important;
+    color: #fff !important;
+    border-color: #1565c0 !important;
+    box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+    transform: translateY(-2px);
+}
+
+.dropdown-toggle:focus {
+    box-shadow: 0 0 0 0.2rem rgba(25, 118, 210, 0.25) !important;
+}
+
+/* Icono del dropdown */
+.dropdown-toggle::after {
+    margin-left: 10px;
+    vertical-align: middle;
 }
 
 
@@ -76,7 +159,7 @@
     color: #fff; /* Keep text white on hover */
 }
 
-/* Specific adjustments for small button variants to keep them thin */
+
 .btn-lift.btn-sm,
 #clientesTable .btn-sm.btn-lift {
     padding: 0.18rem 0.5rem;

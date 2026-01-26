@@ -23,12 +23,17 @@
     <div class="d-flex align-items-center gap-2">
         <div class="dropdown">
             <button class="btn btn-outline-secondary btn-sm dropdown-toggle rounded-pill" data-bs-toggle="dropdown">
-                Filtros y Orden
+                <i class="bi-funnel"></i> Filtros y Orden
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
-                {% for f in filters.orders %}
-                <li><a class="dropdown-item" href="#" data-order="{{ f }}">{{ f }}</a></li>
-                {% endfor %}
+                <li><a class="dropdown-item" href="#" data-order="F. Reg."><i class="bi-calendar3"></i> F. Reg.</a></li>
+                <li><a class="dropdown-item" href="#" data-order="Razón Social"><i class="bi-building"></i> Razón Social</a></li>
+                <li><a class="dropdown-item" href="#" data-order="Doc"><i class="bi-file-text"></i> Doc</a></li>
+                <li><a class="dropdown-item" href="#" data-order="N.Doc"><i class="bi-hash"></i> N.Doc</a></li>
+                <li><a class="dropdown-item" href="#" data-order="Tel"><i class="bi-telephone"></i> Tel</a></li>
+                <li><a class="dropdown-item" href="#" data-order="Email"><i class="bi-envelope"></i> Email</a></li>
+                <li><a class="dropdown-item" href="#" data-order="Subagente"><i class="bi-person-badge"></i> Subagente</a></li>
+                <li><a class="dropdown-item" href="#" data-order="Dirección"><i class="bi-geo-alt"></i> Dirección</a></li>
             </ul>
         </div>
         <div class="input-group input-group-sm search-round" style="width: 280px;">

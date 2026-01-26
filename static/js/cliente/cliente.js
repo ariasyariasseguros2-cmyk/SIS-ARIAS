@@ -17,6 +17,123 @@
             input.addEventListener('input', (e) => filterRows(e.target.value));
         }
 
+        // filtros y ordenamiento
+        let currentSort = { column: null, ascending: true };
+        const orderLinks = document.querySelectorAll('[data-order]');
+
+        orderLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const orderBy = e.target.getAttribute('data-order');
+
+                // Si es la misma columna, alternar ascendente/descendente
+                if (currentSort.column === orderBy) {
+                    currentSort.ascending = !currentSort.ascending;
+                } else {
+                    currentSort.column = orderBy;
+                    currentSort.ascending = true;
+                }
+
+                sortTable(orderBy, currentSort.ascending);
+                updateSortIndicator(link);
+            });
+        });
+
+        function updateSortIndicator(activeLink) {
+
+            orderLinks.forEach(link => {
+                const icon = link.querySelector('i');
+                const iconHTML = icon ? icon.outerHTML : '';
+                const text = link.textContent.replace(' ↑', '').replace(' ↓', '').trim();
+                link.innerHTML = iconHTML + ' ' + text;
+            });
+
+
+            const icon = activeLink.querySelector('i');
+            const iconHTML = icon ? icon.outerHTML : '';
+            const text = activeLink.textContent.replace(' ↑', '').replace(' ↓', '').trim();
+            const arrow = currentSort.ascending ? ' <span style="color: #4caf50; font-weight: bold;">↑</span>' : ' <span style="color: #f44336; font-weight: bold;">↓</span>';
+            activeLink.innerHTML = iconHTML + ' ' + text + arrow;
+        }
+
+        function sortTable(orderBy, ascending) {
+            const tbody = table.querySelector('tbody');
+            const sortedRows = [...rows].sort((a, b) => {
+                let valA, valB;
+                let comparison = 0;
+
+                switch(orderBy) {
+                    case 'F. Reg.':
+                        valA = a.querySelector('td:nth-child(1)').textContent.trim();
+                        valB = b.querySelector('td:nth-child(1)').textContent.trim();
+                        comparison = compareDates(valA, valB);
+                        break;
+
+                    case 'Razón Social':
+                        valA = a.querySelector('td:nth-child(2)').textContent.trim().toLowerCase();
+                        valB = b.querySelector('td:nth-child(2)').textContent.trim().toLowerCase();
+                        comparison = valA.localeCompare(valB);
+                        break;
+
+                    case 'Doc':
+                        valA = a.querySelector('td:nth-child(3)').textContent.trim();
+                        valB = b.querySelector('td:nth-child(3)').textContent.trim();
+                        comparison = valA.localeCompare(valB);
+                        break;
+
+                    case 'N.Doc':
+                        valA = parseInt(a.querySelector('td:nth-child(4)').textContent.trim()) || 0;
+                        valB = parseInt(b.querySelector('td:nth-child(4)').textContent.trim()) || 0;
+                        comparison = valA - valB;
+                        break;
+
+                    case 'Tel':
+                        valA = a.querySelector('td:nth-child(5)').textContent.trim();
+                        valB = b.querySelector('td:nth-child(5)').textContent.trim();
+                        comparison = valA.localeCompare(valB);
+                        break;
+
+                    case 'Subagente':
+                        valA = a.querySelector('td:nth-child(6)').textContent.trim().toLowerCase();
+                        valB = b.querySelector('td:nth-child(6)').textContent.trim().toLowerCase();
+                        comparison = valA.localeCompare(valB);
+                        break;
+
+                    case 'Email':
+                        valA = a.querySelector('td:nth-child(7)').textContent.trim().toLowerCase();
+                        valB = b.querySelector('td:nth-child(7)').textContent.trim().toLowerCase();
+                        comparison = valA.localeCompare(valB);
+                        break;
+
+                    case 'Dirección':
+                        valA = a.querySelector('td:nth-child(8)').textContent.trim().toLowerCase();
+                        valB = b.querySelector('td:nth-child(8)').textContent.trim().toLowerCase();
+                        comparison = valA.localeCompare(valB);
+                        break;
+
+                    default:
+                        comparison = 0;
+                }
+
+                // Invertir el orden si es descendente
+                return ascending ? comparison : -comparison;
+            });
+
+            tbody.innerHTML = '';
+            sortedRows.forEach(row => tbody.appendChild(row));
+        }
+
+        function compareDates(dateA, dateB) {
+            const parseDate = (str) => {
+                const [day, month, year] = str.split('-');
+                return new Date(year, month - 1, day);
+            };
+
+            const d1 = parseDate(dateA);
+            const d2 = parseDate(dateB);
+            return d1 - d2;
+        }
+
         // Acciones: pólizas, contactos, PDF
         if (table) {
             table.addEventListener('click', (e) => {
