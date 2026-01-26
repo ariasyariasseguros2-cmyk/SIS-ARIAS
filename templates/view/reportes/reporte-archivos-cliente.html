@@ -58,5 +58,6 @@
 {% endblock %}
 
 {% block extra_js_bottom %}
+{{ super() }}
 <script src="{{ url_for('static', filename='js/reportes/reporte-archivos-cliente.js') }}"></script>
 {% endblock %}
