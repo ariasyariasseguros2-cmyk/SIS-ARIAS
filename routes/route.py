@@ -1,4 +1,4 @@
-from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory
+from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory, jsonify
 from werkzeug.utils import secure_filename
 import os
 from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards
@@ -184,6 +184,22 @@ def menu_page(page):
             filters=data['filters'],
             pagination=pagination,
             subagentes_abbrs=subagentes_data
+        )
+
+    # Estado de Cuenta - con filtros y búsqueda de cliente
+    if page == 'clientes-estado-cuenta':
+        from controllers.clientes.estado_cuenta import get_estado_cuenta_data
+        from datetime import datetime
+        data = get_estado_cuenta_data()
+        return render_template(
+            'view/cliente/estado-cuenta.html',
+            page='clientes-estado-cuenta',
+            cliente=data['cliente'],
+            polizas=data['polizas'],
+            totales=data['totales'],
+            filtros_options=data['filtros_options'],
+            filtros_aplicados=data['filtros_aplicados'],
+            now=datetime.now()
         )
 
     # Pólizas → plantilla dedicada
@@ -690,6 +706,22 @@ def api_get_subagentes():
     from controllers.subagente import get_subagentes_abreviaciones
     subagentes = get_subagentes_abreviaciones()
     return {'ok': True, 'subagentes': subagentes}, 200
+
+
+@bp.route('/api/clientes/buscar', methods=['GET'])
+def api_buscar_clientes():
+    """Busca clientes por nombre, RUC o DNI"""
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    from controllers.clientes.estado_cuenta import buscar_clientes
+    search_term = request.args.get('q', '').strip()
+
+    if not search_term or len(search_term) < 2:
+        return jsonify({'ok': False, 'message': 'Mínimo 2 caracteres'}), 400
+
+    clientes = buscar_clientes(search_term)
+    return jsonify({'ok': True, 'clientes': clientes}), 200
 
 
 @bp.route('/clientes/extract-pdf', methods=['POST'])
