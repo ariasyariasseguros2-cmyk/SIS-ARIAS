@@ -1,0 +1,277 @@
+{% extends 'view/layout_dashboard.html' %}
+
+{% block page_title %}Estado de Cuenta{% endblock %}
+
+{% block before_js %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cliente/estado-cuenta.css') }}">
+<script>
+    window.currentPage = "{{ page or 'clientes-estado-cuenta' }}";
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <a class="btn btn-primary btn-lg" href="{{ url_for('main.menu_page', page='clientes') }}">&larr; Regresar</a>
+        <h2 class="h4 m-0">Estado de Cuenta</h2>
+    </div>
+
+    <!-- Filtros de Búsqueda -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-funnel"></i> Filtros de Búsqueda</h5>
+        </div>
+        <div class="card-body">
+            <form id="filtrosForm" method="GET" action="{{ url_for('main.menu_page', page='clientes-estado-cuenta') }}">
+                <div class="row g-3">
+                    <!-- Cliente - Campo de búsqueda -->
+                    <div class="col-md-6 position-relative">
+                        <label class="form-label fw-bold">* Cliente</label>
+                        <div class="input-group">
+                            <input type="text"
+                                   id="clienteSearchInput"
+                                   name="cliente_search"
+                                   class="form-control"
+                                   placeholder="Buscar por nombre o documento..."
+                                   value="{{ cliente.razon_social if cliente else filtros_aplicados['cliente_search'] }}"
+                                   autocomplete="off">
+                        </div>
+                        <input type="hidden" name="cliente_id" id="clienteIdInput" value="{{ cliente.idCliente if cliente else '' }}">
+                        <div id="clienteSearchResults" class="list-group mt-2 position-absolute w-100" style="z-index: 1000; display: none; max-height: 300px; overflow-y: auto; left: 0;"></div>
+                    </div>
+
+                    <!-- Tipo Documento -->
+                    <div class="col-md-3">
+                        <label class="form-label">Tipo Documento</label>
+                        <select name="tipo_documento" class="form-select">
+                            <option value="">Todos</option>
+                            <option value="RUC" {{ 'selected' if filtros_aplicados['tipo_documento'] == 'RUC' }}>RUC</option>
+                            <option value="DNI" {{ 'selected' if filtros_aplicados['tipo_documento'] == 'DNI' }}>DNI</option>
+                            <option value="CE" {{ 'selected' if filtros_aplicados['tipo_documento'] == 'CE' }}>CE</option>
+                            <option value="PASAPORTE" {{ 'selected' if filtros_aplicados['tipo_documento'] == 'PASAPORTE' }}>Pasaporte</option>
+                        </select>
+                    </div>
+
+                    <!-- Documento -->
+                    <div class="col-md-3">
+                        <label class="form-label">Documento</label>
+                        <input type="text"
+                               name="numero_documento"
+                               class="form-control"
+                               placeholder="Número de documento"
+                               value="{{ cliente.numero_documento if cliente else filtros_aplicados['numero_documento'] }}">
+                    </div>
+
+                    <!-- Compañía -->
+                    <div class="col-md-3">
+                        <label class="form-label">Compañía</label>
+                        <select name="compania" class="form-select">
+                            <option value="">Todos</option>
+                            {% for cia in filtros_options.companias %}
+                            <option value="{{ cia }}" {{ 'selected' if filtros_aplicados['compania'] == cia }}>{{ cia }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Moneda -->
+                    <div class="col-md-2">
+                        <label class="form-label">Moneda</label>
+                        <select name="moneda" class="form-select">
+                            <option value="">Ambos</option>
+                            {% for moneda in filtros_options.monedas %}
+                            <option value="{{ moneda }}" {{ 'selected' if filtros_aplicados['moneda'] == moneda }}>{{ moneda }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Ramo -->
+                    <div class="col-md-3">
+                        <label class="form-label">Ramo</label>
+                        <select name="ramo" class="form-select">
+                            <option value="">Todos</option>
+                            {% for ramo in filtros_options.ramos %}
+                            <option value="{{ ramo }}" {{ 'selected' if filtros_aplicados['ramo'] == ramo }}>{{ ramo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Estado -->
+                    <div class="col-md-2">
+                        <label class="form-label">Estado</label>
+                        <select name="estado" class="form-select">
+                            <option value="">Todos</option>
+                            {% for estado in filtros_options.estados %}
+                            <option value="{{ estado }}" {{ 'selected' if filtros_aplicados['estado'] == estado }}>{{ estado }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Desde -->
+                    <div class="col-md-2">
+                        <label class="form-label">Desde</label>
+                        <input type="date" name="fecha_desde" class="form-control" value="{{ filtros_aplicados['fecha_desde'] }}">
+                    </div>
+
+                    <!-- Hasta -->
+                    <div class="col-md-2">
+                        <label class="form-label">Hasta</label>
+                        <input type="date" name="fecha_hasta" class="form-control" value="{{ filtros_aplicados['fecha_hasta'] }}">
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="col-md-12 d-flex gap-2 justify-content-end">
+                        <a href="{{ url_for('main.menu_page', page='clientes-estado-cuenta') }}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i> Limpiar
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Información del Cliente -->
+    {% if cliente %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-person-badge"></i> Información del Cliente</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Cliente:</strong> {{ cliente.razon_social }}</p>
+                    <p class="mb-1"><strong>Documento:</strong> {{ cliente.tipo_documento }} - {{ cliente.numero_documento }}</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <p class="mb-1"><strong>Actualizado:</strong> {{ now.strftime('%d/%m/%Y') if now else '' }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Pólizas -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="bi bi-table"></i> Pólizas ({{ polizas|length }} resultados)</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if polizas %}
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered table-hover mb-0">
+                    <thead class="table-warning">
+                        <tr>
+                            <th>Compañía</th>
+                            <th>Ramo</th>
+                            <th>Producto</th>
+                            <th>Tipo Doc</th>
+                            <th>N° de Póliza</th>
+                            <th>Vigencia (Desde - Hasta)</th>
+                            <th>Fecha Emisión</th>
+                            <th>Fecha Facturación</th>
+                            <th>Fecha Vencimiento</th>
+                            <th>Moneda</th>
+                            <th>Cta. Cobrar</th>
+                            <th>Cta. Pagar</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in polizas %}
+                        <tr>
+                            <td>{{ p.compania or '-' }}</td>
+                            <td>{{ p.ramo or '-' }}</td>
+                            <td>{{ p.producto or '-' }}</td>
+                            <td>
+                                {% if p.tipo_doc %}
+                                    {% set tipo_upper = p.tipo_doc.upper() %}
+                                    <span class="badge badge-tipo-doc
+                                        {% if 'RENOVACION' in tipo_upper %}tipo-doc-renovacion
+                                        {% elif 'EMISION' in tipo_upper %}tipo-doc-emision
+                                        {% elif 'ENDOSO' in tipo_upper %}tipo-doc-endoso
+                                        {% elif 'DEVOLUCION' in tipo_upper or 'DEVOLUCIÓN' in tipo_upper %}tipo-doc-devolucion
+                                        {% elif 'DIFERENCIA' in tipo_upper %}tipo-doc-diferencia
+                                        {% elif 'ANULACION' in tipo_upper or 'ANULACIÓN' in tipo_upper %}tipo-doc-anulacion
+                                        {% else %}tipo-doc-default{% endif %}">
+                                        {{ p.tipo_doc }}
+                                    </span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>{{ p.poliza or '-' }}</td>
+                            <td>{{ (p.vig_inicio or '-') ~ ' - ' ~ (p.vig_fin or '-') }}</td>
+                            <td>{{ p.fecha_emision or '-' }}</td>
+                            <td>{{ p.fecha_facturacion or '-' }}</td>
+                            <td>{{ p.fecha_venc or '-' }}</td>
+                            <td>
+                                {% set moneda_upper = (p.moneda|upper) if p.moneda else '' %}
+                                {% if 'SOLES' in moneda_upper or 'S/' in moneda_upper %}
+                                    S/
+                                {% elif 'DOLAR' in moneda_upper or 'US$' in moneda_upper or 'USD' in moneda_upper %}
+                                    US$
+                                {% else %}
+                                    {{ p.moneda or '-' }}
+                                {% endif %}
+                            </td>
+                            <td class="text-end">{{ "%.2f"|format(p.monto_cta_cobrar|float) if p.monto_cta_cobrar else '0.00' }}</td>
+                            <td class="text-end">{{ "%.2f"|format(p.monto_cta_pagar|float) if p.monto_cta_pagar else '0.00' }}</td>
+                            <td>
+                                <span class="badge
+                                    {% if p.estado and p.estado.upper() == 'CANCELADO' %}bg-danger
+                                    {% elif p.estado and p.estado.upper() == 'PENDIENTE' %}bg-warning text-dark
+                                    {% elif p.estado and p.estado.upper() == 'SIN PRIMA' %}bg-info text-dark
+                                    {% elif p.estado and p.estado.upper() == 'VIGENTE' %}bg-success
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ p.estado or '-' }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Totales -->
+            <div class="card-footer bg-light">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="mb-2">Saldos:</h6>
+                        <p class="mb-1"><strong>S/:</strong> {{ "%.2f"|format(totales.soles_cobrar - totales.soles_pagar) }}</p>
+                        <p class="mb-0"><strong>US$:</strong> {{ "%.2f"|format(totales.dolares_cobrar - totales.dolares_pagar) }}</p>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <h6 class="mb-2">Totales:</h6>
+                        <p class="mb-1">
+                            <strong>S/:</strong>
+                            Cobrar: {{ "%.2f"|format(totales.soles_cobrar) }} |
+                            Pagar: {{ "%.2f"|format(totales.soles_pagar) }}
+                        </p>
+                        <p class="mb-0">
+                            <strong>US$:</strong>
+                            Cobrar: {{ "%.2f"|format(totales.dolares_cobrar) }} |
+                            Pagar: {{ "%.2f"|format(totales.dolares_pagar) }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="p-4 text-center text-muted">
+                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                <p class="mt-3">No se encontraron pólizas con los filtros aplicados.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> Ingrese los filtros y haga clic en "Buscar" para ver el estado de cuenta.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block after_js %}
+<script src="{{ url_for('static', filename='js/cliente/estado-cuenta.js') }}"></script>
+{% endblock %}

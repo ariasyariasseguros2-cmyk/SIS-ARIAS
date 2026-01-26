@@ -1,0 +1,159 @@
+
+#clienteSearchResults {
+    max-width: 100%;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    background: white;
+}
+
+#clienteSearchResults .list-group-item {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#clienteSearchResults .list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* Tabla de pólizas */
+.table-responsive {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.table th {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    vertical-align: middle;
+    padding: 0.75rem 0.5rem;
+}
+
+.table td {
+    font-size: 0.85rem;
+    vertical-align: middle;
+    padding: 0.75rem 0.5rem;
+}
+
+/* Espaciado entre columnas */
+.table-bordered th,
+.table-bordered td {
+    border: 1px solid #dee2e6;
+}
+
+/* Badges de tipo de documento */
+.badge-tipo-doc {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.6rem;
+    font-weight: 600;
+    border-radius: 0.25rem;
+    display: inline-block;
+    min-width: 85px;
+    text-align: center;
+}
+
+.tipo-doc-renovacion {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.tipo-doc-emision {
+    background-color: #198754;
+    color: white;
+}
+
+.tipo-doc-endoso {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.tipo-doc-devolucion {
+    background-color: #dc3545;
+    color: white;
+}
+
+.tipo-doc-diferencia {
+    background-color: #6c757d;
+    color: white;
+}
+
+.tipo-doc-anulacion {
+    background-color: #e83e8c;
+    color: white;
+}
+
+.tipo-doc-default {
+    background-color: #6c757d;
+    color: white;
+}
+
+/* Badges de estado */
+.badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Totales en footer */
+.card-footer {
+    font-size: 0.9rem;
+}
+
+.card-footer h6 {
+    border-bottom: 2px solid #dee2e6;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+/* Filtros */
+.form-label {
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.form-select,
+.form-control {
+    font-size: 0.9rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .table th,
+    .table td {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.25rem;
+    }
+
+    .card-footer .row {
+        flex-direction: column;
+    }
+
+    .card-footer .col-md-6 {
+        text-align: left !important;
+        margin-bottom: 1rem;
+    }
+}
+
+/* Loading state */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
