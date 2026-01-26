@@ -43,12 +43,12 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
 
                 # One cuota row mirroring screenshot
                 rows = [{
-                    'cupon': pr.get('recibo') or '1',
+                    'cupon': pr.get('recibo') or '',
                     'fecha_vencimiento': pr.get('vig_fin') or '',
-                    'moneda': 'S/.',
+                    'moneda': pr.get('moneda') or '',
                     'importe': pr.get('prima_comercial_igv') or pr.get('prima_total') or pr.get('prima_neta') or '',
                     'fecha_pago': '',
-                    'factura': pr.get('nro_operacion') or pr.get('recibo') or '',
+                    'factura': '',
                     'observacion': '',
                 }]
             cur.close()

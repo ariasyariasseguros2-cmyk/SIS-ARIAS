@@ -1,4 +1,4 @@
-from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory, jsonify
+from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory
 from werkzeug.utils import secure_filename
 import os
 from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards
@@ -1080,6 +1080,10 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         if ('pacifico' in low or 'pacífico' in low):
             prov = 'pacifico'
 
+    # NUEVO: Detectar Crecer Seguros explícitamente (prioridad sobre Positiva/Sanitas)
+    if "crecer seguros" in t or re.search(r"\bcrecer\b", t):
+        prov = "crecer"
+
     # NUEVO: si vino 'pacifico' o 'positiva' desde UI pero el contenido dice 'sanitas', fuerza Sanitas
     if prov in ('pacifico', 'positiva', 'protecta') and 'sanitas' in low:
         prov = 'sanitas'
@@ -1176,6 +1180,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
     if prov == "sanitas":
         from controllers.addSanitasSalud import parse_sanitas_salud
         item = parse_sanitas_salud(text)
+        print("[provider] sanitas salud item:", item)
         return [item] if item else []
     # NUEVO: Protecta Pensión
     if prov in {"protecta", "proctecta"}:

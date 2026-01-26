@@ -862,7 +862,6 @@ BEGIN
         moneda,
         FORMAT(importe, 2) AS importe,
         DATE_FORMAT(fecha_pago, '%d-%m-%Y') AS fecha_pago,
-        factura,
         observacion
     FROM cuotas
     WHERE poliza = p_poliza

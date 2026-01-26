@@ -67,7 +67,7 @@ def parse_sanitas_salud(text: str) -> Dict[str, str]:
     if not ruc_candidato:
         candidates = re.findall(r"(?:RUC|DNI)\s*[:]?\s*(\d{8,11})", text, re.IGNORECASE)
         for cand in candidates:
-             if cand != "20523470761": # RUC de Sanitas Peru S.A. EPS
+             if cand : # RUC de Sanitas Peru S.A. EPS
                  ruc_candidato = cand
                  break
 
@@ -87,6 +87,6 @@ def parse_sanitas_salud(text: str) -> Dict[str, str]:
         "prima_comercial_igv": total_con_igv or (f"{float((prima_comercial or '0').replace(',', '.')) + float((igv_val or '0').replace(',', '.')):.2f}" if prima_comercial and igv_val else None),
         "numero_documento_extracted": ruc_candidato,
     }
-    print("item", item)
+    print("insert salud", item)
     # Limpieza final: quitar claves vacías
     return {k: _clean(v) for k, v in item.items() if v}
