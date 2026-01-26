@@ -43,21 +43,16 @@
 }
 
 
-/* Custom Buttons with Lift Effect - Only for Client Page */
+
 .btn-lift {
-    border-radius: 12px; /* menos redondeado */
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-    position: relative;
-    border: none;
-    color: #fff; /* Ensure text is white */
-    padding: 0.25rem 0.6rem; /* Más delgado: vertical 0.25rem, horizontal 0.6rem */
-    font-size: 13px; /* tamaño de texto moderado */
+    padding: 0.35rem 0.9rem; /* más acolchonamiento horizontal/vertical */
+    font-size: 14px;        /* texto más legible */
+    min-height: 36px;       /* altura mínima para dar presencia */
+    border-radius: 20px;    /* pill menos pronunciado que el de la tabla */
     line-height: 1;
-    min-width: auto; /* permitir que el ancho se ajuste al contenido */
-    white-space: nowrap; /* evitar que el texto haga wrap y se vea "bugueado" */
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem; /* espacio entre icono y texto si aplica */
+    gap: 0.45rem;
 }
 
 /* Gradients */
