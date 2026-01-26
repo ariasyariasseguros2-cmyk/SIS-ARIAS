@@ -424,7 +424,7 @@ def menu_page(page):
             filters=filters
         )
 
-    # Fallback: otras secciones usan el dashboard con etiqueta de sección
+        # Fallback: otras secciones usan el dashboard con etiqueta de sección
     rows = get_dashboard_rows()
     chart = get_dashboard_data()
     return render_template('view/layout_dashboard.html', rows=rows, chart=chart, page=page)
@@ -1367,3 +1367,21 @@ def clientes_restore():
 
     from controllers.clientes.restorecliente import restaurar_cliente_route
     return restaurar_cliente_route()
+
+@bp.route('/clientes/estado-cuenta/export', methods=['GET'])
+def export_estado_cuenta():
+
+    fmt = request.args.get('format', 'xlsx').lower()
+
+    from controllers.clientes.estado_cuenta import export_estado_cuenta_data
+
+    try:
+        if fmt == 'pdf':
+            filepath, filename = export_estado_cuenta_data(request.args, fmt='pdf')
+            return send_from_directory(directory=os.path.dirname(filepath), path=os.path.basename(filepath), as_attachment=True, download_name=filename)
+        else:
+            filepath, filename = export_estado_cuenta_data(request.args, fmt='xlsx')
+            return send_from_directory(directory=os.path.dirname(filepath), path=os.path.basename(filepath), as_attachment=True, download_name=filename)
+    except Exception as e:
+        current_app.logger.exception('Error exporting estado de cuenta')
+        return jsonify({'ok': False, 'error': str(e)}), 500

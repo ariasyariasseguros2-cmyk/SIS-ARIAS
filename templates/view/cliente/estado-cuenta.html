@@ -126,6 +126,13 @@
                         <button type="submit" class="btn btn-success">
                             <i class="bi bi-search"></i> Buscar
                         </button>
+                    <div class="d-flex gap-2">
+                        <button type="button" id="btnExportPdf" class="btn btn-outline-primary">
+                            <i class="bi bi-file-earmark-pdf"></i> Descargar PDF
+                        </button>
+                        <button type="button" id="btnExportXlsx" class="btn btn-outline-primary">
+                            <i class="bi bi-file-earmark-excel"></i> Descargar Excel
+                        </button>
                     </div>
                 </div>
             </form>
@@ -272,6 +279,7 @@
 </div>
 {% endblock %}
 
-{% block after_js %}
+{% block extra_js_bottom %}
+{{ super() }}
 <script src="{{ url_for('static', filename='js/cliente/estado-cuenta.js') }}"></script>
 {% endblock %}
