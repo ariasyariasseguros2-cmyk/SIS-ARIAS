@@ -31,7 +31,7 @@ def get_clientes_data():
         rows = []
 
     filters = {
-        "orders": ["F. Reg.", "Razón Social", "Doc", "N.Doc", "Tel", "Email", "Subagente", "Dirección", "Estado"]
+        "orders": ["F. Reg.", "Razón Social", "Doc", "N.Doc", "Tel", "Email", "Subagente", "Dirección"]
     }
     return {"rows": rows, "filters": filters, "title": "Clientes"}
 
@@ -45,7 +45,7 @@ def get_clientes_anulados_data():
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
         # No hay SP específico en el schema para anulados, hacemos SELECT directo
-        cur.execute("SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, telefono, subagente, email, direccion, estado, tipo_persona FROM clientes WHERE activo = 0 ORDER BY fecha_registro DESC")
+        cur.execute("SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, telefono, subagente, email, direccion, tipo_persona FROM clientes WHERE activo = 0 ORDER BY fecha_registro DESC")
         db_rows = cur.fetchall()
         cur.close()
         cnx.close()
@@ -68,6 +68,6 @@ def get_clientes_anulados_data():
         rows = []
 
     filters = {
-        "orders": ["F. Reg.", "Razón Social", "Doc", "N.Doc", "Tel", "Email", "Subagente", "Dirección", "Estado"]
+        "orders": ["F. Reg.", "Razón Social", "Doc", "N.Doc", "Tel", "Email", "Subagente", "Dirección"]
     }
     return {"rows": rows, "filters": filters, "title": "Clientes Anulados"}
