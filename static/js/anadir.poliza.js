@@ -969,48 +969,7 @@
   });
   */
 
-  // Autoguardado
-  function scheduleAutoSave() {
-    if (!AUTO_SAVE_ENABLED) return;
-    clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(async () => {
-      const selected = Object.assign({}, (window.selectedCliente || {}), {
-        subagente: (document.getElementById('subAgenteTop')?.value ||
-                    document.getElementById('subAgente')?.value ||
-                    (window.selectedCliente || {}).subagente || ''),
-        pdf_filename: lastUploadedFilename
-      });
-      try {
-        const r = await fetch('/polizas/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: extractedItems, selected })
-        });
 
-        const ct = (r.headers.get('content-type') || '').toLowerCase();
-        const raw = await r.text();
-        let payload;
-        try { payload = JSON.parse(raw); } catch { payload = { rawText: raw }; }
-
-        console.log('[save] status:', r.status, 'payload:', payload);
-
-        if (!r.ok || !payload?.ok) {
-          const msg = (payload?.errors && Array.isArray(payload.errors) && payload.errors.join('; '))
-            || payload?.error
-            || payload?.rawText
-            || 'Error al guardar pólizas.';
-          if (hint) hint.textContent = `Error al guardar: ${msg}`;
-          if (window.Swal) Swal.fire({ icon: 'error', title: 'No se guardó', text: msg });
-          return;
-        }
-
-        if (hint) hint.textContent = `Cambios guardados automáticamente (${payload.count}).`;
-      } catch (err) {
-        console.error('[autosave] error:', err);
-        if (window.Swal) Swal.fire({ icon: 'error', title: 'Error de red', text: String(err) });
-      }
-    }, 800);
-  }
 
   // NUEVO: función para resetear tabla y campos superiores
   function resetAddPolizaView() {
@@ -1023,7 +982,7 @@
       if (pctComSubAgenteEl) pctComSubAgenteEl.value = '';
       if (impComSubAgenteEl) impComSubAgenteEl.value = '';
       if (motivoTop) motivoTop.value = '';
-      if (ramoProductoTopEl) ramoProductoTopEl.value = '';
+      // if (ramoProductoTopEl) ramoProductoTopEl.value = '';
       if (tipoDocTopEl) tipoDocTopEl.value = '';
       if (issuerEl) issuerEl.value = '';
       if (subAgenteTopEl) subAgenteTopEl.value = '';
@@ -1048,37 +1007,7 @@
 
 
 
-  // Sincronizar cambios del bloque superior
-  issuerEl?.addEventListener('change', () => {
-    const text = issuerEl?.options[issuerEl.selectedIndex]?.text || (issuerEl?.value || '');
-    extractedItems = (extractedItems || []).map(it => ({ ...it, cia: text }));
-    render(extractedItems);
-  });
 
-  tipoPagoTopEl?.addEventListener('change', () => {
-    const val = (tipoPagoTopEl?.value || '').trim();
-    extractedItems = (extractedItems || []).map(it => ({ ...it, forma_pago: val }));
-    render(extractedItems);
-  });
-
-  estadoTopEl?.addEventListener('change', () => {
-    const val = (estadoTopEl?.value || '').trim();
-    extractedItems = (extractedItems || []).map(it => ({ ...it, estado: val }));
-    render(extractedItems);
-  });
-
-  ramoProductoTopEl?.addEventListener('input', () => {
-    const val = (ramoProductoTopEl?.value || '').trim();
-    if (!val) return;
-    extractedItems = (extractedItems || []).map(it => {
-      if (!it.ramos_producto || it.ramos_producto.trim() === '') {
-        return { ...it, ramos_producto: val };
-      }
-      return it;
-    });
-    render(extractedItems);
-    scheduleAutoSave();
-  });
 
   // Autoguardado
   function scheduleAutoSave() {
