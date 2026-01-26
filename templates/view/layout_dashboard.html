@@ -13,6 +13,16 @@
         .nav-list li.active > i { color: #0d6efd; }
         /* Forzar mostrar submenu cuando el grupo tiene class 'open' */
         .nav-group.open > .submenu { display: block !important; }
+        /* Mostrar caja blanca para el submenu del grupo activo (clientes) */
+        .nav-group.active-group > .submenu {
+            background: var(--layout-bg);
+            border-radius: 12px;
+            padding: 8px 6px;
+            margin: 8px 6px;
+            box-shadow: 0 6px 18px rgba(31,89,163,0.06);
+            position: relative;
+            z-index: 20;
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -52,7 +62,7 @@
                     </ul>
                 </li>
 
-                <li class="nav-group{% if page and page.startswith('clientes') %} open{% endif %}">
+                <li class="nav-group{% if page and page.startswith('clientes') %} open active-group{% endif %}">
                     <button class="group-toggle" type="button">
                         <i class="bi-person"></i> <span><strong>Clientes</strong></span>
                         <i class="bi-chevron-right caret"></i>
@@ -60,8 +70,8 @@
                     <ul class="submenu">
                         <li><i class="bi-person"></i> <a data-page="clientes" href="{{ url_for('main.menu_page', page='clientes') }}">Clientes</a></li>
                         <li><i class="bi-download"></i> <a data-page="clientes-cumpleanos" href="{{ url_for('main.menu_page', page='clientes-cumpleanos') }}">Reporte de Cumpleaños</a></li>
-                        <!-- Nuevo: Clientes Anulados -->
                         <li class="{% if page == 'clientes-anulados' %}active{% endif %}"><i class="bi-x-circle"></i> <a data-page="clientes-anulados" href="{{ url_for('main.menu_page', page='clientes-anulados') }}">Clientes Anulados</a></li>
+                        <li class="{% if page == 'clientes-estado-cuenta' %}active{% endif %}"><i class="bi-wallet2"></i> <a data-page="clientes-estado-cuenta" href="{{ url_for('main.menu_page', page='clientes-estado-cuenta') }}">Estado de Cuenta</a></li>
                     </ul>
                 </li>
 
