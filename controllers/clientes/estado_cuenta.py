@@ -100,8 +100,8 @@ def get_estado_cuenta_data():
                     DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_facturacion,
                     DATE_FORMAT(p.fecha_vencimiento, '%d/%m/%Y') AS fecha_venc,
                     p.moneda,
-                    p.prima_comercial AS monto_cta_cobrar,
-                    p.prima_neta AS monto_cta_pagar,
+                    p.prima_neta AS monto_cta_cobrar,
+                    p.prima_comercial_igv AS monto_cta_pagar,
                     p.estado
                 FROM polizas p
                 WHERE p.cliente_id = %s
