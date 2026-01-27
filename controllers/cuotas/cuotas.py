@@ -43,14 +43,38 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
 
                 # One cuota row mirroring screenshot
                 rows = [{
-                    'cupon': pr.get('recibo') or '',
-                    'fecha_vencimiento': pr.get('vig_fin') or '',
+                    'cupon': pr.get('cupon') or pr.get('recibo') or '',
+                    'fecha_vencimiento': pr.get('fecha_vencimiento') or pr.get('vig_fin') or '',
                     'moneda': pr.get('moneda') or '',
-                    'importe': pr.get('prima_comercial_igv') or pr.get('prima_total') or pr.get('prima_neta') or '',
+                    'importe': pr.get('importe') or pr.get('prima_comercial_igv') or pr.get('prima_total') or pr.get('prima_neta') or '',
                     'fecha_pago': '',
                     'factura': '',
                     'observacion': '',
                 }]
+
+            # Try to fetch actual Cuotas from DB (overrides prima suggestion)
+            try:
+                cur.execute("CALL sp_list_cuotas_por_poliza(%s)", (poliza,))
+                cuota_rows = cur.fetchall() or []
+                try:
+                    while cur.nextset(): pass
+                except: pass
+                
+                if cuota_rows:
+                    rows = []
+                    for c in cuota_rows:
+                        rows.append({
+                            'cupon': c.get('cupon') or '',
+                            'fecha_vencimiento': c.get('fecha_vencimiento') or '',
+                            'moneda': c.get('moneda') or '',
+                            'importe': c.get('importe') or '',
+                            'fecha_pago': c.get('fecha_pago') or '',
+                            'factura': c.get('factura') or '',
+                            'observacion': c.get('observacion') or '',
+                        })
+            except Exception as e:
+                print(f"Error fetching cuotas list: {e}")
+
             cur.close()
             cnx.close()
     except Exception:
@@ -110,15 +134,23 @@ def save_cuota(data: Dict[str, object]) -> bool:
         # p_poliza, p_cupon, p_fecha_vencimiento, p_moneda, p_importe,
         # p_fecha_pago, p_factura, p_observacion, p_usuario
         
+        # Helper to convert empty string to None
+        def val_or_none(v):
+            if v is None:
+                return None
+            if isinstance(v, str) and not v.strip():
+                return None
+            return v
+
         cur.execute("CALL sp_insert_cuota(%s, %s, %s, %s, %s, %s, %s, %s, %s)", (
             data.get('poliza'),
             data.get('cupon'),
             data.get('fecha_vencimiento'), # Ensure DATE format YYYY-MM-DD
             data.get('moneda', 'S/.'),
             data.get('importe'),
-            data.get('fecha_pago'), # Ensure DATE format
-            data.get('factura'),
-            data.get('observacion'),
+            val_or_none(data.get('fecha_pago')), # Ensure DATE format
+            val_or_none(data.get('factura')),
+            val_or_none(data.get('observacion')),
             data.get('usuario', 'SYSTEM')
         ))
         cnx.commit()
@@ -174,25 +206,26 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
         # Lógica específica para Crecer Seguros
         
         # Factura: F### - ########
-        # Ejemplo: F008 - 00116916
         m_fac = re.search(r'(F\d{3}\s*-\s*\d+)', text, re.IGNORECASE)
         if m_fac:
-            data['factura'] = m_fac.group(1).replace(' ', '') # F008-00116916
+            data['factura'] = m_fac.group(1).replace(' ', '') 
 
-        # Cupón: NO EXTRAER (Solicitado por usuario)
-        # data['cupon'] = ...
+        # Cupón: Proforma (Prioridad)
+        data['cupon'] = find_val(r'(?:PROFORMA|Proforma|N[úu]mero\s+de\s+Proforma)\s*[:.]?\s*([0-9A-Z\-]+)', text)
 
-        # Fecha Vencimiento: NO EXTRAER (Solicitado por usuario)
-        # data['fecha_vencimiento'] = ...
+        # Fecha Vencimiento
+        data['fecha_vencimiento'] = find_val(r'(?:VENCIMIENTO|VENCE|VIGENCIA\s*HASTA)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+
+        # Moneda
+        moneda_val = find_val(r'(?:MONEDA)\s*[:.]?\s*([A-Za-z]+)', text)
+        data['moneda'] = moneda_val if moneda_val else 'S/.'
 
         # Importe Total
-        # Ejemplo: IMPORTE TOTAL (S/) 118.00
-        # Buscar "IMPORTE TOTAL" y tomar el número al final de la línea o bloque
         m_imp = re.search(r'IMPORTE\s+TOTAL.*?(?:S/|USD|\$)?\s*([\d,]+\.\d{2})', text, re.IGNORECASE | re.DOTALL)
         if m_imp:
-             data['importe'] = m_imp.group(1).replace(',', '') # Asumimos 1,234.56 -> 1234.56
+             data['importe'] = m_imp.group(1).replace(',', '') 
         
-        # Fecha Pago: Usar FECHA DE EMISIÓN
+        # Fecha Pago
         data['fecha_pago'] = find_val(r'FECHA\s+DE\s+EMISI[ÓO]N\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
 
         # Póliza para observación
@@ -220,35 +253,49 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
 
        # Fecha Pago: Usar FECHA DE EMISIÓN
        data['fecha_pago'] = find_val(r'Fecha\s+de\s+Emisi[óo]n\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+       
+       # Moneda
+       data['moneda'] = 'S/.' # Default for Sanitas or extract if needed
 
        # Observación: Contrato o Referencia de pago
        contrato = find_val(r'Contrato\s*[:.]?\s*(\d+)', text)
        if contrato:
             data['observacion'] = f"Contrato: {contrato}"
 
-    else:
-        # --- Lógica Genérica (Existente) ---
-        
-        # 1. Cupon / Recibo - NO EXTRAER (Solicitado por usuario)
-        # data['cupon'] = find_val(r'(?:RECIBO|CUP[ÓO]N|OPERACI[ÓO]N|NRO\.?\s*OP)\s*[:.]?\s*([0-9\-]+)', text)
-        
-        # 2. Fecha Vencimiento - NO EXTRAER (Solicitado por usuario)
-        # data['fecha_vencimiento'] = find_val(r'(?:VENCIMIENTO|VENCE|VIGENCIA\s*HASTA)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
-        
-        # 3. Importe / Total
+    # --- FALLBACK / GENERIC LOGIC (Runs if fields are still empty) ---
+
+    # 1. Cupón: Proforma > Recibo > Operación
+    if not data['cupon']:
+        data['cupon'] = find_val(r'(?:PROFORMA|Proforma|N[úu]mero\s+de\s+Proforma)\s*[:.]?\s*([0-9A-Z\-]+)', text)
+    if not data['cupon']:
+        data['cupon'] = find_val(r'(?:RECIBO|CUP[ÓO]N|NRO\.?\s*OP|OPERACI[ÓO]N)\s*[:.]?\s*([0-9A-Z\-]+)', text)
+    
+    # 2. Fecha Vencimiento
+    if not data['fecha_vencimiento']:
+        data['fecha_vencimiento'] = find_val(r'(?:VENCIMIENTO|VENCE|VIGENCIA\s*HASTA|HASTA)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+    
+    # 3. Importe
+    if not data['importe']:
+        # Try generic "Total" or "Importe"
         m_importe = re.search(r'(?:TOTAL|IMPORTE|MONTO|NETO\s*A\s*PAGAR)\s*[:.]?\s*(?:S/\.|USD|\$)?\s*([\d,]+\.?\d{2})', text, re.IGNORECASE)
         if m_importe:
-            val = m_importe.group(1).replace(',', '') 
-            data['importe'] = val
+            data['importe'] = m_importe.group(1).replace(',', '')
 
-        # 4. Factura
+    # 4. Factura
+    if not data['factura']:
         data['factura'] = find_val(r'(?:FACTURA|NRO\.?\s*FAC|F0\d+-\d+)\s*[:.]?\s*([FfEeBb]\d{2,3}-\d+)', text)
         if not data['factura']:
              m_fac = re.search(r'([FfEeBb]\d{2,3}-\d{5,8})', text)
              if m_fac:
                  data['factura'] = m_fac.group(1)
 
-        # 5. Fecha Pago
-        data['fecha_pago'] = find_val(r'(?:PAGADO|FECHA\s*PAGO)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+        # 5. Fecha Pago (Default to Emision if not found)
+        if not data['fecha_pago']:
+            data['fecha_pago'] = find_val(r'(?:PAGADO|FECHA\s*PAGO|EMISI[ÓO]N)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+
+        # 6. Moneda (Default to S/.)
+        if not data['moneda']:
+            moneda_val = find_val(r'(?:MONEDA)\s*[:.]?\s*([A-Za-z]+)', text)
+            data['moneda'] = moneda_val if moneda_val else 'S/.'
 
     return data

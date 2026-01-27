@@ -30,6 +30,35 @@
 
             const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
             modal.show();
+
+            // Fetch default data for this policy
+            if (poliza) {
+                fetch(`/cuotas/info?poliza=${encodeURIComponent(poliza)}`)
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res.ok && res.data) {
+                            const d = res.data;
+                            const setVal = (id, val) => {
+                                 const el = document.getElementById(id);
+                                 if (el && val) el.value = val;
+                            };
+                            
+                            if (d.cupon) setVal('addCupon', d.cupon);
+                            if (d.importe) setVal('addImporte', d.importe);
+                            if (d.moneda) setVal('addMoneda', d.moneda);
+                            
+                            // Date conversion if needed (dd/mm/yyyy -> yyyy-mm-dd)
+                            if (d.fecha_vencimiento) {
+                                const parts = d.fecha_vencimiento.split(/[-/]/);
+                                if (parts.length === 3) {
+                                    // assume dd/mm/yyyy
+                                    setVal('addFechaVenc', `${parts[2]}-${parts[1]}-${parts[0]}`);
+                                }
+                            }
+                        }
+                    })
+                    .catch(console.error);
+            }
         }
     };
 
@@ -129,25 +158,43 @@
                      };
                      
                      // Populate fields
-                     setVal('addSecuencia', '1'); 
                      
+                     // 1. Número Cupón / Proforma / Recibo
+                     if (data.cupon) setVal('addCupon', data.cupon);
+
+                     // 2. Importe
                      if (data.importe) setVal('addImporte', data.importe);
+
+                     // 3. Moneda
+                     if (data.moneda) setVal('addMoneda', data.moneda);
+                     
+                     // 4. Fecha Vencimiento
+                     if (data.fecha_vencimiento) {
+                          const parts = data.fecha_vencimiento.split(/[-/]/);
+                          if (parts.length === 3) {
+                              // Asumimos DD/MM/YYYY
+                              const d = parts[0].padStart(2, '0');
+                              const m = parts[1].padStart(2, '0');
+                              const y = parts[2];
+                              setVal('addFechaVenc', `${y}-${m}-${d}`);
+                          }
+                     }
+                     
+                     // Optional: Factura & Fecha Pago (Hidden fields)
+                     if (data.factura) setVal('addFactura', data.factura);
                      
                      if (data.fecha_pago) {
                           const parts = data.fecha_pago.split(/[-/]/);
                           if (parts.length === 3) {
-                              const date = new Date(parts[2], parts[1] - 1, parts[0]);
-                              if (!isNaN(date.getTime())) {
-                                 const y = date.getFullYear();
-                                 const m = String(date.getMonth() + 1).padStart(2, '0');
-                                 const d = String(date.getDate()).padStart(2, '0');
-                                 setVal('addFechaPago', `${y}-${m}-${d}`);
-                              }
+                              const d = parts[0].padStart(2, '0');
+                              const m = parts[1].padStart(2, '0');
+                              const y = parts[2];
+                              setVal('addFechaPago', `${y}-${m}-${d}`);
                           }
                      }
                      
-                     if (data.factura) setVal('addFactura', data.factura);
                      setVal('addObservacion', 'Datos extraídos automáticamente del PDF.');
+
                  } else {
                      alert('No se pudieron extraer datos: ' + (result.error || 'Revise el archivo'));
                  }
@@ -173,10 +220,6 @@
               const cupon = getVal('addCupon');
               const venc = getVal('addFechaVenc');
               const imp = getVal('addImporte');
-              const pago = getVal('addFechaPago');
-              const fac = getVal('addFactura');
-              const obs = getVal('addObservacion');
-              const sec = getVal('addSecuencia');
               
               if (!venc || !imp) {
                   alert('Por favor complete los campos obligatorios (Fecha Vencimiento e Importe).');
@@ -191,12 +234,11 @@
                 poliza: poliza,
                 cupon: cupon,
                 fecha_vencimiento: venc,
-                moneda: 'S/.', 
+                moneda: getVal('addMoneda') || 'S/.', 
                 importe: imp,
-                fecha_pago: pago,
-                factura: fac,
-                observacion: obs,
-                secuencia: sec
+                fecha_pago: getVal('addFechaPago'),
+                factura: getVal('addFactura'),
+                observacion: getVal('addObservacion')
               };
 
               try {

@@ -66,9 +66,9 @@ const Cuotas = (() => {
       fecha_vencimiento: tds[2]?.textContent.trim() || '',
       moneda: tds[3]?.textContent.trim() || '',
       importe: tds[4]?.textContent.trim() || '',
-      fecha_pago: tds[5]?.textContent.trim() || '',
-      factura: tds[6]?.textContent.trim() || '',
-      observacion: tds[7]?.textContent.trim() || '',
+      fecha_pago: tr.dataset.fechaPago || '',
+      factura: tr.dataset.factura || '',
+      observacion: tr.dataset.observacion || '',
       documento: tr.dataset.documento || ''
     };
   }
@@ -117,10 +117,9 @@ const Cuotas = (() => {
     const tr = getRow(idx);
     if (!tr) return;
     openConfirm('¿Está seguro de revertir esta cuota? Se borrarán los datos de pago.', () => {
-      const tds = tr.querySelectorAll('td');
-      if (tds[5]) tds[5].textContent = '';
-      if (tds[6]) tds[6].textContent = '';
-      if (tds[7]) tds[7].textContent = '';
+      tr.dataset.fechaPago = '';
+      tr.dataset.factura = '';
+      tr.dataset.observacion = '';
       tr.dataset.documento = '';
 
       const btnRevert = tr.querySelector('.btn-revert');
@@ -238,6 +237,9 @@ const Cuotas = (() => {
         const tr = document.createElement('tr');
         
         tr.dataset.documento = ''; 
+        tr.dataset.fechaPago = data.fecha_pago || '';
+        tr.dataset.factura = data.factura || '';
+        tr.dataset.observacion = data.observacion || '';
         
         tr.innerHTML = `
             <td>${data.secuencia || rowCount + 1}</td>
@@ -282,9 +284,11 @@ const Cuotas = (() => {
 
         if (tds[2]) tds[2].textContent = getVal('editFechaVenc');
         if (tds[4]) tds[4].textContent = getVal('editImporte');
-        if (tds[5]) tds[5].textContent = nuevaFechaPago;
-        if (tds[6]) tds[6].textContent = nuevaFactura;
-        if (tds[7]) tds[7].textContent = nuevaObservacion;
+        
+        // Update dataset instead of cells for hidden columns
+        tr.dataset.fechaPago = nuevaFechaPago;
+        tr.dataset.factura = nuevaFactura;
+        tr.dataset.observacion = nuevaObservacion;
 
         const docNombre = getVal('editDocumentoNombre');
         tr.dataset.documento = docNombre;

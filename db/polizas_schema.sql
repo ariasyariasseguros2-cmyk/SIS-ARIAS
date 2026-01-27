@@ -608,20 +608,7 @@ BEGIN
         VALUES (v_poliza_id, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1));
     END IF;
 
-    -- Insertar cuota inicial automática
-    INSERT INTO cuotas (
-        poliza, cupon, fecha_vencimiento, moneda, importe, 
-        fecha_pago, factura, observacion
-    ) VALUES (
-        p_poliza, 
-        p_recibo, 
-        p_fecha_vencimiento, 
-        p_moneda, 
-        p_prima_comercial_igv, 
-        NULL, 
-        NULL, 
-        NULL
-    );
+
 END$$
 DELIMITER ;
 -- NUEVO: listado global de pólizas (opcional, si prefieres usar SP)
@@ -772,6 +759,7 @@ BEGIN
     SELECT
         p.idPoliza,  -- Added ID
         p.recibo,
+        p.recibo AS cupon, -- Alias for consistency
         p.poliza,
         c.razon_social AS contratante,
         p.cia AS compania,
@@ -781,7 +769,9 @@ BEGIN
         p.prima_comercial,
         p.prima_neta,
         p.prima_comercial_igv,
+        p.prima_comercial_igv AS importe, -- Alias for consistency
         p.moneda,
+        DATE_FORMAT(p.fecha_vencimiento, '%d/%m/%Y') AS fecha_vencimiento,
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
         p.nro AS nro_operacion,
@@ -841,9 +831,9 @@ CREATE TABLE IF NOT EXISTS cuotas (
     idCuota INT AUTO_INCREMENT PRIMARY KEY,
     poliza VARCHAR(50) NOT NULL,
     cupon VARCHAR(50) NULL,
-    fecha_vencimiento DATE NULL,
-    moneda VARCHAR(10) NULL,
-    importe DECIMAL(15,2) NULL,
+    fecha_vencimiento DATE NOT NULL,
+    moneda VARCHAR(10) DEFAULT 'SOLES',
+    importe DECIMAL(15,2) NOT NULL,
     fecha_pago DATE NULL,
     factura VARCHAR(50) NULL,
     observacion VARCHAR(255) NULL,
@@ -862,6 +852,7 @@ BEGIN
         moneda,
         FORMAT(importe, 2) AS importe,
         DATE_FORMAT(fecha_pago, '%d-%m-%Y') AS fecha_pago,
+        factura,
         observacion
     FROM cuotas
     WHERE poliza = p_poliza

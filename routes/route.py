@@ -38,6 +38,27 @@ def extract_cuota():
             
     return {'ok': False, 'error': 'Unknown error'}, 500
 
+@bp.route('/cuotas/info', methods=['GET'])
+def get_cuota_info():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'Unauthorized'}, 401
+    
+    poliza = request.args.get('poliza')
+    if not poliza:
+        return {'ok': False, 'error': 'Missing poliza'}, 400
+        
+    from controllers.cuotas.cuotas import get_cuotas_data
+    # Reuse existing logic to get data (which uses sp_list_primas_por_poliza)
+    data = get_cuotas_data(None, poliza)
+    
+    # We are interested in the 'rows' part, specifically the first one if it exists.
+    # This effectively allows pre-filling the modal with the "current" or "next" premium info found.
+    row = {}
+    if data.get('rows') and len(data['rows']) > 0:
+        row = data['rows'][0]
+        
+    return {'ok': True, 'data': row}
+
 @bp.route('/cuotas/save', methods=['POST'])
 def save_cuota_route():
     if 'user' not in session:
