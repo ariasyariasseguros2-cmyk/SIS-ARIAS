@@ -1,4 +1,4 @@
-from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory
+from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory,jsonify
 from werkzeug.utils import secure_filename
 import os
 from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards
@@ -83,7 +83,7 @@ def dashboard():
     cards = get_dashboard_cards()
     return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards)
 
-@bp.route('/menu/<page>')
+@bp.route('/menu/<page>', methods=['GET', 'POST'])
 def menu_page(page):
     if 'user' not in session:
         return redirect(url_for('login'))
@@ -185,12 +185,17 @@ def menu_page(page):
             pagination=pagination,
             subagentes_abbrs=subagentes_data
         )
-
-    # Estado de Cuenta - con filtros y búsqueda de cliente
     if page == 'clientes-estado-cuenta':
         from controllers.clientes.estado_cuenta import get_estado_cuenta_data
         from datetime import datetime
-        data = get_estado_cuenta_data()
+        # Obtener filtros desde POST o GET (POST tiene prioridad)
+        if request.method == 'POST':
+            # Los filtros vienen desde el formulario POST
+            filtros = request.form.to_dict()
+        else:
+            filtros = request.args.to_dict()
+
+        data = get_estado_cuenta_data(filtros)
         return render_template(
             'view/cliente/estado-cuenta.html',
             page='clientes-estado-cuenta',
