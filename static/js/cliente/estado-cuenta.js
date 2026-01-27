@@ -1,6 +1,5 @@
 // Estado de Cuenta - Cliente Search and Filters
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('[DEBUG] Estado Cuenta JS cargado');
 
     const clienteSearchInput = document.getElementById('clienteSearchInput');
     const clienteIdInput = document.getElementById('clienteIdInput');
@@ -9,15 +8,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const btnExportPdf = document.getElementById('btnExportPdf');
     const btnExportXlsx = document.getElementById('btnExportXlsx');
-
-    console.log('[DEBUG] Elementos encontrados:', {
-        clienteSearchInput: !!clienteSearchInput,
-        clienteIdInput: !!clienteIdInput,
-        clienteSearchResults: !!clienteSearchResults,
-        filtrosForm: !!filtrosForm,
-        btnExportPdf: !!btnExportPdf,
-        btnExportXlsx: !!btnExportXlsx
-    });
 
     let searchTimeout = null;
 
@@ -29,20 +19,20 @@ document.addEventListener('DOMContentLoaded', function() {
         Array.from(filtrosForm.elements).forEach(el => {
             if (!el.name) return;
             if ((el.type === 'checkbox' || el.type === 'radio') && !el.checked) return;
-            params.append(el.name, el.value || '');
+            // Solo agregar si tiene valor
+            if (el.value && el.value.trim() !== '') {
+                params.append(el.name, el.value);
+            }
         });
 
-        console.log('[DEBUG] Parámetros serializados:', params.toString());
         return params.toString();
     }
 
     // Función de descarga
     function downloadExport(format) {
         try {
-            console.log('[DEBUG] downloadExport llamado, formato:', format);
             const queryString = serializeFormToQuery();
             const url = `/clientes/estado-cuenta/export?format=${encodeURIComponent(format)}&${queryString}`;
-            console.log('[DEBUG] URL de exportación:', url);
 
             // Intentar abrir en nueva pestaña
             const newWindow = window.open(url, '_blank');
@@ -52,7 +42,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Fallback: usar un iframe oculto o redirigir
                 window.location.href = url;
             } else {
-                console.log('[DEBUG] Descarga iniciada en nueva pestaña');
             }
         } catch (err) {
             console.error('[ERROR] Error en downloadExport:', err);
@@ -62,10 +51,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Conectar botones de exportación
     if (btnExportPdf) {
-        console.log('[DEBUG] Conectando botón PDF');
         btnExportPdf.addEventListener('click', function(e) {
             e.preventDefault();
-            console.log('[DEBUG] Click en botón PDF detectado');
             downloadExport('pdf');
         });
     } else {
@@ -73,10 +60,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (btnExportXlsx) {
-        console.log('[DEBUG] Conectando botón Excel');
         btnExportXlsx.addEventListener('click', function(e) {
             e.preventDefault();
-            console.log('[DEBUG] Click en botón Excel detectado');
             downloadExport('xlsx');
         });
     } else {
@@ -85,15 +70,46 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Verificar que el formulario se envíe correctamente
     if (filtrosForm) {
-        filtrosForm.addEventListener('submit', function() {
-            console.log('[DEBUG] Formulario enviado');
-            const clienteId = clienteIdInput ? clienteIdInput.value : '';
-            console.log('[DEBUG] Cliente ID:', clienteId);
+        filtrosForm.addEventListener('submit', function(e) {
+            e.preventDefault();
 
-            if (!clienteId) {
-                console.warn('[DEBUG] No hay cliente seleccionado');
-                // No prevenir el envío, dejar que se procese en el servidor
-            }
+            // Obtener el número de documento para la URL limpia
+            const numeroDocInput = document.querySelector('input[name="numero_documento"]');
+            const numeroDoc = numeroDocInput && numeroDocInput.value ? numeroDocInput.value.trim() : '';
+
+            // Construir URL limpia (solo con número de documento, si existe)
+            const cleanUrl = numeroDoc
+                ? `${this.action}?numero_documento=${encodeURIComponent(numeroDoc)}`
+                : this.action;
+
+
+            // Enviar formulario vía POST usando fetch
+            const formData = new FormData(this);
+
+            fetch(this.action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+                return response.text();
+            })
+            .then(html => {
+                // Reemplazar el contenido de la página con la respuesta
+                document.open();
+                document.write(html);
+                document.close();
+
+                // Cambiar la URL sin recargar (solo muestra número de documento)
+                window.history.replaceState({}, '', cleanUrl);
+
+            })
+            .catch(error => {
+                console.error('[ERROR] Error al enviar filtros:', error);
+                alert('Error al aplicar filtros. Por favor, intenta nuevamente.');
+            });
         });
     }
 
@@ -102,7 +118,6 @@ document.addEventListener('DOMContentLoaded', function() {
         clienteSearchInput.addEventListener('input', function() {
             clearTimeout(searchTimeout);
             const query = this.value.trim();
-            console.log('[DEBUG] Input cambió:', query);
 
             if (query.length < 2) {
                 if (clienteSearchResults) {
@@ -127,11 +142,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Función para buscar clientes
     function buscarClientes(query) {
-        console.log('[DEBUG] Buscando clientes con query:', query);
         fetch(`/api/clientes/buscar?q=${encodeURIComponent(query)}`)
             .then(response => response.json())
             .then(data => {
-                console.log('[DEBUG] Data recibida:', data);
                 if (data.ok && data.clientes && data.clientes.length > 0) {
                     mostrarResultados(data.clientes);
                 } else if (clienteSearchResults) {
@@ -150,7 +163,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Mostrar resultados de búsqueda
     function mostrarResultados(clientes) {
-        console.log('[DEBUG] Mostrando', clientes.length, 'resultados');
         if (!clienteSearchResults) return;
         clienteSearchResults.innerHTML = '';
 
@@ -179,7 +191,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Seleccionar un cliente de los resultados
     function seleccionarCliente(cliente) {
-        console.log('[DEBUG] Cliente seleccionado:', cliente);
         if (clienteSearchInput) clienteSearchInput.value = cliente.razon_social;
         if (clienteIdInput) clienteIdInput.value = cliente.idCliente;
 
@@ -194,7 +205,6 @@ document.addEventListener('DOMContentLoaded', function() {
             clienteSearchResults.innerHTML = '';
         }
 
-        console.log('[DEBUG] Cliente ID guardado:', clienteIdInput ? clienteIdInput.value : 'none');
     }
 
     // Limpiar cliente_id si se modifica manualmente el campo de búsqueda
@@ -203,12 +213,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (clienteIdInput && clienteIdInput.value) {
                 setTimeout(() => {
                     clienteIdInput.value = '';
-                    console.log('[DEBUG] Cliente ID limpiado por edición manual');
                 }, 100);
             }
         });
     }
 
-    console.log('[DEBUG] Estado de Cuenta JS completamente inicializado');
 });
 

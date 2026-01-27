@@ -2,27 +2,45 @@ from flask import request
 from models.db import get_connection
 from datetime import datetime
 
-def get_estado_cuenta_data():
+def get_estado_cuenta_data(filtros_input=None):
     """
     Obtiene los datos para el estado de cuenta de un cliente con filtros aplicados.
+    Parámetros:
+        filtros_input: dict con filtros (si viene de POST) o None para usar request.args (GET)
     Retorna: dict con 'cliente', 'polizas', 'totales', 'filtros_options'
     """
     try:
-        # Obtener parámetros de filtro
-        filters = {
-            'cliente_id': request.args.get('cliente_id', ''),
-            'cliente_search': request.args.get('cliente_search', ''),
-            'tipo_documento': request.args.get('tipo_documento', ''),
-            'numero_documento': request.args.get('numero_documento', ''),
-            'compania': request.args.get('compania', ''),
-            'moneda': request.args.get('moneda', ''),
-            'ramo': request.args.get('ramo', ''),
-            'estado': request.args.get('estado', ''),
-            'fecha_desde': request.args.get('fecha_desde', ''),
-            'fecha_hasta': request.args.get('fecha_hasta', '')
-        }
+        # Obtener parámetros de filtro desde el parámetro o desde request.args
+        if filtros_input:
+            # Filtros vienen desde POST (pasados como parámetro)
+            filters = {
+                'cliente_id': filtros_input.get('cliente_id', ''),
+                'cliente_search': filtros_input.get('cliente_search', ''),
+                'tipo_documento': filtros_input.get('tipo_documento', ''),
+                'numero_documento': filtros_input.get('numero_documento', ''),
+                'compania': filtros_input.get('compania', ''),
+                'moneda': filtros_input.get('moneda', ''),
+                'ramo': filtros_input.get('ramo', ''),
+                'estado': filtros_input.get('estado', ''),
+                'fecha_desde': filtros_input.get('fecha_desde', ''),
+                'fecha_hasta': filtros_input.get('fecha_hasta', '')
+            }
+        else:
+            # Filtros vienen desde GET (request.args) - para compatibilidad
+            filters = {
+                'cliente_id': request.args.get('cliente_id', ''),
+                'cliente_search': request.args.get('cliente_search', ''),
+                'tipo_documento': request.args.get('tipo_documento', ''),
+                'numero_documento': request.args.get('numero_documento', ''),
+                'compania': request.args.get('compania', ''),
+                'moneda': request.args.get('moneda', ''),
+                'ramo': request.args.get('ramo', ''),
+                'estado': request.args.get('estado', ''),
+                'fecha_desde': request.args.get('fecha_desde', ''),
+                'fecha_hasta': request.args.get('fecha_hasta', '')
+            }
 
-        print(f"[DEBUG] Filtros recibidos: {filters}")
+
 
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
@@ -33,7 +51,6 @@ def get_estado_cuenta_data():
 
         # Buscar cliente
         if filters['cliente_id']:
-            print(f"[DEBUG] Buscando por cliente_id: {filters['cliente_id']}")
             cur.execute("""
                 SELECT idCliente, razon_social, tipo_documento, numero_documento,
                        direccion, telefono, email
@@ -41,11 +58,11 @@ def get_estado_cuenta_data():
                 WHERE idCliente = %s
             """, (filters['cliente_id'],))
             cliente = cur.fetchone()
-            print(f"[DEBUG] Cliente encontrado por ID: {cliente}")
+
 
         elif filters['tipo_documento'] and filters['numero_documento']:
             # Búsqueda por tipo y número de documento (sin necesidad de cliente_search)
-            print(f"[DEBUG] Buscando por tipo_doc y numero_doc: {filters['tipo_documento']} - {filters['numero_documento']}")
+
             cur.execute("""
                 SELECT idCliente, razon_social, tipo_documento, numero_documento,
                        direccion, telefono, email
@@ -54,23 +71,23 @@ def get_estado_cuenta_data():
                   AND numero_documento = %s
             """, (filters['tipo_documento'], filters['numero_documento']))
             cliente = cur.fetchone()
-            print(f"[DEBUG] Cliente encontrado por doc: {cliente}")
+
 
         elif filters['numero_documento']:
             # Búsqueda solo por número de documento
-            print(f"[DEBUG] Buscando solo por numero_doc: {filters['numero_documento']}")
+
             cur.execute("""
                 SELECT idCliente, razon_social, tipo_documento, numero_documento,
                        direccion, telefono, email
-                FROM clientes 
+                FROM clientes
                 WHERE numero_documento = %s
             """, (filters['numero_documento'],))
             cliente = cur.fetchone()
-            print(f"[DEBUG] Cliente encontrado por numero_doc: {cliente}")
+
 
         elif filters['cliente_search']:
             # Búsqueda por texto en nombre o documento
-            print(f"[DEBUG] Buscando por texto: {filters['cliente_search']}")
+
             search_term = f"%{filters['cliente_search']}%"
             cur.execute("""
                 SELECT idCliente, razon_social, tipo_documento, numero_documento,
@@ -80,12 +97,11 @@ def get_estado_cuenta_data():
                 LIMIT 1
             """, (search_term, search_term))
             cliente = cur.fetchone()
-            print(f"[DEBUG] Cliente encontrado por búsqueda: {cliente}")
 
-        # Si se encontró el cliente, obtener sus pólizas con filtros
+
+
         if cliente:
-            print(f"[DEBUG] Cliente encontrado: {cliente['razon_social']} (ID: {cliente['idCliente']})")
-            print(f"[DEBUG] Buscando pólizas con filtros adicionales...")
+
             query = """
                 SELECT 
                     p.idPoliza,
@@ -179,9 +195,7 @@ def get_estado_cuenta_data():
 
             cur.execute(query, params)
             polizas = cur.fetchall() or []
-            print(f"[DEBUG] Pólizas encontradas: {len(polizas)}")
-        else:
-            print(f"[DEBUG] No se encontró el cliente con los filtros proporcionados")
+
 
         # Calcular totales por moneda
         totales = {
@@ -472,7 +486,7 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
         try:
             from reportlab.lib.pagesizes import A4, landscape
             from reportlab.lib.units import mm
-            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
             from reportlab.lib import colors
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -491,6 +505,20 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             )
             elements = []
             styles = getSampleStyleSheet()
+
+            # Agregar logo de la empresa
+            try:
+                logo_path = os.path.join(upload_folder, 'logo', 'Logo-banner.png')
+                if os.path.exists(logo_path):
+                    logo = Image(logo_path)
+                    # Ajustar tamaño del logo (ancho máximo 60mm, mantener proporción)
+                    logo.drawHeight = 15*mm
+                    logo.drawWidth = 60*mm
+                    logo.hAlign = 'LEFT'
+                    elements.append(logo)
+                    elements.append(Spacer(1, 8))
+            except Exception as e:
+                print(f"[WARN] No se pudo cargar el logo: {e}")
 
             # Título principal
             title_style = ParagraphStyle(

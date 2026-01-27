@@ -237,31 +237,21 @@
                         </tr>
                         {% endfor %}
                     </tbody>
+                    <tfoot>
+                        <tr class="table-totales">
+                            <td colspan="10" class="text-end fw-bold">TOTALES:</td>
+                            <td class="text-end fw-bold bg-info-subtle">
+                                S/: {{ "%.2f"|format(totales.soles_cobrar) }}<br>
+                                US$: {{ "%.2f"|format(totales.dolares_cobrar) }}
+                            </td>
+                            <td class="text-end fw-bold bg-warning-subtle">
+                                S/: {{ "%.2f"|format(totales.soles_pagar) }}<br>
+                                US$: {{ "%.2f"|format(totales.dolares_pagar) }}
+                            </td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
-            </div>
-
-            <!-- Totales -->
-            <div class="card-footer bg-light">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6 class="mb-2">Saldos:</h6>
-                        <p class="mb-1"><strong>S/:</strong> {{ "%.2f"|format(totales.soles_cobrar - totales.soles_pagar) }}</p>
-                        <p class="mb-0"><strong>US$:</strong> {{ "%.2f"|format(totales.dolares_cobrar - totales.dolares_pagar) }}</p>
-                    </div>
-                    <div class="col-md-6 text-end">
-                        <h6 class="mb-2">Totales:</h6>
-                        <p class="mb-1">
-                            <strong>S/:</strong>
-                            Cobrar: {{ "%.2f"|format(totales.soles_cobrar) }} |
-                            Pagar: {{ "%.2f"|format(totales.soles_pagar) }}
-                        </p>
-                        <p class="mb-0">
-                            <strong>US$:</strong>
-                            Cobrar: {{ "%.2f"|format(totales.dolares_cobrar) }} |
-                            Pagar: {{ "%.2f"|format(totales.dolares_pagar) }}
-                        </p>
-                    </div>
-                </div>
             </div>
             {% else %}
             <div class="p-4 text-center text-muted">

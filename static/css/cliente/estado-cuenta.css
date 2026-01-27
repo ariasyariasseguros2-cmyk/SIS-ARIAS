@@ -99,15 +99,21 @@
     padding: 0.25rem 0.5rem;
 }
 
-/* Totales en footer */
-.card-footer {
-    font-size: 0.9rem;
+/* Totales en footer de tabla */
+.table-totales td {
+    font-size: 0.95rem;
+    padding: 1rem 0.5rem;
+    border-top: 3px solid #dee2e6 !important;
 }
 
-.card-footer h6 {
-    border-bottom: 2px solid #dee2e6;
-    padding-bottom: 0.5rem;
-    margin-bottom: 0.75rem;
+.table-totales .bg-info-subtle {
+    background-color: #cfe2ff !important;
+    color: #084298;
+}
+
+.table-totales .bg-warning-subtle {
+    background-color: #fff3cd !important;
+    color: #664d03;
 }
 
 /* Filtros */
