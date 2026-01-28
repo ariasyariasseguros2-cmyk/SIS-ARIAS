@@ -318,6 +318,25 @@ def menu_page(page):
             page='detalles-poliza',
             poliza=poliza
         )
+
+    # NUEVO: Detalles Primas
+    if page == 'detalles-primas':
+        from controllers.editar_poliza import get_poliza_data
+        prima_id = request.args.get('id')
+        if not prima_id:
+            return redirect(url_for('main.menu_page', page='primas'))
+        
+        # Reutilizamos get_poliza_data ya que comparten tabla
+        prima = get_poliza_data(prima_id)
+        if not prima:
+            return redirect(url_for('main.menu_page', page='primas'))
+
+        return render_template(
+            'view/detalles-primas-poliza/detalles-primas.html',
+            page='detalles-primas',
+            prima=prima
+        )
+
     # Cuotas → plantilla dedicada
     if page == 'cuotas':
         from controllers.cuotas.cuotas import get_cuotas_data

@@ -34,7 +34,12 @@
             return;
         }
         if (t.classList.contains('btn-detalles')) {
-            alert('Acción Detalles pendiente de implementación.');
+            const id = t.getAttribute('data-id');
+            if (id) {
+                window.location.href = `/menu/detalles-primas?id=${id}`;
+            } else {
+                alert('No se pudo obtener el ID para ver detalles.');
+            }
         }
         if (t.classList.contains('btn-editar')) {
             const id = t.getAttribute('data-id');

@@ -1,0 +1,185 @@
+{% extends 'view/layout_dashboard.html' %}
+
+{% block html_title %}Detalles Primas | SIS-ARIAS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .details-table th {
+        width: 300px;
+        font-weight: 600;
+        background-color: #f8f9fa;
+        vertical-align: middle;
+        padding-left: 1.5rem;
+    }
+    .details-table td {
+        vertical-align: middle;
+        color: #495057;
+    }
+    .page-header {
+        margin-bottom: 1.5rem;
+    }
+    .back-link {
+        font-size: 0.9rem;
+        text-decoration: none;
+        color: #0d6efd;
+    }
+    .back-link:hover {
+        text-decoration: underline;
+    }
+    .card-header-custom {
+        background-color: #f1f3f5;
+        font-weight: 700;
+        color: #343a40;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .details-row:nth-child(even) {
+        background-color: #fff;
+    }
+    .details-row:nth-child(odd) {
+        background-color: #fcfcfc;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <!-- Header -->
+    <div class="page-header">
+        <h4 class="fw-bold mb-1">
+            <i class="bi bi-exclamation-circle-fill text-dark me-2"></i>Detalles Primas/Plan de Pagos
+        </h4>
+        <a href="{{ url_for('main.menu_page', page='primas') }}" class="back-link">
+            <i class="bi bi-chevron-left"></i> Volver al listado Primas/Plan de Pagos
+        </a>
+    </div>
+
+    <!-- Details Card -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header card-header-custom py-2">
+            <i class="bi bi-info-circle-fill me-1"></i> Detalles Primas/Plan de Pagos
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 details-table">
+                    <tbody>
+                        <tr>
+                            <th>Tipo Doc</th>
+                            <td>{{ prima.tipo_doc or 'Emisión' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Solicitud</th>
+                            <td>{{ prima.solicitud or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Contratante</th>
+                            <td>{{ prima.cliente_razon_social or prima.asegurado or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Compañía</th>
+                            <td>{{ prima.cia or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Ramo Producto</th>
+                            <td>{{ prima.ramos_producto or prima.ramo or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Vigencia Inicio</th>
+                            <td>{{ prima.vig_desde or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Vigencia Fin</th>
+                            <td>{{ prima.vig_hasta or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Tipo de Pago</th>
+                            <td>{{ prima.forma_pago or 'CONTADO' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Moneda</th>
+                            <td>{{ prima.moneda or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Prima Comercial</th>
+                            <td>{{ prima.prima_comercial or '0.00' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Prima Neta</th>
+                            <td>{{ prima.prima_neta or '0.00' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Prima Total / Bruta</th>
+                            <td>{{ prima.prima_total or '0.00' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Motivo</th>
+                            <td>{{ prima.motivo or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Número de Operación</th>
+                            <td>{{ prima.nro_operacion or prima.nro or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>% Comisión Compañía</th>
+                            <td>{{ prima.porc_compania or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Importe Comisión Compañía</th>
+                            <td>{{ prima.imp_compania or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Fec. Pago Comisión</th>
+                            <td>{{ prima.fecha_pago_comision or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Factura Comisión</th>
+                            <td>{{ prima.factura_comision or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Sub Agente</th>
+                            <td>{{ prima.sub_agente or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>% Comisión Sub Agente</th>
+                            <td>{{ prima.porc_subagente or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Importe Comisión Sub Agente</th>
+                            <td>{{ prima.imp_subagente or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Fec. Pago Sub Agente</th>
+                            <td>{{ prima.fecha_pago_subagente or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Comprobante Sub Agente</th>
+                            <td>{{ prima.comprobante_subagente or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Num. de la primera cuota</th>
+                            <td>{{ prima.recibo or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Más Información</th>
+                            <td>{{ prima.mas_info or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Registrado por</th>
+                            <td>{{ prima.usuario_registro or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Editado por</th>
+                            <td>{{ prima.usuario_edicion or '' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Fecha de registro</th>
+                            <td>{{ prima.creado_en or '' }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
