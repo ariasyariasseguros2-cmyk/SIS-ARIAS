@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 porc_compania: document.getElementById('comisionCompania').value,
                 porc_subagente: document.getElementById('comisionSubAgente').value,
                 motivo: document.getElementById('tipoVigencia').value,
+                tipo_vigencia: document.getElementById('tipoVigencia').value,
+                endosatario: document.getElementById('endosatario').value,
                 vig_desde: document.getElementById('vigenciaInicio').value,
                 vig_hasta: document.getElementById('vigenciaFin').value,
                 moneda: document.getElementById('moneda').value,

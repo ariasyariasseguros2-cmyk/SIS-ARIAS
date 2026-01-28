@@ -950,6 +950,8 @@ CREATE PROCEDURE sp_update_poliza(
     IN p_nro VARCHAR(50), -- Nuevo
     IN p_forma_pago VARCHAR(30), -- Nuevo
     IN p_recibo VARCHAR(50), -- Nuevo
+    IN p_tipo_vigencia VARCHAR(50), -- Nuevo
+    IN p_endosatario VARCHAR(150), -- Nuevo
     IN p_pdf_path VARCHAR(255), -- Nuevo
     IN p_usuario_edicion VARCHAR(50)
 )
@@ -981,7 +983,9 @@ BEGIN
         estado = p_estado,
         nro = p_nro,
         forma_pago = p_forma_pago,
-        recibo = p_recibo
+        recibo = p_recibo,
+        tipo_vigencia = p_tipo_vigencia,
+        endosatario = p_endosatario
     WHERE idPoliza = p_idPoliza;
 
     IF p_pdf_path IS NOT NULL AND p_pdf_path <> '' THEN

@@ -360,6 +360,7 @@ def menu_page(page):
         from controllers.subagente import get_subagentes_abreviaciones
         from controllers.ejecutivos import get_ejecutivos
         from controllers.clientes.cliente import get_clientes_data
+        from controllers.endosatario.endosatario import get_endosatarios # NUEVO
 
         poliza_id = request.args.get('id')
         if not poliza_id:
@@ -376,7 +377,8 @@ def menu_page(page):
             aseguradoras_rows=get_aseguradoras(),
             subagentes_abbrs=get_subagentes_abreviaciones(),
             ejecutivos_rows=get_ejecutivos(),
-            clientes_data=get_clientes_data()
+            clientes_data=get_clientes_data(),
+            endosatarios_rows=get_endosatarios() # NUEVO
         )
 
     # NUEVO: Editar Primas (Misma tabla que polizas pero diferente vista)
@@ -386,6 +388,7 @@ def menu_page(page):
         from controllers.compania import get_aseguradoras
         from controllers.subagente import get_subagentes_abreviaciones
         from controllers.clientes.cliente import get_clientes_data
+        from controllers.endosatario.endosatario import get_endosatarios # NUEVO
 
         prima_id = request.args.get('id')
         if not prima_id:
@@ -407,7 +410,8 @@ def menu_page(page):
             ramos_abbrs=get_ramos(),
             aseguradoras_rows=get_aseguradoras(),
             subagentes_abbrs=get_subagentes_abreviaciones(),
-            clientes_data=get_clientes_data()
+            clientes_data=get_clientes_data(),
+            endosatarios_rows=get_endosatarios() # NUEVO
         )
 
         # NUEVO: Avisos - Documentos

@@ -133,8 +133,13 @@
                     <label for="tipoVigencia" class="col-sm-3 col-form-label text-end fw-bold">Tipo de Vigencia <span class="text-danger">*</span></label>
                     <div class="col-sm-9">
                         <select class="form-select" id="tipoVigencia">
-                            <option selected>DECLARACION MENSUAL</option>
-                            <!-- Options would go here -->
+                             <option value="">Selecciona...</option>
+                                <option {% if poliza.tipo_vigencia == 'ANUAL' %}selected{% endif %}>ANUAL</option>
+                                <option {% if poliza.tipo_vigencia == 'DECLARACION MENSUAL' %}selected{% endif %}>DECLARACION MENSUAL</option>
+                                <option {% if poliza.tipo_vigencia == 'NO RENOVABLE' %}selected{% endif %}>NO RENOVABLE</option>
+                                <option {% if poliza.tipo_vigencia == 'PERIODICA' %}selected{% endif %}>PERIODICA</option>
+                                <option {% if poliza.tipo_vigencia == 'EVENTUAL' %}selected{% endif %}>EVENTUAL</option>
+                                <option {% if poliza.tipo_vigencia == 'FLOTANTE' %}selected{% endif %}>FLOTANTE</option>
                         </select>
                     </div>
                 </div>
@@ -205,9 +210,11 @@
                 <div class="row mb-3 align-items-center">
                     <label for="endosatario" class="col-sm-3 col-form-label text-end fw-bold">Endosatario</label>
                     <div class="col-sm-9">
-                        <select class="form-select text-muted" id="endosatario">
-                            <option selected>** Selecciona un Endosatario</option>
-                            <!-- Options would go here -->
+                        <select class="form-select" id="endosatario">
+                            <option value="">Selecciona...</option>
+                            {% for e in endosatarios_rows %}
+                            <option value="{{ e.nombre }}" {% if e.nombre == poliza.endosatario %}selected{% endif %}>{{ e.nombre }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                 </div>
