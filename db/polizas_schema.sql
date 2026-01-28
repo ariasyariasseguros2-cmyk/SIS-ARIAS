@@ -393,6 +393,10 @@ CREATE TABLE IF NOT EXISTS poliza_archivos (
     ruta_archivo VARCHAR(255) NOT NULL,
     nombre_original VARCHAR(255),
     origen VARCHAR(50) DEFAULT 'CARGA_MASIVA',
+    ramo VARCHAR(120),
+    producto VARCHAR(120),
+    usuario VARCHAR(50),
+    compania VARCHAR(100),
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (poliza_id) REFERENCES polizas(idPoliza) ON DELETE CASCADE
 );
@@ -464,14 +468,22 @@ BEGIN
         tipo_origen,
         contratante,
         COUNT(*) AS cantidad_archivos,
-        MAX(fecha_subida) AS ultima_fecha
+        MAX(fecha_subida) AS ultima_fecha,
+        ramo,
+        producto,
+        usuario,
+        compania
     FROM (
         -- Archivos de Pólizas
         SELECT 
             p.poliza AS identificador,
             'POLIZA' AS tipo_origen,
             c.razon_social AS contratante,
-            pa.creado_en AS fecha_subida
+            pa.creado_en AS fecha_subida,
+            p.ramo,
+            p.ramos_producto AS producto,
+            p.usuario_registro AS usuario,
+            p.cia AS compania
         FROM poliza_archivos pa
         INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
         INNER JOIN clientes c ON p.cliente_id = c.idCliente
@@ -489,7 +501,11 @@ BEGIN
             ca.numero_documento AS identificador,
             'CLIENTE' AS tipo_origen,
             c.razon_social AS contratante,
-            ca.creado_en AS fecha_subida
+            ca.creado_en AS fecha_subida,
+            'N/A' AS ramo,
+            'N/A' AS producto,
+            c.usuario_creacion AS usuario,
+            'N/A' AS compania
         FROM cliente_archivos ca
         INNER JOIN clientes c ON ca.cliente_id = c.idCliente
         WHERE p_busqueda IS NULL OR p_busqueda = '' 
@@ -497,7 +513,7 @@ BEGIN
            OR ca.nombre_original LIKE CONCAT('%', p_busqueda, '%')
            OR ca.numero_documento LIKE CONCAT('%', p_busqueda, '%')
     ) AS combined
-    GROUP BY identificador, tipo_origen, contratante
+    GROUP BY identificador, tipo_origen, contratante, ramo, producto, usuario, compania
     ORDER BY ultima_fecha DESC
     LIMIT 100;
 END$$
@@ -542,6 +558,8 @@ CREATE PROCEDURE sp_insert_poliza_por_numero (
     IN p_vig_hasta DATE,
     IN p_ultimo_dia_pago DATE,
     IN p_fecha_vencimiento DATE,  -- NUEVO
+    IN p_tipo_vigencia VARCHAR(50),   -- NUEVO
+    IN p_endosatario VARCHAR(150),    -- NUEVO
     IN p_forma_pago VARCHAR(30),
 
     IN p_sub_agente VARCHAR(100),
@@ -625,8 +643,8 @@ BEGIN
     SET v_poliza_id = LAST_INSERT_ID();
 
     IF p_pdf_path IS NOT NULL AND p_pdf_path <> '' THEN
-        INSERT INTO poliza_archivos (poliza_id, numero_poliza, ruta_archivo, nombre_original)
-        VALUES (v_poliza_id, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1));
+        INSERT INTO poliza_archivos (poliza_id, numero_poliza, ruta_archivo, nombre_original, ramo, producto, usuario, compania)
+        VALUES (v_poliza_id, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1), p_ramo, p_ramos_producto, p_usuario_registro, p_cia);
     END IF;
 
 
@@ -989,8 +1007,8 @@ BEGIN
     WHERE idPoliza = p_idPoliza;
 
     IF p_pdf_path IS NOT NULL AND p_pdf_path <> '' THEN
-        INSERT INTO poliza_archivos (poliza_id, numero_poliza, ruta_archivo, nombre_original, origen)
-        VALUES (p_idPoliza, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1), 'EDICION');
+        INSERT INTO poliza_archivos (poliza_id, numero_poliza, ruta_archivo, nombre_original, origen, ramo, producto, usuario, compania)
+        VALUES (p_idPoliza, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1), 'EDICION', p_ramo, p_ramos_producto, p_usuario_edicion, p_cia);
     END IF;
 END$$
 DELIMITER ;

@@ -38,7 +38,7 @@ def get_archivos_detalle(search='', identificador='', tipo_origen=''):
             
         cursor.close()
         conn.close()
-        return results
+        return results 
     except Exception as e:
         print(f"Error fetching detalle archivos: {e}")
         return []
@@ -54,7 +54,7 @@ def api_search():
     return jsonify(data)
 
 @bp.route('/api/reportes/download-zip', methods=['GET'])
-def download_zip():
+def download_zip(): 
     search = request.args.get('search', '')
     identificador = request.args.get('identificador', '')
     tipo_origen = request.args.get('tipo', '') # POLIZA or CLIENTE

@@ -42,12 +42,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderTable(data) {
         if (!data || data.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No se encontraron archivos</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="10" class="text-center text-muted py-4">No se encontraron archivos</td></tr>`;
             return;
         }
 
         tableBody.innerHTML = data.map(row => {
             const contratante = row.contratante || '-';
+            const ramo = row.ramo || '-';
+            const producto = row.producto || '-';
+            const compania = row.compania || '-';
+            const usuario = row.usuario || '-';
             
             // Format date
             let fecha = '-';
@@ -78,6 +82,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td><span class="badge bg-light text-dark border">${row.tipo_origen || '-'}</span></td>
                     <td class="fw-bold">${row.identificador || '-'}</td>
                     <td class="small text-truncate" style="max-width: 300px;" title="${contratante}">${contratante}</td>
+                    <td class="small text-muted">${ramo}</td>
+                    <td class="small text-muted">${producto}</td>
+                    <td class="small text-muted">${compania}</td>
+                    <td class="small text-muted">${usuario}</td>
                     <td class="text-center"><span class="badge bg-secondary">${row.cantidad_archivos || 0}</span></td>
                     <td class="small text-muted">${fecha}</td>
                 </tr>
