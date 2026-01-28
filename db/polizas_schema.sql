@@ -100,6 +100,25 @@ END $$
 
 DELIMITER ;
 
+-- Tabla Endosatarios
+CREATE TABLE IF NOT EXISTS endosatarios (
+    idEndosatario INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(150) NOT NULL,
+    estado ENUM('Activo','Inactivo') DEFAULT 'Activo'
+);
+
+-- SP listar endosatarios
+DELIMITER $$
+CREATE PROCEDURE sp_listar_endosatarios()
+BEGIN
+    SELECT nombre 
+    FROM endosatarios 
+    WHERE estado = 'Activo'
+    ORDER BY nombre ASC;
+END$$
+DELIMITER ;
+
+
 -- Table de ejecutivos
 CREATE TABLE ejecutivos (
     idEjecutivo INT AUTO_INCREMENT PRIMARY KEY,
