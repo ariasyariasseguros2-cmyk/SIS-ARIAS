@@ -93,7 +93,15 @@
           <!-- Tipo Doc -->
           <div class="col-md-4">
             <label class="form-label" for="tipoDocTop">Tipo Doc</label>
-            <input id="tipoDocTop" type="text" class="form-control" placeholder="Escribe el tipo de documento" value="{{ selected.tipo_doc or selected.tipo_documento or '' }}">
+            <select id="tipoDocTop" class="form-select">
+              <option value="">Selecciona...</option>
+              <option>EMISION</option>
+              <option>RENOVACION</option>
+              <option>ENDOSO</option>
+              <option>DEVOLUCION</option>
+              <option>DIFERENCIA</option>
+              <option>NETEO</option>
+            </select>
           </div>
           <!-- NUEVO: Nro Operación (global) -->
           <div class="col-md-3">
@@ -107,6 +115,18 @@
               {% for e in (endosatarios_rows or []) %}
                 <option value="{{ e.nombre }}">{{ e.nombre }}</option>
               {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Tipo de Vigencia</label>
+            <select id="tipoVigenciaTop" class="form-select">
+              <option value="">Selecciona...</option>
+              <option>ANUAL</option>
+              <option>DECLARACION MENSUAL</option>
+              <option>NO RENOVABLE</option>
+              <option>PERIODICA</option>
+              <option>EVENTUAL</option>
+              <option>FLOTANTE</option>
             </select>
           </div>
         </div>

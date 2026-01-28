@@ -355,6 +355,8 @@ CREATE TABLE IF NOT EXISTS polizas (
     vig_hasta DATE NULL,
     ultimo_dia_pago DATE NULL,
     fecha_vencimiento DATE NULL,      -- NUEVO
+    tipo_vigencia VARCHAR(50) NULL,   -- NUEVO
+    endosatario VARCHAR(150) NULL,    -- NUEVO
     forma_pago VARCHAR(30) NULL,
 
     sub_agente VARCHAR(100) NULL,
@@ -605,7 +607,7 @@ BEGIN
     INSERT INTO polizas (
         cliente_id, asegurado, cia, ramo,
         poliza, recibo, contrato_nro, nro,
-        moneda, fecha_emision, vig_desde, vig_hasta, ultimo_dia_pago, fecha_vencimiento, forma_pago,
+        moneda, fecha_emision, vig_desde, vig_hasta, ultimo_dia_pago, fecha_vencimiento, tipo_vigencia, endosatario, forma_pago,
         sub_agente, ejecutivo, tipo_doc,
         asegurada, motivo, prima_comercial, prima_neta, prima_comercial_igv, prima_total,
         porc_compania, imp_compania, porc_subagente, imp_subagente,
@@ -613,7 +615,7 @@ BEGIN
     ) VALUES (
         v_cliente_id, p_asegurado, p_cia, p_ramo,
         p_poliza, p_recibo, p_contrato_nro, p_nro,
-        p_moneda, p_fecha_emision, p_vig_desde, p_vig_hasta, p_ultimo_dia_pago, p_fecha_vencimiento, p_forma_pago,
+        p_moneda, p_fecha_emision, p_vig_desde, p_vig_hasta, p_ultimo_dia_pago, p_fecha_vencimiento, p_tipo_vigencia, p_endosatario, p_forma_pago,
         p_sub_agente, p_ejecutivo, p_tipo_doc,
         p_asegurada, p_motivo, p_prima_comercial, p_prima_neta, p_prima_comercial_igv, p_prima_total,
         p_porc_compania, p_imp_compania, p_porc_subagente, p_imp_subagente,

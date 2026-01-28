@@ -12,6 +12,8 @@
   const tipoPagoTopEl = document.getElementById('tipoPagoTop');
   const tipoDocTopEl = document.getElementById('tipoDocTop'); // Referencia al input de Tipo Doc
   const nroOperacionTopEl = document.getElementById('nroOperacionTop'); // NUEVO: Nro Operación global
+  const endosatarioTopEl = document.getElementById('endosatarioTop'); // NUEVO
+  const tipoVigenciaTopEl = document.getElementById('tipoVigenciaTop'); // NUEVO
   // const ramoProductoTopEl = document.getElementById('ramosProductoTop'); // ELIMINADO
   const aseguradaTopEl = document.getElementById('aseguradaTop'); // Campo superior de asegurada (texto)
   const motivoTopEl = document.getElementById('motivoTop'); // Campo superior de motivo (texto)
@@ -869,6 +871,9 @@
         tipo_doc: (tipoDocTopEl?.value || '').trim() || ((window.selectedCliente || {}).tipo_doc || (window.selectedCliente || {}).tipo_documento || ''),
         // NUEVO: ejecutivo desde el select superior
         ejecutivo: (ejecutivoTopEl?.value || '').trim(),
+        // NUEVO: campos endosatario y tipo vigencia
+        endosatario: (endosatarioTopEl?.value || '').trim(),
+        tipo_vigencia: (tipoVigenciaTopEl?.value || '').trim(),
         pdf_filename: lastUploadedFilename
       });
 
@@ -987,6 +992,8 @@
       if (issuerEl) issuerEl.value = '';
       if (subAgenteTopEl) subAgenteTopEl.value = '';
       if (ejecutivoTopEl) ejecutivoTopEl.value = '';
+      if (endosatarioTopEl) endosatarioTopEl.value = '';
+      if (tipoVigenciaTopEl) tipoVigenciaTopEl.value = '';
       if (tipoPagoTopEl) tipoPagoTopEl.value = '';
       if (estadoTopEl) estadoTopEl.value = '';
       if (fileEl) fileEl.value = '';
