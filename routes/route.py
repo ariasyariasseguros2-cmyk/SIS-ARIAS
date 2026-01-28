@@ -447,6 +447,7 @@ def menu_page(page):
         from controllers.compania import get_aseguradoras
         from controllers.subagente import get_subagentes_abreviaciones  # NUEVO
         from controllers.ejecutivos import get_ejecutivos               # NUEVO
+        from controllers.endosatario.endosatario import get_endosatarios # NUEVO
         cli_data = get_clientes_data()
         selected = session.get('selected_cliente') or {}
 
@@ -474,7 +475,8 @@ def menu_page(page):
             ramos_abbrs=get_ramos(),
             aseguradoras_rows=get_aseguradoras(),
             subagentes_abbrs=get_subagentes_abreviaciones(),  # NUEVO
-            ejecutivos_rows=get_ejecutivos()                  # NUEVO
+            ejecutivos_rows=get_ejecutivos(),                 # NUEVO
+            endosatarios_rows=get_endosatarios()              # NUEVO
         )
 
     # NUEVO: Reporte Diario (acepta 'reporte-diaro' por el slug del menú)

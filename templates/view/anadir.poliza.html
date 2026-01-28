@@ -100,6 +100,15 @@
             <label class="form-label">Nro Operación</label>
             <input id="nroOperacionTop" type="text" class="form-control" placeholder="Nro de Operación">
           </div>
+          <div class="col-md-3">
+            <label class="form-label">Endosatario</label>
+            <select id="endosatarioTop" class="form-select">
+              <option value="">Selecciona...</option>
+              {% for e in (endosatarios_rows or []) %}
+                <option value="{{ e.nombre }}">{{ e.nombre }}</option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
         <!-- NUEVO: bloque de comisiones al costado (mismo card, debajo de Ejecutivo) -->
         <div class="row g-3 mt-1">
