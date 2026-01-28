@@ -101,7 +101,7 @@
                     <li><a class="dropdown-item" href="#" data-action="siniestros"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
                     <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi-briefcase"></i> Solicitudes</a></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="#" data-action="detalles"><i class="bi-info-circle"></i> Detalles</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='detalles-poliza', id=r.idPoliza) }}"><i class="bi-info-circle"></i> Detalles</a></li>
                     <li><a class="dropdown-item" href="#" data-action="editar"><i class="bi-pencil-square"></i> Editar</a></li>
                     <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash"></i> Eliminar</a></li>
                   </ul>
