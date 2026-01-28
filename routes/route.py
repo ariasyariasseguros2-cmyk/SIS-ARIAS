@@ -300,6 +300,24 @@ def menu_page(page):
             rows=data['rows'],
             details=data.get('details', {})
         )
+
+    # NUEVO: Detalles de Póliza
+    if page == 'detalles-poliza':
+        from controllers.editar_poliza import get_poliza_data
+        poliza_id = request.args.get('id')
+        if not poliza_id:
+            return redirect(url_for('main.menu_page', page='listado-poliza'))
+        
+        poliza = get_poliza_data(poliza_id)
+        if not poliza:
+            # Podríamos redirigir o mostrar error
+            return redirect(url_for('main.menu_page', page='listado-poliza'))
+
+        return render_template(
+            'view/detalles-primas-poliza/detalles-poliza.html',
+            page='detalles-poliza',
+            poliza=poliza
+        )
     # Cuotas → plantilla dedicada
     if page == 'cuotas':
         from controllers.cuotas.cuotas import get_cuotas_data
