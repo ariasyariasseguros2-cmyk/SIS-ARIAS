@@ -32,16 +32,19 @@
       const row = actionEl.closest('tr');
       if (!row) return;
 
-      // Extraer datos de la fila (ajustar índices según las columnas de la tabla)
-      // 1: Contratante, 2: Asegurado, 3: Cía, 4: Ramo, 5: Producto, 6: Poliza, 
-      // 7: Moneda, 8: Vig Inicio, 9: Vig Fin, ...
+      // Extraer datos de la fila
+      // 1: Contratante, 2: Asegurado, 3: Cía, 4: Ram, 5: Prod, 6: Poliza,
+      // 7: Moneda, 8: Vig Inicio, 9: Vig Fin, 10: Sub Agente, 11: M.Asegurada
       const pick = (n) => row.querySelector(`td:nth-child(${n})`)?.textContent?.trim() || '';
 
       const data = {
+        contratante: pick(1),
+        asegurado: pick(2),
         cia: pick(3),
         ramo: pick(4),
         producto: pick(5),
         poliza: pick(6),
+        materiaAsegurada: pick(11),
         vig_inicio: pick(8),
         vig_fin: pick(9)
       };
@@ -65,14 +68,14 @@
           break;
 
         case 'extracto':
-            // Si el chip de extracto se clicó, redirigimos manualmente si tenemos la URL base
-            // (Asumimos que la lógica de URL es similar a primas pero con page='cuotas' o similar)
-            // Dado que no tenemos data-extracto-url, podemos intentar construirlo o mostrar alerta
             alert(`Ver Extracto de Póliza: ${data.poliza}`);
             break;
 
+        case 'siniestros':
+          window.location.href = `/menu/siniestros-poliza?poliza=${encodeURIComponent(data.poliza)}`;
+          break;
+
         default:
-          // Acciones genéricas / placeholders
           alert(`Acción "${action.toUpperCase()}" para la póliza ${data.poliza}`);
           break;
       }

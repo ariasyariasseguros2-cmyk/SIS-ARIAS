@@ -1459,3 +1459,110 @@ def export_estado_cuenta():
     except Exception as e:
         current_app.logger.exception('Error exporting estado de cuenta')
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+# Siniestros routes
+@bp.route('/api/siniestros', methods=['GET'])
+def api_list_siniestros():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    from controllers.siniestros.siniestros_controller import list_siniestros
+    return list_siniestros()
+
+@bp.route('/api/siniestros/poliza', methods=['GET'])
+def api_list_siniestros_poliza():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    from controllers.siniestros.siniestros_controller import list_siniestros_por_poliza
+    return list_siniestros_por_poliza()
+
+@bp.route('/api/siniestros/<int:id>', methods=['GET'])
+def api_get_siniestro(id):
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    from controllers.siniestros.siniestros_controller import get_siniestro_by_id
+    return get_siniestro_by_id(id)
+
+@bp.route('/api/siniestros', methods=['POST'])
+def api_insert_siniestro():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    from controllers.siniestros.siniestros_controller import insert_siniestro
+    return insert_siniestro()
+
+@bp.route('/api/siniestros/<int:id>', methods=['PUT'])
+def api_update_siniestro(id):
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    from controllers.siniestros.siniestros_controller import update_siniestro
+    return update_siniestro(id)
+
+@bp.route('/api/siniestros/<int:id>', methods=['DELETE'])
+def api_delete_siniestro(id):
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    from controllers.siniestros.siniestros_controller import delete_siniestro
+    return delete_siniestro(id)
+
+@bp.route('/api/siniestros/buscar', methods=['POST'])
+def api_buscar_siniestros():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    from controllers.siniestros.siniestros_controller import buscar_siniestros
+    return buscar_siniestros()
+
+@bp.route('/menu/siniestros-poliza', methods=['GET'])
+def menu_siniestros_poliza():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    poliza = request.args.get('poliza', '')
+
+    contratante = ''
+    cia = ''
+    ramo = ''
+
+    if poliza:
+        try:
+            from models.db import get_connection
+            connection = get_connection()
+            cursor = connection.cursor(dictionary=True)
+
+            query = """
+                SELECT 
+                    c.razon_social AS contratante,
+                    p.asegurado,
+                    p.cia,
+                    p.ramo,
+                    p.asegurada
+                FROM polizas p
+                INNER JOIN clientes c ON c.idCliente = p.cliente_id
+                WHERE p.poliza = %s
+                LIMIT 1
+            """
+            cursor.execute(query, (poliza,))
+            poliza_data = cursor.fetchone()
+
+            if poliza_data:
+                contratante = poliza_data.get('contratante') or poliza_data.get('asegurado') or ''
+                cia = poliza_data.get('cia') or ''
+                ramo = poliza_data.get('asegurada') or poliza_data.get('ramo') or ''
+
+            cursor.close()
+            connection.close()
+        except Exception as e:
+            print(f"Error getting poliza details: {e}")
+
+    return render_template(
+        'view/siniestros/siniestros_poliza.html',
+        poliza=poliza,
+        contratante=contratante,
+        cia=cia,
+        ramo=ramo
+    )
+
+@bp.route('/menu/siniestros', methods=['GET'])
+def menu_siniestros():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('view/siniestros/siniestros_lista.html')
+

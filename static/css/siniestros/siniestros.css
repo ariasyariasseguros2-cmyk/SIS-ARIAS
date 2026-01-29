@@ -1,0 +1,114 @@
+.filters-bar {
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.filters-bar .btn-group {
+    flex-wrap: wrap;
+}
+
+#tablaSiniestros {
+    width: 100%;
+}
+
+#tablaSiniestros th,
+#tablaSiniestros td {
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+.chips-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: .25rem;
+    margin-bottom: .25rem;
+}
+
+.chip {
+    display: inline-block;
+    font-size: .75rem;
+    font-weight: 600;
+    padding: .2rem .45rem;
+    border-radius: .25rem;
+    border: 1px solid transparent;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    text-transform: uppercase;
+}
+
+.chip:hover {
+    opacity: 0.85;
+}
+
+.chip-danger   { background: #dc3545; border-color: #c02f3d; color: #fff; }
+.chip-success  { background: #28a745; border-color: #23923e; color: #fff; }
+.chip-primary  { background: #0d6efd; border-color: #0b5ed7; color: #fff; }
+.chip-info     { background: #17a2b8; border-color: #148ea1; color: #fff; }
+.chip-warning  { background: #fd7e14; border-color: #ec6f07; color: #fff; }
+.chip-teal     { background: #20c997; border-color: #1bb387; color: #fff; }
+
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-warning {
+    background: #ffc107;
+    color: #000;
+}
+
+.badge-info {
+    background: #0dcaf0;
+    color: #000;
+}
+
+.badge-success {
+    background: #198754;
+    color: #fff;
+}
+
+.badge-danger {
+    background: #dc3545;
+    color: #fff;
+}
+
+.badge-secondary {
+    background: #6c757d;
+    color: #fff;
+}
+
+.btn-icon {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0.25rem;
+}
+
+.btn-icon:hover {
+    opacity: 0.7;
+}
+
+.modal-xl .modal-body h6 {
+    color: #495057;
+    font-weight: 600;
+}
+
+.form-label {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.form-control[readonly] {
+    background-color: #e9ecef;
+}
+
+.text-end {
+    text-align: right;
+}
+
