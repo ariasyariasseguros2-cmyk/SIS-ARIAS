@@ -16,7 +16,8 @@ try:
         SanitasParser,
         CrecerParser,
         GenericParser,
-        LaPositivaEPSParser
+        LaPositivaEPSParser,
+        LaPositivaVidaParser
     )
 except ImportError:
     # Fallback si no se pueden importar
@@ -27,6 +28,7 @@ except ImportError:
     CrecerParser = None
     GenericParser = None
     LaPositivaEPSParser = None
+    LaPositivaVidaParser = None
 
 
 class PDFClienteExtractor:
@@ -98,6 +100,11 @@ class PDFClienteExtractor:
             self.detected_company = 'crecer'
             return 'crecer'
 
+        # Detectar La Positiva Vida
+        if LaPositivaVidaParser and LaPositivaVidaParser.can_parse(self.text_content):
+            self.detected_company = 'lapositiva_vida'
+            return 'lapositiva_vida'
+
         # Detectar La Positiva (antes de Sanitas para evitar falsos positivos)
         if LaPositivaEPSParser and LaPositivaEPSParser.can_parse(self.text_content):
             self.detected_company = 'lapositiva'
@@ -145,6 +152,9 @@ class PDFClienteExtractor:
                 self.extracted_data = parser.extract_all()
             elif company == 'crecer' and CrecerParser:
                 parser = CrecerParser(self.text_content)
+                self.extracted_data = parser.extract_all()
+            elif company == 'lapositiva_vida' and LaPositivaVidaParser:
+                parser = LaPositivaVidaParser(self.text_content)
                 self.extracted_data = parser.extract_all()
             elif company == 'lapositiva' and LaPositivaEPSParser:
                 parser = LaPositivaEPSParser(self.text_content)
