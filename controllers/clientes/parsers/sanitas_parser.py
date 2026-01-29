@@ -208,10 +208,10 @@ class SanitasParser:
         """Extrae dirección del contratante."""
         patterns = [
             # Con dos puntos
-            r'Direcci[oó]n\s*[:\-]\s*([^\n]{10,200}?)(?:\s*(?:Distrito|Provincia|Departamento|Ubigeo|Tel[eé]fono|Email|$))',
-            r'DOMICILIO\s*[:\-]\s*([^\n]{10,200}?)(?:\s*(?:Distrito|Provincia|$))',
-            # Sin dos puntos, después de la palabra
-            r'Direcci[oó]n\s+([A-Z][^\n]{10,200}?)(?:\s*(?:Distrito|Provincia|Departamento|$))',
+            r'Direcci[oó]n\s*[:\-]\s*([^\n]{10,500}?)(?:\s*(?:Distrito|Provincia|Departamento|Ubigeo|Tel[eé]fono|Email|$))',
+            r'DOMICILIO\s*[:\-]\s*([^\n]{10,500}?)(?:\s*(?:Distrito|Provincia|$))',
+            # Sin dos puntos, después de la palabra (agregado Ubigeo|Tel|Email a la lista de parada)
+            r'Direcci[oó]n\s+([A-Z][^\n]{10,500}?)(?:\s*(?:Distrito|Provincia|Departamento|Ubigeo|Tel[eé]fono|Email|$))',
         ]
 
         # Intentar en texto normalizado primero
@@ -221,6 +221,27 @@ class SanitasParser:
                 direccion = self._clean_field(match.group(1))
                 # Limpiar si hay información adicional pegada
                 direccion = re.sub(r'\s*(?:Distrito|Provincia|Departamento|Tel[eé]fono|Email).*$', '', direccion, flags=re.IGNORECASE)
+                
+                # Limpiar sufijos de ubicación comunes que se pegan al final
+                location_suffixes = [
+                    r'\s*-\s*UCAYALI.*$',
+                    r'\s*-\s*LIMA.*$',
+                    r'\s*-\s*CORONEL PORTILLO.*$',
+                    r'\s*-\s*CALLERIA.*$',
+                    r'\s*-\s*MANANTAY.*$',
+                    r'\s*-\s*YARINACOCHA.*$',
+                    r'\s*-\s*AREQUIPA.*$',
+                    r'\s*-\s*TRUJILLO.*$',
+                    r'\s*-\s*CHICLAYO.*$',
+                    r'\s*-\s*PIURA.*$',
+                    r'\s*-\s*CUSCO.*$',
+                    r'\s*-\s*IQUITOS.*$',
+                    r'\s*-\s*TACNA.*$',
+                    r'\s*-\s*HUANCAYO.*$',
+                ]
+                for suffix in location_suffixes:
+                    direccion = re.sub(suffix, '', direccion, flags=re.IGNORECASE)
+
                 if direccion and len(direccion) > 5:
                     return direccion
 
