@@ -105,7 +105,7 @@ class SanitasParser:
         """deteccion de etipo de pdf"""
         indicators = [
             r'SANITAS.*PER[UÚ]',
-            r'LA POSITIVA',
+            # r'LA POSITIVA', # Causaba conflicto con La Positiva EPS
             r'SCTR.*SALUD',
             r'CONSTANCIA.*SCTR',
         ]

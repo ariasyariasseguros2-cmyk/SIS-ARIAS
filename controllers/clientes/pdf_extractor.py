@@ -15,7 +15,8 @@ try:
         PacificoParser,
         SanitasParser,
         CrecerParser,
-        GenericParser
+        GenericParser,
+        LaPositivaEPSParser
     )
 except ImportError:
     # Fallback si no se pueden importar
@@ -25,6 +26,7 @@ except ImportError:
     SanitasParser = None
     CrecerParser = None
     GenericParser = None
+    LaPositivaEPSParser = None
 
 
 class PDFClienteExtractor:
@@ -96,7 +98,12 @@ class PDFClienteExtractor:
             self.detected_company = 'crecer'
             return 'crecer'
 
-        # Detectar Sanitas / La Positiva
+        # Detectar La Positiva (antes de Sanitas para evitar falsos positivos)
+        if LaPositivaEPSParser and LaPositivaEPSParser.can_parse(self.text_content):
+            self.detected_company = 'lapositiva'
+            return 'lapositiva'
+
+        # Detectar Sanitas
         if SanitasParser and SanitasParser.can_parse(self.text_content):
             self.detected_company = 'sanitas'
             return 'sanitas'
@@ -120,7 +127,7 @@ class PDFClienteExtractor:
         # Detectar qué aseguradora es
         company = self.detect_company()
 
-        print(f"[PDF Extractor] Aseguradora detectada: {company}")
+        #print(f"[PDF Extractor] Aseguradora detectada: {company}")
 
         # Usar el parser específico
         try:
@@ -139,6 +146,9 @@ class PDFClienteExtractor:
             elif company == 'crecer' and CrecerParser:
                 parser = CrecerParser(self.text_content)
                 self.extracted_data = parser.extract_all()
+            elif company == 'lapositiva' and LaPositivaEPSParser:
+                parser = LaPositivaEPSParser(self.text_content)
+                self.extracted_data = parser.extract_all()
             else:
                 # Usar parser genérico para otras aseguradoras
                 if GenericParser:
@@ -147,6 +157,8 @@ class PDFClienteExtractor:
                 else:
                     # Fallback al método anterior si no hay parsers disponibles
                     self.extracted_data = self._extract_generic_fallback()
+            print(f"[PDF Extractor] Datos extraídos: {self.extracted_data}")
+            print(f"[PDF Extractor] Aseguradora detectada: {company}")
         except Exception as e:
             print(f"[PDF Extractor] Error con parser específico: {e}")
             # Fallback al método genérico
