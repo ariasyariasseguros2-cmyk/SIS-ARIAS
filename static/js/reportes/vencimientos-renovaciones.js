@@ -16,6 +16,14 @@ document.addEventListener('DOMContentLoaded', function() {
     loadUsuarios();
     loadRamos();
 
+    // Listen for Cuota Saved event (from Modal)
+    document.addEventListener('cuota:saved', function(e) {
+        // Refresh the table maintaining current filters
+        if (filterForm) {
+            filterForm.dispatchEvent(new Event('submit'));
+        }
+    });
+
     if (filterForm) {
         filterForm.addEventListener('submit', function(e) {
             e.preventDefault();

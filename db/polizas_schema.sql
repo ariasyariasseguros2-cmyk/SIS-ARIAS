@@ -919,6 +919,13 @@ BEGIN
         p_poliza, p_cupon, p_fecha_vencimiento, p_moneda, p_importe,
         p_fecha_pago, p_factura, p_observacion, p_usuario
     );
+
+    -- Update poliza status to CANCELADO if payment date is present
+    IF p_fecha_pago IS NOT NULL THEN
+        UPDATE polizas
+        SET estado = 'CANCELADO'
+        WHERE TRIM(poliza) = TRIM(p_poliza);
+    END IF;
 END$$
 DELIMITER ;
 
@@ -1034,7 +1041,7 @@ BEGIN
         p.recibo AS aviso_cobranza,
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
-        (SELECT DATE_FORMAT(MAX(q.fecha_pago), '%d/%m/%Y') FROM cuotas q WHERE q.poliza = p.poliza) AS fecha_pago,
+        (SELECT DATE_FORMAT(MAX(q.fecha_pago), '%d/%m/%Y') FROM cuotas q WHERE TRIM(q.poliza) = TRIM(p.poliza)) AS fecha_pago,
         p.moneda,
         p.prima_neta AS prima_neta,
         p.prima_comercial_igv AS prima_total,
