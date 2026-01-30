@@ -103,6 +103,13 @@ class SanitasParser:
     @staticmethod
     def can_parse(text: str) -> bool:
         """deteccion de etipo de pdf"""
+        
+        # Evitar falsos positivos con Crecer Seguros (que a veces menciona SCTR)
+        # Patrón permisivo para "CRECER SEGUROS"
+        crecer_pattern = r'C\s*R\s*E\s*C\s*E\s*R\s*S\s*E\s*G\s*U\s*R\s*O\s*S'
+        if re.search(crecer_pattern, text, re.IGNORECASE):
+            return False
+
         indicators = [
             r'SANITAS.*PER[UÚ]',
             # r'LA POSITIVA', # Causaba conflicto con La Positiva EPS

@@ -7,6 +7,8 @@ import pdfplumber
 import PyPDF2
 from typing import Dict
 
+from controllers.clientes.parsers import crecer_pension_parser
+
 # Importar parsers especializados
 try:
     from controllers.clientes.parsers import (
@@ -17,7 +19,8 @@ try:
         CrecerParser,
         GenericParser,
         LaPositivaEPSParser,
-        LaPositivaVidaParser
+        LaPositivaVidaParser,
+        CrecerPensionParser
     )
 except ImportError:
     # Fallback si no se pueden importar
@@ -29,6 +32,7 @@ except ImportError:
     GenericParser = None
     LaPositivaEPSParser = None
     LaPositivaVidaParser = None
+    CrecerPensionParser = None
 
 
 class PDFClienteExtractor:
@@ -95,6 +99,11 @@ class PDFClienteExtractor:
             self.detected_company = 'pacifico'
             return 'pacifico'
 
+        # Detectar Crecer Pensiones (antes de Crecer normal para mayor especificidad)
+        if CrecerPensionParser and CrecerPensionParser.can_parse(self.text_content):
+            self.detected_company = 'crecer_pension'
+            return 'crecer_pension'
+
         # Detectar Crecer (antes de Sanitas porque puede tener "crecer" en el nombre)
         if CrecerParser and CrecerParser.can_parse(self.text_content):
             self.detected_company = 'crecer'
@@ -149,6 +158,9 @@ class PDFClienteExtractor:
                 self.extracted_data = parser.extract_all()
             elif company == 'sanitas' and SanitasParser:
                 parser = SanitasParser(self.text_content)
+                self.extracted_data = parser.extract_all()
+            elif company == 'crecer_pension' and CrecerPensionParser:
+                parser = CrecerPensionParser(self.text_content)
                 self.extracted_data = parser.extract_all()
             elif company == 'crecer' and CrecerParser:
                 parser = CrecerParser(self.text_content)
