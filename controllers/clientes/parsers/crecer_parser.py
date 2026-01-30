@@ -12,7 +12,7 @@ class CrecerParser:
         """Detecta si el PDF es de Crecer Seguros."""
         indicators = [
             r'CRECER SEGUROS',
-            r'R\.U\.C\.\s*20600098633',
+            r'R\.U\.C\.\s*',
         ]
         return any(re.search(pattern, text, re.IGNORECASE) for pattern in indicators)
 
@@ -20,9 +20,9 @@ class CrecerParser:
         """Extrae el nombre del contratante."""
         patterns = [
 
-            r'SE[ÑN]OR\s*\(ES\)\s*:\s*([A-ZÁÉÍÓÚÑ][^\n:]{5,100}?)(?:\s*FECHA|\s*RUC|\s*:|$)',
+            r'SE[ÑN]OR\s*\(ES\)\s*:\s*([A-ZÁÉÍÓÚÑ][^\n:]{5,100}?)(?:\s*FECHA|\s*RUC|\s*DNI|\s*:|$)',
 
-            r'CONTRATANTE\s*:\s*([A-ZÁÉÍÓÚÑ][^\n:]{5,100}?)(?:\s*RUC|\s*DIRECCI[OÓ]?[NI]N?|\s*:|$)',
+            r'CONTRATANTE\s*:\s*([A-ZÁÉÍÓÚÑ][^\n:]{5,100}?)(?:\s*RUC|\s*DNI|\s*DIRECCI[OÓ]?[NI]N?|\s*:|$)',
 
             r':{10,}.*?\b(\d{8,})\s+(\d{6,})\s+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ \.,&\']{10,80}?)\s+\d{8,11}\b',
         ]
@@ -41,23 +41,34 @@ class CrecerParser:
 
     def extract_ruc(self) -> Optional[str]:
         """RUC CONTRATANTE"""
+        # Priorizar patrones que vinculan explícitamente el RUC al contratante
         patterns = [
+            r'DNI/RUC\s*[:\s]\s*(\d{11})',
             r'SEÑOR.*?RUC\s*:\s*(\d{11})',
-            r'(?:^|\n)RUC\s*:\s*(\d{11})',
+            r'CONTRATANTE.*?RUC\s*:\s*(\d{11})',
         ]
 
         for pattern in patterns:
             match = re.search(pattern, self.text, re.IGNORECASE | re.DOTALL)
             if match:
-                ruc = match.group(1)
-                # Excluir RUC de Crecer
-                if ruc != '20600098633':
-                    return ruc
+                return match.group(1)
 
-        rucs = re.findall(r'\b(\d{11})\b', self.text)
-        for ruc in rucs:
-            if ruc != '20600098633' and ruc.startswith('20'):
-                return ruc
+        # Búsqueda general con exclusión contextual (evitar RUC de la aseguradora)
+        # Se asume que el RUC de la aseguradora está cerca de 'CRECER' o 'SEGUROS'
+        for match in re.finditer(r'\b(20\d{9})\b', self.text):
+            ruc = match.group(1)
+            start = match.start()
+            
+            # Contexto anterior (hasta 100 caracteres)
+            context_before = self.text[max(0, start-100):start].upper()
+            
+            # Si aparece el nombre de la aseguradora cerca
+            if ('CRECER' in context_before or 'SEGUROS' in context_before):
+                if not any(x in context_before for x in ['SEÑOR', 'CONTRATANTE', 'ASEGURADO', 'CLIENTE', 'DNI']):
+                    continue # Es probable que sea el RUC de la aseguradora
+            
+            return ruc
+
         return None
 
     def extract_dni(self) -> Optional[str]:
@@ -74,10 +85,12 @@ class CrecerParser:
     def extract_direccion(self) -> Optional[str]:
         """Extrae dirección del contratante."""
         patterns = [
+            r'DIRECCI[OÓ]?[NI]N?\s*[:.]?\s*((?:AV|JR|CA|CALLE|JIRON|AVENIDA|MZ|MZA|LOTE).*?)(?:\s*TEL[ÉE]FONO|\n|$)',
             r'DIRECCI[OÓ]?[NI]N?\s*:\s*((?:AV|JR|CA|CALLE|JIRON|AVENIDA|MZ|MZA|LOTE).*?)(?:\s*ORDEN\s+COMPRA|\s*FORMA\s+DE\s+PAGO|\s*C[OÓ]DIGO)',
             r'Direcci[oó]?[ni]n?\s*:\s*((?:AV|JR|CA|CALLE|JIRON|AVENIDA|MZ|MZA|LOTE).*?)(?:\s*ORDEN\s+COMPRA|\s*FORMA\s+DE\s+PAGO|\s*C[oó]digo)',
 
             r'((?:AV|JR|CA|CALLE|JIRON|AVENIDA|MZ|MZA|LOTE)[^\n]{5,150}(?:\n[^\n]{1,100})?)\s*DIRECCI[OÓ]?[NI]N?\s*:',
+            r'(?:Av|JR|CA|CALLE|JIRON|AVENIDA|MZ|MZA|LOTE)\s*([A-ZÁÉÍÓÚÑ0-9][^\n]{10,100}?)(?:\s+\d{4,6}\s*-|\s*RUC|\s*ACTIVIDAD)',
 
             r'DIRECCI[OÓ]?[NI]N?\s*:\s*([A-ZÁÉÍÓÚÑ0-9][^\n]{10,150}?)(?:\s+\d{4,6}\s*-|\s*RUC|\s*ACTIVIDAD)',
             r'Direcci[oó]?[ni]n?\s*:\s*([A-ZÁÉÍÓÚÑ0-9][^\n]{10,150}?)(?:\s+\d{4,6}\s*-|\s*RUC|\s*ACTIVIDAD)',
@@ -114,7 +127,7 @@ class CrecerParser:
 
     def extract_ubicacion_geografica(self) -> Dict[str, str]:
         """Extrae distrito, provincia y departamento de la dirección."""
-#( DISTRITO - PROVINCIA - DEPARTAMENTO) DISTRITO - PROVINCIA - DEPARTAMENTO)
+        # Patterns for (DISTRITO - PROVINCIA - DEPARTAMENTO)
         patterns = [
             # Con punto despues del paréntesis, permite saltos de línea (ANTES de DIRECCIÓN)
             r'\(\s*\.\s*([A-ZÁÉÍÓÚÑ\s]+?)\s*-\s*\n?\s*([A-ZÁÉÍÓÚÑ\s]+?)\s*-\s*([A-ZÁÉÍÓÚÑ\s]+)',
@@ -127,12 +140,11 @@ class CrecerParser:
             #  Distrito truncado en dirección + resto después
             r'\(\s*\.\s*([A-ZÁÉÍÓÚÑ\s]+?)\s*-\s*$',  # Distrito truncado
         ]
-        for pattern in patterns[:4]:
+        
+        for pattern in patterns:
             match = re.search(pattern, self.text, re.IGNORECASE | re.MULTILINE | re.DOTALL)
             if match:
-
                 if match.lastindex == 2 and pattern == patterns[3]:
-
                     distrito_match = re.search(r'\(\s*\.\s*([A-ZÁÉÍÓÚÑ\s]+?)\s*-\s*\n?\s*DIRECCI', self.text, re.IGNORECASE | re.DOTALL)
                     distrito = distrito_match.group(1).strip() if distrito_match else ""
                     provincia = match.group(1).strip()
@@ -142,17 +154,50 @@ class CrecerParser:
                     provincia = match.group(2).strip() if match.lastindex >= 2 else ""
                     departamento = match.group(3).strip() if match.lastindex >= 3 else ""
 
-                # Limpiar texto extra del departamento (como ORDEN COMPRA, FORMA DE PAGO, etc.)
+                # Limpiar texto extra del departamento
                 departamento = re.sub(r'\s*(ORDEN|COMPRA|FORMA|DE|PAGO).*$', '', departamento, flags=re.IGNORECASE).strip()
 
-                # Validar que no sean campos del encabezado de Crecer
                 if 'LIMA' not in distrito.upper() and 'ISIDRO' not in distrito.upper():
-                    if provincia and departamento:  # Asegurar que al menos tenemos provincia y departamento
+                    if provincia and departamento:
                         return {
                             'distrito': distrito.title() if distrito else '',
                             'provincia': provincia.title(),
                             'departamento': departamento.title()
                         }
+        
+        # Try to find location in Address line: "... - DEPARTAMENTO PROVINCIA DISTRITO"
+        inline_pattern = r'DIRECCI[OÓ]?[NI]N?\s*[:.]?.*?\s-\s*([A-ZÁÉÍÓÚÑ\s]+?)(?:\s*TEL[ÉE]FONO|\n|$)'
+        match = re.search(inline_pattern, self.text, re.IGNORECASE | re.DOTALL)
+        if match:
+             location_str = match.group(1).strip()
+             departments = ['AMAZONAS', 'ANCASH', 'APURIMAC', 'AREQUIPA', 'AYACUCHO', 'CAJAMARCA', 'CALLAO', 'CUSCO', 'HUANCAVELICA', 'HUANUCO', 'ICA', 'JUNIN', 'LA LIBERTAD', 'LAMBAYEQUE', 'LIMA', 'LORETO', 'MADRE DE DIOS', 'MOQUEGUA', 'PASCO', 'PIURA', 'PUNO', 'SAN MARTIN', 'TACNA', 'TUMBES', 'UCAYALI']
+             
+             found_dep = None
+             for dep in departments:
+                 if location_str.upper().startswith(dep):
+                     found_dep = dep
+                     break
+            
+             if found_dep:
+                 remaining = location_str[len(found_dep):].strip()
+                 parts = remaining.split()
+                 distrito = ""
+                 provincia = ""
+                 
+                 if len(parts) >= 1:
+                     # Check for multi-word district
+                     if len(parts) >= 2 and parts[-2].upper() in ['SAN', 'SANTA', 'LA', 'EL', 'LOS', 'LAS', 'VILLA', 'PUENTE', 'CERRO', 'NUEVO', 'BAJO', 'ALTO']:
+                         distrito = " ".join(parts[-2:])
+                         provincia = " ".join(parts[:-2])
+                     else:
+                         distrito = parts[-1]
+                         provincia = " ".join(parts[:-1])
+                 
+                 return {
+                     'distrito': distrito.title(),
+                     'provincia': provincia.title(),
+                     'departamento': found_dep.title()
+                 }
 
         return {'distrito': '', 'provincia': '', 'departamento': ''}
 
