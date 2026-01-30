@@ -84,16 +84,22 @@ class CrecerParser:
 
     def extract_direccion(self) -> Optional[str]:
         """Extrae dirección del contratante."""
+        # Prefijos de dirección extendidos
+        prefixes = r'AV|JR|CA|CALLE|JIRON|AVENIDA|MZ|MZA|LOTE|PASAJE|PSJE|PJ|CARRETERA|KM'
+        
         patterns = [
-            r'DIRECCI[OÓ]?[NI]N?\s*[:.]?\s*((?:AV|JR|CA|CALLE|JIRON|AVENIDA|MZ|MZA|LOTE).*?)(?:\s*TEL[ÉE]FONO|\n|$)',
-            r'DIRECCI[OÓ]?[NI]N?\s*:\s*((?:AV|JR|CA|CALLE|JIRON|AVENIDA|MZ|MZA|LOTE).*?)(?:\s*ORDEN\s+COMPRA|\s*FORMA\s+DE\s+PAGO|\s*C[OÓ]DIGO)',
-            r'Direcci[oó]?[ni]n?\s*:\s*((?:AV|JR|CA|CALLE|JIRON|AVENIDA|MZ|MZA|LOTE).*?)(?:\s*ORDEN\s+COMPRA|\s*FORMA\s+DE\s+PAGO|\s*C[oó]digo)',
+            # Patrón específico con prefijo conocido
+            rf'DIRECCI[OÓ]?[NI]N?\s*[:.]?\s*((?:{prefixes}).*?)(?:\s*TEL[ÉE]FONO|\n|$)',
+            rf'DIRECCI[OÓ]?[NI]N?\s*:\s*((?:{prefixes}).*?)(?:\s*ORDEN\s+COMPRA|\s*FORMA\s+DE\s+PAGO|\s*C[OÓ]DIGO)',
+            
+            # Patrones genéricos (sin prefijo obligatorio, pero después de DIRECCIÓN)
+            r'DIRECCI[OÓ]?[NI]N?\s*[:.]?\s*([A-ZÁÉÍÓÚÑ0-9][^\n]*?)(?:\s*TEL[ÉE]FONO|\n|$)',
 
-            r'((?:AV|JR|CA|CALLE|JIRON|AVENIDA|MZ|MZA|LOTE)[^\n]{5,150}(?:\n[^\n]{1,100})?)\s*DIRECCI[OÓ]?[NI]N?\s*:',
-            r'(?:Av|JR|CA|CALLE|JIRON|AVENIDA|MZ|MZA|LOTE)\s*([A-ZÁÉÍÓÚÑ0-9][^\n]{10,100}?)(?:\s+\d{4,6}\s*-|\s*RUC|\s*ACTIVIDAD)',
-
+            # Patrones antiguos
+            rf'((?:{prefixes})[^\n]{{5,150}}(?:\n[^\n]{{1,100}})?)\s*DIRECCI[OÓ]?[NI]N?\s*:',
+            
+            # Fallback genérico
             r'DIRECCI[OÓ]?[NI]N?\s*:\s*([A-ZÁÉÍÓÚÑ0-9][^\n]{10,150}?)(?:\s+\d{4,6}\s*-|\s*RUC|\s*ACTIVIDAD)',
-            r'Direcci[oó]?[ni]n?\s*:\s*([A-ZÁÉÍÓÚÑ0-9][^\n]{10,150}?)(?:\s+\d{4,6}\s*-|\s*RUC|\s*ACTIVIDAD)',
         ]
 
         for pattern in patterns:
@@ -102,16 +108,22 @@ class CrecerParser:
                 direccion = match.group(1).strip()
 
                 if not any(x in direccion for x in ['Jorge Basadre', 'SAN ISIDRO']):
-
                     direccion = re.sub(r'\s+', ' ', direccion)
 
                     direccion = re.sub(r'\(\s*\.\s*[A-ZÁÉÍÓÚÑ\s]+-\s*[A-ZÁÉÍÓÚÑ\s]+-\s*[A-ZÁÉÍÓÚÑ\s]+', '', direccion, flags=re.IGNORECASE)
-
                     direccion = re.sub(r'\(\s*\.\s*[A-ZÁÉÍÓÚÑ\s]+-?\s*$', '', direccion, flags=re.IGNORECASE)
-
                     direccion = re.sub(r'\s*(FORMA\s+DE\s+PAGO|ORDEN\s+COMPRA|C[OÓ]DIGO).*$', '', direccion, flags=re.IGNORECASE)
-
                     direccion = re.sub(r'\s+\d{4,6}\s*-\s*[A-Z].*$', '', direccion, flags=re.IGNORECASE)
+                    
+                    # Eliminar ubicación geográfica al final si existe (separada por guión)
+                    # Ej: "... - UCAYALI CORONEL PORTILLO MANANTAY"
+                    location_match = re.search(r'\s+-\s*([A-ZÁÉÍÓÚÑ\s]+)$', direccion)
+                    if location_match:
+                         departments = ['AMAZONAS', 'ANCASH', 'APURIMAC', 'AREQUIPA', 'AYACUCHO', 'CAJAMARCA', 'CALLAO', 'CUSCO', 'HUANCAVELICA', 'HUANUCO', 'ICA', 'JUNIN', 'LA LIBERTAD', 'LAMBAYEQUE', 'LIMA', 'LORETO', 'MADRE DE DIOS', 'MOQUEGUA', 'PASCO', 'PIURA', 'PUNO', 'SAN MARTIN', 'TACNA', 'TUMBES', 'UCAYALI']
+                         loc_part = location_match.group(1).upper()
+                         if any(dep in loc_part for dep in departments):
+                             direccion = direccion[:location_match.start()].strip()
+
                     return direccion.strip()
         return None
 
