@@ -110,6 +110,11 @@ class SanitasParser:
         if re.search(crecer_pattern, text, re.IGNORECASE):
             return False
 
+        # Evitar falsos positivos con Protecta
+        protecta_pattern = r'P\s*R\s*O\s*T\s*E\s*C\s*T\s*A'
+        if re.search(protecta_pattern, text, re.IGNORECASE):
+            return False
+
         indicators = [
             r'SANITAS.*PER[UÚ]',
             # r'LA POSITIVA', # Causaba conflicto con La Positiva EPS
