@@ -1150,8 +1150,13 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
             prov = 'pacifico'
 
     # NUEVO: Detectar Crecer Seguros explícitamente (prioridad sobre Positiva/Sanitas)
-    if "crecer seguros" in t or re.search(r"\bcrecer\b", t):
-        prov = "crecer"
+    # Respetar si ya viene como vida-ley-crecer
+    if prov != "vida-ley-crecer" and ("crecer seguros" in t or re.search(r"\bcrecer\b", t)):
+        # Si detectamos Vida Ley en el contenido, forzamos el proveedor correcto
+        if "vida ley" in t or "decreto legislativo" in t:
+             prov = "vida-ley-crecer"
+        else:
+             prov = "crecer"
 
     # NUEVO: si vino 'pacifico' o 'positiva' desde UI pero el contenido dice 'sanitas', fuerza Sanitas
     if prov in ('pacifico', 'positiva', 'protecta') and 'sanitas' in low:
@@ -1280,6 +1285,14 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
     
     if prov == "vida-ley-crecer":
         from controllers.addCrecerVidaLey import parse_crecer_vidaley
+        # NUEVO: Variante pocos datos
+        from controllers.addCrecer_vida_ley_pocos_datos import parse_crecer_vidaley_pocos_datos
+        
+        if "DATOS DE LA POLIZA DE SEGURO" in text or "Prima Comercial + IGV" in text:
+            item = parse_crecer_vidaley_pocos_datos(text)
+            print("[provider] vida-ley-crecer (pocos datos) item:", item)
+            return [item] if item else []
+
         item = parse_crecer_vidaley(text)
         print("[provider] vida-ley-crecer item:", item)
         return [item] if item else []

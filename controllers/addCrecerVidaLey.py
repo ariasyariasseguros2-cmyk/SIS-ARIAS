@@ -254,6 +254,6 @@ def parse_crecer_vidaley(text: str) -> Dict[str, str]:
     
     item["numero_documento_extracted"] = ruc_candidato
 
-    print("item", item)
+    print("item vida ley", item)
     return {k: _clean(v) for k, v in item.items() if v}
     
