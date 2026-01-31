@@ -1509,6 +1509,24 @@ def api_update_siniestro(id):
     from controllers.siniestros.siniestros_controller import update_siniestro
     return update_siniestro(id)
 
+@bp.route('/api/siniestros/grupo-ramo', methods=['GET'])     ##1513 linea
+def api_get_grupo_ramo_poliza():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    from controllers.siniestros.siniestros_controller import get_grupo_ramo_poliza
+    return get_grupo_ramo_poliza()
+
+# Ruta para servir los formularios HTML de siniestros
+@bp.route('/templates/view/siniestros/<filename>')
+def serve_siniestro_form(filename):
+    """Sirve los archivos HTML de formularios de siniestros"""
+    try:
+        # Ruta absoluta a la carpeta templates
+        templates_dir = os.path.join(current_app.root_path, 'templates', 'view', 'siniestros')
+        return send_from_directory(templates_dir, filename)
+    except Exception as e:
+        return f'Error al cargar formulario: {str(e)}', 404
+
 @bp.route('/api/siniestros/<int:id>', methods=['DELETE'])
 def api_delete_siniestro(id):
     if 'user' not in session:
