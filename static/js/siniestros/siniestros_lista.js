@@ -3,12 +3,30 @@ let siniestrosFiltrados = [];
 let modalSiniestro;
 
 document.addEventListener('DOMContentLoaded', function() {
-    modalSiniestro = new bootstrap.Modal(document.getElementById('modalSiniestro'));
+    modalSiniestro = new bootstrap.Modal(document.getElementById('modalSiniestro'), {
+        backdrop: 'static',
+        keyboard: false
+    });
 
     cargarSiniestros();
 
     document.getElementById('formSiniestro').addEventListener('submit', guardarSiniestro);
     document.getElementById('searchInput').addEventListener('input', filtrarSiniestros);
+
+    // Limpiar el modal cuando se oculta
+    document.getElementById('modalSiniestro').addEventListener('hidden.bs.modal', function() {
+        document.getElementById('formSiniestro').reset();
+        document.getElementById('siniestroId').value = '';
+        document.getElementById('grupoRamoActual').value = '';
+        document.getElementById('formularioDinamico').innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando formulario...</span>
+                </div>
+                <p class="mt-3 text-muted">Cargando formulario...</p>
+            </div>
+        `;
+    });
 });
 
 async function cargarSiniestros() {
@@ -31,7 +49,7 @@ function renderizarTabla(data) {
     if (data.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="15" class="text-center text-muted py-4">No tenemos datos disponibles</td>
+                <td colspan="13" class="text-center text-muted py-4">No tenemos datos disponibles</td>
             </tr>
         `;
         return;
@@ -46,13 +64,11 @@ function renderizarTabla(data) {
             <td>${siniestro.fec_stro || ''}</td>
             <td>${siniestro.causa || ''}</td>
             <td>${siniestro.siniestro_no || ''}</td>
-            <td class="text-end">${formatNumber(siniestro.provision) || '0.00'}</td>
+            <td class="text-end">${formatNumber(siniestro.monto_siniestro) || '0.00'}</td>
             <td><span class="badge badge-${getEstadoClass(siniestro.estado)}">${siniestro.estado || 'PENDIENTE'}</span></td>
-            <td>${siniestro.ejec || ''}</td>
+            <td>${siniestro.ejecutivo_cia || ''}</td>
             <td>${siniestro.ramo || ''}</td>
             <td>${siniestro.placa || ''}</td>
-            <td>${siniestro.fec_gestion || ''}</td>
-            <td>${siniestro.prox_gestion || ''}</td>
             <td class="text-end">
                 <div class="chips-row">
                     <span class="chip chip-primary" role="button" onclick="editarSiniestro(${siniestro.id})" title="Editar">EDITAR</span>
@@ -90,57 +106,406 @@ function abrirModalNuevo() {
 
 async function editarSiniestro(id) {
     try {
+        // Resetear el contenedor antes de mostrar el modal
+        const contenedor = document.getElementById('formularioDinamico');
+        contenedor.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando formulario...</span>
+                </div>
+                <p class="mt-3 text-muted">Cargando datos del siniestro...</p>
+            </div>
+        `;
+
+        // Cargar datos del siniestro
         const response = await fetch(`/api/siniestros/${id}`);
+        if (!response.ok) {
+            throw new Error('No se pudo cargar el siniestro');
+        }
+
         const siniestro = await response.json();
+        console.log('Datos del siniestro a editar:', siniestro);
 
-        document.getElementById('modalTitle').textContent = 'Editar Siniestro';
+        // Actualizar título del modal
+        document.getElementById('modalTitle').innerHTML = '<i class="bi bi-pencil-square"></i> Editar Siniestro';
         document.getElementById('siniestroId').value = siniestro.id;
-        document.getElementById('contratante').value = siniestro.contratante || '';
-        document.getElementById('poliza').value = siniestro.poliza || '';
-        document.getElementById('poliza').removeAttribute('readonly');
-        document.getElementById('cia').value = siniestro.cia || '';
-        document.getElementById('ramo').value = siniestro.ramo || '';
 
-        const fecStroFormatted = formatDateForInput(siniestro.fec_stro);
-        const fecGestionFormatted = formatDateForInput(siniestro.fec_gestion);
-        const proxGestionFormatted = formatDateForInput(siniestro.prox_gestion);
+        // Guardar el grupo del ramo
+        const grupoRamo = siniestro.grupo_ramo || 'GENERICO';
+        document.getElementById('grupoRamoActual').value = grupoRamo;
 
-        document.getElementById('fecStro').value = fecStroFormatted;
-        document.getElementById('siniestroNo').value = siniestro.siniestro_no || '';
-        document.getElementById('causa').value = siniestro.causa || '';
-        document.getElementById('provision').value = siniestro.provision || '0.00';
-        document.getElementById('estado').value = siniestro.estado || 'PENDIENTE';
-        document.getElementById('placa').value = siniestro.placa || '';
-        document.getElementById('ejec').value = siniestro.ejec || '';
-        document.getElementById('fecGestion').value = fecGestionFormatted;
-        document.getElementById('proxGestion').value = proxGestionFormatted;
-
+        // Mostrar modal
         modalSiniestro.show();
+
+        // Cargar el formulario correspondiente al grupo
+        await cargarFormularioPorGrupo(
+            grupoRamo,
+            siniestro.poliza,
+            siniestro.contratante,
+            siniestro.cia,
+            siniestro.ramo
+        );
+
+        // Esperar a que el formulario se cargue y entonces llenar los campos
+        setTimeout(() => {
+            preLlenarFormularioEdicion(siniestro);
+        }, 300);
+
     } catch (error) {
         console.error('Error al cargar siniestro:', error);
-        mostrarError('Error al cargar el siniestro');
+        mostrarError('Error al cargar el siniestro: ' + error.message);
+        modalSiniestro.hide();
     }
+}
+
+async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramo) {
+    const contenedor = document.getElementById('formularioDinamico');
+
+    try {
+        let formUrl = '';
+
+        // Determinar qué formulario cargar según el grupo
+        switch(grupo) {
+            case 'RRGG':
+                formUrl = '/templates/view/siniestros/form_siniestro_rrgg.html';
+                break;
+            case 'VEHICULOS':
+                formUrl = '/templates/view/siniestros/form_siniestro_vehiculos.html';
+                break;
+            case 'RRHH':
+                formUrl = '/templates/view/siniestros/form_siniestro_rrhh.html';
+                break;
+            case 'OTROS':
+                formUrl = '/templates/view/siniestros/form_siniestro_otros.html';
+                break;
+            default:
+                formUrl = '/templates/view/siniestros/form_siniestro_generico.html';
+                break;
+        }
+
+        console.log(`Cargando formulario ${grupo} desde: ${formUrl}`);
+
+        const response = await fetch(formUrl);
+        if (!response.ok) {
+            throw new Error(`Error al cargar formulario: ${response.status}`);
+        }
+
+        const html = await response.text();
+        contenedor.innerHTML = html;
+
+        // Pre-llenar los campos comunes después de cargar el formulario
+        setTimeout(() => {
+            const polizaInput = document.getElementById('poliza');
+            const contratanteInput = document.getElementById('contratante');
+            const aseguradoInput = document.getElementById('asegurado');
+            const ciaInput = document.getElementById('cia');
+            const ramoInput = document.getElementById('ramo');
+            const estadoInput = document.getElementById('estado');
+
+            if (polizaInput) polizaInput.value = poliza || '';
+            if (contratanteInput) contratanteInput.value = contratante || '';
+            if (aseguradoInput) aseguradoInput.value = contratante || '';
+            if (ciaInput) ciaInput.value = cia || '';
+            if (ramoInput) ramoInput.value = ramo || '';
+            if (estadoInput) estadoInput.value = 'PENDIENTE';
+
+            // Ejecutar scripts embebidos en el formulario
+            const scripts = contenedor.querySelectorAll('script');
+            scripts.forEach(script => {
+                const newScript = document.createElement('script');
+                newScript.textContent = script.textContent;
+                document.body.appendChild(newScript);
+                document.body.removeChild(newScript);
+            });
+
+            console.log(`Formulario ${grupo} cargado y pre-llenado correctamente`);
+        }, 100);
+
+    } catch (error) {
+        console.error('Error al cargar formulario:', error);
+        contenedor.innerHTML = `
+            <div class="alert alert-danger mb-3">
+                <i class="bi bi-exclamation-triangle"></i> 
+                <strong>Error al cargar formulario:</strong> ${error.message}
+                <br><small>Grupo: ${grupo}</small>
+            </div>
+            <div class="text-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        `;
+    }
+}
+
+function preLlenarFormularioEdicion(siniestro) {
+    console.log('Pre-llenando formulario con:', siniestro);
+
+    // Función auxiliar para setear valor si el elemento existe
+    const setVal = (id, value) => {
+        const elem = document.getElementById(id);
+        if (elem) elem.value = value || '';
+    };
+
+    // Campos comunes
+    setVal('poliza', siniestro.poliza);
+    setVal('cia', siniestro.cia);
+    setVal('ramo', siniestro.ramo);
+    setVal('contratante', siniestro.contratante);
+    setVal('asegurado', siniestro.asegurado);
+    setVal('fecPresentacionBroker', siniestro.fec_presentacion_broker);
+    setVal('fecAvisoCia', siniestro.fec_aviso_cia);
+    setVal('fecStro', siniestro.fec_stro);
+    setVal('horaSiniestro', siniestro.hora_siniestro);
+    setVal('quienReporta', siniestro.quien_reporta);
+    setVal('email', siniestro.email);
+    setVal('telefonos', siniestro.telefonos);
+    setVal('lugarSiniestro', siniestro.lugar_siniestro);
+    setVal('causa', siniestro.causa);
+    setVal('descripcionHechos', siniestro.descripcion_hechos);
+    setVal('siniestroNo', siniestro.siniestro_no);
+    setVal('ejecutivoCia', siniestro.ejecutivo_cia);
+    setVal('estado', siniestro.estado);
+
+    // Indemnización
+    setVal('moneda', siniestro.moneda);
+    setVal('montoSiniestro', siniestro.monto_siniestro);
+    setVal('deducible', siniestro.deducible);
+    setVal('descripcionDeducible', siniestro.descripcion_deducible);
+    setVal('totalIndemnizar', siniestro.total_indemnizar);
+    setVal('fecPago', siniestro.fec_pago);
+    setVal('formaPago', siniestro.forma_pago);
+    setVal('numeroCheque', siniestro.numero_cheque);
+    setVal('banco', siniestro.banco);
+
+    // Factura
+    setVal('numeroFactura', siniestro.numero_factura);
+    setVal('montoPagarFactura', siniestro.monto_pagar_factura);
+    setVal('fecVencimientoFactura', siniestro.fec_vencimiento_factura);
+    setVal('fecPagoFactura', siniestro.fec_pago_factura);
+
+    // Campos específicos RRGG
+    if (siniestro.grupo_ramo === 'RRGG') {
+        setVal('liquidadorAjustador', siniestro.liquidador_ajustador);
+        setVal('conductor', siniestro.conductor);
+        setVal('tercero', siniestro.tercero);
+        setVal('comisaria', siniestro.comisaria);
+        setVal('numeroDenuncia', siniestro.numero_denuncia);
+        setVal('fecDenunciaPolicial', siniestro.fec_denuncia_policial);
+        setVal('fecEntregaDocAjustador', siniestro.fec_entrega_doc_ajustador);
+        setVal('fecEntregaDocCia', siniestro.fec_entrega_doc_cia);
+        setVal('fecCiaConsentido', siniestro.fec_cia_consentido);
+        setVal('numeroAjuste', siniestro.numero_ajuste);
+    }
+
+    // Campos específicos VEHICULOS
+    if (siniestro.grupo_ramo === 'VEHICULOS') {
+        setVal('fecNotificacionBroker', siniestro.fec_notificacion_broker);
+        setVal('horaContacto', siniestro.hora_contacto);
+        setVal('horaCulminacion', siniestro.hora_culminacion);
+        setVal('tipoAtencion', siniestro.tipo_atencion);
+        setVal('fecPresentacionCia', siniestro.fec_presentacion_cia);
+        setVal('situacion', siniestro.situacion);
+        setVal('vehiculoPlaca', siniestro.placa);
+
+        // Cargar datos JSON de vehículo si existen
+        if (siniestro.datos_vehiculo) {
+            const vehiculo = siniestro.datos_vehiculo;
+            setVal('vehiculoMarca', vehiculo.marca);
+            setVal('vehiculoModelo', vehiculo.modelo);
+            setVal('vehiculoMotor', vehiculo.motor);
+            setVal('vehiculoAnio', vehiculo.anio);
+            setVal('vehiculoColor', vehiculo.color);
+            setVal('vehiculoPropietario', vehiculo.propietario);
+            setVal('vehiculoSituacionEvento', vehiculo.situacion_evento);
+            setVal('vehiculoTaller', vehiculo.taller);
+        }
+    }
+
+    // Campos específicos RRHH
+    if (siniestro.grupo_ramo === 'RRHH') {
+        setVal('fecAtencionMedica', siniestro.fec_atencion_medica);
+        setVal('tipoPersona', siniestro.tipo_persona);
+        setVal('titular', siniestro.titular);
+        setVal('paciente', siniestro.paciente);
+        setVal('diagnostico', siniestro.diagnostico);
+        setVal('coaseguro', siniestro.coaseguro);
+        setVal('noCubierto', siniestro.no_cubierto);
+
+        // Cargar gastos si existen
+        if (siniestro.gastos_presentados && Array.isArray(siniestro.gastos_presentados)) {
+            // Aquí deberías tener una función para cargar los gastos en la tabla
+            console.log('Gastos a cargar:', siniestro.gastos_presentados);
+        }
+    }
+
+    console.log('Formulario pre-llenado correctamente');
 }
 
 async function guardarSiniestro(event) {
     event.preventDefault();
 
     const id = document.getElementById('siniestroId').value;
-    const data = {
-        contratante: document.getElementById('contratante').value,
-        poliza: document.getElementById('poliza').value,
-        cia: document.getElementById('cia').value,
-        ramo: document.getElementById('ramo').value,
-        fec_stro: document.getElementById('fecStro').value,
-        siniestro_no: document.getElementById('siniestroNo').value,
-        causa: document.getElementById('causa').value,
-        provision: parseFloat(document.getElementById('provision').value) || 0.00,
-        estado: document.getElementById('estado').value,
-        placa: document.getElementById('placa').value,
-        ejec: document.getElementById('ejec').value,
-        fec_gestion: document.getElementById('fecGestion').value || null,
-        prox_gestion: document.getElementById('proxGestion').value || null
+    const grupoRamo = document.getElementById('grupoRamoActual').value;
+
+    // Función auxiliar para obtener valor de campo si existe
+    const getVal = (id) => {
+        const elem = document.getElementById(id);
+        return elem ? elem.value : null;
     };
+
+    // Datos comunes para todos los formularios
+    const data = {
+        grupo_ramo: grupoRamo,
+        poliza: getVal('poliza'),
+        cia: getVal('cia'),
+        ramo: getVal('ramo'),
+        contratante: getVal('contratante'),
+        asegurado: getVal('asegurado'),
+        fec_stro: getVal('fecStro'),
+        hora_siniestro: getVal('horaSiniestro'),
+        quien_reporta: getVal('quienReporta'),
+        email: getVal('email'),
+        telefonos: getVal('telefonos'),
+        lugar_siniestro: getVal('lugarSiniestro'),
+        causa: getVal('causa'),
+        descripcion_hechos: getVal('descripcionHechos'),
+        siniestro_no: getVal('siniestroNo'),
+        ejecutivo_cia: getVal('ejecutivoCia'),
+        estado: getVal('estado') || 'PENDIENTE',
+
+        // Indemnización (común)
+        moneda: getVal('moneda') || 'US$',
+        monto_siniestro: parseFloat(getVal('montoSiniestro')) || 0,
+        deducible: parseFloat(getVal('deducible')) || 0,
+        descripcion_deducible: getVal('descripcionDeducible'),
+        total_indemnizar: parseFloat(getVal('totalIndemnizar')) || 0,
+        fec_pago: getVal('fecPago'),
+        forma_pago: getVal('formaPago'),
+        numero_cheque: getVal('numeroCheque'),
+        banco: getVal('banco'),
+
+        // Factura por deducible (común)
+        numero_factura: getVal('numeroFactura'),
+        monto_pagar_factura: parseFloat(getVal('montoPagarFactura')) || 0,
+        fec_vencimiento_factura: getVal('fecVencimientoFactura'),
+        fec_pago_factura: getVal('fecPagoFactura')
+    };
+
+    // Campos específicos de RRGG
+    if (grupoRamo === 'RRGG') {
+        data.fec_presentacion_broker = getVal('fecPresentacionBroker');
+        data.fec_aviso_cia = getVal('fecAvisoCia');
+        data.liquidador_ajustador = getVal('liquidadorAjustador');
+        data.conductor = getVal('conductor');
+        data.tercero = getVal('tercero');
+        data.comisaria = getVal('comisaria');
+        data.numero_denuncia = getVal('numeroDenuncia');
+        data.fec_denuncia_policial = getVal('fecDenunciaPolicial');
+        data.fec_entrega_doc_ajustador = getVal('fecEntregaDocAjustador');
+        data.fec_entrega_doc_cia = getVal('fecEntregaDocCia');
+        data.fec_cia_consentido = getVal('fecCiaConsentido');
+        data.numero_ajuste = getVal('numeroAjuste');
+    }
+
+    // Campos específicos de VEHICULOS
+    if (grupoRamo === 'VEHICULOS') {
+        data.fec_notificacion_broker = getVal('fecNotificacionBroker');
+        data.hora_contacto = getVal('horaContacto');
+        data.hora_culminacion = getVal('horaCulminacion');
+        data.tipo_atencion = getVal('tipoAtencion');
+        data.fec_presentacion_cia = getVal('fecPresentacionCia');
+        data.situacion = getVal('situacion');
+        data.placa = getVal('vehiculoPlaca');
+
+        // Datos del vehículo
+        data.vehiculo = {
+            placa: getVal('vehiculoPlaca'),
+            marca: getVal('vehiculoMarca'),
+            modelo: getVal('vehiculoModelo'),
+            motor: getVal('vehiculoMotor'),
+            anio: getVal('vehiculoAnio'),
+            color: getVal('vehiculoColor'),
+            propietario: getVal('vehiculoPropietario'),
+            situacion_evento: getVal('vehiculoSituacionEvento'),
+            taller: getVal('vehiculoTaller')
+        };
+
+        // Datos de la denuncia
+        data.denuncia = {
+            comisaria: getVal('denunciaComisaria'),
+            numero_denuncia: getVal('denunciaNumeroDenuncia'),
+            dosaje_etilico: getVal('denunciaDosajeEtilico'),
+            fec_denuncia: getVal('denunciaFecha'),
+            departamento: getVal('denunciaDepartamento'),
+            provincia: getVal('denunciaProvincia'),
+            distrito: getVal('denunciaDistrito')
+        };
+
+        // Datos del conductor
+        data.conductor = {
+            nombre: getVal('conductorNombre'),
+            documento_identidad: getVal('conductorDocumento'),
+            fec_nacimiento: getVal('conductorFecNacimiento'),
+            licencia_conducir: getVal('conductorLicencia'),
+            categoria_licencia: getVal('conductorCategoriaLicencia'),
+            email: getVal('conductorEmail'),
+            telefonos: getVal('conductorTelefonos')
+        };
+
+        // Datos del copiloto
+        data.copiloto = {
+            nombre: getVal('copilotoNombre'),
+            fec_nacimiento: getVal('copilotoFecNacimiento'),
+            licencia_conducir: getVal('copilotoLicencia'),
+            categoria_licencia: getVal('copilotoCategoriaLicencia'),
+            email: getVal('copilotoEmail'),
+            telefonos: getVal('copilotoTelefonos')
+        };
+
+        // Datos de terceros
+        data.tercero = {
+            conductor: getVal('terceroConductor'),
+            placa: getVal('terceroPlaca'),
+            domicilio: getVal('terceroDomicilio'),
+            licencia_conducir: getVal('terceroLicencia'),
+            propietario: getVal('terceroPropietario'),
+            direccion_propietario: getVal('terceroDireccionPropietario'),
+            email: getVal('terceroEmail'),
+            telefonos: getVal('terceroTelefonos')
+        };
+    }
+
+    // Campos específicos de RRHH
+    if (grupoRamo === 'RRHH') {
+        data.fec_presentacion_broker = getVal('fecPresentacionBroker');
+        data.fec_atencion_medica = getVal('fecAtencionMedica');
+        data.fec_aviso_cia = getVal('fecAvisoCia');
+        data.fec_presentacion_cia = getVal('fecPresentacionCia');
+        data.fec_cia_consentido = getVal('fecCiaConsentido');
+        data.tipo_persona = getVal('tipoPersona');
+        data.titular = getVal('titular');
+        data.paciente = getVal('paciente');
+        data.diagnostico = getVal('diagnostico');
+        data.coaseguro = parseFloat(getVal('coaseguro')) || 0;
+        data.no_cubierto = parseFloat(getVal('noCubierto')) || 0;
+
+        // Gastos presentados (de los campos ocultos)
+        const gastosData = getVal('gastosData');
+        data.gastos = gastosData ? JSON.parse(gastosData) : [];
+
+        // Documentos (de los campos ocultos)
+        const documentosData = getVal('documentosData');
+        data.documentos = documentosData ? JSON.parse(documentosData) : [];
+
+        // Bitácora (de los campos ocultos)
+        const bitacoraData = getVal('bitacoraData');
+        data.bitacora = bitacoraData ? JSON.parse(bitacoraData) : [];
+
+        // Archivos (de los campos ocultos)
+        const archivosData = getVal('archivosData');
+        data.archivos = archivosData ? JSON.parse(archivosData) : [];
+    }
+
+    console.log('Datos a enviar:', data);
 
     try {
         const url = id ? `/api/siniestros/${id}` : '/api/siniestros';
