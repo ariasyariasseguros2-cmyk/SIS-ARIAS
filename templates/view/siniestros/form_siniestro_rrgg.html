@@ -1,0 +1,301 @@
+<!-- Formulario de Siniestro para RRGG (Riesgos Generales) con Acordeón -->
+<input type="hidden" id="grupoRamo" value="RRGG">
+
+<div class="accordion" id="accordionRRGG">
+
+    <!-- SECCIÓN 1: INFORMACIÓN BÁSICA -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingInfoBasica">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseInfoBasica" aria-expanded="true" aria-controls="collapseInfoBasica">
+                <i class="bi bi-info-circle me-2"></i> INFORMACIÓN BÁSICA DE LA PÓLIZA
+            </button>
+        </h2>
+        <div id="collapseInfoBasica" class="accordion-collapse collapse show" aria-labelledby="headingInfoBasica" data-bs-parent="#accordionRRGG">
+            <div class="accordion-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label for="poliza" class="form-label">Póliza *</label>
+                        <input type="text" class="form-control" id="poliza" readonly required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="cia" class="form-label">Compañía *</label>
+                        <input type="text" class="form-control" id="cia" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="ramo" class="form-label">Ramo</label>
+                        <input type="text" class="form-control" id="ramo">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="contratante" class="form-label">Contratante *</label>
+                        <input type="text" class="form-control" id="contratante" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="asegurado" class="form-label">Asegurado *</label>
+                        <input type="text" class="form-control" id="asegurado" required>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 2: DATOS DEL SINIESTRO -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingSiniestro">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSiniestro" aria-expanded="false" aria-controls="collapseSiniestro">
+                <i class="bi bi-exclamation-triangle me-2"></i> DATOS DEL SINIESTRO
+            </button>
+        </h2>
+        <div id="collapseSiniestro" class="accordion-collapse collapse" aria-labelledby="headingSiniestro" data-bs-parent="#accordionRRGG">
+            <div class="accordion-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label for="fecPresentacionBroker" class="form-label">Fecha de presentación al Broker</label>
+                        <input type="date" class="form-control" id="fecPresentacionBroker">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="fecAvisoCia" class="form-label">Fecha de aviso a Compañía</label>
+                        <input type="date" class="form-control" id="fecAvisoCia">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="fecStro" class="form-label">Fecha de Siniestro *</label>
+                        <input type="date" class="form-control" id="fecStro" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="horaSiniestro" class="form-label">Hora Siniestro</label>
+                        <input type="text" class="form-control" id="horaSiniestro" placeholder="7:50 AM">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="quienReporta" class="form-label">Quien reporta</label>
+                        <input type="text" class="form-control" id="quienReporta">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="telefonos" class="form-label">Teléfonos</label>
+                        <input type="text" class="form-control" id="telefonos">
+                    </div>
+                    <div class="col-md-8">
+                        <label for="lugarSiniestro" class="form-label">Lugar Siniestro</label>
+                        <textarea class="form-control" id="lugarSiniestro" rows="2"></textarea>
+                    </div>
+                    <div class="col-md-12">
+                        <label for="causa" class="form-label">Causa</label>
+                        <textarea class="form-control" id="causa" rows="2"></textarea>
+                    </div>
+                    <div class="col-md-12">
+                        <label for="descripcionHechos" class="form-label">Descripción de los hechos</label>
+                        <textarea class="form-control" id="descripcionHechos" rows="3"></textarea>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="siniestroNo" class="form-label">Número de Siniestro</label>
+                        <input type="text" class="form-control" id="siniestroNo">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="ejecutivoCia" class="form-label">Ejecutivo de la Compañía</label>
+                        <input type="text" class="form-control" id="ejecutivoCia">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="estado" class="form-label">Estado</label>
+                        <select class="form-select" id="estado">
+                            <option value="PENDIENTE">PENDIENTE</option>
+                            <option value="EN_PROCESO">EN PROCESO</option>
+                            <option value="LIQUIDADO">LIQUIDADO</option>
+                            <option value="PAGADO">PAGADO</option>
+                            <option value="CERRADO">CERRADO</option>
+                            <option value="RECHAZADO">RECHAZADO</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 3: DATOS DEL AJUSTE Y DENUNCIA -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingAjuste">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAjuste" aria-expanded="false" aria-controls="collapseAjuste">
+                <i class="bi bi-clipboard-check me-2"></i> DATOS DEL AJUSTE Y DENUNCIA
+            </button>
+        </h2>
+        <div id="collapseAjuste" class="accordion-collapse collapse" aria-labelledby="headingAjuste" data-bs-parent="#accordionRRGG">
+            <div class="accordion-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="liquidadorAjustador" class="form-label">Liquidador / Ajustador</label>
+                        <input type="text" class="form-control" id="liquidadorAjustador">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="numeroAjuste" class="form-label">Número de Ajuste</label>
+                        <input type="text" class="form-control" id="numeroAjuste">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="conductor" class="form-label">Conductor</label>
+                        <input type="text" class="form-control" id="conductor">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="tercero" class="form-label">Tercero</label>
+                        <input type="text" class="form-control" id="tercero">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="comisaria" class="form-label">Comisaría</label>
+                        <input type="text" class="form-control" id="comisaria">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="numeroDenuncia" class="form-label">Número Denuncia</label>
+                        <input type="text" class="form-control" id="numeroDenuncia">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="fecDenunciaPolicial" class="form-label">Fecha Denuncia Policial</label>
+                        <input type="date" class="form-control" id="fecDenunciaPolicial">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="fecEntregaDocAjustador" class="form-label">Fecha Entrega Doc. Ajustador</label>
+                        <input type="date" class="form-control" id="fecEntregaDocAjustador">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="fecEntregaDocCia" class="form-label">Fecha Entrega Doc. Compañía</label>
+                        <input type="date" class="form-control" id="fecEntregaDocCia">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="fecCiaConsentido" class="form-label">Fecha Compañía da Consentido</label>
+                        <input type="date" class="form-control" id="fecCiaConsentido">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 4: INDEMNIZACIÓN -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingIndemnizacion">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseIndemnizacion" aria-expanded="false" aria-controls="collapseIndemnizacion">
+                <i class="bi bi-cash-coin me-2"></i> INDEMNIZACIÓN
+            </button>
+        </h2>
+        <div id="collapseIndemnizacion" class="accordion-collapse collapse" aria-labelledby="headingIndemnizacion" data-bs-parent="#accordionRRGG">
+            <div class="accordion-body">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <label for="moneda" class="form-label">Moneda</label>
+                        <select class="form-select" id="moneda">
+                            <option value="US$">US$</option>
+                            <option value="S/">S/</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="montoSiniestro" class="form-label">Monto Siniestro (Reserva, Provisión)</label>
+                        <input type="number" class="form-control" id="montoSiniestro" step="0.01" min="0">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="deducible" class="form-label">Deducible</label>
+                        <input type="number" class="form-control" id="deducible" step="0.01" min="0">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="totalIndemnizar" class="form-label">Total Indemnizar</label>
+                        <input type="number" class="form-control" id="totalIndemnizar" step="0.01" min="0">
+                    </div>
+                    <div class="col-md-12">
+                        <label for="descripcionDeducible" class="form-label">Descripción Deducible</label>
+                        <textarea class="form-control" id="descripcionDeducible" rows="2"></textarea>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="fecPago" class="form-label">Fecha de pago</label>
+                        <input type="date" class="form-control" id="fecPago">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="formaPago" class="form-label">Forma de pago</label>
+                        <select class="form-select" id="formaPago">
+                            <option value="">Seleccionar...</option>
+                            <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+                            <option value="CHEQUE">CHEQUE</option>
+                            <option value="EFECTIVO">EFECTIVO</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="numeroCheque" class="form-label">Número de cheque</label>
+                        <input type="text" class="form-control" id="numeroCheque">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="banco" class="form-label">Banco</label>
+                        <input type="text" class="form-control" id="banco">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 5: FACTURA POR DEDUCIBLE -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingFactura">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFactura" aria-expanded="false" aria-controls="collapseFactura">
+                <i class="bi bi-receipt me-2"></i> FACTURA POR DEDUCIBLE
+            </button>
+        </h2>
+        <div id="collapseFactura" class="accordion-collapse collapse" aria-labelledby="headingFactura" data-bs-parent="#accordionRRGG">
+            <div class="accordion-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="numeroFactura" class="form-label">Número de factura</label>
+                        <input type="text" class="form-control" id="numeroFactura">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="montoPagarFactura" class="form-label">Monto a pagar</label>
+                        <input type="number" class="form-control" id="montoPagarFactura" step="0.01" min="0">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="fecVencimientoFactura" class="form-label">Fecha de vencimiento</label>
+                        <input type="date" class="form-control" id="fecVencimientoFactura">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="fecPagoFactura" class="form-label">Fecha de pago</label>
+                        <input type="date" class="form-control" id="fecPagoFactura">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+.accordion-button {
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 0.875rem 1.25rem;
+    background-color: #f8f9fa;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.accordion-button:not(.collapsed)::after {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+}
+
+.accordion-item {
+    border: 1px solid #dee2e6;
+    margin-bottom: 0.5rem;
+    border-radius: 0.375rem !important;
+    overflow: hidden;
+}
+
+.accordion-body {
+    padding: 1.5rem;
+    background-color: white;
+}
+
+.form-label {
+    font-weight: 500;
+    font-size: 0.875rem;
+    margin-bottom: 0.375rem;
+    color: #495057;
+}
+
+.form-control, .form-select {
+    font-size: 0.875rem;
+}
+</style>

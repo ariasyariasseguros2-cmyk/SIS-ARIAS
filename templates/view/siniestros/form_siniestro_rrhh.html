@@ -1,0 +1,374 @@
+<!-- Formulario de Siniestro para RRHH (Recursos Humanos / Salud) con Acordeón -->
+<input type="hidden" id="grupoRamo" value="RRHH">
+
+<div class="accordion" id="accordionRRHH">
+
+    <!-- SECCIÓN 1: INFORMACIÓN BÁSICA -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingInfoBasica">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseInfoBasica" aria-expanded="true" aria-controls="collapseInfoBasica">
+                <i class="bi bi-info-circle me-2"></i> INFORMACIÓN BÁSICA DE LA PÓLIZA
+            </button>
+        </h2>
+        <div id="collapseInfoBasica" class="accordion-collapse collapse show" aria-labelledby="headingInfoBasica" data-bs-parent="#accordionRRHH">
+            <div class="accordion-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label for="poliza" class="form-label">Póliza *</label>
+                        <input type="text" class="form-control" id="poliza" readonly required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="cia" class="form-label">Compañía *</label>
+                        <input type="text" class="form-control" id="cia" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="ramo" class="form-label">Ramo</label>
+                        <input type="text" class="form-control" id="ramo">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="contratante" class="form-label">Contratante *</label>
+                        <input type="text" class="form-control" id="contratante" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="asegurado" class="form-label">Asegurado *</label>
+                        <input type="text" class="form-control" id="asegurado" required>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 2: DATOS DEL SINIESTRO SALUD -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingSiniestro">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSiniestro" aria-expanded="false" aria-controls="collapseSiniestro">
+                <i class="bi bi-hospital me-2"></i> DATOS DEL SINIESTRO DE SALUD
+            </button>
+        </h2>
+        <div id="collapseSiniestro" class="accordion-collapse collapse" aria-labelledby="headingSiniestro" data-bs-parent="#accordionRRHH">
+            <div class="accordion-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label for="fecPresentacionBroker" class="form-label">Fecha de presentación al Broker</label>
+                        <input type="date" class="form-control" id="fecPresentacionBroker">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="fecAtencionMedica" class="form-label">Fecha de Atención Médica</label>
+                        <input type="date" class="form-control" id="fecAtencionMedica">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="fecAvisoCia" class="form-label">Fecha de aviso a Compañía</label>
+                        <input type="date" class="form-control" id="fecAvisoCia">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="fecPresentacionCia" class="form-label">Fecha Presentación Compañía</label>
+                        <input type="date" class="form-control" id="fecPresentacionCia">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="fecCiaConsentido" class="form-label">Fecha Compañía da Consentido</label>
+                        <input type="date" class="form-control" id="fecCiaConsentido">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="quienReporta" class="form-label">Quien reporta</label>
+                        <input type="text" class="form-control" id="quienReporta">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="telefonos" class="form-label">Teléfonos</label>
+                        <input type="text" class="form-control" id="telefonos">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="tipoPersona" class="form-label">Tipo Persona</label>
+                        <select class="form-select" id="tipoPersona">
+                            <option value="">Seleccionar...</option>
+                            <option value="TITULAR">TITULAR</option>
+                            <option value="DEPENDIENTE">DEPENDIENTE</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="titular" class="form-label">Titular</label>
+                        <input type="text" class="form-control" id="titular">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="paciente" class="form-label">Paciente</label>
+                        <input type="text" class="form-control" id="paciente">
+                    </div>
+                    <div class="col-md-12">
+                        <label for="diagnostico" class="form-label">Diagnóstico</label>
+                        <textarea class="form-control" id="diagnostico" rows="3"></textarea>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="siniestroNo" class="form-label">Número de Siniestro</label>
+                        <input type="text" class="form-control" id="siniestroNo">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="ejecutivoCia" class="form-label">Ejecutivo de la Compañía</label>
+                        <input type="text" class="form-control" id="ejecutivoCia">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="estado" class="form-label">Estado</label>
+                        <select class="form-select" id="estado">
+                            <option value="PENDIENTE">PENDIENTE</option>
+                            <option value="EN_PROCESO">EN PROCESO</option>
+                            <option value="LIQUIDADO">LIQUIDADO</option>
+                            <option value="PAGADO">PAGADO</option>
+                            <option value="CERRADO">CERRADO</option>
+                            <option value="RECHAZADO">RECHAZADO</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 3: GASTOS PRESENTADOS -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingGastos">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGastos" aria-expanded="false" aria-controls="collapseGastos">
+                <i class="bi bi-list-check me-2"></i> GASTOS PRESENTADOS
+            </button>
+        </h2>
+        <div id="collapseGastos" class="accordion-collapse collapse" aria-labelledby="headingGastos" data-bs-parent="#accordionRRHH">
+            <div class="accordion-body">
+                <div class="mb-3">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="agregarGasto()">
+                        <i class="bi bi-plus-circle"></i> Agregar Gasto
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm" id="tablaGastos">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Descripción</th>
+                                <th>Monto</th>
+                                <th>Fecha</th>
+                                <th style="width: 50px;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gastosTableBody">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">No hay gastos registrados</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <input type="hidden" id="gastosData" value="[]">
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 4: INDEMNIZACIÓN -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingIndemnizacion">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseIndemnizacion" aria-expanded="false" aria-controls="collapseIndemnizacion">
+                <i class="bi bi-cash-coin me-2"></i> INDEMNIZACIÓN
+            </button>
+        </h2>
+        <div id="collapseIndemnizacion" class="accordion-collapse collapse" aria-labelledby="headingIndemnizacion" data-bs-parent="#accordionRRHH">
+            <div class="accordion-body">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <label for="moneda" class="form-label">Moneda</label>
+                        <select class="form-select" id="moneda">
+                            <option value="US$">US$</option>
+                            <option value="S/">S/</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="montoSiniestro" class="form-label">Monto Siniestro</label>
+                        <input type="number" class="form-control" id="montoSiniestro" step="0.01" min="0">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="deducible" class="form-label">Deducible</label>
+                        <input type="number" class="form-control" id="deducible" step="0.01" min="0">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="coaseguro" class="form-label">Coaseguro</label>
+                        <input type="number" class="form-control" id="coaseguro" step="0.01" min="0">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="noCubierto" class="form-label">No Cubierto</label>
+                        <input type="number" class="form-control" id="noCubierto" step="0.01" min="0">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="totalIndemnizar" class="form-label">Total Indemnizar</label>
+                        <input type="number" class="form-control" id="totalIndemnizar" step="0.01" min="0">
+                    </div>
+                    <div class="col-md-12">
+                        <label for="descripcionDeducible" class="form-label">Descripción Deducible</label>
+                        <textarea class="form-control" id="descripcionDeducible" rows="2"></textarea>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="fecPago" class="form-label">Fecha de pago</label>
+                        <input type="date" class="form-control" id="fecPago">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="formaPago" class="form-label">Forma de pago</label>
+                        <select class="form-select" id="formaPago">
+                            <option value="">Seleccionar...</option>
+                            <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+                            <option value="CHEQUE">CHEQUE</option>
+                            <option value="EFECTIVO">EFECTIVO</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="numeroCheque" class="form-label">Número de cheque</label>
+                        <input type="text" class="form-control" id="numeroCheque">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="banco" class="form-label">Banco</label>
+                        <input type="text" class="form-control" id="banco">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 5: FACTURA POR DEDUCIBLE -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingFactura">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFactura" aria-expanded="false" aria-controls="collapseFactura">
+                <i class="bi bi-receipt me-2"></i> FACTURA POR DEDUCIBLE
+            </button>
+        </h2>
+        <div id="collapseFactura" class="accordion-collapse collapse" aria-labelledby="headingFactura" data-bs-parent="#accordionRRHH">
+            <div class="accordion-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="numeroFactura" class="form-label">Número de factura</label>
+                        <input type="text" class="form-control" id="numeroFactura">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="montoPagarFactura" class="form-label">Monto a pagar</label>
+                        <input type="number" class="form-control" id="montoPagarFactura" step="0.01" min="0">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="fecVencimientoFactura" class="form-label">Fecha de vencimiento</label>
+                        <input type="date" class="form-control" id="fecVencimientoFactura">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="fecPagoFactura" class="form-label">Fecha de pago</label>
+                        <input type="date" class="form-control" id="fecPagoFactura">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// Gestión de gastos presentados
+let gastosArray = [];
+
+function agregarGasto() {
+    const tipo = prompt('Tipo de gasto (CONSULTA, MEDICAMENTOS, EXAMENES, HOSPITALIZACION, etc.):');
+    if (!tipo) return;
+
+    const descripcion = prompt('Descripción:');
+    if (!descripcion) return;
+
+    const monto = prompt('Monto:');
+    if (!monto) return;
+
+    const fecha = prompt('Fecha (YYYY-MM-DD):');
+    if (!fecha) return;
+
+    const gasto = {
+        tipo: tipo.toUpperCase(),
+        descripcion: descripcion,
+        monto: parseFloat(monto),
+        fecha: fecha
+    };
+
+    gastosArray.push(gasto);
+    actualizarTablaGastos();
+}
+
+function eliminarGasto(index) {
+    if (confirm('¿Está seguro de eliminar este gasto?')) {
+        gastosArray.splice(index, 1);
+        actualizarTablaGastos();
+    }
+}
+
+function actualizarTablaGastos() {
+    const tbody = document.getElementById('gastosTableBody');
+
+    if (gastosArray.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay gastos registrados</td></tr>';
+    } else {
+        tbody.innerHTML = gastosArray.map((gasto, index) => `
+            <tr>
+                <td>${gasto.tipo}</td>
+                <td>${gasto.descripcion}</td>
+                <td class="text-end">${gasto.monto.toFixed(2)}</td>
+                <td>${gasto.fecha}</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-danger" onclick="eliminarGasto(${index})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // Actualizar el campo oculto
+    document.getElementById('gastosData').value = JSON.stringify(gastosArray);
+}
+
+// Inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    actualizarTablaGastos();
+});
+</script>
+
+<style>
+.accordion-button {
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 0.875rem 1.25rem;
+    background-color: #f8f9fa;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.accordion-button:not(.collapsed)::after {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+}
+
+.accordion-item {
+    border: 1px solid #dee2e6;
+    margin-bottom: 0.5rem;
+    border-radius: 0.375rem !important;
+    overflow: hidden;
+}
+
+.accordion-body {
+    padding: 1.5rem;
+    background-color: white;
+}
+
+.form-label {
+    font-weight: 500;
+    font-size: 0.875rem;
+    margin-bottom: 0.375rem;
+    color: #495057;
+}
+
+.form-control, .form-select {
+    font-size: 0.875rem;
+}
+
+.table-sm td, .table-sm th {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+}
+</style>
