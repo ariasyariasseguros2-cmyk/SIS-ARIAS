@@ -1191,4 +1191,399 @@ ALTER TABLE clientes
   ADD INDEX idx_usuario_creacion (usuario_creacion),
   ADD INDEX idx_usuario_modificacion (usuario_modificacion);
 
+-- =====================================================
+-- MÓDULO DE SINIESTROS
+-- Tablas y procedimientos para gestión de siniestros
+-- =====================================================
+
+
+DROP TABLE IF EXISTS siniestros;
+
+CREATE TABLE siniestros (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    grupo_ramo VARCHAR(50) NOT NULL COMMENT 'RRGG, VEHICULOS, RRHH, OTROS',
+
+    -- Información básica de la póliza
+    poliza VARCHAR(50) NOT NULL,
+    cia VARCHAR(100) NOT NULL COMMENT 'Compañía aseguradora',
+    ramo VARCHAR(120) NOT NULL,
+    contratante VARCHAR(150) NOT NULL,
+    asegurado VARCHAR(150) NOT NULL,
+
+    -- Fechas comunes
+    fec_presentacion_broker DATE COMMENT 'Fecha presentación al Broker',
+    fec_aviso_cia DATE COMMENT 'Fecha aviso a compañía',
+    fec_presentacion_cia DATE COMMENT 'Fecha presentación a compañía',
+    fec_stro DATE COMMENT 'Fecha del siniestro',
+    fec_atencion_medica DATE COMMENT 'Fecha atención médica (RRHH)',
+    fec_notificacion_broker DATE COMMENT 'Fecha notificación broker (VEHICULOS)',
+
+    -- Información de contacto
+    hora_siniestro VARCHAR(20),
+    quien_reporta VARCHAR(150),
+    email TEXT,
+    telefonos VARCHAR(100),
+
+    -- Datos del siniestro
+    lugar_siniestro TEXT,
+    causa TEXT,
+    descripcion_hechos TEXT,
+    siniestro_no VARCHAR(50) COMMENT 'Número de siniestro de la CIA',
+    ejecutivo_cia VARCHAR(100),
+    estado VARCHAR(50) DEFAULT 'PENDIENTE' COMMENT 'PENDIENTE, EN_PROCESO, CERRADO, RECHAZADO',
+
+    -- Campos específicos RRGG
+    liquidador_ajustador VARCHAR(150),
+    conductor VARCHAR(150),
+    tercero VARCHAR(150),
+    comisaria VARCHAR(150),
+    numero_denuncia VARCHAR(50),
+    fec_denuncia_policial DATE,
+    fec_entrega_doc_ajustador DATE,
+    fec_entrega_doc_cia DATE,
+    fec_cia_consentido DATE,
+    numero_ajuste VARCHAR(50),
+
+    -- Campos específicos VEHICULOS
+    hora_contacto VARCHAR(20),
+    hora_culminacion VARCHAR(20),
+    tipo_atencion VARCHAR(50) COMMENT 'Tipo de atención vehicular',
+    situacion VARCHAR(50) COMMENT 'Situación del vehículo',
+    placa VARCHAR(20) COMMENT 'Placa del vehículo',
+
+    -- Campos específicos RRHH
+    tipo_persona VARCHAR(20) COMMENT 'TITULAR, DEPENDIENTE',
+    titular VARCHAR(150),
+    paciente VARCHAR(150),
+    diagnostico TEXT,
+    coaseguro DECIMAL(15,2) DEFAULT 0.00,
+    no_cubierto DECIMAL(15,2) DEFAULT 0.00,
+
+    -- Indemnización (común para todos)
+    moneda VARCHAR(10) DEFAULT 'US$',
+    monto_siniestro DECIMAL(15,2) DEFAULT 0.00,
+    deducible DECIMAL(15,2) DEFAULT 0.00,
+    descripcion_deducible TEXT,
+    total_indemnizar DECIMAL(15,2) DEFAULT 0.00,
+    fec_pago DATE,
+    forma_pago VARCHAR(50) COMMENT 'CHEQUE, TRANSFERENCIA, EFECTIVO',
+    numero_cheque VARCHAR(50),
+    banco VARCHAR(100),
+
+    -- Factura por deducible (común)
+    numero_factura VARCHAR(50),
+    monto_pagar_factura DECIMAL(15,2) DEFAULT 0.00,
+    fec_vencimiento_factura DATE,
+    fec_pago_factura DATE,
+
+    -- Datos JSON para estructuras complejas (VEHICULOS)
+    datos_vehiculo JSON COMMENT 'Datos del vehículo: marca, modelo, motor, año, color, propietario, situación, taller',
+    datos_denuncia JSON COMMENT 'Datos de denuncia policial: comisaría, número, dosaje etílico, fecha, departamento, provincia, distrito',
+    datos_conductor JSON COMMENT 'Datos del conductor: nombre, documento, fecha nacimiento, licencia, categoría, email, teléfonos',
+    datos_copiloto JSON COMMENT 'Datos del copiloto: nombre, fecha nacimiento, licencia, categoría, email, teléfonos',
+    datos_tercero JSON COMMENT 'Datos de terceros: conductor, placa, domicilio, licencia, propietario, dirección, email, teléfonos',
+
+    -- Datos JSON para RRHH
+    gastos_presentados JSON COMMENT 'Array de gastos presentados con detalle',
+
+    -- Auditoría
+    usuario_registro VARCHAR(50),
+    fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
+    usuario_modificacion VARCHAR(50),
+    fecha_modificacion DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    eliminado TINYINT(1) DEFAULT 0,
+
+    -- Índices para mejorar búsquedas
+    INDEX idx_poliza (poliza),
+    INDEX idx_grupo_ramo (grupo_ramo),
+    INDEX idx_contratante (contratante),
+    INDEX idx_estado (estado),
+    INDEX idx_fecha_siniestro (fec_stro),
+    INDEX idx_cia (cia),
+    INDEX idx_eliminado (eliminado),
+
+    -- Relación con la tabla de pólizas
+    CONSTRAINT fk_siniestro_poliza FOREIGN KEY (poliza)
+        REFERENCES polizas(poliza_certif)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Tabla principal de siniestros con soporte para múltiples grupos de ramos';
+
+-- =====================================================
+-- TABLAS RELACIONADAS PARA DOCUMENTOS Y BITÁCORA
+-- =====================================================
+
+-- Tabla para documentos de siniestros (RRHH)
+DROP TABLE IF EXISTS siniestro_documentos;
+
+CREATE TABLE siniestro_documentos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    siniestro_id INT NOT NULL,
+    tipo_documento VARCHAR(100) NOT NULL COMMENT 'INFORME MEDICO, RECETA, PROFORMA, etc.',
+    nombre_documento VARCHAR(255),
+    numero_documento VARCHAR(50),
+    fecha_documento DATE,
+    monto DECIMAL(15,2) DEFAULT 0.00,
+    archivo_path VARCHAR(500) COMMENT 'Ruta del archivo si está digitalizado',
+    observaciones TEXT,
+    usuario_registro VARCHAR(50),
+    fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
+    eliminado TINYINT(1) DEFAULT 0,
+
+    INDEX idx_siniestro (siniestro_id),
+    INDEX idx_tipo (tipo_documento),
+
+    CONSTRAINT fk_documento_siniestro FOREIGN KEY (siniestro_id)
+        REFERENCES siniestros(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Documentos relacionados a siniestros (principalmente para RRHH)';
+
+-- Tabla para bitácora de seguimiento
+DROP TABLE IF EXISTS siniestro_bitacora;
+
+CREATE TABLE siniestro_bitacora (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    siniestro_id INT NOT NULL,
+    fecha DATE NOT NULL,
+    hora VARCHAR(20),
+    descripcion TEXT NOT NULL,
+    responsable VARCHAR(100),
+    tipo_actividad VARCHAR(50) COMMENT 'LLAMADA, EMAIL, REUNION, VISITA, etc.',
+    usuario_registro VARCHAR(50),
+    fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
+    eliminado TINYINT(1) DEFAULT 0,
+
+    INDEX idx_siniestro (siniestro_id),
+    INDEX idx_fecha (fecha),
+    INDEX idx_tipo (tipo_actividad),
+
+    CONSTRAINT fk_bitacora_siniestro FOREIGN KEY (siniestro_id)
+        REFERENCES siniestros(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Bitácora de seguimiento de siniestros';
+
+-- Tabla para archivos adjuntos generales
+DROP TABLE IF EXISTS siniestro_archivos;
+
+CREATE TABLE siniestro_archivos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    siniestro_id INT NOT NULL,
+    nombre_archivo VARCHAR(255) NOT NULL,
+    tipo_archivo VARCHAR(100) COMMENT 'PDF, IMAGEN, EXCEL, WORD, etc.',
+    descripcion TEXT,
+    ruta_archivo VARCHAR(500) NOT NULL,
+    tamano_bytes BIGINT,
+    usuario_subida VARCHAR(50),
+    fecha_subida DATETIME DEFAULT CURRENT_TIMESTAMP,
+    eliminado TINYINT(1) DEFAULT 0,
+
+    INDEX idx_siniestro (siniestro_id),
+    INDEX idx_tipo (tipo_archivo),
+
+    CONSTRAINT fk_archivo_siniestro FOREIGN KEY (siniestro_id)
+        REFERENCES siniestros(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Archivos adjuntos relacionados a siniestros';
+
+-- =====================================================
+-- PROCEDIMIENTOS PARA INSERTAR DATOS RELACIONADOS
+-- =====================================================
+
+-- Procedimiento para insertar documento
+DROP PROCEDURE IF EXISTS sp_insert_siniestro_documento;
+
+DELIMITER $$
+CREATE PROCEDURE sp_insert_siniestro_documento(
+    IN p_siniestro_id INT,
+    IN p_tipo_documento VARCHAR(100),
+    IN p_nombre_documento VARCHAR(255),
+    IN p_numero_documento VARCHAR(50),
+    IN p_fecha_documento DATE,
+    IN p_monto DECIMAL(15,2),
+    IN p_archivo_path VARCHAR(500),
+    IN p_observaciones TEXT,
+    IN p_usuario VARCHAR(50)
+)
+BEGIN
+    INSERT INTO siniestro_documentos (
+        siniestro_id, tipo_documento, nombre_documento, numero_documento,
+        fecha_documento, monto, archivo_path, observaciones, usuario_registro
+    ) VALUES (
+        p_siniestro_id, p_tipo_documento, p_nombre_documento, p_numero_documento,
+        p_fecha_documento, p_monto, p_archivo_path, p_observaciones, p_usuario
+    );
+
+    SELECT LAST_INSERT_ID() AS id;
+END$$
+DELIMITER ;
+
+-- Procedimiento para insertar bitácora
+DROP PROCEDURE IF EXISTS sp_insert_siniestro_bitacora;
+
+DELIMITER $$
+CREATE PROCEDURE sp_insert_siniestro_bitacora(
+    IN p_siniestro_id INT,
+    IN p_fecha DATE,
+    IN p_hora VARCHAR(20),
+    IN p_descripcion TEXT,
+    IN p_responsable VARCHAR(100),
+    IN p_tipo_actividad VARCHAR(50),
+    IN p_usuario VARCHAR(50)
+)
+BEGIN
+    INSERT INTO siniestro_bitacora (
+        siniestro_id, fecha, hora, descripcion, responsable, tipo_actividad, usuario_registro
+    ) VALUES (
+        p_siniestro_id, p_fecha, p_hora, p_descripcion, p_responsable, p_tipo_actividad, p_usuario
+    );
+
+    SELECT LAST_INSERT_ID() AS id;
+END$$
+DELIMITER ;
+
+-- Procedimiento para insertar archivo
+DROP PROCEDURE IF EXISTS sp_insert_siniestro_archivo;
+
+DELIMITER $$
+CREATE PROCEDURE sp_insert_siniestro_archivo(
+    IN p_siniestro_id INT,
+    IN p_nombre_archivo VARCHAR(255),
+    IN p_tipo_archivo VARCHAR(100),
+    IN p_descripcion TEXT,
+    IN p_ruta_archivo VARCHAR(500),
+    IN p_tamano_bytes BIGINT,
+    IN p_usuario VARCHAR(50)
+)
+BEGIN
+    INSERT INTO siniestro_archivos (
+        siniestro_id, nombre_archivo, tipo_archivo, descripcion,
+        ruta_archivo, tamano_bytes, usuario_subida
+    ) VALUES (
+        p_siniestro_id, p_nombre_archivo, p_tipo_archivo, p_descripcion,
+        p_ruta_archivo, p_tamano_bytes, p_usuario
+    );
+
+    SELECT LAST_INSERT_ID() AS id;
+END$$
+DELIMITER ;
+
+-- =====================================================
+-- VISTAS ÚTILES
+-- =====================================================
+
+-- Vista consolidada de siniestros con información resumida
+DROP VIEW IF EXISTS v_siniestros_resumen;
+
+CREATE VIEW v_siniestros_resumen AS
+SELECT
+    s.id,
+    s.grupo_ramo,
+    s.poliza,
+    s.cia,
+    s.ramo,
+    s.contratante,
+    s.asegurado,
+    s.fec_stro,
+    s.siniestro_no,
+    s.causa,
+    s.estado,
+    s.monto_siniestro,
+    s.deducible,
+    s.total_indemnizar,
+    s.ejecutivo_cia,
+    s.placa,
+    s.fecha_registro,
+    -- Contar archivos relacionados
+    (SELECT COUNT(*) FROM siniestro_archivos WHERE siniestro_id = s.id AND eliminado = 0) AS total_archivos,
+    -- Contar documentos relacionados
+    (SELECT COUNT(*) FROM siniestro_documentos WHERE siniestro_id = s.id AND eliminado = 0) AS total_documentos,
+    -- Última actualización de bitácora
+    (SELECT MAX(fecha) FROM siniestro_bitacora WHERE siniestro_id = s.id AND eliminado = 0) AS ultima_actividad
+FROM siniestros s
+WHERE s.eliminado = 0;
+
+-- Vista específica para siniestros de RRGG
+DROP VIEW IF EXISTS v_siniestros_rrgg;
+
+CREATE VIEW v_siniestros_rrgg AS
+SELECT
+    id, poliza, cia, ramo, contratante, asegurado,
+    fec_presentacion_broker, fec_aviso_cia, fec_stro,
+    quien_reporta, email, telefonos,
+    lugar_siniestro, causa, descripcion_hechos,
+    siniestro_no, ejecutivo_cia, estado,
+    liquidador_ajustador, conductor, tercero,
+    comisaria, numero_denuncia, fec_denuncia_policial,
+    fec_entrega_doc_ajustador, fec_entrega_doc_cia,
+    fec_cia_consentido, numero_ajuste,
+    moneda, monto_siniestro, deducible, total_indemnizar,
+    fec_pago, forma_pago, numero_cheque, banco,
+    fecha_registro, fecha_modificacion
+FROM siniestros
+WHERE grupo_ramo = 'RRGG' AND eliminado = 0;
+
+-- Vista específica para siniestros de VEHICULOS
+DROP VIEW IF EXISTS v_siniestros_vehiculos;
+
+CREATE VIEW v_siniestros_vehiculos AS
+SELECT
+    id, poliza, cia, ramo, contratante, asegurado,
+    fec_notificacion_broker, fec_stro, hora_siniestro,
+    quien_reporta, email, telefonos,
+    hora_contacto, hora_culminacion,
+    lugar_siniestro, causa, tipo_atencion,
+    fec_presentacion_cia, siniestro_no, ejecutivo_cia,
+    estado, situacion, placa,
+    moneda, monto_siniestro, deducible, total_indemnizar,
+    fec_pago, forma_pago,
+    datos_vehiculo, datos_denuncia, datos_conductor,
+    datos_copiloto, datos_tercero,
+    fecha_registro, fecha_modificacion
+FROM siniestros
+WHERE grupo_ramo = 'VEHICULOS' AND eliminado = 0;
+
+-- Vista específica para siniestros de RRHH
+DROP VIEW IF EXISTS v_siniestros_rrhh;
+
+CREATE VIEW v_siniestros_rrhh AS
+SELECT
+    id, poliza, cia, ramo, contratante, asegurado,
+    fec_presentacion_broker, fec_atencion_medica,
+    fec_aviso_cia, fec_presentacion_cia, fec_cia_consentido,
+    quien_reporta, email, telefonos,
+    tipo_persona, titular, paciente, diagnostico,
+    siniestro_no, ejecutivo_cia, estado,
+    moneda, monto_siniestro, deducible,
+    coaseguro, no_cubierto, total_indemnizar,
+    fec_pago, forma_pago, numero_cheque, banco,
+    gastos_presentados,
+    fecha_registro, fecha_modificacion
+FROM siniestros
+WHERE grupo_ramo = 'RRHH' AND eliminado = 0;
+
+-- =====================================================
+-- TRIGGERS PARA AUDITORÍA
+-- =====================================================
+
+-- Trigger para actualizar usuario de modificación
+DROP TRIGGER IF EXISTS trg_siniestros_before_update;
+
+DELIMITER $$
+CREATE TRIGGER trg_siniestros_before_update
+BEFORE UPDATE ON siniestros
+FOR EACH ROW
+BEGIN
+    IF NEW.usuario_modificacion IS NULL THEN
+        SET NEW.usuario_modificacion = NEW.usuario_registro;
+    END IF;
+END$$
+DELIMITER ;
+
 
