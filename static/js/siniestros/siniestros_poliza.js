@@ -188,9 +188,7 @@ async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramo) {
                     document.body.appendChild(newScript);
                     document.body.removeChild(newScript);
                 });
-
-                console.log(`Formulario ${grupo} cargado correctamente`);
-                mostrarExito(`Formulario para ${grupo} cargado`);
+                
             }, 100);
 
         } else {
