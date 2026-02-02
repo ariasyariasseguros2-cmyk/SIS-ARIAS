@@ -1117,7 +1117,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
             prov = "positiva"
         elif "mapfre-vida-ley" in t:
             prov = "mapfre-vida-ley"
-        elif "mapfre" in t:
+        elif "mapfre" in t or re.search(r"vencimiento\s+de\s+aplicaci[oó]n", t) or re.search(r"inicio\s+de\s+vigencia\s+aplicaci[oó]n", t):
             prov = "mapfre"
         elif "lpv-vida-ley" in t:
             prov = "lpv-vida-ley"
@@ -1167,6 +1167,19 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
     # NUEVO: si vino 'pacifico' o 'positiva' desde UI pero el contenido dice 'sanitas', fuerza Sanitas
     if prov in ('pacifico', 'positiva', 'protecta') and 'sanitas' in low:
         prov = 'sanitas'
+
+    # NUEVO: si vino 'positiva' (o cualquier otro) pero el contenido dice 'MAPFRE', fuerza Mapfre
+    # (corrige falsos positivos donde 'la positiva' aparece en textos legales de Mapfre)
+    if prov != "mapfre" and (
+        "mapfre" in t or 
+        re.search(r"vencimiento\s+de\s+aplicaci[oó]n", t) or 
+        re.search(r"inicio\s+de\s+vigencia\s+aplicaci[oó]n", t)
+    ):
+        # Asegurarse que no sea Vida Ley si tiene indicadores específicos
+        if "vida ley" in t or "decreto legislativo" in t:
+             prov = "mapfre-vida-ley"
+        else:
+             prov = "mapfre"
 
     # Enrutamiento por proveedor (prioriza 'prov' si está presente)
     items: List[Dict[str, str]] = []
