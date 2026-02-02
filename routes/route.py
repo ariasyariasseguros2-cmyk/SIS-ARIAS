@@ -1212,6 +1212,13 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
     print(f"[provider] detectado: {prov}")
 
     if prov == "mapfre":
+        # Intentar primero con el parser de renovación (más robusto)
+        from controllers.addMapfreRenovacion import parse_mapfre_renovacion
+        item = parse_mapfre_renovacion(text)
+        if item and (item.get("numero_poliza") or item.get("prima_comercial_igv")):
+            print("[provider] mapfre renovation item:", item)
+            return [item]
+            
         from controllers.addMapfre import parse_mapfre
         item = parse_mapfre(text)
         print("[provider] mapfre item:", item)
