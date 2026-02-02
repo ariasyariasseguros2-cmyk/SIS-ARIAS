@@ -93,6 +93,6 @@ def parse_crecer_pension(text: str) -> Dict[str, str]:
         "fecha_vencimiento": ultimo_dia_pago or None,  # reflejar en columna “Fecha Vencimiento” de la UI
         "numero_documento_extracted": ruc_candidato,
     }
-    print("item pension", item)
+    print("item crecer pension", item)
     # Limpieza final: quitar claves vacías
     return {k: _clean(v) for k, v in item.items() if v}

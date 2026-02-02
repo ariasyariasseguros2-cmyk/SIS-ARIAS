@@ -283,5 +283,5 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
         "ramo": ramo,
         "numero_documento_extracted": ruc_candidato,
     }
-    print("item salud", item)
+    print("item LPVSALUD", item)
     return {k: v for k, v in item.items() if v}

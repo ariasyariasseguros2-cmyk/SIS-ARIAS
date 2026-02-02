@@ -1130,15 +1130,18 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         elif "crecer seguros" in t or re.search(r"\bcrecer\b", t):
             prov = "crecer"
         # NUEVO: detectar Protecta ANTES que Sanitas (por pasarela de pago Sanitas en PDFs de Protecta)
-        elif "protecta" in t or "protecta security" in t:
-            prov = "protecta"
-        elif "sanitas" in t:
+    elif "protecta" in t or "protecta security" in t:
+        prov = "protecta"
+    # NUEVO: detectar Protecta por título específico (SCTR Pensiones)
+    elif "condiciones particulares" in t and "pensiones" in t and "protecta" in t:
+        prov = "protecta"
+    elif "sanitas" in t:
             prov = "sanitas"
-        elif "pacifico" in t or "pacífico" in t:
+    elif "pacifico" in t or "pacífico" in t:
             prov = "pacifico"
-        elif "vida-ley-crecer" in t:
+    elif "vida-ley-crecer" in t:
             prov = "vida-ley-crecer"
-        else:
+    else:
             prov = ""
 
 
@@ -1258,6 +1261,13 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         return [item] if item else []
     # NUEVO: Protecta Pensión
     if prov in {"protecta", "proctecta"}:
+        # Detectar si es Emisión (SCTR Pensiones con Prima Comercial)
+        if "prima comercial" in low and "pension" in low:
+             from controllers.addProctectaPensionEmision import parse_protecta_pension_emision
+             item = parse_protecta_pension_emision(text)
+             print("[provider] protecta pension emision item:", item)
+             return [item] if item else []
+
         from controllers.addProctectaPension import parse_protecta_pension
         item = parse_protecta_pension(text)
         return [item] if item else []

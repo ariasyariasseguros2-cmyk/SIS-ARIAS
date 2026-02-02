@@ -227,5 +227,5 @@ def parse_positiva_Pension(text: str) -> Dict[str, str]:
         "ramo": ramo,
         "numero_documento_extracted": ruc_candidato,
     }
-    print("item pension", item)
+    print("item LPVPENSION", item)
     return {k: v for k, v in item.items() if v}
