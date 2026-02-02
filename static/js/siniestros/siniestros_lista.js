@@ -29,6 +29,55 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Nuevo helper: espera a que exista un elemento con el id dado o hasta timeout (ms)
+function waitForElement(id, timeout = 2000) {
+    return new Promise((resolve) => {
+        const exists = document.getElementById(id);
+        if (exists) return resolve(exists);
+        const interval = 50;
+        let elapsed = 0;
+        const handle = setInterval(() => {
+            const el = document.getElementById(id);
+            if (el) {
+                clearInterval(handle);
+                return resolve(el);
+            }
+            elapsed += interval;
+            if (elapsed >= timeout) {
+                clearInterval(handle);
+                return resolve(null);
+            }
+        }, interval);
+    });
+}
+
+// Nuevo helper: pausa síncrona via Promise
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Mejorar parseMaybeJSON: intenta JSON.parse; si falla, intenta reemplazar comillas simples por dobles
+function parseMaybeJSON(value) {
+    if (!value) return null;
+    if (typeof value === 'object') return value;
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed === 'null' || trimmed === 'NULL') return null;
+        try {
+            return JSON.parse(trimmed);
+        } catch (e) {
+            try {
+                const replaced = trimmed.replace(/'/g, '"');
+                return JSON.parse(replaced);
+            } catch (e2) {
+                console.debug('parseMaybeJSON: no se pudo parsear (incluyendo reemplazo), valor:', value);
+                return null;
+            }
+        }
+    }
+    return null;
+}
+
 async function cargarSiniestros() {
     try {
         const response = await fetch('/api/siniestros');
@@ -146,10 +195,13 @@ async function editarSiniestro(id) {
             siniestro.ramo
         );
 
-        // Esperar a que el formulario se cargue y entonces llenar los campos
-        setTimeout(() => {
-            preLlenarFormularioEdicion(siniestro);
-        }, 300);
+        // Esperar explícitamente a que el formulario esté montado
+        await waitForElement('poliza', 2500);
+        // Esperar un poco adicional para que scripts embebidos terminen de ejecutarse
+        await sleep(350);
+
+        // Pre-llenar formulario
+        preLlenarFormularioEdicion(siniestro);
 
     } catch (error) {
         console.error('Error al cargar siniestro:', error);
@@ -306,9 +358,11 @@ function preLlenarFormularioEdicion(siniestro) {
         setVal('situacion', siniestro.situacion);
         setVal('vehiculoPlaca', siniestro.placa);
 
-        // Cargar datos JSON de vehículo si existen
-        if (siniestro.datos_vehiculo) {
-            const vehiculo = siniestro.datos_vehiculo;
+        // Intentar obtener objeto vehiculo desde diferentes campos
+        const vehiculo = parseMaybeJSON(siniestro.datos_vehiculo) || parseMaybeJSON(siniestro.vehiculo) || null;
+        console.debug('vehiculo detectado para prellenado:', vehiculo);
+        if (vehiculo) {
+            if (!siniestro.placa && vehiculo.placa) setVal('vehiculoPlaca', vehiculo.placa);
             setVal('vehiculoMarca', vehiculo.marca);
             setVal('vehiculoModelo', vehiculo.modelo);
             setVal('vehiculoMotor', vehiculo.motor);
@@ -317,6 +371,57 @@ function preLlenarFormularioEdicion(siniestro) {
             setVal('vehiculoPropietario', vehiculo.propietario);
             setVal('vehiculoSituacionEvento', vehiculo.situacion_evento);
             setVal('vehiculoTaller', vehiculo.taller);
+        }
+
+        // Denuncia
+        const denuncia = parseMaybeJSON(siniestro.datos_denuncia) || parseMaybeJSON(siniestro.denuncia) || null;
+        console.debug('denuncia detectada para prellenado:', denuncia);
+        if (denuncia) {
+            setVal('denunciaComisaria', denuncia.comisaria);
+            setVal('denunciaNumeroDenuncia', denuncia.numero_denuncia || denuncia.numeroDenuncia || '');
+            setVal('denunciaDosajeEtilico', denuncia.dosaje_etilico || '');
+            setVal('denunciaFecha', formatDateForInput(denuncia.fec_denuncia || denuncia.fec_denuncia));
+            setVal('denunciaDepartamento', denuncia.departamento);
+            setVal('denunciaProvincia', denuncia.provincia);
+            setVal('denunciaDistrito', denuncia.distrito);
+        }
+
+        // Conductor
+        const conductor = parseMaybeJSON(siniestro.datos_conductor) || parseMaybeJSON(siniestro.conductor) || null;
+        console.debug('conductor detectado para prellenado:', conductor);
+        if (conductor) {
+            setVal('conductorNombre', conductor.nombre);
+            setVal('conductorDocumento', conductor.documento_identidad || conductor.documento || '');
+            setVal('conductorFecNacimiento', formatDateForInput(conductor.fec_nacimiento));
+            setVal('conductorLicencia', conductor.licencia_conducir);
+            setVal('conductorCategoriaLicencia', conductor.categoria_licencia);
+            setVal('conductorEmail', conductor.email);
+            setVal('conductorTelefonos', conductor.telefonos);
+        }
+
+        // Copiloto
+        const copiloto = parseMaybeJSON(siniestro.datos_copiloto) || parseMaybeJSON(siniestro.copiloto) || null;
+        console.debug('copiloto detectado para prellenado:', copiloto);
+        if (copiloto) {
+            setVal('copilotoNombre', copiloto.nombre);
+            setVal('copilotoFecNacimiento', formatDateForInput(copiloto.fec_nacimiento));
+            setVal('copilotoLicencia', copiloto.licencia_conducir);
+            setVal('copilotoCategoriaLicencia', copiloto.categoria_licencia);
+            setVal('copilotoEmail', copiloto.email);
+            setVal('copilotoTelefonos', copiloto.telefonos);
+        }
+
+        // Tercero
+        const tercero = parseMaybeJSON(siniestro.datos_tercero) || parseMaybeJSON(siniestro.tercero) || null;
+        if (tercero) {
+            setVal('terceroConductor', tercero.conductor);
+            setVal('terceroPlaca', tercero.placa);
+            setVal('terceroDomicilio', tercero.domicilio);
+            setVal('terceroLicencia', tercero.licencia_conducir);
+            setVal('terceroPropietario', tercero.propietario);
+            setVal('terceroDireccionPropietario', tercero.direccion_propietario);
+            setVal('terceroEmail', tercero.email);
+            setVal('terceroTelefonos', tercero.telefonos);
         }
     }
 
@@ -343,6 +448,22 @@ function preLlenarFormularioEdicion(siniestro) {
 async function guardarSiniestro(event) {
     event.preventDefault();
 
+   try {
+        const form = document.getElementById('formSiniestro');
+        if (form) {
+            const elements = Array.from(form.querySelectorAll('input, select, textarea'));
+            elements.forEach(el => {
+                const style = window.getComputedStyle(el);
+                const isHidden = (el.type === 'hidden') || (!el.offsetParent && style.visibility !== 'visible');
+                if (isHidden && el.hasAttribute('required')) {
+                    el.removeAttribute('required');
+                }
+            });
+        }
+    } catch (cleanupErr) {
+        console.debug('Error limpiando atributos required antes de enviar:', cleanupErr);
+    }
+
     const id = document.getElementById('siniestroId').value;
     const grupoRamo = document.getElementById('grupoRamoActual').value;
 
@@ -352,7 +473,7 @@ async function guardarSiniestro(event) {
         return elem ? elem.value : null;
     };
 
-    // Datos comunes para todos los formularios
+
     const data = {
         grupo_ramo: grupoRamo,
         poliza: getVal('poliza'),
