@@ -77,6 +77,31 @@ def get_siniestro_by_id(siniestro_id):
                     except:
                         siniestro[key] = None
 
+        # Añadir aliases y rellenar placa desde datos_vehiculo si falta
+        try:
+            # Mapeos seguros para compatibilidad con frontend
+            alias_map = {
+                'vehiculo': 'datos_vehiculo',
+                'denuncia': 'datos_denuncia',
+                'conductor': 'datos_conductor',
+                'copiloto': 'datos_copiloto',
+                'tercero': 'datos_tercero',
+                'gastos': 'gastos_presentados'
+            }
+
+            for alias, original in alias_map.items():
+                if siniestro.get(alias) is None and siniestro.get(original) is not None:
+                    siniestro[alias] = siniestro.get(original)
+
+            # Si falta la placa en el nivel superior, intentar obtenerla del objeto vehiculo
+            if not siniestro.get('placa') and siniestro.get('datos_vehiculo') and isinstance(siniestro.get('datos_vehiculo'), dict):
+                placa = siniestro['datos_vehiculo'].get('placa') or siniestro['datos_vehiculo'].get('placa_vehiculo')
+                if placa:
+                    siniestro['placa'] = placa
+        except Exception:
+            # No queremos romper la respuesta por un fallo aquí
+            pass
+
         return jsonify(siniestro), 200
 
     except Exception as e:
