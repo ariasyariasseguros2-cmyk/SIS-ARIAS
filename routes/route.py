@@ -1099,6 +1099,7 @@ def _parse_positiva(text: str) -> List[Dict[str, str]]:
 
 def parse_pdf_items_provider(path: str, issuer: str | None = None):
     text = _extract_text_fitz(path)
+    print(f"[DEBUG TEXT HEAD] {text[:600]!r}")
     t = text.lower()
     prov = (issuer or "").strip().lower() or None
     low = (text or "").lower()
@@ -1130,27 +1131,29 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         elif "crecer seguros" in t or re.search(r"\bcrecer\b", t):
             prov = "crecer"
         # NUEVO: detectar Protecta ANTES que Sanitas (por pasarela de pago Sanitas en PDFs de Protecta)
-    elif "protecta" in t or "protecta security" in t:
-        prov = "protecta"
-    # NUEVO: detectar Protecta por título específico (SCTR Pensiones)
-    elif "condiciones particulares" in t and "pensiones" in t and "protecta" in t:
-        prov = "protecta"
-    elif "sanitas" in t:
+        # Se agregan RUC y Código SBS de Protecta para mayor robustez
+        elif "protecta" in t or "protecta security" in t or re.search(r"p\s*r\s*o\s*t\s*e\s*c\s*t\s*a", t) or "20517207331" in t or "vi2097700027" in t:
+            prov = "protecta"
+        # NUEVO: detectar Protecta por título específico (SCTR Pensiones)
+        elif "condiciones particulares" in t and "pensiones" in t and ("protecta" in t or re.search(r"p\s*r\s*o\s*t\s*e\s*c\s*t\s*a", t) or "20517207331" in t):
+            prov = "protecta"
+        elif "sanitas" in t:
             prov = "sanitas"
-    elif "pacifico" in t or "pacífico" in t:
-            prov = "pacifico"
-    elif "vida-ley-crecer" in t:
-            prov = "vida-ley-crecer"
-    else:
-            prov = ""
+        elif "pacifico" in t or "pacífico" in t:
+                prov = "pacifico"
+        elif "vida-ley-crecer" in t:
+                prov = "vida-ley-crecer"
+        else:
+                prov = ""
 
 
-    # Backstop: corregir proveedor a Pacífico si el contenido lo indica claramente
-    # Evita ruta equivocada cuando el UI envió 'proctecta/protecta/positiva'.
-    if prov in ('proctecta', 'protecta', 'positiva', None):
-        # QUITADO patrón PF-SCTR: también aparece en Sanitas
+    # Backstop: corregir proveedor si el contenido lo indica claramente
+    # Evita ruta equivocada cuando el UI envió 'proctecta/protecta/positiva' erróneamente.
+    if prov in ('proctecta', 'protecta', 'positiva', 'sanitas', None):
         if ('pacifico' in low or 'pacífico' in low):
             prov = 'pacifico'
+        elif "protecta" in t or "protecta security" in t or re.search(r"p\s*r\s*o\s*t\s*e\s*c\s*t\s*a", t) or "20517207331" in t or "vi2097700027" in t:
+             prov = 'protecta'
 
     # NUEVO: Detectar Crecer Seguros explícitamente (prioridad sobre Positiva/Sanitas)
     # Respetar si ya viene como vida-ley-crecer

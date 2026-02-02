@@ -31,7 +31,13 @@ def parse_protecta_pension_emision(text: str) -> Dict[str, str]:
     
     # Fecha de Emisión
     # Ejemplo: Fecha de Emisión:    30/08/2025
-    fecha_emision = _find(r"Fecha de Emisión:\s*(\d{2}/\d{2}/\d{4})", text)
+    # También puede aparecer como "Fecha de Renovación" en renovaciones
+    fecha_emision = _find(r"Fecha de Emisi[oó]n:\s*(\d{2}/\d{2}/\d{4})", text)
+    if not fecha_emision:
+         fecha_emision = _find(r"Fecha de Renovaci[oó]n:\s*(\d{2}/\d{2}/\d{4})", text)
+    if not fecha_emision:
+         # Fallback: buscar fecha sola si está cerca de "Lugar y Fecha"
+         fecha_emision = _find(r"Lugar y Fecha.*?\s(\d{2}/\d{2}/\d{4})", text)
     
     # Vigencia de la Cobertura
     # Ejemplo: Vigencia de la Cobertura:  Desde: 01/09/2025 \n Hasta: 30/09/2025
