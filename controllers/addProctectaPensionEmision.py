@@ -44,6 +44,11 @@ def parse_protecta_pension_emision(text: str) -> Dict[str, str]:
     if asegurados:
         asegurados = re.sub(r'\s+', ' ', asegurados).strip()
 
+    # Contratante y RUC
+    # Buscamos el RUC que aparece después de la etiqueta "Contratante:"
+    ruc_contratante = _find(r"Contratante:.*?(?:Ruc|RUC):\s*(\d{11})", text)
+    nombre_contratante = _find(r"Contratante:\s*(.*?)\n", text)
+
     return {
         "prima_comercial": _clean(prima_comercial),
         "prima_total": _clean(prima_total),
@@ -53,6 +58,8 @@ def parse_protecta_pension_emision(text: str) -> Dict[str, str]:
         "inicio_vigencia": _clean(inicio_vigencia),
         "vencimiento": _clean(vencimiento),
         "colectivo_asegurado": _clean(asegurados),
-        "ramo": "SCTR PENSIÓN"
+        "ramo": "SCTR PENSIÓN",
+        "numero_documento_extracted": _clean(ruc_contratante),
+        "contratante": _clean(nombre_contratante)
     }
 
