@@ -273,59 +273,74 @@
     color: #fff;
 }
 
-/* Botón PDF específico: asegurar fondo y contraste */
-.btn-pdf-cliente {
-    background: linear-gradient(to right, #6c757d, #545b62) !important; /* gris secundario sólido */
-    color: #fff !important;
-    border: none !important;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.08);
-}
+/* Removed PDF button styles because the PDF action was removed from the cliente list */
+/* .btn-pdf-cliente styles intentionally removed to keep CSS clean. Restore if needed. */
 
-/* En caso de que venga con clase outline por accidente */
-.btn-pdf-cliente.btn-outline-secondary,
-.btn-pdf-cliente[class*="btn-outline-"] {
-    background: linear-gradient(to right, #6c757d, #545b62) !important;
-    color: #fff !important;
-    border: none !important;
-}
-
-/* Alineación y tamaño apropiado para botones en la tabla */
-#clientesTable .btn-pdf-cliente { min-width: 72px; padding: .28rem .7rem; font-size: 13px; }
-
-/* Small utility: ensure action cell content doesn't wrap awkwardly */
 #clientesTable td .d-flex { gap: 0.6rem; }
 #clientesTable td .btn { font-weight: 600; }
 
-/* Ajuste: hacer los botones de la columna Accion más grandes y con forma 'pill' como en la foto */
+
 #clientesTable td .btn-lift {
-    padding: 0.5rem 1.15rem !important; /* mayor acolchonamiento */
-    border-radius: 26px !important; /* pill pronunciado */
-    min-height: 42px !important; /* altura consistente */
-    font-size: 15px !important; /* texto más legible */
+    padding: 0.28rem 0.5rem !important;
+    border-radius: 6px !important;
+    min-height: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    font-size: 13px !important;
     line-height: 1 !important;
     white-space: nowrap !important;
-    box-shadow: 0 8px 18px rgba(0,0,0,0.07) !important;
-    gap: 0.6rem !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.4rem !important;
 }
 
-/* Evitar que la variante .btn-sm dentro de la tabla reduzca demasiado los botones */
+
 #clientesTable td .btn-lift.btn-sm {
-    padding: 0.48rem 1.05rem !important;
-    font-size: 15px !important;
+    padding: 0.22rem 0.42rem !important;
+    font-size: 13px !important;
+    min-width: 36px !important;
+    height: 36px !important;
 }
 
-/* Ajuste fino para íconos dentro de los botones de acción */
+/* Ajuste fino para íconos dentro de los botones de acción (centrado) */
 #clientesTable td .btn-lift .bi {
     font-size: 1.05em;
-    vertical-align: -.05em;
+    vertical-align: middle;
+    margin: 0 !important;
 }
 
-/* Asegurar tamaños mínimos por tipo para mayor consistencia visual */
-#clientesTable .btn-edit-cliente { min-width: 94px !important; }
-#clientesTable .btn-pdf-cliente  { min-width: 82px !important; }
-#clientesTable .btn-primary      { min-width: 94px !important; }
-#clientesTable .btn-success      { min-width: 94px !important; }
-#clientesTable .btn-danger       { min-width: 94px !important; }
+
+#clientesTable .btn-edit-cliente { min-width: 36px !important; }
+#clientesTable .btn-primary      { min-width: 36px !important; }
+#clientesTable .btn-success      { min-width: 36px !important; }
+#clientesTable .btn-danger       { min-width: 36px !important; }
 
 /* Si quieres usar la versión compacta en casos puntuales */
 .btn-lift--compact { padding: 0.18rem 0.5rem !important; font-size: 12px !important; }
+
+
+.btn-add {
+    padding: 0.28rem 0.5rem !important;
+    border-radius: 6px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.4rem !important;
+    font-size: 13px !important;
+}
+
+
+.btn-add.btn-icon {
+    width: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
+}
+
+
+@media (min-width: 1200px) {
+    .btn-add { padding: 0.34rem 0.7rem !important; min-width: 48px !important; }
+}
