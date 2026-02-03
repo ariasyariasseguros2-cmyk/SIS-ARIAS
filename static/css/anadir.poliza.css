@@ -1,344 +1,299 @@
-@media print {
-    #acciones, #uploadSection { display: none; }
-    .table { border: 1px solid #444; }
-    .table th, .table td { border: 1px solid #444 !important; }
-}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* Estilo tipo Excel */
-.excel-table thead th {
-    background: linear-gradient(#2e7d32, #1b5e20);
-    color: #fff;
-    text-align: center;
-    vertical-align: middle;
-    }
-    .excel-table tbody td {
-    background-color: #f9fbf9;
-}
-
-/* Elimina el bloque antiguo excel-table para evitar conflictos */
 :root {
-    --brand: #0d6efd;
-    --surface: #ffffff;
-    --header-bg: #1f7a3b;
-    --header-fg: #ffffff;
-    --row-hover: #f8fafc;
-    --border-soft: #e9ecef;
-    --ramo-accent: #ffb100;       /* acento más contrastado */
-    --ramo-accent-bg: #fff6d6;    /* fondo más visible */
+    /* Blue Ocean Gradient Theme */
+    --bg-body: #f1f5f9; /* Light Gray Blue */
+    
+    /* User Requested Gradient */
+    --gradient-primary: linear-gradient(to right, #399AD6, #1F59A3);
+    
+    --header-bg: var(--gradient-primary);
+    --header-text: #ffffff;
+    
+    --card-bg: #ffffff;
+    --card-border: #e2e8f0;
+    
+    --primary: #1F59A3; /* Darker blue from gradient for text/borders */
+    --primary-hover: #16437a;
+    
+    --accent: #399AD6; /* Lighter blue from gradient for highlights */
+    --accent-hover: #2d82b8;
+    
+    --text-main: #334155; /* Slate 700 */
+    --text-muted: #64748b; /* Slate 500 */
+    
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    
+    --radius: 0.6rem; /* Slightly softer corners */
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
-/* NUEVO: forzar mayúsculas en toda la página Añadir Póliza */
-body.text-uppercase,
-.upload-card,
-.inline-filter-card,
-.filter-card,
-.modern-table thead th,
-.modern-table tbody td,
-.modal-footer,
-.actions-stack .action-btn,
-.btn,
-.form-label,
-.form-select,
-.form-control {
-  text-transform: uppercase;
+body {
+    background-color: var(--bg-body);
+    font-family: 'Inter', sans-serif;
+    color: var(--text-main);
+    font-size: 0.9rem;
+    margin: 0;
+    padding: 0;
 }
 
+/* App Header - Gradient Background */
+.app-header {
+    background: var(--header-bg);
+    color: var(--header-text);
+    padding: 1.25rem 0;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Subtle pattern overlay for header */
+.app-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.1) 75%, transparent 75%, transparent);
+    background-size: 20px 20px;
+    opacity: 0.1;
+    pointer-events: none;
+}
+
+.app-header h1 {
+    font-weight: 700;
+    font-size: 1.35rem;
+    margin: 0;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.app-header .btn-back {
+    color: rgba(255,255,255,0.9);
+    border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(4px);
+}
+
+.app-header .btn-back:hover {
+    color: #fff;
+    border-color: #fff;
+    background: rgba(255,255,255,0.2);
+}
+
+/* Client Info Badge in Header */
+.client-badge {
+    background: rgba(255,255,255,0.15);
+    border-radius: var(--radius);
+    padding: 0.5rem 1.25rem;
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    border: 1px solid rgba(255,255,255,0.2);
+    backdrop-filter: blur(4px);
+}
+
+.client-badge .label {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 0.1rem;
+}
+
+.client-badge .value {
+    font-weight: 600;
+    color: #fff;
+    font-size: 1rem;
+}
+
+/* Layout Containers */
+.container {
+    max-width: 1400px; /* Wide layout */
+}
+
+/* Cards */
 .card {
-    border: none;
-    border-radius: .75rem;
-    box-shadow: 0 8px 28px rgba(0,0,0,.08);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 1.5rem;
+    transition: all 0.2s ease;
 }
 
-.modern-table {
+.card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+/* Section Headers inside Cards */
+.section-title {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    color: var(--primary); /* Using Primary Blue */
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.section-title i {
+    color: var(--accent);
+    background: #f0f9ff;
+    padding: 0.35rem;
+    border-radius: 0.35rem;
+}
+
+/* Forms */
+.form-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 0.4rem;
+}
+
+.form-control, .form-select {
+    background-color: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(57, 154, 214, 0.15); /* Matches accent color */
+}
+
+/* Buttons */
+.btn {
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 0.6rem 1.5rem;
+    border-radius: 0.5rem;
+    transition: all 0.2s;
+    letter-spacing: 0.01em;
+}
+
+.btn-primary {
+    background: var(--gradient-primary); /* Gradient Buttons */
+    border: none;
+    box-shadow: 0 2px 4px rgba(31, 89, 163, 0.3);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(to right, #2d82b8, #16437a); /* Slightly darker gradient */
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(31, 89, 163, 0.4);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-accent {
+    background-color: #fff;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+}
+
+.btn-accent:hover {
+    background-color: #f0f9ff;
+    color: var(--primary-hover);
+}
+
+/* Upload Area - Distinctive */
+.upload-zone {
+    background: #fff;
+    border: 2px dashed #cbd5e1;
+    border-radius: var(--radius);
+    padding: 2rem;
+    text-align: center;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.upload-zone:hover {
+    border-color: var(--accent);
+    background: #f8fbff;
+}
+
+.upload-zone .form-label {
+    color: var(--primary);
+    font-size: 1rem;
+}
+
+/* Table */
+.table-container {
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.table-custom {
+    width: 100%;
     border-collapse: separate;
     border-spacing: 0;
+    font-size: 0.85rem;
 }
 
-.modern-table thead th {
-    background: var(--header-bg);
-    color: var(--header-fg);
-    border: none;
-    font-weight: 600;
-    white-space: nowrap;           /* Evita saltos raros en encabezados */
-    padding: .75rem .85rem;        /* Ajusta altura para que no se vea “doble línea” */
+.table-custom thead th {
+    background-color: #f1f5f9;
+    color: var(--text-main);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    padding: 1rem;
+    border-bottom: 2px solid #e2e8f0;
+    text-align: left;
 }
 
-.modern-table tbody td {
-    background: var(--surface);
-    border-top: 1px solid var(--border-soft);
-    vertical-align: middle;
-    padding: .7rem .85rem;
+.table-custom tbody td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: var(--text-main);
+    background: #fff;
 }
 
-.modern-table tbody tr:hover {
-    background: var(--row-hover);
+.table-custom tbody tr:last-child td {
+    border-bottom: none;
 }
 
-.actions-col { width: 130px; }
-
-/* Botones de Acciones: diseño compacto y moderno */
-.actions-stack {
-    display: flex;
-    flex-direction: column;
-    gap: .35rem;
-    align-items: flex-end;
-}
-.action-btn {
-    background: var(--surface);
-    border: 1px solid var(--border-soft);
-    border-radius: 999px;
-    padding: .35rem .6rem;
-    font-weight: 500;
-    color: #222;
-    display: inline-flex;
-    align-items: center;
-    gap: .35rem;
-    line-height: 1;
-    transition: .2s ease-in-out;
-}
-.action-btn i { font-size: 1rem; }
-.action-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,.08);
+.table-custom tbody tr:hover td {
+    background-color: #f8fbff;
 }
 
-/* Variantes por acción */
-.btn-view { color: #495057; border-color: #adb5bd; }
-.btn-view:hover { background: #f1f3f5; }
-
-.btn-edit { color: var(--brand); border-color: rgba(13,110,253,.35); }
-.btn-edit:hover { background: rgba(13,110,253,.08); }
-
-.btn-del { color: #c41e3a; border-color: rgba(196,30,58,.35); }
-.btn-del:hover { background: rgba(196,30,58,.08); }
-
-/* Guardar cambios */
-.btn-save {
-    border-radius: 999px;
-    padding: .6rem 1rem;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(13,110,253,.25);
-}
-.btn-save:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(13,110,253,.3);
+.table-custom th.ramo-col, .table-custom td.ramo-col {
+    background-color: #fffbf0; /* Very light orange tint */
+    border-left: 3px solid #f59e0b;
 }
 
-/* Pie del modal cómodo y visible */
-.modal-footer {
-    position: sticky;
-    bottom: 0;
-    background: var(--surface);
+/* Loading */
+#extractLoading {
+    background: #f0f9ff;
+    border-left: 4px solid var(--accent);
+    color: var(--primary);
+    border-radius: 4px;
+    box-shadow: var(--shadow-sm);
 }
 
-/* Responsivo: acciones en fila en pantallas pequeñas */
-@media (max-width: 576px) {
-    .actions-stack {
-        flex-direction: row;
-        justify-content: flex-end;
-        flex-wrap: wrap;
-        gap: .5rem;
-    }
-}
-.btn-modern { border-radius: 999px; }
-
-/* Mostrar rojo solo en el modal usando Bootstrap .is-invalid */
-.form-control.is-invalid {
-    border-color: #dc3545;
-    box-shadow: 0 0 0 .2rem rgba(220,53,69,.08);
-}
-.form-floating > .form-control.is-invalid ~ label {
-    color: #dc3545;
-}
-
-/* Encabezado Ramo con línea inferior de acento */
-.modern-table thead th.ramo-col {
-  background: var(--header-bg);
-  color: var(--header-fg);
-  border-bottom: 3px solid var(--ramo-accent);
-}
-
-/* Columna Ramo: más ancha para que el texto no se corte */
-.modern-table tbody td.ramo-col {
-  background: var(--ramo-accent-bg);
-  border-left: 3px solid var(--ramo-accent);
-  min-width: 150px; /* Aumentado para mostrar texto completo */
-  width: auto;
-}
-
-/* Select de Ramo: texto grande, negrita y muy legible */
-.modern-table tbody td.ramo-col .form-select,
-.ramo-select {
-  border-color: var(--ramo-accent);
-  background-color: #fffdf3;
-  font-weight: 800;
-  font-size: 1.15rem;     /* más grande */
-  color: #0b132b;         /* más oscuro */
-  text-transform: uppercase;
-  letter-spacing: .2px;
-  padding: .5rem .75rem;  /* altura cómoda */
-}
-
-/* Focus notorio */
-.modern-table tbody td.ramo-col .form-select:focus {
-  box-shadow: 0 0 0 .28rem rgba(255, 177, 0, .25);
-  border-color: var(--ramo-accent);
-}
-
-/* Opciones dentro del desplegable también grandes */
-.ramo-select option {
-  font-size: 1.05rem;
-  font-weight: 700;
-}
-
-/* Cuadro inferior de filtros y carga */
-.filter-card {
-  border: 1px solid var(--border-soft);
-}
-.filter-card .form-label {
-  font-weight: 600;
-}
-/* Cuadro superior de carga (PDF + botón) */
-.upload-card {
-  border: 1px solid var(--border-soft);
-}
-
-/* Cuadro aparte para Proveedor / Sub Agente / Tipo de Pago */
-.inline-filter-card {
-  background: #f8fafc;
-  border: 1px solid var(--border-soft);
-}
-.inline-filter-card .form-label {
-  font-weight: 600;
-  margin-bottom: .25rem;
-}
-.inline-filter-card .form-select {
-  border-radius: .5rem;
-}
-.inline-filter-card .row > [class*="col-"] {
-  min-width: 180px;
-}
-.inline-filter-card .form-select {
-  height: calc(2.5rem + 2px);
-}
-
-/* Mantener estilos previos */
-.modern-table tbody tr:hover {
-    background: var(--row-hover);
-}
-
-.actions-col { width: 130px; }
-
-/* Botones de Acciones: diseño compacto y moderno */
-.actions-stack {
-    display: flex;
-    flex-direction: column;
-    gap: .35rem;
-    align-items: flex-end;
-}
-.action-btn {
-    background: var(--surface);
-    border: 1px solid var(--border-soft);
-    border-radius: 999px;
-    padding: .35rem .6rem;
-    font-weight: 500;
-    color: #222;
-    display: inline-flex;
-    align-items: center;
-    gap: .35rem;
-    line-height: 1;
-    transition: .2s ease-in-out;
-}
-.action-btn i { font-size: 1rem; }
-.action-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,.08);
-}
-
-/* Variantes por acción */
-.btn-view { color: #495057; border-color: #adb5bd; }
-.btn-view:hover { background: #f1f3f5; }
-
-.btn-edit { color: var(--brand); border-color: rgba(13,110,253,.35); }
-.btn-edit:hover { background: rgba(13,110,253,.08); }
-
-.btn-del { color: #c41e3a; border-color: rgba(196,30,58,.35); }
-.btn-del:hover { background: rgba(196,30,58,.08); }
-
-/* Guardar cambios */
-.btn-save {
-    border-radius: 999px;
-    padding: .6rem 1rem;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(13,110,253,.25);
-}
-.btn-save:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(13,110,253,.3);
-}
-
-/* Pie del modal cómodo y visible */
-.modal-footer {
-    position: sticky;
-    bottom: 0;
-    background: var(--surface);
-}
-
-/* Responsivo: acciones en fila en pantallas pequeñas */
-@media (max-width: 576px) {
-    .actions-stack {
-        flex-direction: row;
-        justify-content: flex-end;
-        flex-wrap: wrap;
-        gap: .5rem;
-    }
-}
-.btn-modern { border-radius: 999px; }
-
-/* Mostrar rojo solo en el modal usando Bootstrap .is-invalid */
-.form-control.is-invalid {
-    border-color: #dc3545;
-    box-shadow: 0 0 0 .2rem rgba(220,53,69,.08);
-}
-.form-floating > .form-control.is-invalid ~ label {
-    color: #dc3545;
-}
-
-/* Encabezado Ramo con línea inferior de acento */
-.modern-table thead th.ramo-col {
-  background: var(--header-bg);
-  color: var(--header-fg);
-  border-bottom: 3px solid var(--ramo-accent);
-}
-
-/* Columna Ramo: más ancha para que el texto no se corte */
-.modern-table tbody td.ramo-col {
-  background: var(--ramo-accent-bg);
-  border-left: 3px solid var(--ramo-accent);
-  width: 240px; /* antes 180px */
-}
-
-/* Select de Ramo: texto grande, negrita y muy legible */
-.modern-table tbody td.ramo-col .form-select,
-.ramo-select {
-  border-color: var(--ramo-accent);
-  background-color: #fffdf3;
-  font-weight: 800;
-  font-size: 1.15rem;     /* más grande */
-  color: #0b132b;         /* más oscuro */
-  text-transform: uppercase;
-  letter-spacing: .2px;
-  padding: .5rem .75rem;  /* altura cómoda */
-}
-
-/* Focus notorio */
-.modern-table tbody td.ramo-col .form-select:focus {
-  box-shadow: 0 0 0 .28rem rgba(255, 177, 0, .25);
-  border-color: var(--ramo-accent);
-}
-
-/* Opciones dentro del desplegable también grandes */
-.ramo-select option {
-  font-size: 1.05rem;
-  font-weight: 700;
-}
+/* Utilities */
+.text-accent { color: var(--accent); }
+.bg-white { background-color: #fff; }
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 1rem; }
+.gap-4 { gap: 1.5rem; }
