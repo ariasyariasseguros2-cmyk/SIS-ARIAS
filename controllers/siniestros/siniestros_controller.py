@@ -588,3 +588,764 @@ def get_grupo_ramo_poliza():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+def generar_pdf_siniestro(siniestro_id):
+    """Genera un PDF del siniestro según su grupo"""
+    from flask import send_file
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER
+    from io import BytesIO
+    import json
+    from datetime import date
+
+    try:
+        # Obtener datos del siniestro
+        connection = get_connection()
+        cursor = connection.cursor(dictionary=True)
+        cursor.callproc('sp_get_siniestro_by_id', [siniestro_id])
+
+        siniestro = None
+        for result in cursor.stored_results():
+            siniestro = result.fetchone()
+
+        cursor.close()
+        connection.close()
+
+        if not siniestro:
+            return jsonify({'error': 'Siniestro no encontrado'}), 404
+
+        # Parsear campos JSON y fechas
+        for key, value in siniestro.items():
+            if isinstance(value, date):
+                siniestro[key] = value.isoformat()
+            elif key in ['datos_vehiculo', 'datos_denuncia', 'datos_conductor', 'datos_copiloto', 'datos_tercero', 'gastos_presentados']:
+                if value:
+                    try:
+                        siniestro[key] = json.loads(value)
+                    except:
+                        siniestro[key] = None
+
+        # Crear PDF en memoria
+        buffer = BytesIO()
+
+        # Generar PDF según el grupo
+        grupo = siniestro.get('grupo_ramo', 'GENERICO')
+
+        if grupo == 'VEHICULOS':
+            _generar_pdf_vehiculos(buffer, siniestro)
+        elif grupo == 'RRGG':
+            _generar_pdf_rrgg(buffer, siniestro)
+        elif grupo == 'RRHH':
+            _generar_pdf_rrhh(buffer, siniestro)
+        else:
+            _generar_pdf_generico(buffer, siniestro)
+
+        buffer.seek(0)
+
+        filename = f"Siniestro_{siniestro.get('siniestro_no') or siniestro_id}.pdf"
+
+        # Permitir servir inline si el frontend lo solicita con ?inline=1
+        try:
+            inline_flag = str(request.args.get('inline', '')).lower() in ('1', 'true', 'yes')
+        except Exception:
+            inline_flag = False
+
+        if inline_flag:
+            # En modo inline enviamos el PDF para que el navegador lo muestre en pestaña
+            resp = send_file(buffer, mimetype='application/pdf', as_attachment=False)
+            try:
+                # Añadir cabecera explícita para instructar al navegador a mostrar inline
+                resp.headers['Content-Disposition'] = f'inline; filename="{filename}"'
+            except Exception:
+                pass
+            return resp
+        else:
+            # Comportamiento original: forzar descarga
+            return send_file(
+                buffer,
+                mimetype='application/pdf',
+                as_attachment=True,
+                download_name=filename
+            )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+def _generar_pdf_vehiculos(buffer, siniestro):
+    """Genera PDF para siniestros de VEHICULOS"""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER
+
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Estilos personalizados
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=14,
+        textColor=colors.HexColor('#000000'),
+        spaceAfter=12,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=11,
+        textColor=colors.HexColor('#000000'),
+        spaceAfter=6,
+        spaceBefore=12,
+        fontName='Helvetica-Bold'
+    )
+
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.grey,
+        alignment=TA_CENTER
+    )
+
+    # Encabezado
+    elements.append(Paragraph("ARIAS & ARIAS CORREDORES DE SEGUROS SAC.", title_style))
+    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", styles['Normal']))
+    elements.append(Spacer(1, 0.3*inch))
+
+    # Título principal
+    elements.append(Paragraph("INFORME TÉCNICO DE ACCIDENTE DE TRÁNSITO", title_style))
+    elements.append(Spacer(1, 0.2*inch))
+
+    # REPORTE DE SINIESTRO
+    if any([siniestro.get('hora_siniestro'), siniestro.get('fec_stro'), siniestro.get('quien_reporta')]):
+        elements.append(Paragraph("REPORTE DE SINIESTRO", subtitle_style))
+        data = []
+
+        if siniestro.get('hora_siniestro'):
+            data.append(['Hora', siniestro['hora_siniestro']])
+        if siniestro.get('fec_stro'):
+            data.append(['Fecha', siniestro['fec_stro']])
+        if siniestro.get('quien_reporta'):
+            data.append(['Quien reporta', siniestro['quien_reporta']])
+        if siniestro.get('lugar_siniestro'):
+            data.append(['Lugar', siniestro['lugar_siniestro']])
+        if siniestro.get('telefonos'):
+            data.append(['Teléfono', siniestro['telefonos']])
+        if siniestro.get('hora_contacto'):
+            data.append(['Contactos', siniestro['hora_contacto']])
+        if siniestro.get('causa'):
+            data.append(['Caso', siniestro['causa']])
+        if siniestro.get('hora_culminacion'):
+            data.append(['Hora culminación', siniestro['hora_culminacion']])
+        if siniestro.get('tipo_atencion'):
+            data.append(['Situación del evento', siniestro['tipo_atencion']])
+
+        if data:
+            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 0.2*inch))
+
+    # INFORMACIÓN DEL CLIENTE
+    if any([siniestro.get('asegurado'), siniestro.get('cia'), siniestro.get('poliza')]):
+        elements.append(Paragraph("INFORMACIÓN DEL CLIENTE", subtitle_style))
+        data = []
+
+        if siniestro.get('asegurado'):
+            data.append(['Asegurado', siniestro['asegurado']])
+        if siniestro.get('cia'):
+            data.append(['Cia. de Seguros', siniestro['cia']])
+        if siniestro.get('poliza'):
+            data.append(['Nro. de Póliza', siniestro['poliza']])
+
+        vehiculo = siniestro.get('datos_vehiculo') or {}
+        if vehiculo.get('placa'):
+            data.append(['Placa', vehiculo['placa']])
+        elif siniestro.get('placa'):
+            data.append(['Placa', siniestro['placa']])
+
+        if siniestro.get('situacion'):
+            data.append(['Conductor', siniestro['situacion']])
+
+        denuncia = siniestro.get('datos_denuncia') or {}
+        if denuncia.get('comisaria'):
+            data.append(['Comisaría', denuncia['comisaria']])
+        if siniestro.get('causa'):
+            data.append(['Motivo', siniestro['causa']])
+        if siniestro.get('fec_stro'):
+            data.append(['Fecha', siniestro['fec_stro']])
+
+        if data:
+            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 0.2*inch))
+
+    # INFORMACIÓN DEL VEHÍCULO
+    vehiculo = siniestro.get('datos_vehiculo') or {}
+    if any(vehiculo.values() if vehiculo else []):
+        elements.append(Paragraph("INFORMACIÓN DEL VEHÍCULO", subtitle_style))
+        data = []
+
+        if vehiculo.get('propietario'):
+            data.append(['Propietario', vehiculo['propietario']])
+        if vehiculo.get('placa'):
+            data.append(['Placa', vehiculo['placa']])
+        if vehiculo.get('marca'):
+            data.append(['Marca', vehiculo['marca']])
+        if vehiculo.get('modelo'):
+            data.append(['Modelo', vehiculo['modelo']])
+        if vehiculo.get('motor'):
+            data.append(['Motor', vehiculo['motor']])
+        if vehiculo.get('anio'):
+            data.append(['Año', str(vehiculo['anio'])])
+        if vehiculo.get('color'):
+            data.append(['Color', vehiculo['color']])
+
+        if data:
+            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 0.2*inch))
+
+    # INFORMACIÓN DE LA DENUNCIA
+    denuncia = siniestro.get('datos_denuncia') or {}
+    if any(denuncia.values() if denuncia else []):
+        elements.append(Paragraph("INFORMACIÓN DE LA DENUNCIA", subtitle_style))
+        data = []
+
+        if denuncia.get('comisaria'):
+            data.append(['Comisaría', denuncia['comisaria']])
+        if denuncia.get('numero_denuncia'):
+            data.append(['Nro. denuncia', denuncia['numero_denuncia']])
+        if denuncia.get('dosaje_etilico'):
+            data.append(['Dosaje', denuncia['dosaje_etilico']])
+        if denuncia.get('fec_denuncia'):
+            data.append(['Fecha denuncia policial', denuncia['fec_denuncia']])
+        if denuncia.get('departamento'):
+            data.append(['Departamento', denuncia['departamento']])
+        if denuncia.get('provincia'):
+            data.append(['Provincia', denuncia['provincia']])
+        if denuncia.get('distrito'):
+            data.append(['Distrito', denuncia['distrito']])
+
+        if data:
+            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 0.2*inch))
+
+    # INFORMACIÓN DEL CONDUCTOR
+    conductor = siniestro.get('datos_conductor') or {}
+    if any(conductor.values() if conductor else []):
+        elements.append(Paragraph("INFORMACIÓN DEL CONDUCTOR", subtitle_style))
+        data = []
+
+        if conductor.get('nombre'):
+            data.append(['Nombre', conductor['nombre']])
+        if conductor.get('documento_identidad'):
+            data.append(['Documento de identidad', conductor['documento_identidad']])
+        if conductor.get('fec_nacimiento'):
+            data.append(['Fecha de nacimiento', conductor['fec_nacimiento']])
+        if conductor.get('licencia_conducir'):
+            data.append(['Licencia de conducir', conductor['licencia_conducir']])
+
+        if data:
+            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 0.2*inch))
+
+    # Footer
+    elements.append(Spacer(1, 0.5*inch))
+    elements.append(Paragraph("E-mail: info@ariasyarias.com", footer_style))
+    elements.append(Paragraph("1", footer_style))
+
+    doc.build(elements)
+
+
+def _generar_pdf_rrgg(buffer, siniestro):
+    """Genera PDF para siniestros de RRGG"""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER
+
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=14,
+        textColor=colors.HexColor('#000000'),
+        spaceAfter=12,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=11,
+        textColor=colors.HexColor('#000000'),
+        spaceAfter=6,
+        spaceBefore=12,
+        fontName='Helvetica-Bold'
+    )
+
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.grey,
+        alignment=TA_CENTER
+    )
+
+    # Encabezado
+    elements.append(Paragraph("ARIAS & ARIAS CORREDORES DE SEGUROS SAC.", title_style))
+    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", styles['Normal']))
+    elements.append(Spacer(1, 0.3*inch))
+
+    elements.append(Paragraph("SINIESTRO DE RIESGOS GENERALES", title_style))
+    elements.append(Paragraph(f"Registrado el: {siniestro.get('fec_stro', '')}", styles['Normal']))
+    elements.append(Spacer(1, 0.2*inch))
+
+    # INFORMACIÓN DEL SINIESTRO
+    if any([siniestro.get('siniestro_no'), siniestro.get('cia'), siniestro.get('contratante')]):
+        elements.append(Paragraph("INFORMACIÓN DEL SINIESTRO", subtitle_style))
+        data = []
+
+        if siniestro.get('siniestro_no'):
+            data.append(['No. Siniestro', siniestro['siniestro_no']])
+        if siniestro.get('cia'):
+            data.append(['Cia. de Seguros', siniestro['cia']])
+        if siniestro.get('ejecutivo_cia'):
+            data.append(['Ejecutivo Cía.', siniestro['ejecutivo_cia']])
+        if siniestro.get('contratante'):
+            data.append(['Contratante', siniestro['contratante']])
+        if siniestro.get('poliza'):
+            data.append(['Póliza', siniestro['poliza']])
+        if siniestro.get('ramo'):
+            data.append(['Ramo', siniestro['ramo']])
+        if siniestro.get('quien_reporta'):
+            data.append(['Contacto', siniestro['quien_reporta']])
+        if siniestro.get('fec_presentacion_broker'):
+            data.append(['Fecha Ocurrencia', siniestro['fec_presentacion_broker']])
+        if siniestro.get('fec_aviso_cia'):
+            data.append(['Fecha Aviso Cía.', siniestro['fec_aviso_cia']])
+        if siniestro.get('liquidador_ajustador'):
+            data.append(['Ajustador', siniestro['liquidador_ajustador']])
+        if siniestro.get('lugar_siniestro'):
+            data.append(['Ubicación del Siniestro', siniestro['lugar_siniestro']])
+        if siniestro.get('causa'):
+            data.append(['Causal', siniestro['causa']])
+        if siniestro.get('estado'):
+            data.append(['Estado', siniestro['estado']])
+
+        if data:
+            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 0.2*inch))
+
+    # INFORMACIÓN DE LA INDEMNIZACIÓN
+    if any([siniestro.get('monto_siniestro'), siniestro.get('deducible'), siniestro.get('total_indemnizar')]):
+        elements.append(Paragraph("INFORMACIÓN DE LA INDEMNIZACIÓN", subtitle_style))
+        data = []
+
+        moneda = siniestro.get('moneda', 'USD')
+        if siniestro.get('moneda'):
+            data.append(['Moneda', moneda])
+        if siniestro.get('monto_siniestro'):
+            data.append(['Importe Siniestro', f"{moneda} {float(siniestro['monto_siniestro']):,.2f}"])
+        if siniestro.get('deducible'):
+            data.append(['Deducible', f"{moneda} {float(siniestro['deducible']):,.2f}"])
+        if siniestro.get('fec_pago'):
+            data.append(['Fecha de Pago', siniestro['fec_pago']])
+        if siniestro.get('total_indemnizar'):
+            data.append(['Importe Indemnización', f"{moneda} {float(siniestro['total_indemnizar']):,.2f}"])
+
+        if data:
+            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 0.2*inch))
+
+    # Descripción de hechos
+    if siniestro.get('descripcion_hechos'):
+        elements.append(Spacer(1, 0.2*inch))
+        elements.append(Paragraph(siniestro['descripcion_hechos'], styles['Normal']))
+        elements.append(Spacer(1, 0.2*inch))
+
+    # SEGUIMIENTO
+    if siniestro.get('liquidador_ajustador') or siniestro.get('estado'):
+        elements.append(Paragraph("SEGUIMIENTO", subtitle_style))
+        data = []
+        data.append(['Fecha', 'Comentario', 'Próx Fecha', 'Gestión a'])
+        data.append(['Atentamente', '', '', ''])
+
+        table = Table(data, colWidths=[1.5*inch, 2.5*inch, 1.5*inch, 1.5*inch])
+        table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 0.2*inch))
+
+    # Footer
+    elements.append(Spacer(1, 0.5*inch))
+    elements.append(Paragraph("ARIAS & ARIAS CORREDORES DE SEGUROS SAC.", footer_style))
+    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", footer_style))
+    elements.append(Spacer(1, 0.1*inch))
+    elements.append(Paragraph("E-mail: info@ariasyarias.com", footer_style))
+    elements.append(Paragraph("1", footer_style))
+
+    doc.build(elements)
+
+
+def _generar_pdf_rrhh(buffer, siniestro):
+    """Genera PDF para siniestros de RRHH (Salud)"""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER
+
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=14,
+        textColor=colors.HexColor('#000000'),
+        spaceAfter=12,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=11,
+        textColor=colors.HexColor('#000000'),
+        spaceAfter=6,
+        spaceBefore=12,
+        fontName='Helvetica-Bold'
+    )
+
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.grey,
+        alignment=TA_CENTER
+    )
+
+    # Encabezado
+    elements.append(Paragraph("ARIAS & ARIAS CORREDORES DE SEGUROS SAC.", title_style))
+    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", styles['Normal']))
+    elements.append(Spacer(1, 0.3*inch))
+
+    elements.append(Paragraph("SINIESTRO DE SALUD", title_style))
+    elements.append(Paragraph(f"Registrado el: {siniestro.get('fec_stro', '')}", styles['Normal']))
+    elements.append(Spacer(1, 0.2*inch))
+
+    # INFORMACIÓN DEL SINIESTRO
+    if any([siniestro.get('siniestro_no'), siniestro.get('cia'), siniestro.get('contratante')]):
+        elements.append(Paragraph("INFORMACIÓN DEL SINIESTRO", subtitle_style))
+        data = []
+
+        if siniestro.get('siniestro_no'):
+            data.append(['No. Siniestro', siniestro['siniestro_no']])
+        if siniestro.get('cia'):
+            data.append(['Cia. de Seguros', siniestro['cia']])
+        if siniestro.get('ejecutivo_cia'):
+            data.append(['Ejecutivo Cía.', siniestro['ejecutivo_cia']])
+        if siniestro.get('contratante'):
+            data.append(['Contratante', siniestro['contratante']])
+        if siniestro.get('asegurado'):
+            data.append(['Asegurado', siniestro['asegurado']])
+        if siniestro.get('poliza'):
+            data.append(['Póliza', siniestro['poliza']])
+        if siniestro.get('ramo'):
+            data.append(['Ramo', siniestro['ramo']])
+        if siniestro.get('fec_stro'):
+            data.append(['Fecha Ocurrencia', siniestro['fec_stro']])
+        if siniestro.get('fec_aviso_cia'):
+            data.append(['Fecha Aviso Cía.', siniestro['fec_aviso_cia']])
+        if siniestro.get('lugar_siniestro'):
+            data.append(['Lugar Atención', siniestro['lugar_siniestro']])
+        if siniestro.get('diagnostico'):
+            data.append(['Diagnóstico', siniestro['diagnostico']])
+        if siniestro.get('causa'):
+            data.append(['Causa', siniestro['causa']])
+        if siniestro.get('estado'):
+            data.append(['Estado', siniestro['estado']])
+
+        if data:
+            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 0.2*inch))
+
+    # GASTOS PRESENTADOS
+    gastos = siniestro.get('gastos_presentados') or []
+    if gastos and isinstance(gastos, list) and len(gastos) > 0:
+        elements.append(Paragraph("GASTOS PRESENTADOS", subtitle_style))
+        data = [['Concepto', 'Monto']]
+
+        total_gastos = 0
+        for gasto in gastos:
+            if isinstance(gasto, dict):
+                concepto = gasto.get('concepto', '')
+                monto = gasto.get('monto', 0)
+                if concepto:
+                    data.append([concepto, f"{siniestro.get('moneda', 'USD')} {float(monto):,.2f}"])
+                    total_gastos += float(monto)
+
+        if len(data) > 1:
+            data.append(['TOTAL', f"{siniestro.get('moneda', 'USD')} {total_gastos:,.2f}"])
+
+            table = Table(data, colWidths=[4.5*inch, 2.5*inch])
+            table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey)
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 0.2*inch))
+
+    # INFORMACIÓN DE LA INDEMNIZACIÓN
+    if any([siniestro.get('monto_siniestro'), siniestro.get('deducible'), siniestro.get('coaseguro')]):
+        elements.append(Paragraph("INFORMACIÓN DE LA INDEMNIZACIÓN", subtitle_style))
+        data = []
+
+        moneda = siniestro.get('moneda', 'USD')
+        if siniestro.get('monto_siniestro'):
+            data.append(['Monto Total', f"{moneda} {float(siniestro['monto_siniestro']):,.2f}"])
+        if siniestro.get('deducible'):
+            data.append(['Deducible', f"{moneda} {float(siniestro['deducible']):,.2f}"])
+        if siniestro.get('coaseguro'):
+            data.append(['Coaseguro', f"{moneda} {float(siniestro['coaseguro']):,.2f}"])
+        if siniestro.get('no_cubierto'):
+            data.append(['No Cubierto', f"{moneda} {float(siniestro['no_cubierto']):,.2f}"])
+        if siniestro.get('total_indemnizar'):
+            data.append(['Total Indemnización', f"{moneda} {float(siniestro['total_indemnizar']):,.2f}"])
+        if siniestro.get('fec_pago'):
+            data.append(['Fecha de Pago', siniestro['fec_pago']])
+
+        if data:
+            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 0.2*inch))
+
+    # Descripción de hechos
+    if siniestro.get('descripcion_hechos'):
+        elements.append(Spacer(1, 0.2*inch))
+        elements.append(Paragraph(siniestro['descripcion_hechos'], styles['Normal']))
+
+    # Footer
+    elements.append(Spacer(1, 0.5*inch))
+    elements.append(Paragraph("E-mail: info@ariasyarias.com", footer_style))
+    elements.append(Paragraph("1", footer_style))
+
+    doc.build(elements)
+
+
+def _generar_pdf_generico(buffer, siniestro):
+    """Genera PDF genérico para otros tipos de siniestros"""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER
+
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=14,
+        textColor=colors.HexColor('#000000'),
+        spaceAfter=12,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=11,
+        textColor=colors.HexColor('#000000'),
+        spaceAfter=6,
+        spaceBefore=12,
+        fontName='Helvetica-Bold'
+    )
+
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.grey,
+        alignment=TA_CENTER
+    )
+
+    # Encabezado
+    elements.append(Paragraph("ARIAS & ARIAS CORREDORES DE SEGUROS SAC.", title_style))
+    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", styles['Normal']))
+    elements.append(Spacer(1, 0.3*inch))
+
+    elements.append(Paragraph("REPORTE DE SINIESTRO", title_style))
+    elements.append(Paragraph(f"Registrado el: {siniestro.get('fec_stro', '')}", styles['Normal']))
+    elements.append(Spacer(1, 0.2*inch))
+
+    # INFORMACIÓN DEL SINIESTRO
+    elements.append(Paragraph("INFORMACIÓN DEL SINIESTRO", subtitle_style))
+    data = []
+
+    if siniestro.get('siniestro_no'):
+        data.append(['No. Siniestro', siniestro['siniestro_no']])
+    if siniestro.get('cia'):
+        data.append(['Cia. de Seguros', siniestro['cia']])
+    if siniestro.get('contratante'):
+        data.append(['Contratante', siniestro['contratante']])
+    if siniestro.get('asegurado'):
+        data.append(['Asegurado', siniestro['asegurado']])
+    if siniestro.get('poliza'):
+        data.append(['Póliza', siniestro['poliza']])
+    if siniestro.get('ramo'):
+        data.append(['Ramo', siniestro['ramo']])
+    if siniestro.get('fec_stro'):
+        data.append(['Fecha Siniestro', siniestro['fec_stro']])
+    if siniestro.get('lugar_siniestro'):
+        data.append(['Lugar', siniestro['lugar_siniestro']])
+    if siniestro.get('causa'):
+        data.append(['Causa', siniestro['causa']])
+    if siniestro.get('estado'):
+        data.append(['Estado', siniestro['estado']])
+
+    if data:
+        table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+        table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 0.2*inch))
+
+    # Descripción
+    if siniestro.get('descripcion_hechos'):
+        elements.append(Paragraph("DESCRIPCIÓN", subtitle_style))
+        elements.append(Paragraph(siniestro['descripcion_hechos'], styles['Normal']))
+        elements.append(Spacer(1, 0.2*inch))
+
+    # Footer
+    elements.append(Spacer(1, 0.5*inch))
+    elements.append(Paragraph("E-mail: info@ariasyarias.com", footer_style))
+    elements.append(Paragraph("1", footer_style))
+
+    doc.build(elements)
+
