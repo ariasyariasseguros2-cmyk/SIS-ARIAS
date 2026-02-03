@@ -57,6 +57,9 @@ function renderizarTabla(data) {
             <td>${siniestro.placa || ''}</td>
             <td class="text-end">
                 <div class="chips-row">
+                    <span class="chip chip-info" role="button" onclick="descargarPDF(${siniestro.id})" title="Descargar PDF">
+                        <i class="bi bi-file-pdf"></i> PDF
+                    </span>
                     <span class="chip chip-primary" role="button" onclick="editarSiniestro(${siniestro.id})" title="Editar">EDITAR</span>
                     <span class="chip chip-danger" role="button" onclick="eliminarSiniestro(${siniestro.id})" title="Eliminar">ELIMINAR</span>
                 </div>
@@ -543,7 +546,7 @@ async function guardarSiniestro(event) {
         return elem ? elem.value : null;
     };
 
-    // Datos comunes para todos los formularios
+
     const data = {
         grupo_ramo: grupoRamo,
         poliza: getVal('poliza'),
@@ -841,3 +844,12 @@ function mostrarError(mensaje) {
     alert(mensaje);
 }
 
+async function descargarPDF(id) {
+    try {
+        const url = `/api/siniestros/${id}/pdf?inline=1`;
+        window.open(url, '_blank');
+    } catch (error) {
+        console.error('Error al abrir PDF:', error);
+        mostrarError('Error al abrir el PDF');
+    }
+}
