@@ -10,108 +10,121 @@
 
 {% block content %}
 <!-- Barra superior con título y acción -->
-<div class="filters-bar d-flex align-items-center gap-2 mb-3">
-    <div class="d-flex align-items-center gap-2">
-        <i class="bi bi-receipt text-primary"></i>
-        <span class="fw-bold text-dark">Primas / Plan de Pagos</span>
+<div class="page-header flex-column align-items-start gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <div class="page-title">
+            <i class="bi bi-receipt"></i>
+            Primas / Plan de Pagos
+        </div>
         <a class="btn btn-success btn-lift" href="#"><i class="bi-plus-lg"></i> Añadir</a>
+    </div>
+    <div>
+        <a href="{{ url_for('main.menu_page', page='polizas') }}" class="text-secondary text-decoration-none small fw-bold">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
     </div>
 </div>
 
 <!-- Encabezado con datos principales -->
-<div class="card mb-3 header-card">
-    <div class="card-body p-4">
-        <div class="d-flex flex-column gap-3">
-            <!-- Info Asegurado -->
-            <div class="d-flex align-items-center gap-2 p-3 bg-light rounded-3 border-start border-4 border-primary">
-                <i class="bi bi-person-badge text-primary fs-4"></i>
-                <div>
-                    <div class="fw-bold text-dark">Asegurado: {{ details.asegurado }}</div>
-                    <div class="small text-muted">
-                        Póliza: <span class="fw-medium text-dark">{{ details.poliza }}</span>
-                    </div>
-                </div>
+<div class="client-info-card">
+    <div class="client-info-header">
+        <i class="bi bi-person-badge"></i>
+        <span>Asegurado: {{ details.asegurado }}</span>
+    </div>
+    <div class="client-info-body">
+        <div class="info-grid">
+            <div class="info-item">
+                <label>Póliza</label>
+                <div>{{ details.poliza }}</div>
             </div>
-
-            <!-- Grid Resumen -->
-            <div class="row g-3 mt-1">
-                <div class="col-6 col-md-3">
-                    <label class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Ejecutivo</label>
-                    <div class="fs-6 text-dark fw-medium">{{ details.ejecutivo }}</div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <label class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Vigencia</label>
-                    <div class="fs-6 text-dark fw-medium">{{ details.vig_desde }} al {{ details.vig_hasta }}</div>
-                </div>
+            <div class="info-item">
+                <label>Ejecutivo</label>
+                <div>{{ details.ejecutivo }}</div>
+            </div>
+            <div class="info-item">
+                <label>Vigencia</label>
+                <div>{{ details.vig_desde }} al {{ details.vig_hasta }}</div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Tabla de primas -->
-<div class="card card-bordered">
-    <div class="card-body pt-2 pb-0">
-        <div class="d-flex justify-content-end mb-2">
-            <div class="input-group input-group-sm search-round" style="width: 280px;">
-                <span class="input-group-text bg-white" style="border-top-left-radius: 50px; border-bottom-left-radius: 50px; border-right: none;"><i class="bi-search"></i></span>
-                <input id="primasSearch" type="text" class="form-control" placeholder="Buscar" style="border-top-right-radius: 50px; border-bottom-right-radius: 50px; border-left: none;">
+<div class="table-card">
+    <div class="table-toolbar d-flex justify-content-between align-items-center">
+        <div class="search-box">
+             <div class="input-group input-group-sm" style="width: 300px;">
+                <input id="primasSearch" type="text" class="form-control border-end-0" placeholder="Filtrar en tabla...">
+                <span class="input-group-text bg-white text-secondary border-start-0"><i class="bi-search"></i></span>
             </div>
         </div>
-        <div class="table-responsive">
-            <table id="primasTable" class="table table-striped table-hover m-0 align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Aviso</th>
-                        <th>Póliza</th>
-                        <th>Contratante</th>
-                        <th>Compañía</th>
-                        <th>Ramo</th>
-                        <th>Tipo</th>
-                        <th>Comercial</th>
-                        <th>Neto</th>
-                        <th>Total</th>
-                        <th>Vig Inicio</th>
-                        <th>Vig Fin</th>
-                        <th>Nro.Operación</th>
-                        <th>Motivo</th>
-                        <th class="text-end">Acción</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for r in rows %}
-                    <tr>
-                        <td>{{ r.aviso }}</td>
-                        <td>{{ r.poliza }}</td>
-                        <td>{{ r.contratante }}</td>
-                        <td>{{ r.compania }}</td>
-                        <td>{{ r.ramo }}</td>
-                        <td>{{ r.tipo }}</td>
-                        <td>{{ r.prima_comercial }}</td>
-                        <td>{{ r.prima_neta }}</td>
-                        <td>{{ r.prima_total }}</td>
-                        <td>{{ r.vig_inicio }}</td>
-                        <td>{{ r.vig_fin }}</td>
-                        <td>{{ r.nro_operacion }}</td>
-                        <td>{{ r.motivo }}</td>
-                        <td class="text-end">
-                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; max-width: 250px; margin-left: auto;">
-                                <button class="btn btn-primary btn-lift btn-cuotas w-100" data-poliza="{{ r.poliza }}">Cuotas</button>
-                                <a href="{{ url_for('main.menu_page', page='avisos') }}?id={{ r.idPrima }}" class="btn btn-secondary btn-lift w-100">Pdf</a>
-                                <button class="btn btn-info btn-lift btn-detalles w-100" data-id="{{ r.idPrima }}">Detalles</button>
-                                <button class="btn btn-success btn-lift btn-editar w-100" data-id="{{ r.idPrima }}" style="grid-column-start: 2;">Editar</button>
-                                <button class="btn btn-danger btn-lift btn-eliminar w-100">Eliminar</button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    {% if not rows %}
-                    <tr>
-                        <td colspan="14" class="text-center text-muted py-4">Sin datos</td>
-                    </tr>
-                    {% endif %}
-                </tbody>
-            </table>
+        <div class="page-size-selector d-flex align-items-center gap-2">
+            <span class="selector-label text-secondary small">Mostrar:</span>
+            <select id="page-size" class="form-select form-select-sm" style="width: auto; cursor: pointer;">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+            </select>
         </div>
+    </div>
+
+    <div class="table-responsive">
+        <table id="primasTable" class="table modern-table table-hover m-0 align-middle">
+            <thead>
+                <tr>
+                    <th>Aviso</th>
+                    <th>Póliza</th>
+                    <th>Contratante</th>
+                    <th>Compañía</th>
+                    <th>Ramo</th>
+                    <th>Tipo</th>
+                    <th>Comercial</th>
+                    <th>Neto</th>
+                    <th>Total</th>
+                    <th>Vig Inicio</th>
+                    <th>Vig Fin</th>
+                    <th>Nro.Operación</th>
+                    <th>Motivo</th>
+                    <th class="text-end">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in rows %}
+                <tr>
+                    <td>{{ r.aviso }}</td>
+                    <td>{{ r.poliza }}</td>
+                    <td>{{ r.contratante }}</td>
+                    <td>{{ r.compania }}</td>
+                    <td>{{ r.ramo }}</td>
+                    <td>{{ r.tipo }}</td>
+                    <td>{{ r.prima_comercial }}</td>
+                    <td>{{ r.prima_neta }}</td>
+                    <td>{{ r.prima_total }}</td>
+                    <td>{{ r.vig_inicio }}</td>
+                    <td>{{ r.vig_fin }}</td>
+                    <td>{{ r.nro_operacion }}</td>
+                    <td>{{ r.motivo }}</td>
+                    <td class="text-end">
+                        <div class="action-buttons justify-content-end">
+                            <button class="btn-action btn-primary btn-cuotas" data-poliza="{{ r.poliza }}">Cuotas</button>
+                            <a href="{{ url_for('main.menu_page', page='avisos') }}?id={{ r.idPrima }}" class="btn-action btn-secondary">Pdf</a>
+                            <button class="btn-action btn-info btn-detalles" data-id="{{ r.idPrima }}">Detalles</button>
+                            <button class="btn-action btn-success btn-editar" data-id="{{ r.idPrima }}">Editar</button>
+                            <button class="btn-action btn-danger btn-eliminar">Eliminar</button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not rows %}
+                <tr>
+                    <td colspan="14" class="text-center text-muted py-4">Sin datos</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white border-top-0 py-3">
+        <small class="text-muted">Total de registros: {{ rows|length }}</small>
     </div>
 </div>
 {% endblock %}

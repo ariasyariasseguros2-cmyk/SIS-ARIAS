@@ -141,16 +141,28 @@
 /* Gradients */
 .btn-lift.btn-primary {
     background: linear-gradient(to right, #399AD6, #1F59A3);
+    border: none !important;
 }
 
 .btn-lift.btn-success {
     /* Gradient Green matching the style */
     background: linear-gradient(to right, #4cd964, #28a745);
+    border: none !important;
 }
 
 .btn-lift.btn-danger {
     /* Gradient Red matching the style */
     background: linear-gradient(to right, #ff6b6b, #c0392b);
+    border: none !important;
+}
+
+/* Remove default Bootstrap focus ring (blue border/shadow) */
+.btn-lift:focus, 
+.btn-lift:active,
+.btn-lift.active {
+    outline: none !important;
+    border: none !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
 }
 
 .btn-lift:hover {

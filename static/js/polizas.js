@@ -1,40 +1,234 @@
 (function () {
   document.addEventListener('DOMContentLoaded', function () {
-    const input = document.getElementById('polizasSearch');
+    // === REFERENCIAS DOM ===
+    const globalSearchInput = document.getElementById('polizasSearch');
+    const globalSearchBtn = document.querySelector('.btn-search'); // Asumiendo que es el botón "Buscar" junto al input
+    const tableSearchInput = document.getElementById('tableSearch');
+    const searchTabs = document.getElementById('searchTabs');
     const table = document.getElementById('polizasTable');
-    const rows = table ? Array.from(table.querySelectorAll('tbody tr')) : [];
+    const tbody = table ? table.querySelector('tbody') : null;
+    const totalRegistrosEl = document.querySelector('.pagination-container .text-muted');
 
-    function filterRows(term) {
+    let currentSearchType = 'general';
+
+    // === 1. LÓGICA DE TABS (FILTROS DE BÚSQUEDA) ===
+    if (searchTabs) {
+      searchTabs.addEventListener('click', (e) => {
+        if (e.target.classList.contains('sub-nav-link')) {
+          e.preventDefault();
+          
+          const clickedTab = e.target;
+          const isAlreadyActive = clickedTab.classList.contains('active');
+
+          // Resetear todos los tabs
+          searchTabs.querySelectorAll('.sub-nav-link').forEach(link => link.classList.remove('active'));
+          
+          if (isAlreadyActive) {
+            // Si ya estaba activo, lo desactivamos (toggle off) -> Búsqueda General
+            currentSearchType = 'general';
+          } else {
+            // Si no estaba activo, lo activamos
+            clickedTab.classList.add('active');
+            currentSearchType = clickedTab.getAttribute('data-search-type');
+          }
+          
+          // Actualizar placeholder
+          let placeholder = "Búsqueda General...";
+          switch(currentSearchType) {
+            case 'historica': placeholder = "Buscar por Número de Póliza Histórica..."; break;
+            case 'aviso': placeholder = "Buscar por Aviso de Cobranza..."; break;
+            case 'placa': placeholder = "Buscar por Placa o Motor..."; break;
+            case 'titular': placeholder = "Buscar por Titular o Dependiente..."; break;
+            default: placeholder = "Búsqueda General (Contratante, asegurado, póliza, placa...)";
+          }
+          if (globalSearchInput) globalSearchInput.placeholder = placeholder;
+          
+          // Opcional: Ejecutar búsqueda si hay texto
+          // if (globalSearchInput && globalSearchInput.value.trim()) {
+          //   performGlobalSearch();
+          // }
+        }
+      });
+    }
+
+    // === 2. LÓGICA DE BÚSQUEDA GLOBAL ===
+    async function performGlobalSearch() {
+      if (!globalSearchInput || !tbody) return;
+      
+      const query = globalSearchInput.value.trim();
+      const type = currentSearchType;
+      
+      // Mostrar estado de carga
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="12" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="text-muted mt-2">Buscando en todo el sistema...</p>
+          </td>
+        </tr>
+      `;
+
+      try {
+        const response = await fetch(`/api/polizas/search?q=${encodeURIComponent(query)}&type=${encodeURIComponent(type)}`);
+        const data = await response.json();
+        
+        if (data.ok) {
+          renderTable(data.rows);
+        } else {
+          showError('Error al realizar la búsqueda');
+        }
+      } catch (error) {
+        console.error('Error search:', error);
+        showError('Error de conexión');
+      }
+    }
+
+    function renderTable(rows) {
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      
+      if (!rows || rows.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="12" class="text-center text-muted py-5">
+              <i class="bi-search display-6 d-block mb-3 opacity-25"></i>
+              No se encontraron resultados para "${globalSearchInput.value}"
+            </td>
+          </tr>
+        `;
+        if (totalRegistrosEl) totalRegistrosEl.textContent = 'Total de registros: 0';
+        return;
+      }
+
+      if (totalRegistrosEl) totalRegistrosEl.textContent = `Total de registros: ${rows.length}`;
+
+      // Obtener URL base para primas desde el atributo data (si existe) o fallback
+      const primasUrlBase = table.getAttribute('data-primas-url') || '/menu/primas';
+
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-id', r.idPoliza);
+        tr.setAttribute('data-emision', r.fecha_emision || '');
+        
+        // Helper para nulos
+        const v = (val) => val || '';
+
+        tr.innerHTML = `
+          <td>${v(r.contratante)}</td>
+          <td>${v(r.asegurado)}</td>
+          <td>${v(r.cia)}</td>
+          <td>${v(r.ramo)}</td>
+          <td>${v(r.producto)}</td>
+          <td>${v(r.poliza)}</td>
+          <td>${v(r.moneda)}</td>
+          <td>${v(r.vig_desde)}</td>
+          <td>${v(r.vig_hasta)}</td>
+          <td>${v(r.sub_agente)}</td>
+          <td>${v(r.asegurada)}</td>
+          <td class="text-end">
+              <div class="action-buttons">
+                  <button type="button" class="btn-action btn-danger" data-action="anular">
+                      Anular
+                  </button>
+                  
+                  <button type="button" class="btn-action btn-success" data-action="renovar">
+                      Renovar
+                  </button>
+                  
+                  <a href="${primasUrlBase}?poliza=${encodeURIComponent(r.poliza)}" class="btn-action btn-primary text-decoration-none" data-action="primas">
+                      Primas
+                  </a>
+
+                  <div class="dropdown action-dropdown ms-1">
+                      <button class="btn-dropdown dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                          Acción
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-end">
+                          <li><a class="dropdown-item" href="/menu/cuotas?poliza=${encodeURIComponent(r.poliza)}" data-action="extracto"><i class="bi-file-earmark-lock"></i> Extracto</a></li>
+                          <li><a class="dropdown-item" href="#" data-action="siniestros"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
+                          <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi-briefcase"></i> Solicitudes</a></li>
+                          <li><hr class="dropdown-divider"></li>
+                          <li><a class="dropdown-item" href="/menu/detalles-poliza?id=${r.idPoliza}"><i class="bi-info-circle"></i> Detalles</a></li>
+                          <li><a class="dropdown-item" href="/menu/detalles-poliza?id=${r.idPoliza}&print=true" target="_blank"><i class="bi-printer"></i> Imprimir</a></li>
+                          <li><a class="dropdown-item" href="/menu/editar-poliza?id=${r.idPoliza}" data-action="editar"><i class="bi-pencil-square"></i> Editar</a></li>
+                          <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash"></i> Eliminar</a></li>
+                      </ul>
+                  </div>
+              </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      
+      // Actualizar referencias para el filtro local
+      updateLocalRows();
+    }
+
+    function showError(msg) {
+      if (!tbody) return;
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="12" class="text-center text-danger py-5">
+            <i class="bi-exclamation-circle display-6 d-block mb-3"></i>
+            ${msg}
+          </td>
+        </tr>
+      `;
+    }
+
+    // Event Listeners Búsqueda Global
+    if (globalSearchBtn) {
+      globalSearchBtn.addEventListener('click', performGlobalSearch);
+    }
+    if (globalSearchInput) {
+      globalSearchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performGlobalSearch();
+      });
+    }
+
+    // === 3. LÓGICA DE FILTRO LOCAL (EN TABLA) ===
+    let localRows = table ? Array.from(table.querySelectorAll('tbody tr')) : [];
+
+    function updateLocalRows() {
+      if (table) {
+        localRows = Array.from(table.querySelectorAll('tbody tr'));
+      }
+    }
+
+    function filterLocalRows(term) {
       const q = term.trim().toLowerCase();
-      rows.forEach(tr => {
+      localRows.forEach(tr => {
+        // Ignorar filas de mensaje/loading
+        if (tr.cells.length < 2) return; 
+        
         const text = tr.textContent.toLowerCase();
         tr.style.display = text.includes(q) ? '' : 'none';
       });
     }
 
-    input?.addEventListener('input', (e) => filterRows(e.target.value));
+    // Vincular filtro local al input de la tabla (no al global)
+    if (tableSearchInput) {
+      tableSearchInput.addEventListener('input', (e) => filterLocalRows(e.target.value));
+    }
 
-    // Delegación de eventos para acciones en la tabla
+    // === 4. DELEGACIÓN DE ACCIONES (Lógica Original Preservada) ===
     table?.addEventListener('click', (e) => {
-      // Buscamos el elemento disparador que tenga data-action (chip, button, link)
       const actionEl = e.target.closest('[data-action]');
-      
-      // Si no hay acción, o si es un link con href válido que no sea #, dejamos que el navegador actúe
       if (!actionEl) return;
+      
       if (actionEl.tagName === 'A' && actionEl.getAttribute('href') && actionEl.getAttribute('href') !== '#') {
         return;
       }
 
-      // Prevenir comportamiento default para botones o links con href="#"
       e.preventDefault();
 
       const action = actionEl.dataset.action;
       const row = actionEl.closest('tr');
       if (!row) return;
 
-      // Extraer datos de la fila
-      // 1: Contratante, 2: Asegurado, 3: Cía, 4: Ram, 5: Prod, 6: Poliza,
-      // 7: Moneda, 8: Vig Inicio, 9: Vig Fin, 10: Sub Agente, 11: M.Asegurada
+      // Helper para extraer datos de la fila (índices basados en columnas)
       const pick = (n) => row.querySelector(`td:nth-child(${n})`)?.textContent?.trim() || '';
 
       const data = {
@@ -46,7 +240,8 @@
         poliza: pick(6),
         materiaAsegurada: pick(11),
         vig_inicio: pick(8),
-        vig_fin: pick(9)
+        vig_fin: pick(9),
+        idPoliza: row.getAttribute('data-id')
       };
 
       console.log(`Ejecutando acción: ${action}`, data);
@@ -68,12 +263,22 @@
           break;
 
         case 'extracto':
-            alert(`Ver Extracto de Póliza: ${data.poliza}`);
+            window.location.href = `/menu/cuotas?poliza=${encodeURIComponent(data.poliza)}`;
             break;
 
         case 'siniestros':
           window.location.href = `/menu/siniestros-poliza?poliza=${encodeURIComponent(data.poliza)}`;
           break;
+          
+        case 'editar':
+           if (data.idPoliza) {
+               window.location.href = `/menu/editar-poliza?id=${data.idPoliza}`;
+           }
+           break;
+
+        case 'anular':
+           alert(`Acción Anular para la póliza ${data.poliza} (Pendiente de implementación)`);
+           break;
 
         default:
           alert(`Acción "${action.toUpperCase()}" para la póliza ${data.poliza}`);

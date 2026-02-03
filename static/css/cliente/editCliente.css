@@ -1,0 +1,256 @@
+/* Variables de diseño - Estilo Premium Minimal */
+:root {
+    --modal-bg: #f1f5f9;      /* Gris azulado muy suave de fondo */
+    --card-bg: #ffffff;       /* Blanco puro para tarjetas */
+    --text-main: #1e293b;     /* Slate oscuro para texto principal */
+    --text-muted: #64748b;    /* Slate medio para etiquetas */
+    --accent-color: #f59e0b;  /* Ámbar (evolución elegante del amarillo original) */
+    --accent-hover: #d97706;
+    --border-light: #e2e8f0;
+    --radius-lg: 16px;
+    --radius-md: 8px;
+    --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+}
+
+/* Modal Container */
+#editClienteModal .modal-content {
+    border: none;
+    border-radius: var(--radius-lg);
+    background-color: var(--modal-bg);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+}
+
+/* Header - Diseño Limpio y Elegante */
+#editClienteModal .modal-header {
+    background-color: #ffffff;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    align-items: center;
+}
+
+#editClienteModal .modal-title {
+    font-weight: 600;
+    font-size: 1.25rem;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+#editClienteModal .modal-title i {
+    color: var(--accent-color);
+    background: #fffbeb; /* Fondo ámbar muy suave */
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+    font-size: 1.1rem;
+}
+
+#editClienteModal .btn-close {
+    background-color: #f8fafc;
+    border-radius: 50%;
+    padding: 0.75rem;
+    opacity: 0.6;
+    transition: all 0.2s;
+}
+
+#editClienteModal .btn-close:hover {
+    background-color: #e2e8f0;
+    opacity: 1;
+    transform: rotate(90deg);
+}
+
+/* Body */
+#editClienteModal .modal-body {
+    padding: 2rem;
+    overflow-y: auto;
+    /* Scrollbar sutil */
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+/* Sections Cards - Efecto Flotante */
+#editClienteModal .section-card {
+    background: var(--card-bg);
+    border-radius: var(--radius-md);
+    padding: 1.75rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid transparent; /* Preparado para hover */
+    box-shadow: var(--shadow-soft);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Barra decorativa lateral en las tarjetas */
+#editClienteModal .section-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--accent-color);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+#editClienteModal .section-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+    border-color: rgba(245, 158, 11, 0.1);
+}
+
+#editClienteModal .section-card:hover::before {
+    opacity: 1;
+}
+
+/* Títulos de Sección */
+#editClienteModal .section-title {
+    display: flex;
+    align-items: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px dashed var(--border-light);
+}
+
+#editClienteModal .section-title i {
+    margin-right: 0.75rem;
+    color: var(--accent-color);
+    font-size: 1rem;
+}
+
+/* Formularios */
+#editClienteModal .form-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+#editClienteModal .form-control,
+#editClienteModal .form-select {
+    background-color: #f8fafc;
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.9rem;
+    color: var(--text-main);
+    transition: all 0.2s ease;
+}
+
+#editClienteModal .form-control:focus,
+#editClienteModal .form-select:focus {
+    background-color: #ffffff;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+    outline: none;
+}
+
+#editClienteModal .form-control:hover,
+#editClienteModal .form-select:hover {
+    border-color: #cbd5e1;
+}
+
+/* Checkbox */
+#editClienteModal .form-check {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-left: 0; /* Reset bootstrap padding */
+}
+
+#editClienteModal .form-check-input {
+    width: 1.25em;
+    height: 1.25em;
+    margin: 0;
+    border: 2px solid #cbd5e1;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#editClienteModal .form-check-input:checked {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+#editClienteModal .form-check-label {
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-main);
+}
+
+/* Footer */
+#editClienteModal .modal-footer {
+    background-color: #ffffff;
+    padding: 1.5rem 2rem;
+    border-top: 1px solid var(--border-light);
+    gap: 1rem;
+}
+
+/* Botones */
+#editClienteModal .btn {
+    padding: 0.65rem 1.5rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-radius: 50px;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+#editClienteModal .btn i {
+    margin-right: 0.5rem;
+    font-size: 1rem;
+}
+
+#editClienteModal .btn-secondary {
+    background-color: #f1f5f9;
+    color: var(--text-muted);
+}
+
+#editClienteModal .btn-secondary:hover {
+    background-color: #e2e8f0;
+    color: var(--text-main);
+    transform: translateY(-1px);
+}
+
+#editClienteModal .btn-warning { /* Botón principal de acción */
+    background: linear-gradient(135deg, var(--accent-color) 0%, #f59e0b 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.3);
+}
+
+#editClienteModal .btn-warning:hover {
+    background: linear-gradient(135deg, #ea580c 0%, #d97706 100%); /* Un naranja más intenso al hover */
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 10px -2px rgba(245, 158, 11, 0.4);
+}
+
+#editClienteModal .btn-warning:active {
+    transform: translateY(0);
+}
+
+/* Scrollbar Webkit */
+#editClienteModal .modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+#editClienteModal .modal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+#editClienteModal .modal-body::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 20px;
+}

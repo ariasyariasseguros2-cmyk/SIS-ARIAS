@@ -856,6 +856,19 @@ def clientes_select():
     session['selected_cliente'] = selected
     return {'ok': True}, 200
 
+@bp.route('/api/polizas/search', methods=['GET'])
+def api_polizas_search():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'Unauthorized'}, 401
+        
+    query = request.args.get('q', '').strip()
+    search_type = request.args.get('type', 'general')
+    
+    from controllers.polizas_search import search_polizas_global
+    data = search_polizas_global(query, search_type)
+    
+    return {'ok': True, 'rows': data['rows']}
+
 @bp.route('/polizas/save', methods=['POST'])
 def polizas_save():
     if 'user' not in session:
