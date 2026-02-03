@@ -120,6 +120,9 @@ function renderizarTabla(data) {
             <td>${siniestro.placa || ''}</td>
             <td class="text-end">
                 <div class="chips-row">
+                    <span class="chip chip-info" role="button" onclick="descargarPDF(${siniestro.id})" title="Descargar PDF">
+                        <i class="bi bi-file-pdf"></i> PDF
+                    </span>
                     <span class="chip chip-primary" role="button" onclick="editarSiniestro(${siniestro.id})" title="Editar">EDITAR</span>
                     <span class="chip chip-danger" role="button" onclick="eliminarSiniestro(${siniestro.id})" title="Eliminar">ELIMINAR</span>
                 </div>
@@ -724,4 +727,17 @@ function mostrarExito(mensaje) {
 
 function mostrarError(mensaje) {
     alert(mensaje);
+}
+
+async function descargarPDF(id) {
+    try {
+        // Abrir en nueva pestaña para que el navegador muestre el PDF inline si el backend lo permite
+        const url = `/api/siniestros/${id}/pdf?inline=1`;
+        window.open(url, '_blank');
+        // Mostrar un mensaje opcional
+        // mostrarExito('Abriendo PDF en nueva pestaña');
+    } catch (error) {
+        console.error('Error al abrir PDF:', error);
+        mostrarError('Error al abrir el PDF');
+    }
 }

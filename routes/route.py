@@ -1580,6 +1580,13 @@ def api_delete_siniestro(id):
     from controllers.siniestros.siniestros_controller import delete_siniestro
     return delete_siniestro(id)
 
+@bp.route('/api/siniestros/<int:id>/pdf', methods=['GET'])
+def api_generar_pdf_siniestro(id):
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    from controllers.siniestros.siniestros_controller import generar_pdf_siniestro
+    return generar_pdf_siniestro(id)
+
 @bp.route('/api/siniestros/buscar', methods=['POST'])
 def api_buscar_siniestros():
     if 'user' not in session:
