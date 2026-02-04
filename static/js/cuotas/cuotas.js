@@ -75,8 +75,11 @@ const Cuotas = (() => {
 
   function recalcTotal() {
     const tbody = document.querySelector('#cuotas-table tbody');
-    const totalEl = document.querySelector('.importe-text .importe-monto');
+    // Updated selector to match the new Glass Panel design
+    const totalEl = document.getElementById('header-total-monto');
+    
     if (!tbody || !totalEl) return;
+    
     let total = 0;
     tbody.querySelectorAll('tr').forEach(tr => {
       const td = tr.querySelector('td:nth-child(5)');
@@ -98,7 +101,7 @@ const Cuotas = (() => {
     confirmModal.show();
   }
 
-  // Acción PDF: abre en nueva pestaña usando factura o cupón como nombre base
+  // Acción PDF: abre modal con visualizador y opción de descarga
   function onPDF(idx) {
     const tr = getRow(idx);
     const data = getCellsData(tr, idx);
@@ -110,7 +113,30 @@ const Cuotas = (() => {
     }
     const filename = encodeURIComponent(String(base).trim() + '.pdf');
     const url = `/uploads/${filename}`;
-    window.open(url, '_blank');
+    
+    // Configurar modal PDF
+    const modalEl = document.getElementById('cuotaPdfModal');
+    if (!modalEl) {
+        // Fallback si no existe el modal
+        window.open(url, '_blank');
+        return;
+    }
+
+    // Actualizar elementos del modal
+    const frame = document.getElementById('pdfViewerFrame');
+    const downloadBtn = document.getElementById('btnDownloadPdf');
+    const titleEl = document.getElementById('pdfFileName');
+    
+    if (frame) frame.src = url;
+    if (downloadBtn) {
+        downloadBtn.href = url;
+        downloadBtn.download = String(base).trim() + '.pdf';
+    }
+    if (titleEl) titleEl.textContent = String(base).trim();
+
+    // Mostrar modal
+    const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
   }
 
   function onRevert(idx) {
@@ -251,12 +277,12 @@ const Cuotas = (() => {
             <td>${data.factura || ''}</td>
             <td>${data.observacion || ''}</td>
             <td class="text-end actions">
-                <div class="d-flex gap-2 justify-content-end flex-wrap">
-                  <button class="btn btn-sm btn-lift btn-pdf" onclick="Cuotas.onPDF(${rowCount})">PDF</button>
-                  <button class="btn btn-sm btn-lift btn-revert" onclick="Cuotas.onRevert(${rowCount})">Revertir</button>
-                  <button class="btn btn-sm btn-lift btn-details" onclick="Cuotas.onDetails(${rowCount})">Detalles</button>
-                  <button class="btn btn-sm btn-lift btn-edit" onclick="Cuotas.onEdit(${rowCount})">Editar</button>
-                  <button class="btn btn-sm btn-lift btn-delete" onclick="Cuotas.onDelete(${rowCount})">Eliminar</button>
+                <div class="action-buttons justify-content-end">
+                  <button class="btn-action btn-secondary btn-pdf" onclick="Cuotas.onPDF(${rowCount})">PDF</button>
+                  <button class="btn-action btn-warning btn-revert" onclick="Cuotas.onRevert(${rowCount})">Revertir</button>
+                  <button class="btn-action btn-info btn-details" onclick="Cuotas.onDetails(${rowCount})">Detalles</button>
+                  <button class="btn-action btn-success btn-edit" onclick="Cuotas.onEdit(${rowCount})">Editar</button>
+                  <button class="btn-action btn-danger btn-delete" onclick="Cuotas.onDelete(${rowCount})">Eliminar</button>
                 </div>
             </td>
         `;
@@ -284,6 +310,9 @@ const Cuotas = (() => {
 
         if (tds[2]) tds[2].textContent = getVal('editFechaVenc');
         if (tds[4]) tds[4].textContent = getVal('editImporte');
+        if (tds[5]) tds[5].textContent = nuevaFechaPago;
+        if (tds[6]) tds[6].textContent = nuevaFactura;
+        if (tds[7]) tds[7].textContent = nuevaObservacion;
         
         // Update dataset instead of cells for hidden columns
         tr.dataset.fechaPago = nuevaFechaPago;

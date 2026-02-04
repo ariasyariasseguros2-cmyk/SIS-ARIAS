@@ -35,7 +35,8 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
                 encabezado['contratante'] = pr.get('contratante') or ''
                 encabezado['compania'] = pr.get('compania') or pr.get('cia') or ''
                 encabezado['ramo'] = pr.get('ramo') or ''
-                resumen['aviso_cob'] = pr.get('nro_operacion') or pr.get('recibo') or ''
+                # Corregido para coincidir con la lógica de primas.py (columna Aviso)
+                resumen['aviso_cob'] = pr.get('recibo') or pr.get('aviso') or pr.get('nro_aviso') or ''
                 resumen['vig_inicio'] = pr.get('vig_inicio') or ''
                 resumen['vig_fin'] = pr.get('vig_fin') or ''
                 resumen['tipo_doc'] = pr.get('tipo') or pr.get('tipo_mov') or ''

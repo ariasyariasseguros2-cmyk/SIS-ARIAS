@@ -36,7 +36,44 @@
         if (t.classList.contains('btn-detalles')) {
             const id = t.getAttribute('data-id');
             if (id) {
-                window.location.href = `/menu/detalles-primas?id=${id}`;
+                // Open modal
+                const modalEl = document.getElementById('detallesPrimasModal');
+                // Check if modal instance already exists
+                let modal = bootstrap.Modal.getInstance(modalEl);
+                if (!modal) {
+                    modal = new bootstrap.Modal(modalEl);
+                }
+                modal.show();
+
+                // Load content
+                const modalBody = document.getElementById('detallesPrimasModalBody');
+                modalBody.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div></div>';
+
+                fetch(`/menu/detalles-primas?id=${id}`)
+                    .then(res => res.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        // Extract the card body which contains the table
+                        const content = doc.querySelector('.card-body');
+                        
+                        if (content) {
+                            modalBody.innerHTML = '';
+                            modalBody.appendChild(content);
+                        } else {
+                            // Fallback if structure is different
+                            const container = doc.querySelector('.container-fluid');
+                             if (container) {
+                                modalBody.innerHTML = container.innerHTML;
+                             } else {
+                                modalBody.innerHTML = '<div class="alert alert-warning">No se pudo encontrar el contenido de detalles.</div>';
+                             }
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        modalBody.innerHTML = '<div class="alert alert-danger">Error al cargar los detalles</div>';
+                    });
             } else {
                 alert('No se pudo obtener el ID para ver detalles.');
             }

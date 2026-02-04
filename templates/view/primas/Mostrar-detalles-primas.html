@@ -1,0 +1,184 @@
+{% extends 'view/layout_dashboard.html' %}
+
+{% block html_title %}Detalles Primas | SIS-ARIAS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/primas/Mostrar-detalles-primas.css') }}">
+{% endblock %}
+
+{% block page_title %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <!-- MASTER PANEL: Contenedor Único -->
+    <div class="master-panel">
+        
+        <!-- 1. Header Integrado -->
+        <div class="panel-header">
+            <div class="header-title-group">
+                <h1>
+                    <i class="bi bi-file-earmark-text"></i>
+                    Detalle de Prima #{{ prima.id }}
+                </h1>
+                <div class="header-subtitle">
+                    Visualización completa del registro y plan de pagos
+                </div>
+            </div>
+            <a href="{{ url_for('main.menu_page', page='primas') }}" class="btn-close-custom" title="Cerrar y Volver">
+                <i class="bi bi-x-lg"></i>
+            </a>
+        </div>
+
+        <!-- 2. Cuerpo del Panel (Layout Grid) -->
+        <div class="panel-body">
+            
+            <!-- A. Área Principal (Izquierda) -->
+            <div class="main-content-area">
+                
+                <!-- Sección 1: Datos Clave -->
+                <div class="section-heading">Información de Póliza</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="label">Contratante / Asegurado</span>
+                        <span class="value">{{ prima.cliente_razon_social or prima.asegurado or 'Sin datos' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Compañía Aseguradora</span>
+                        <span class="value highlight">{{ prima.cia or 'Sin datos' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Ramo / Producto</span>
+                        <span class="value">{{ prima.ramos_producto or prima.ramo or 'Sin datos' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Nro. de Póliza/Operación</span>
+                        <span class="value">{{ prima.nro_operacion or prima.nro or '-' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Tipo de Documento</span>
+                        <span class="value">{{ prima.tipo_doc or 'Emisión' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Solicitud</span>
+                        <span class="value">{{ prima.solicitud or '-' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Motivo</span>
+                        <span class="value">{{ prima.motivo or '-' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Nro. Primera Cuota</span>
+                        <span class="value">{{ prima.recibo or '-' }}</span>
+                    </div>
+                </div>
+
+                <div class="info-item mb-4">
+                    <span class="label">Observaciones / Más Información</span>
+                    <span class="value" style="font-weight: 400;">{{ prima.mas_info or 'No se registraron observaciones adicionales para esta prima.' }}</span>
+                </div>
+
+                <!-- Sección 2: Comisiones (Split View) -->
+                <div class="section-heading">Desglose de Comisiones</div>
+                <div class="commission-container">
+                    <!-- Card Cía -->
+                    <div class="sub-card">
+                        <div class="sub-card-title">
+                            <i class="bi bi-building text-primary"></i> Comisión Compañía
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="label">Porcentaje</span>
+                            <span class="value">{{ prima.porc_compania or '-' }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="label">Importe</span>
+                            <span class="value text-success">{{ prima.imp_compania or '-' }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="label">Factura / Fecha</span>
+                            <span class="value small text-muted">{{ prima.factura_comision or '-' }} / {{ prima.fecha_pago_comision or '' }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Card Sub-Agente -->
+                    <div class="sub-card">
+                        <div class="sub-card-title">
+                            <i class="bi bi-person-badge text-secondary"></i> Sub-Agente: {{ prima.sub_agente or 'N/A' }}
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="label">Porcentaje</span>
+                            <span class="value">{{ prima.porc_subagente or '-' }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="label">Importe</span>
+                            <span class="value text-success">{{ prima.imp_subagente or '-' }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="label">Comprobante / Fecha</span>
+                            <span class="value small text-muted">{{ prima.comprobante_subagente or '-' }} / {{ prima.fecha_pago_subagente or '' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- B. Sidebar Financiero (Derecha) -->
+            <div class="financial-sidebar">
+                
+                <div class="section-heading">Resumen Económico</div>
+                
+                <!-- Tarjeta Principal de Precio -->
+                <div class="financial-card">
+                    <div class="amount-display">
+                        <span class="amount-label">Prima Total / Bruta</span>
+                        <span class="amount-value">
+                            <span class="amount-currency">{{ prima.moneda or '$' }}</span>{{ prima.prima_comercial_igv or prima.prima_total or '0.00' }}
+                        </span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="text-secondary">Prima Neta</span>
+                        <span class="fw-bold">{{ prima.prima_neta or '0.00' }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="text-secondary">Prima Comercial</span>
+                        <span class="fw-bold">{{ prima.prima_comercial or '0.00' }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="text-secondary">Forma de Pago</span>
+                        <span class="badge bg-light text-dark border">{{ prima.forma_pago or 'CONTADO' }}</span>
+                    </div>
+                </div>
+
+                <!-- Timeline de Vigencia -->
+                <div class="section-heading">Vigencia</div>
+                <div class="timeline-minimal">
+                    <div class="timeline-point">
+                        <span class="timeline-date">{{ prima.vig_desde or 'No definida' }}</span>
+                        <span class="timeline-desc">Inicio de Cobertura</span>
+                    </div>
+                    <div class="timeline-point end">
+                        <span class="timeline-date">{{ prima.vig_hasta or 'No definida' }}</span>
+                        <span class="timeline-desc">Fin de Cobertura</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 3. Footer de Auditoría -->
+        <div class="panel-footer-info">
+            <div>
+                <i class="bi bi-shield-check me-2"></i>
+                Registro creado el <strong>{{ prima.creado_en or 'Fecha desconocida' }}</strong>
+            </div>
+            <div class="d-flex gap-3 align-items-center">
+                <span>Registrado por: <span class="user-badge">{{ prima.usuario_registro or 'Sistema' }}</span></span>
+                {% if prima.usuario_edicion %}
+                <span>Editado por: <span class="user-badge">{{ prima.usuario_edicion }}</span></span>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

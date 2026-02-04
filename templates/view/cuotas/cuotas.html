@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cuotas/cuotas.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/primas/Mostrar-detalles-primas.css') }}">
 {% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
@@ -34,51 +35,57 @@
     </div>
 </div>
 
-<div class="row mb-4">
-    <div class="col-lg-3">
-        <div class="total-card h-100">
-            <div class="total-card-label">Importe Total</div>
-            <div class="total-card-amount">{{ total_monto }} S/.</div>
-        </div>
-    </div>
-    <div class="col-lg-9">
-        <div class="client-info-card h-100 mb-0">
-            <div class="client-info-header">
+<div class="master-panel mb-4">
+    <div class="panel-body" style="min-height: auto;">
+        <div class="main-content-area py-4">
+            <div class="section-heading">
                 <i class="bi bi-person-badge"></i>
-                <span>Contratante: {{ encabezado.contratante }}</span>
+                Información del Contratante
             </div>
-            <div class="client-info-body">
-                <div class="info-grid">
-                    <div class="info-item">
-                        <label>Póliza</label>
-                        <div>{{ encabezado.poliza }}</div>
-                    </div>
-                    <div class="info-item">
-                        <label>Compañía</label>
-                        <div>{{ encabezado.compania }}</div>
-                    </div>
-                    <div class="info-item">
-                        <label>Ramo</label>
-                        <div>{{ encabezado.ramo }}</div>
-                    </div>
-                     <div class="info-item">
-                        <label>Aviso Cob</label>
-                        <div>{{ resumen.aviso_cob }}</div>
-                    </div>
-                    <div class="info-item">
-                        <label>Vigencia</label>
-                        <div>{{ resumen.vig_inicio }} - {{ resumen.vig_fin }}</div>
-                    </div>
-                    <div class="info-item">
-                        <label>Tipo Doc</label>
-                        <div>{{ resumen.tipo_doc }}</div>
-                    </div>
-                     <div class="info-item" style="grid-column: span 2;">
-                        <label>Concepto</label>
-                        <div>{{ resumen.concepto }}</div>
-                    </div>
+            <div class="info-grid">
+                <div class="info-item" style="grid-column: span 2;">
+                    <span class="label">Contratante</span>
+                    <span class="value fw-bold fs-5">{{ encabezado.contratante }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Póliza</span>
+                    <span class="value">{{ encabezado.poliza }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Compañía</span>
+                    <span class="value">{{ encabezado.compania }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Ramo</span>
+                    <span class="value">{{ encabezado.ramo }}</span>
+                </div>
+                 <div class="info-item">
+                    <span class="label">Aviso Cob</span>
+                    <span class="value">{{ resumen.aviso_cob }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Vigencia</span>
+                    <span class="value">{{ resumen.vig_inicio }} - {{ resumen.vig_fin }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Tipo Doc</span>
+                    <span class="value">{{ resumen.tipo_doc }}</span>
+                </div>
+                 <div class="info-item" style="grid-column: span 2;">
+                    <span class="label">Concepto</span>
+                    <span class="value">{{ resumen.concepto }}</span>
                 </div>
             </div>
+        </div>
+        <div class="financial-sidebar py-4 d-flex align-items-center justify-content-center">
+             <div class="financial-card w-100 border-0 shadow-none bg-transparent mb-0">
+                <div class="amount-display">
+                    <span class="amount-label text-uppercase mb-2">Prima Total</span>
+                    <span class="amount-value text-primary" style="font-size: 2.5rem;">
+                        <span class="amount-currency">S/.</span><span id="header-total-monto">{{ total_monto }}</span>
+                    </span>
+                </div>
+             </div>
         </div>
     </div>
 </div>
@@ -126,7 +133,10 @@
           </thead>
           <tbody>
             {% for r in rows %}
-            <tr data-documento="{{ r.documento or '' }}">
+            <tr data-documento="{{ r.documento or '' }}" 
+                data-fecha-pago="{{ r.fecha_pago or '' }}"
+                data-factura="{{ r.factura or '' }}"
+                data-observacion="{{ r.observacion or '' }}">
               <td>{{ loop.index }}</td>
               <td>{{ r.cupon }}</td>
               <td>{{ r.fecha_vencimiento }}</td>
@@ -152,123 +162,255 @@
 </div>
 <!-- Modal Detalles -->
 <div class="modal fade" id="cuotaDetailsModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Detalles de la cuota</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content border-0 bg-transparent">
+      
+      <!-- MASTER PANEL: Contenedor Único -->
+      <div class="master-panel m-0">
+          
+          <!-- 1. Header Integrado -->
+          <div class="panel-header">
+              <div class="header-title-group">
+                  <h1>
+                      <i class="bi bi-credit-card-2-front"></i>
+                      Detalle de Cuota #<span id="detailSecuencia"></span>
+                  </h1>
+                  <div class="header-subtitle">
+                      Visualización completa del registro de pago
+                  </div>
+              </div>
+              <button type="button" class="btn-close-custom" data-bs-dismiss="modal" aria-label="Cerrar" title="Cerrar">
+                  <i class="bi bi-x-lg"></i>
+              </button>
+          </div>
+
+          <!-- 2. Cuerpo del Panel (Layout Grid) -->
+          <div class="panel-body" style="min-height: auto;">
+              
+              <!-- A. Área Principal (Izquierda) -->
+              <div class="main-content-area">
+                  
+                  <!-- Sección 1: Datos del Cupón -->
+                  <div class="section-heading">Información del Cupón</div>
+                  <div class="info-grid">
+                      <div class="info-item">
+                          <span class="label">Número de Cupón</span>
+                          <span id="detailCupon" class="value"></span>
+                      </div>
+                      <div class="info-item">
+                          <span class="label">Registrado por</span>
+                          <span id="detailUsuario" class="value user-badge"></span>
+                      </div>
+                      <div class="info-item" style="grid-column: span 2;">
+                           <span class="label">Documento Adjunto</span>
+                           <div id="detailDocumento" class="value"></div>
+                      </div>
+                  </div>
+
+                  <div class="info-item mb-4">
+                      <span class="label">Observaciones</span>
+                      <span id="detailObservacion" class="value" style="font-weight: 400;"></span>
+                  </div>
+
+              </div>
+
+              <!-- B. Sidebar Financiero (Derecha) -->
+              <div class="financial-sidebar">
+                  
+                  <div class="section-heading">Resumen Económico</div>
+                  
+                  <!-- Tarjeta Principal de Precio -->
+                  <div class="financial-card">
+                      <div class="amount-display">
+                          <span class="amount-label">Importe Cuota</span>
+                          <span class="amount-value">
+                              <span class="amount-currency">S/.</span><span id="detailImporte"></span>
+                          </span>
+                      </div>
+                      <div class="detail-row">
+                          <span class="text-secondary">Factura / Recibo</span>
+                          <span id="detailFactura" class="fw-bold"></span>
+                      </div>
+                  </div>
+
+                  <!-- Timeline de Fechas -->
+                  <div class="section-heading">Fechas Clave</div>
+                  <div class="timeline-minimal">
+                      <div class="timeline-point">
+                          <span id="detailFechaVenc" class="timeline-date"></span>
+                          <span class="timeline-desc">Fecha Vencimiento</span>
+                      </div>
+                      <div class="timeline-point end">
+                          <span id="detailFechaPago" class="timeline-date"></span>
+                          <span class="timeline-desc">Fecha de Pago</span>
+                      </div>
+                  </div>
+
+              </div>
+          </div>
+          
+           <!-- 3. Footer de Auditoría -->
+          <div class="panel-footer-info">
+              <div>
+                  <i class="bi bi-info-circle me-2"></i>
+                  Información del sistema
+              </div>
+          </div>
+
       </div>
-      <div class="modal-body">
-        <div class="cuota-details">
-          <div class="row g-3 border-bottom pb-3 mb-3">
-            <div class="col-6 col-md-3">
-              <div class="cuota-details-label"># Secuencia</div>
-              <div id="detailSecuencia" class="cuota-details-value fw-semibold"></div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Modal PDF Viewer -->
+<div class="modal fade" id="cuotaPdfModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 90vw; height: 90vh;">
+    <div class="modal-content h-100 border-0 bg-transparent">
+        <div class="master-panel m-0 h-100 d-flex flex-column">
+            <!-- Header con título y acciones -->
+            <div class="panel-header py-3 px-4 flex-shrink-0">
+                <div class="header-title-group">
+                    <h1 class="mb-0 fs-4">
+                        <i class="bi bi-file-earmark-pdf"></i>
+                        Visualizador de Documento
+                    </h1>
+                    <div class="header-subtitle mt-1 ms-5" id="pdfFileName"></div>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <a href="#" id="btnDownloadPdf" class="btn btn-primary btn-sm d-flex align-items-center gap-2" download target="_blank">
+                        <i class="bi bi-download"></i>
+                        Descargar
+                    </a>
+                    <button type="button" class="btn-close-custom" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
             </div>
-            <div class="col-6 col-md-3">
-              <div class="cuota-details-label">Número Cupón</div>
-              <div id="detailCupon" class="cuota-details-value fw-semibold"></div>
+            
+            <!-- Cuerpo con Iframe -->
+            <div class="panel-body p-0 flex-grow-1" style="display: block; min-height: 0; background: #525659;">
+                <iframe id="pdfViewerFrame" src="" style="width: 100%; height: 100%; border: none;" allowfullscreen></iframe>
             </div>
-            <div class="col-6 col-md-3">
-              <div class="cuota-details-label">Fecha Vencimiento</div>
-              <div id="detailFechaVenc" class="cuota-details-value fw-semibold"></div>
-            </div>
-            <div class="col-6 col-md-3">
-              <div class="cuota-details-label">Importe</div>
-              <div id="detailImporte" class="cuota-details-value fw-semibold"></div>
-            </div>
-          </div>
-          <div class="row g-3">
-            <div class="col-6 col-md-3">
-              <div class="cuota-details-label">Fecha de Pago</div>
-              <div id="detailFechaPago" class="cuota-details-value"></div>
-            </div>
-            <div class="col-6 col-md-3">
-              <div class="cuota-details-label">Factura</div>
-              <div id="detailFactura" class="cuota-details-value"></div>
-            </div>
-            <div class="col-12">
-              <div class="cuota-details-label">Documento Descargar Fichero</div>
-              <div id="detailDocumento" class="cuota-details-value"></div>
-            </div>
-            <div class="col-12">
-              <div class="cuota-details-label">Observación</div>
-              <div id="detailObservacion" class="cuota-details-value"></div>
-            </div>
-            <div class="col-12">
-              <div class="cuota-details-label">Usuario quien subió</div>
-              <div id="detailUsuario" class="cuota-details-value"></div>
-            </div>
-          </div>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
-      </div>
     </div>
   </div>
 </div>
 
 <!-- Modal Editar -->
 <div class="modal fade" id="cuotaEditModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Editar cuota</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
-        <div class="cuota-edit">
-          <div class="row g-3 border-bottom pb-3 mb-3">
-            <div class="col-6 col-md-3">
-              <label class="form-label small text-uppercase fw-bold"># Secuencia</label>
-              <input id="editSecuencia" type="text" class="form-control form-control-sm" readonly>
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content border-0 bg-transparent">
+        
+        <!-- MASTER PANEL: Contenedor Único -->
+        <div class="master-panel m-0">
+            
+            <!-- 1. Header Integrado -->
+            <div class="panel-header">
+                <div class="header-title-group">
+                    <h1>
+                        <i class="bi bi-pencil-square"></i>
+                        Editar Cuota
+                    </h1>
+                    <div class="header-subtitle">
+                        Modifique los detalles del registro de pago
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <button type="button" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2" data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success btn-sm d-flex align-items-center gap-2" id="btnGuardarCuota">
+                        <i class="bi bi-check-lg"></i>
+                        Guardar Cambios
+                    </button>
+                </div>
             </div>
-            <div class="col-6 col-md-3">
-              <label class="form-label small text-uppercase fw-bold">Número Cupón</label>
-              <input id="editCupon" type="text" class="form-control form-control-sm" readonly>
+
+            <!-- 2. Cuerpo del Panel (Layout Grid) -->
+            <div class="panel-body d-block" style="min-height: auto;">
+                
+                <!-- A. Área Principal (Izquierda) -->
+                <div class="main-content-area w-100">
+                    
+                    <div class="row g-4">
+                        <!-- Columna Izquierda: Datos Principales -->
+                        <div class="col-lg-8">
+                            <div class="section-heading mb-4">Información del Cupón</div>
+                            
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="label"># Secuencia</label>
+                                    <input id="editSecuencia" type="text" class="form-control bg-light" readonly>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="label">Número Cupón</label>
+                                    <input id="editCupon" type="text" class="form-control bg-light" readonly>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="label">Fecha Vencimiento</label>
+                                    <input id="editFechaVenc" type="text" class="form-control">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="label">Importe (S/.)</label>
+                                    <input id="editImporte" type="text" class="form-control fw-bold text-primary">
+                                </div>
+                            </div>
+
+                            <div class="section-heading mb-4 mt-2">Detalles del Pago</div>
+                            
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="label">Fecha de Pago</label>
+                                    <input id="editFechaPago" type="text" class="form-control">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="label">Factura / Recibo</label>
+                                    <input id="editFactura" type="text" class="form-control">
+                                </div>
+                                <div class="col-12">
+                                    <label class="label">Observación</label>
+                                    <textarea id="editObservacion" class="form-control" rows="3" placeholder="Ingrese notas adicionales..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Columna Derecha: Gestión de Documentos -->
+                        <div class="col-lg-4 border-start ps-lg-4">
+                            <div class="section-heading mb-4">Documento Adjunto</div>
+                            
+                            <div class="sub-card bg-light p-3 border-0">
+                                <div class="mb-3">
+                                    <label class="label mb-2">Archivo Actual</label>
+                                    <input id="editDocumentoNombre" type="text" class="form-control form-control-sm bg-white mb-2" placeholder="Sin archivo adjunto" readonly>
+                                    
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm flex-fill" id="btnEditDocumentoVer">
+                                            <i class="bi bi-eye"></i> Ver
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger btn-sm flex-fill" id="btnEditDocumentoEliminar">
+                                            <i class="bi bi-trash"></i> Quitar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <hr class="text-muted opacity-25 my-3">
+
+                                <div>
+                                    <label class="label mb-2">Subir Nuevo Archivo</label>
+                                    <label class="btn btn-outline-primary btn-sm w-100 dashed-border d-flex flex-column align-items-center justify-content-center p-3" style="border-style: dashed; height: auto;">
+                                        <i class="bi bi-cloud-upload fs-4 mb-1"></i>
+                                        <span>Seleccionar archivo</span>
+                                        <small class="text-muted fw-normal" style="font-size: 0.7rem;">PDF, JPG, PNG</small>
+                                        <input id="editDocumentoFile" type="file" accept=".pdf,.jpg,.jpeg,.png" hidden>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
             </div>
-            <div class="col-6 col-md-3">
-              <label class="form-label small text-uppercase fw-bold">Fecha Vencimiento</label>
-              <input id="editFechaVenc" type="text" class="form-control form-control-sm">
-            </div>
-            <div class="col-6 col-md-3">
-              <label class="form-label small text-uppercase fw-bold">Importe</label>
-              <input id="editImporte" type="text" class="form-control form-control-sm">
-            </div>
-          </div>
-          <div class="row g-3 mb-3">
-            <div class="col-6 col-md-3">
-              <label class="form-label small text-uppercase fw-bold">Fecha de Pago</label>
-              <input id="editFechaPago" type="text" class="form-control form-control-sm">
-            </div>
-            <div class="col-6 col-md-3">
-              <label class="form-label small text-uppercase fw-bold">Factura</label>
-              <input id="editFactura" type="text" class="form-control form-control-sm">
-            </div>
-          </div>
-          <div class="cuota-edit-section border-top pt-3 mt-2">
-            <div class="mb-2 form-label small text-uppercase fw-bold">Documento Descargar Fichero</div>
-            <div class="d-flex flex-wrap align-items-center gap-2">
-              <input id="editDocumentoNombre" type="text" class="form-control form-control-sm" placeholder="Nombre de archivo" readonly>
-              <button type="button" class="btn btn-outline-secondary btn-sm btn-doc" id="btnEditDocumentoVer">Ver</button>
-              <button type="button" class="btn btn-outline-danger btn-sm btn-doc" id="btnEditDocumentoEliminar">Eliminar</button>
-              <label class="btn btn-outline-primary btn-sm mb-0 btn-doc">
-                Reemplazar
-                <input id="editDocumentoFile" type="file" accept=".pdf,.jpg,.jpeg,.png" hidden>
-              </label>
-            </div>
-          </div>
-          <div class="cuota-edit-section mt-3">
-            <label class="form-label small text-uppercase fw-bold mb-1" for="editObservacion">Observación</label>
-            <textarea id="editObservacion" class="form-control form-control-sm" rows="2"></textarea>
-          </div>
+            
         </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-success btn-sm" id="btnGuardarCuota">Guardar</button>
-      </div>
     </div>
   </div>
 </div>

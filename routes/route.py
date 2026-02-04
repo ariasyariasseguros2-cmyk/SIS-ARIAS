@@ -332,7 +332,7 @@ def menu_page(page):
             return redirect(url_for('main.menu_page', page='primas'))
 
         return render_template(
-            'view/detalles-primas-poliza/detalles-primas.html',
+            'view/primas/Mostrar-detalles-primas.html',
             page='detalles-primas',
             prima=prima
         )
