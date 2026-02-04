@@ -44,7 +44,28 @@
         if (t.classList.contains('btn-editar')) {
             const id = t.getAttribute('data-id');
             if (id) {
-                window.location.href = `/menu/editar-primas?id=${id}`;
+                // Open modal
+                const modalEl = document.getElementById('editarPrimasModal');
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+
+                // Load content
+                const modalBody = document.getElementById('editarPrimasModalBody');
+                modalBody.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div></div>';
+
+                fetch(`/menu/primas-editar-form?id=${id}`)
+                    .then(res => res.text())
+                    .then(html => {
+                        modalBody.innerHTML = html;
+                        // Init logic from editar-primas.js
+                        if (window.initEditarPrimasLogic) {
+                            window.initEditarPrimasLogic(true); // true = isModal
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        modalBody.innerHTML = '<div class="alert alert-danger">Error al cargar el formulario</div>';
+                    });
             } else {
                 alert('No se pudo obtener el ID del registro.');
             }

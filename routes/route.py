@@ -414,6 +414,35 @@ def menu_page(page):
             endosatarios_rows=get_endosatarios() # NUEVO
         )
 
+    # NUEVO: Partial para Modal de Editar Primas
+    if page == 'primas-editar-form':
+        from controllers.editar_poliza import get_poliza_data
+        from controllers.ramos import get_ramos
+        from controllers.compania import get_aseguradoras
+        from controllers.subagente import get_subagentes_abreviaciones
+        from controllers.clientes.cliente import get_clientes_data
+        from controllers.endosatario.endosatario import get_endosatarios
+
+        prima_id = request.args.get('id')
+        # Si no hay ID, retornamos vacío o error, pero para el modal simplemente no cargará
+        prima = None
+        if prima_id:
+            prima = get_poliza_data(prima_id)
+            if prima and 'idPrima' not in prima:
+                prima['idPrima'] = prima.get('idPoliza')
+
+        # Reutilizamos editar-primas.html con flag is_modal=True
+        return render_template(
+            'view/primas/editar-primas.html',
+            is_modal=True,
+            prima=prima,
+            ramos_abbrs=get_ramos(),
+            aseguradoras_rows=get_aseguradoras(),
+            subagentes_abbrs=get_subagentes_abreviaciones(),
+            clientes_data=get_clientes_data(),
+            endosatarios_rows=get_endosatarios()
+        )
+
         # NUEVO: Avisos - Documentos
     if page == 'avisos':
         from controllers.editar_poliza import get_poliza_data

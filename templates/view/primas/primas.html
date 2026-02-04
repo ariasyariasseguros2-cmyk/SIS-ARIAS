@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/primas/primas.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/primas/editar-primas.css') }}">
 {% endblock %}
 
 {% block page_title %}{% endblock %}
@@ -127,15 +128,42 @@
         <small class="text-muted">Total de registros: {{ rows|length }}</small>
     </div>
 </div>
+
+<!-- Modal Editar Primas -->
+<div class="modal fade" id="editarPrimasModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi-check-square-fill me-2 text-dark"></i>Editar Primas/Plan de Pagos
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="editarPrimasModalBody">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success text-white" id="btnGuardar">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block before_js %}
 <script>
     window.currentPage = "primas";
 </script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 {% endblock %}
 
 {% block extra_js_bottom %}
 {{ super() }}
+<script src="{{ url_for('static', filename='js/primas/editar-primas.js') }}"></script>
 <script src="{{ url_for('static', filename='js/primas/primas.js') }}"></script>
 {% endblock %}

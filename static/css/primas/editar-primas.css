@@ -1,48 +1,289 @@
-.edit-primas-container {
-    max-width: 1200px;
-    margin: 0 auto;
+/* Variables de diseño - Estilo Premium Minimal (Mejorado) */
+:root {
+    --modal-bg: #f8fafc;      /* Gris azulado muy suave, casi blanco */
+    --card-bg: #ffffff;       /* Blanco puro */
+    --text-main: #0f172a;     /* Slate muy oscuro, casi negro, para contraste alto */
+    --text-muted: #64748b;    /* Slate medio para etiquetas */
+    --accent-color: #f59e0b;  /* Ámbar principal */
+    --accent-hover: #d97706;  /* Ámbar oscuro para hover */
+    --accent-light: #fffbeb;  /* Fondo ámbar muy pálido para iconos */
+    --border-light: #e2e8f0;  /* Bordes sutiles */
+    --radius-lg: 16px;        /* Bordes muy redondeados para modal */
+    --radius-md: 8px;         /* Bordes medios para inputs */
+    --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+    --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.card {
+/* Animación de entrada para el modal */
+@keyframes modalSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Modal Container */
+#editarPrimasModal .modal-content {
     border: none;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: var(--radius-lg);
+    background-color: var(--modal-bg);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* Sombra profunda */
+    overflow: hidden;
+    animation: modalSlideUp 0.3s ease-out forwards;
 }
 
-.card-header {
-    background-color: #fff;
-    border-bottom: 1px solid rgba(0,0,0,.125);
+/* Header - Diseño Limpio */
+#editarPrimasModal .modal-header {
+    background-color: #ffffff;
+    padding: 1.25rem 2rem;
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    align-items: center;
 }
 
-.form-label {
-    font-size: 0.9rem;
-    color: #333;
+#editarPrimasModal .modal-title {
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    letter-spacing: -0.025em;
 }
 
-.form-control, .form-select {
-    font-size: 0.9rem;
-    border-color: #ced4da;
+#editarPrimasModal .modal-title i {
+    color: var(--accent-color);
+    background: var(--accent-light);
+    padding: 0.6rem;
+    border-radius: 10px; /* Squircle */
+    font-size: 1.1rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
-.form-control:focus, .form-select:focus {
-    border-color: #86b7fe;
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+#editarPrimasModal .btn-close {
+    background-color: #f1f5f9;
+    border-radius: 50%;
+    padding: 0.8rem;
+    opacity: 0.7;
+    transition: var(--transition-fast);
+    box-shadow: inset 0 0 0 1px transparent;
 }
 
-/* Toolbar buttons */
-.btn-light {
-    background-color: #f8f9fa;
-    border-color: #dee2e6;
+#editarPrimasModal .btn-close:hover {
+    background-color: #e2e8f0;
+    opacity: 1;
+    transform: rotate(90deg);
+    box-shadow: inset 0 0 0 1px #cbd5e1;
 }
 
-.btn-light:hover {
-    background-color: #e2e6ea;
-    border-color: #dae0e5;
+/* Body */
+#editarPrimasModal .modal-body {
+    padding: 2rem 2.5rem; /* Más espacio lateral */
+    background-color: #ffffff; /* Cuerpo blanco para contraste con inputs grises */
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
 }
 
+/* Estilos compartidos para contenedor standalone */
+.edit-primas-container .card {
+    border: none;
+    box-shadow: var(--shadow-soft);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.edit-primas-container .card-header {
+    background-color: #ffffff;
+    border-bottom: 1px solid var(--border-light);
+    padding: 1.5rem 2rem !important;
+}
+
+/* Formularios */
+#editPrimasForm .form-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.01em;
+}
+
+#editPrimasForm .form-control,
+#editPrimasForm .form-select {
+    background-color: #f8fafc; /* Fondo gris muy claro */
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 0.7rem 1rem;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    transition: var(--transition-fast);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02); /* Sombra interna sutil */
+}
+
+#editPrimasForm .form-control:hover,
+#editPrimasForm .form-select:hover {
+    background-color: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+#editPrimasForm .form-control:focus,
+#editPrimasForm .form-select:focus {
+    background-color: #ffffff;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1); /* Ring focus más suave y amplio */
+    outline: none;
+}
+
+/* Inputs deshabilitados con estilo */
+#editPrimasForm .form-control:disabled,
+#editPrimasForm .form-select:disabled {
+    background-color: #f1f5f9;
+    color: #94a3b8;
+    border-color: #e2e8f0;
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+/* Input Group (Calendarios) - Fusión visual */
+.input-group-text {
+    background-color: #f8fafc;
+    border: 1px solid var(--border-light);
+    border-left: none; /* Sin borde izquierdo para unir con input */
+    color: var(--text-muted);
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+    padding-left: 0.75rem;
+    padding-right: 1rem;
+}
+
+#editPrimasForm .input-group .form-control {
+    border-right: none; /* Sin borde derecho para unir con icono */
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+#editPrimasForm .input-group:focus-within .input-group-text {
+    border-color: var(--accent-color);
+    background-color: #ffffff;
+}
+#editPrimasForm .input-group:focus-within .form-control {
+    box-shadow: none; /* Quitamos shadow individual */
+    border-color: var(--accent-color);
+}
+#editPrimasForm .input-group:focus-within {
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1); /* Shadow al grupo entero */
+    border-radius: var(--radius-md);
+}
+
+/* Footer */
+#editarPrimasModal .modal-footer {
+    background-color: #f8fafc; /* Fondo ligeramente diferente al body */
+    padding: 1.25rem 2rem;
+    border-top: 1px solid var(--border-light);
+    gap: 1rem;
+}
+
+/* Botones */
+#editarPrimasModal .btn, 
+.edit-primas-container .btn {
+    padding: 0.7rem 1.75rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border-radius: 9999px; /* Pill shape completo */
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+    cursor: pointer;
+    letter-spacing: 0.02em;
+}
+
+#editarPrimasModal .btn i,
+.edit-primas-container .btn i {
+    margin-right: 0.6rem;
+    font-size: 1.1rem;
+}
+
+/* Botón Secundario (Cancelar/Volver) */
+#editarPrimasModal .btn-secondary,
+.edit-primas-container .btn-light {
+    background-color: #ffffff;
+    color: var(--text-muted);
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+#editarPrimasModal .btn-secondary:hover,
+.edit-primas-container .btn-light:hover {
+    background-color: #f8fafc;
+    color: var(--text-main);
+    border-color: #94a3b8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Botón Primario (Guardar) */
+#editarPrimasModal .btn-success,
+#editarPrimasModal #btnGuardar,
+.edit-primas-container .btn-success {
+    background: linear-gradient(135deg, var(--accent-color) 0%, #ea580c 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 6px -1px rgba(234, 88, 12, 0.3);
+    border: 1px solid transparent; /* Para evitar saltos de tamaño */
+}
+
+#editarPrimasModal .btn-success:hover,
+#editarPrimasModal #btnGuardar:hover,
+.edit-primas-container .btn-success:hover {
+    background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); /* Brillo al hover */
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(234, 88, 12, 0.4);
+}
+
+#editarPrimasModal .btn-success:active,
+.edit-primas-container .btn-success:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px -1px rgba(234, 88, 12, 0.3);
+}
+
+/* Toolbar de Texto y Textarea */
+.edit-primas-container .border.rounded-top.p-2.bg-light {
+    background-color: #f1f5f9 !important;
+    border-color: var(--border-light) !important;
+    border-bottom: none !important;
+}
+
+#masInformacion {
+    border-color: var(--border-light);
+    background-color: #f8fafc;
+}
+#masInformacion:focus {
+    background-color: #ffffff;
+}
+
+/* Scrollbar Webkit */
+#editarPrimasModal .modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+#editarPrimasModal .modal-body::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+#editarPrimasModal .modal-body::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 20px;
+    border: 2px solid #f1f5f9; /* Padding visual */
+}
+#editarPrimasModal .modal-body::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+}
+
+/* Utilidades Extra */
 .text-danger {
-    color: #dc3545 !important;
-}
-
-.bi-check-square-fill {
-    color: #212529; 
+    color: #ef4444 !important; /* Rojo más suave pero visible */
 }

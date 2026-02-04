@@ -1,15 +1,18 @@
-{% extends 'view/layout_dashboard.html' %}
+{% extends 'view/layout_dashboard.html' if not is_modal else 'view/layout_clean.html' %}
 
 {% block html_title %}Editar Primas/Plan de Pagos | SIS-ARIAS{% endblock %}
 
 {% block extra_css %}
+{% if not is_modal %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/primas/editar-primas.css') }}">
+{% endif %}
 {% endblock %}
 
 {% block page_title %}Editar Primas/Plan de Pagos{% endblock %}
 
 {% block content %}
 <div class="edit-primas-container">
+    {% if not is_modal %}
     <div class="mb-3">
         <a href="{{ url_for('main.menu_page', page='primas') }}" class="text-decoration-none text-secondary">
             <i class="bi-chevron-left"></i> Volver al listado Primas/Plan de Pagos
@@ -23,6 +26,10 @@
             </h5>
         </div>
         <div class="card-body pt-0">
+    {% else %}
+    <div class="pt-2">
+    {% endif %}
+
             <!-- Ejecutivo info header like in the screenshot if possible, otherwise just form -->
              {% if prima and prima.ejecutivo %}
             <div class="mb-3 fw-bold">
@@ -268,6 +275,7 @@
                 </div>
 
             </form>
+    {% if not is_modal %}
         </div>
     </div>
 
@@ -279,14 +287,17 @@
             Guardar
         </button>
     </div>
+    {% endif %}
 
 </div>
 {% endblock %}
 
 {% block before_js %}
+{% if not is_modal %}
 <script>
     window.currentPage = "primas"; 
 </script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="{{ url_for('static', filename='js/primas/editar-primas.js') }}"></script>
+{% endif %}
 {% endblock %}

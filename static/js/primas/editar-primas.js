@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+window.initEditarPrimasLogic = function(isModal = false) {
     // Cálculo automático: Prima Neta = Prima Comercial / 1.03
     const txtPrimaComercial = document.getElementById('primaComercial');
     const txtPrimaNeta = document.getElementById('primaNeta');
@@ -113,7 +113,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const btnGuardar = document.getElementById('btnGuardar');
     if (btnGuardar) {
-        btnGuardar.addEventListener('click', async (e) => {
+        // Remove existing listeners to avoid duplicates if re-initialized?
+        // Cloning the node is a trick to remove listeners
+        const newBtn = btnGuardar.cloneNode(true);
+        btnGuardar.parentNode.replaceChild(newBtn, btnGuardar);
+        
+        newBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             
             // Collect form data
@@ -149,8 +154,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 // Show loading state
-                btnGuardar.disabled = true;
-                btnGuardar.textContent = 'Guardando...';
+                newBtn.disabled = true;
+                newBtn.textContent = 'Guardando...';
 
                 // Assuming /primas/update endpoint exists
                 const resp = await fetch('/primas/update', {
@@ -162,19 +167,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (resp.ok && res.ok) {
                     Swal.fire('Guardado', 'Prima actualizada correctamente', 'success').then(() => {
-                        window.location.href = '/menu/primas';
+                        if (isModal) {
+                            location.reload(); // Reload to see changes in table
+                        } else {
+                            window.location.href = '/menu/primas';
+                        }
                     });
                 } else {
                     Swal.fire('Error', res.error || 'No se pudo actualizar', 'error');
-                    btnGuardar.disabled = false;
-                    btnGuardar.textContent = 'Guardar';
+                    newBtn.disabled = false;
+                    newBtn.textContent = 'Guardar';
                 }
             } catch (e) {
                 console.error(e);
                 Swal.fire('Error', 'Error de red o endpoint no encontrado', 'error');
-                btnGuardar.disabled = false;
-                btnGuardar.textContent = 'Guardar';
+                newBtn.disabled = false;
+                newBtn.textContent = 'Guardar';
             }
         });
     }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Auto-init for standalone page (non-modal)
+    window.initEditarPrimasLogic(false);
 });
