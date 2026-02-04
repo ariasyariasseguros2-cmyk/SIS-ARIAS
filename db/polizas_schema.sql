@@ -792,7 +792,6 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
--- sp_list_primas_por_poliza
 CREATE PROCEDURE sp_list_primas_por_poliza(IN p_poliza VARCHAR(50))
 BEGIN
     SELECT
@@ -934,7 +933,7 @@ DELIMITER ;
 DELIMITER $$
 CREATE PROCEDURE sp_get_poliza_by_id(IN p_id INT)
 BEGIN
-    SELECT 
+    SELECT
         p.*,
         c.razon_social AS cliente_razon_social,
         c.tipo_documento AS cliente_tipo_documento,
@@ -1021,7 +1020,6 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-
 CREATE PROCEDURE sp_reporte_vencimientos(
     IN p_usuarios VARCHAR(255),
     IN p_estado VARCHAR(50),
@@ -1030,7 +1028,7 @@ CREATE PROCEDURE sp_reporte_vencimientos(
     IN p_ramo TEXT
 )
 BEGIN
-    SELECT 
+    SELECT
         p.cia AS compania,
         p.ramo,
         p.ramos_producto AS producto,
@@ -1478,111 +1476,283 @@ DELIMITER ;
 -- VISTAS ÚTILES
 -- =====================================================
 
--- Vista consolidada de siniestros con información resumida
+-- Se mantienen los DROP VIEW para no causar errores si existen vistas previas,
+-- las definiciones de las vistas han sido eliminadas a petición del usuario.
+
 DROP VIEW IF EXISTS v_siniestros_resumen;
+-- Vista consolidada de siniestros eliminada del script.
 
-CREATE VIEW v_siniestros_resumen AS
-SELECT
-    s.id,
-    s.grupo_ramo,
-    s.poliza,
-    s.cia,
-    s.ramo,
-    s.contratante,
-    s.asegurado,
-    s.fec_stro,
-    s.siniestro_no,
-    s.causa,
-    s.estado,
-    s.monto_siniestro,
-    s.deducible,
-    s.total_indemnizar,
-    s.ejecutivo_cia,
-    s.placa,
-    s.fecha_registro,
-    -- Contar archivos relacionados
-    (SELECT COUNT(*) FROM siniestro_archivos WHERE siniestro_id = s.id AND eliminado = 0) AS total_archivos,
-    -- Contar documentos relacionados
-    (SELECT COUNT(*) FROM siniestro_documentos WHERE siniestro_id = s.id AND eliminado = 0) AS total_documentos,
-    -- Última actualización de bitácora
-    (SELECT MAX(fecha) FROM siniestro_bitacora WHERE siniestro_id = s.id AND eliminado = 0) AS ultima_actividad
-FROM siniestros s
-WHERE s.eliminado = 0;
-
--- Vista específica para siniestros de RRGG
 DROP VIEW IF EXISTS v_siniestros_rrgg;
+-- Vista para siniestros RRGG eliminada del script.
 
-CREATE VIEW v_siniestros_rrgg AS
-SELECT
-    id, poliza, cia, ramo, contratante, asegurado,
-    fec_presentacion_broker, fec_aviso_cia, fec_stro,
-    quien_reporta, email, telefonos,
-    lugar_siniestro, causa, descripcion_hechos,
-    siniestro_no, ejecutivo_cia, estado,
-    liquidador_ajustador, conductor, tercero,
-    comisaria, numero_denuncia, fec_denuncia_policial,
-    fec_entrega_doc_ajustador, fec_entrega_doc_cia,
-    fec_cia_consentido, numero_ajuste,
-    moneda, monto_siniestro, deducible, total_indemnizar,
-    fec_pago, forma_pago, numero_cheque, banco,
-    fecha_registro, fecha_modificacion
-FROM siniestros
-WHERE grupo_ramo = 'RRGG' AND eliminado = 0;
-
--- Vista específica para siniestros de VEHICULOS
 DROP VIEW IF EXISTS v_siniestros_vehiculos;
+-- Vista para siniestros VEHICULOS eliminada del script.
 
-CREATE VIEW v_siniestros_vehiculos AS
-SELECT
-    id, poliza, cia, ramo, contratante, asegurado,
-    fec_notificacion_broker, fec_stro, hora_siniestro,
-    quien_reporta, email, telefonos,
-    hora_contacto, hora_culminacion,
-    lugar_siniestro, causa, tipo_atencion,
-    fec_presentacion_cia, siniestro_no, ejecutivo_cia,
-    estado, situacion, placa,
-    moneda, monto_siniestro, deducible, total_indemnizar,
-    fec_pago, forma_pago,
-    datos_vehiculo, datos_denuncia, datos_conductor,
-    datos_copiloto, datos_tercero,
-    fecha_registro, fecha_modificacion
-FROM siniestros
-WHERE grupo_ramo = 'VEHICULOS' AND eliminado = 0;
-
--- Vista específica para siniestros de RRHH
 DROP VIEW IF EXISTS v_siniestros_rrhh;
-
-CREATE VIEW v_siniestros_rrhh AS
-SELECT
-    id, poliza, cia, ramo, contratante, asegurado,
-    fec_presentacion_broker, fec_atencion_medica,
-    fec_aviso_cia, fec_presentacion_cia, fec_cia_consentido,
-    quien_reporta, email, telefonos,
-    tipo_persona, titular, paciente, diagnostico,
-    siniestro_no, ejecutivo_cia, estado,
-    moneda, monto_siniestro, deducible,
-    coaseguro, no_cubierto, total_indemnizar,
-    fec_pago, forma_pago, numero_cheque, banco,
-    gastos_presentados,
-    fecha_registro, fecha_modificacion
-FROM siniestros
-WHERE grupo_ramo = 'RRHH' AND eliminado = 0;
+-- Vista para siniestros RRHH eliminada del script.
 
 -- =====================================================
--- TRIGGERS PARA AUDITORÍA
+-- PROCEDIMIENTOS DE ACTUALIZACIÓN DE SINIESTROS (RRGG / RRHH / VEHICULOS)
+-- Estos procedimientos se nombran como sp_update_siniestro_* para coincidir con los controladores.
 -- =====================================================
 
--- Trigger para actualizar usuario de modificación
-DROP TRIGGER IF EXISTS trg_siniestros_before_update;
-
+DROP PROCEDURE IF EXISTS sp_update_siniestro_rrgg;
 DELIMITER $$
-CREATE TRIGGER trg_siniestros_before_update
-BEFORE UPDATE ON siniestros
-FOR EACH ROW
+CREATE DEFINER=`root`@`localhost` PROCEDURE sp_update_siniestro_rrgg(
+    IN p_id INT,
+    IN p_poliza VARCHAR(50),
+    IN p_cia VARCHAR(100),
+    IN p_ramo VARCHAR(120),
+    IN p_contratante VARCHAR(150),
+    IN p_asegurado VARCHAR(150),
+    IN p_fec_presentacion_broker DATE,
+    IN p_fec_aviso_cia DATE,
+    IN p_fec_presentacion_cia DATE,
+    IN p_fec_stro DATE,
+    IN p_hora_siniestro VARCHAR(20),
+    IN p_quien_reporta VARCHAR(150),
+    IN p_email TEXT,
+    IN p_telefonos VARCHAR(100),
+    IN p_lugar_siniestro TEXT,
+    IN p_causa TEXT,
+    IN p_descripcion_hechos TEXT,
+    IN p_siniestro_no VARCHAR(50),
+    IN p_ejecutivo_cia VARCHAR(100),
+    IN p_estado VARCHAR(50),
+    IN p_liquidador_ajustador VARCHAR(150),
+    IN p_conductor VARCHAR(150),
+    IN p_tercero VARCHAR(150),
+    IN p_comisaria VARCHAR(150),
+    IN p_numero_denuncia VARCHAR(50),
+    IN p_fec_denuncia_policial DATE,
+    IN p_fec_entrega_doc_ajustador DATE,
+    IN p_fec_entrega_doc_cia DATE,
+    IN p_fec_cia_consentido DATE,
+    IN p_numero_ajuste VARCHAR(50),
+    IN p_moneda VARCHAR(10),
+    IN p_monto_siniestro DECIMAL(15,2),
+    IN p_deducible DECIMAL(15,2),
+    IN p_total_indemnizar DECIMAL(15,2),
+    IN p_fec_pago DATE,
+    IN p_forma_pago VARCHAR(50),
+    IN p_numero_cheque VARCHAR(50),
+    IN p_banco VARCHAR(100),
+    IN p_numero_factura VARCHAR(50),
+    IN p_monto_pagar_factura DECIMAL(15,2),
+    IN p_fec_vencimiento_factura DATE,
+    IN p_fec_pago_factura DATE,
+    IN p_usuario_modificacion VARCHAR(50)
+)
 BEGIN
-    IF NEW.usuario_modificacion IS NULL THEN
-        SET NEW.usuario_modificacion = NEW.usuario_registro;
-    END IF;
+    UPDATE siniestros SET
+        poliza = p_poliza,
+        cia = p_cia,
+        ramo = p_ramo,
+        contratante = p_contratante,
+        asegurado = p_asegurado,
+        fec_presentacion_broker = p_fec_presentacion_broker,
+        fec_aviso_cia = p_fec_aviso_cia,
+        fec_presentacion_cia = p_fec_presentacion_cia,
+        fec_stro = p_fec_stro,
+        hora_siniestro = p_hora_siniestro,
+        quien_reporta = p_quien_reporta,
+        email = p_email,
+        telefonos = p_telefonos,
+        lugar_siniestro = p_lugar_siniestro,
+        causa = p_causa,
+        descripcion_hechos = p_descripcion_hechos,
+        siniestro_no = p_siniestro_no,
+        ejecutivo_cia = p_ejecutivo_cia,
+        estado = p_estado,
+        liquidador_ajustador = p_liquidador_ajustador,
+        conductor = p_conductor,
+        tercero = p_tercero,
+        comisaria = p_comisaria,
+        numero_denuncia = p_numero_denuncia,
+        fec_denuncia_policial = p_fec_denuncia_policial,
+        fec_entrega_doc_ajustador = p_fec_entrega_doc_ajustador,
+        fec_entrega_doc_cia = p_fec_entrega_doc_cia,
+        fec_cia_consentido = p_fec_cia_consentido,
+        numero_ajuste = p_numero_ajuste,
+        moneda = p_moneda,
+        monto_siniestro = p_monto_siniestro,
+        deducible = p_deducible,
+        total_indemnizar = p_total_indemnizar,
+        fec_pago = p_fec_pago,
+        forma_pago = p_forma_pago,
+        numero_cheque = p_numero_cheque,
+        banco = p_banco,
+        numero_factura = p_numero_factura,
+        monto_pagar_factura = p_monto_pagar_factura,
+        fec_vencimiento_factura = p_fec_vencimiento_factura,
+        fec_pago_factura = p_fec_pago_factura,
+        usuario_modificacion = p_usuario_modificacion,
+        fecha_modificacion = NOW()
+    WHERE id = p_id;
+
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_update_siniestro_vehiculos;
+DELIMITER $$
+CREATE DEFINER=`root`@`localhost` PROCEDURE sp_update_siniestro_vehiculos(
+    IN p_id INT,
+    IN p_poliza VARCHAR(50),
+    IN p_cia VARCHAR(100),
+    IN p_ramo VARCHAR(120),
+    IN p_contratante VARCHAR(150),
+    IN p_asegurado VARCHAR(150),
+    IN p_fec_presentacion_broker DATE,
+    IN p_fec_aviso_cia DATE,
+    IN p_fec_presentacion_cia DATE,
+    IN p_fec_stro DATE,
+    IN p_hora_siniestro VARCHAR(20),
+    IN p_quien_reporta VARCHAR(150),
+    IN p_email TEXT,
+    IN p_telefonos VARCHAR(100),
+    IN p_lugar_siniestro TEXT,
+    IN p_causa TEXT,
+    IN p_tipo_atencion VARCHAR(50),
+    IN p_situacion VARCHAR(50),
+    IN p_placa VARCHAR(20),
+    IN p_siniestro_no VARCHAR(50),
+    IN p_ejecutivo_cia VARCHAR(100),
+    IN p_estado VARCHAR(50),
+    IN p_moneda VARCHAR(10),
+    IN p_monto_siniestro DECIMAL(15,2),
+    IN p_deducible DECIMAL(15,2),
+    IN p_total_indemnizar DECIMAL(15,2),
+    IN p_fec_pago DATE,
+    IN p_forma_pago VARCHAR(50),
+    IN p_numero_cheque VARCHAR(50),
+    IN p_banco VARCHAR(100),
+    IN p_numero_factura VARCHAR(50),
+    IN p_monto_pagar_factura DECIMAL(15,2),
+    IN p_fec_vencimiento_factura DATE,
+    IN p_fec_pago_factura DATE,
+    IN p_usuario_modificacion VARCHAR(50)
+)
+BEGIN
+    UPDATE siniestros SET
+        poliza = p_poliza,
+        cia = p_cia,
+        ramo = p_ramo,
+        contratante = p_contratante,
+        asegurado = p_asegurado,
+        fec_presentacion_broker = p_fec_presentacion_broker,
+        fec_aviso_cia = p_fec_aviso_cia,
+        fec_presentacion_cia = p_fec_presentacion_cia,
+        fec_stro = p_fec_stro,
+        hora_siniestro = p_hora_siniestro,
+        quien_reporta = p_quien_reporta,
+        email = p_email,
+        telefonos = p_telefonos,
+        lugar_siniestro = p_lugar_siniestro,
+        causa = p_causa,
+        tipo_atencion = p_tipo_atencion,
+        situacion = p_situacion,
+        placa = p_placa,
+        siniestro_no = p_siniestro_no,
+        ejecutivo_cia = p_ejecutivo_cia,
+        estado = p_estado,
+        moneda = p_moneda,
+        monto_siniestro = p_monto_siniestro,
+        deducible = p_deducible,
+        total_indemnizar = p_total_indemnizar,
+        fec_pago = p_fec_pago,
+        forma_pago = p_forma_pago,
+        numero_cheque = p_numero_cheque,
+        banco = p_banco,
+        numero_factura = p_numero_factura,
+        monto_pagar_factura = p_monto_pagar_factura,
+        fec_vencimiento_factura = p_fec_vencimiento_factura,
+        fec_pago_factura = p_fec_pago_factura,
+        usuario_modificacion = p_usuario_modificacion,
+        fecha_modificacion = NOW()
+    WHERE id = p_id;
+
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_update_siniestro_rrhh;
+DELIMITER $$
+CREATE DEFINER=`root`@`localhost` PROCEDURE sp_update_siniestro_rrhh(
+    IN p_id INT,
+    IN p_poliza VARCHAR(50),
+    IN p_cia VARCHAR(100),
+    IN p_ramo VARCHAR(120),
+    IN p_contratante VARCHAR(150),
+    IN p_asegurado VARCHAR(150),
+    IN p_fec_presentacion_broker DATE,
+    IN p_fec_aviso_cia DATE,
+    IN p_fec_presentacion_cia DATE,
+    IN p_fec_stro DATE,
+    IN p_fec_atencion_medica DATE,
+    IN p_hora_siniestro VARCHAR(20),
+    IN p_quien_reporta VARCHAR(150),
+    IN p_email TEXT,
+    IN p_telefonos VARCHAR(100),
+    IN p_lugar_siniestro TEXT,
+    IN p_causa TEXT,
+    IN p_descripcion_hechos TEXT,
+    IN p_siniestro_no VARCHAR(50),
+    IN p_ejecutivo_cia VARCHAR(100),
+    IN p_estado VARCHAR(50),
+    IN p_moneda VARCHAR(10),
+    IN p_monto_siniestro DECIMAL(15,2),
+    IN p_deducible DECIMAL(15,2),
+    IN p_total_indemnizar DECIMAL(15,2),
+    IN p_fec_pago DATE,
+    IN p_forma_pago VARCHAR(50),
+    IN p_numero_cheque VARCHAR(50),
+    IN p_banco VARCHAR(100),
+    IN p_numero_factura VARCHAR(50),
+    IN p_monto_pagar_factura DECIMAL(15,2),
+    IN p_fec_vencimiento_factura DATE,
+    IN p_fec_pago_factura DATE,
+    IN p_usuario_modificacion VARCHAR(50)
+)
+BEGIN
+    UPDATE siniestros SET
+        poliza = p_poliza,
+        cia = p_cia,
+        ramo = p_ramo,
+        contratante = p_contratante,
+        asegurado = p_asegurado,
+        fec_presentacion_broker = p_fec_presentacion_broker,
+        fec_aviso_cia = p_fec_aviso_cia,
+        fec_presentacion_cia = p_fec_presentacion_cia,
+        fec_stro = p_fec_stro,
+        fec_atencion_medica = p_fec_atencion_medica,
+        hora_siniestro = p_hora_siniestro,
+        quien_reporta = p_quien_reporta,
+        email = p_email,
+        telefonos = p_telefonos,
+        lugar_siniestro = p_lugar_siniestro,
+        causa = p_causa,
+        descripcion_hechos = p_descripcion_hechos,
+        siniestro_no = p_siniestro_no,
+        ejecutivo_cia = p_ejecutivo_cia,
+        estado = p_estado,
+        moneda = p_moneda,
+        monto_siniestro = p_monto_siniestro,
+        deducible = p_deducible,
+        total_indemnizar = p_total_indemnizar,
+        fec_pago = p_fec_pago,
+        forma_pago = p_forma_pago,
+        numero_cheque = p_numero_cheque,
+        banco = p_banco,
+        numero_factura = p_numero_factura,
+        monto_pagar_factura = p_monto_pagar_factura,
+        fec_vencimiento_factura = p_fec_vencimiento_factura,
+        fec_pago_factura = p_fec_pago_factura,
+        usuario_modificacion = p_usuario_modificacion,
+        fecha_modificacion = NOW()
+    WHERE id = p_id;
+
+    SELECT ROW_COUNT() AS affected_rows;
 END$$
 DELIMITER ;
 
