@@ -1,5 +1,11 @@
 from flask import jsonify, request, session
 from models.db import get_connection
+# Constantes para el logo y el header (en puntos usando reportlab units)
+from reportlab.lib.units import inch
+LOGO_MAX_W = 3.00 * inch
+LOGO_MAX_H = 1.5 * inch
+LOGO_TOP_MARGIN = 0.2 * inch
+HEADER_EXTRA = 0.2 * inch  # espacio extra para evitar solapamiento
 
 def list_siniestros_por_poliza():
     try:
@@ -93,7 +99,7 @@ def get_siniestro_by_id(siniestro_id):
                 if siniestro.get(alias) is None and siniestro.get(original) is not None:
                     siniestro[alias] = siniestro.get(original)
 
-            # Si falta la placa en el nivel superior, intentar obtenerla del objeto vehiculo
+
             if not siniestro.get('placa') and siniestro.get('datos_vehiculo') and isinstance(siniestro.get('datos_vehiculo'), dict):
                 placa = siniestro['datos_vehiculo'].get('placa') or siniestro['datos_vehiculo'].get('placa_vehiculo')
                 if placa:
@@ -424,6 +430,7 @@ def update_siniestro(siniestro_id):
             cursor.callproc('sp_update_siniestro_vehiculos', params)
 
         elif grupo_ramo == 'RRHH':
+
             params = [
                 siniestro_id,
                 data.get('poliza'),
@@ -431,6 +438,8 @@ def update_siniestro(siniestro_id):
                 data.get('ramo'),
                 data.get('contratante'),
                 data.get('asegurado'),
+                data.get('fec_stro'),
+                data.get('causa'),
                 data.get('fec_presentacion_broker'),
                 data.get('fec_atencion_medica'),
                 data.get('fec_aviso_cia'),
@@ -679,6 +688,47 @@ def generar_pdf_siniestro(siniestro_id):
         return jsonify({'error': str(e)}), 500
 
 
+def _insert_logo(canvas, doc):
+    from flask import current_app
+    import os
+    from reportlab.lib.units import inch
+    from reportlab.lib.utils import ImageReader
+
+    try:
+        logo_path = os.path.join(current_app.root_path, 'static', 'uploads', 'logo', 'Logo-banner.png')
+
+        if not (os.path.exists(logo_path) and os.access(logo_path, os.R_OK)):
+            return
+
+        reader = ImageReader(logo_path)
+        iw, ih = reader.getSize()  # ancho, alto en píxeles o unidades internas
+
+        # Evitar división por cero
+        if iw == 0 or ih == 0:
+            return
+
+        aspect = float(ih) / float(iw)
+
+        draw_w = LOGO_MAX_W
+        draw_h = draw_w * aspect
+
+        if draw_h > LOGO_MAX_H:
+            draw_h = LOGO_MAX_H
+            draw_w = draw_h / aspect
+
+
+        right_margin = 0.2 * inch
+        top_margin = 0.2 * inch
+
+        x = doc.pagesize[0] - draw_w - right_margin
+        y = doc.pagesize[1] - draw_h - top_margin
+
+        canvas.drawImage(logo_path, x, y, width=draw_w, height=draw_h, preserveAspectRatio=True, mask='auto')
+    except Exception as e:
+        print(f"Error al dibujar logo en header: {e}")
+        return
+
+
 def _generar_pdf_vehiculos(buffer, siniestro):
     """Genera PDF para siniestros de VEHICULOS"""
     from reportlab.lib import colors
@@ -688,7 +738,9 @@ def _generar_pdf_vehiculos(buffer, siniestro):
     from reportlab.lib.units import inch
     from reportlab.lib.enums import TA_CENTER
 
-    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    # Reservar espacio en el header para el logo (evita solapamiento en páginas siguientes)
+    header_reserved = 1.6 * inch  # aumentar espacio para evitar solapamiento
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=header_reserved, bottomMargin=0.5*inch)
     elements = []
     styles = getSampleStyleSheet()
 
@@ -910,7 +962,7 @@ def _generar_pdf_vehiculos(buffer, siniestro):
     elements.append(Paragraph("E-mail: info@ariasyarias.com", footer_style))
     elements.append(Paragraph("1", footer_style))
 
-    doc.build(elements)
+    doc.build(elements, onFirstPage=_insert_logo, onLaterPages=_insert_logo)
 
 
 def _generar_pdf_rrgg(buffer, siniestro):
@@ -922,7 +974,9 @@ def _generar_pdf_rrgg(buffer, siniestro):
     from reportlab.lib.units import inch
     from reportlab.lib.enums import TA_CENTER
 
-    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    # Reservar espacio en el header para el logo (evita solapamiento en páginas siguientes)
+    header_reserved = 1.6 * inch  # aumentar espacio para evitar solapamiento
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=header_reserved, bottomMargin=0.5*inch)
     elements = []
     styles = getSampleStyleSheet()
 
@@ -1071,7 +1125,7 @@ def _generar_pdf_rrgg(buffer, siniestro):
     elements.append(Paragraph("E-mail: info@ariasyarias.com", footer_style))
     elements.append(Paragraph("1", footer_style))
 
-    doc.build(elements)
+    doc.build(elements, onFirstPage=_insert_logo, onLaterPages=_insert_logo)
 
 
 def _generar_pdf_rrhh(buffer, siniestro):
@@ -1083,7 +1137,9 @@ def _generar_pdf_rrhh(buffer, siniestro):
     from reportlab.lib.units import inch
     from reportlab.lib.enums import TA_CENTER
 
-    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    # Reservar espacio en el header para el logo (evita solapamiento en páginas siguientes)
+    header_reserved = 1.6 * inch  # aumentar espacio para evitar solapamiento
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=header_reserved, bottomMargin=0.5*inch)
     elements = []
     styles = getSampleStyleSheet()
 
@@ -1245,7 +1301,7 @@ def _generar_pdf_rrhh(buffer, siniestro):
     elements.append(Paragraph("E-mail: info@ariasyarias.com", footer_style))
     elements.append(Paragraph("1", footer_style))
 
-    doc.build(elements)
+    doc.build(elements, onFirstPage=_insert_logo, onLaterPages=_insert_logo)
 
 
 def _generar_pdf_generico(buffer, siniestro):
@@ -1257,7 +1313,9 @@ def _generar_pdf_generico(buffer, siniestro):
     from reportlab.lib.units import inch
     from reportlab.lib.enums import TA_CENTER
 
-    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    # Reservar espacio en el header para el logo (evita solapamiento en páginas siguientes)
+    header_reserved = 1.6 * inch  # aumentar espacio para evitar solapamiento
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=header_reserved, bottomMargin=0.5*inch)
     elements = []
     styles = getSampleStyleSheet()
 
@@ -1347,5 +1405,4 @@ def _generar_pdf_generico(buffer, siniestro):
     elements.append(Paragraph("E-mail: info@ariasyarias.com", footer_style))
     elements.append(Paragraph("1", footer_style))
 
-    doc.build(elements)
-
+    doc.build(elements, onFirstPage=_insert_logo, onLaterPages=_insert_logo)
