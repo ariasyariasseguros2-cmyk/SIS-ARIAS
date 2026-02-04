@@ -58,7 +58,8 @@
          data-base-url="{{ url_for('main.menu_page', page='listado-poliza') }}"
          data-edit-url="{{ url_for('main.menu_page', page='editar-poliza') }}"
          data-primas-url="{{ url_for('main.menu_page', page='primas') }}"
-         data-cuotas-url="{{ url_for('main.menu_page', page='cuotas') }}">
+         data-cuotas-url="{{ url_for('main.menu_page', page='cuotas') }}"
+         data-siniestros-url="{{ url_for('main.menu_siniestros_poliza') }}">
         
         <!-- Toolbar de Tabla -->
         <div class="table-toolbar">
@@ -130,7 +131,7 @@
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-end">
                                         <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='cuotas') }}?poliza={{ r.poliza }}"><i class="bi-file-earmark-lock"></i> Extracto</a></li>
-                                        <li><a class="dropdown-item" href="#" data-action="siniestros"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('main.menu_siniestros_poliza', poliza=r.poliza) }}"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
                                         <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi-briefcase"></i> Solicitudes</a></li>
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='detalles-poliza', id=r.idPoliza) }}"><i class="bi-info-circle"></i> Detalles</a></li>

@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const primasUrlBase = cardContainer?.getAttribute('data-primas-url') || '/menu/primas';
   const cuotasUrlBase = cardContainer?.getAttribute('data-cuotas-url') || '/menu/cuotas';
   const editUrlBase = cardContainer?.getAttribute('data-edit-url') || '/menu/editar-poliza';
+  const siniestrosUrlBase = cardContainer?.getAttribute('data-siniestros-url') || '/menu/siniestros-poliza';
 
   let currentSearchType = 'general';
 
@@ -159,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   </button>
                   <ul class="dropdown-menu dropdown-menu-end">
                       <li><a class="dropdown-item" href="${cuotasUrlBase}?poliza=${encodeURIComponent(r.poliza)}"><i class="bi-file-text"></i> Extracto</a></li>
-                      <li><a class="dropdown-item" href="#" data-action="siniestros"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
+                      <li><a class="dropdown-item" href="${siniestrosUrlBase}?poliza=${encodeURIComponent(r.poliza)}"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
                       <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi-briefcase"></i> Solicitudes</a></li>
                       <li><hr class="dropdown-divider"></li>
                       <li><a class="dropdown-item" href="/menu/detalles-poliza?id=${r.idPoliza}"><i class="bi-info-circle"></i> Detalles</a></li>
@@ -250,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
              if (confirm('¿Está seguro de eliminar esta póliza?')) {
                  alert('Funcionalidad de eliminar pendiente');
              }
-        } else if (action === 'siniestros' || action === 'solicitudes') {
+        } else if (action === 'solicitudes') {
              alert(`Funcionalidad de ${action} en desarrollo`);
         }
     });
