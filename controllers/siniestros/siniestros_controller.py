@@ -1,6 +1,6 @@
 from flask import jsonify, request, session
 from models.db import get_connection
-# Constantes para el logo y el header (en puntos usando reportlab units)
+
 from reportlab.lib.units import inch
 LOGO_MAX_W = 3.00 * inch
 LOGO_MAX_H = 1.5 * inch
@@ -8,536 +8,611 @@ LOGO_TOP_MARGIN = 0.2 * inch
 HEADER_EXTRA = 0.2 * inch  # espacio extra para evitar solapamiento
 
 def list_siniestros_por_poliza():
-    try:
-        poliza = request.args.get('poliza')
+	try:
+		poliza = request.args.get('poliza')
 
-        if not poliza:
-            return jsonify({'error': 'Número de póliza requerido'}), 400
+		if not poliza:
+			return jsonify({'error': 'Número de póliza requerido'}), 400
 
-        connection = get_connection()
-        cursor = connection.cursor(dictionary=True)
+		connection = get_connection()
+		cursor = connection.cursor(dictionary=True)
 
-        cursor.callproc('sp_list_siniestros_por_poliza', [poliza])
+		cursor.callproc('sp_list_siniestros_por_poliza', [poliza])
 
-        for result in cursor.stored_results():
-            siniestros = result.fetchall()
+		for result in cursor.stored_results():
+			siniestros = result.fetchall()
 
-        cursor.close()
-        connection.close()
+		cursor.close()
+		connection.close()
 
-        return jsonify(siniestros), 200
+		return jsonify(siniestros), 200
 
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+	except Exception as e:
+		return jsonify({'error': str(e)}), 500
 
 
 def list_siniestros():
-    try:
-        connection = get_connection()
-        cursor = connection.cursor(dictionary=True)
+	try:
+		connection = get_connection()
+		cursor = connection.cursor(dictionary=True)
 
-        cursor.callproc('sp_list_siniestros')
+		cursor.callproc('sp_list_siniestros')
 
-        for result in cursor.stored_results():
-            siniestros = result.fetchall()
+		for result in cursor.stored_results():
+			siniestros = result.fetchall()
 
-        cursor.close()
-        connection.close()
+		cursor.close()
+		connection.close()
 
-        return jsonify(siniestros), 200
+		return jsonify(siniestros), 200
 
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+	except Exception as e:
+		return jsonify({'error': str(e)}), 500
 
 
 def get_siniestro_by_id(siniestro_id):
-    """Obtiene un siniestro por ID con todos sus datos (incluyendo JSON)"""
-    try:
-        connection = get_connection()
-        cursor = connection.cursor(dictionary=True)
+	"""Obtiene un siniestro por ID con todos sus datos (incluyendo JSON)"""
+	try:
+		connection = get_connection()
+		cursor = connection.cursor(dictionary=True)
 
-        cursor.callproc('sp_get_siniestro_by_id', [siniestro_id])
+		cursor.callproc('sp_get_siniestro_by_id', [siniestro_id])
 
-        siniestro = None
-        for result in cursor.stored_results():
-            siniestro = result.fetchone()
+		siniestro = None
+		for result in cursor.stored_results():
+			siniestro = result.fetchone()
 
-        cursor.close()
-        connection.close()
+		cursor.close()
+		connection.close()
 
-        if not siniestro:
-            return jsonify({'error': 'Siniestro no encontrado'}), 404
+		if not siniestro:
+			return jsonify({'error': 'Siniestro no encontrado'}), 404
 
-        # Convertir fechas DATE a string ISO format y parsear JSON
-        from datetime import date
-        import json
+		# Convertir fechas DATE a string ISO format y parsear JSON
+		from datetime import date
+		import json
 
-        for key, value in siniestro.items():
-            if isinstance(value, date):
-                siniestro[key] = value.isoformat()
-            # Parsear campos JSON de vuelta a objetos
-            elif key in ['datos_vehiculo', 'datos_denuncia', 'datos_conductor', 'datos_copiloto', 'datos_tercero', 'gastos_presentados']:
-                if value:
-                    try:
-                        siniestro[key] = json.loads(value)
-                    except:
-                        siniestro[key] = None
+		for key, value in siniestro.items():
+			if isinstance(value, date):
+				siniestro[key] = value.isoformat()
+			# Parsear campos JSON de vuelta a objetos
+			elif key in ['datos_vehiculo', 'datos_denuncia', 'datos_conductor', 'datos_copiloto', 'datos_tercero', 'gastos_presentados']:
+				if value:
+					try:
+						siniestro[key] = json.loads(value)
+					except:
+						siniestro[key] = None
 
-        # Añadir aliases y rellenar placa desde datos_vehiculo si falta
-        try:
-            # Mapeos seguros para compatibilidad con frontend
-            alias_map = {
-                'vehiculo': 'datos_vehiculo',
-                'denuncia': 'datos_denuncia',
-                'conductor': 'datos_conductor',
-                'copiloto': 'datos_copiloto',
-                'tercero': 'datos_tercero',
-                'gastos': 'gastos_presentados'
-            }
+		# Añadir aliases y rellenar placa desde datos_vehiculo si falta
+		try:
+			# Mapeos seguros para compatibilidad con frontend
+			alias_map = {
+				'vehiculo': 'datos_vehiculo',
+				'denuncia': 'datos_denuncia',
+				'conductor': 'datos_conductor',
+				'copiloto': 'datos_copiloto',
+				'tercero': 'datos_tercero',
+				'gastos': 'gastos_presentados'
+			}
 
-            for alias, original in alias_map.items():
-                if siniestro.get(alias) is None and siniestro.get(original) is not None:
-                    siniestro[alias] = siniestro.get(original)
+			for alias, original in alias_map.items():
+				if siniestro.get(alias) is None and siniestro.get(original) is not None:
+					siniestro[alias] = siniestro.get(original)
 
 
-            if not siniestro.get('placa') and siniestro.get('datos_vehiculo') and isinstance(siniestro.get('datos_vehiculo'), dict):
-                placa = siniestro['datos_vehiculo'].get('placa') or siniestro['datos_vehiculo'].get('placa_vehiculo')
-                if placa:
-                    siniestro['placa'] = placa
-        except Exception:
-            # No queremos romper la respuesta por un fallo aquí
-            pass
+			if not siniestro.get('placa') and siniestro.get('datos_vehiculo') and isinstance(siniestro.get('datos_vehiculo'), dict):
+				placa = siniestro['datos_vehiculo'].get('placa') or siniestro['datos_vehiculo'].get('placa_vehiculo')
+				if placa:
+					siniestro['placa'] = placa
+		except Exception:
+			# No queremos romper la respuesta por un fallo aquí
+			pass
 
-        return jsonify(siniestro), 200
+		return jsonify(siniestro), 200
 
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+	except Exception as e:
+		return jsonify({'error': str(e)}), 500
 
 
 def insert_siniestro():
-    """Inserta un nuevo siniestro usando el SP específico según el grupo"""
-    try:
-        data = request.json
-        usuario = session.get('user', 'sistema')
-        grupo_ramo = data.get('grupo_ramo')
+	"""Inserta un nuevo siniestro usando el SP específico según el grupo"""
+	try:
+		data = request.json
+		usuario = session.get('user', 'sistema')
+		grupo_ramo = data.get('grupo_ramo') or 'OTROS'
 
-        import json
+		import json
 
-        connection = get_connection()
-        cursor = connection.cursor(dictionary=True)
+		connection = get_connection()
+		cursor = connection.cursor(dictionary=True)
 
-        # Preparar campos JSON como strings JSON o NULL
-        def json_or_null(value):
-            if value and (isinstance(value, dict) or isinstance(value, list)):
-                return json.dumps(value)
-            return None
+		# Preparar campos JSON como strings JSON o NULL
+		def json_or_null(value):
+			if value and (isinstance(value, dict) or isinstance(value, list)):
+				return json.dumps(value)
+			return None
 
-        siniestro_id = None
+		siniestro_id = None
 
-        # Llamar al SP específico según el grupo
-        if grupo_ramo == 'RRGG':
-            params = [
-                data.get('poliza'),
-                data.get('cia'),
-                data.get('ramo'),
-                data.get('contratante'),
-                data.get('asegurado'),
-                data.get('fec_presentacion_broker'),
-                data.get('fec_aviso_cia'),
-                data.get('fec_stro'),
-                data.get('hora_siniestro'),
-                data.get('quien_reporta'),
-                data.get('email'),
-                data.get('telefonos'),
-                data.get('lugar_siniestro'),
-                data.get('causa'),
-                data.get('descripcion_hechos'),
-                data.get('siniestro_no'),
-                data.get('ejecutivo_cia'),
-                data.get('estado', 'PENDIENTE'),
-                data.get('liquidador_ajustador'),
-                data.get('conductor'),
-                data.get('tercero'),
-                data.get('comisaria'),
-                data.get('numero_denuncia'),
-                data.get('fec_denuncia_policial'),
-                data.get('fec_entrega_doc_ajustador'),
-                data.get('fec_entrega_doc_cia'),
-                data.get('fec_cia_consentido'),
-                data.get('numero_ajuste'),
-                data.get('moneda', 'US$'),
-                data.get('monto_siniestro', 0.00),
-                data.get('deducible', 0.00),
-                data.get('descripcion_deducible'),
-                data.get('total_indemnizar', 0.00),
-                data.get('fec_pago'),
-                data.get('forma_pago'),
-                data.get('numero_cheque'),
-                data.get('banco'),
-                data.get('numero_factura'),
-                data.get('monto_pagar_factura', 0.00),
-                data.get('fec_vencimiento_factura'),
-                data.get('fec_pago_factura'),
-                usuario
-            ]
-            cursor.callproc('sp_insert_siniestro_rrgg', params)
+		# Llamar al SP específico según el grupo
+		if grupo_ramo == 'RRGG':
+			params = [
+				data.get('poliza'),
+				data.get('cia'),
+				data.get('ramo'),
+				data.get('contratante'),
+				data.get('asegurado'),
+				data.get('fec_presentacion_broker'),
+				data.get('fec_aviso_cia'),
+				data.get('fec_stro'),
+				data.get('hora_siniestro'),
+				data.get('quien_reporta'),
+				data.get('email'),
+				data.get('telefonos'),
+				data.get('lugar_siniestro'),
+				data.get('causa'),
+				data.get('descripcion_hechos'),
+				data.get('siniestro_no'),
+				data.get('ejecutivo_cia'),
+				data.get('estado', 'PENDIENTE'),
+				data.get('liquidador_ajustador'),
+				data.get('conductor'),
+				data.get('tercero'),
+				data.get('comisaria'),
+				data.get('numero_denuncia'),
+				data.get('fec_denuncia_policial'),
+				data.get('fec_entrega_doc_ajustador'),
+				data.get('fec_entrega_doc_cia'),
+				data.get('fec_cia_consentido'),
+				data.get('numero_ajuste'),
+				data.get('moneda', 'US$'),
+				data.get('monto_siniestro', 0.00),
+				data.get('deducible', 0.00),
+				data.get('descripcion_deducible'),
+				data.get('total_indemnizar', 0.00),
+				data.get('fec_pago'),
+				data.get('forma_pago'),
+				data.get('numero_cheque'),
+				data.get('banco'),
+				data.get('numero_factura'),
+				data.get('monto_pagar_factura', 0.00),
+				data.get('fec_vencimiento_factura'),
+				data.get('fec_pago_factura'),
+				usuario
+			]
+			cursor.callproc('sp_insert_siniestro_rrgg', params)
 
-        elif grupo_ramo == 'VEHICULOS':
-            params = [
-                data.get('poliza'),
-                data.get('cia'),
-                data.get('ramo'),
-                data.get('contratante'),
-                data.get('asegurado'),
-                data.get('fec_notificacion_broker'),
-                data.get('fec_stro'),
-                data.get('hora_siniestro'),
-                data.get('quien_reporta'),
-                data.get('email'),
-                data.get('telefonos'),
-                data.get('hora_contacto'),
-                data.get('hora_culminacion'),
-                data.get('lugar_siniestro'),
-                data.get('causa'),
-                data.get('tipo_atencion'),
-                data.get('fec_presentacion_cia'),
-                data.get('siniestro_no'),
-                data.get('ejecutivo_cia'),
-                data.get('estado', 'PENDIENTE'),
-                data.get('situacion'),
-                data.get('moneda', 'US$'),
-                data.get('monto_siniestro', 0.00),
-                data.get('deducible', 0.00),
-                data.get('descripcion_deducible'),
-                data.get('total_indemnizar', 0.00),
-                data.get('fec_pago'),
-                data.get('forma_pago'),
-                data.get('numero_cheque'),
-                data.get('banco'),
-                data.get('numero_factura'),
-                data.get('monto_pagar_factura', 0.00),
-                data.get('fec_vencimiento_factura'),
-                data.get('fec_pago_factura'),
-                json_or_null(data.get('vehiculo')),
-                json_or_null(data.get('denuncia')),
-                json_or_null(data.get('conductor')),
-                json_or_null(data.get('copiloto')),
-                json_or_null(data.get('tercero')),
-                usuario
-            ]
-            cursor.callproc('sp_insert_siniestro_vehiculos', params)
+		elif grupo_ramo == 'VEHICULOS':
+			params = [
+				data.get('poliza'),
+				data.get('cia'),
+				data.get('ramo'),
+				data.get('contratante'),
+				data.get('asegurado'),
+				data.get('fec_notificacion_broker'),
+				data.get('fec_stro'),
+				data.get('hora_siniestro'),
+				data.get('quien_reporta'),
+				data.get('email'),
+				data.get('telefonos'),
+				data.get('hora_contacto'),
+				data.get('hora_culminacion'),
+				data.get('lugar_siniestro'),
+				data.get('causa'),
+				data.get('tipo_atencion'),
+				data.get('fec_presentacion_cia'),
+				data.get('siniestro_no'),
+				data.get('ejecutivo_cia'),
+				data.get('estado', 'PENDIENTE'),
+				data.get('situacion'),
+				data.get('moneda', 'US$'),
+				data.get('monto_siniestro', 0.00),
+				data.get('deducible', 0.00),
+				data.get('descripcion_deducible'),
+				data.get('total_indemnizar', 0.00),
+				data.get('fec_pago'),
+				data.get('forma_pago'),
+				data.get('numero_cheque'),
+				data.get('banco'),
+				data.get('numero_factura'),
+				data.get('monto_pagar_factura', 0.00),
+				data.get('fec_vencimiento_factura'),
+				data.get('fec_pago_factura'),
+				json_or_null(data.get('vehiculo')),
+				json_or_null(data.get('denuncia')),
+				json_or_null(data.get('conductor')),
+				json_or_null(data.get('copiloto')),
+				json_or_null(data.get('tercero')),
+				usuario
+			]
+			cursor.callproc('sp_insert_siniestro_vehiculos', params)
 
-        elif grupo_ramo == 'RRHH':
-            params = [
-                data.get('poliza'),
-                data.get('cia'),
-                data.get('ramo'),
-                data.get('contratante'),
-                data.get('asegurado'),
-                data.get('fec_presentacion_broker'),
-                data.get('fec_atencion_medica'),
-                data.get('fec_aviso_cia'),
-                data.get('fec_presentacion_cia'),
-                data.get('fec_cia_consentido'),
-                data.get('quien_reporta'),
-                data.get('email'),
-                data.get('telefonos'),
-                data.get('tipo_persona'),
-                data.get('titular'),
-                data.get('paciente'),
-                data.get('diagnostico'),
-                data.get('siniestro_no'),
-                data.get('ejecutivo_cia'),
-                data.get('estado', 'PENDIENTE'),
-                data.get('moneda', 'US$'),
-                data.get('monto_siniestro', 0.00),
-                data.get('deducible', 0.00),
-                data.get('descripcion_deducible'),
-                data.get('coaseguro', 0.00),
-                data.get('no_cubierto', 0.00),
-                data.get('total_indemnizar', 0.00),
-                data.get('fec_pago'),
-                data.get('forma_pago'),
-                data.get('numero_cheque'),
-                data.get('banco'),
-                data.get('numero_factura'),
-                data.get('monto_pagar_factura', 0.00),
-                data.get('fec_vencimiento_factura'),
-                data.get('fec_pago_factura'),
-                json_or_null(data.get('gastos')),
-                usuario
-            ]
-            cursor.callproc('sp_insert_siniestro_rrhh', params)
+		elif grupo_ramo == 'RRHH':
+			params = [
+				data.get('poliza'),
+				data.get('cia'),
+				data.get('ramo'),
+				data.get('contratante'),
+				data.get('asegurado'),
+				data.get('fec_presentacion_broker'),
+				data.get('fec_atencion_medica'),
+				data.get('fec_aviso_cia'),
+				data.get('fec_presentacion_cia'),
+				data.get('fec_cia_consentido'),
+				data.get('quien_reporta'),
+				data.get('email'),
+				data.get('telefonos'),
+				data.get('tipo_persona'),
+				data.get('titular'),
+				data.get('paciente'),
+				data.get('diagnostico'),
+				data.get('siniestro_no'),
+				data.get('ejecutivo_cia'),
+				data.get('estado', 'PENDIENTE'),
+				data.get('moneda', 'US$'),
+				data.get('monto_siniestro', 0.00),
+				data.get('deducible', 0.00),
+				data.get('descripcion_deducible'),
+				data.get('coaseguro', 0.00),
+				data.get('no_cubierto', 0.00),
+				data.get('total_indemnizar', 0.00),
+				data.get('fec_pago'),
+				data.get('forma_pago'),
+				data.get('numero_cheque'),
+				data.get('banco'),
+				data.get('numero_factura'),
+				data.get('monto_pagar_factura', 0.00),
+				data.get('fec_vencimiento_factura'),
+				data.get('fec_pago_factura'),
+				json_or_null(data.get('gastos')),
+				usuario
+			]
+			cursor.callproc('sp_insert_siniestro_rrhh', params)
 
-        else:
-            return jsonify({'error': f'Grupo de ramo no soportado: {grupo_ramo}'}), 400
+		# Nuevo manejo para OTROS: usar SPs especializados
+		elif grupo_ramo == 'OTROS':
+			params = [
+				data.get('poliza'),
+				data.get('cia'),
+				data.get('ramo'),
+				data.get('contratante'),
+				data.get('asegurado'),
+				data.get('fec_stro'),
+				data.get('hora_siniestro'),
+				data.get('quien_reporta'),
+				data.get('email'),
+				data.get('telefonos'),
+				data.get('lugar_siniestro'),
+				data.get('causa'),
+				data.get('descripcion_hechos'),
+				data.get('siniestro_no'),
+				data.get('ejecutivo_cia'),
+				data.get('estado', 'PENDIENTE'),
+				data.get('moneda', 'LOCAL'),
+				data.get('monto_siniestro', 0.00),
+				data.get('deducible', 0.00),
+				data.get('descripcion_deducible'),
+				data.get('total_indemnizar', 0.00),
+				data.get('fec_pago'),
+				data.get('forma_pago'),
+				data.get('numero_cheque'),
+				data.get('banco'),
+				data.get('numero_factura'),
+				data.get('monto_pagar_factura', 0.00),
+				data.get('fec_vencimiento_factura'),
+				data.get('fec_pago_factura'),
+				json_or_null(data.get('gastos')),
+				usuario
+			]
+			cursor.callproc('sp_insert_siniestro_otros', params)
 
-        for result in cursor.stored_results():
-            inserted = result.fetchone()
+		else:
+			return jsonify({'error': f'Grupo de ramo no soportado: {grupo_ramo}'}), 400
 
-        siniestro_id = inserted['id']
+		for result in cursor.stored_results():
+			inserted = result.fetchone()
 
-        # Insertar documentos si existen
-        if data.get('documentos'):
-            for doc in data.get('documentos', []):
-                cursor.callproc('sp_insert_documento_siniestro', [
-                    siniestro_id,
-                    doc.get('documento'),
-                    doc.get('confirmacion', 'NO')
-                ])
-                for _ in cursor.stored_results():
-                    pass
+		siniestro_id = inserted['id']
 
-        # Insertar bitácora si existe
-        if data.get('bitacora'):
-            for bit in data.get('bitacora', []):
-                cursor.callproc('sp_insert_bitacora_siniestro', [
-                    siniestro_id,
-                    bit.get('comentario'),
-                    bit.get('prox_fecha'),
-                    bit.get('gestion_a'),
-                    usuario
-                ])
-                for _ in cursor.stored_results():
-                    pass
+		# Insertar documentos si existen
+		if data.get('documentos'):
+			for doc in data.get('documentos', []):
+				cursor.callproc('sp_insert_documento_siniestro', [
+					siniestro_id,
+					doc.get('documento'),
+					doc.get('confirmacion', 'NO')
+				])
+				for _ in cursor.stored_results():
+					pass
 
-        connection.commit()
-        cursor.close()
-        connection.close()
+		# Insertar bitácora si existe
+			if data.get('bitacora'):
+				for bit in data.get('bitacora', []):
+					cursor.callproc('sp_insert_bitacora_siniestro', [
+						siniestro_id,
+						bit.get('comentario'),
+						bit.get('prox_fecha'),
+						bit.get('gestion_a'),
+						usuario
+					])
+					for _ in cursor.stored_results():
+						pass
 
-        return jsonify({
-            'message': 'Siniestro creado exitosamente',
-            'id': siniestro_id
-        }), 201
+		connection.commit()
+		cursor.close()
+		connection.close()
 
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+		return jsonify({
+			'message': 'Siniestro creado exitosamente',
+			'id': siniestro_id
+		}), 201
+
+	except Exception as e:
+		import traceback
+		traceback.print_exc()
+		return jsonify({'error': str(e)}), 500
 
 
 def update_siniestro(siniestro_id):
-    """Actualiza un siniestro usando el SP específico según el grupo"""
-    try:
-        data = request.json
-        usuario = session.get('user', 'sistema')
-        grupo_ramo = data.get('grupo_ramo')
+	"""Actualiza un siniestro usando el SP específico según el grupo"""
+	try:
+		data = request.json
+		usuario = session.get('user', 'sistema')
+		grupo_ramo = data.get('grupo_ramo') or 'OTROS'
 
-        import json
+		import json
 
-        connection = get_connection()
-        cursor = connection.cursor(dictionary=True)
+		connection = get_connection()
+		cursor = connection.cursor(dictionary=True)
 
-        # Preparar campos JSON como strings JSON o NULL
-        def json_or_null(value):
-            if value and (isinstance(value, dict) or isinstance(value, list)):
-                return json.dumps(value)
-            return None
+		# Preparar campos JSON como strings JSON o NULL
+		def json_or_null(value):
+			if value and (isinstance(value, dict) or isinstance(value, list)):
+				return json.dumps(value)
+			return None
 
-        # Llamar al SP específico según el grupo
-        if grupo_ramo == 'RRGG':
-            params = [
-                siniestro_id,
-                data.get('poliza'),
-                data.get('cia'),
-                data.get('ramo'),
-                data.get('contratante'),
-                data.get('asegurado'),
-                data.get('fec_presentacion_broker'),
-                data.get('fec_aviso_cia'),
-                data.get('fec_stro'),
-                data.get('hora_siniestro'),
-                data.get('quien_reporta'),
-                data.get('email'),
-                data.get('telefonos'),
-                data.get('lugar_siniestro'),
-                data.get('causa'),
-                data.get('descripcion_hechos'),
-                data.get('siniestro_no'),
-                data.get('ejecutivo_cia'),
-                data.get('estado', 'PENDIENTE'),
-                data.get('liquidador_ajustador'),
-                data.get('conductor'),
-                data.get('tercero'),
-                data.get('comisaria'),
-                data.get('numero_denuncia'),
-                data.get('fec_denuncia_policial'),
-                data.get('fec_entrega_doc_ajustador'),
-                data.get('fec_entrega_doc_cia'),
-                data.get('fec_cia_consentido'),
-                data.get('numero_ajuste'),
-                data.get('moneda', 'US$'),
-                data.get('monto_siniestro', 0.00),
-                data.get('deducible', 0.00),
-                data.get('descripcion_deducible'),
-                data.get('total_indemnizar', 0.00),
-                data.get('fec_pago'),
-                data.get('forma_pago'),
-                data.get('numero_cheque'),
-                data.get('banco'),
-                data.get('numero_factura'),
-                data.get('monto_pagar_factura', 0.00),
-                data.get('fec_vencimiento_factura'),
-                data.get('fec_pago_factura'),
-                usuario
-            ]
-            cursor.callproc('sp_update_siniestro_rrgg', params)
+		# Llamar al SP específico según el grupo
+		if grupo_ramo == 'RRGG':
+			params = [
+				siniestro_id,
+				data.get('poliza'),
+				data.get('cia'),
+				data.get('ramo'),
+				data.get('contratante'),
+				data.get('asegurado'),
+				data.get('fec_presentacion_broker'),
+				data.get('fec_aviso_cia'),
+				data.get('fec_stro'),
+				data.get('hora_siniestro'),
+				data.get('quien_reporta'),
+				data.get('email'),
+				data.get('telefonos'),
+				data.get('lugar_siniestro'),
+				data.get('causa'),
+				data.get('descripcion_hechos'),
+				data.get('siniestro_no'),
+				data.get('ejecutivo_cia'),
+				data.get('estado', 'PENDIENTE'),
+				data.get('liquidador_ajustador'),
+				data.get('conductor'),
+				data.get('tercero'),
+				data.get('comisaria'),
+				data.get('numero_denuncia'),
+				data.get('fec_denuncia_policial'),
+				data.get('fec_entrega_doc_ajustador'),
+				data.get('fec_entrega_doc_cia'),
+				data.get('fec_cia_consentido'),
+				data.get('numero_ajuste'),
+				data.get('moneda', 'US$'),
+				data.get('monto_siniestro', 0.00),
+				data.get('deducible', 0.00),
+				data.get('descripcion_deducible'),
+				data.get('total_indemnizar', 0.00),
+				data.get('fec_pago'),
+				data.get('forma_pago'),
+				data.get('numero_cheque'),
+				data.get('banco'),
+				data.get('numero_factura'),
+				data.get('monto_pagar_factura', 0.00),
+				data.get('fec_vencimiento_factura'),
+				data.get('fec_pago_factura'),
+				usuario
+			]
+			cursor.callproc('sp_update_siniestro_rrgg', params)
 
-        elif grupo_ramo == 'VEHICULOS':
-            params = [
-                siniestro_id,
-                data.get('poliza'),
-                data.get('cia'),
-                data.get('ramo'),
-                data.get('contratante'),
-                data.get('asegurado'),
-                data.get('fec_notificacion_broker'),
-                data.get('fec_stro'),
-                data.get('hora_siniestro'),
-                data.get('quien_reporta'),
-                data.get('email'),
-                data.get('telefonos'),
-                data.get('hora_contacto'),
-                data.get('hora_culminacion'),
-                data.get('lugar_siniestro'),
-                data.get('causa'),
-                data.get('tipo_atencion'),
-                data.get('fec_presentacion_cia'),
-                data.get('siniestro_no'),
-                data.get('ejecutivo_cia'),
-                data.get('estado', 'PENDIENTE'),
-                data.get('situacion'),
-                data.get('moneda', 'US$'),
-                data.get('monto_siniestro', 0.00),
-                data.get('deducible', 0.00),
-                data.get('descripcion_deducible'),
-                data.get('total_indemnizar', 0.00),
-                data.get('fec_pago'),
-                data.get('forma_pago'),
-                data.get('numero_cheque'),
-                data.get('banco'),
-                data.get('numero_factura'),
-                data.get('monto_pagar_factura', 0.00),
-                data.get('fec_vencimiento_factura'),
-                data.get('fec_pago_factura'),
-                json_or_null(data.get('vehiculo')),
-                json_or_null(data.get('denuncia')),
-                json_or_null(data.get('conductor')),
-                json_or_null(data.get('copiloto')),
-                json_or_null(data.get('tercero')),
-                usuario
-            ]
-            cursor.callproc('sp_update_siniestro_vehiculos', params)
+		elif grupo_ramo == 'VEHICULOS':
+			params = [
+				siniestro_id,
+				data.get('poliza'),
+				data.get('cia'),
+				data.get('ramo'),
+				data.get('contratante'),
+				data.get('asegurado'),
+				data.get('fec_notificacion_broker'),
+				data.get('fec_stro'),
+				data.get('hora_siniestro'),
+				data.get('quien_reporta'),
+				data.get('email'),
+				data.get('telefonos'),
+				data.get('hora_contacto'),
+				data.get('hora_culminacion'),
+				data.get('lugar_siniestro'),
+				data.get('causa'),
+				data.get('tipo_atencion'),
+				data.get('fec_presentacion_cia'),
+				data.get('siniestro_no'),
+				data.get('ejecutivo_cia'),
+				data.get('estado', 'PENDIENTE'),
+				data.get('situacion'),
+				data.get('moneda', 'US$'),
+				data.get('monto_siniestro', 0.00),
+				data.get('deducible', 0.00),
+				data.get('descripcion_deducible'),
+				data.get('total_indemnizar', 0.00),
+				data.get('fec_pago'),
+				data.get('forma_pago'),
+				data.get('numero_cheque'),
+				data.get('banco'),
+				data.get('numero_factura'),
+				data.get('monto_pagar_factura', 0.00),
+				data.get('fec_vencimiento_factura'),
+				data.get('fec_pago_factura'),
+				json_or_null(data.get('vehiculo')),
+				json_or_null(data.get('denuncia')),
+				json_or_null(data.get('conductor')),
+				json_or_null(data.get('copiloto')),
+				json_or_null(data.get('tercero')),
+				usuario
+			]
+			cursor.callproc('sp_update_siniestro_vehiculos', params)
 
-        elif grupo_ramo == 'RRHH':
+		elif grupo_ramo == 'RRHH':
 
-            params = [
-                siniestro_id,
-                data.get('poliza'),
-                data.get('cia'),
-                data.get('ramo'),
-                data.get('contratante'),
-                data.get('asegurado'),
-                data.get('fec_stro'),
-                data.get('causa'),
-                data.get('fec_presentacion_broker'),
-                data.get('fec_atencion_medica'),
-                data.get('fec_aviso_cia'),
-                data.get('fec_presentacion_cia'),
-                data.get('fec_cia_consentido'),
-                data.get('quien_reporta'),
-                data.get('email'),
-                data.get('telefonos'),
-                data.get('tipo_persona'),
-                data.get('titular'),
-                data.get('paciente'),
-                data.get('diagnostico'),
-                data.get('siniestro_no'),
-                data.get('ejecutivo_cia'),
-                data.get('estado', 'PENDIENTE'),
-                data.get('moneda', 'US$'),
-                data.get('monto_siniestro', 0.00),
-                data.get('deducible', 0.00),
-                data.get('descripcion_deducible'),
-                data.get('coaseguro', 0.00),
-                data.get('no_cubierto', 0.00),
-                data.get('total_indemnizar', 0.00),
-                data.get('fec_pago'),
-                data.get('forma_pago'),
-                data.get('numero_cheque'),
-                data.get('banco'),
-                data.get('numero_factura'),
-                data.get('monto_pagar_factura', 0.00),
-                data.get('fec_vencimiento_factura'),
-                data.get('fec_pago_factura'),
-                json_or_null(data.get('gastos')),
-                usuario
-            ]
-            cursor.callproc('sp_update_siniestro_rrhh', params)
+			params = [
+				siniestro_id,
+				data.get('poliza'),
+				data.get('cia'),
+				data.get('ramo'),
+				data.get('contratante'),
+				data.get('asegurado'),
+				data.get('fec_stro'),
+				data.get('causa'),
+				data.get('fec_presentacion_broker'),
+				data.get('fec_atencion_medica'),
+				data.get('fec_aviso_cia'),
+				data.get('fec_presentacion_cia'),
+				data.get('fec_cia_consentido'),
+				data.get('quien_reporta'),
+				data.get('email'),
+				data.get('telefonos'),
+				data.get('tipo_persona'),
+				data.get('titular'),
+				data.get('paciente'),
+				data.get('diagnostico'),
+				data.get('siniestro_no'),
+				data.get('ejecutivo_cia'),
+				data.get('estado', 'PENDIENTE'),
+				data.get('moneda', 'US$'),
+				data.get('monto_siniestro', 0.00),
+				data.get('deducible', 0.00),
+				data.get('descripcion_deducible'),
+				data.get('coaseguro', 0.00),
+				data.get('no_cubierto', 0.00),
+				data.get('total_indemnizar', 0.00),
+				data.get('fec_pago'),
+				data.get('forma_pago'),
+				data.get('numero_cheque'),
+				data.get('banco'),
+				data.get('numero_factura'),
+				data.get('monto_pagar_factura', 0.00),
+				data.get('fec_vencimiento_factura'),
+				data.get('fec_pago_factura'),
+				json_or_null(data.get('gastos')),
+				usuario
+			]
+			cursor.callproc('sp_update_siniestro_rrhh', params)
 
-        else:
-            return jsonify({'error': f'Grupo de ramo no soportado: {grupo_ramo}'}), 400
+		# Nuevo manejo OTROS
+		elif grupo_ramo == 'OTROS':
+			params = [
+				siniestro_id,
+				data.get('poliza'),
+				data.get('cia'),
+				data.get('ramo'),
+				data.get('contratante'),
+				data.get('asegurado'),
+				data.get('fec_stro'),
+				data.get('hora_siniestro'),
+				data.get('quien_reporta'),
+				data.get('email'),
+				data.get('telefonos'),
+				data.get('lugar_siniestro'),
+				data.get('causa'),
+				data.get('descripcion_hechos'),
+				data.get('siniestro_no'),
+				data.get('ejecutivo_cia'),
+				data.get('estado', 'PENDIENTE'),
+				data.get('moneda', 'LOCAL'),
+				data.get('monto_siniestro', 0.00),
+				data.get('deducible', 0.00),
+				data.get('descripcion_deducible'),
+				data.get('total_indemnizar', 0.00),
+				data.get('fec_pago'),
+				data.get('forma_pago'),
+				data.get('numero_cheque'),
+				data.get('banco'),
+				data.get('numero_factura'),
+				data.get('monto_pagar_factura', 0.00),
+				data.get('fec_vencimiento_factura'),
+				data.get('fec_pago_factura'),
+				json_or_null(data.get('gastos')),
+				usuario
+			]
+			cursor.callproc('sp_update_siniestro_otros', params)
 
-        for result in cursor.stored_results():
-            affected = result.fetchone()
+		else:
+			return jsonify({'error': f'Grupo de ramo no soportado: {grupo_ramo}'}), 400
 
-        connection.commit()
-        cursor.close()
-        connection.close()
+		for result in cursor.stored_results():
+			affected = result.fetchone()
 
-        if affected['affected_rows'] == 0:
-            return jsonify({'error': 'Siniestro no encontrado'}), 404
+		connection.commit()
+		cursor.close()
+		connection.close()
 
-        return jsonify({'message': 'Siniestro actualizado exitosamente'}), 200
+		if affected['affected_rows'] == 0:
+			return jsonify({'error': 'Siniestro no encontrado'}), 404
 
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+		return jsonify({'message': 'Siniestro actualizado exitosamente'}), 200
+
+	except Exception as e:
+		import traceback
+		traceback.print_exc()
+		return jsonify({'error': str(e)}), 500
 
 
 def delete_siniestro(siniestro_id):
-    try:
-        connection = get_connection()
-        cursor = connection.cursor(dictionary=True)
+	try:
+		connection = get_connection()
+		cursor = connection.cursor(dictionary=True)
 
-        cursor.callproc('sp_delete_siniestro', [siniestro_id])
+		cursor.callproc('sp_delete_siniestro', [siniestro_id])
 
-        for result in cursor.stored_results():
-            affected = result.fetchone()
+		for result in cursor.stored_results():
+			affected = result.fetchone()
 
-        connection.commit()
-        cursor.close()
-        connection.close()
+		connection.commit()
+		cursor.close()
+		connection.close()
 
-        if affected['affected_rows'] == 0:
-            return jsonify({'error': 'Siniestro no encontrado'}), 404
+		if affected['affected_rows'] == 0:
+			return jsonify({'error': 'Siniestro no encontrado'}), 404
 
-        return jsonify({'message': 'Siniestro eliminado exitosamente'}), 200
+		return jsonify({'message': 'Siniestro eliminado exitosamente'}), 200
 
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+	except Exception as e:
+		return jsonify({'error': str(e)}), 500
 
 
 def buscar_siniestros():
-    try:
-        texto = request.json.get('texto', '')
+	try:
+		texto = request.json.get('texto', '')
 
-        connection = get_connection()
-        cursor = connection.cursor(dictionary=True)
+		connection = get_connection()
+		cursor = connection.cursor(dictionary=True)
 
-        cursor.callproc('sp_buscar_siniestros', [texto])
+		cursor.callproc('sp_buscar_siniestros', [texto])
 
-        for result in cursor.stored_results():
-            siniestros = result.fetchall()
+		for result in cursor.stored_results():
+			siniestros = result.fetchall()
 
-        cursor.close()
-        connection.close()
+		cursor.close()
+		connection.close()
 
-        return jsonify(siniestros), 200
+		return jsonify(siniestros), 200
 
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+	except Exception as e:
+		return jsonify({'error': str(e)}), 500
 
 
 def get_grupo_ramo_poliza():
@@ -643,7 +718,7 @@ def generar_pdf_siniestro(siniestro_id):
         buffer = BytesIO()
 
         # Generar PDF según el grupo
-        grupo = siniestro.get('grupo_ramo', 'GENERICO')
+        grupo = siniestro.get('grupo_ramo', 'OTROS')
 
         if grupo == 'VEHICULOS':
             _generar_pdf_vehiculos(buffer, siniestro)
@@ -723,6 +798,7 @@ def _insert_logo(canvas, doc):
         x = doc.pagesize[0] - draw_w - right_margin
         y = doc.pagesize[1] - draw_h - top_margin
 
+
         canvas.drawImage(logo_path, x, y, width=draw_w, height=draw_h, preserveAspectRatio=True, mask='auto')
     except Exception as e:
         print(f"Error al dibujar logo en header: {e}")
@@ -739,18 +815,19 @@ def _generar_pdf_vehiculos(buffer, siniestro):
     from reportlab.lib.enums import TA_CENTER
 
     # Reservar espacio en el header para el logo (evita solapamiento en páginas siguientes)
-    header_reserved = 1.6 * inch  # aumentar espacio para evitar solapamiento
-    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=header_reserved, bottomMargin=0.5*inch)
+    # Compact layout: utilizar ancho menor y márgenes reducidos
+    header_reserved = LOGO_MAX_H + LOGO_TOP_MARGIN + HEADER_EXTRA
+    doc = SimpleDocTemplate(buffer, pagesize=(7.5*inch, 11*inch), topMargin=header_reserved, bottomMargin=0.3*inch, leftMargin=0.3*inch, rightMargin=0.3*inch)
     elements = []
     styles = getSampleStyleSheet()
 
-    # Estilos personalizados
+    # Estilos personalizados (más compactos)
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
-        fontSize=14,
+        fontSize=12,
         textColor=colors.HexColor('#000000'),
-        spaceAfter=12,
+        spaceAfter=6,
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
     )
@@ -758,12 +835,14 @@ def _generar_pdf_vehiculos(buffer, siniestro):
     subtitle_style = ParagraphStyle(
         'CustomSubtitle',
         parent=styles['Heading2'],
-        fontSize=11,
+        fontSize=10,
         textColor=colors.HexColor('#000000'),
-        spaceAfter=6,
-        spaceBefore=12,
+        spaceAfter=4,
+        spaceBefore=8,
         fontName='Helvetica-Bold'
     )
+
+    normal_small = ParagraphStyle('NormalSmall', parent=styles['Normal'], fontSize=8, spaceAfter=2)
 
     footer_style = ParagraphStyle(
         'Footer',
@@ -773,14 +852,18 @@ def _generar_pdf_vehiculos(buffer, siniestro):
         alignment=TA_CENTER
     )
 
+    # Anchos dinámicos para etiquetas/valores (label/value)
+    label_w = 1.4 * inch
+    value_w = doc.width - label_w
+
     # Encabezado
     elements.append(Paragraph("ARIAS & ARIAS CORREDORES DE SEGUROS SAC.", title_style))
-    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", styles['Normal']))
-    elements.append(Spacer(1, 0.3*inch))
+    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", normal_small))
+    elements.append(Spacer(1, 0.15*inch))
 
     # Título principal
     elements.append(Paragraph("INFORME TÉCNICO DE ACCIDENTE DE TRÁNSITO", title_style))
-    elements.append(Spacer(1, 0.2*inch))
+    elements.append(Spacer(1, 0.12*inch))
 
     # REPORTE DE SINIESTRO
     if any([siniestro.get('hora_siniestro'), siniestro.get('fec_stro'), siniestro.get('quien_reporta')]):
@@ -807,17 +890,17 @@ def _generar_pdf_vehiculos(buffer, siniestro):
             data.append(['Situación del evento', siniestro['tipo_atencion']])
 
         if data:
-            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table = Table(data, colWidths=[label_w, value_w])
             table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
             ]))
             elements.append(table)
-            elements.append(Spacer(1, 0.2*inch))
+            elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DEL CLIENTE
     if any([siniestro.get('asegurado'), siniestro.get('cia'), siniestro.get('poliza')]):
@@ -849,17 +932,17 @@ def _generar_pdf_vehiculos(buffer, siniestro):
             data.append(['Fecha', siniestro['fec_stro']])
 
         if data:
-            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table = Table(data, colWidths=[label_w, value_w])
             table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
             ]))
             elements.append(table)
-            elements.append(Spacer(1, 0.2*inch))
+            elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DEL VEHÍCULO
     vehiculo = siniestro.get('datos_vehiculo') or {}
@@ -883,17 +966,17 @@ def _generar_pdf_vehiculos(buffer, siniestro):
             data.append(['Color', vehiculo['color']])
 
         if data:
-            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table = Table(data, colWidths=[label_w, value_w])
             table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
             ]))
             elements.append(table)
-            elements.append(Spacer(1, 0.2*inch))
+            elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DE LA DENUNCIA
     denuncia = siniestro.get('datos_denuncia') or {}
@@ -917,17 +1000,17 @@ def _generar_pdf_vehiculos(buffer, siniestro):
             data.append(['Distrito', denuncia['distrito']])
 
         if data:
-            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table = Table(data, colWidths=[label_w, value_w])
             table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
             ]))
             elements.append(table)
-            elements.append(Spacer(1, 0.2*inch))
+            elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DEL CONDUCTOR
     conductor = siniestro.get('datos_conductor') or {}
@@ -945,20 +1028,20 @@ def _generar_pdf_vehiculos(buffer, siniestro):
             data.append(['Licencia de conducir', conductor['licencia_conducir']])
 
         if data:
-            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table = Table(data, colWidths=[label_w, value_w])
             table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
             ]))
             elements.append(table)
-            elements.append(Spacer(1, 0.2*inch))
+            elements.append(Spacer(1, 0.12*inch))
 
     # Footer
-    elements.append(Spacer(1, 0.5*inch))
+    elements.append(Spacer(1, 0.2*inch))
     elements.append(Paragraph("E-mail: info@ariasyarias.com", footer_style))
     elements.append(Paragraph("1", footer_style))
 
@@ -974,18 +1057,18 @@ def _generar_pdf_rrgg(buffer, siniestro):
     from reportlab.lib.units import inch
     from reportlab.lib.enums import TA_CENTER
 
-    # Reservar espacio en el header para el logo (evita solapamiento en páginas siguientes)
-    header_reserved = 1.6 * inch  # aumentar espacio para evitar solapamiento
-    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=header_reserved, bottomMargin=0.5*inch)
+    # Compact header reserve y margins
+    header_reserved = LOGO_MAX_H + LOGO_TOP_MARGIN + HEADER_EXTRA
+    doc = SimpleDocTemplate(buffer, pagesize=(7.5*inch, 11*inch), topMargin=header_reserved, bottomMargin=0.3*inch, leftMargin=0.3*inch, rightMargin=0.3*inch)
     elements = []
     styles = getSampleStyleSheet()
 
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
-        fontSize=14,
+        fontSize=12,
         textColor=colors.HexColor('#000000'),
-        spaceAfter=12,
+        spaceAfter=6,
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
     )
@@ -993,12 +1076,14 @@ def _generar_pdf_rrgg(buffer, siniestro):
     subtitle_style = ParagraphStyle(
         'CustomSubtitle',
         parent=styles['Heading2'],
-        fontSize=11,
+        fontSize=10,
         textColor=colors.HexColor('#000000'),
-        spaceAfter=6,
-        spaceBefore=12,
+        spaceAfter=4,
+        spaceBefore=8,
         fontName='Helvetica-Bold'
     )
+
+    normal_small = ParagraphStyle('NormalSmall', parent=styles['Normal'], fontSize=8, spaceAfter=2)
 
     footer_style = ParagraphStyle(
         'Footer',
@@ -1008,14 +1093,17 @@ def _generar_pdf_rrgg(buffer, siniestro):
         alignment=TA_CENTER
     )
 
+    label_w = 1.4 * inch
+    value_w = doc.width - label_w
+
     # Encabezado
     elements.append(Paragraph("ARIAS & ARIAS CORREDORES DE SEGUROS SAC.", title_style))
-    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", styles['Normal']))
-    elements.append(Spacer(1, 0.3*inch))
+    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", normal_small))
+    elements.append(Spacer(1, 0.15*inch))
 
     elements.append(Paragraph("SINIESTRO DE RIESGOS GENERALES", title_style))
-    elements.append(Paragraph(f"Registrado el: {siniestro.get('fec_stro', '')}", styles['Normal']))
-    elements.append(Spacer(1, 0.2*inch))
+    elements.append(Paragraph(f"Registrado el: {siniestro.get('fec_stro', '')}", normal_small))
+    elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DEL SINIESTRO
     if any([siniestro.get('siniestro_no'), siniestro.get('cia'), siniestro.get('contratante')]):
@@ -1050,17 +1138,17 @@ def _generar_pdf_rrgg(buffer, siniestro):
             data.append(['Estado', siniestro['estado']])
 
         if data:
-            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table = Table(data, colWidths=[label_w, value_w])
             table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
             ]))
             elements.append(table)
-            elements.append(Spacer(1, 0.2*inch))
+            elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DE LA INDEMNIZACIÓN
     if any([siniestro.get('monto_siniestro'), siniestro.get('deducible'), siniestro.get('total_indemnizar')]):
@@ -1080,23 +1168,23 @@ def _generar_pdf_rrgg(buffer, siniestro):
             data.append(['Importe Indemnización', f"{moneda} {float(siniestro['total_indemnizar']):,.2f}"])
 
         if data:
-            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table = Table(data, colWidths=[label_w, value_w])
             table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
             ]))
             elements.append(table)
-            elements.append(Spacer(1, 0.2*inch))
+            elements.append(Spacer(1, 0.12*inch))
 
     # Descripción de hechos
     if siniestro.get('descripcion_hechos'):
-        elements.append(Spacer(1, 0.2*inch))
-        elements.append(Paragraph(siniestro['descripcion_hechos'], styles['Normal']))
-        elements.append(Spacer(1, 0.2*inch))
+        elements.append(Spacer(1, 0.12*inch))
+        elements.append(Paragraph(siniestro['descripcion_hechos'], normal_small))
+        elements.append(Spacer(1, 0.12*inch))
 
     # SEGUIMIENTO
     if siniestro.get('liquidador_ajustador') or siniestro.get('estado'):
@@ -1105,25 +1193,28 @@ def _generar_pdf_rrgg(buffer, siniestro):
         data.append(['Fecha', 'Comentario', 'Próx Fecha', 'Gestión a'])
         data.append(['Atentamente', '', '', ''])
 
-        table = Table(data, colWidths=[1.5*inch, 2.5*inch, 1.5*inch, 1.5*inch])
+        # tabla de 4 columnas compacta (dos pares label/value por fila)
+        half = doc.width / 2
+        col1_label = 1.1 * inch
+        col3_label = 1.1 * inch
+        table = Table(data, colWidths=[col1_label, half - col1_label, col3_label, half - col3_label])
         table.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
         ]))
         elements.append(table)
-        elements.append(Spacer(1, 0.2*inch))
+        elements.append(Spacer(1, 0.12*inch))
 
     # Footer
-    elements.append(Spacer(1, 0.5*inch))
+    elements.append(Spacer(1, 0.2*inch))
     elements.append(Paragraph("ARIAS & ARIAS CORREDORES DE SEGUROS SAC.", footer_style))
     elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", footer_style))
-    elements.append(Spacer(1, 0.1*inch))
+    elements.append(Spacer(1, 0.05*inch))
     elements.append(Paragraph("E-mail: info@ariasyarias.com", footer_style))
-    elements.append(Paragraph("1", footer_style))
 
     doc.build(elements, onFirstPage=_insert_logo, onLaterPages=_insert_logo)
 
@@ -1137,18 +1228,18 @@ def _generar_pdf_rrhh(buffer, siniestro):
     from reportlab.lib.units import inch
     from reportlab.lib.enums import TA_CENTER
 
-    # Reservar espacio en el header para el logo (evita solapamiento en páginas siguientes)
-    header_reserved = 1.6 * inch  # aumentar espacio para evitar solapamiento
-    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=header_reserved, bottomMargin=0.5*inch)
+    # Compact header reserve y margins
+    header_reserved = LOGO_MAX_H + LOGO_TOP_MARGIN + HEADER_EXTRA
+    doc = SimpleDocTemplate(buffer, pagesize=(7.5*inch, 11*inch), topMargin=header_reserved, bottomMargin=0.3*inch, leftMargin=0.3*inch, rightMargin=0.3*inch)
     elements = []
     styles = getSampleStyleSheet()
 
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
-        fontSize=14,
+        fontSize=12,
         textColor=colors.HexColor('#000000'),
-        spaceAfter=12,
+        spaceAfter=6,
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
     )
@@ -1156,12 +1247,14 @@ def _generar_pdf_rrhh(buffer, siniestro):
     subtitle_style = ParagraphStyle(
         'CustomSubtitle',
         parent=styles['Heading2'],
-        fontSize=11,
+        fontSize=10,
         textColor=colors.HexColor('#000000'),
-        spaceAfter=6,
-        spaceBefore=12,
+        spaceAfter=4,
+        spaceBefore=8,
         fontName='Helvetica-Bold'
     )
+
+    normal_small = ParagraphStyle('NormalSmall', parent=styles['Normal'], fontSize=8, spaceAfter=2)
 
     footer_style = ParagraphStyle(
         'Footer',
@@ -1171,14 +1264,17 @@ def _generar_pdf_rrhh(buffer, siniestro):
         alignment=TA_CENTER
     )
 
+    label_w = 1.4 * inch
+    value_w = doc.width - label_w
+
     # Encabezado
     elements.append(Paragraph("ARIAS & ARIAS CORREDORES DE SEGUROS SAC.", title_style))
-    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", styles['Normal']))
-    elements.append(Spacer(1, 0.3*inch))
+    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", normal_small))
+    elements.append(Spacer(1, 0.15*inch))
 
     elements.append(Paragraph("SINIESTRO DE SALUD", title_style))
-    elements.append(Paragraph(f"Registrado el: {siniestro.get('fec_stro', '')}", styles['Normal']))
-    elements.append(Spacer(1, 0.2*inch))
+    elements.append(Paragraph(f"Registrado el: {siniestro.get('fec_stro', '')}", normal_small))
+    elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DEL SINIESTRO
     if any([siniestro.get('siniestro_no'), siniestro.get('cia'), siniestro.get('contratante')]):
@@ -1213,17 +1309,17 @@ def _generar_pdf_rrhh(buffer, siniestro):
             data.append(['Estado', siniestro['estado']])
 
         if data:
-            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table = Table(data, colWidths=[label_w, value_w])
             table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
             ]))
             elements.append(table)
-            elements.append(Spacer(1, 0.2*inch))
+            elements.append(Spacer(1, 0.12*inch))
 
     # GASTOS PRESENTADOS
     gastos = siniestro.get('gastos_presentados') or []
@@ -1243,21 +1339,21 @@ def _generar_pdf_rrhh(buffer, siniestro):
         if len(data) > 1:
             data.append(['TOTAL', f"{siniestro.get('moneda', 'USD')} {total_gastos:,.2f}"])
 
-            table = Table(data, colWidths=[4.5*inch, 2.5*inch])
+            table = Table(data, colWidths=[doc.width - (1.2*inch), 1.2*inch])
             table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey),
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey)
             ]))
             elements.append(table)
-            elements.append(Spacer(1, 0.2*inch))
+            elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DE LA INDEMNIZACIÓN
     if any([siniestro.get('monto_siniestro'), siniestro.get('deducible'), siniestro.get('coaseguro')]):
@@ -1279,25 +1375,25 @@ def _generar_pdf_rrhh(buffer, siniestro):
             data.append(['Fecha de Pago', siniestro['fec_pago']])
 
         if data:
-            table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+            table = Table(data, colWidths=[label_w, value_w])
             table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
             ]))
             elements.append(table)
-            elements.append(Spacer(1, 0.2*inch))
+            elements.append(Spacer(1, 0.12*inch))
 
     # Descripción de hechos
     if siniestro.get('descripcion_hechos'):
-        elements.append(Spacer(1, 0.2*inch))
-        elements.append(Paragraph(siniestro['descripcion_hechos'], styles['Normal']))
+        elements.append(Spacer(1, 0.12*inch))
+        elements.append(Paragraph(siniestro['descripcion_hechos'], normal_small))
 
     # Footer
-    elements.append(Spacer(1, 0.5*inch))
+    elements.append(Spacer(1, 0.2*inch))
     elements.append(Paragraph("E-mail: info@ariasyarias.com", footer_style))
     elements.append(Paragraph("1", footer_style))
 
@@ -1313,18 +1409,18 @@ def _generar_pdf_generico(buffer, siniestro):
     from reportlab.lib.units import inch
     from reportlab.lib.enums import TA_CENTER
 
-    # Reservar espacio en el header para el logo (evita solapamiento en páginas siguientes)
-    header_reserved = 1.6 * inch  # aumentar espacio para evitar solapamiento
-    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=header_reserved, bottomMargin=0.5*inch)
+
+    header_reserved = LOGO_MAX_H + LOGO_TOP_MARGIN + HEADER_EXTRA
+    doc = SimpleDocTemplate(buffer, pagesize=(7.5*inch, 11*inch), topMargin=header_reserved, bottomMargin=0.3*inch, leftMargin=0.3*inch, rightMargin=0.3*inch)
     elements = []
     styles = getSampleStyleSheet()
 
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
-        fontSize=14,
+        fontSize=12,
         textColor=colors.HexColor('#000000'),
-        spaceAfter=12,
+        spaceAfter=6,
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
     )
@@ -1332,12 +1428,14 @@ def _generar_pdf_generico(buffer, siniestro):
     subtitle_style = ParagraphStyle(
         'CustomSubtitle',
         parent=styles['Heading2'],
-        fontSize=11,
+        fontSize=10,
         textColor=colors.HexColor('#000000'),
-        spaceAfter=6,
-        spaceBefore=12,
+        spaceAfter=4,
+        spaceBefore=8,
         fontName='Helvetica-Bold'
     )
+
+    normal_small = ParagraphStyle('NormalSmall', parent=styles['Normal'], fontSize=8, spaceAfter=2)
 
     footer_style = ParagraphStyle(
         'Footer',
@@ -1347,14 +1445,17 @@ def _generar_pdf_generico(buffer, siniestro):
         alignment=TA_CENTER
     )
 
+    label_w = 1.4 * inch
+    value_w = doc.width - label_w
+
     # Encabezado
     elements.append(Paragraph("ARIAS & ARIAS CORREDORES DE SEGUROS SAC.", title_style))
-    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", styles['Normal']))
-    elements.append(Spacer(1, 0.3*inch))
+    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", normal_small))
+    elements.append(Spacer(1, 0.15*inch))
 
     elements.append(Paragraph("REPORTE DE SINIESTRO", title_style))
-    elements.append(Paragraph(f"Registrado el: {siniestro.get('fec_stro', '')}", styles['Normal']))
-    elements.append(Spacer(1, 0.2*inch))
+    elements.append(Paragraph(f"Registrado el: {siniestro.get('fec_stro', '')}", normal_small))
+    elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DEL SINIESTRO
     elements.append(Paragraph("INFORMACIÓN DEL SINIESTRO", subtitle_style))
@@ -1382,26 +1483,26 @@ def _generar_pdf_generico(buffer, siniestro):
         data.append(['Estado', siniestro['estado']])
 
     if data:
-        table = Table(data, colWidths=[2.5*inch, 4.5*inch])
+        table = Table(data, colWidths=[label_w, value_w])
         table.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
         ]))
         elements.append(table)
-        elements.append(Spacer(1, 0.2*inch))
+        elements.append(Spacer(1, 0.12*inch))
 
     # Descripción
     if siniestro.get('descripcion_hechos'):
         elements.append(Paragraph("DESCRIPCIÓN", subtitle_style))
-        elements.append(Paragraph(siniestro['descripcion_hechos'], styles['Normal']))
-        elements.append(Spacer(1, 0.2*inch))
+        elements.append(Paragraph(siniestro['descripcion_hechos'], normal_small))
+        elements.append(Spacer(1, 0.12*inch))
 
     # Footer
-    elements.append(Spacer(1, 0.5*inch))
+    elements.append(Spacer(1, 0.2*inch))
     elements.append(Paragraph("E-mail: info@ariasyarias.com", footer_style))
     elements.append(Paragraph("1", footer_style))
 
