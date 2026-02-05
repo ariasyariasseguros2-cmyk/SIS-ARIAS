@@ -271,7 +271,8 @@
 
 <script>
 // Gestión de gastos presentados
-let gastosArray = [];
+// Usar window.gastosArray para que el prellenado desde scripts externos (siniestros_poliza/lista) funcione
+window.gastosArray = window.gastosArray || [];
 
 function agregarGasto() {
     const tipo = prompt('Tipo de gasto (CONSULTA, MEDICAMENTOS, EXAMENES, HOSPITALIZACION, etc.):');
@@ -293,13 +294,13 @@ function agregarGasto() {
         fecha: fecha
     };
 
-    gastosArray.push(gasto);
+    window.gastosArray.push(gasto);
     actualizarTablaGastos();
 }
 
 function eliminarGasto(index) {
     if (confirm('¿Está seguro de eliminar este gasto?')) {
-        gastosArray.splice(index, 1);
+        window.gastosArray.splice(index, 1);
         actualizarTablaGastos();
     }
 }
@@ -307,10 +308,10 @@ function eliminarGasto(index) {
 function actualizarTablaGastos() {
     const tbody = document.getElementById('gastosTableBody');
 
-    if (gastosArray.length === 0) {
+    if (!window.gastosArray || window.gastosArray.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay gastos registrados</td></tr>';
     } else {
-        tbody.innerHTML = gastosArray.map((gasto, index) => `
+        tbody.innerHTML = window.gastosArray.map((gasto, index) => `
             <tr>
                 <td>${gasto.tipo}</td>
                 <td>${gasto.descripcion}</td>
@@ -326,10 +327,23 @@ function actualizarTablaGastos() {
     }
 
     // Actualizar el campo oculto
-    document.getElementById('gastosData').value = JSON.stringify(gastosArray);
+    const gastosField = document.getElementById('gastosData');
+    if (gastosField) gastosField.value = JSON.stringify(window.gastosArray || []);
 }
 
-// Inicializar
+// Exponer funciones en window para accesibilidad desde scripts externos
+window.actualizarTablaGastos = actualizarTablaGastos;
+window.agregarGasto = agregarGasto;
+window.eliminarGasto = eliminarGasto;
+
+// Llamar inmediatamente (útil cuando el HTML se inyecte dinámicamente)
+try {
+    actualizarTablaGastos();
+} catch (e) {
+    // Si falla la inicialización no bloqueamos el formulario
+}
+
+// Inicializar adicionalmente en DOMContentLoaded (compatibilidad)
 document.addEventListener('DOMContentLoaded', function() {
     actualizarTablaGastos();
 });
