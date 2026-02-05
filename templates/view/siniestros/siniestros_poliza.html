@@ -21,7 +21,7 @@
     </div>
     <div class="card-body py-3">
         <div class="row g-3">
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <div class="text-muted small">Poliza Certif</div>
                 <div class="fw-semibold" id="polizaCertif">{{ poliza }}</div>
             </div>
@@ -29,13 +29,17 @@
                 <div class="text-muted small">Asegurado</div>
                 <div class="fw-semibold" id="asegurado">{{ contratante }}</div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <div class="text-muted small">Compañía</div>
                 <div class="fw-semibold" id="compania">{{ cia }}</div>
             </div>
+            <div class="col-md-2">
+                <div class="text-muted small">Ramo</div>
+                <div class="fw-semibold" id="ramoPoliza">{{ ramo }}</div>
+            </div>
             <div class="col-md-3">
                 <div class="text-muted small">Materia Asegurada</div>
-                <div class="fw-semibold" id="materiaAsegurada">{{ ramo }}</div>
+                <div class="fw-semibold" id="materiaAsegurada">{{ asegurada }}</div>
             </div>
         </div>
     </div>
@@ -71,13 +75,12 @@
                     <th>ESTADO</th>
                     <th>EJEC</th>
                     <th>RAMO</th>
-                    <th>PLACA</th>
-                    <th class="text-end">ACCIÓN</th>
+                    <th>ACCIÓN</th>
                 </tr>
                 </thead>
                 <tbody id="siniestrosTableBody">
                 <tr>
-                    <td colspan="13" class="text-center text-muted py-4">CARGANDO...</td>
+                    <td colspan="14" class="text-center text-muted py-4">CARGANDO...</td>
                 </tr>
                 </tbody>
             </table>
