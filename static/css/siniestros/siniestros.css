@@ -21,14 +21,15 @@
     display: flex;
     justify-content: flex-end;
     gap: .25rem;
-    margin-bottom: .25rem;
+    margin: 0;
+    align-items: center;
 }
 
 .chip {
     display: inline-block;
     font-size: .75rem;
     font-weight: 600;
-    padding: .2rem .45rem;
+    padding: .15rem .4rem;
     border-radius: .25rem;
     border: 1px solid transparent;
     line-height: 1.2;
@@ -143,4 +144,25 @@
 
 #formularioDinamico {
     min-height: 300px;
+}
+
+#tablaSiniestros td .chips-row, #tablaSiniestros th .chips-row {
+    margin: 0;
+    align-items: center;
+}
+
+/* Alineación específica para la columna de ACCIÓN: centrar el header y los botones */
+#tablaSiniestros th:last-child {
+    text-align: center;
+    white-space: nowrap;
+    /* quitar width:1% para evitar colapsos en tablas anchas */
+}
+#tablaSiniestros td:last-child {
+    text-align: center; /* centrar los botones bajo el header */
+    white-space: nowrap; /* evitar saltos en los botones */
+    padding-left: 0.5rem; /* dejar un poco de espacio lateral si hay scrollbar */
+}
+#tablaSiniestros td:last-child .chips-row {
+    justify-content: center; /* centrar botones dentro de la celda */
+    gap: .4rem;
 }
