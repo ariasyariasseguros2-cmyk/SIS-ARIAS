@@ -30,6 +30,56 @@ BEGIN
 END$$
 DELIMITER ;
 
+-- Tabla de Ajustadores
+CREATE TABLE IF NOT EXISTS ajustadores (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(255) NOT NULL,
+    abreviacion VARCHAR(150),
+    codigo VARCHAR(20) NOT NULL UNIQUE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_listar_ajustadores()
+BEGIN
+    SELECT
+        nombre,
+        abreviacion
+    FROM ajustadores
+    ORDER BY nombre ASC;
+END $$
+
+DELIMITER;
+
+DELIMITER $$
+CREATE PROCEDURE sp_insertar_ajustador(
+    IN p_nombre VARCHAR(255),
+    IN p_abreviacion VARCHAR(150),
+    IN p_codigo VARCHAR(20),
+    OUT p_new_id INT
+)
+BEGIN
+    DECLARE v_existing_id INT DEFAULT NULL;
+
+    SELECT id INTO v_existing_id
+    FROM ajustadores
+    WHERE codigo = p_codigo
+    LIMIT 1;
+
+    IF v_existing_id IS NOT NULL THEN
+        -- Ya existe: devolver el id existente
+        SET p_new_id = v_existing_id;
+    ELSE
+        -- No existe: insertar y devolver el id nuevo
+        INSERT INTO ajustadores (nombre, abreviacion, codigo)
+        VALUES (p_nombre, p_abreviacion, p_codigo);
+        SET p_new_id = LAST_INSERT_ID();
+    END IF;
+END $$
+
+DELIMITER ;
+
+
 -- Table Ramos
 CREATE TABLE ramos (
     idRamo INT AUTO_INCREMENT PRIMARY KEY,
@@ -1520,7 +1570,6 @@ BEGIN
         monto_pagar_factura = p_monto_pagar_factura,
         fec_vencimiento_factura = p_fec_vencimiento_factura,
         fec_pago_factura = p_fec_pago_factura,
-        gastos_presentados = p_gastos_presentados,
         usuario_edicion = p_usuario_edicion
     WHERE id = p_id;
 
