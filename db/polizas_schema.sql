@@ -1394,6 +1394,140 @@ COMMENT='Archivos adjuntos relacionados a siniestros';
 -- PROCEDIMIENTOS PARA INSERTAR DATOS RELACIONADOS
 -- =====================================================
 
+-- Stored procedures para grupo OTROS: insertar y actualizar
+DROP PROCEDURE IF EXISTS sp_insert_siniestro_otros;
+DELIMITER $$
+CREATE PROCEDURE sp_insert_siniestro_otros(
+    IN p_poliza VARCHAR(50),
+    IN p_cia VARCHAR(100),
+    IN p_ramo VARCHAR(120),
+    IN p_contratante VARCHAR(150),
+    IN p_asegurado VARCHAR(150),
+    IN p_fec_stro DATE,
+    IN p_hora_siniestro VARCHAR(20),
+    IN p_quien_reporta VARCHAR(150),
+    IN p_email TEXT,
+    IN p_telefonos VARCHAR(100),
+    IN p_lugar_siniestro TEXT,
+    IN p_causa TEXT,
+    IN p_descripcion_hechos TEXT,
+    IN p_siniestro_no VARCHAR(50),
+    IN p_ejecutivo_cia VARCHAR(100),
+    IN p_estado VARCHAR(50),
+    IN p_moneda VARCHAR(10),
+    IN p_monto_siniestro DECIMAL(15,2),
+    IN p_deducible DECIMAL(15,2),
+    IN p_descripcion_deducible TEXT,
+    IN p_total_indemnizar DECIMAL(15,2),
+    IN p_fec_pago DATE,
+    IN p_forma_pago VARCHAR(50),
+    IN p_numero_cheque VARCHAR(50),
+    IN p_banco VARCHAR(100),
+    IN p_numero_factura VARCHAR(50),
+    IN p_monto_pagar_factura DECIMAL(15,2),
+    IN p_fec_vencimiento_factura DATE,
+    IN p_fec_pago_factura DATE,
+    IN p_gastos_presentados TEXT,
+    IN p_usuario VARCHAR(50)
+)
+BEGIN
+    INSERT INTO siniestros (
+        grupo_ramo, poliza, cia, ramo, contratante, asegurado,
+        fec_stro, hora_siniestro, quien_reporta, email, telefonos,
+        lugar_siniestro, causa, descripcion_hechos, siniestro_no, ejecutivo_cia, estado,
+        moneda, monto_siniestro, deducible, descripcion_deducible, total_indemnizar,
+        fec_pago, forma_pago, numero_cheque, banco,
+        numero_factura, monto_pagar_factura, fec_vencimiento_factura, fec_pago_factura,
+        gastos_presentados, usuario_registro
+    ) VALUES (
+        'OTROS', p_poliza, p_cia, p_ramo, p_contratante, p_asegurado,
+        p_fec_stro, p_hora_siniestro, p_quien_reporta, p_email, p_telefonos,
+        p_lugar_siniestro, p_causa, p_descripcion_hechos, p_siniestro_no, p_ejecutivo_cia, p_estado,
+        p_moneda, p_monto_siniestro, p_deducible, p_descripcion_deducible, p_total_indemnizar,
+        p_fec_pago, p_forma_pago, p_numero_cheque, p_banco,
+        p_numero_factura, p_monto_pagar_factura, p_fec_vencimiento_factura, p_fec_pago_factura,
+        p_gastos_presentados, p_usuario
+    );
+    SELECT LAST_INSERT_ID() AS id;
+END $$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_update_siniestro_otros;
+DELIMITER $$
+CREATE PROCEDURE sp_update_siniestro_otros(
+    IN p_id INT,
+    IN p_poliza VARCHAR(50),
+    IN p_cia VARCHAR(100),
+    IN p_ramo VARCHAR(120),
+    IN p_contratante VARCHAR(150),
+    IN p_asegurado VARCHAR(150),
+    IN p_fec_stro DATE,
+    IN p_hora_siniestro VARCHAR(20),
+    IN p_quien_reporta VARCHAR(150),
+    IN p_email TEXT,
+    IN p_telefonos VARCHAR(100),
+    IN p_lugar_siniestro TEXT,
+    IN p_causa TEXT,
+    IN p_descripcion_hechos TEXT,
+    IN p_siniestro_no VARCHAR(50),
+    IN p_ejecutivo_cia VARCHAR(100),
+    IN p_estado VARCHAR(50),
+    IN p_moneda VARCHAR(10),
+    IN p_monto_siniestro DECIMAL(15,2),
+    IN p_deducible DECIMAL(15,2),
+    IN p_descripcion_deducible TEXT,
+    IN p_total_indemnizar DECIMAL(15,2),
+    IN p_fec_pago DATE,
+    IN p_forma_pago VARCHAR(50),
+    IN p_numero_cheque VARCHAR(50),
+    IN p_banco VARCHAR(100),
+    IN p_numero_factura VARCHAR(50),
+    IN p_monto_pagar_factura DECIMAL(15,2),
+    IN p_fec_vencimiento_factura DATE,
+    IN p_fec_pago_factura DATE,
+    IN p_gastos_presentados TEXT,
+    IN p_usuario_edicion VARCHAR(50)
+)
+BEGIN
+    UPDATE siniestros SET
+        grupo_ramo = 'OTROS',
+        poliza = p_poliza,
+        cia = p_cia,
+        ramo = p_ramo,
+        contratante = p_contratante,
+        asegurado = p_asegurado,
+        fec_stro = p_fec_stro,
+        hora_siniestro = p_hora_siniestro,
+        quien_reporta = p_quien_reporta,
+        email = p_email,
+        telefonos = p_telefonos,
+        lugar_siniestro = p_lugar_siniestro,
+        causa = p_causa,
+        descripcion_hechos = p_descripcion_hechos,
+        siniestro_no = p_siniestro_no,
+        ejecutivo_cia = p_ejecutivo_cia,
+        estado = p_estado,
+        moneda = p_moneda,
+        monto_siniestro = p_monto_siniestro,
+        deducible = p_deducible,
+        descripcion_deducible = p_descripcion_deducible,
+        total_indemnizar = p_total_indemnizar,
+        fec_pago = p_fec_pago,
+        forma_pago = p_forma_pago,
+        numero_cheque = p_numero_cheque,
+        banco = p_banco,
+        numero_factura = p_numero_factura,
+        monto_pagar_factura = p_monto_pagar_factura,
+        fec_vencimiento_factura = p_fec_vencimiento_factura,
+        fec_pago_factura = p_fec_pago_factura,
+        gastos_presentados = p_gastos_presentados,
+        usuario_edicion = p_usuario_edicion
+    WHERE id = p_id;
+
+    SELECT ROW_COUNT() AS affected_rows;
+END $$
+DELIMITER ;
+
 -- Procedimiento para insertar documento
 DROP PROCEDURE IF EXISTS sp_insert_siniestro_documento;
 
@@ -1613,9 +1747,9 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE sp_update_siniestro_vehiculos(
     IN p_telefonos VARCHAR(100),
     IN p_lugar_siniestro TEXT,
     IN p_causa TEXT,
-    IN p_tipo_atencion VARCHAR(50),
-    IN p_situacion VARCHAR(50),
-    IN p_placa VARCHAR(20),
+    IN p_tipo_atencion VARCHAR(50) COMMENT 'Tipo de atención vehicular',
+    IN p_situacion VARCHAR(50) COMMENT 'Situación del vehículo',
+    IN p_placa VARCHAR(20) COMMENT 'Placa del vehículo',
     IN p_siniestro_no VARCHAR(50),
     IN p_ejecutivo_cia VARCHAR(100),
     IN p_estado VARCHAR(50),
@@ -1755,5 +1889,4 @@ BEGIN
     SELECT ROW_COUNT() AS affected_rows;
 END$$
 DELIMITER ;
-
 
