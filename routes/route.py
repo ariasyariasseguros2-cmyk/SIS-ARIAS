@@ -1633,7 +1633,7 @@ def menu_siniestros_poliza():
     contratante = ''
     cia = ''
     ramo = ''
-
+    asegurada = ''
     if poliza:
         try:
             from models.db import get_connection
@@ -1658,7 +1658,8 @@ def menu_siniestros_poliza():
             if poliza_data:
                 contratante = poliza_data.get('contratante') or poliza_data.get('asegurado') or ''
                 cia = poliza_data.get('cia') or ''
-                ramo = poliza_data.get('asegurada') or poliza_data.get('ramo') or ''
+                ramo = poliza_data.get('ramo') or poliza_data.get('asegurada') or ''
+                asegurada = poliza_data.get('asegurada') or ''
 
             cursor.close()
             connection.close()
@@ -1670,7 +1671,8 @@ def menu_siniestros_poliza():
         poliza=poliza,
         contratante=contratante,
         cia=cia,
-        ramo=ramo
+        ramo=ramo,
+        asegurada=asegurada
     )
 
 @bp.route('/menu/siniestros', methods=['GET'])
