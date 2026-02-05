@@ -35,16 +35,17 @@ function renderizarTabla(data) {
     if (data.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="13" class="text-center text-muted py-4">No tenemos datos disponibles</td>
+                <td colspan="12" class="text-center text-muted py-4">No tenemos datos disponibles</td>
             </tr>
         `;
         return;
     }
 
-    tbody.innerHTML = data.map(siniestro => `
+    tbody.innerHTML = data.map(siniestro => {
+        return `
         <tr>
             <td>${siniestro.id || ''}</td>
-            <td>${siniestro.contratante || ''}</td>
+            <td title="${(siniestro.contratante||'').replace(/"/g,'\"')}">${siniestro.contratante || ''}</td>
             <td>${siniestro.poliza || ''}</td>
             <td>${siniestro.cia || ''}</td>
             <td>${siniestro.fec_stro || ''}</td>
@@ -54,7 +55,6 @@ function renderizarTabla(data) {
             <td><span class="badge badge-${getEstadoClass(siniestro.estado)}">${siniestro.estado || 'PENDIENTE'}</span></td>
             <td>${siniestro.ejecutivo_cia || ''}</td>
             <td>${siniestro.ramo || ''}</td>
-            <td>${siniestro.placa || ''}</td>
             <td class="text-end">
                 <div class="chips-row">
                     <span class="chip chip-info" role="button" onclick="descargarPDF(${siniestro.id})" title="Descargar PDF">
@@ -65,7 +65,7 @@ function renderizarTabla(data) {
                 </div>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 function getEstadoClass(estado) {
@@ -103,7 +103,6 @@ function parseMaybeJSON(value) {
                 const replaced = trimmed.replace(/'/g, '"');
                 return JSON.parse(replaced);
             } catch (e2) {
-                console.debug('parseMaybeJSON: no se pudo parsear (incluyendo reemplazo), valor:', value);
                 return null;
             }
         }
@@ -141,7 +140,9 @@ async function abrirModalNuevo() {
     const poliza = document.getElementById('polizaCertif').textContent.trim();
     const contratante = document.getElementById('asegurado').textContent.trim();
     const cia = document.getElementById('compania').textContent.trim();
-    const ramo = document.getElementById('materiaAsegurada').textContent.trim();
+    // Tomar ramo desde el campo específico de la cabecera (ramoPoliza)
+    const ramo = document.getElementById('ramoPoliza').textContent.trim();
+    const materia = document.getElementById('materiaAsegurada') ? document.getElementById('materiaAsegurada').textContent.trim() : '';
 
     // Mostrar modal con loader
     modalSiniestro.show();
@@ -151,16 +152,13 @@ async function abrirModalNuevo() {
         const response = await fetch(`/api/siniestros/grupo-ramo?poliza=${encodeURIComponent(poliza)}`);
         if (response.ok) {
             const data = await response.json();
-            console.log('Grupo del ramo detectado:', data);
-            console.log('Póliza:', data.poliza);
-            console.log('Ramo:', data.ramo);
-            console.log('Grupo:', data.grupo);
+            // Datos del grupo recibidos
 
             // Guardar el grupo en un campo oculto
             document.getElementById('grupoRamoActual').value = data.grupo;
 
             // Cargar el formulario correspondiente
-            await cargarFormularioPorGrupo(data.grupo, poliza, contratante, cia, ramo);
+            await cargarFormularioPorGrupo(data.grupo, poliza, contratante, cia, ramo, materia);
 
         } else {
             console.error('Error al obtener grupo del ramo');
@@ -184,7 +182,7 @@ async function abrirModalNuevo() {
     }
 }
 
-async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramo) {
+async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramoVal, materiaVal) {
     const contenedor = document.getElementById('formularioDinamico');
 
     try {
@@ -205,12 +203,12 @@ async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramo) {
                 formUrl = '/templates/view/siniestros/form_siniestro_otros.html';
                 break;
             default:
-                // Formulario genérico para grupos no definidos
-                formUrl = '/templates/view/siniestros/form_siniestro_generico.html';
+                // Formulario genérico para grupos no definidos -> usar OTROS
+                formUrl = '/templates/view/siniestros/form_siniestro_otros.html';
                 break;
         }
 
-        console.log(`Cargando formulario desde: ${formUrl}`);
+        // Cargando formulario desde URL calculada
 
         const response = await fetch(formUrl);
         if (response.ok) {
@@ -230,8 +228,30 @@ async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramo) {
                 if (contratanteInput) contratanteInput.value = contratante;
                 if (aseguradoInput) aseguradoInput.value = contratante; // Usualmente son iguales
                 if (ciaInput) ciaInput.value = cia;
-                if (ramoInput) ramoInput.value = ramo;
+                if (ramoInput) ramoInput.value = ramoVal;
                 if (estadoInput) estadoInput.value = 'PENDIENTE';
+
+                // Intentar setear 'materia asegurada' en los formularios (varias posibilidades de id)
+                const materiaIds = ['materia', 'materiaAsegurada', 'materia_asegurada', 'asegurada_poliza', 'aseguradaPoliza', 'descripcion_materia'];
+                let materiaSet = false;
+                for (const id of materiaIds) {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        if ('value' in el) el.value = materiaVal || '';
+                        else el.textContent = materiaVal || '';
+                        materiaSet = true;
+                        break;
+                    }
+                }
+                if (!materiaSet) {
+                    // Si no existía un campo para materia, crear un hidden para que el backend la reciba si es necesario
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.id = 'materia_asegurada';
+                    hidden.name = 'materia_asegurada';
+                    hidden.value = materiaVal || '';
+                    contenedor.appendChild(hidden);
+                }
 
                 // Ejecutar scripts embebidos en el formulario cargado
                 const scripts = contenedor.querySelectorAll('script');
@@ -241,7 +261,14 @@ async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramo) {
                     document.body.appendChild(newScript);
                     document.body.removeChild(newScript);
                 });
-                
+
+                // Reintentar fijar materia asegurada varias veces (por si el formulario crea los campos dinámicamente)
+                setMateriaValue(materiaVal).then(found => {
+                    if (!found) {
+                        console.warn('materia asegurada: no se encontró campo, se creó hidden');
+                    }
+                });
+
             }, 100);
 
         } else {
@@ -280,6 +307,7 @@ async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramo) {
                         <label for="ramo" class="form-label">Ramo</label>
                         <input type="text" class="form-control" id="ramo">
                     </div>
+                    <input type="hidden" id="materia_asegurada" name="materia_asegurada" value="${materiaVal || ''}">
                 </div>
                 <div class="col-md-6">
                     <h6 class="border-bottom pb-2 mb-3">Detalles del Siniestro</h6>
@@ -313,10 +341,50 @@ async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramo) {
             document.getElementById('contratante').value = contratante;
             document.getElementById('asegurado').value = contratante;
             document.getElementById('cia').value = cia;
-            document.getElementById('ramo').value = ramo;
+            document.getElementById('ramo').value = ramoVal;
+            // materia ya incluida como hidden (id='materia_asegurada')
             document.getElementById('estado').value = 'PENDIENTE';
         }, 100);
     }
+}
+
+function setMateriaValue(materiaVal, maxRetries = 6, interval = 150) {
+    const materiaIds = ['materia', 'materiaAsegurada', 'materia_asegurada', 'asegurada_poliza', 'aseguradaPoliza', 'descripcion_materia', 'materia_asegurada'];
+
+    return new Promise((resolve) => {
+        let attempts = 0;
+        const trySet = () => {
+            attempts++;
+            for (const id of materiaIds) {
+                const el = document.getElementById(id);
+                if (el) {
+                    try {
+                        if ('value' in el) el.value = materiaVal || '';
+                        else el.textContent = materiaVal || '';
+                    } catch (e) {
+                        // ignore
+                    }
+                    return resolve(true);
+                }
+            }
+            // If not found and reached max retries, create hidden once
+            if (attempts >= maxRetries) {
+                // ensure we don't duplicate hidden
+                if (!document.getElementById('materia_asegurada')) {
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.id = 'materia_asegurada';
+                    hidden.name = 'materia_asegurada';
+                    hidden.value = materiaVal || '';
+                    const cont = document.getElementById('formularioDinamico') || document.body;
+                    cont.appendChild(hidden);
+                }
+                return resolve(false);
+            }
+            setTimeout(trySet, interval);
+        };
+        trySet();
+    });
 }
 
 async function editarSiniestro(id) {
@@ -325,14 +393,13 @@ async function editarSiniestro(id) {
         const response = await fetch(`/api/siniestros/${id}`);
         const siniestro = await response.json();
 
-        console.log('Datos del siniestro a editar:', siniestro);
 
         // Actualizar título del modal
         document.getElementById('modalTitle').innerHTML = '<i class="bi bi-pencil-square"></i> Editar Siniestro';
         document.getElementById('siniestroId').value = siniestro.id;
 
         // Guardar el grupo del ramo
-        const grupoRamo = siniestro.grupo_ramo || 'GENERICO';
+        const grupoRamo = siniestro.grupo_ramo || 'OTROS';
         document.getElementById('grupoRamoActual').value = grupoRamo;
 
         // Mostrar modal con loader
@@ -344,7 +411,8 @@ async function editarSiniestro(id) {
             siniestro.poliza,
             siniestro.contratante,
             siniestro.cia,
-            siniestro.ramo
+            siniestro.ramo,
+            siniestro.asegurada || ''
         );
 
         // Esperar explícitamente a que el formulario esté montado
@@ -364,7 +432,7 @@ async function editarSiniestro(id) {
 }
 
 function preLlenarFormularioEdicion(siniestro) {
-    console.log('Pre-llenando formulario con:', siniestro);
+    // Pre-llenando formulario con siniestro
 
     // Función auxiliar para setear valor si el elemento existe
     const setVal = (id, value) => {
@@ -378,6 +446,17 @@ function preLlenarFormularioEdicion(siniestro) {
     setVal('ramo', siniestro.ramo);
     setVal('contratante', siniestro.contratante);
     setVal('asegurado', siniestro.asegurado);
+
+    // Asegurar que 'materia asegurada' se establece en edición también
+    try {
+        const materiaVal = siniestro.asegurada || siniestro.materia_asegurada || '';
+        if (materiaVal) {
+            setMateriaValue(materiaVal);
+        }
+    } catch (e) {
+        // no bloquear si falla
+    }
+
     setVal('fecPresentacionBroker', siniestro.fec_presentacion_broker);
     setVal('fecAvisoCia', siniestro.fec_aviso_cia);
     setVal('fecStro', siniestro.fec_stro);
@@ -435,7 +514,6 @@ function preLlenarFormularioEdicion(siniestro) {
 
         // Intentar obtener objeto vehiculo desde diferentes campos
         const vehiculo = parseMaybeJSON(siniestro.datos_vehiculo) || parseMaybeJSON(siniestro.vehiculo) || null;
-        console.debug('vehiculo detectado para prellenado:', vehiculo);
         if (vehiculo) {
             // Si no hubo placa raíz, tomarla del objeto vehiculo
             if (!siniestro.placa && vehiculo.placa) {
@@ -453,7 +531,6 @@ function preLlenarFormularioEdicion(siniestro) {
 
         // Denuncia
         const denuncia = parseMaybeJSON(siniestro.datos_denuncia) || parseMaybeJSON(siniestro.denuncia) || null;
-        console.debug('denuncia detectada para prellenado:', denuncia);
         if (denuncia) {
             setVal('denunciaComisaria', denuncia.comisaria);
             setVal('denunciaNumeroDenuncia', denuncia.numero_denuncia || denuncia.numeroDenuncia || '');
@@ -466,7 +543,6 @@ function preLlenarFormularioEdicion(siniestro) {
 
         // Conductor
         const conductor = parseMaybeJSON(siniestro.datos_conductor) || parseMaybeJSON(siniestro.conductor) || null;
-        console.debug('conductor detectado para prellenado:', conductor);
         if (conductor) {
             setVal('conductorNombre', conductor.nombre);
             setVal('conductorDocumento', conductor.documento_identidad || conductor.documento || '');
@@ -479,7 +555,6 @@ function preLlenarFormularioEdicion(siniestro) {
 
         // Copiloto
         const copiloto = parseMaybeJSON(siniestro.datos_copiloto) || parseMaybeJSON(siniestro.copiloto) || null;
-        console.debug('copiloto detectado para prellenado:', copiloto);
         if (copiloto) {
             setVal('copilotoNombre', copiloto.nombre);
             setVal('copilotoFecNacimiento', formatDateForInput(copiloto.fec_nacimiento));
@@ -505,16 +580,82 @@ function preLlenarFormularioEdicion(siniestro) {
 
     // Campos específicos RRHH
     if (siniestro.grupo_ramo === 'RRHH') {
-        setVal('fecAtencionMedica', siniestro.fec_atencion_medica);
+        // Usar formatDateForInput para asegurar formato YYYY-MM-DD en inputs type=date
+        setVal('fecAtencionMedica', formatDateForInput(siniestro.fec_atencion_medica));
         setVal('tipoPersona', siniestro.tipo_persona);
         setVal('titular', siniestro.titular);
         setVal('paciente', siniestro.paciente);
         setVal('diagnostico', siniestro.diagnostico);
         setVal('coaseguro', siniestro.coaseguro);
         setVal('noCubierto', siniestro.no_cubierto);
+        // Estas dos fechas eran las que no se estaban mostrando correctamente: normalizar formato
+        setVal('fecCiaConsentido', formatDateForInput(siniestro.fec_cia_consentido));
+        setVal('fecPresentacionCia', formatDateForInput(siniestro.fec_presentacion_cia));
+
+        // Cargar gastos presentados si vienen en el objeto del siniestro
+        const gastos = siniestro.gastos || siniestro.gastos_presentados || [];
+        try {
+            // Garantizar que window.gastosArray exista (incluso si está vacío)
+            try { window.gastosArray = Array.isArray(gastos) ? gastos.slice() : []; } catch (e) { window.gastosArray = gastos || []; }
+
+            // Actualizar el campo oculto para que el payload lo contenga si el usuario guarda sin cambios
+            const gastosField = document.getElementById('gastosData');
+            if (gastosField) gastosField.value = JSON.stringify(window.gastosArray || []);
+
+            // Fallback render directo de la tabla en caso `actualizarTablaGastos` no exista
+            const renderGastosTableFallback = (arr) => {
+                try {
+                    const tbody = document.getElementById('gastosTableBody');
+                    if (!tbody) return;
+                    if (!arr || arr.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay gastos registrados</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = arr.map((gasto, index) => `
+                        <tr>
+                            <td>${gasto.tipo}</td>
+                            <td>${gasto.descripcion}</td>
+                            <td class="text-end">${(parseFloat(gasto.monto) || 0).toFixed(2)}</td>
+                            <td>${gasto.fecha}</td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="eliminarGasto(${index})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } catch (e) {
+                    // No mostrar debug en producción
+                }
+            };
+
+            // Intentar ejecutar actualizarTablaGastos con varios reintentos
+            const tryActualizarGastos = () => {
+                const exists = typeof actualizarTablaGastos === 'function';
+                if (exists) {
+                    try {
+                        actualizarTablaGastos();
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                }
+                return false;
+            };
+
+            // Reintentos escalonados y fallback
+            if (!tryActualizarGastos()) {
+                setTimeout(() => { if (!tryActualizarGastos()) { renderGastosTableFallback(window.gastosArray || []); } }, 200);
+                setTimeout(() => { if (!tryActualizarGastos()) { renderGastosTableFallback(window.gastosArray || []); } }, 500);
+                setTimeout(() => { if (!tryActualizarGastos()) { renderGastosTableFallback(window.gastosArray || []); } }, 1000);
+            }
+
+        } catch (e) {
+            // No mostrar debug en producción
+        }
     }
 
-    console.log('Formulario pre-llenado correctamente');
+    // Formulario pre-llenado correctamente
 }
 
 async function guardarSiniestro(event) {
@@ -534,7 +675,7 @@ async function guardarSiniestro(event) {
             });
         }
     } catch (cleanupErr) {
-        console.debug('Error limpiando atributos required antes de enviar:', cleanupErr);
+        // Error silencioso al limpiar atributos required antes de enviar
     }
 
     const id = document.getElementById('siniestroId').value;
@@ -554,6 +695,7 @@ async function guardarSiniestro(event) {
         ramo: getVal('ramo'),
         contratante: getVal('contratante'),
         asegurado: getVal('asegurado'),
+        materia_asegurada: getVal('materia_asegurada') || getVal('materiaAsegurada') || getVal('asegurada'),
         fec_stro: getVal('fecStro'),
         hora_siniestro: getVal('horaSiniestro'),
         quien_reporta: getVal('quienReporta'),
@@ -699,7 +841,7 @@ async function guardarSiniestro(event) {
         data.archivos = archivosData ? JSON.parse(archivosData) : [];
     }
 
-    console.log('Datos a enviar:', data);
+    // Preparando datos a enviar
 
     try {
         const url = id ? `/api/siniestros/${id}` : '/api/siniestros';
