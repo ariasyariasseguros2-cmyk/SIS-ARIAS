@@ -70,7 +70,6 @@ function parseMaybeJSON(value) {
                 const replaced = trimmed.replace(/'/g, '"');
                 return JSON.parse(replaced);
             } catch (e2) {
-                console.debug('parseMaybeJSON: no se pudo parsear (incluyendo reemplazo), valor:', value);
                 return null;
             }
         }
@@ -176,14 +175,14 @@ async function editarSiniestro(id) {
         }
 
         const siniestro = await response.json();
-        console.log('Datos del siniestro a editar:', siniestro);
+        // Cargando datos del siniestro para edición
 
         // Actualizar título del modal
         document.getElementById('modalTitle').innerHTML = '<i class="bi bi-pencil-square"></i> Editar Siniestro';
         document.getElementById('siniestroId').value = siniestro.id;
 
         // Guardar el grupo del ramo
-        const grupoRamo = siniestro.grupo_ramo || 'GENERICO';
+        const grupoRamo = siniestro.grupo_ramo || 'OTROS';
         document.getElementById('grupoRamoActual').value = grupoRamo;
 
         // Mostrar modal
@@ -234,11 +233,11 @@ async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramo) {
                 formUrl = '/templates/view/siniestros/form_siniestro_otros.html';
                 break;
             default:
-                formUrl = '/templates/view/siniestros/form_siniestro_generico.html';
+                formUrl = '/templates/view/siniestros/form_siniestro_otros.html';
                 break;
         }
 
-        console.log(`Cargando formulario ${grupo} desde: ${formUrl}`);
+        // Cargando formulario según grupo
 
         const response = await fetch(formUrl);
         if (!response.ok) {
@@ -273,7 +272,7 @@ async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramo) {
                 document.body.removeChild(newScript);
             });
 
-            console.log(`Formulario ${grupo} cargado y pre-llenado correctamente`);
+            // Formulario cargado y pre-llenado correctamente
         }, 100);
 
     } catch (error) {
@@ -292,7 +291,7 @@ async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramo) {
 }
 
 function preLlenarFormularioEdicion(siniestro) {
-    console.log('Pre-llenando formulario con:', siniestro);
+    // Pre-llenando formulario con siniestro
 
     // Función auxiliar para setear valor si el elemento existe
     const setVal = (id, value) => {
@@ -363,7 +362,6 @@ function preLlenarFormularioEdicion(siniestro) {
 
         // Intentar obtener objeto vehiculo desde diferentes campos
         const vehiculo = parseMaybeJSON(siniestro.datos_vehiculo) || parseMaybeJSON(siniestro.vehiculo) || null;
-        console.debug('vehiculo detectado para prellenado:', vehiculo);
         if (vehiculo) {
             if (!siniestro.placa && vehiculo.placa) setVal('vehiculoPlaca', vehiculo.placa);
             setVal('vehiculoMarca', vehiculo.marca);
@@ -378,7 +376,6 @@ function preLlenarFormularioEdicion(siniestro) {
 
         // Denuncia
         const denuncia = parseMaybeJSON(siniestro.datos_denuncia) || parseMaybeJSON(siniestro.denuncia) || null;
-        console.debug('denuncia detectada para prellenado:', denuncia);
         if (denuncia) {
             setVal('denunciaComisaria', denuncia.comisaria);
             setVal('denunciaNumeroDenuncia', denuncia.numero_denuncia || denuncia.numeroDenuncia || '');
@@ -391,7 +388,6 @@ function preLlenarFormularioEdicion(siniestro) {
 
         // Conductor
         const conductor = parseMaybeJSON(siniestro.datos_conductor) || parseMaybeJSON(siniestro.conductor) || null;
-        console.debug('conductor detectado para prellenado:', conductor);
         if (conductor) {
             setVal('conductorNombre', conductor.nombre);
             setVal('conductorDocumento', conductor.documento_identidad || conductor.documento || '');
@@ -404,7 +400,6 @@ function preLlenarFormularioEdicion(siniestro) {
 
         // Copiloto
         const copiloto = parseMaybeJSON(siniestro.datos_copiloto) || parseMaybeJSON(siniestro.copiloto) || null;
-        console.debug('copiloto detectado para prellenado:', copiloto);
         if (copiloto) {
             setVal('copilotoNombre', copiloto.nombre);
             setVal('copilotoFecNacimiento', formatDateForInput(copiloto.fec_nacimiento));
@@ -430,22 +425,52 @@ function preLlenarFormularioEdicion(siniestro) {
 
     // Campos específicos RRHH
     if (siniestro.grupo_ramo === 'RRHH') {
-        setVal('fecAtencionMedica', siniestro.fec_atencion_medica);
+        // Normalizar fechas y setear campos relevantes
+        setVal('fecAtencionMedica', formatDateForInput(siniestro.fec_atencion_medica));
         setVal('tipoPersona', siniestro.tipo_persona);
         setVal('titular', siniestro.titular);
         setVal('paciente', siniestro.paciente);
         setVal('diagnostico', siniestro.diagnostico);
         setVal('coaseguro', siniestro.coaseguro);
         setVal('noCubierto', siniestro.no_cubierto);
+        setVal('fecCiaConsentido', formatDateForInput(siniestro.fec_cia_consentido));
+        setVal('fecPresentacionCia', formatDateForInput(siniestro.fec_presentacion_cia));
 
-        // Cargar gastos si existen
-        if (siniestro.gastos_presentados && Array.isArray(siniestro.gastos_presentados)) {
-            // Aquí deberías tener una función para cargar los gastos en la tabla
-            console.log('Gastos a cargar:', siniestro.gastos_presentados);
+        // Cargar gastos presentados si vienen en el objeto del siniestro
+        const gastos = siniestro.gastos_presentados || siniestro.gastos || [];
+        try {
+            // Garantizar que window.gastosArray exista (incluso si está vacío)
+            try { window.gastosArray = Array.isArray(gastos) ? gastos.slice() : []; } catch (e) { window.gastosArray = gastos || []; }
+
+            // Actualizar el campo oculto para que el payload lo contenga si el usuario guarda sin cambios
+            const gastosField = document.getElementById('gastosData');
+            if (gastosField) gastosField.value = JSON.stringify(window.gastosArray || []);
+
+            // Intentar ejecutar actualizarTablaGastos with varios reintentos
+            const tryActualizarGastos = () => {
+                const exists = typeof actualizarTablaGastos === 'function';
+                if (exists) {
+                    try {
+                        actualizarTablaGastos();
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                }
+                return false;
+            };
+
+            // Reintentos escalonados
+            if (!tryActualizarGastos()) setTimeout(tryActualizarGastos, 200);
+            if (!tryActualizarGastos()) setTimeout(tryActualizarGastos, 500);
+            if (!tryActualizarGastos()) setTimeout(tryActualizarGastos, 1000);
+
+        } catch (e) {
+            // No mostrar debug en producción
         }
     }
 
-    console.log('Formulario pre-llenado correctamente');
+    // Formulario pre-llenado correctamente
 }
 
 async function guardarSiniestro(event) {
@@ -464,7 +489,7 @@ async function guardarSiniestro(event) {
             });
         }
     } catch (cleanupErr) {
-        console.debug('Error limpiando atributos required antes de enviar:', cleanupErr);
+        // Error silencioso al limpiar atributos required antes de enviar
     }
 
     const id = document.getElementById('siniestroId').value;
@@ -629,7 +654,7 @@ async function guardarSiniestro(event) {
         data.archivos = archivosData ? JSON.parse(archivosData) : [];
     }
 
-    console.log('Datos a enviar:', data);
+    // Preparando datos a enviar
 
     try {
         const url = id ? `/api/siniestros/${id}` : '/api/siniestros';
