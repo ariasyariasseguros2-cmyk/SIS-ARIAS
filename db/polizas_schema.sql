@@ -44,7 +44,8 @@ CREATE PROCEDURE sp_listar_ajustadores()
 BEGIN
     SELECT
         nombre,
-        abreviacion
+        abreviacion,
+        codigo
     FROM ajustadores
     ORDER BY nombre ASC;
 END $$
