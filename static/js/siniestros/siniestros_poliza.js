@@ -132,6 +132,42 @@ function waitForElement(id, timeout = 2000) {
     });
 }
 
+function attachAutoCalculoIndemnizacion() {
+    try {
+        const montoEl = document.getElementById('montoSiniestro');
+        const deducibleEl = document.getElementById('deducible');
+        const totalEl = document.getElementById('totalIndemnizar');
+        if (!montoEl && !deducibleEl) return;
+
+        const compute = () => {
+            const monto = parseFloat(montoEl ? montoEl.value : (montoEl && montoEl.textContent) || 0) || 0;
+            const ded = parseFloat(deducibleEl ? deducibleEl.value : (deducibleEl && deducibleEl.textContent) || 0) || 0;
+            let total = monto - ded;
+            if (!isFinite(total) || isNaN(total)) total = 0;
+            if (total < 0) total = 0; // no permitir negativos
+            if (totalEl) totalEl.value = total.toFixed(2);
+        };
+
+
+        if (montoEl) {
+            montoEl.removeEventListener && montoEl.removeEventListener('input', compute);
+            montoEl.addEventListener('input', compute);
+            montoEl.addEventListener('change', compute);
+        }
+        if (deducibleEl) {
+            deducibleEl.removeEventListener && deducibleEl.removeEventListener('input', compute);
+            deducibleEl.addEventListener('input', compute);
+            deducibleEl.addEventListener('change', compute);
+        }
+
+        // Inicializar el calculo
+        compute();
+    } catch (e) {
+
+        console.warn('attachAutoCalculoIndemnizacion error:', e);
+    }
+}
+
 async function abrirModalNuevo() {
     document.getElementById('modalTitle').innerHTML = '<i class="bi bi-file-earmark-plus"></i> Añadir Siniestro';
     document.getElementById('formSiniestro').reset();
@@ -268,6 +304,9 @@ async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramoVal
                     }
                 });
 
+                // Adjuntar cálculo automático de indemnización
+                attachAutoCalculoIndemnizacion();
+
             }, 100);
 
         } else {
@@ -343,6 +382,9 @@ async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramoVal
             document.getElementById('ramo').value = ramoVal;
             // materia ya incluida como hidden (id='materia_asegurada')
             document.getElementById('estado').value = 'PENDIENTE';
+
+            // Adjuntar cálculo automático en el fallback
+            attachAutoCalculoIndemnizacion();
         }, 100);
     }
 }
@@ -655,6 +697,8 @@ function preLlenarFormularioEdicion(siniestro) {
     }
 
     // Formulario pre-llenado correctamente
+    // Asegurar que la calculadora automática esté activa tras pre-llenar
+    attachAutoCalculoIndemnizacion();
 }
 
 async function guardarSiniestro(event) {
