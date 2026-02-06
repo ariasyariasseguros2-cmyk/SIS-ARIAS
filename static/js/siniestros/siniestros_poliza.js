@@ -83,12 +83,12 @@ function formatNumber(num) {
     return parseFloat(num).toFixed(2);
 }
 
-// Nuevo helper: pausa síncrona via Promise
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Mejorar parseMaybeJSON: intenta JSON.parse; si falla, intenta reemplazar comillas simples por dobles
+
 function parseMaybeJSON(value) {
     if (!value) return null;
     if (typeof value === 'object') return value;
@@ -98,7 +98,7 @@ function parseMaybeJSON(value) {
         try {
             return JSON.parse(trimmed);
         } catch (e) {
-            // Intentar reemplazar comillas simples por dobles
+
             try {
                 const replaced = trimmed.replace(/'/g, '"');
                 return JSON.parse(replaced);
@@ -188,7 +188,6 @@ async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramoVal
     try {
         let formUrl = '';
 
-        // Determinar qué formulario cargar según el grupo
         switch(grupo) {
             case 'RRGG':
                 formUrl = '/templates/view/siniestros/form_siniestro_rrgg.html';
@@ -203,7 +202,7 @@ async function cargarFormularioPorGrupo(grupo, poliza, contratante, cia, ramoVal
                 formUrl = '/templates/view/siniestros/form_siniestro_otros.html';
                 break;
             default:
-                // Formulario genérico para grupos no definidos -> usar OTROS
+
                 formUrl = '/templates/view/siniestros/form_siniestro_otros.html';
                 break;
         }
