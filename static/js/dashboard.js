@@ -26,9 +26,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Toggle de submenús en sidebar
     document.querySelectorAll('.group-toggle').forEach(btn => {
+        const li = btn.closest('.nav-group');
+        // Si el grupo ya viene marcado como open en el DOM, no lo cerramos
         btn.addEventListener('click', () => {
-            const group = btn.closest('.nav-group');
-            if (group) group.classList.toggle('open');
+            const isOpen = li.classList.contains('open');
+            if (isOpen) {
+                li.classList.remove('open', 'active-group');
+            } else {
+                // cerrar otros grupos (si se desea comportamiento acordeón)
+                document.querySelectorAll('.nav-group.open').forEach(g => {
+                    g.classList.remove('open', 'active-group');
+                });
+                li.classList.add('open', 'active-group');
+            }
         });
     });
 
