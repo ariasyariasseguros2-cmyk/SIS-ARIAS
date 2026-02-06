@@ -51,6 +51,9 @@ END $$
 
 DELIMITER;
 
+
+
+DROP PROCEDURE IF EXISTS sp_insertar_ajustador;
 DELIMITER $$
 CREATE PROCEDURE sp_insertar_ajustador(
     IN p_nombre VARCHAR(255),
@@ -59,22 +62,11 @@ CREATE PROCEDURE sp_insertar_ajustador(
     OUT p_new_id INT
 )
 BEGIN
-    DECLARE v_existing_id INT DEFAULT NULL;
+    INSERT INTO ajustadores (nombre, abreviacion, codigo)
+    VALUES (p_nombre, p_abreviacion, p_codigo)
+    ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
 
-    SELECT id INTO v_existing_id
-    FROM ajustadores
-    WHERE codigo = p_codigo
-    LIMIT 1;
-
-    IF v_existing_id IS NOT NULL THEN
-        -- Ya existe: devolver el id existente
-        SET p_new_id = v_existing_id;
-    ELSE
-        -- No existe: insertar y devolver el id nuevo
-        INSERT INTO ajustadores (nombre, abreviacion, codigo)
-        VALUES (p_nombre, p_abreviacion, p_codigo);
-        SET p_new_id = LAST_INSERT_ID();
-    END IF;
+    SET p_new_id = LAST_INSERT_ID();
 END $$
 
 DELIMITER ;
