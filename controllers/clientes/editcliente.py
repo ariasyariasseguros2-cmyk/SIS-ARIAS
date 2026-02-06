@@ -36,12 +36,10 @@ def editar_cliente_route():
         fecha_ingreso = data.get('fecha_ingreso') if data.get('fecha_ingreso') else None
         fecha_nacimiento = data.get('fecha_nacimiento') if data.get('fecha_nacimiento') else None
         licencia_venc = data.get('licencia_venc') if data.get('licencia_venc') else None
-        ultimo_siniestro = data.get('ultimo_siniestro') if data.get('ultimo_siniestro') else None
 
         # Convertir valores numéricos
         recibir_notificaciones = 1 if data.get('recibir_notificaciones') in [True, 1, '1', 'true'] else 0
         tipo_persona = int(data.get('tipo_persona', 0)) if data.get('tipo_persona') else None
-        siniestros_reportados = int(data.get('siniestros_reportados', 0)) if data.get('siniestros_reportados') else None
 
         # Obtener idProductor basado en la abreviación del subagente
         id_productor = None
@@ -96,12 +94,6 @@ def editar_cliente_route():
             data.get('contacto_nombre', ''),
             data.get('contacto_email', ''),
             data.get('contacto_telefono', ''),
-            data.get('referencias_interes', ''),
-            data.get('notas', ''),
-            siniestros_reportados,
-            ultimo_siniestro,
-            data.get('detalle_siniestros', ''),
-            data.get('preferencias', ''),
             usuario_actual
         ])
 
@@ -149,7 +141,7 @@ def get_cliente_detalle_route(idCliente):
             }), 404
 
         # Convertir fechas a string formato ISO
-        for field in ['fecha_ingreso', 'fecha_nacimiento', 'licencia_venc', 'ultimo_siniestro']:
+        for field in ['fecha_ingreso', 'fecha_nacimiento', 'licencia_venc']:
             if cliente.get(field):
                 if isinstance(cliente[field], (datetime, date)):
                     cliente[field] = cliente[field].strftime('%Y-%m-%d')

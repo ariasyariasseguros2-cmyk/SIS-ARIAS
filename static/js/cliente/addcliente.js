@@ -472,16 +472,8 @@
     payload.contactoEmail = document.getElementById('contactoEmail')?.value || '';
     payload.contactoTelefono = document.getElementById('contactoTelefono')?.value || '';
 
-    // Información adicional - Siniestralidad
-    payload.siniestrosReportados = document.getElementById('siniestrosReportados')?.value || '';
-    payload.ultimoSiniestro = document.getElementById('ultimoSiniestro')?.value || '';
-    payload.detalleSiniestros = document.getElementById('detalleSiniestros')?.value || '';
-
-    payload.referenciasInteres = document.getElementById('referenciasInteres')?.value || '';
-    payload.preferencias = document.getElementById('preferencias')?.value || '';
-    payload.notasInteres = document.getElementById('notasInteres')?.value || '';
-
-    payload.masInformacion = document.getElementById('masInformacion')?.value || '';
+    // Información adicional - (campos eliminados: siniestralidad, referencias, preferencias, notas)
+    // Removed: siniestrosReportados, ultimoSiniestro, detalleSiniestros, referenciasInteres, preferencias, notasInteres, masInformacion
 
     return payload;
   }
@@ -624,3 +616,4 @@
     }
   });
 })();
+

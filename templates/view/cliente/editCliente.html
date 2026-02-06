@@ -152,6 +152,10 @@
                                 <label class="form-label">Recomendado Por</label>
                                 <input type="text" id="edit_recomendado_por" name="recomendado_por" class="form-control">
                             </div>
+                            <div class="col-12">
+                                <label class="form-label">Referencia</label>
+                                <textarea id="edit_referencia" name="referencia" class="form-control" rows="2"></textarea>
+                            </div>
                         </div>
                     </div>
 
@@ -168,10 +172,6 @@
                             <div class="col-md-4">
                                 <label class="form-label">Fecha de Nacimiento</label>
                                 <input type="date" id="edit_fecha_nacimiento" name="fecha_nacimiento" class="form-control">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Último Siniestro</label>
-                                <input type="date" id="edit_ultimo_siniestro" name="ultimo_siniestro" class="form-control">
                             </div>
                         </div>
                     </div>
@@ -223,46 +223,8 @@
                     </div>
 
                     <!-- Sección 8: Siniestralidad -->
-                    <div class="section-card">
-                        <h6 class="section-title">
-                            <i class="bi-exclamation-triangle"></i> Siniestralidad
-                        </h6>
-                        <div class="row g-3">
-                            <div class="col-md-12">
-                                <label class="form-label">Siniestros Reportados</label>
-                                <input type="number" id="edit_siniestros_reportados" name="siniestros_reportados" class="form-control" min="0">
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label">Detalle de Siniestros</label>
-                                <textarea id="edit_detalle_siniestros" name="detalle_siniestros" class="form-control" rows="3"></textarea>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Eliminada: campos siniestros_reportados y detalle_siniestros -->
 
-                    <!-- Sección 9: Información Adicional -->
-                    <div class="section-card">
-                        <h6 class="section-title">
-                            <i class="bi-info-circle"></i> Información Adicional
-                        </h6>
-                        <div class="row g-3">
-                            <div class="col-12">
-                                <label class="form-label">Referencia</label>
-                                <textarea id="edit_referencia" name="referencia" class="form-control" rows="2"></textarea>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label">Referencias de Interés</label>
-                                <textarea id="edit_referencias_interes" name="referencias_interes" class="form-control" rows="2"></textarea>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label">Notas</label>
-                                <textarea id="edit_notas" name="notas" class="form-control" rows="3"></textarea>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label">Preferencias</label>
-                                <textarea id="edit_preferencias" name="preferencias" class="form-control" rows="2"></textarea>
-                            </div>
-                        </div>
-                    </div>
                 </form>
             </div>
             <div class="modal-footer">

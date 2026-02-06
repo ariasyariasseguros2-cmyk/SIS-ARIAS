@@ -104,16 +104,6 @@ def validate_cliente_payload(data: dict) -> tuple[bool, list[str]]:
         except (ValueError, TypeError):
             errors.append('La fecha de vencimiento de la licencia no tiene un formato válido')
 
-    # Validar cantidad de siniestros si se proporciona
-    siniestros = data.get('siniestrosReportados')
-    if siniestros:
-        try:
-            siniestros_int = int(siniestros)
-            if siniestros_int < 0 or siniestros_int > 999:
-                errors.append('La cantidad de Siniestros Reportados debe estar entre 0 y 999')
-        except (ValueError, TypeError):
-            errors.append('La cantidad de Siniestros Reportados debe ser un número')
-
     return (len(errors) == 0, errors)
 
 def parse_date(date_str: str | None) -> str | None:
@@ -209,23 +199,8 @@ def save_cliente(data: dict) -> dict:
     contacto_nombre = (data.get('contactoNombre') or '').strip()
     contacto_email = (data.get('contactoEmail') or '').strip()
     contacto_telefono = (data.get('contactoTelefono') or '').strip()
-    referencias_interes = (data.get('referenciasInteres') or '').strip()
-    preferencias = (data.get('preferencias') or '').strip()
 
-    # Notas: aceptar masInformacion o notasInteres
-    notas = (data.get('masInformacion') or data.get('notasInteres') or '').strip()
-
-    # Siniestralidad
-    siniestros_reportados = None
-    try:
-        val = data.get('siniestrosReportados')
-        if val and str(val).strip():
-            siniestros_reportados = int(val)
-    except Exception:
-        pass
-
-    ultimo_siniestro = parse_date(data.get('ultimoSiniestro'))
-    detalle_siniestros = (data.get('detalleSiniestros') or '').strip()
+    # Notas y campos eliminados: siniestralidad, referencias_interes, preferencias, notasInteres, masInformacion
     pdf_path = (data.get('pdf_path') or '').strip()
 
     if tipo_persona is None:
@@ -271,12 +246,11 @@ def save_cliente(data: dict) -> dict:
 
         current_app.logger.info(f"[addcliente] Insertando: {razon}, {numero}, subagente={subagente_nombre}, idProductor={idProductor}")
 
-        # Insertar con todos los campos
+        # Insertar con campos actualizados (sin los eliminados)
         cur.execute(
             """CALL sp_insert_cliente(
                 %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                %s,%s,%s,%s,%s,%s
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s
             )""",
             (
                 razon, tipo_documento, numero,
@@ -288,8 +262,6 @@ def save_cliente(data: dict) -> dict:
                 licencia_num, licencia_venc,
                 grupo_economico, giro_negocio, referencia, recomendado_por,
                 recibir_notificaciones, contacto_nombre, contacto_email, contacto_telefono,
-                referencias_interes, notas,
-                siniestros_reportados, ultimo_siniestro, detalle_siniestros, preferencias,
                 usuario_actual, pdf_path
             )
         )

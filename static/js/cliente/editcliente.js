@@ -94,7 +94,6 @@
         // Fechas
         document.getElementById('edit_fecha_ingreso').value = cliente.fecha_ingreso || '';
         document.getElementById('edit_fecha_nacimiento').value = cliente.fecha_nacimiento || '';
-        document.getElementById('edit_ultimo_siniestro').value = cliente.ultimo_siniestro || '';
 
         // Licencia
         document.getElementById('edit_licencia_num').value = cliente.licencia_num || '';
@@ -106,15 +105,8 @@
         document.getElementById('edit_contacto_email').value = cliente.contacto_email || '';
         document.getElementById('edit_contacto_telefono').value = cliente.contacto_telefono || '';
 
-        // Siniestralidad
-        document.getElementById('edit_siniestros_reportados').value = cliente.siniestros_reportados || '';
-        document.getElementById('edit_detalle_siniestros').value = cliente.detalle_siniestros || '';
-
-        // Información adicional
+        // Relación Comercial - Referencia (trasladada desde Información Adicional)
         document.getElementById('edit_referencia').value = cliente.referencia || '';
-        document.getElementById('edit_referencias_interes').value = cliente.referencias_interes || '';
-        document.getElementById('edit_notas').value = cliente.notas || '';
-        document.getElementById('edit_preferencias').value = cliente.preferencias || '';
     }
 
     /**
