@@ -352,6 +352,13 @@ def menu_page(page):
             rows=data['rows'],
             total_monto=data['total_monto']
         )
+
+    # Ajustadores (Maestros) - aceptar singular y plural para compatibilidad de URL
+    if page in ('maestros-ajustadores', 'maestros-ajustador'):
+        from controllers.ajustadores.ajustadores import get_ajustadores
+        rows = get_ajustadores() or []
+        return render_template('view/ajustadores/ajustadores.html', page='maestros-ajustadores', title='Ajustadores', rows=rows)
+
     # NUEVO: Editar Póliza
     if page == 'editar-poliza':
         from controllers.editar_poliza import get_poliza_data
@@ -805,6 +812,32 @@ def api_get_subagentes():
     subagentes = get_subagentes_abreviaciones()
     return {'ok': True, 'subagentes': subagentes}, 200
 
+# ---- Ajustadores API ----
+@bp.route('/ajustadores/list', methods=['GET'])
+def ajustadores_list():
+    """Devuelve la lista de ajustadores en formato JSON"""
+    from controllers.ajustadores.ajustadores import get_ajustadores
+    try:
+        rows = get_ajustadores() or []
+        return {'ok': True, 'rows': rows}, 200
+    except Exception as e:
+        return {'ok': False, 'error': str(e)}, 500
+
+
+@bp.route('/ajustadores/add', methods=['POST'])
+def ajustadores_add():
+    """Inserta un ajustador (requiere sesión)."""
+    if 'user' not in session:
+        return {'ok': False, 'error': 'Unauthorized'}, 401
+
+    data = request.get_json(silent=True) or {}
+    # Inyectar usuario si se requiere en la lógica del SP
+    data['usuario'] = session.get('user')
+
+    from controllers.ajustadores.ajustadores import insert_ajustador
+    res = insert_ajustador(data)
+    status = 200 if res.get('ok') else 400
+    return res, status
 
 @bp.route('/api/clientes/buscar', methods=['GET'])
 def api_buscar_clientes():
