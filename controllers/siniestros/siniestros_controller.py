@@ -2,10 +2,10 @@ from flask import jsonify, request, session
 from models.db import get_connection
 
 from reportlab.lib.units import inch
-LOGO_MAX_W = 3.00 * inch
-LOGO_MAX_H = 1.5 * inch
-LOGO_TOP_MARGIN = 0.2 * inch
-HEADER_EXTRA = 0.2 * inch  # espacio extra para evitar solapamiento
+LOGO_MAX_W = 1.8 * inch
+LOGO_MAX_H = 1.0 * inch
+LOGO_TOP_MARGIN = 0.15 * inch
+HEADER_EXTRA = 0.15 * inch  # espacio extra para evitar solapamiento
 
 def list_siniestros_por_poliza():
 	try:
@@ -679,7 +679,7 @@ def generar_pdf_siniestro(siniestro_id):
     from flask import send_file
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import letter
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, KeepTogether
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
     from reportlab.lib.enums import TA_CENTER
@@ -792,8 +792,9 @@ def _insert_logo(canvas, doc):
             draw_w = draw_h / aspect
 
 
-        right_margin = 0.2 * inch
-        top_margin = 0.2 * inch
+        # Usar márgenes coherentes con las constantes definidas arriba
+        right_margin = 0.15 * inch
+        top_margin = LOGO_TOP_MARGIN
 
         x = doc.pagesize[0] - draw_w - right_margin
         y = doc.pagesize[1] - draw_h - top_margin
@@ -809,7 +810,7 @@ def _generar_pdf_vehiculos(buffer, siniestro):
     """Genera PDF para siniestros de VEHICULOS"""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import letter
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, KeepTogether
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
     from reportlab.lib.enums import TA_CENTER
@@ -867,7 +868,7 @@ def _generar_pdf_vehiculos(buffer, siniestro):
 
     # REPORTE DE SINIESTRO
     if any([siniestro.get('hora_siniestro'), siniestro.get('fec_stro'), siniestro.get('quien_reporta')]):
-        elements.append(Paragraph("REPORTE DE SINIESTRO", subtitle_style))
+        subtitle_para = Paragraph("REPORTE DE SINIESTRO", subtitle_style)
         data = []
 
         if siniestro.get('hora_siniestro'):
@@ -891,20 +892,23 @@ def _generar_pdf_vehiculos(buffer, siniestro):
 
         if data:
             table = Table(data, colWidths=[label_w, value_w])
+            # Añadir bordes y evitar cortar filas entre páginas
             table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
+                ('NOSPLIT', (0, 0), (-1, -1)),
+                ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+                ('INNERGRID', (0,0), (-1,-1), 0.25, colors.grey),
             ]))
-            elements.append(table)
+            elements.append(KeepTogether([subtitle_para, table]))
             elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DEL CLIENTE
     if any([siniestro.get('asegurado'), siniestro.get('cia'), siniestro.get('poliza')]):
-        elements.append(Paragraph("INFORMACIÓN DEL CLIENTE", subtitle_style))
+        subtitle_para = Paragraph("INFORMACIÓN DEL CLIENTE", subtitle_style)
         data = []
 
         if siniestro.get('asegurado'):
@@ -939,15 +943,17 @@ def _generar_pdf_vehiculos(buffer, siniestro):
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
+                ('NOSPLIT', (0, 0), (-1, -1)),
+                ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+                ('INNERGRID', (0,0), (-1,-1), 0.25, colors.grey),
             ]))
-            elements.append(table)
+            elements.append(KeepTogether([subtitle_para, table]))
             elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DEL VEHÍCULO
     vehiculo = siniestro.get('datos_vehiculo') or {}
     if any(vehiculo.values() if vehiculo else []):
-        elements.append(Paragraph("INFORMACIÓN DEL VEHÍCULO", subtitle_style))
+        subtitle_para = Paragraph("INFORMACIÓN DEL VEHÍCULO", subtitle_style)
         data = []
 
         if vehiculo.get('propietario'):
@@ -973,15 +979,63 @@ def _generar_pdf_vehiculos(buffer, siniestro):
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
+                ('NOSPLIT', (0, 0), (-1, -1)),
+                ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+                ('INNERGRID', (0,0), (-1,-1), 0.25, colors.grey),
             ]))
-            elements.append(table)
+            elements.append(KeepTogether([subtitle_para, table]))
+            elements.append(Spacer(1, 0.12*inch))
+
+    # INFORMACIÓN DE LA INDEMNIZACIÓN (AGREGADO para VEHÍCULOS)
+    if any([siniestro.get('monto_siniestro'), siniestro.get('deducible'), siniestro.get('total_indemnizar'), siniestro.get('fec_pago')]):
+        subtitle_para = Paragraph("INFORMACIÓN DE LA INDEMNIZACIÓN", subtitle_style)
+        data = []
+
+        moneda = siniestro.get('moneda', 'USD')
+
+        if siniestro.get('monto_siniestro') is not None:
+            try:
+                val = float(siniestro.get('monto_siniestro', 0))
+                data.append(['Monto Siniestro', f"{moneda} {val:,.2f}"])
+            except Exception:
+                data.append(['Monto Siniestro', str(siniestro.get('monto_siniestro'))])
+
+        if siniestro.get('deducible') is not None:
+            try:
+                val = float(siniestro.get('deducible', 0))
+                data.append(['Deducible', f"{moneda} {val:,.2f}"])
+            except Exception:
+                data.append(['Deducible', str(siniestro.get('deducible'))])
+
+        if siniestro.get('total_indemnizar') is not None:
+            try:
+                val = float(siniestro.get('total_indemnizar', 0))
+                data.append(['Total Indemnizar', f"{moneda} {val:,.2f}"])
+            except Exception:
+                data.append(['Total Indemnizar', str(siniestro.get('total_indemnizar'))])
+
+        if siniestro.get('fec_pago'):
+            data.append(['Fecha de Pago', siniestro.get('fec_pago')])
+
+        if data:
+            table = Table(data, colWidths=[label_w, value_w])
+            table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('NOSPLIT', (0, 0), (-1, -1)),
+                ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+                ('INNERGRID', (0,0), (-1,-1), 0.25, colors.grey),
+            ]))
+            elements.append(KeepTogether([subtitle_para, table]))
             elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DE LA DENUNCIA
     denuncia = siniestro.get('datos_denuncia') or {}
     if any(denuncia.values() if denuncia else []):
-        elements.append(Paragraph("INFORMACIÓN DE LA DENUNCIA", subtitle_style))
+        subtitle_para = Paragraph("INFORMACIÓN DE LA DENUNCIA", subtitle_style)
         data = []
 
         if denuncia.get('comisaria'):
@@ -1007,15 +1061,17 @@ def _generar_pdf_vehiculos(buffer, siniestro):
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
+                ('NOSPLIT', (0, 0), (-1, -1)),
+                ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+                ('INNERGRID', (0,0), (-1,-1), 0.25, colors.grey),
             ]))
-            elements.append(table)
+            elements.append(KeepTogether([subtitle_para, table]))
             elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DEL CONDUCTOR
     conductor = siniestro.get('datos_conductor') or {}
     if any(conductor.values() if conductor else []):
-        elements.append(Paragraph("INFORMACIÓN DEL CONDUCTOR", subtitle_style))
+        subtitle_para = Paragraph("INFORMACIÓN DEL CONDUCTOR", subtitle_style)
         data = []
 
         if conductor.get('nombre'):
@@ -1035,9 +1091,11 @@ def _generar_pdf_vehiculos(buffer, siniestro):
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
+                ('NOSPLIT', (0, 0), (-1, -1)),
+                ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+                ('INNERGRID', (0,0), (-1,-1), 0.25, colors.grey),
             ]))
-            elements.append(table)
+            elements.append(KeepTogether([subtitle_para, table]))
             elements.append(Spacer(1, 0.12*inch))
 
     # Footer
@@ -1052,7 +1110,7 @@ def _generar_pdf_rrgg(buffer, siniestro):
     """Genera PDF para siniestros de RRGG"""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import letter
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, KeepTogether
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
     from reportlab.lib.enums import TA_CENTER
@@ -1107,7 +1165,7 @@ def _generar_pdf_rrgg(buffer, siniestro):
 
     # INFORMACIÓN DEL SINIESTRO
     if any([siniestro.get('siniestro_no'), siniestro.get('cia'), siniestro.get('contratante')]):
-        elements.append(Paragraph("INFORMACIÓN DEL SINIESTRO", subtitle_style))
+        subtitle_para = Paragraph("INFORMACIÓN DEL SINIESTRO", subtitle_style)
         data = []
 
         if siniestro.get('siniestro_no'):
@@ -1145,27 +1203,27 @@ def _generar_pdf_rrgg(buffer, siniestro):
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
+                ('NOSPLIT', (0, 0), (-1, -1)),
+                ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+                ('INNERGRID', (0,0), (-1,-1), 0.25, colors.grey),
             ]))
-            elements.append(table)
+            elements.append(KeepTogether([subtitle_para, table]))
             elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DE LA INDEMNIZACIÓN
     if any([siniestro.get('monto_siniestro'), siniestro.get('deducible'), siniestro.get('total_indemnizar')]):
-        elements.append(Paragraph("INFORMACIÓN DE LA INDEMNIZACIÓN", subtitle_style))
+        subtitle_para = Paragraph("INFORMACIÓN DE LA INDEMNIZACIÓN", subtitle_style)
         data = []
 
         moneda = siniestro.get('moneda', 'USD')
-        if siniestro.get('moneda'):
-            data.append(['Moneda', moneda])
         if siniestro.get('monto_siniestro'):
             data.append(['Importe Siniestro', f"{moneda} {float(siniestro['monto_siniestro']):,.2f}"])
         if siniestro.get('deducible'):
             data.append(['Deducible', f"{moneda} {float(siniestro['deducible']):,.2f}"])
-        if siniestro.get('fec_pago'):
-            data.append(['Fecha de Pago', siniestro['fec_pago']])
         if siniestro.get('total_indemnizar'):
             data.append(['Importe Indemnización', f"{moneda} {float(siniestro['total_indemnizar']):,.2f}"])
+        if siniestro.get('fec_pago'):
+            data.append(['Fecha de Pago', siniestro['fec_pago']])
 
         if data:
             table = Table(data, colWidths=[label_w, value_w])
@@ -1175,9 +1233,11 @@ def _generar_pdf_rrgg(buffer, siniestro):
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
+                ('NOSPLIT', (0, 0), (-1, -1)),
+                ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+                ('INNERGRID', (0,0), (-1,-1), 0.25, colors.grey),
             ]))
-            elements.append(table)
+            elements.append(KeepTogether([subtitle_para, table]))
             elements.append(Spacer(1, 0.12*inch))
 
     # Descripción de hechos
@@ -1188,7 +1248,7 @@ def _generar_pdf_rrgg(buffer, siniestro):
 
     # SEGUIMIENTO
     if siniestro.get('liquidador_ajustador') or siniestro.get('estado'):
-        elements.append(Paragraph("SEGUIMIENTO", subtitle_style))
+        subtitle_para = Paragraph("SEGUIMIENTO", subtitle_style)
         data = []
         data.append(['Fecha', 'Comentario', 'Próx Fecha', 'Gestión a'])
         data.append(['Atentamente', '', '', ''])
@@ -1204,9 +1264,11 @@ def _generar_pdf_rrgg(buffer, siniestro):
             ('FONTSIZE', (0, 0), (-1, -1), 8),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
+            ('NOSPLIT', (0, 0), (-1, -1)),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('INNERGRID', (0,0), (-1,-1), 0.25, colors.grey),
         ]))
-        elements.append(table)
+        elements.append(KeepTogether([subtitle_para, table]))
         elements.append(Spacer(1, 0.12*inch))
 
     # Footer
@@ -1223,7 +1285,7 @@ def _generar_pdf_rrhh(buffer, siniestro):
     """Genera PDF para siniestros de RRHH (Salud)"""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import letter
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, KeepTogether
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
     from reportlab.lib.enums import TA_CENTER
@@ -1278,7 +1340,7 @@ def _generar_pdf_rrhh(buffer, siniestro):
 
     # INFORMACIÓN DEL SINIESTRO
     if any([siniestro.get('siniestro_no'), siniestro.get('cia'), siniestro.get('contratante')]):
-        elements.append(Paragraph("INFORMACIÓN DEL SINIESTRO", subtitle_style))
+        subtitle_para = Paragraph("INFORMACIÓN DEL SINIESTRO", subtitle_style)
         data = []
 
         if siniestro.get('siniestro_no'):
@@ -1316,9 +1378,11 @@ def _generar_pdf_rrhh(buffer, siniestro):
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
+                ('NOSPLIT', (0, 0), (-1, -1)),
+                ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+                ('INNERGRID', (0,0), (-1,-1), 0.25, colors.grey),
             ]))
-            elements.append(table)
+            elements.append(KeepTogether([subtitle_para, table]))
             elements.append(Spacer(1, 0.12*inch))
 
     # GASTOS PRESENTADOS
@@ -1348,16 +1412,16 @@ def _generar_pdf_rrhh(buffer, siniestro):
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey),
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-                ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey)
+                ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+                ('NOSPLIT', (0, 0), (-1, -1))
             ]))
             elements.append(table)
             elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DE LA INDEMNIZACIÓN
     if any([siniestro.get('monto_siniestro'), siniestro.get('deducible'), siniestro.get('coaseguro')]):
-        elements.append(Paragraph("INFORMACIÓN DE LA INDEMNIZACIÓN", subtitle_style))
+        subtitle_para = Paragraph("INFORMACIÓN DE LA INDEMNIZACIÓN", subtitle_style)
         data = []
 
         moneda = siniestro.get('moneda', 'USD')
@@ -1382,20 +1446,50 @@ def _generar_pdf_rrhh(buffer, siniestro):
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
+                ('NOSPLIT', (0, 0), (-1, -1)),
+                ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+                ('INNERGRID', (0,0), (-1,-1), 0.25, colors.grey),
             ]))
-            elements.append(table)
+            elements.append(KeepTogether([subtitle_para, table]))
             elements.append(Spacer(1, 0.12*inch))
 
     # Descripción de hechos
     if siniestro.get('descripcion_hechos'):
         elements.append(Spacer(1, 0.12*inch))
         elements.append(Paragraph(siniestro['descripcion_hechos'], normal_small))
+        elements.append(Spacer(1, 0.12*inch))
+
+    # SEGUIMIENTO
+    if siniestro.get('liquidador_ajustador') or siniestro.get('estado'):
+        subtitle_para = Paragraph("SEGUIMIENTO", subtitle_style)
+        data = []
+        data.append(['Fecha', 'Comentario', 'Próx Fecha', 'Gestión a'])
+        data.append(['Atentamente', '', '', ''])
+
+        # tabla de 4 columnas compacta (dos pares label/value por fila)
+        half = doc.width / 2
+        col1_label = 1.1 * inch
+        col3_label = 1.1 * inch
+        table = Table(data, colWidths=[col1_label, half - col1_label, col3_label, half - col3_label])
+        table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('NOSPLIT', (0, 0), (-1, -1)),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('INNERGRID', (0,0), (-1,-1), 0.25, colors.grey),
+        ]))
+        elements.append(KeepTogether([subtitle_para, table]))
+        elements.append(Spacer(1, 0.12*inch))
 
     # Footer
     elements.append(Spacer(1, 0.2*inch))
+    elements.append(Paragraph("ARIAS & ARIAS CORREDORES DE SEGUROS SAC.", footer_style))
+    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", footer_style))
+    elements.append(Spacer(1, 0.05*inch))
     elements.append(Paragraph("E-mail: info@ariasyarias.com", footer_style))
-    elements.append(Paragraph("1", footer_style))
 
     doc.build(elements, onFirstPage=_insert_logo, onLaterPages=_insert_logo)
 
@@ -1404,7 +1498,7 @@ def _generar_pdf_generico(buffer, siniestro):
     """Genera PDF genérico para otros tipos de siniestros"""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import letter
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, KeepTogether
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
     from reportlab.lib.enums import TA_CENTER
@@ -1458,7 +1552,7 @@ def _generar_pdf_generico(buffer, siniestro):
     elements.append(Spacer(1, 0.12*inch))
 
     # INFORMACIÓN DEL SINIESTRO
-    elements.append(Paragraph("INFORMACIÓN DEL SINIESTRO", subtitle_style))
+    subtitle_para = Paragraph("INFORMACIÓN DEL SINIESTRO", subtitle_style)
     data = []
 
     if siniestro.get('siniestro_no'):
@@ -1490,15 +1584,42 @@ def _generar_pdf_generico(buffer, siniestro):
             ('FONTSIZE', (0, 0), (-1, -1), 8),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
+            ('NOSPLIT', (0, 0), (-1, -1)),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('INNERGRID', (0,0), (-1,-1), 0.25, colors.grey),
         ]))
-        elements.append(table)
+        elements.append(KeepTogether([subtitle_para, table]))
         elements.append(Spacer(1, 0.12*inch))
 
     # Descripción
     if siniestro.get('descripcion_hechos'):
         elements.append(Paragraph("DESCRIPCIÓN", subtitle_style))
         elements.append(Paragraph(siniestro['descripcion_hechos'], normal_small))
+        elements.append(Spacer(1, 0.12*inch))
+
+    # SEGUIMIENTO
+    if siniestro.get('liquidador_ajustador') or siniestro.get('estado'):
+        subtitle_para = Paragraph("SEGUIMIENTO", subtitle_style)
+        data = []
+        data.append(['Fecha', 'Comentario', 'Próx Fecha', 'Gestión a'])
+        data.append(['Atentamente', '', '', ''])
+
+        # tabla de 4 columnas compacta (dos pares label/value por fila)
+        half = doc.width / 2
+        col1_label = 1.1 * inch
+        col3_label = 1.1 * inch
+        table = Table(data, colWidths=[col1_label, half - col1_label, col3_label, half - col3_label])
+        table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('NOSPLIT', (0, 0), (-1, -1)),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('INNERGRID', (0,0), (-1,-1), 0.25, colors.grey),
+        ]))
+        elements.append(KeepTogether([subtitle_para, table]))
         elements.append(Spacer(1, 0.12*inch))
 
     # Footer
