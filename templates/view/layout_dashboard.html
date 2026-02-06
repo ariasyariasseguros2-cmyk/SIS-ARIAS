@@ -11,10 +11,14 @@
         /* Resaltar enlace activo del sidebar (clientes anulados) */
         .nav-list li.active > a { color: #0d6efd; font-weight: 600; }
         .nav-list li.active > i { color: #0d6efd; }
-        /* Forzar mostrar submenu cuando el grupo tiene class 'open' */
+        .nav-group { position: relative; }
         .nav-group.open > .submenu { display: block !important; }
-        /* Mostrar caja blanca para el submenu del grupo activo (clientes) */
+
         .nav-group.active-group > .submenu {
+            position: absolute;
+            left: 8px;
+            right: 8px;
+            top: calc(100% + 8px);
             background: var(--layout-bg);
             border-radius: 12px;
             padding: 8px 6px;
@@ -23,6 +27,38 @@
             position: relative;
             z-index: 20;
         }
+
+        .nav-group .group-toggle { overflow: hidden; }
+        .nav-group.open > .group-toggle .caret,
+        .nav-group.active-group > .group-toggle .caret { color: rgba(255,255,255,0.95); }
+
+
+        .group-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            background: transparent;
+            border: none;
+            padding: 10px 12px;
+            color: inherit;
+            text-align: left;
+            border-radius: 8px;
+        }
+        .nav-group .caret { transition: transform .18s ease; margin-left: auto; }
+        .nav-group.open > .group-toggle,
+        .nav-group.active-group > .group-toggle {
+            background: linear-gradient(180deg,#1f59a3,#399ad6);
+            color: #fff;
+            border-radius: 8px;
+            position: relative;
+            z-index: 210;
+            box-shadow: none;
+        }
+        .nav-group.open .caret { transform: rotate(90deg); }
+
+        .submenu li.active > a { color: #1f59a3; font-weight: 600; }
+        .submenu li > a { display: inline-flex; align-items: center; gap: 8px; }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -38,6 +74,7 @@
                 </div>
             </div>
             <div class="nav-title">Navegación</div>
+            {% set _p = page if (page is defined and page) else (request.path.split('/')[-1] if request.path else '') %}
             <ul class="nav-list">
                 <li><i class="bi-speedometer2"></i> <a data-page="dashboard" href="{{ url_for('main.dashboard') }}"><span><strong>Escritorio</strong></span></a></li>
 
@@ -121,18 +158,18 @@
                     </ul>
                 </li>
 
-                <li class="nav-group">
-                    <button class="group-toggle">
+                <li class="nav-group{% if _p and _p.startswith('siniestros') %} open active-group{% endif %}">
+                    <button class="group-toggle" type="button">
                         <i class="bi-exclamation-triangle"></i> <span><strong>Siniestros</strong></span>
                         <i class="bi-chevron-right caret"></i>
                     </button>
                     <ul class="submenu">
-                        <li><i class="bi-exclamation-triangle"></i> <a data-page="siniestros" href="{{ url_for('main.menu_page', page='siniestros') }}">Siniestros</a></li>
-                        <li><i class="bi-calendar3"></i> <a data-page="siniestros-fecha" href="{{ url_for('main.menu_page', page='siniestros-fecha') }}">Siniestros por Fecha</a></li>
-                        <li><i class="bi-download"></i> <a data-page="siniestros-ocurridos" href="{{ url_for('main.menu_page', page='siniestros-ocurridos') }}">Siniestros Ocurridos</a></li>
-                        <li><i class="bi-download"></i> <a data-page="reporte-siniestros" href="{{ url_for('main.menu_page', page='reporte-siniestros') }}">Reporte de Siniestros</a></li>
-                    </ul>
-                </li>
+                        <li class="{% if _p == 'siniestros' %}active{% endif %}"><i class="bi-exclamation-triangle"></i> <a data-page="siniestros" href="{{ url_for('main.menu_page', page='siniestros') }}">Siniestros</a></li>
+                        <li class="{% if _p == 'siniestros-fecha' %}active{% endif %}"><i class="bi-calendar3"></i> <a data-page="siniestros-fecha" href="{{ url_for('main.menu_page', page='siniestros-fecha') }}">Siniestros por Fecha</a></li>
+                        <li class="{% if _p == 'siniestros-ocurridos' %}active{% endif %}"><i class="bi-download"></i> <a data-page="siniestros-ocurridos" href="{{ url_for('main.menu_page', page='siniestros-ocurridos') }}">Siniestros Ocurridos</a></li>
+                        <li class="{% if _p == 'reporte-siniestros' %}active{% endif %}"><i class="bi-download"></i> <a data-page="reporte-siniestros" href="{{ url_for('main.menu_page', page='reporte-siniestros') }}">Reporte de Siniestros</a></li>
+                     </ul>
+                 </li>
 
                 <li class="nav-group">
                     <button class="group-toggle">
@@ -152,6 +189,29 @@
                     <ul class="submenu">
                         <li><i class="bi-download"></i> <a data-page="reporte-diario" href="{{ url_for('main.menu_page', page='reporte-diario') }}">Reporte Diario</a></li>
                          <li><i class="bi-download"></i> <a data-page="reporte-diario" href="{{ url_for('main.menu_page', page='reporte-archivos-poliza') }}">Reporte Archivos Poliza</a></li>
+                    </ul>
+                </li>
+
+                <li class="nav-group{% if page and page.startswith('maestros') %} open active-group{% endif %}">
+                    <button class="group-toggle" type="button">
+                        <i class="bi-journal-bookmark"></i> <span><strong>Maestros</strong></span>
+                        <i class="bi-chevron-right caret"></i>
+                    </button>
+                    <ul class="submenu">
+                        <li><i class="bi-person-badge"></i> <a data-page="maestros-ajustadores" href="{{ url_for('main.menu_page', page='maestros-ajustadores') }}">Ajustadores</a></li>
+                        <li><i class="bi-building"></i> <a data-page="maestros-companias" href="{{ url_for('main.menu_page', page='maestros-companias') }}">Compañías</a></li>
+                        <li><i class="bi-tags"></i> <a data-page="maestros-clases" href="{{ url_for('main.menu_page', page='maestros-clases') }}">Clases</a></li>
+                        <li><i class="bi-people"></i> <a data-page="maestros-ejecutivos" href="{{ url_for('main.menu_page', page='maestros-ejecutivos') }}">Ejecutivos del Broker</a></li>
+                        <li><i class="bi-person-bounding-box"></i> <a data-page="maestros-endosatarios" href="{{ url_for('main.menu_page', page='maestros-endosatarios') }}">Endosatarios</a></li>
+                        <li><i class="bi-people-fill"></i> <a data-page="maestros-grupos" href="{{ url_for('main.menu_page', page='maestros-grupos') }}">Grupos Economicos</a></li>
+                        <li><i class="bi-arrow-repeat"></i> <a data-page="maestros-giro" href="{{ url_for('main.menu_page', page='maestros-giro') }}">Giro de Negocio</a></li>
+                        <li><i class="bi-trademark"></i> <a data-page="maestros-marcas" href="{{ url_for('main.menu_page', page='maestros-marcas') }}">Marcas</a></li>
+                        <li><i class="bi-bounding-box"></i> <a data-page="maestros-modelos" href="{{ url_for('main.menu_page', page='maestros-modelos') }}">Modelos</a></li>
+                        <li><i class="bi-building-up"></i> <a data-page="maestros-oficinas" href="{{ url_for('main.menu_page', page='maestros-oficinas') }}">Oficinas</a></li>
+                        <li><i class="bi-list"></i> <a data-page="maestros-ramos" href="{{ url_for('main.menu_page', page='maestros-ramos') }}">Ramos</a></li>
+                        <li><i class="bi-person-plus"></i> <a data-page="maestros-subagentes" href="{{ url_for('main.menu_page', page='maestros-subagentes') }}">Sub Agentes</a></li>
+                        <li class="{% if page == 'maestros-usuarios' %}active{% endif %}"><i class="bi-person-circle"></i> <a data-page="maestros-usuarios" href="{{ url_for('main.menu_page', page='maestros-usuarios') }}">Usuarios</a></li>
+                        <li><i class="bi-card-list"></i> <a data-page="maestros-usos" href="{{ url_for('main.menu_page', page='maestros-usos') }}">Usos</a></li>
                     </ul>
                 </li>
 
@@ -216,6 +276,7 @@
     </div>
 
     {% block before_js %}{% endblock %}
+    <script>window.currentPage = "{{ _p }}";</script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     {% block extra_js_bottom %}
         <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
