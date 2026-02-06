@@ -6,7 +6,7 @@ def validate_cliente_payload(data: dict) -> tuple[bool, list[str]]:
     required = [
         'tipoPersona', 'razonSocial', 'numeroDocumento', 'direccion',
         'distrito', 'departamento', 'provincia', 'telefono1', 'email',
-        'subAgente', 'contactoNombre', 'contactoEmail', 'contactoTelefono'
+        'subAgente'
     ]
 
     for key in required:
@@ -55,16 +55,19 @@ def validate_cliente_payload(data: dict) -> tuple[bool, list[str]]:
         errors.append('La Provincia debe tener entre 2 y 50 caracteres')
 
     contacto_nombre = str(data.get('contactoNombre', '')).strip()
-    if len(contacto_nombre) < 3 or len(contacto_nombre) > 100:
-        errors.append('El Nombre de Contacto debe tener entre 3 y 100 caracteres')
+    if contacto_nombre:
+        if len(contacto_nombre) < 3 or len(contacto_nombre) > 100:
+            errors.append('El Nombre de Contacto debe tener entre 3 y 100 caracteres')
 
     contacto_email = str(data.get('contactoEmail', '')).strip()
-    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', contacto_email):
-        errors.append('El Email de Contacto no tiene un formato válido')
+    if contacto_email:
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', contacto_email):
+            errors.append('El Email de Contacto no tiene un formato válido')
 
     contacto_telefono = str(data.get('contactoTelefono', '')).strip()
-    if not re.match(r'^[0-9]{7,9}$', contacto_telefono):
-        errors.append('El Teléfono de Contacto debe tener entre 7 y 9 dígitos')
+    if contacto_telefono:
+        if not re.match(r'^[0-9]{7,9}$', contacto_telefono):
+            errors.append('El Teléfono de Contacto debe tener entre 7 y 9 dígitos')
 
     # Validar tipo de persona
     tipo_persona = str(data.get('tipoPersona', '')).strip().upper()

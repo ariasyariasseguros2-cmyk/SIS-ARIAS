@@ -119,18 +119,22 @@
     if (contactoEmail) {
       contactoEmail.addEventListener('blur', (e) => {
         const val = e.target.value.trim();
+        // Validar formato sólo si hay valor
         if (val && /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(val)) {
           e.target.classList.remove('is-invalid');
           e.target.classList.add('is-valid');
         } else if (val) {
           e.target.classList.remove('is-valid');
           e.target.classList.add('is-invalid');
+        } else {
+          // si está vacío, limpiar estados
+          e.target.classList.remove('is-valid', 'is-invalid');
         }
       });
     }
 
     // Validar textos requeridos
-    const requiredTextFields = ['razonSocial', 'direccion', 'distrito', 'contactoNombre'];
+    const requiredTextFields = ['razonSocial', 'direccion', 'distrito'];
     requiredTextFields.forEach(id => {
       const field = document.getElementById(id);
       if (field) {
@@ -493,10 +497,7 @@
       'provincia',
       'telefono1',
       'email',
-      'subAgente',
-      'contactoNombre',
-      'contactoEmail',
-      'contactoTelefono'
+      'subAgente'
     ];
     let ok = true;
     requiredIds.forEach(id => {
