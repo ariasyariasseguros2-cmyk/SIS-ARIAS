@@ -61,7 +61,7 @@
                 </div>
                  <div class="info-item">
                     <span class="label">Aviso Cob</span>
-                    <span class="value">{{ resumen.aviso_cob }}</span>
+                    <span class="value" id="header-aviso-cob">{{ resumen.aviso_cob }}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Vigencia</span>
@@ -347,7 +347,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     <label class="label">Fecha Vencimiento</label>
-                                    <input id="editFechaVenc" type="text" class="form-control">
+                                    <input id="editFechaVenc" type="date" class="form-control bg-light" readonly>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="label">Importe (S/.)</label>
@@ -360,7 +360,7 @@
                             <div class="row g-3 mb-4">
                                 <div class="col-md-6">
                                     <label class="label">Fecha de Pago</label>
-                                    <input id="editFechaPago" type="text" class="form-control">
+                                    <input id="editFechaPago" type="date" class="form-control">
                                 </div>
                                 <div class="col-md-6">
                                     <label class="label">Factura / Recibo</label>
@@ -379,7 +379,7 @@
                             
                             <div class="sub-card bg-light p-3 border-0">
                                 <div class="mb-3">
-                                    <label class="label mb-2">Archivo Actual</label>
+                                    <label class="label mb-2 text-custom-blue">Archivo Actual</label>
                                     <input id="editDocumentoNombre" type="text" class="form-control form-control-sm bg-white mb-2" placeholder="Sin archivo adjunto" readonly>
                                     
                                     <div class="d-flex gap-2">
@@ -392,7 +392,7 @@
                                     </div>
                                 </div>
 
-                                <hr class="text-muted opacity-25 my-3">
+                                <hr class="hr-custom-blue my-3">
 
                                 <div>
                                     <label class="label mb-2">Subir Nuevo Archivo</label>

@@ -1,6 +1,22 @@
 (function() {
     // Shared Modal Logic
     
+    // Helper to increment string ending in number
+    function incrementString(str) {
+        if (!str) return '';
+        // Find trailing number
+        const match = str.match(/(\d+)$/);
+        if (match) {
+            const numberStr = match[1];
+            const number = parseInt(numberStr, 10);
+            const nextNumber = number + 1;
+            const paddedNext = nextNumber.toString().padStart(numberStr.length, '0');
+            return str.substring(0, match.index) + paddedNext;
+        }
+        // If no trailing number, just append 1 (or user logic might differ, but this is safe fallback)
+        return str + '1';
+    }
+
     window.CuotaModal = {
         open: function(poliza) {
             const modalEl = document.getElementById('cuotaAddModal');
@@ -44,6 +60,35 @@
                             };
                             
                             if (d.cupon) setVal('addCupon', d.cupon);
+                            
+                            // --- AUTO-INCREMENT LOGIC START ---
+                            // Check existing rows in the table to determine the next coupon
+                            const tbody = document.querySelector('#cuotas-table tbody');
+                            let nextCupon = '';
+                            
+                            if (tbody && tbody.rows.length > 0) {
+                                // Get the last row's coupon (2nd column)
+                                const lastRow = tbody.rows[tbody.rows.length - 1];
+                                const tds = lastRow.querySelectorAll('td');
+                                if (tds.length > 1) {
+                                    const lastCupon = tds[1].textContent.trim();
+                                    if (lastCupon) {
+                                        nextCupon = incrementString(lastCupon);
+                                    }
+                                }
+                            } else {
+                                // If no rows, use 'Aviso Cob' from header
+                                const avisoEl = document.getElementById('header-aviso-cob');
+                                if (avisoEl) {
+                                    nextCupon = avisoEl.textContent.trim();
+                                }
+                            }
+                            
+                            if (nextCupon) {
+                                setVal('addCupon', nextCupon);
+                            }
+                            // --- AUTO-INCREMENT LOGIC END ---
+
                             if (d.importe) setVal('addImporte', d.importe);
                             if (d.moneda) setVal('addMoneda', d.moneda);
                             

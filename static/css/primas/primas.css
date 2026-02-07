@@ -379,3 +379,67 @@
     transform: translateY(-1px);
     box-shadow: 0 4px 6px rgba(108, 117, 125, 0.3);
 }
+
+/* Modal Confirmación Custom Styles */
+#primasConfirmModal .modal-content {
+    border-radius: 20px; /* Más redondeado */
+    border: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+#primasConfirmModal .modal-header {
+    border-bottom: 1px solid var(--border);
+    padding: 1.5rem;
+}
+
+#primasConfirmModal .modal-body {
+    padding: 2rem 1.5rem;
+    text-align: center;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+#primasConfirmModal .modal-footer {
+    border-top: none;
+    padding: 0 1.5rem 1.5rem 1.5rem;
+    justify-content: center;
+    gap: 1rem;
+}
+
+#btnPrimasConfirmOk {
+    border-radius: 50px;
+    padding: 0.5rem 2rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: linear-gradient(to right, #ef4444, #dc2626);
+    border: none;
+    color: white;
+    box-shadow: 0 4px 6px rgba(220, 38, 38, 0.2);
+    transition: all 0.2s ease;
+}
+
+#btnPrimasConfirmOk:hover {
+    background: linear-gradient(to right, #dc2626, #ef4444);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(220, 38, 38, 0.3);
+}
+
+#btnPrimasConfirmCancel {
+    border-radius: 50px;
+    padding: 0.5rem 2rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid var(--text-secondary);
+    color: var(--text-secondary);
+    background: transparent;
+    transition: all 0.2s ease;
+}
+
+#btnPrimasConfirmCancel:hover {
+    background-color: #f3f4f6;
+    color: var(--text-primary);
+    border-color: var(--text-primary);
+    transform: translateY(-2px);
+}

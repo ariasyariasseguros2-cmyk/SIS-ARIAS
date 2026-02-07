@@ -42,7 +42,7 @@ body {
     left: 0;
     right: 0;
     height: 4px;
-    background: linear-gradient(90deg, var(--accent-color), #8b5cf6);
+    background: linear-gradient(to right, #399AD6, #1F59A3);
 }
 
 /* Header Integrado */

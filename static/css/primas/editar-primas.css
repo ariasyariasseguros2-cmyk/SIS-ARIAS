@@ -106,11 +106,12 @@
 
 /* Formularios */
 #editPrimasForm .form-label {
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 700;
     color: var(--text-muted);
-    margin-bottom: 0.5rem;
-    letter-spacing: 0.01em;
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 #editPrimasForm .form-control,
@@ -118,7 +119,7 @@
     background-color: #f8fafc; /* Fondo gris muy claro */
     border: 1px solid var(--border-light);
     border-radius: var(--radius-md);
-    padding: 0.7rem 1rem;
+    padding: 0.6rem 0.9rem;
     font-size: 0.95rem;
     color: var(--text-main);
     transition: var(--transition-fast);
@@ -149,35 +150,21 @@
     opacity: 0.8;
 }
 
-/* Input Group (Calendarios) - Fusión visual */
+/* Input Group (Calendarios y Moneda) - Fusión visual */
 .input-group-text {
     background-color: #f8fafc;
     border: 1px solid var(--border-light);
-    border-left: none; /* Sin borde izquierdo para unir con input */
     color: var(--text-muted);
-    border-top-right-radius: var(--radius-md);
-    border-bottom-right-radius: var(--radius-md);
-    padding-left: 0.75rem;
-    padding-right: 1rem;
+    font-weight: 500;
 }
 
-#editPrimasForm .input-group .form-control {
-    border-right: none; /* Sin borde derecho para unir con icono */
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
+/* Ajustes para input groups fusionados */
+#editPrimasForm .input-group .form-control:focus {
+    z-index: 3;
 }
-
-#editPrimasForm .input-group:focus-within .input-group-text {
-    border-color: var(--accent-color);
-    background-color: #ffffff;
-}
-#editPrimasForm .input-group:focus-within .form-control {
-    box-shadow: none; /* Quitamos shadow individual */
-    border-color: var(--accent-color);
-}
-#editPrimasForm .input-group:focus-within {
-    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1); /* Shadow al grupo entero */
-    border-radius: var(--radius-md);
+#editPrimasForm .input-group:hover .input-group-text {
+    background-color: #f1f5f9;
+    border-color: #cbd5e1;
 }
 
 /* Footer */
@@ -287,3 +274,75 @@
 .text-danger {
     color: #ef4444 !important; /* Rojo más suave pero visible */
 }
+
+/* Nuevas Utilidades */
+.fs-7 {
+    font-size: 0.8rem;
+}
+.ls-1 {
+    letter-spacing: 1px;
+}
+.btn-white {
+    background-color: #ffffff;
+    color: var(--text-main);
+    border-color: var(--border-light);
+}
+.btn-white:hover {
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+/* Card interna para comisiones */
+.card.bg-light {
+    background-color: #f8fafc !important;
+    border: 1px solid var(--border-light) !important;
+    border-radius: var(--radius-md);
+}
+
+/* Personalización de SweetAlert2 */
+div:where(.swal2-container) div:where(.swal2-popup) {
+    border-radius: var(--radius-lg) !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    padding: 2rem;
+}
+
+div:where(.swal2-container) .swal2-title {
+    color: var(--text-main) !important;
+    font-size: 1.5rem !important;
+}
+
+div:where(.swal2-container) .swal2-html-container {
+    color: var(--text-muted) !important;
+}
+
+div:where(.swal2-container) button:where(.swal2-styled).swal2-confirm {
+    background: linear-gradient(to right, #399AD6, #1F59A3) !important; /* Azul solicitado */
+    border-radius: 9999px !important; /* Pill shape */
+    box-shadow: 0 4px 6px -1px rgba(57, 154, 214, 0.3) !important;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 0.8rem 2.5rem;
+    border: none !important;
+    outline: none !important;
+}
+
+div:where(.swal2-container) button:where(.swal2-styled).swal2-confirm:hover {
+    background: linear-gradient(to right, #2d8ac7, #194a8c) !important; /* Ligeramente más oscuro al hover */
+    box-shadow: 0 10px 15px -3px rgba(57, 154, 214, 0.4) !important;
+    transform: translateY(-2px);
+}
+
+div:where(.swal2-container) button:where(.swal2-styled).swal2-cancel {
+    background-color: #ffffff !important;
+    color: var(--text-muted) !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 9999px !important;
+    padding: 0.8rem 2rem;
+    font-weight: 600;
+}
+
+div:where(.swal2-container) button:where(.swal2-styled).swal2-cancel:hover {
+    background-color: #f8fafc !important;
+    color: var(--text-main) !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}}

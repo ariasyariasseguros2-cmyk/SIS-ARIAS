@@ -1,4 +1,25 @@
 from typing import Dict, List
+from datetime import date, datetime
+
+def format_date_custom(d):
+    """Format date to DD/MM/YYYY"""
+    if not d:
+        return ''
+    if isinstance(d, (date, datetime)):
+        return d.strftime('%d/%m/%Y')
+    
+    s = str(d).strip()
+    # Handle YYYY-MM-DD
+    if '-' in s:
+        parts = s.split('-')
+        if len(parts) == 3 and len(parts[0]) == 4:
+            return f"{parts[2]}/{parts[1]}/{parts[0]}"
+    
+    # Handle DD-MM-YYYY -> DD/MM/YYYY
+    if '-' in s:
+        return s.replace('-', '/')
+        
+    return s
 
 def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = None) -> Dict[str, object]:
     poliza = (numero_poliza or (selected or {}).get('poliza') or (selected or {}).get('numero_poliza') or '').strip()
@@ -37,15 +58,15 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
                 encabezado['ramo'] = pr.get('ramo') or ''
                 # Corregido para coincidir con la lógica de primas.py (columna Aviso)
                 resumen['aviso_cob'] = pr.get('recibo') or pr.get('aviso') or pr.get('nro_aviso') or ''
-                resumen['vig_inicio'] = pr.get('vig_inicio') or ''
-                resumen['vig_fin'] = pr.get('vig_fin') or ''
+                resumen['vig_inicio'] = format_date_custom(pr.get('vig_inicio'))
+                resumen['vig_fin'] = format_date_custom(pr.get('vig_fin'))
                 resumen['tipo_doc'] = pr.get('tipo') or pr.get('tipo_mov') or ''
                 resumen['concepto'] = pr.get('motivo') or resumen['concepto']
 
                 # One cuota row mirroring screenshot
                 rows = [{
                     'cupon': pr.get('cupon') or pr.get('recibo') or '',
-                    'fecha_vencimiento': pr.get('fecha_vencimiento') or pr.get('vig_fin') or '',
+                    'fecha_vencimiento': format_date_custom(pr.get('fecha_vencimiento') or pr.get('vig_fin')),
                     'moneda': pr.get('moneda') or '',
                     'importe': pr.get('importe') or pr.get('prima_comercial_igv') or pr.get('prima_total') or pr.get('prima_neta') or '',
                     'fecha_pago': '',
@@ -66,10 +87,10 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
                     for c in cuota_rows:
                         rows.append({
                             'cupon': c.get('cupon') or '',
-                            'fecha_vencimiento': c.get('fecha_vencimiento') or '',
+                            'fecha_vencimiento': format_date_custom(c.get('fecha_vencimiento')),
                             'moneda': c.get('moneda') or '',
                             'importe': c.get('importe') or '',
-                            'fecha_pago': c.get('fecha_pago') or '',
+                            'fecha_pago': format_date_custom(c.get('fecha_pago')),
                             'factura': c.get('factura') or '',
                             'observacion': c.get('observacion') or '',
                         })

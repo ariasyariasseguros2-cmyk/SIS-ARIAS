@@ -13,6 +13,24 @@ window.initEditarPrimasLogic = function(isModal = false) {
         const txtPorcSubAgente = document.getElementById('comisionSubAgente');
         const txtImpSubAgente = document.getElementById('importeComisionSubAgente');
 
+        // Lógica para cambio de símbolo de moneda
+        const selectMoneda = document.getElementById('moneda');
+        const updateCurrencySymbols = () => {
+             if (!selectMoneda) return;
+             const moneda = selectMoneda.value;
+             let symbol = '$';
+             if (moneda === 'S/.' || moneda === 'SOLES' || moneda === 'PEN') {
+                 symbol = 'S/.';
+             }
+             document.querySelectorAll('.currency-symbol').forEach(el => el.textContent = symbol);
+        };
+        
+        if (selectMoneda) {
+             selectMoneda.addEventListener('change', updateCurrencySymbols);
+             // Llamada inicial
+             updateCurrencySymbols();
+        }
+
         // Función auxiliar para calcular importe comisión sub agente
         const updateImporteSubAgente = () => {
             if (!txtPorcSubAgente || !txtImpSubAgente || !txtImpCompania) return;

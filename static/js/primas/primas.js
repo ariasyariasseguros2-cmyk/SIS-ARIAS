@@ -11,6 +11,44 @@
         });
     }
 
+    // Modal Confirmation Helper
+    let confirmModal = null;
+    let confirmMessageEl = null;
+    let confirmOkBtn = null;
+    let confirmCallback = null;
+
+    function openConfirm(message, onAccept) {
+        // Inicializar elementos si no existen
+        if (!confirmModal) {
+            const modalEl = document.getElementById('primasConfirmModal');
+            if (modalEl && window.bootstrap) {
+                confirmModal = new bootstrap.Modal(modalEl);
+                confirmMessageEl = document.getElementById('primasConfirmMessage');
+                confirmOkBtn = document.getElementById('btnPrimasConfirmOk');
+                
+                if (confirmOkBtn) {
+                    confirmOkBtn.addEventListener('click', () => {
+                        if (confirmCallback) {
+                            const fn = confirmCallback;
+                            confirmCallback = null;
+                            fn();
+                        }
+                        confirmModal.hide();
+                    });
+                }
+            }
+        }
+
+        if (!confirmModal || !confirmMessageEl) {
+            if (confirm(message)) onAccept();
+            return;
+        }
+
+        confirmMessageEl.textContent = message;
+        confirmCallback = onAccept;
+        confirmModal.show();
+    }
+
     document.addEventListener('click', (e) => {
         const t = e.target.closest('button');
         if (!t) return;
@@ -108,9 +146,9 @@
             }
         }
         if (t.classList.contains('btn-eliminar')) {
-            if (confirm('¿Eliminar este registro?')) {
+            openConfirm('¿Eliminar este registro?', () => {
                 alert('Eliminado (demo).');
-            }
+            });
         }
     });
 })();

@@ -4,6 +4,7 @@ const Cuotas = (() => {
   let editIndex = null;
   let confirmModal = null;
   let confirmMessageEl = null;
+  let confirmOkBtn = null;
   let confirmCallback = null;
 
   function init() {
@@ -17,6 +18,7 @@ const Cuotas = (() => {
     if (modalEl && msgEl && window.bootstrap) {
       confirmModal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
       confirmMessageEl = msgEl;
+      confirmOkBtn = document.getElementById('btnCuotaConfirmOk');
     }
 
     const params = new URLSearchParams(window.location.search);
@@ -91,13 +93,25 @@ const Cuotas = (() => {
     totalEl.textContent = total.toFixed(2);
   }
 
-  function openConfirm(message, onAccept) {
+  function openConfirm(message, onAccept, type) {
     if (!confirmModal || !confirmMessageEl) {
       if (window.confirm(message)) onAccept();
       return;
     }
     confirmMessageEl.textContent = message;
     confirmCallback = onAccept;
+    
+    // Adjust button style based on action type
+    if (confirmOkBtn) {
+      if (type === 'revert') {
+        confirmOkBtn.classList.remove('btn-danger');
+        confirmOkBtn.classList.add('btn-warning');
+      } else {
+        confirmOkBtn.classList.remove('btn-warning');
+        confirmOkBtn.classList.add('btn-danger');
+      }
+    }
+    
     confirmModal.show();
   }
 
@@ -142,7 +156,16 @@ const Cuotas = (() => {
   function onRevert(idx) {
     const tr = getRow(idx);
     if (!tr) return;
-    openConfirm('¿Está seguro de revertir esta cuota? Se borrarán los datos de pago.', () => {
+    openConfirm('¿Está seguro de revertir esta cuota? Se borrarán los datos definivamente.', () => {
+      const tds = tr.querySelectorAll('td');
+
+      // Limpiar campos visuales: Importe(4), Fecha Pago(5), Factura(6), Observación(7)
+      if (tds[4]) tds[4].textContent = '';
+      if (tds[5]) tds[5].textContent = '';
+      if (tds[6]) tds[6].textContent = '';
+      if (tds[7]) tds[7].textContent = '';
+
+      // Limpiar datos persistentes (dataset)
       tr.dataset.fechaPago = '';
       tr.dataset.factura = '';
       tr.dataset.observacion = '';
@@ -150,7 +173,9 @@ const Cuotas = (() => {
 
       const btnRevert = tr.querySelector('.btn-revert');
       if (btnRevert) btnRevert.style.display = 'none';
-    });
+      
+      recalcTotal();
+    }, 'revert');
   }
 
   // Detalles: muestra modal de solo lectura
@@ -197,6 +222,37 @@ const Cuotas = (() => {
     modal.show();
   }
 
+  // Helper: convierte DD/MM/YYYY o DD-MM-YYYY -> YYYY-MM-DD
+  function toISODate(str) {
+    if (!str) return '';
+    // Si ya tiene formato YYYY-MM-DD, devolver tal cual
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    
+    // Normalizar separadores a guiones (temporalmente para parsing)
+    const s = str.replace(/\//g, '-');
+    
+    // Si tiene formato DD-MM-YYYY
+    if (s.includes('-')) {
+      const parts = s.split('-');
+      if (parts.length === 3) {
+        // Asumimos DD-MM-YYYY -> YYYY-MM-DD
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+    }
+    return '';
+  }
+
+  // Helper: convierte YYYY-MM-DD -> DD/MM/YYYY
+  function fromISODate(str) {
+    if (!str || !str.includes('-')) return '';
+    const parts = str.split('-');
+    if (parts.length === 3) {
+      // Retorna formato DD/MM/YYYY (con barras)
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return '';
+  }
+
   // Editar: abre modal con campos editables
   function onEdit(idx) {
     const tr = getRow(idx);
@@ -211,9 +267,9 @@ const Cuotas = (() => {
 
     setValue('editSecuencia', data.secuencia);
     setValue('editCupon', data.cupon);
-    setValue('editFechaVenc', data.fecha_vencimiento);
+    setValue('editFechaVenc', toISODate(data.fecha_vencimiento));
     setValue('editImporte', data.importe);
-    setValue('editFechaPago', data.fecha_pago);
+    setValue('editFechaPago', toISODate(data.fecha_pago));
     setValue('editFactura', data.factura);
     setValue('editDocumentoNombre', data.documento || data.factura || '');
     const obsEl = document.getElementById('editObservacion');
@@ -236,7 +292,7 @@ const Cuotas = (() => {
     openConfirm('¿Eliminar definitivamente esta cuota?', () => {
       tr.remove();
       recalcTotal();
-    });
+    }, 'delete');
   }
   function onAdd() { 
     if (window.CuotaModal) {
@@ -270,10 +326,10 @@ const Cuotas = (() => {
         tr.innerHTML = `
             <td>${data.secuencia || rowCount + 1}</td>
             <td>${data.cupon || ''}</td>
-            <td>${data.fecha_vencimiento || ''}</td>
+            <td>${fromISODate(data.fecha_vencimiento) || ''}</td>
             <td>${data.moneda || 'USD'}</td>
             <td>${parseFloat(data.importe || 0).toFixed(2)}</td>
-            <td>${data.fecha_pago || ''}</td>
+            <td>${fromISODate(data.fecha_pago) || ''}</td>
             <td>${data.factura || ''}</td>
             <td>${data.observacion || ''}</td>
             <td class="text-end actions">
@@ -304,12 +360,13 @@ const Cuotas = (() => {
           return el ? el.value.trim() : '';
         };
 
-        const nuevaFechaPago = getVal('editFechaPago');
+        const nuevaFechaPago = fromISODate(getVal('editFechaPago'));
         const nuevaFactura = getVal('editFactura');
         const nuevaObservacion = getVal('editObservacion');
+        const nuevoImporte = getVal('editImporte');
 
-        if (tds[2]) tds[2].textContent = getVal('editFechaVenc');
-        if (tds[4]) tds[4].textContent = getVal('editImporte');
+        if (tds[2]) tds[2].textContent = fromISODate(getVal('editFechaVenc'));
+        if (tds[4]) tds[4].textContent = nuevoImporte;
         if (tds[5]) tds[5].textContent = nuevaFechaPago;
         if (tds[6]) tds[6].textContent = nuevaFactura;
         if (tds[7]) tds[7].textContent = nuevaObservacion;
@@ -325,7 +382,7 @@ const Cuotas = (() => {
         // Actualizar visibilidad botón Revertir
         const btnRevert = tr.querySelector('.btn-revert');
         if (btnRevert) {
-          if (nuevaFechaPago || nuevaFactura || nuevaObservacion) {
+          if (nuevoImporte || nuevaFechaPago || nuevaFactura || nuevaObservacion) {
             btnRevert.style.display = 'inline-block'; // o '' para default
           } else {
             btnRevert.style.display = 'none';
@@ -353,7 +410,43 @@ const Cuotas = (() => {
           return;
         }
         const filename = encodeURIComponent(name.endsWith('.pdf') ? name : `${name}.pdf`);
-        window.open(`/uploads/${filename}`, '_blank');
+        const url = `/uploads/${filename}`;
+
+        // Verificar si el archivo existe antes de abrir el modal
+        fetch(url, { method: 'HEAD' })
+          .then(response => {
+              if (response.ok) {
+                  // Configurar modal PDF
+                  const modalEl = document.getElementById('cuotaPdfModal');
+                  if (!modalEl) {
+                      // Fallback si no existe el modal
+                      window.open(url, '_blank');
+                      return;
+                  }
+
+                  // Actualizar elementos del modal
+                  const frame = document.getElementById('pdfViewerFrame');
+                  const downloadBtn = document.getElementById('btnDownloadPdf');
+                  const titleEl = document.getElementById('pdfFileName');
+                  
+                  if (frame) frame.src = url;
+                  if (downloadBtn) {
+                      downloadBtn.href = url;
+                      downloadBtn.download = name.endsWith('.pdf') ? name : `${name}.pdf`;
+                  }
+                  if (titleEl) titleEl.textContent = name;
+
+                  // Mostrar modal (Bootstrap maneja el z-index automáticamente para modales apilados)
+                  const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+                  modal.show();
+              } else {
+                  alert('El documento PDF no se encuentra disponible en el servidor.');
+              }
+          })
+          .catch(error => {
+              console.error('Error verificando archivo:', error);
+              alert('Ocurrió un error al intentar localizar el documento.');
+          });
       });
     }
 
