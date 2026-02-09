@@ -183,6 +183,15 @@
   margin-top: 0.5rem;
 }
 
+
+
+.form-control.is-valid ~ .invalid-feedback,
+.form-select.is-valid ~ .invalid-feedback,
+.input-group:has(.is-valid) ~ .invalid-feedback {
+  display: block;
+  color: #198754; /* verde */
+}
+
 /* Focus en campos inválidos */
 .form-control.is-invalid:focus,
 .form-select.is-invalid:focus {

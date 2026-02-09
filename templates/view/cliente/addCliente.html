@@ -82,7 +82,7 @@
                     </div>
                     <div class="vr mx-2 d-none d-md-block"></div>
                     <div class="flex-grow-1" style="min-width: 200px;">
-                      <input type="text" id="numeroDocumento" name="numeroDocumento" class="form-control border-0 bg-white shadow-sm" placeholder="Número de Documento" required minlength="8" maxlength="11" pattern="[0-9]+" />
+                      <input type="text" id="numeroDocumento" name="numeroDocumento" class="form-control border-0 bg-white shadow-sm" placeholder="Número de Documento" required minlength="8" maxlength="11" pattern="[0-9]+" aria-label="Número de Documento" />
                       <div class="invalid-feedback">Ingrese un número de documento válido (solo números, 8-11 dígitos).</div>
                       <div class="form-text text-success small mt-1"><i class="bi-info-circle-fill"></i> <span id="docTypeHint">DNI: 8 dígitos | RUC: 11 dígitos</span></div>
                     </div>
@@ -189,17 +189,24 @@
                   <input type="date" id="cumpleanios" name="cumpleanios" class="form-control" />
                 </div>
 
-                <!-- Licencia de Conducir -->
+                <!-- Licencia de Conducir (categoría + número) -->
                 <div class="col-md-6">
-                  <label for="licenciaConducir" class="form-label">Licencia de Conducir</label>
-                  <div class="input-group">
-                    <span class="input-group-text"><i class="bi-car-front"></i></span>
-                    <input type="text" id="licenciaConducir" name="licenciaConducir" class="form-control" placeholder="N° Licencia" />
+                  <label for="licenciaCategoria" class="form-label">Licencia de Conducir</label>
+                  <div class="d-flex align-items-center">
+                    <select id="licenciaCategoria" name="licenciaCategoria" class="form-select me-2" style="max-width: 60%;">
+                      <option value="">Seleccionar categoría...</option>
+                      <option value="A-I" title="Particular (sedanes, SUV, pickup)">A-I</option>
+                      <option value="A-IIa" title="Taxi, ambulancias, transporte interprovincial ligero">A-IIa</option>
+                      <option value="A-IIb" title="Microbuses (hasta 16 asientos) y minibuses (hasta 33 asientos)">A-IIb</option>
+                      <option value="A-IIIa" title="Ómnibus urbanos, interurbanos, panorámicos">A-IIIa</option>
+                      <option value="A-IIIb" title="Vehículos de carga pesada (remolques, grúas, plataformas)">A-IIIb</option>
+                      <option value="A-IIIc" title="Combinación de los anteriores (transporte de personas y carga pesada)">A-IIIc</option>
+                      <option value="B-I" title="Triciclos no motorizados (público especial)">B-I</option>
+                      <option value="B-IIa" title="Bicimotos (pasajeros o carga)">B-IIa</option>
+                      <option value="B-IIb/B-IIc" title="Motocicletas, mototaxis y trimotos (pasajeros o carga)">B-IIb/B-IIc</option>
+                    </select>
+                    <input type="text" id="licenciaNumero" name="licenciaNumero" class="form-control" placeholder="N° Licencia" style="max-width: 40%;" aria-label="Número de licencia" />
                   </div>
-                </div>
-                <div class="col-md-6">
-                  <label for="vencimientoLicencia" class="form-label">Vencimiento Licencia</label>
-                  <input type="date" id="vencimientoLicencia" name="vencimientoLicencia" class="form-control" />
                 </div>
 
                 <div class="col-12"><hr class="text-muted opacity-25 my-0"></div>

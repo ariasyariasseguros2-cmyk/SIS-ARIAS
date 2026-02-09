@@ -44,11 +44,67 @@
     // Validar número de documento
     const numeroDoc = document.getElementById('numeroDocumento');
     if (numeroDoc) {
+      // Función auxiliar para detectar tipo según valor y actualizar radios/hint
+      function detectAndSetDocType(val) {
+        const hint = document.getElementById('docTypeHint');
+        const docDNI = document.getElementById('docDNI');
+        const docRUC = document.getElementById('docRUC');
+        const tipoPersona = document.getElementById('tipoPersona');
+
+        if (!val || val.length === 0) {
+          if (hint) hint.textContent = 'DNI: 8 dígitos | RUC: 11 dígitos';
+          return;
+        }
+
+        // Longitud exacta para DNI
+        if (val.length === 8) {
+          docDNI?.click();
+          if (hint) hint.textContent = 'Detectado: DNI (8 dígitos)';
+          if (tipoPersona) tipoPersona.value = 'NATURAL';
+          return;
+        }
+
+        // Longitud exacta para RUC (11 dígitos)
+        if (val.length === 11) {
+          const prefix = val.slice(0, 2);
+          // Prefijos comunes según estructura proporcionada
+          const rucPrefixes = ['10', '20', '15', '17'];
+          if (rucPrefixes.includes(prefix)) {
+            docRUC?.click();
+            if (hint) hint.textContent = `Detectado: RUC (prefijo ${prefix})`;
+            if (tipoPersona) {
+              // Si es 20 -> empresa; si 10/15/17 -> persona natural/extranjera
+              if (prefix === '20') tipoPersona.value = 'JURIDICA';
+              else tipoPersona.value = 'NATURAL';
+            }
+            return;
+          } else {
+            // 11 dígitos pero prefijo desconocido: asumimos RUC genérico
+            docRUC?.click();
+            if (hint) hint.textContent = 'Detectado: RUC (11 dígitos)';
+            return;
+          }
+        }
+
+        // Si tiene entre 1 y 7 dígitos o longitud intermedia, mostrar pista
+        if (val.length < 8) {
+          if (hint) hint.textContent = 'Ingrese al menos 8 dígitos para detectar (DNI) o 11 para RUC';
+        } else if (val.length > 8 && val.length < 11) {
+          if (hint) hint.textContent = 'Número intermedio: completa hasta 11 para RUC o 8 para DNI';
+        } else {
+          if (hint) hint.textContent = 'DNI: 8 dígitos | RUC: 11 dígitos';
+        }
+      }
+
       numeroDoc.addEventListener('input', (e) => {
         // Solo permitir números
         e.target.value = e.target.value.replace(/[^0-9]/g, '');
 
         const val = e.target.value;
+
+        // Ejecutar detección automática del tipo de documento
+        detectAndSetDocType(val);
+
         if (val.length >= 8 && val.length <= 11) {
           e.target.classList.remove('is-invalid');
           e.target.classList.add('is-valid');
@@ -199,7 +255,7 @@
 
     // Agregar feedback visual a campos opcionales cuando se llenan
     const optionalFieldsWithFeedback = [
-      'profesion', 'fechaIngreso', 'cumpleanios', 'licenciaConducir',
+      'profesion', 'fechaIngreso', 'cumpleanios', 'licenciaCategoria', 'licenciaNumero',
       'grupoEconomico', 'giroNegocio', 'referencia', 'recomendadoPor'
     ];
 
@@ -369,6 +425,66 @@
       if (tel2Input) tel2Input.value = data.telefono2;
     }
 
+    // licencia combinada
+    if (data.licenciaConducir) {
+      // Formato esperado: "Categoria ... | Numero"
+      const combined = data.licenciaConducir;
+      const parts = combined.split('|').map(s => s.trim());
+      if (parts.length >= 2) {
+        const cat = parts[0];
+        const num = parts.slice(1).join(' | '); // en caso de '|' extra
+        const catEl = document.getElementById('licenciaCategoria');
+        const numEl = document.getElementById('licenciaNumero');
+        if (catEl) {
+          let matched = false;
+          for (const opt of Array.from(catEl.options)) {
+            if (!opt.value) continue;
+            if (cat === opt.value || cat.includes(opt.value) || opt.value.includes(cat)) {
+              catEl.value = opt.value;
+              matched = true;
+              break;
+            }
+          }
+
+          if (!matched) {
+            const prefix = (cat.split(':')[0] || cat.split(' ')[0] || '').trim();
+            if (prefix) {
+              for (const opt of Array.from(catEl.options)) {
+                if (opt.value && prefix === opt.value) {
+                  catEl.value = opt.value;
+                  matched = true;
+                  break;
+                }
+              }
+            }
+          }
+          if (!matched) {
+
+            catEl.value = cat;
+          }
+        }
+        if (numEl) numEl.value = num;
+      } else {
+        // Si no contiene '|', intentar poner todo en número si parece numérico, sino en categoría
+        const catEl = document.getElementById('licenciaCategoria');
+        const numEl = document.getElementById('licenciaNumero');
+        if (/^\d+$/.test(combined)) {
+          if (numEl) numEl.value = combined;
+        } else {
+          if (catEl) catEl.value = combined;
+        }
+      }
+    } else {
+      if (data.licenciaCategoria) {
+        const catEl = document.getElementById('licenciaCategoria');
+        if (catEl) catEl.value = data.licenciaCategoria;
+      }
+      if (data.licenciaNumero) {
+        const numEl = document.getElementById('licenciaNumero');
+        if (numEl) numEl.value = data.licenciaNumero;
+      }
+    }
+
     // Resaltar campos rellenados
     highlightFilledFields();
   }
@@ -459,8 +575,18 @@
     payload.profesion = document.getElementById('profesion')?.value || '';
     payload.fechaIngreso = document.getElementById('fechaIngreso')?.value || '';
     payload.cumpleanios = document.getElementById('cumpleanios')?.value || '';
-    payload.licenciaConducir = document.getElementById('licenciaConducir')?.value || '';
-    payload.vencimientoLicencia = document.getElementById('vencimientoLicencia')?.value || '';
+
+    // Enviar la licencia como campo combinado: 'CATEGORIA | NUMERO' si ambos presentes, o el que exista
+    const licenciaCat = document.getElementById('licenciaCategoria')?.value || '';
+    const licenciaNum = document.getElementById('licenciaNumero')?.value || '';
+    let combinedLic = '';
+    if (licenciaCat && licenciaNum) combinedLic = `${licenciaCat} | ${licenciaNum}`;
+    else combinedLic = licenciaNum || licenciaCat || '';
+    payload.licenciaConducir = combinedLic;
+    // Eliminar campos separados para evitar enviar doble información
+    delete payload.licenciaCategoria;
+    delete payload.licenciaNumero;
+     payload.vencimientoLicencia = document.getElementById('vencimientoLicencia')?.value || '';
     payload.subAgente = document.getElementById('subAgente')?.value || '';
     payload.grupoEconomico = document.getElementById('grupoEconomico')?.value || '';
     payload.giroNegocio = document.getElementById('giroNegocio')?.value || '';
@@ -503,6 +629,24 @@
         el.classList.remove('is-invalid');
       }
     });
+
+    // Validación opcional del número de licencia
+    const licenciaNumEl = document.getElementById('licenciaNumero');
+    if (licenciaNumEl) {
+      const licVal = (licenciaNumEl.value || '').toString().trim();
+      if (licVal) {
+        // Permitir alfanumérico y guiones, longitud entre 5 y 20 (coincide con validación del backend)
+        const licPattern = /^[A-Za-z0-9\-]{5,20}$/;
+        if (!licPattern.test(licVal)) {
+          ok = false;
+          licenciaNumEl.classList.add('is-invalid');
+          alert('El N° de Licencia no tiene un formato válido. Debe ser 5-20 caracteres (letras, números o guion).');
+        } else {
+          licenciaNumEl.classList.remove('is-invalid');
+        }
+      }
+    }
+
     return ok;
   }
 

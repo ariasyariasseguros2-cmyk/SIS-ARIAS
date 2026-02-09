@@ -80,10 +80,12 @@ def validate_cliente_payload(data: dict) -> tuple[bool, list[str]]:
     if tipo_doc and tipo_doc not in valid_doc_types:
         errors.append('El Tipo de Documento no es válido')
 
-    # Validar licencia de conducir si se proporciona
-    licencia_num = str(data.get('licenciaConducir', '')).strip()
-    if licencia_num and not re.match(r'^[A-Z0-9\-]{5,20}$', licencia_num):
-        errors.append('El número de Licencia de Conducir no tiene un formato válido')
+    # Validar licencia de conducir si se proporciona (permitir formato combinado 'CATEGORIA | NUM')
+    licencia_raw = str(data.get('licenciaConducir', '')).strip()
+    if licencia_raw:
+        # Aceptar letras, números, espacios, guiones y el separador '|' entre 3 y 60 caracteres
+        if not re.match(r'^[A-Za-z0-9 \|\-]{3,60}$', licencia_raw):
+            errors.append('El campo Licencia de Conducir tiene un formato inválido')
 
     # Validar vencimiento de licencia (no puede ser menor a la fecha actual)
     vencimiento_licencia = data.get('vencimientoLicencia')
@@ -161,7 +163,7 @@ def save_cliente(data: dict) -> dict:
     razon = (data.get('razonSocial') or '').strip()
     numero = (data.get('numeroDocumento') or '').strip()
     telefono = (data.get('telefono1') or '').strip()
-    celular = (data.get('telefono1') or '').strip()  # telefono1 es el celular principal
+    celular = (data.get('telefono1') or '').strip()
     telefono_sec = (data.get('telefono2') or '').strip()
     email = (data.get('email') or '').strip()
     direccion = (data.get('direccion') or '').strip()
@@ -247,24 +249,46 @@ def save_cliente(data: dict) -> dict:
         current_app.logger.info(f"[addcliente] Insertando: {razon}, {numero}, subagente={subagente_nombre}, idProductor={idProductor}")
 
         # Insertar con campos actualizados (sin los eliminados)
-        cur.execute(
-            """CALL sp_insert_cliente(
-                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s
-            )""",
-            (
-                razon, tipo_documento, numero,
-                telefono, celular, telefono_sec,
-                subagente_nombre, idProductor,
-                email, direccion, departamento, provincia, distrito,
-                estado, tipo_persona,
-                profesion, fecha_ingreso, fecha_nacimiento,
-                licencia_num, licencia_venc,
-                grupo_economico, giro_negocio, referencia, recomendado_por,
-                recibir_notificaciones, contacto_nombre, contacto_email, contacto_telefono,
-                usuario_actual, pdf_path
-            )
+        args_with_pdf = (
+            razon, tipo_documento, numero,
+            telefono, celular, telefono_sec,
+            subagente_nombre, idProductor,
+            email, direccion, departamento, provincia, distrito,
+            estado, tipo_persona,
+            profesion, fecha_ingreso, fecha_nacimiento,
+            licencia_num, licencia_venc,
+            grupo_economico, giro_negocio, referencia, recomendado_por,
+            recibir_notificaciones, contacto_nombre, contacto_email, contacto_telefono,
+            usuario_actual, pdf_path
         )
+        args_without_pdf = args_with_pdf[:-1]
+
+        try:
+            # Determinar cuántos parámetros espera realmente el SP en la DB
+            cur.execute("SELECT COUNT(*) FROM information_schema.parameters WHERE specific_name = 'sp_insert_cliente' AND routine_schema = DATABASE()")
+            param_row = cur.fetchone()
+            param_count = int(param_row[0]) if param_row and param_row[0] is not None else None
+        except Exception:
+            param_count = None
+
+        # Preparar args según lo que la BD tenga (si no se puede determinar, intentar con args_with_pdf primero)
+        try:
+            if param_count is None:
+                # desconocido -> intentar con full args e intentar fallback
+                try:
+                    cur.callproc('sp_insert_cliente', args_with_pdf)
+                except Exception:
+                    cur.callproc('sp_insert_cliente', args_without_pdf)
+            else:
+                # recortar o usar según param_count
+                if param_count >= len(args_with_pdf):
+                    cur.callproc('sp_insert_cliente', args_with_pdf)
+                else:
+                    args_to_use = args_with_pdf[:param_count]
+                    cur.callproc('sp_insert_cliente', args_to_use)
+        except Exception as e:
+            current_app.logger.error(f"[addcliente] Error al llamar sp_insert_cliente: {e}")
+            raise
         cnx.commit()
         while cur.nextset():
             pass

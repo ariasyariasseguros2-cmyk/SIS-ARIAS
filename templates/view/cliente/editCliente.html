@@ -183,15 +183,30 @@
                         </h6>
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label">Número de Licencia</label>
-                                <input type="text" id="edit_licencia_num" name="licencia_num" class="form-control">
+                                <label class="form-label">Licencia de Conducir</label>
+                                <div class="d-flex align-items-center">
+                                    <select id="edit_licencia_cat" name="licencia_cat" class="form-select me-2" style="max-width:60%;">
+                                        <option value="">Categoría...</option>
+                                        <option value="A-I" title="Particular (sedanes, SUV, pickup)">A-I</option>
+                                        <option value="A-IIa" title="Taxi, ambulancias, transporte interprovincial ligero">A-IIa</option>
+                                        <option value="A-IIb" title="Microbuses (hasta 16 asientos) y minibuses (hasta 33 asientos)">A-IIb</option>
+                                        <option value="A-IIIa" title="Ómnibus urbanos, interurbanos, panorámicos">A-IIIa</option>
+                                        <option value="A-IIIb" title="Vehículos de carga pesada (remolques, grúas, plataformas)">A-IIIb</option>
+                                        <option value="A-IIIc" title="Combinación de los anteriores (transporte de personas y carga pesada)">A-IIIc</option>
+                                        <option value="B-I" title="Triciclos no motorizados (público especial)">B-I</option>
+                                        <option value="B-IIa" title="Bicimotos (pasajeros o carga)">B-IIa</option>
+                                        <option value="B-IIb/B-IIc" title="Motocicletas, mototaxis y trimotos (pasajeros o carga)">B-IIb/B-IIc</option>
+                                    </select>
+                                    <input type="text" id="edit_licencia_num" name="licencia_num" class="form-control" placeholder="N° Licencia" style="max-width:40%;" aria-label="Número de licencia" />
+                                </div>
+                                <div class="form-text small mt-1">La categoría y número se enviarán como un único dato.</div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Fecha de Vencimiento</label>
-                                <input type="date" id="edit_licencia_venc" name="licencia_venc" class="form-control">
-                            </div>
-                        </div>
-                    </div>
+                             <div class="col-md-6">
+                                 <label class="form-label">Fecha de Vencimiento</label>
+                                 <input type="date" id="edit_licencia_venc" name="licencia_venc" class="form-control">
+                             </div>
+                         </div>
+                     </div>
 
                     <!-- Sección 7: Contacto de Emergencia -->
                     <div class="section-card">

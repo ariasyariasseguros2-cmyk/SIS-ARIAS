@@ -95,9 +95,99 @@
         document.getElementById('edit_fecha_ingreso').value = cliente.fecha_ingreso || '';
         document.getElementById('edit_fecha_nacimiento').value = cliente.fecha_nacimiento || '';
 
-        // Licencia
-        document.getElementById('edit_licencia_num').value = cliente.licencia_num || '';
-        document.getElementById('edit_licencia_venc').value = cliente.licencia_venc || '';
+        // Licencia combinada
+       const catEl = document.getElementById('edit_licencia_cat');
+        const numEl = document.getElementById('edit_licencia_num');
+        let rawLic = (cliente.licenciaConducir || cliente.licencia_num || '').toString().trim();
+
+        if (rawLic) {
+            // Si contiene '|' lo separamos
+            if (rawLic.includes('|')) {
+                const parts = rawLic.split('|').map(s => s.trim());
+                const cat = parts[0] || '';
+                const num = parts.slice(1).join(' | ') || '';
+                if (catEl) {
+                    let matched = false;
+                    for (const opt of Array.from(catEl.options)) {
+                        if (!opt.value) continue;
+                        if (cat === opt.value || cat.includes(opt.value) || opt.value.includes(cat)) {
+                            catEl.value = opt.value;
+                            matched = true;
+                            break;
+                        }
+                    }
+                    if (!matched) catEl.value = cat;
+                }
+                if (numEl) numEl.value = num;
+            } else {
+                // Intentar detectar categoría buscando coincidencias con los option values dentro del texto
+                let matchedCat = '';
+                if (catEl) {
+                    const lowerRaw = rawLic.toLowerCase();
+                    for (const opt of Array.from(catEl.options)) {
+                        if (!opt.value) continue;
+                        const val = opt.value.toLowerCase();
+                        const title = (opt.title || '').toLowerCase();
+                        const text = (opt.textContent || '').toLowerCase();
+                        if (lowerRaw.indexOf(val) !== -1 || (title && lowerRaw.indexOf(title) !== -1) || (text && lowerRaw.indexOf(text) !== -1)) {
+                            matchedCat = opt.value;
+                            break;
+                        }
+                    }
+                }
+
+                if (matchedCat) {
+                    if (catEl) catEl.value = matchedCat;
+                    // quitar la categoría encontrada del texto (primera ocurrencia), luego limpiar separadores para obtener el número
+                    const idx = rawLic.toLowerCase().indexOf(matchedCat.toLowerCase());
+                    if (idx !== -1) {
+                        rawLic = (rawLic.slice(0, idx) + rawLic.slice(idx + matchedCat.length)).trim();
+                    }
+                    rawLic = rawLic.replace(/[:|\-]/g, ' ').replace(/\s+/g, ' ').trim();
+                }
+
+                // Si el resto es numérico, asumir que es el número
+                if (numEl) {
+                    if (/^\d+$/.test(rawLic)) numEl.value = rawLic;
+                    else if (rawLic) numEl.value = rawLic;
+                }
+            }
+        } else {
+            // Fallback: si viene separado
+            if (catEl && cliente.categoria_licencia) catEl.value = cliente.categoria_licencia || '';
+            if (numEl && cliente.licencia_num) numEl.value = cliente.licencia_num || '';
+        }
+        // Si aún no se detectó categoría, intentar buscar en campos alternativos que pueda devolver la API
+        try {
+            if (catEl && (!catEl.value || catEl.value === '')) {
+                const candidateFields = ['categoria_licencia','categoria','categoria_lic','categoriaLicencia','categoria_licencia_id','categoria_licencia_nombre','categoria_abreviacion','categoria_abbr','licencia_categoria'];
+                for (const f of candidateFields) {
+                    const v = cliente[f];
+                    if (v && v.toString().trim()) {
+                        // si coincide con alguna option, usar option.value, sino asignar directamente
+                        const lowerV = v.toString().trim().toLowerCase();
+                        let matched = false;
+                        for (const opt of Array.from(catEl.options)) {
+                            if (!opt.value) continue;
+                            const optVal = opt.value.toLowerCase();
+                            const optTitle = (opt.title || '').toLowerCase();
+                            if (optVal === lowerV || lowerV.indexOf(optVal) !== -1 || optVal.indexOf(lowerV) !== -1 || (optTitle && optTitle.indexOf(lowerV) !== -1)) {
+                                catEl.value = opt.value;
+                                matched = true;
+                                break;
+                            }
+                        }
+                        if (!matched) catEl.value = v.toString().trim();
+                        break;
+                    }
+                }
+                // si aún no hay categoría, loguear para depuración (no crítico)
+                if (!catEl.value) console.debug('No se detectó categoría de licencia para cliente:', cliente.idCliente || cliente.id, 'rawLic:', rawLic, 'cliente fields:', cliente);
+            }
+        } catch (e) {
+            // ignore
+        }
+         document.getElementById('edit_licencia_venc').value = cliente.licencia_venc || '';
 
         // Contacto de emergencia
         document.getElementById('edit_recibir_notificaciones').checked = cliente.recibir_notificaciones === 1 || cliente.recibir_notificaciones === true || cliente.recibir_notificaciones === '1';
@@ -143,6 +233,14 @@
 
         // Agregar el checkbox manualmente
         data.recibir_notificaciones = document.getElementById('edit_recibir_notificaciones').checked ? 1 : 0;
+
+        // Enviar la licencia como campo combinado 'CATEGORIA | NUM' (solo este campo)
+        const licenciaCat = document.getElementById('edit_licencia_cat')?.value || '';
+        const licenciaNum = document.getElementById('edit_licencia_num')?.value || '';
+        if (licenciaCat && licenciaNum) data.licenciaConducir = `${licenciaCat} | ${licenciaNum}`;
+        else data.licenciaConducir = licenciaNum || licenciaCat || '';
+        // Asegurar no enviar campos separados
+        delete data.licencia_num;
 
         // Deshabilitar botón para evitar múltiples envíos
         const btnGuardar = document.getElementById('btnGuardarEditCliente');

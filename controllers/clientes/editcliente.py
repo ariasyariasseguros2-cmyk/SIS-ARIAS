@@ -60,11 +60,18 @@ def editar_cliente_route():
                 # Si no se puede obtener, intentar usar el que viene en los datos
                 id_productor = int(data.get('idProductor')) if data.get('idProductor') else None
 
+        # Tomar el valor enviado en licenciaConducir (puede ser combinado 'CATEGORIA | NUM')
+        # Para mantener el mismo comportamiento que el endpoint de creación, guardamos tal cual el texto
+        licencia_conducir_raw = str(data.get('licenciaConducir', '') or '').strip()
+        # Si no se envió licenciaConducir, soportar campo legacy licencia_num
+        licencia_num = licencia_conducir_raw or str(data.get('licencia_num', '') or '').strip()
+
         # Obtener conexión y llamar al procedimiento almacenado
         conn = get_connection()
         cursor = conn.cursor()
 
-        cursor.callproc('sp_update_cliente', [
+        # Preparar argumentos en el orden que el procedimiento espera
+        args = (
             id_cliente,
             data.get('razon_social'),
             data.get('tipo_documento'),
@@ -84,7 +91,7 @@ def editar_cliente_route():
             data.get('profesion', ''),
             fecha_ingreso,
             fecha_nacimiento,
-            data.get('licencia_num', ''),
+            licencia_num,
             licencia_venc,
             data.get('grupo_economico', ''),
             data.get('giro_negocio', ''),
@@ -95,7 +102,27 @@ def editar_cliente_route():
             data.get('contacto_email', ''),
             data.get('contacto_telefono', ''),
             usuario_actual
-        ])
+        )
+
+        # ajustar el call al sp
+        try:
+            temp_cursor = conn.cursor()
+            try:
+                temp_cursor.execute("SELECT COUNT(*) FROM information_schema.parameters WHERE specific_name = 'sp_update_cliente' AND routine_schema = DATABASE()")
+                row = temp_cursor.fetchone()
+                param_count = int(row[0]) if row and row[0] is not None else None
+            except Exception:
+                param_count = None
+            finally:
+                temp_cursor.close()
+
+            if param_count is None or param_count >= len(args):
+                cursor.callproc('sp_update_cliente', args)
+            else:
+                cursor.callproc('sp_update_cliente', args[:param_count])
+        except Exception as e:
+            print(f"Error llamando sp_update_cliente: {e}")
+            raise
 
         conn.commit()
         cursor.close()
