@@ -124,7 +124,9 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label for="liquidadorAjustador" class="form-label">Liquidador / Ajustador</label>
-                        <input type="text" class="form-control" id="liquidadorAjustador">
+                        <select class="form-select" id="liquidadorAjustador">
+                            <option value="">-- Seleccionar --</option>
+                        </select>
                     </div>
                     <div class="col-md-6">
                         <label for="numeroAjuste" class="form-label">Número de Ajuste</label>
@@ -299,3 +301,59 @@
     font-size: 0.875rem;
 }
 </style>
+
+<script>
+
+async function populateAjustadoresSelect(selectedValue) {
+    try {
+        const sel = document.getElementById('liquidadorAjustador');
+        if (!sel) return;
+
+        const res = await fetch('/ajustadores/list');
+        if (!res.ok) return;
+        const data = await res.json();
+        const rows = (data && Array.isArray(data.rows)) ? data.rows : (Array.isArray(data) ? data : []);
+
+        // Limpiar opciones y dejar placeholder
+        sel.innerHTML = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '-- Seleccionar --';
+        sel.appendChild(placeholder);
+
+        rows.forEach(r => {
+            const opt = document.createElement('option');
+            // El SP devuelve probablemente campo 'id' y 'nombre'
+            const idVal = r.id || r.idAjustador || r.id_ajustador || r.codigo || r.nombre || '';
+            opt.value = String(idVal);
+            opt.textContent = r.nombre ? String(r.nombre) + (r.abreviacion ? ' ('+r.abreviacion+')' : '') : String(r.abreviacion || r.codigo || idVal);
+            sel.appendChild(opt);
+        });
+
+        // Intentar seleccionar el valor provisto o el que estuviera en el campo
+        const toSelect = selectedValue !== undefined ? selectedValue : (sel.getAttribute('data-selected') || '');
+        if (toSelect) {
+            const found = Array.from(sel.options).find(o => o.value === String(toSelect) || o.textContent === String(toSelect));
+            if (found) {
+                sel.value = found.value;
+            } else {
+                const temp = document.createElement('option');
+                temp.value = String(toSelect);
+                temp.textContent = String(toSelect);
+                sel.appendChild(temp);
+                sel.value = String(toSelect);
+            }
+        }
+
+    } catch (e) {
+        console.error('Error cargando ajustadores:', e);
+    }
+}
+
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => populateAjustadoresSelect());
+} else {
+    populateAjustadoresSelect();
+}
+</script>
