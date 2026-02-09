@@ -1,0 +1,190 @@
+{% extends 'view/layout_clean.html' if is_modal else 'view/layout_dashboard.html' %}
+
+{% block html_title %}Detalles Pólizas | SIS-ARIAS{% endblock %}
+
+{% block extra_css %}
+<!-- CSS incluido directamente desde el archivo adjunto en templates -->
+<style>
+    {% include 'view/Mostrar-detalles-poliza/detalles-poliza.css' %}
+</style>
+{% endblock %}
+
+{% block page_title %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Título y Botón Volver (Solo visible si no es modal) -->
+    {% if not is_modal %}
+    <div class="mb-4">
+        <a href="{{ url_for('main.menu_page', page='listado-poliza') }}" class="text-decoration-none text-primary fw-semibold">
+            <i class="bi bi-arrow-left-circle-fill me-1"></i> Volver al Listado de Pólizas
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Master Panel: Contenedor único con diseño "Glass Panel" -->
+    <div class="master-panel">
+        <!-- Header Integrado -->
+        <div class="panel-header">
+            <div class="header-title-group">
+                <h1>
+                    <i class="bi bi-file-earmark-text"></i>
+                    Detalle de Póliza
+                </h1>
+                <div class="header-subtitle">
+                    Póliza #{{ poliza.poliza if poliza else '---' }} &bull; {{ poliza.ramo if poliza else '---' }}
+                </div>
+            </div>
+            {% if is_modal %}
+            <button type="button" class="btn-close-custom" data-bs-dismiss="modal" aria-label="Close">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- Cuerpo del Panel: Grid Layout -->
+        <div class="panel-body">
+            <!-- Columna Izquierda: Información Principal -->
+            <div class="main-content-area">
+                
+                <!-- Sección 1: Datos Generales -->
+                <div class="section-heading">Información General</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="label">Contratante</span>
+                        <span class="value">{{ poliza.cliente_razon_social if poliza else '---' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Asegurado</span>
+                        <span class="value">{{ poliza.asegurado if poliza else '---' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Compañía</span>
+                        <span class="value">{{ poliza.cia if poliza else '---' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Ramo / Producto</span>
+                        <span class="value">{{ poliza.ramo if poliza else '' }} / {{ poliza.ramos_producto if poliza else '' }}</span>
+                    </div>
+                </div>
+
+                <!-- Sección 2: Vigencia y Moneda -->
+                <div class="section-heading">Vigencia y Condiciones</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="label">Vigencia Desde</span>
+                        <span class="value">{{ poliza.vig_desde if poliza else '---' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Vigencia Hasta</span>
+                        <span class="value">{{ poliza.vig_hasta if poliza else '---' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Tipo Vigencia</span>
+                        <span class="value">ANUAL</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Moneda</span>
+                        <span class="value highlight">{{ poliza.moneda if poliza else '---' }}</span>
+                    </div>
+                </div>
+
+                <!-- Sección 3: Descripción y Archivos -->
+                <div class="section-heading">Detalles Adicionales</div>
+                <div class="info-grid">
+                    <div class="info-item" style="grid-column: span 2;">
+                        <span class="label">Motivo / Descripción</span>
+                        <span class="value">{{ poliza.motivo if poliza else 'Sin descripción' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Archivo de Garantías</span>
+                        <span class="value text-muted">No disponible</span>
+                    </div>
+                </div>
+
+                <!-- Sección 4: Observaciones -->
+                {% if poliza.observacion %}
+                <div class="section-heading" style="margin-top: 1rem;">Observaciones</div>
+                <div class="p-3 bg-light rounded text-secondary small">
+                    {{ poliza.observacion }}
+                </div>
+                {% endif %}
+
+            </div>
+
+            <!-- Columna Derecha: Sidebar Financiero y Seguimiento -->
+            <div class="financial-sidebar">
+                
+                <!-- Tarjeta de Comisiones -->
+                <div class="financial-card">
+                    <div class="section-heading mb-3">Estructura de Comisiones</div>
+                    
+                    <div class="detail-row">
+                        <span class="text-secondary">% Cía.</span>
+                        <span class="fw-bold">{{ poliza.porc_compania if poliza else '0' }}%</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="text-secondary">% Sub Agente</span>
+                        <span class="fw-bold">{{ poliza.porc_subagente if poliza else '0' }}%</span>
+                    </div>
+                    
+                    <hr class="my-3" style="border-style: dashed; color: var(--panel-border);">
+                    
+                    <div class="detail-row">
+                        <span class="text-secondary">Sub Agente</span>
+                        <span class="fw-bold text-end">{{ poliza.sub_agente if poliza else '---' }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="text-secondary">Ejecutivo</span>
+                        <span class="fw-bold text-end">{{ poliza.ejecutivo if poliza else '---' }}</span>
+                    </div>
+                </div>
+
+                <!-- Timeline de Seguimiento -->
+                <div class="financial-card" style="flex: 1;">
+                    <div class="section-heading mb-4">Historial de Seguimiento</div>
+                    
+                    <div class="timeline-minimal">
+                        {% if seguimientos %}
+                            {% for seg in seguimientos %}
+                            <div class="timeline-point {{ 'end' if loop.last else '' }}">
+                                <span class="timeline-date">{{ seg.fecha }}</span>
+                                <span class="timeline-desc">{{ seg.comentario }}</span>
+                                <div class="mt-1" style="font-size: 0.75rem;">
+                                    <span class="badge bg-light text-dark border">{{ seg.usuario }}</span> 
+                                    <i class="bi bi-arrow-right-short text-muted"></i> 
+                                    <span class="text-muted">{{ seg.gestion_a }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center text-muted py-4 small">
+                                Sin registros recientes
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Footer: Auditoría -->
+        <div class="panel-footer-info">
+            <div>
+                Registrado por: <span class="user-badge">{{ poliza.usuario_registro if poliza else '---' }}</span>
+                <span class="mx-2 text-muted">|</span>
+                Fecha Emisión: {{ poliza.fecha_emision if poliza else '---' }}
+            </div>
+            {% if poliza.usuario_edicion %}
+            <div>
+                Editado por: <span class="user-badge">{{ poliza.usuario_edicion }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js_bottom %}
+<script src="{{ url_for('static', filename='js/detalles-primas-poliza/detalles-poliza.js') }}"></script>
+{% endblock %}

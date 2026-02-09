@@ -7,131 +7,123 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/avisos/avisos.css') }}">
 {% endblock %}
 
-{% block page_title %}Avisos - Documentos{% endblock %}
+{% block page_title %}{% endblock %}
 
 {% block before_js %}{% endblock %}
 
 {% block content %}
-<div class="mb-3">
-  <div class="d-flex align-items-center">
-    <div class="d-flex align-items-center gap-2">
-      <h1 class="h5 m-0 d-flex align-items-center section-title">
-        <span class="icon me-2">📄</span> Avisos - Documentos
-      </h1>
-      <button type="button" class="btn btn-success btn-sm btn-lift btn-add" data-bs-toggle="modal" data-bs-target="#addAvisoModal">Añadir</button>
+<div id="alertPageSuccess" class="alert alert-success alert-dismissible fade show d-none mb-3" role="alert" style="border-radius: 4px; background-color: #00a65a; color: #fff; border: none;">
+    <div class="d-flex align-items-center">
+        <i class="bi bi-info-circle-fill fs-4 me-3"></i>
+        <div>
+            <strong class="d-block">Hecho, buen trabajo...</strong>
+            <span>¡Los datos han sido añadidos!</span>
+        </div>
     </div>
-  </div>
+    <button type="button" class="btn-close btn-close-white" aria-label="Close"></button>
 </div>
 
-<div class="breadcrumb-line mb-2">
-  <!-- Regresar a Primas filtrado por la póliza actual -->
-  <a href="{{ url_for('main.menu_page', page='primas', poliza=prima.poliza or prima.numero_poliza) }}" class="link-back">
-    <i class="bi bi-chevron-left"></i> Volver al listado Pdf
-  </a>
+<!-- Barra superior con título y acción -->
+<div class="page-header flex-column align-items-start gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <div class="page-title">
+            <i class="bi bi-file-earmark-text"></i>
+            Avisos - Documentos
+        </div>
+        <button type="button" class="btn btn-success btn-lift" data-bs-toggle="modal" data-bs-target="#addAvisoModal"><i class="bi-plus-lg"></i> Añadir</button>
+    </div>
+    <div>
+        <a href="{{ url_for('main.menu_page', page='primas', poliza=prima.poliza or prima.numero_poliza) }}" class="text-secondary text-decoration-none small fw-bold">
+            <i class="bi bi-arrow-left"></i> Volver al listado de Primas
+        </a>
+    </div>
 </div>
 
-<div class="card mb-3 avisos-card">
-  <div class="card-body p-4">
-    <div class="d-flex flex-column gap-3">
-      <!-- Info Contratante -->
-      <div class="p-3 bg-light rounded-4 border-start border-4 border-primary avisos-card-header">
-        <div class="fw-bold text-dark text-uppercase">
-          Contratante: {{ prima.contratante or prima.cliente_razon_social or prima.asegurado }} - Póliza: {{ prima.poliza or prima.numero_poliza }} - {{ prima.cia or prima.compania }} - {{ prima.ramo }}
-          {% if prima.producto %} - {{ prima.producto }} {% endif %}
-        </div>
-      </div>
-
-      <!-- Grid Resumen -->
-      <div class="row g-3 mt-1">
-        <div class="col-12 border-bottom pb-2 mb-2">
-            <i class="bi bi-justify-left me-2"></i><strong>Pdf</strong>
-        </div>
-        
-        <div class="col-md-12">
-            <!-- Usamos tabla simple para alinear labels y values como en la imagen -->
-            <div class="row mb-3 align-items-center">
-                <div class="col-md-2 avisos-resumen-label">Aviso Cob</div>
-                <div class="col-md-10 avisos-resumen-value">{{ prima.recibo or prima.aviso }}</div>
-            </div>
-            <div class="row mb-3 align-items-center">
-                <div class="col-md-2 avisos-resumen-label">Vigencia Inicio</div>
-                <div class="col-md-10 avisos-resumen-value">{{ prima.vig_desde or prima.vig_inicio }}</div>
-            </div>
-            <div class="row mb-3 align-items-center">
-                <div class="col-md-2 avisos-resumen-label">Vigencia Fin</div>
-                <div class="col-md-10 avisos-resumen-value">{{ prima.vig_hasta or prima.vig_fin }}</div>
-            </div>
-            <div class="row mb-3 align-items-center">
-                <div class="col-md-2 avisos-resumen-label">Tipo Doc</div>
-                <div class="col-md-10 avisos-resumen-value">{{ prima.tipo_mov or prima.tipo }}</div>
-            </div>
-            <div class="row mb-1 align-items-center">
-                <div class="col-md-2 avisos-resumen-label">Concepto</div>
-                <div class="col-md-10 avisos-resumen-value text-uppercase text-wrap text-break">{{ prima.motivo or prima.concepto or 'POLIZA NVA ' ~ (prima.fecha_emision|string)[:4] ~ ' ' ~ (prima.ramo or '') ~ ' ' ~ (prima.asegurado or '') }}</div>
-            </div>
-        </div>
-      </div>
+<!-- Encabezado con datos principales -->
+<div class="client-info-card">
+    <div class="client-info-header">
+        <i class="bi bi-person-badge"></i>
+        <span>Contratante: {{ prima.contratante or prima.cliente_razon_social or prima.asegurado }} - Póliza: {{ prima.poliza or prima.numero_poliza }} - {{ prima.cia or prima.compania }} - {{ prima.ramo }}
+        {% if prima.producto %} - {{ prima.producto }} {% endif %}</span>
     </div>
-  </div>
+    <div class="client-info-body">
+        <div class="info-grid">
+            <div class="info-item">
+                <label>Aviso Cob</label>
+                <div>{{ prima.recibo or prima.aviso }}</div>
+            </div>
+            <div class="info-item">
+                <label>Vigencia Inicio</label>
+                <div>{{ prima.vig_desde or prima.vig_inicio }}</div>
+            </div>
+            <div class="info-item">
+                <label>Vigencia Fin</label>
+                <div>{{ prima.vig_hasta or prima.vig_fin }}</div>
+            </div>
+            <div class="info-item">
+                <label>Tipo Doc</label>
+                <div>{{ prima.tipo_mov or prima.tipo }}</div>
+            </div>
+            <div class="info-item" style="grid-column: span 2;">
+                <label>Concepto</label>
+                <div class="text-uppercase">{{ prima.motivo or prima.concepto or 'POLIZA NVA ' ~ (prima.fecha_emision|string)[:4] ~ ' ' ~ (prima.ramo or '') ~ ' ' ~ (prima.asegurado or '') }}</div>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="card avisos-table-card">
-  <div class="card-body pt-2 pb-0">
-    <div class="d-flex justify-content-end mb-2">
-      <div class="d-flex align-items-center gap-2 toolbar">
-        <div class="search-area">
-          <div class="input-group input-group-sm search-round">
-            <span class="input-group-text bg-white border-end-0">
-              <i class="bi-search"></i>
-            </span>
-            <input type="text" class="form-control border-start-0 ps-0" placeholder="Buscar">
-          </div>
+<!-- Tabla de documentos -->
+<div class="table-card">
+    <div class="table-toolbar d-flex justify-content-between align-items-center">
+        <div class="search-box">
+             <div class="input-group input-group-sm" style="width: 300px;">
+                <input type="text" class="form-control border-end-0" placeholder="Buscar...">
+                <span class="input-group-text bg-white text-secondary border-start-0"><i class="bi-search"></i></span>
+            </div>
         </div>
-        <div class="page-size">
-          <select class="form-select form-select-sm">
-            <option value="20" selected>20</option>
-            <option value="40">40</option>
-            <option value="50">50</option>
-          </select>
+        <div class="page-size-selector d-flex align-items-center gap-2">
+            <span class="selector-label text-secondary small">Mostrar:</span>
+            <select class="form-select form-select-sm" style="width: auto; cursor: pointer;">
+                <option value="20" selected>20</option>
+                <option value="40">40</option>
+                <option value="50">50</option>
+            </select>
         </div>
-      </div>
     </div>
+
     <div class="table-responsive">
-        <table class="table m-0 align-middle table-hover">
-          <thead class="table-light">
-            <tr>
-              <th style="width: 70%;">Documento <i class="bi bi-arrow-down-up small text-muted"></i></th>
-              <th class="text-end">Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for doc in documents %}
-            <tr>
-              <td class="text-break text-muted small">{{ doc.name }}</td>
-              <td class="text-end">
-                <div class="d-flex gap-1 justify-content-end">
-                  <a href="{{ doc.url }}" target="_blank" class="btn btn-danger btn-sm text-white" title="Descargar"><i class="bi bi-download"></i> Descargar</a>
-                  <button class="btn btn-primary btn-sm" title="Detalles"><i class="bi bi-eye"></i> Detalles</button>
-                  <button class="btn btn-success btn-sm" title="Editar"><i class="bi bi-pencil"></i> Editar</button>
-                  <button class="btn btn-warning btn-sm text-white" title="Eliminar"><i class="bi bi-trash"></i> Eliminar</button>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-            {% if not documents %}
-            <tr>
-                <td colspan="2" class="text-center text-muted py-4">Sin documentos</td>
-            </tr>
-            {% endif %}
-          </tbody>
-          <tfoot>
-              <tr>
-                  <td colspan="2" class="text-end small text-muted">Total de registros : {{ documents|length }} a {{ documents|length }} de {{ documents|length }}</td>
-              </tr>
-          </tfoot>
+        <table class="table modern-table table-hover m-0 align-middle">
+            <thead>
+                <tr>
+                    <th style="width: 70%;">Documento</th>
+                    <th class="text-end">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documents %}
+                <tr>
+                    <td class="text-break text-muted small">{{ doc.name }}</td>
+                    <td class="text-end">
+                        <div class="action-buttons justify-content-end">
+                            <a href="{{ doc.url }}" target="_blank" class="btn-action btn-danger" title="Descargar">Descargar</a>
+                            <button class="btn-action btn-primary" title="Detalles">Detalles</button>
+                            <button class="btn-action btn-success" title="Editar">Editar</button>
+                            <button class="btn-action btn-warning" title="Eliminar">Eliminar</button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not documents %}
+                <tr>
+                    <td colspan="2" class="text-center text-muted py-4">Sin documentos</td>
+                </tr>
+                {% endif %}
+            </tbody>
         </table>
-      </div>
-  </div>
+    </div>
+    <div class="card-footer bg-white border-top-0 py-3">
+        <small class="text-muted">Total de registros: {{ documents|length }}</small>
+    </div>
 </div>
 
 <!-- Modal Añadir Avisos - Documentos -->
@@ -153,7 +145,7 @@
                     <span>¡Los datos han sido añadidos!</span>
                 </div>
             </div>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+            <button type="button" class="btn-close btn-close-white" aria-label="Close"></button>
         </div>
 
         <!-- Breadcrumb falso para simular estilo de la imagen -->

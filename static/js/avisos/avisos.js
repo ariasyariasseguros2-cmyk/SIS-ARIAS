@@ -7,21 +7,57 @@ document.addEventListener('DOMContentLoaded', () => {
   const alertSuccess = document.getElementById('alertSuccess');
   const form = document.getElementById('addAvisoForm');
   
+  const alertPageSuccess = document.getElementById('alertPageSuccess');
+  
   // Elementos para actualizar la tabla (simulado)
-  const tableBody = document.querySelector('.avisos-table-card tbody');
+  const tableBody = document.querySelector('.table-card tbody');
 
-  // Función para obtener la alerta de Bootstrap o inicializarla
+  // Función para obtener la alerta de Bootstrap o inicializarla (MODAL)
   const showAlert = () => {
     alertSuccess.classList.remove('d-none');
     // Scroll to top of modal to ensure alert is visible
     const modalBody = document.querySelector('.modal-body');
     if(modalBody) modalBody.scrollTop = 0;
-    
-    // Auto ocultar después de 3 segundos
-    setTimeout(() => {
-        alertSuccess.classList.add('d-none');
-    }, 3000);
   };
+
+  // Función para mostrar la alerta de página
+  const showPageAlert = () => {
+      if (alertPageSuccess) {
+          alertPageSuccess.classList.remove('d-none');
+          window.scrollTo(0, 0); // Scroll to top
+      }
+  };
+
+  // Manejar cierre manual de la alerta DEL MODAL
+  const btnCloseAlert = alertSuccess.querySelector('.btn-close');
+  if (btnCloseAlert) {
+      btnCloseAlert.addEventListener('click', () => {
+          alertSuccess.classList.add('d-none');
+      });
+  }
+
+  // Manejar cierre manual de la alerta DE LA PÁGINA
+  if (alertPageSuccess) {
+      const btnClosePageAlert = alertPageSuccess.querySelector('.btn-close');
+      if (btnClosePageAlert) {
+          btnClosePageAlert.addEventListener('click', () => {
+              alertPageSuccess.classList.add('d-none');
+          });
+      }
+  }
+
+  // Resetear modal al abrirse
+  const addAvisoModal = document.getElementById('addAvisoModal');
+  if (addAvisoModal) {
+      addAvisoModal.addEventListener('show.bs.modal', () => {
+          // Ocultar alerta del modal
+          alertSuccess.classList.add('d-none');
+          // Resetear formulario
+          if(form) form.reset();
+          // Ocultar alerta de página si estuviera visible (opcional, pero limpio)
+          if(alertPageSuccess) alertPageSuccess.classList.add('d-none');
+      });
+  }
 
   // Función simulada de guardado
   const saveDocument = (callback) => {
@@ -47,11 +83,11 @@ document.addEventListener('DOMContentLoaded', () => {
         <tr>
           <td class="text-break text-muted small">${file.name}</td>
           <td class="text-end">
-            <div class="d-flex gap-1 justify-content-end">
-              <a href="#" class="btn btn-danger btn-sm text-white" title="Descargar"><i class="bi bi-download"></i> Descargar</a>
-              <button class="btn btn-primary btn-sm" title="Detalles"><i class="bi bi-eye"></i> Detalles</button>
-              <button class="btn btn-success btn-sm" title="Editar"><i class="bi bi-pencil"></i> Editar</button>
-              <button class="btn btn-warning btn-sm text-white" title="Eliminar"><i class="bi bi-trash"></i> Eliminar</button>
+            <div class="action-buttons justify-content-end">
+              <a href="#" class="btn-action btn-danger" title="Descargar">Descargar</a>
+              <button class="btn-action btn-primary" title="Detalles">Detalles</button>
+              <button class="btn-action btn-success" title="Editar">Editar</button>
+              <button class="btn-action btn-warning" title="Eliminar">Eliminar</button>
             </div>
           </td>
         </tr>
@@ -82,8 +118,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = bootstrap.Modal.getInstance(modalEl);
         modal.hide();
         
-        // Mostrar alerta de éxito (opcional, aunque el usuario pidió cerrar y mostrar la tabla)
-        // showAlert(); 
+        // Mostrar alerta de éxito en la página
+        showPageAlert();
       });
     });
   }

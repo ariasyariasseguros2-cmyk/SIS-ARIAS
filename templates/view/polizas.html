@@ -154,7 +154,7 @@
                                         <li><a class="dropdown-item" href="#" data-action="siniestros"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
                                         <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi-briefcase"></i> Solicitudes</a></li>
                                         <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='detalles-poliza', id=r.idPoliza) }}"><i class="bi-info-circle"></i> Detalles</a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='detalles-poliza', id=r.idPoliza) }}" data-action="detalles"><i class="bi-info-circle"></i> Detalles</a></li>
                                         <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='editar-poliza') }}?id={{ r.idPoliza }}" data-action="editar"><i class="bi-pencil-square"></i> Editar</a></li>
                                         <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash"></i> Eliminar</a></li>
                                     </ul>
@@ -189,6 +189,21 @@
 
 <!-- Modal Renovar Póliza (Mantenido intacto) -->
 {% include 'view/renovar-poliza.html' %}
+
+<!-- Modal Detalles Póliza -->
+<div class="modal fade" id="detallesPolizaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content bg-transparent border-0 shadow-none">
+            <div class="modal-body p-0" id="detallesPolizaModalBody">
+                <div class="text-center py-5 bg-white rounded-3 shadow">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block before_js %}

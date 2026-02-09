@@ -457,3 +457,65 @@ body {
     background: linear-gradient(to right, #ec971f, #f0ad4e);
     box-shadow: 0 6px 12px rgba(240, 173, 78, 0.3);
 }
+
+/* Aseguramos que el botón X tenga el estilo correcto si no se carga desde el CSS externo o se sobreescribe */
+.btn-close-custom {
+    background: transparent;
+    border: 1px solid #e4e7eb;
+    color: #697386;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    text-decoration: none;
+    padding: 0; /* Reset bootstrap padding if any */
+}
+.btn-close-custom:hover {
+    background: #f0f2f5;
+    color: #1a1f36;
+}
+
+/* Botones Gradientes Redondeados con Efecto Lift */
+.btn-gradient-primary {
+    background: linear-gradient(to right, #399AD6, #1F59A3);
+    border: none;
+    color: white;
+    border-radius: 50px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.btn-gradient-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(31, 89, 163, 0.3);
+    color: white;
+}
+
+.btn-gradient-secondary {
+    background: linear-gradient(to right, #8e9eab, #eef2f3); /* Gradiente Gris Suave */
+    background: linear-gradient(to right, #6c757d, #495057); /* Gradiente Gris Oscuro (Bootstrap Secondary-ish) */
+    border: none;
+    color: white;
+    border-radius: 50px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.btn-gradient-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+    color: white;
+}
+
+.btn-gradient-success {
+    background: linear-gradient(to right, #4cd964, #28a745);
+    border: none;
+    color: white;
+    border-radius: 50px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.btn-gradient-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    color: white;
+    background: linear-gradient(to right, #28a745, #4cd964);
+}

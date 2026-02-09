@@ -22,7 +22,7 @@
     </div>
     <div>
         <a href="{{ url_for('main.menu_page', page='polizas') }}" class="text-secondary text-decoration-none small fw-bold">
-            <i class="bi bi-arrow-left"></i> Volver
+            <i class="bi bi-arrow-left"></i> Volver al listado de Polizas
         </a>
     </div>
 </div>
@@ -157,23 +157,14 @@
 
 <!-- Modal Detalles Primas -->
 <div class="modal fade" id="detallesPrimasModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold">
-                    <i class="bi bi-info-circle-fill me-2 text-dark"></i>Detalles Primas/Plan de Pagos
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="detallesPrimasModalBody">
-                <div class="text-center py-5">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content bg-transparent border-0 shadow-none">
+            <div class="modal-body p-0" id="detallesPrimasModalBody">
+                <div class="text-center py-5 bg-white rounded-3 shadow">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Cargando...</span>
                     </div>
                 </div>
-            </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>

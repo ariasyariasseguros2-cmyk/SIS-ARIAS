@@ -150,7 +150,7 @@
                           <li><a class="dropdown-item" href="#" data-action="siniestros"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
                           <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi-briefcase"></i> Solicitudes</a></li>
                           <li><hr class="dropdown-divider"></li>
-                          <li><a class="dropdown-item" href="/menu/detalles-poliza?id=${r.idPoliza}"><i class="bi-info-circle"></i> Detalles</a></li>
+                          <li><a class="dropdown-item" href="/menu/detalles-poliza?id=${r.idPoliza}" data-action="detalles"><i class="bi-info-circle"></i> Detalles</a></li>
                           <li><a class="dropdown-item" href="/menu/detalles-poliza?id=${r.idPoliza}&print=true" target="_blank"><i class="bi-printer"></i> Imprimir</a></li>
                           <li><a class="dropdown-item" href="/menu/editar-poliza?id=${r.idPoliza}" data-action="editar"><i class="bi-pencil-square"></i> Editar</a></li>
                           <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash"></i> Eliminar</a></li>
@@ -218,7 +218,7 @@
       const actionEl = e.target.closest('[data-action]');
       if (!actionEl) return;
       
-      if (actionEl.tagName === 'A' && actionEl.getAttribute('href') && actionEl.getAttribute('href') !== '#') {
+      if (actionEl.tagName === 'A' && actionEl.getAttribute('href') && actionEl.getAttribute('href') !== '#' && actionEl.dataset.action !== 'detalles') {
         return;
       }
 
@@ -268,6 +268,43 @@
 
         case 'siniestros':
           window.location.href = `/menu/siniestros-poliza?poliza=${encodeURIComponent(data.poliza)}`;
+          break;
+
+        case 'detalles':
+          const modalEl = document.getElementById('detallesPolizaModal');
+          const modalBody = document.getElementById('detallesPolizaModalBody');
+          // Use existing instance if any, or create new
+          let bsModal = bootstrap.Modal.getInstance(modalEl);
+          if (!bsModal) {
+            bsModal = new bootstrap.Modal(modalEl);
+          }
+          
+          // Show modal with loading state
+          modalBody.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+            </div>`;
+          bsModal.show();
+          
+          // Construct URL
+          let url = actionEl.getAttribute('href');
+          if (url.includes('?')) {
+              url += '&partial=true';
+          } else {
+              url += '?partial=true';
+          }
+          
+          fetch(url)
+            .then(res => res.text())
+            .then(html => {
+                modalBody.innerHTML = html;
+            })
+            .catch(err => {
+                console.error(err);
+                modalBody.innerHTML = '<div class="alert alert-danger m-3">Error al cargar detalles</div>';
+            });
           break;
           
         case 'editar':

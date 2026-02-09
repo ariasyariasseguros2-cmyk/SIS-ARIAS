@@ -1,143 +1,386 @@
-.btn-add.btn-lift {
-  border-radius: 999px;
-  background: linear-gradient(to right, #4cd964, #28a745);
-  border: none;
-  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.35);
-  padding-inline: 1.25rem;
-  font-size: 0.8rem;
+:root {
+    /* Brand Colors - Azul Tecnológico pero sobrio */
+    --primary: #0066cc;       
+    --primary-hover: #0052a3; 
+    --primary-light: #e6f0fa;
+    
+    /* Functional Colors - Tonos pastel saturados */
+    --success: #059669;
+    --success-bg: #ecfdf5;
+    --warning: #d97706;
+    --warning-bg: #fffbeb;
+    --danger: #dc2626;
+    --danger-bg: #fef2f2;
+    
+    /* Neutrals - Escala de grises fría */
+    --bg-app: #f8f9fa;        /* Fondo general muy claro */
+    --bg-panel: #ffffff;      /* Paneles blancos */
+    --border: #e9ecef;        /* Bordes sutiles */
+    --text-primary: #212529;  /* Texto principal casi negro */
+    --text-secondary: #6c757d;/* Texto secundario gris medio */
+    --text-tertiary: #adb5bd; /* Texto terciario gris claro */
+    
+    /* UI Variables */
+    --radius: 6px;            /* Bordes ligeramente redondeados */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-hover: 0 4px 12px rgba(0,0,0,0.08);
 }
 
-.btn-add.btn-lift:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 5px 14px rgba(40, 167, 69, 0.45);
+.filters-bar .btn { white-space: nowrap; }
+.table thead th { font-weight: 600; }
+.table tbody td { vertical-align: middle; }
+.card-header .bi { margin-right: 6px; }
+
+/* Custom Buttons with Lift Effect */
+.btn-lift {
+    border-radius: 50px; /* Rounded pill shape */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    border: none;
+    color: #fff !important;
+    padding: 0.375rem 1rem;
+    min-width: 120px;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.btn-add.btn-lift:active {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(40, 167, 69, 0.4);
+/* Gradients */
+.btn-lift.btn-primary {
+    background: linear-gradient(to right, #399AD6, #1F59A3);
 }
 
-.avisos-card {
-  border-radius: 0.75rem;
-  border: 1px solid #e5e7eb;
-  box-shadow: none;
+.btn-lift.btn-success {
+    background: linear-gradient(to right, #4cd964, #28a745);
 }
 
-.avisos-card-header {
-  border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 0.75rem;
+.btn-lift.btn-danger {
+    background: linear-gradient(to right, #ff6b6b, #c0392b);
 }
 
-.avisos-resumen-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  color: #64748b;
+.btn-lift.btn-dark {
+    background: linear-gradient(to right, #343a40, #212529);
 }
 
-.avisos-resumen-value {
-  font-size: 0.9rem;
-  color: #1e293b;
+.btn-lift.btn-warning {
+    background: linear-gradient(to right, #f0ad4e, #ec971f);
 }
 
-.avisos-table-card {
-  border-radius: 0.75rem;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+.btn-lift.btn-info {
+    background: linear-gradient(to right, #17a2b8, #117a8b);
+    color: #fff !important;
 }
 
-.avisos-table-card .table {
-  border-collapse: collapse;
+/* Table Specific Button Overrides */
+.table .btn-lift {
+    min-width: auto !important;
+    padding: 0.25rem 0.75rem !important;
+    font-size: 0.75rem !important;
+    height: auto;
 }
 
-.avisos-table-card thead {
-  position: relative;
+.btn-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
-.avisos-table-card thead::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 2px;
-  background: linear-gradient(to right, #399AD6, #1F59A3);
+/* Search bar styles */
+.search-round .input-group-text,
+.search-round .form-control {
+    border-color: #dee2e6;
 }
 
-.avisos-table-card thead th {
-  background-color: #fff;
-  border: none;
-  color: #495057;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.8rem;
-  padding-top: 1rem;
-  padding-bottom: 1rem;
-  white-space: nowrap;
+.search-round .input-group-text {
+    padding-left: 15px;
 }
 
-.avisos-table-card tbody tr {
-  border-bottom: 1px solid #eef2f7;
+.search-round .form-control:focus {
+    box-shadow: none;
+    border-color: #399AD6;
 }
 
-.avisos-table-card tbody td {
-  border: none;
-  padding-top: 1.1rem;
-  padding-bottom: 1.1rem;
-  font-size: 0.85rem;
-  color: #334155;
+/* Table Clean Styles - SAAS Look */
+.card {
+    border: none !important;
+    box-shadow: none !important;
+    background: #fff !important;
 }
 
-.avisos-table-card tbody .btn {
-  border-radius: 999px;
-  border: none;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+/* 5. Table Card - Airy Layout */
+.table-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
 }
 
-.avisos-table-card tbody .btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+.table-toolbar {
+    padding: 1rem;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
 }
 
-.avisos-table-card tbody .btn-danger {
-  background: linear-gradient(to right, #dc3545, #b02a37);
+.search-box .form-control {
+    background: var(--bg-app);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.85rem;
 }
 
-.avisos-table-card tbody .btn-primary {
-  background: linear-gradient(to right, #399AD6, #1F59A3);
+.search-box .form-control:focus {
+    background: white;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-light);
 }
 
-.avisos-table-card tbody .btn-success {
-  background: linear-gradient(to right, #4cd964, #28a745);
+/* Modern Table - Clean Rows */
+.modern-table {
+    width: 100%;
 }
 
-.avisos-table-card tbody .btn-warning {
-  background: linear-gradient(to right, #ffc107, #e0a800);
+.modern-table thead th {
+    background: var(--bg-app);
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: none; /* No uppercase */
+    font-size: 0.8rem;
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid var(--border);
 }
 
-.avisos-table-card .table-hover > tbody > tr:hover > * {
-  background-color: #f8fafc;
+.modern-table tbody td {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 0.9rem;
 }
 
-.avisos-table-card .toolbar .search-round .input-group-text {
-  border-top-left-radius: 999px;
-  border-bottom-left-radius: 999px;
+.modern-table tbody tr:hover {
+    background-color: var(--bg-app);
 }
 
-.avisos-table-card .toolbar .search-round .form-control {
-  border-top-right-radius: 999px;
-  border-bottom-right-radius: 999px;
+/* Cards with standard Bootstrap border (Header and Table) */
+.card.card-bordered {
+    border: 1px solid rgba(0, 0, 0, 0.125) !important;
+    box-shadow: none !important;
+    border-radius: 0.375rem !important;
 }
 
-.avisos-table-card .toolbar .search-round .form-control:focus {
-  box-shadow: none !important;
-  border-color: #dee2e6 !important;
+.header-card {
+    border: 1px solid #dee2e6 !important;
+    border-radius: 0.375rem !important;
 }
 
-.avisos-table-card .toolbar .page-size .form-select-sm,
-.avisos-table-card .toolbar .page-size .form-select {
-  border-radius: 999px;
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #e9ecef;
+    padding-left: 0;
 }
+
+.table-responsive {
+    border: none !important;
+}
+
+/* 1. Page Header - Minimalista */
+.page-header {
+    background: transparent;
+    padding: 1.5rem 0;
+    margin-bottom: 1rem;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.page-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.page-title i {
+    color: var(--primary);
+    background: transparent;
+    padding: 0;
+    font-size: 1.5rem;
+}
+
+/* Header Actions - Botones Outline */
+.header-actions .btn {
+    border-radius: var(--radius);
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    font-size: 0.85rem;
+    box-shadow: none;
+    transition: all 0.2s;
+}
+
+.btn-group .btn {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+}
+
+.btn-group .btn:hover {
+    background: var(--bg-app);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+.header-actions .btn-success {
+    background: var(--primary);
+    border: 1px solid var(--primary);
+    color: white;
+}
+
+.header-actions .btn-success:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+/* 4. Client Info Card - Limpio y Estructurado */
+.client-info-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: none;
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+}
+
+.client-info-card::before {
+    display: none; /* Quitamos la línea de color superior */
+}
+
+.client-info-header {
+    padding: 0 0 1rem 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: transparent;
+}
+
+.client-info-header i {
+    color: var(--text-secondary);
+}
+
+.client-info-body {
+    padding: 0;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.5rem;
+}
+
+.info-item label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    font-weight: 400;
+}
+
+.info-item div {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* Action Buttons - Solid Pill Style */
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.btn-action {
+    padding: 0.25rem 0.75rem;
+    border-radius: 50px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: none;
+    color: white;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 70px;
+}
+
+.btn-action.btn-danger {
+    background-color: #ef4444; /* Rojo vibrante */
+    color: white;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+}
+.btn-action.btn-danger:hover {
+    background-color: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
+}
+
+.btn-action.btn-success {
+    background-color: #22c55e; /* Verde vibrante */
+    color: white;
+    box-shadow: 0 2px 4px rgba(34, 197, 94, 0.2);
+}
+.btn-action.btn-success:hover {
+    background-color: #16a34a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(34, 197, 94, 0.3);
+}
+
+.btn-action.btn-primary {
+    background: linear-gradient(to right, #399AD6, #1F59A3);
+    color: white;
+    box-shadow: 0 2px 4px rgba(31, 89, 163, 0.2);
+}
+.btn-action.btn-primary:hover {
+    background: linear-gradient(to right, #1F59A3, #399AD6); /* Invertido para efecto hover */
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(31, 89, 163, 0.3);
+}
+
+.btn-action.btn-info {
+    background: linear-gradient(to right, #17a2b8, #117a8b);
+    color: white;
+    box-shadow: 0 2px 4px rgba(23, 162, 184, 0.2);
+}
+.btn-action.btn-info:hover {
+    background: linear-gradient(to right, #117a8b, #17a2b8);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(23, 162, 184, 0.3);
+}
+
+.btn-action.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
+}
+.btn-action.btn-secondary:hover {
+    background-color: #5a6268;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(108, 117, 125, 0.3);
+}
+
+/* --- AVISOS SPECIFIC STYLES PRESERVED --- */
 
 .avisos-modal .modal-content {
   border-radius: 28px;
@@ -247,35 +490,4 @@
 .avisos-modal .btn-light.btn-lift:active {
   transform: translateY(-1px);
   box-shadow: 0 3px 10px rgba(148, 163, 184, 0.4);
-}
-
-/* Overrides for Blue Theme elements */
-.btn-primary {
-  background: linear-gradient(to right, #399AD6, #1F59A3) !important;
-  border: none !important;
-  box-shadow: 0 2px 6px rgba(31, 89, 163, 0.35);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.btn-primary:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(31, 89, 163, 0.45);
-}
-
-.text-primary {
-  color: #1F59A3 !important;
-}
-
-.border-primary {
-  border-color: #399AD6 !important;
-}
-
-/* Specific fix for card header left border to use gradient logic (simulated with border-color for now to keep rounded corners safe, or use image) */
-.avisos-card-header.border-primary {
-    border-left-color: #399AD6 !important;
-}
-
-.avisos-file-input:focus {
-  box-shadow: 0 0 0 0.15rem rgba(57, 154, 214, 0.25);
-  border-color: #399AD6;
 }

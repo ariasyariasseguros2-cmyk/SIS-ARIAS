@@ -313,10 +313,14 @@ def menu_page(page):
             # Podríamos redirigir o mostrar error
             return redirect(url_for('main.menu_page', page='listado-poliza'))
 
+        # Check for partial request (e.g. for modal)
+        is_modal = request.args.get('partial') == 'true'
+
         return render_template(
-            'view/detalles-primas-poliza/detalles-poliza.html',
+            'view/Mostrar-detalles-poliza/detalles-poliza.html',
             page='detalles-poliza',
-            poliza=poliza
+            poliza=poliza,
+            is_modal=is_modal
         )
 
     # NUEVO: Detalles Primas
@@ -331,10 +335,14 @@ def menu_page(page):
         if not prima:
             return redirect(url_for('main.menu_page', page='primas'))
 
+        # Check for partial request (e.g. for modal)
+        is_modal = request.args.get('partial') == 'true'
+
         return render_template(
             'view/primas/Mostrar-detalles-primas.html',
             page='detalles-primas',
-            prima=prima
+            prima=prima,
+            is_modal=is_modal
         )
 
     # Cuotas → plantilla dedicada

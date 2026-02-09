@@ -1,4 +1,4 @@
-{% extends 'view/layout_dashboard.html' %}
+{% extends 'view/layout_clean.html' if is_modal else 'view/layout_dashboard.html' %}
 
 {% block html_title %}Detalles Primas | SIS-ARIAS{% endblock %}
 
@@ -19,15 +19,21 @@
             <div class="header-title-group">
                 <h1>
                     <i class="bi bi-file-earmark-text"></i>
-                    Detalle de Prima #{{ prima.id }}
+                    Detalles de Primas #{{ prima.id }}
                 </h1>
                 <div class="header-subtitle">
                     Visualización completa del registro y plan de pagos
                 </div>
             </div>
+            {% if is_modal %}
+            <button type="button" class="btn-close-custom" data-bs-dismiss="modal" aria-label="Close">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            {% else %}
             <a href="{{ url_for('main.menu_page', page='primas') }}" class="btn-close-custom" title="Cerrar y Volver">
                 <i class="bi bi-x-lg"></i>
             </a>
+            {% endif %}
         </div>
 
         <!-- 2. Cuerpo del Panel (Layout Grid) -->
