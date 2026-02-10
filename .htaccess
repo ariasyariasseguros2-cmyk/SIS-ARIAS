@@ -1,0 +1,108 @@
+
+
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/ariasyariaspe/public_html/qa.web.ariasyarias.pe"
+PassengerBaseURI "/"
+PassengerPython "/home/ariasyariaspe/virtualenv/public_html/qa.web.ariasyarias.pe/3.8/bin/python"
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+
+# Prevent directory listing
+Options -Indexes
+# ================================================
+# ACTIVAR REESCRITURA
+# ================================================
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # --------------------------------------------
+    # 1. Forzar HTTPS (solo si no está en HTTPS)
+    # --------------------------------------------
+    RewriteCond %{HTTPS} !=on
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # --------------------------------------------
+    # 2. Forzar SIN WWW (evita bucles)
+    # --------------------------------------------
+    RewriteCond %{HTTP_HOST} ^www\.ariasyarias\.pe$ [NC]
+    RewriteRule ^(.*)$ https://ariasyarias.pe/$1 [L,R=301]
+
+    # --------------------------------------------
+    # 3. Angular: redirigir todo a index.html
+    # --------------------------------------------
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ /index.html [L]
+</IfModule>
+
+# ================================================
+# PROTECCIÓN DE ARCHIVOS SENSIBLES
+# ================================================
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+
+<Files wp-config.php>
+  Require all denied
+</Files>
+
+<Files .htaccess>
+  Require all denied
+</Files>
+
+<FilesMatch "^(wp-config\.php|\.htaccess|.*\.log|error_log)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "\.(env|log|sql|json|sh|md|lock|bak|yml|config)$">
+    Require all denied
+</FilesMatch>
+
+# ================================================
+# TIMEOUTS
+# ================================================
+<IfModule reqtimeout_module>
+    RequestReadTimeout header=10-20,MinRate=500 body=20,MinRate=500
+</IfModule>
+
+# ================================================
+# CABECERAS DE SEGURIDAD
+# ================================================
+<IfModule mod_headers.c>
+  Header always set Content-Security-Policy "frame-ancestors 'self'"
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+  Header always set X-XSS-Protection "1; mode=block"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "no-referrer-when-downgrade"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
+
+# ================================================
+# CACHÉ
+# ================================================
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault "access plus 1 month"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+
+# ================================================
+# COMPRESIÓN
+# ================================================
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE application/javascript application/json application/xml text/html text/plain text/css
+</IfModule>
+
+# ================================================
+# PHP HANDLER cPanel
+# ================================================
+<IfModule mime_module>
+  AddHandler application/x-httpd-ea-php74 .php .php7 .phtml
+</IfModule>
+
+# php -- BEGIN cPanel-generated handler, do not edit
+# Set the “ea-php74” package as the default “PHP” programming language.
+<IfModule mime_module>
+  AddHandler application/x-httpd-ea-php74 .php .php7 .phtml
+</IfModule>
+# php -- END cPanel-generated handler, do not edit
