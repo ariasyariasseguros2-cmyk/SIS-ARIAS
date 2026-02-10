@@ -120,7 +120,7 @@ def update_poliza(data):
             val('recibo', 'recibo'), # Nuevo campo recibo (usado como primera cuota)
             val('tipo_vigencia'), # Nuevo
             val('endosatario'),   # Nuevo
-            None, # p_pdf_path, no soportado en este form por ahora
+            val('pdf_url'),       # p_pdf_path
             session.get('user') # p_usuario_edicion
         )
         

@@ -122,7 +122,11 @@
                         <label for="tipoPago" class="form-label">Tipo de Pago</label>
                         <select class="form-select" id="tipoPago">
                             <option value="CONTADO" {% if prima and prima.forma_pago == 'CONTADO' %}selected{% endif %}>CONTADO</option>
-                            <option value="CREDITO" {% if prima and prima.forma_pago == 'CREDITO' %}selected{% endif %}>CREDITO</option>
+                            <option value="CREDITO" {% if prima and prima.forma_pago == 'CREDITO' %}selected{% endif %}>PAGO EFECTIVO</option>
+                            <option value="OTRO" {% if prima and prima.forma_pago == 'OTRO' %}selected{% endif %}>SIN PRIMA</option>
+                            <option value="PAGO EFECTIVO" {% if prima and prima.forma_pago == 'PAGO EFECTIVO' %}selected{% endif %}>CARGO EN CUENTA</option>
+                            <option value="OTRO" {% if prima and prima.forma_pago == 'OTRO' %}selected{% endif %}>SFETY PAY</option>
+                            <option value="CARGO EN CUENTA" {% if prima and prima.forma_pago == 'CARGO EN CUENTA' %}selected{% endif %}>SIN PRIMA</option>
                         </select>
                     </div>
                     <div class="col-md-3">

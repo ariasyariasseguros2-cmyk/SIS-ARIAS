@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
   }
 
-  // Función simulada de guardado
+  // Función real de guardado
   const saveDocument = (callback) => {
     if (!fileInput.files.length) {
       alert('Por favor selecciona un archivo.');
@@ -67,37 +67,91 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
     
-    // Aquí iría la lógica AJAX real para subir el archivo
-    // Simulamos éxito
-    console.log('Guardando archivo:', file.name);
+    // Mostrar estado de carga
+    if(btnSaveAndAdd) btnSaveAndAdd.disabled = true;
+    if(btnSave) btnSave.disabled = true;
 
-    // Actualizar tabla si estaba vacía
-    const emptyRow = tableBody.querySelector('tr td[colspan="2"]');
-    if (emptyRow) {
-        emptyRow.parentElement.remove();
-    }
+    fetch('/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        const filename = data.filename;
+        const pdfUrl = `polizas/${filename}`;
+        
+        // Ahora actualizamos la póliza/aviso con el pdf_url
+        // Usamos /primas/update que reutiliza la lógica de pólizas
+        return fetch('/primas/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                idPrima: window.avisoId,
+                pdf_url: pdfUrl
+            })
+        }).then(res => res.json().then(r => ({ ...r, filename })));
+    })
+    .then(result => {
+        if (!result.ok) {
+            throw new Error(result.error || 'Error al actualizar el registro');
+        }
+        
+        console.log('Archivo guardado y registro actualizado:', result.filename);
 
-    // Añadir fila a la tabla (simulación visual)
-    const newRow = `
-        <tr>
-          <td class="text-break text-muted small">${file.name}</td>
-          <td class="text-end">
-            <div class="action-buttons justify-content-end">
-              <a href="#" class="btn-action btn-danger" title="Descargar">Descargar</a>
-              <button class="btn-action btn-primary" title="Detalles">Detalles</button>
-              <button class="btn-action btn-success" title="Editar">Editar</button>
-              <button class="btn-action btn-warning" title="Eliminar">Eliminar</button>
-            </div>
-          </td>
-        </tr>
-    `;
-    tableBody.insertAdjacentHTML('beforeend', newRow);
+        // Actualizar tabla si estaba vacía
+        const emptyRow = tableBody.querySelector('tr td[colspan="2"]');
+        if (emptyRow) {
+            emptyRow.parentElement.remove();
+        }
 
-    // Limpiar formulario
-    form.reset();
-    
-    if (callback) callback();
+        // URL de descarga
+        const downloadUrl = `/uploads/polizas/${result.filename}`;
+
+        // Añadir fila a la tabla
+        const newRow = `
+            <tr>
+              <td class="text-break text-muted small">${file.name}</td>
+              <td class="text-end">
+                <div class="action-buttons justify-content-end">
+                  <a href="#" class="btn-action btn-danger btn-preview" data-url="${downloadUrl}" title="Descargar">Descargar</a>
+                  <button class="btn-action btn-primary btn-detalles" data-id="${window.avisoId || ''}" title="Detalles">Detalles</button>
+                  <button class="btn-action btn-success btn-editar" data-id="${window.avisoId || ''}" title="Editar">Editar</button>
+                  <button class="btn-action btn-warning btn-delete-document" data-id="${window.avisoId || ''}" title="Eliminar">Eliminar</button>
+                </div>
+              </td>
+            </tr>
+        `;
+        tableBody.insertAdjacentHTML('beforeend', newRow);
+
+        // Actualizar contador
+        const totalCountEl = document.getElementById('totalRecordsCount');
+        if (totalCountEl) {
+             const rowCount = tableBody.querySelectorAll('tr').length;
+             totalCountEl.innerText = `Total de registros: ${rowCount}`;
+        }
+
+        // Limpiar formulario
+        form.reset();
+        
+        if (callback) callback();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al guardar: ' + error.message);
+    })
+    .finally(() => {
+        if(btnSaveAndAdd) btnSaveAndAdd.disabled = false;
+        if(btnSave) btnSave.disabled = false;
+    });
   };
 
   if (btnSaveAndAdd) {
@@ -123,4 +177,25 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
+
+  // Event Delegation para Previsualizar Documento
+  document.addEventListener('click', (e) => {
+      const btnPreview = e.target.closest('.btn-preview');
+      if (btnPreview) {
+          e.preventDefault();
+          const url = btnPreview.getAttribute('data-url') || btnPreview.getAttribute('href');
+          if (url && url !== '#') {
+              const modalEl = document.getElementById('viewDocumentModal');
+              const iframe = document.getElementById('documentPreviewFrame');
+              if (modalEl && iframe) {
+                  iframe.src = url;
+                  if (typeof bootstrap !== 'undefined') {
+                      let modal = bootstrap.Modal.getInstance(modalEl);
+                      if (!modal) modal = new bootstrap.Modal(modalEl);
+                      modal.show();
+                  }
+              }
+          }
+      }
+  });
 });

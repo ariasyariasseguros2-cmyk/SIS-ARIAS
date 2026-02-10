@@ -1,0 +1,61 @@
+
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <a href="#" class="text-decoration-none text-secondary" data-bs-dismiss="modal">
+            <i class="bi bi-chevron-left"></i> Volver al listado Avisos - Documentos
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-white border-bottom-0 py-3">
+            <h5 class="mb-0 fw-bold">
+                <i class="bi bi-pencil-square me-2"></i>Editar Avisos - Documentos
+            </h5>
+        </div>
+        <div class="card-body">
+            <form id="editAvisosForm">
+                <input type="hidden" name="id" value="{{ prima.idPrima }}">
+                
+                <div class="row mb-4 align-items-center">
+                    <label class="col-md-3 col-form-label text-end fw-bold">Avisos Id <span class="text-danger">*</span></label>
+                    <div class="col-md-9">
+                        <input type="text" class="form-control" value="{{ prima.idPrima }}" readonly>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <label class="col-md-3 col-form-label text-end fw-bold">Documento <span class="text-danger">*</span></label>
+                    <div class="col-md-9">
+                        {% if documents %}
+                            {% for doc in documents %}
+                            <div class="mb-2 d-flex align-items-center gap-2">
+                                <a href="{{ doc.url }}" target="_blank" class="text-decoration-none">
+                                    Descargar Fichero
+                                </a>
+                                <button type="button" class="btn btn-danger btn-sm btn-delete-document" data-id="{{ prima.idPrima }}">
+                                    <i class="bi bi-slash-circle me-1"></i> Delete
+                                </button>
+                            </div>
+                            {% endfor %}
+                            <div class="form-text mt-2 text-muted fst-italic">
+                                * Si quieres subir otro fichero, antes elimina el fichero origen.
+                            </div>
+                        {% else %}
+                            <input class="form-control" type="file" name="documento">
+                            <div class="form-text">Seleccionar archivo</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-center gap-2 mt-4">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">
+                        <i class="bi bi-chevron-left"></i> Volver
+                    </button>
+                    <button type="button" class="btn btn-success text-white" id="btnGuardarAviso">
+                        Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

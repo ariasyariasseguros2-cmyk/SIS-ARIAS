@@ -476,12 +476,68 @@ def menu_page(page):
         if pdf_url:
              documents.append({
                  'name': pdf_url, 
-                 'url': pdf_url
+                 'url': url_for('main.serve_upload', filename=pdf_url)
              })
 
         return render_template(
             'view/avisos/avisos.html',
             page='avisos',
+            prima=prima,
+            documents=documents
+        )
+
+    # NUEVO: Detalles Avisos
+    if page == 'detalles-avisos':
+        from controllers.editar_poliza import get_poliza_data
+        
+        prima_id = request.args.get('id')
+        if not prima_id:
+             return redirect(url_for('main.menu_page', page='avisos'))
+        
+        prima = get_poliza_data(prima_id)
+        if not prima:
+             return redirect(url_for('main.menu_page', page='avisos'))
+
+        # Prepare documents list
+        documents = []
+        pdf_url = prima.get('pdf_url')
+        if pdf_url:
+             documents.append({
+                 'name': pdf_url, 
+                 'url': pdf_url
+             })
+
+        return render_template(
+            'view/avisos/detalles-avisos.html',
+            page='detalles-avisos',
+            prima=prima,
+            documents=documents
+        )
+
+    # NUEVO: Editar Avisos Form
+    if page == 'avisos-editar-form':
+        from controllers.editar_poliza import get_poliza_data
+        
+        prima_id = request.args.get('id')
+        if not prima_id:
+             return redirect(url_for('main.menu_page', page='avisos'))
+        
+        prima = get_poliza_data(prima_id)
+        if not prima:
+             return redirect(url_for('main.menu_page', page='avisos'))
+
+        # Prepare documents list
+        documents = []
+        pdf_url = prima.get('pdf_url')
+        if pdf_url:
+             documents.append({
+                 'name': pdf_url, 
+                 'url': pdf_url
+             })
+
+        return render_template(
+            'view/avisos/editar-avisos.html',
+            page='avisos-editar-form',
             prima=prima,
             documents=documents
         )

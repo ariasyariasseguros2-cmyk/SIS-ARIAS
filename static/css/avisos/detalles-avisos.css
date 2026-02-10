@@ -1,0 +1,81 @@
+
+/* Estilos específicos para Detalles Avisos */
+.detalles-avisos-card {
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+
+.details-modal-content {
+    position: relative;
+    overflow: hidden;
+}
+
+.details-modal-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 6px;
+    background: linear-gradient(to right, #399AD6, #1F59A3);
+    z-index: 10;
+}
+
+.icon-shape {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Background and Color now handled by Bootstrap classes in HTML */
+}
+
+.letter-spacing-1 {
+    letter-spacing: 1px;
+}
+
+/* Section Title styling now handled by d-flex and border-bottom in HTML */
+.section-title {
+    position: relative;
+    padding-left: 0;
+}
+
+.status-badge {
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+/* Adjust modal body padding if needed */
+.modal-body.p-4 {
+    padding: 1.5rem !important; /* Default 4 is 1.5rem in Bootstrap 5 */
+}
+
+/* Ensure links look like the image (blue, no underline usually unless hovered) */
+.btn-preview {
+    color: #0d6efd;
+    transition: all 0.2s ease;
+}
+.btn-preview:hover {
+    text-decoration: underline !important;
+}
+
+/* Custom Close Button Style */
+.btn-close-custom {
+    background: transparent;
+    border: 1px solid #e4e7eb;
+    color: #697386;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    text-decoration: none;
+    padding: 0;
+}
+.btn-close-custom:hover {
+    background: #f0f2f5;
+    color: #1a1f36;
+    transform: rotate(90deg);
+}
