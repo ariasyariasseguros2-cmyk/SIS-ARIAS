@@ -882,10 +882,39 @@ def ajustadores_list():
     """Devuelve la lista de ajustadores en formato JSON"""
     from controllers.ajustadores.ajustadores import get_ajustadores
     try:
+#soporte para paginacion
+        try:
+            page = int(request.args.get('page') or 1)
+        except Exception:
+            page = 1
+        per_page_arg = request.args.get('per_page')
+        per_page = None
+        if per_page_arg and str(per_page_arg).lower() != 'all':
+            try:
+                per_page = int(per_page_arg)
+            except Exception:
+                per_page = 20
+
         rows = get_ajustadores() or []
-        return {'ok': True, 'rows': rows}, 200
+        total = len(rows)
+
+        # Default per_page if not provided
+        if per_page is None:
+            per_page = 20
+
+        # If explicit 'all' requested, return full set
+        if per_page_arg and str(per_page_arg).lower() == 'all':
+            return jsonify({'ok': True, 'rows': rows, 'total': total, 'page': 1, 'per_page': 'all', 'pages': 1}), 200
+
+        pages = max(1, (total + per_page - 1) // per_page) if per_page > 0 else 1
+        page = max(1, min(page, pages)) if pages > 0 else 1
+        start = (page - 1) * per_page
+        end = start + per_page
+        sliced = rows[start:end]
+
+        return jsonify({'ok': True, 'rows': sliced, 'total': total, 'page': page, 'per_page': per_page, 'pages': pages}), 200
     except Exception as e:
-        return {'ok': False, 'error': str(e)}, 500
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 
 @bp.route('/ajustadores/add', methods=['POST'])
