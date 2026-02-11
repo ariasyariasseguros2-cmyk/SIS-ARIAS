@@ -1,0 +1,58 @@
+{% extends 'view/layout_dashboard.html' %}
+{% block page_title %}Maestros - Productos{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Productos</h4>
+        <div class="d-flex align-items-center gap-2">
+            <label for="per-page-select" class="mb-0">Mostrar</label>
+            <select id="per-page-select" class="form-select form-select-sm" style="width: auto;">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="all">Todos</option>
+            </select>
+            <button id="btn-add" class="btn btn-primary">Agregar Producto</button>
+        </div>
+    </div>
+
+    <table class="table table-striped" id="table-productos">
+        <thead>
+            <tr><th>ID</th><th>Ramo</th><th>Producto</th><th>Acciones</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div class="d-flex justify-content-between align-items-center">
+        <div id="maestros-info" class="text-muted"></div>
+        <nav id="pagination" aria-label="Paginación"></nav>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="modalAdd" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Agregar Producto</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <div class="modal-body">
+        <div class="mb-3"><label for="select-ramo" class="form-label">Ramo</label>
+            <select id="select-ramo" class="form-select" aria-label="Seleccionar ramo"></select>
+        </div>
+        <div class="mb-3"><label for="input-nombre" class="form-label">Nombre</label><input id="input-nombre" class="form-control" aria-label="Nombre del producto"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="save-btn" class="btn btn-primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js_bottom %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/maestros/productos.js') }}"></script>
+{% endblock %}
