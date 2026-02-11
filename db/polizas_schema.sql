@@ -72,6 +72,17 @@ END $$
 
 DELIMITER ;
 
+DELIMITER $$
+
+CREATE PROCEDURE sp_eliminar_ajustador(
+    IN p_id INT
+)
+BEGIN
+DELETE FROM ajustadores
+WHERE id = p_id;
+END $$
+
+DELIMITER ;
 
 -- Table Ramos
 CREATE TABLE ramos (
@@ -1893,4 +1904,284 @@ BEGIN
     SELECT ROW_COUNT() AS affected_rows;
 END$$
 DELIMITER ;
+
+
+
+CREATE TABLE IF NOT EXISTS usos (
+    id INT NOT NULL AUTO_INCREMENT,
+    nombre VARCHAR(120) NOT NULL,
+    estado ENUM('Activado','Inactivo') NOT NULL DEFAULT 'Activado',
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_usos_nombre (nombre),
+    KEY idx_usos_estado (estado),
+    KEY idx_usos_nombre (nombre)
+) ENGINE=InnoDB   DEFAULT CHARSET=utf8mb4   COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS clases (
+    id INT NOT NULL AUTO_INCREMENT,
+    nombre VARCHAR(150) NOT NULL,
+    costo_soat DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    estado ENUM('Activado','Inactivo') NOT NULL DEFAULT 'Activado',
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_clases_nombre (nombre),
+    KEY idx_clases_estado (estado),
+    KEY idx_clases_nombre (nombre)
+) ENGINE=InnoDB   DEFAULT CHARSET=utf8mb4   COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS marcas (
+    id INT NOT NULL AUTO_INCREMENT,
+    nombre VARCHAR(120) NOT NULL,
+    estado ENUM('Activado','Inactivo') NOT NULL DEFAULT 'Activado',
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_marcas_nombre (nombre),
+    KEY idx_marcas_estado (estado),
+    KEY idx_marcas_nombre (nombre)
+) ENGINE=InnoDB   DEFAULT CHARSET=utf8mb4   COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS modelos (
+    id INT NOT NULL AUTO_INCREMENT,
+    marca_id INT NOT NULL,
+    nombre VARCHAR(150) NOT NULL,
+    estado ENUM('Activado','Inactivo') NOT NULL DEFAULT 'Activado',
+    PRIMARY KEY (id),
+    KEY idx_modelos_marca_id (marca_id),
+    KEY idx_modelos_estado (estado),
+    KEY idx_modelos_nombre (nombre),
+    KEY idx_modelos_marca_estado (marca_id, estado),
+    UNIQUE KEY uq_modelo_por_marca (marca_id, nombre),
+    CONSTRAINT fk_modelos_marcas
+        FOREIGN KEY (marca_id) REFERENCES marcas(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB   DEFAULT CHARSET=utf8mb4   COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE OR REPLACE VIEW vw_modelos_marcas AS SELECT
+    mo.id AS modelo_id,
+    mo.nombre AS modelo_nombre,
+    mo.estado AS modelo_estado,
+    ma.id AS marca_id,
+    ma.nombre AS marca_nombre,
+    ma.estado AS marca_estado
+FROM modelos mo
+JOIN marcas ma ON ma.id = mo.marca_id;
+
+
+
+DROP PROCEDURE IF EXISTS sp_listar_usos;
+DELIMITER $$
+CREATE PROCEDURE sp_listar_usos()
+BEGIN
+    SELECT id, nombre, estado
+    FROM usos
+    ORDER BY nombre ASC;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_insertar_uso;
+DELIMITER $$
+CREATE PROCEDURE sp_insertar_uso(
+    IN p_nombre VARCHAR(120),
+    OUT p_new_id INT )
+BEGIN
+    IF TRIM(p_nombre) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre de uso no puede estar vacío';
+    END IF;
+
+    INSERT INTO usos (nombre)
+    VALUES (TRIM(p_nombre))
+    ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
+
+    SET p_new_id = LAST_INSERT_ID();
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_delete_uso;
+DELIMITER $$
+CREATE PROCEDURE sp_delete_uso(
+    IN p_id INT,
+    OUT p_deleted INT )
+BEGIN
+    DELETE FROM usos WHERE id = p_id;
+    SET p_deleted = ROW_COUNT();
+END$$
+DELIMITER ;
+
+-- =========================================================
+-- PROCEDIMIENTOS: CLASES
+-- =========================================================
+
+DROP PROCEDURE IF EXISTS sp_listar_clases;
+DELIMITER $$
+CREATE PROCEDURE sp_listar_clases()
+BEGIN
+    SELECT id, nombre, costo_soat, estado
+    FROM clases
+    ORDER BY nombre ASC;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_insertar_clase;
+DELIMITER $$
+CREATE PROCEDURE sp_insertar_clase(
+    IN p_nombre VARCHAR(150),
+    IN p_costo_soat DECIMAL(10,2),
+    OUT p_new_id INT )
+BEGIN
+    IF TRIM(p_nombre) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre de clase no puede estar vacío';
+    END IF;
+
+    INSERT INTO clases (nombre, costo_soat)
+    VALUES (TRIM(p_nombre), IFNULL(p_costo_soat, 0.00))
+    ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
+
+    SET p_new_id = LAST_INSERT_ID();
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_delete_clase;
+DELIMITER $$
+CREATE PROCEDURE sp_delete_clase(
+    IN p_id INT,
+    OUT p_deleted INT )
+BEGIN
+    DELETE FROM clases WHERE id = p_id;
+    SET p_deleted = ROW_COUNT();
+END$$
+DELIMITER ;
+
+-- =========================================================
+-- PROCEDIMIENTOS: MARCAS
+-- =========================================================
+
+DROP PROCEDURE IF EXISTS sp_listar_marcas;
+DELIMITER $$
+CREATE PROCEDURE sp_listar_marcas()
+BEGIN
+    SELECT id, nombre, estado
+    FROM marcas
+    ORDER BY nombre ASC;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_insertar_marca;
+DELIMITER $$
+CREATE PROCEDURE sp_insertar_marca(
+    IN p_nombre VARCHAR(120),
+    OUT p_new_id INT )
+BEGIN
+    IF TRIM(p_nombre) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre de marca no puede estar vacío';
+    END IF;
+
+    INSERT INTO marcas (nombre)
+    VALUES (TRIM(p_nombre))
+    ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
+
+    SET p_new_id = LAST_INSERT_ID();
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_delete_marca;
+DELIMITER $$
+CREATE PROCEDURE sp_delete_marca(
+    IN p_id INT,
+    OUT p_deleted INT )
+BEGIN
+    IF EXISTS (SELECT 1 FROM modelos WHERE marca_id = p_id) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'No se puede eliminar la marca: existen modelos asociados';
+    END IF;
+
+    DELETE FROM marcas WHERE id = p_id;
+    SET p_deleted = ROW_COUNT();
+END$$
+DELIMITER ;
+
+-- =========================================================
+-- PROCEDIMIENTOS: MODELOS
+-- =========================================================
+
+DROP PROCEDURE IF EXISTS sp_listar_modelos;
+DELIMITER $$
+CREATE PROCEDURE sp_listar_modelos()
+BEGIN
+    SELECT
+        mo.id AS modelo_id,
+        ma.id AS marca_id,
+        ma.nombre AS marca,
+        mo.nombre AS modelo,
+        mo.estado
+    FROM modelos mo
+    JOIN marcas ma ON ma.id = mo.marca_id
+    ORDER BY ma.nombre, mo.nombre;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_insertar_modelo;
+DELIMITER $$
+CREATE PROCEDURE sp_insertar_modelo(
+    IN p_marca_id INT,
+    IN p_nombre VARCHAR(150),
+    OUT p_new_id INT )
+BEGIN
+    IF TRIM(p_nombre) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre de modelo no puede estar vacío';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM marcas WHERE id = p_marca_id) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La marca indicada no existe';
+    END IF;
+
+    INSERT INTO modelos (marca_id, nombre)
+    VALUES (p_marca_id, TRIM(p_nombre))
+    ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
+
+    SET p_new_id = LAST_INSERT_ID();
+END$$
+DELIMITER ;
+
+-- Inserta modelo resolviendo marca por nombre (sin tabla temporal)
+DROP PROCEDURE IF EXISTS sp_insertar_modelo_por_nombres;
+DELIMITER $$
+CREATE PROCEDURE sp_insertar_modelo_por_nombres(
+    IN  p_marca_nombre  VARCHAR(120),
+    IN  p_modelo_nombre VARCHAR(150),
+    OUT p_marca_id      INT,
+    OUT p_modelo_id     INT )
+BEGIN
+    IF TRIM(p_marca_nombre) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre de marca no puede estar vacío';
+    END IF;
+
+    IF TRIM(p_modelo_nombre) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre de modelo no puede estar vacío';
+    END IF;
+
+    INSERT INTO marcas (nombre)
+    VALUES (TRIM(p_marca_nombre))
+    ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
+
+    SET p_marca_id = LAST_INSERT_ID();
+
+    INSERT INTO modelos (marca_id, nombre)
+    VALUES (p_marca_id, TRIM(p_modelo_nombre))
+    ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
+
+    SET p_modelo_id = LAST_INSERT_ID();
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_delete_modelo;
+DELIMITER $$
+CREATE PROCEDURE sp_delete_modelo(
+    IN p_id INT,
+    OUT p_deleted INT )
+BEGIN
+    DELETE FROM modelos WHERE id = p_id;
+    SET p_deleted = ROW_COUNT();
+END$$
+DELIMITER ;
+
 
