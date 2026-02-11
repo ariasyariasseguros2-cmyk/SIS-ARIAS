@@ -14,7 +14,6 @@
   const nroOperacionTopEl = document.getElementById('nroOperacionTop'); // NUEVO: Nro Operación global
   const endosatarioTopEl = document.getElementById('endosatarioTop'); // NUEVO
   const tipoVigenciaTopEl = document.getElementById('tipoVigenciaTop'); // NUEVO
-  // const ramoProductoTopEl = document.getElementById('ramosProductoTop'); // ELIMINADO
   const aseguradaTopEl = document.getElementById('aseguradaTop'); // Campo superior de asegurada (texto)
   const motivoTopEl = document.getElementById('motivoTop'); // Campo superior de motivo (texto)
   // Campos de comisiones (superior)
@@ -32,6 +31,7 @@
   const AUTO_SAVE_ENABLED = false;
   let isSaving = false;
   let lastUploadedFilename = null;
+  let productsCache = null;
 
   // Ventana modal de carga (Bootstrap) y alternativa con SweetAlert2
   const loadingModalEl = document.getElementById('loadingModal');
@@ -416,6 +416,21 @@
     const idx = Number(td?.dataset?.index);
     if (!Number.isFinite(idx)) return;
     extractedItems[idx].ramo = sel.value || '';
+    // Al cambiar ramo, poblar select de productos relacionados (si los hay)
+    populateProductsForRamo(idx, sel.value || '').then(()=>{}).catch(()=>{});
+    scheduleAutoSave();
+  });
+
+  // Delegación: cambio de producto seleccionado
+  tbody.addEventListener('change', (e) => {
+    const prodSel = e.target.closest('.producto-select');
+    if (!prodSel) return;
+    const idx = Number(prodSel.dataset.index);
+    if (!Number.isFinite(idx)) return;
+    const val = prodSel.value || '';
+    // Si el option value es un id numeric y se quiere mostrar nombre, preferimos mostrar texto
+    const text = prodSel.options[prodSel.selectedIndex]?.text || val;
+    extractedItems[idx].ramos_producto = text;
     scheduleAutoSave();
   });
 
@@ -1058,4 +1073,105 @@
       }
     }, 800);
   }
+
+  async function loadAllProducts() {
+     if (productsCache) return productsCache;
+     try {
+       const res = await fetch('/api/maestros/productos?per_page=all');
+       const json = await res.json();
+       productsCache = (json && json.rows) ? json.rows : (Array.isArray(json) ? json : []);
+       return productsCache;
+     } catch (e) {
+       console.error('loadAllProducts error', e);
+       productsCache = [];
+       return productsCache;
+     }
+  }
+
+  function getProductsForRamoSync(products, ramo) {
+     if (!ramo) return [];
+     const needle = (ramo || '').toString().trim().toLowerCase();
+     return (products || []).filter(p => {
+       const rn = (p.ramo_nombre || p.ramo || '').toString().trim().toLowerCase();
+       const pn = (p.nombre || '').toString().trim().toLowerCase();
+       return rn === needle || rn.includes(needle) || pn.includes(needle);
+     });
+   }
+
+   async function populateProductsForRamo(index, ramo) {
+     const td = getTd(index, 'ramos_producto');
+     if (!td) return;
+
+     // Preserve current value
+     const currentVal = (extractedItems[index] && extractedItems[index].ramos_producto) ? extractedItems[index].ramos_producto : '';
+
+     // If no ramo selected, restore editable cell
+     if (!ramo || ramo.toString().trim() === '') {
+       td.classList.add('editable');
+       td.setAttribute('contenteditable', 'true');
+       td.innerText = currentVal || '';
+       return;
+     }
+
+     try {
+       const products = await loadAllProducts();
+       const matches = getProductsForRamoSync(products, ramo);
+       if (!matches || matches.length === 0) {
+         // No hay productos: dejar editable
+         td.classList.add('editable');
+         td.setAttribute('contenteditable', 'true');
+         td.innerText = currentVal || '';
+         return;
+       }
+
+       // Construir select de productos
+       const sel = document.createElement('select');
+       sel.className = 'form-select form-select-sm producto-select';
+       sel.dataset.index = index;
+
+       const emptyOpt = document.createElement('option');
+       emptyOpt.value = '';
+       emptyOpt.textContent = 'Selecciona producto...';
+       sel.appendChild(emptyOpt);
+
+       matches.forEach(p => {
+         const opt = document.createElement('option');
+         opt.value = p.nombre || p.id || '';
+         opt.textContent = p.nombre || p.id || '';
+         // Si el valor actual coincide, marcarlo
+         if ((currentVal || '').toString().trim() !== '' && (p.nombre || '').toString().trim() === (currentVal || '').toString().trim()) {
+           opt.selected = true;
+         }
+         sel.appendChild(opt);
+       });
+
+       // Reemplazar el contenido de la celda
+       td.classList.remove('editable');
+       td.removeAttribute('contenteditable');
+       td.innerHTML = '';
+       td.appendChild(sel);
+     } catch (e) {
+       console.error('populateProductsForRamo error', e);
+       td.classList.add('editable');
+       td.setAttribute('contenteditable', 'true');
+       td.innerText = currentVal || '';
+     }
+   }
+
+  // Inicializar selects de productos inmediatamente después de renderizar
+  const _orig_render = render;
+  // No sobrescribimos render; simplemente después de cada render llamamos a poblar selects
+  (function(){
+    const originalRender = render;
+    render = function(items) {
+      originalRender(items);
+      try {
+        (items || []).forEach((it, idx) => {
+          // Si hay ramo en la fila, intentar poblar productos
+          const r = (it.ramo || '').toString().trim();
+          if (r) populateProductsForRamo(idx, r).then(()=>{}).catch(()=>{});
+        });
+      } catch (e) { console.error('post-render populate products error', e); }
+    };
+  })();
 })();
