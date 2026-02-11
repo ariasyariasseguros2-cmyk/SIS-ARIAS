@@ -367,6 +367,13 @@ def menu_page(page):
         rows = get_ajustadores() or []
         return render_template('view/ajustadores/ajustadores.html', page='maestros-ajustadores', title='Ajustadores', rows=rows)
 
+    # Soporte para Productos (slug correcto y con typo del menú)
+    if page in ('maestros-productos', 'maestros-prodcutos'):
+        # Cargamos filas si queremos pasar rows a la plantilla; la plantilla usa JS para consumo API
+        from controllers.maestros.productos import get_productos
+        rows = get_productos() or []
+        return render_template('view/maestros/productos.html', page='maestros-productos', rows=rows)
+
     # NUEVO: Editar Póliza
     if page == 'editar-poliza':
         from controllers.editar_poliza import get_poliza_data
@@ -1835,6 +1842,17 @@ def menu_maestros_modelos():
         return redirect(url_for('login'))
     return render_template('view/maestros/modelos.html', page='maestros-modelos')
 
+@bp.route('/menu/maestros-ramos', methods=['GET'])
+def menu_maestros_ramos():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('view/maestros/ramos.html', page='maestros-ramos')
+
+@bp.route('/menu/maestros-productos', methods=['GET'])
+def menu_maestros_productos():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('view/maestros/productos.html', page='maestros-productos')
 
 @bp.route('/api/maestros/<entidad>', methods=['GET', 'POST'])
 def api_maestros_list_create(entidad):
@@ -1874,6 +1892,12 @@ def api_maestros_list_create(entidad):
             elif entidad == 'modelos':
                 from controllers.maestros.modelos import get_modelos
                 rows = get_modelos() or []
+            elif entidad == 'ramos':
+                from controllers.maestros.ramos import get_ramos
+                rows = get_ramos() or []
+            elif entidad == 'productos':
+                from controllers.maestros.productos import get_productos
+                rows = get_productos() or []
             else:
                 rows = []
 
@@ -1916,6 +1940,14 @@ def api_maestros_list_create(entidad):
             # marca_id puede venir como string; controlador debe manejarlo
             nid = insert_modelo(data.get('marca_id'), data.get('nombre'))
             return jsonify({'ok': True, 'id': nid})
+        if entidad == 'ramos':
+            from controllers.maestros.ramos import insert_ramo
+            nid = insert_ramo(data.get('nombre'), data.get('abreviacion'), data.get('codigo'), data.get('grupo'))
+            return jsonify({'ok': True, 'id': nid})
+        if entidad == 'productos':
+            from controllers.maestros.productos import insert_producto
+            nid = insert_producto(data.get('idRamo') or data.get('ramo_id') or data.get('ramo'), data.get('nombre'))
+            return jsonify({'ok': True, 'id': nid})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
@@ -1948,6 +1980,14 @@ def api_maestros_delete(entidad, id_):
         if entidad == 'ajustadores' or entidad == 'ajustador':
             from controllers.ajustadores.ajustadores import delete_ajustador
             deleted = delete_ajustador(id_)
+            return jsonify({'ok': True, 'deleted': deleted})
+        if entidad == 'ramos':
+            from controllers.maestros.ramos import delete_ramo
+            deleted = delete_ramo(id_)
+            return jsonify({'ok': True, 'deleted': deleted})
+        if entidad == 'productos':
+            from controllers.maestros.productos import delete_producto
+            deleted = delete_producto(id_)
             return jsonify({'ok': True, 'deleted': deleted})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
