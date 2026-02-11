@@ -2,18 +2,28 @@ from models.db import get_connection
 
 
 def get_ajustadores():
+    cnx = None
+    cur = None
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
-        cur.execute("CALL sp_listar_ajustadores()")
+        # Usamos SELECT directo para asegurarnos de devolver el ID (el SP original no lo incluye)
+        cur.execute("SELECT id, nombre, abreviacion, codigo FROM ajustadores ORDER BY nombre ASC")
         rows = cur.fetchall() or []
-        while cur.nextset():
-            pass
-        cur.close()
-        cnx.close()
         return rows
     except Exception:
         return []
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if cnx:
+                cnx.close()
+        except Exception:
+            pass
 
 
 def insert_ajustador(data: dict) -> dict:
@@ -50,3 +60,35 @@ def insert_ajustador(data: dict) -> dict:
         return {'ok': True, 'id': new_id}
     except Exception as e:
         return {'ok': False, 'error': str(e)}
+
+
+def delete_ajustador(id_):
+    cnx = None
+    cur = None
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor()
+        # Ejecutar el SP que hace DELETE
+        cur.execute("CALL sp_eliminar_ajustador(%s)", (id_,))
+        # Obtener filas afectadas usando ROW_COUNT()
+        cur.execute("SELECT ROW_COUNT()")
+        res = cur.fetchone()
+        affected = 0
+        if res:
+            try:
+                affected = int(res[0])
+            except Exception:
+                affected = 0
+        cnx.commit()
+        return affected
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if cnx:
+                cnx.close()
+        except Exception:
+            pass

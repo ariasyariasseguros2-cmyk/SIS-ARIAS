@@ -1,62 +1,74 @@
 {% extends 'view/layout_dashboard.html' %}
+{% block page_title %}Maestros - Ajustadores{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h2>Ajustadores</h2>
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Ajustadores</h4>
+        <div class="d-flex align-items-center gap-2">
+            <label for="per-page-select" class="mb-0">Mostrar</label>
+            <select id="per-page-select" class="form-select form-select-sm" style="width: auto;">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="all">Todos</option>
+            </select>
+            <button id="btnNuevoAjustador" class="btn btn-primary">Nuevo Ajustador</button>
+        </div>
+    </div>
+
+    <table class="table table-striped" id="ajustadoresTable">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Abreviación</th>
+                <th>Código</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div class="d-flex justify-content-between align-items-center">
+        <div id="maestros-info" class="text-muted"></div>
+        <nav id="pagination" aria-label="Paginación"></nav>
+    </div>
 </div>
 
-<form id="ajustadorForm" style="display:none; max-width:600px;">
-    <div class="mb-3">
-        <label class="form-label" for="nombre">Nombre</label>
-        <input type="text" id="nombre" name="nombre" class="form-control" required />
-    </div>
-    <div class="mb-3">
-        <label class="form-label" for="abreviacion">Abreviación</label>
-        <input type="text" id="abreviacion" name="abreviacion" class="form-control" />
-    </div>
-    <div class="mb-3">
-        <label class="form-label" for="codigo">Código</label>
-        <input type="text" id="codigo" name="codigo" class="form-control" required />
-    </div>
-    <div>
-        <button type="button" id="btnGuardarAjustador" class="btn btn-success">Guardar</button>
-        <button type="button" id="btnCancelarAjustador" class="btn btn-secondary">Cancelar</button>
-    </div>
-</form>
-
-<div class="card">
-    <div class="card-body">
-        <div class="mb-3 d-flex justify-content-between align-items-center">
-            <div>
-                <button id="btnNuevoAjustador" class="btn btn-primary">Nuevo Ajustador</button>
+<!-- Modal para agregar/editar ajustador -->
+<div class="modal fade" id="modalAjustador" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Agregar Ajustador</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <form id="ajustadorForm">
+            <div class="mb-3">
+                <label class="form-label" for="nombre">Nombre</label>
+                <input type="text" id="nombre" name="nombre" class="form-control" required />
             </div>
-        </div>
-
-        <table class="table table-striped" id="ajustadoresTable">
-            <thead>
-                <tr>
-                    <th>Nombre</th>
-                    <th>Abreviación</th>
-                    <th>Código</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in rows %}
-                <tr>
-                    <td>{{ r.nombre }}</td>
-                    <td>{{ r.abreviacion }}</td>
-                    <td>{{ r.codigo }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-
-        <hr />
-
+            <div class="mb-3">
+                <label class="form-label" for="abreviacion">Abreviación</label>
+                <input type="text" id="abreviacion" name="abreviacion" class="form-control" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="codigo">Código</label>
+                <input type="text" id="codigo" name="codigo" class="form-control" required />
+            </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="btnGuardarAjustador" class="btn btn-primary">Guardar</button>
+      </div>
     </div>
+  </div>
 </div>
 
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ajustadores.css') }}">
-<script src="{{ url_for('static', filename='js/ajustadores.js') }}"></script>
+{% endblock %}
 
+{% block extra_js_bottom %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ajustadores.js') }}"></script>
 {% endblock %}
