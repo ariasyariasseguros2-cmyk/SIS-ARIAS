@@ -1778,3 +1778,150 @@ def menu_siniestros():
         return redirect(url_for('login'))
     return render_template('view/siniestros/siniestros_lista.html')
 
+# ==========================
+# de preferencia toda la seccion de maestros quevaya aqui debajo
+# ==========================
+
+@bp.route('/menu/maestros-clases', methods=['GET'])
+def menu_maestros_clases():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('view/maestros/clases.html', page='maestros-clases')
+
+@bp.route('/menu/maestros-usos', methods=['GET'])
+def menu_maestros_usos():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('view/maestros/usos.html', page='maestros-usos')
+
+@bp.route('/menu/maestros-marcas', methods=['GET'])
+def menu_maestros_marcas():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('view/maestros/marcas.html', page='maestros-marcas')
+
+@bp.route('/menu/maestros-modelos', methods=['GET'])
+def menu_maestros_modelos():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('view/maestros/modelos.html', page='maestros-modelos')
+
+
+@bp.route('/api/maestros/<entidad>', methods=['GET', 'POST'])
+def api_maestros_list_create(entidad):
+    """API básico para maestros: listar (GET) y crear (POST).
+    Entidades soportadas: clases, usos, marcas, modelos
+    """
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    entidad = (entidad or '').lower()
+
+    # LISTAR
+    if request.method == 'GET':
+        # Soporte de paginación: ?page=1&per_page=20  o per_page=all para todo
+        try:
+            try:
+                page = int(request.args.get('page') or 1)
+            except Exception:
+                page = 1
+            per_page_arg = request.args.get('per_page')
+            per_page = None
+            if per_page_arg and str(per_page_arg).lower() != 'all':
+                try:
+                    per_page = int(per_page_arg)
+                except Exception:
+                    per_page = 20
+            # Obtener rows desde controlador
+            if entidad == 'clases':
+                from controllers.maestros.clases import get_clases
+                rows = get_clases() or []
+            elif entidad == 'usos':
+                from controllers.maestros.usos import get_usos
+                rows = get_usos() or []
+            elif entidad == 'marcas':
+                from controllers.maestros.marcas import get_marcas
+                rows = get_marcas() or []
+            elif entidad == 'modelos':
+                from controllers.maestros.modelos import get_modelos
+                rows = get_modelos() or []
+            else:
+                rows = []
+
+            total = len(rows)
+            # Si per_page es None => devolver paginado por defecto 20
+            if per_page is None:
+                per_page = 20
+
+            # Si se solicitó "all" explícitamente, devolver lista completa para compatibilidad
+            if per_page_arg and str(per_page_arg).lower() == 'all':
+                return jsonify({'ok': True, 'rows': rows, 'total': total, 'page': 1, 'per_page': 'all', 'pages': 1})
+
+            pages = max(1, (total + per_page - 1) // per_page) if per_page > 0 else 1
+            page = max(1, min(page, pages)) if pages > 0 else 1
+            start = (page - 1) * per_page
+            end = start + per_page
+            sliced = rows[start:end]
+
+            return jsonify({'ok': True, 'rows': sliced, 'total': total, 'page': page, 'per_page': per_page, 'pages': pages})
+        except Exception as e:
+            return jsonify({'ok': False, 'error': str(e)}), 500
+
+    # CREAR (POST)
+    data = request.get_json(silent=True) or {}
+    try:
+        if entidad == 'clases':
+            from controllers.maestros.clases import insert_clase
+            nid = insert_clase(data.get('nombre'), data.get('costo_soat'))
+            return jsonify({'ok': True, 'id': nid})
+        if entidad == 'usos':
+            from controllers.maestros.usos import insert_uso
+            nid = insert_uso(data.get('nombre'))
+            return jsonify({'ok': True, 'id': nid})
+        if entidad == 'marcas':
+            from controllers.maestros.marcas import insert_marca
+            nid = insert_marca(data.get('nombre'))
+            return jsonify({'ok': True, 'id': nid})
+        if entidad == 'modelos':
+            from controllers.maestros.modelos import insert_modelo
+            # marca_id puede venir como string; controlador debe manejarlo
+            nid = insert_modelo(data.get('marca_id'), data.get('nombre'))
+            return jsonify({'ok': True, 'id': nid})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+    return jsonify({'ok': False, 'error': 'Entidad no soportada'}), 400
+
+
+@bp.route('/api/maestros/<entidad>/<int:id_>', methods=['DELETE'])
+def api_maestros_delete(entidad, id_):
+    """Eliminar registro maestro por entidad e id."""
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+    entidad = (entidad or '').lower()
+    try:
+        if entidad == 'clases':
+            from controllers.maestros.clases import delete_clase
+            deleted = delete_clase(id_)
+            return jsonify({'ok': True, 'deleted': deleted})
+        if entidad == 'usos':
+            from controllers.maestros.usos import delete_uso
+            deleted = delete_uso(id_)
+            return jsonify({'ok': True, 'deleted': deleted})
+        if entidad == 'marcas':
+            from controllers.maestros.marcas import delete_marca
+            deleted = delete_marca(id_)
+            return jsonify({'ok': True, 'deleted': deleted})
+        if entidad == 'modelos':
+            from controllers.maestros.modelos import delete_modelo
+            deleted = delete_modelo(id_)
+            return jsonify({'ok': True, 'deleted': deleted})
+        if entidad == 'ajustadores' or entidad == 'ajustador':
+            from controllers.ajustadores.ajustadores import delete_ajustador
+            deleted = delete_ajustador(id_)
+            return jsonify({'ok': True, 'deleted': deleted})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+    return jsonify({'ok': False, 'error': 'Entidad no soportada'}), 400
+
