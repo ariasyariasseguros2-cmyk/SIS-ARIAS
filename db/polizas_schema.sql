@@ -91,7 +91,8 @@ CREATE TABLE ramos (
     abreviacion VARCHAR(50),
     codigo VARCHAR(50),
     grupo VARCHAR(100),
-    estado ENUM('Activo','Inactivo') DEFAULT 'Activo'
+    estado ENUM('Activo','Inactivo') DEFAULT 'Activo',
+    UNIQUE KEY uq_ramos_nombre (nombre)
 );
 
 -- SP listar ramos -> nombre; abreviacion
@@ -107,6 +108,97 @@ BEGIN
 END $$
 
 DELIMITER ;
+
+-- PROCEDIMIENTOS: RAMOS (insertar / eliminar)
+DROP PROCEDURE IF EXISTS sp_insertar_ramo;
+DELIMITER $$
+CREATE PROCEDURE sp_insertar_ramo(
+    IN p_nombre VARCHAR(150),
+    IN p_abreviacion VARCHAR(50),
+    IN p_codigo VARCHAR(50),
+    IN p_grupo VARCHAR(100),
+    OUT p_new_id INT
+)
+BEGIN
+    IF TRIM(p_nombre) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre del ramo no puede estar vacío';
+    END IF;
+
+    INSERT INTO ramos (nombre, abreviacion, codigo, grupo)
+    VALUES (TRIM(p_nombre), NULLIF(TRIM(p_abreviacion), ''), NULLIF(TRIM(p_codigo), ''), NULLIF(TRIM(p_grupo), ''))
+    ON DUPLICATE KEY UPDATE idRamo = LAST_INSERT_ID(idRamo);
+
+    SET p_new_id = LAST_INSERT_ID();
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_eliminar_ramo;
+DELIMITER $$
+CREATE PROCEDURE sp_eliminar_ramo(
+    IN p_id INT
+)
+BEGIN
+    DELETE FROM ramos WHERE idRamo = p_id;
+END$$
+DELIMITER ;
+
+CREATE TABLE IF NOT EXISTS productos (
+                                         id_producto BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                                         idRamo      INT NOT NULL,
+                                         nombre      VARCHAR(150) NOT NULL,
+    CONSTRAINT fk_productos_ramos
+    FOREIGN KEY (idRamo) REFERENCES ramos(idRamo)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT
+    );
+
+CREATE INDEX idx_productos_idRamo ON productos(idRamo);
+CREATE UNIQUE INDEX uk_productos_ramo_nombre ON productos(idRamo, nombre);
+
+-- PROCEDIMIENTOS: PRODUCTOS
+DROP PROCEDURE IF EXISTS sp_listar_productos;
+DELIMITER $$
+CREATE PROCEDURE sp_listar_productos()
+BEGIN
+    SELECT id_producto AS id, idRamo AS ramo_id, nombre
+    FROM productos
+    ORDER BY nombre ASC;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_insertar_producto;
+DELIMITER $$
+CREATE PROCEDURE sp_insertar_producto(
+    IN p_idRamo INT,
+    IN p_nombre VARCHAR(150),
+    OUT p_new_id BIGINT UNSIGNED
+)
+BEGIN
+    IF p_idRamo IS NULL OR p_idRamo = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El idRamo es requerido';
+    END IF;
+    IF TRIM(p_nombre) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre del producto no puede estar vacío';
+    END IF;
+
+    INSERT INTO productos (idRamo, nombre)
+    VALUES (p_idRamo, TRIM(p_nombre))
+    ON DUPLICATE KEY UPDATE id_producto = LAST_INSERT_ID(id_producto);
+
+    SET p_new_id = LAST_INSERT_ID();
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_eliminar_producto;
+DELIMITER $$
+CREATE PROCEDURE sp_eliminar_producto(
+    IN p_id BIGINT UNSIGNED
+)
+BEGIN
+    DELETE FROM productos WHERE id_producto = p_id;
+END$$
+DELIMITER ;
+
 
 -- Table asegudoras = proveedor 
 CREATE TABLE aseguradoras (
@@ -2183,5 +2275,4 @@ BEGIN
     SET p_deleted = ROW_COUNT();
 END$$
 DELIMITER ;
-
 
