@@ -78,10 +78,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!a) return;
                 const href = a.href;
                 if (!href) return;
-                setTimeout(() => {
-                    if (location.href === href) return;
-                    location.href = href;
-                }, 200);
+
+                e.preventDefault();
+
+                if (location.href === href) return;
+
+                location.href = href;
             } catch (err) {
                 console.error('nav fallback error', err);
             }
