@@ -104,6 +104,19 @@ def dashboard():
     cards = get_dashboard_cards()
     return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards)
 
+@bp.route('/api/clientes/search', methods=['GET'])
+def search_clientes_route():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'Unauthorized'}, 401
+    
+    query = request.args.get('q', '').strip()
+    if not query:
+        return {'ok': True, 'rows': []}
+        
+    from controllers.clientes.cliente import search_clientes_data
+    data = search_clientes_data(query)
+    return {'ok': True, 'rows': data['rows']}
+
 @bp.route('/menu/<page>', methods=['GET', 'POST'])
 def menu_page(page):
     if 'user' not in session:
