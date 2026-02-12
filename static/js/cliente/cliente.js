@@ -2,19 +2,70 @@
     document.addEventListener('DOMContentLoaded', function () {
         const input = document.getElementById('searchInput');
         const table = document.getElementById('clientesTable');
-        const rows = table ? Array.from(table.querySelectorAll('tbody tr')) : [];
+        let rows = table ? Array.from(table.querySelectorAll('tbody tr')) : [];
+        const initialRows = [...rows]; // Keep a copy of initial rows
         const polizasUrl = table ? table.getAttribute('data-polizas-url') : null;
 
-        function filterRows(term) {
-            const q = term.trim().toLowerCase();
-            rows.forEach(tr => {
-                const text = tr.textContent.toLowerCase();
-                tr.style.display = text.includes(q) ? '' : 'none';
-            });
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
         }
 
+        function filterRows(term) {
+            const q = term.trim();
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+
+            if (!q) {
+                tbody.innerHTML = '';
+                initialRows.forEach(row => tbody.appendChild(row));
+                rows = initialRows;
+                return;
+            }
+
+            fetch(`/api/clientes/search?q=${encodeURIComponent(q)}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.ok) {
+                        tbody.innerHTML = '';
+                        const newRows = [];
+                        data.rows.forEach(r => {
+                            const tr = document.createElement('tr');
+                            tr.setAttribute('data-idcliente', r.idCliente);
+                            tr.innerHTML = `
+                                <td>${r.fec_reg || ''}</td>
+                                <td>${r.razon_social || ''}</td>
+                                <td>${r.doc || ''}</td>
+                                <td>${r.n_doc || ''}</td>
+                                <td>${r.tel || ''}</td>
+                                <td>${r.subagente || ''}</td>
+                                <td><a href="mailto:${r.email || ''}">${r.email || ''}</a></td>
+                                <td>${r.direccion || ''}</td>
+                                <td class="text-end">
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <button type="button" class="btn btn-warning btn-sm btn-lift btn-edit-cliente" data-id="${r.idCliente}"><i class="bi-pencil"></i> Editar</button>
+                                        <button type="button" class="btn btn-primary btn-sm btn-lift">Pólizas</button>
+                                        <button type="button" class="btn btn-success btn-sm btn-lift">Contactos</button>
+                                        <button type="button" class="btn btn-danger btn-sm btn-lift btn-delete-cliente" data-id="${r.idCliente}" data-nombre="${r.razon_social}"><i class="bi-trash"></i> Eliminar</button>
+                                    </div>
+                                </td>
+                            `;
+                            tbody.appendChild(tr);
+                            newRows.push(tr);
+                        });
+                        rows = newRows;
+                    }
+                })
+                .catch(console.error);
+        }
+
+        const debouncedFilter = debounce(filterRows, 300);
+
         if (input) {
-            input.addEventListener('input', (e) => filterRows(e.target.value));
+            input.addEventListener('input', (e) => debouncedFilter(e.target.value));
         }
 
         // filtros y ordenamiento
