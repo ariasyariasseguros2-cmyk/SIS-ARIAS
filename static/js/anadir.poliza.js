@@ -262,7 +262,7 @@
       }
     }
 
-    // Mantener "Fin Vigencias" (vencimiento) tal cual PDF para la columna "Fin Vigencias"
+    // Mantener "Fin Vigencia" (vencimiento) tal cual PDF para la columna "Fin Vigencia"
     return it;
   }
 
@@ -285,7 +285,7 @@
           <th class="ramo-col">Ramo</th>
           <th>Producto</th>
           <th>Inicio Vigencia</th>
-          <th>Fin Vigencias</th>
+          <th>Fin Vigencia</th>
           <th>Moneda</th>
           <th>Fecha Emisión</th>
           <th>Último Día Pago</th>

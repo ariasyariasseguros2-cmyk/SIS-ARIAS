@@ -1301,10 +1301,15 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
             "d.l.688" in t
         ):
             prov = "mapfre-vida-ley"
+        # NUEVO: Mapfre Equipo de Contratistas
+        elif re.search(r"\bmapfre\b", t) and re.search(r"equipo\s+de\s+contratistas", t):
+            prov = "mapfre-equipo-contratistas"
+            prov = "mapfre-vida-ley"
         elif "la positiva" in t:
             prov = "positiva"
         elif "mapfre-vida-ley" in t:
             prov = "mapfre-vida-ley"
+        
         elif "mapfre" in t or re.search(r"vencimiento\s+de\s+aplicaci[oó]n", t) or re.search(r"inicio\s+de\s+vigencia\s+aplicaci[oó]n", t):
             prov = "mapfre"
         elif "lpv-vida-ley" in t:
@@ -1400,12 +1405,13 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
     print(f"[provider] detectado: {prov}")
 
     if prov == "mapfre":
-        # Intentar primero con el parser de renovación (más robusto)
-        from controllers.addMapfreRenovacion import parse_mapfre_renovacion
-        item = parse_mapfre_renovacion(text)
-        if item and (item.get("numero_poliza") or item.get("prima_comercial_igv")):
-            print("[provider] mapfre renovation item:", item)
-            return [item]
+        # NUEVO: Equipo de Contratistas
+        if "equipo de contratistas" in low:
+            from controllers.addMapfreEquipoContratistas import parse_mapfre_equipo_contratistas
+            item = parse_mapfre_equipo_contratistas(text)
+            print("[provider] mapfre equipo contratistas item:", item)
+            return [item] if item else []
+
             
         from controllers.addMapfre import parse_mapfre
         item = parse_mapfre(text)
@@ -1525,6 +1531,11 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         print("[provider] lpv-vida-ley item:", item)
         return [item] if item else []
     # NUEVO: LPV Pension
+    if prov == "mapfre-equipo-contratistas":
+        from controllers.addMapfreEquipoContratistas import parse_mapfre_equipo_contratistas
+        item = parse_mapfre_equipo_contratistas(text)
+        print("[provider] mapfre-equipo-contratistas item:", item)
+        return [item] if item else []
     if prov == "lpv-pension":
         from controllers.addLPVPENSION import parse_positiva_Pension
         item = parse_positiva_Pension(text)

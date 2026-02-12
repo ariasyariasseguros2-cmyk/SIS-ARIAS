@@ -237,49 +237,156 @@ body {
     font-size: 1rem;
 }
 
-/* Table */
+/* Table to Card Transformation */
 .table-container {
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius);
-    overflow: hidden;
+    border: none;
+    background: transparent;
+    overflow: visible;
+}
+
+.table-responsive {
+    overflow: visible;
 }
 
 .table-custom {
+    display: block;
     width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    font-size: 0.85rem;
 }
 
-.table-custom thead th {
-    background-color: #f1f5f9;
-    color: var(--text-main);
+.table-custom thead {
+    display: none; /* Hide standard header */
+}
+
+.table-custom tbody {
+    display: block;
+    width: 100%;
+}
+
+.table-custom tr {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); /* Increased min-width for better fit */
+    gap: 1rem 1.5rem;
+    background: #fff;
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.table-custom tr:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.table-custom td {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font-size: 0.95rem;
+    min-height: 3.5rem; /* Ensure consistent height for alignment */
+}
+
+/* Headers via CSS */
+.table-custom td::before {
+    content: attr(data-label); /* Fallback */
+    display: block;
+    font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
-    font-size: 0.75rem;
-    padding: 1rem;
-    border-bottom: 2px solid #e2e8f0;
-    text-align: left;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+    letter-spacing: 0.03em;
 }
 
-.table-custom tbody td {
-    padding: 0.85rem 1rem;
-    border-bottom: 1px solid #f1f5f9;
+/* Manual mapping of column headers */
+.table-custom td:nth-child(1)::before { content: "Póliza"; }
+.table-custom td:nth-child(2)::before { content: "Proforma/Recibo"; }
+.table-custom td:nth-child(3)::before { content: "Colectivo Asegurado"; }
+.table-custom td:nth-child(4)::before { content: "Ramo"; }
+.table-custom td:nth-child(5)::before { content: "Producto"; }
+.table-custom td:nth-child(6)::before { content: "Inicio Vigencia"; }
+.table-custom td:nth-child(7)::before { content: "Fin Vigencia"; }
+.table-custom td:nth-child(8)::before { content: "Moneda"; }
+.table-custom td:nth-child(9)::before { content: "Fecha Emisión"; }
+.table-custom td:nth-child(10)::before { content: "Último Día Pago"; }
+.table-custom td:nth-child(11)::before { content: "Fecha Vencimiento"; }
+.table-custom td:nth-child(12)::before { content: "Prima Neta"; }
+.table-custom td:nth-child(13)::before { content: "Prima Comercial"; }
+.table-custom td:nth-child(14)::before { content: "Prima + IGV"; }
+.table-custom td:nth-child(15)::before { content: "% Com. Cía"; }
+.table-custom td:nth-child(16)::before { content: "Imp. Com. Cía"; }
+.table-custom td:nth-child(17)::before { content: "% Com. Sub"; }
+.table-custom td:nth-child(18)::before { content: "Imp. Com. Sub"; }
+.table-custom td:nth-child(19)::before { content: "Acciones"; }
+
+/* Highlight Important Fields */
+.table-custom td:nth-child(1) { /* Poliza */
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 1.1rem;
+}
+
+.table-custom td:nth-child(14) { /* Prima + IGV */
+    font-weight: 700;
     color: var(--text-main);
-    background: #fff;
 }
 
-.table-custom tbody tr:last-child td {
-    border-bottom: none;
+/* Full width rows within the card */
+.table-custom td:nth-child(3) { /* Colectivo */
+    grid-column: 1 / -1;
+    border-bottom: 1px dashed var(--card-border);
+    padding-bottom: 1rem;
+    margin-bottom: 0.5rem;
 }
 
-.table-custom tbody tr:hover td {
-    background-color: #f8fbff;
+/* Double width fields for long text */
+.table-custom td:nth-child(4), /* Ramo */
+.table-custom td:nth-child(5) { /* Producto */
+    grid-column: span 2;
+}
+/* On small screens, force them to auto span to avoid breaking */
+@media (max-width: 600px) {
+    .table-custom td:nth-child(4), 
+    .table-custom td:nth-child(5) {
+        grid-column: auto;
+    }
 }
 
+.table-custom td:nth-child(19) { /* Acciones */
+    grid-column: 1 / -1;
+    border-top: 1px dashed var(--card-border);
+    padding-top: 1rem;
+    margin-top: 0.5rem;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: auto;
+}
+.table-custom td:nth-child(19)::before {
+    display: none; /* Hide label for actions */
+}
+
+/* Inputs styling in cards */
+.table-custom input.form-control {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+}
+
+/* Hide Ramo Col styling from table view */
 .table-custom th.ramo-col, .table-custom td.ramo-col {
-    background-color: #fffbf0; /* Very light orange tint */
-    border-left: 3px solid #f59e0b;
+    background-color: transparent;
+    border-left: none;
+}
+
+/* Action buttons in card */
+.table-custom .btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
 }
 
 /* Loading */
