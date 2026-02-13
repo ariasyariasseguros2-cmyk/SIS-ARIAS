@@ -502,6 +502,8 @@ CREATE TABLE IF NOT EXISTS polizas (
     porc_subagente DECIMAL(5,2) NULL,
     imp_subagente DECIMAL(15,2) NULL,
 
+    datos_vehiculo JSON NULL,         -- NUEVO: Para almacenar datos del vehículo en SOAT
+    codigo_agente VARCHAR(50) NULL,   -- NUEVO: Código de agente/vendedor
 
     ramos_producto VARCHAR(120) NULL,
 
@@ -2952,5 +2954,228 @@ BEGIN
     SELECT idRol, nombre, descripcion FROM roles ORDER BY idRol;
 END$$
 DELIMITER ;
+
+
+-- =====================================================
+-- STORED PROCEDURE PARA CARGA MASIVA DE SOAT
+-- =====================================================
+DROP PROCEDURE IF EXISTS sp_insert_poliza_soat_masivo;
+DELIMITER $$
+CREATE PROCEDURE sp_insert_poliza_soat_masivo (
+    IN p_numero_documento VARCHAR(20),
+    IN p_tipo_doc VARCHAR(10),
+    IN p_asegurado VARCHAR(150),
+    IN p_cia VARCHAR(100),
+    IN p_ramo VARCHAR(120),
+    IN p_poliza VARCHAR(50),
+    IN p_recibo VARCHAR(50),
+    IN p_contrato_nro VARCHAR(50),
+    IN p_nro VARCHAR(50),
+    IN p_moneda VARCHAR(20),
+    IN p_fecha_emision DATE,
+    IN p_vig_desde DATE,
+    IN p_vig_hasta DATE,
+    IN p_ultimo_dia_pago DATE,
+    IN p_fecha_vencimiento DATE,
+    IN p_tipo_vigencia VARCHAR(50),
+    IN p_endosatario VARCHAR(150),
+    IN p_forma_pago VARCHAR(30),
+    IN p_sub_agente VARCHAR(100),
+    IN p_ejecutivo VARCHAR(100),
+    IN p_asegurada VARCHAR(150),
+    IN p_motivo VARCHAR(200),
+    IN p_prima_comercial DECIMAL(15,2),
+    IN p_prima_neta DECIMAL(15,2),
+    IN p_prima_comercial_igv DECIMAL(15,2),
+    IN p_prima_total DECIMAL(15,2),
+    IN p_porc_compania DECIMAL(5,2),
+    IN p_imp_compania DECIMAL(15,2),
+    IN p_porc_subagente DECIMAL(5,2),
+    IN p_imp_subagente DECIMAL(15,2),
+    IN p_ramos_producto VARCHAR(120),
+    IN p_estado VARCHAR(20),
+    IN p_pdf_path VARCHAR(255),
+    IN p_usuario_registro VARCHAR(50),
+    IN p_datos_vehiculo JSON,
+    IN p_codigo_agente VARCHAR(50)
+)
+BEGIN
+    DECLARE v_cliente_id INT;
+    DECLARE v_exists INT DEFAULT 0;
+    DECLARE v_msg VARCHAR(255);
+    DECLARE v_key VARCHAR(50);
+    DECLARE v_poliza_id INT;
+
+    -- Validar que el cliente existe
+    SELECT idCliente INTO v_cliente_id
+    FROM clientes
+    WHERE numero_documento = p_numero_documento
+    LIMIT 1;
+
+    IF v_cliente_id IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente no existe';
+    END IF;
+
+    -- Normalizar clave de duplicado
+    SET v_key = NULLIF(TRIM(IFNULL(p_contrato_nro, '')), '');
+    IF v_key IS NULL THEN
+        SET v_key = NULLIF(TRIM(IFNULL(p_recibo, '')), '');
+    END IF;
+
+    -- Validación de duplicados: poliza + (contrato_nro|recibo), acotado por cliente
+    IF COALESCE(p_poliza, '') <> '' AND COALESCE(v_key, '') <> '' THEN
+        SELECT COUNT(*) INTO v_exists
+        FROM polizas
+        WHERE cliente_id = v_cliente_id
+          AND poliza = p_poliza
+          AND (contrato_nro = v_key OR recibo = v_key);
+
+        IF v_exists > 0 THEN
+            SET v_msg = CONCAT('Póliza ya existe: ', p_poliza);
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+        END IF;
+    END IF;
+
+    -- Insertar póliza
+    INSERT INTO polizas (
+        cliente_id, asegurado, cia, ramo,
+        poliza, recibo, contrato_nro, nro,
+        moneda, fecha_emision, vig_desde, vig_hasta, ultimo_dia_pago,
+        fecha_vencimiento, tipo_vigencia, endosatario, forma_pago,
+        sub_agente, ejecutivo, tipo_doc,
+        asegurada, motivo, prima_comercial, prima_neta, prima_comercial_igv, prima_total,
+        porc_compania, imp_compania, porc_subagente, imp_subagente,
+        ramos_producto, estado, usuario_registro, datos_vehiculo, codigo_agente
+    ) VALUES (
+        v_cliente_id, p_asegurado, p_cia, p_ramo,
+        p_poliza, p_recibo, p_contrato_nro, p_nro,
+        p_moneda, p_fecha_emision, p_vig_desde, p_vig_hasta, p_ultimo_dia_pago,
+        p_fecha_vencimiento, p_tipo_vigencia, p_endosatario, p_forma_pago,
+        p_sub_agente, p_ejecutivo, p_tipo_doc,
+        p_asegurada, p_motivo, p_prima_comercial, p_prima_neta, p_prima_comercial_igv, p_prima_total,
+        p_porc_compania, p_imp_compania, p_porc_subagente, p_imp_subagente,
+        p_ramos_producto, p_estado, p_usuario_registro, p_datos_vehiculo, p_codigo_agente
+    );
+
+    SET v_poliza_id = LAST_INSERT_ID();
+
+    -- Insertar archivo si existe
+    IF p_pdf_path IS NOT NULL AND p_pdf_path <> '' THEN
+        INSERT INTO poliza_archivos (poliza_id, numero_poliza, ruta_archivo, nombre_original, ramo, producto, usuario, compania)
+        VALUES (v_poliza_id, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1), p_ramo, p_ramos_producto, p_usuario_registro, p_cia);
+    END IF;
+
+END$$
+DELIMITER ;
+
+
+-- =========================================================
+-- TABLA: AGENTES/VENDEDORES
+-- =========================================================
+CREATE TABLE IF NOT EXISTS agentes (
+    id INT NOT NULL AUTO_INCREMENT,
+    codigo_agente VARCHAR(50) NOT NULL,
+    nombre_vendedor VARCHAR(255) NOT NULL,
+    estado ENUM('ACTIVO','INACTIVO') NOT NULL DEFAULT 'ACTIVO',
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_agentes_codigo (codigo_agente),
+    KEY idx_agentes_estado (estado),
+    KEY idx_agentes_nombre (nombre_vendedor)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- =========================================================
+-- PROCEDIMIENTOS: AGENTES/VENDEDORES
+-- =========================================================
+
+DROP PROCEDURE IF EXISTS sp_listar_agentes;
+DELIMITER $$
+CREATE PROCEDURE sp_listar_agentes()
+BEGIN
+    SELECT id, codigo_agente, nombre_vendedor, estado
+    FROM agentes
+    ORDER BY nombre_vendedor ASC;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_insertar_agente;
+DELIMITER $$
+CREATE PROCEDURE sp_insertar_agente(
+    IN p_codigo_agente VARCHAR(50),
+    IN p_nombre_vendedor VARCHAR(255),
+    OUT p_new_id INT
+)
+BEGIN
+    IF TRIM(p_codigo_agente) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El código de agente no puede estar vacío';
+    END IF;
+
+    IF TRIM(p_nombre_vendedor) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre del vendedor no puede estar vacío';
+    END IF;
+
+    INSERT INTO agentes (codigo_agente, nombre_vendedor)
+    VALUES (TRIM(p_codigo_agente), TRIM(p_nombre_vendedor))
+    ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
+
+    SET p_new_id = LAST_INSERT_ID();
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_delete_agente;
+DELIMITER $$
+CREATE PROCEDURE sp_delete_agente(
+    IN p_id INT,
+    OUT p_deleted INT
+)
+BEGIN
+    DELETE FROM agentes WHERE id = p_id;
+    SET p_deleted = ROW_COUNT();
+END$$
+DELIMITER ;
+
+
+-- ========================================
+-- MIGRACIONES Y ALTERACIONES DE TABLAS
+-- ========================================
+
+-- Agregar columna datos_vehiculo si no existe
+SET @dbname = DATABASE();
+SET @tablename = 'polizas';
+SET @columnname = 'datos_vehiculo';
+SET @preparedStatement = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname)
+  ) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' JSON NULL COMMENT ''Datos del vehículo para pólizas SOAT'' AFTER ramos_producto;')
+));
+PREPARE alterStatement FROM @preparedStatement;
+EXECUTE alterStatement;
+DEALLOCATE PREPARE alterStatement;
+
+-- Agregar columna codigo_agente si no existe
+SET @dbname = DATABASE();
+SET @tablename = 'polizas';
+SET @columnname = 'codigo_agente';
+SET @preparedStatement = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname)
+  ) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' VARCHAR(50) NULL COMMENT ''Código de agente/vendedor'' AFTER datos_vehiculo;')
+));
+PREPARE alterStatement FROM @preparedStatement;
+EXECUTE alterStatement;
+DEALLOCATE PREPARE alterStatement;
 
 
