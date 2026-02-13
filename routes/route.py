@@ -1419,10 +1419,23 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
             "d.l.688" in t
         ):
             prov = "mapfre-vida-ley"
-        # NUEVO: Mapfre Equipo de Contratistas
-        elif re.search(r"\bmapfre\b", t) and re.search(r"equipo\s+de\s+contratistas", t):
+        # NUEVO: Mapfre Equipo de Contratistas (y Responsabilidad Civil / Hidrocarburos)
+        elif re.search(r"\bmapfre\b", t) and (
+            re.search(r"equipo\s+de\s+contratistas", t) or
+            re.search(r"responsabilidad\s+civil", t) or
+            re.search(r"hidrocarburos", t)
+        ):
             prov = "mapfre-equipo-contratistas"
-            prov = "mapfre-vida-ley"
+        
+        # NUEVO: Mapfre Vehicular (Detection relaxed)
+        elif ("mapfre" in t or "20418896915" in t) and (
+            re.search(r"seguro\s+vehicular", t) or
+            re.search(r"vehicular\s+full", t) or
+            "suplemento de seguro vehicular" in t
+        ):
+            print("DEBUG: DETECTADO MAPFRE VEHICULAR")
+            prov = "mapfre-vehicular"
+
         elif "la positiva" in t:
             prov = "positiva"
         elif "mapfre-vida-ley" in t:
@@ -1490,7 +1503,8 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
 
     # NUEVO: si vino 'positiva' (o cualquier otro) pero el contenido dice 'MAPFRE', fuerza Mapfre
     # (corrige falsos positivos donde 'la positiva' aparece en textos legales de Mapfre)
-    if prov != "mapfre" and (
+    # IMPORTANTE: No entrar si ya se detectó mapfre-equipo-contratistas para evitar downgrades
+    if prov != "mapfre" and prov != "mapfre-equipo-contratistas" and prov != "mapfre-vehicular" and (
         "mapfre" in t or 
         re.search(r"vencimiento\s+de\s+aplicaci[oó]n", t) or 
         re.search(r"inicio\s+de\s+vigencia\s+aplicaci[oó]n", t)
@@ -1498,6 +1512,9 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         # Asegurarse que no sea Vida Ley si tiene indicadores específicos
         if "vida ley" in t or "decreto legislativo" in t:
              prov = "mapfre-vida-ley"
+        # NUEVO: Equipo de Contratistas
+        elif re.search(r"equipo\s+de\s+contratistas", t) or re.search(r"responsabilidad\s+civil", t) or re.search(r"hidrocarburos", t):
+             prov = "mapfre-equipo-contratistas"
         else:
              prov = "mapfre"
 
@@ -1532,10 +1549,25 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
     print(f"[provider] detectado: {prov}")
 
     if prov == "mapfre":
-        # NUEVO: Equipo de Contratistas
-        if "equipo de contratistas" in low:
+        # NUEVO: Equipo de Contratistas (usar regex para flexibilidad de espacios)
+        # Se incluye Responsabilidad Civil y Hidrocarburos como señales fuertes para este parser
+        if re.search(r"equipo\s+de\s+contratistas", low) or re.search(r"responsabilidad\s+civil", low) or re.search(r"hidrocarburos", low):
+            print("ENTRANDO A PARSER EQUIPO CONTRATISTAS (desde bloque mapfre - regex extendido)")
             from controllers.addMapfreEquipoContratistas import parse_mapfre_equipo_contratistas
             item = parse_mapfre_equipo_contratistas(text)
+            
+            # Validación: Si V1 falló en encontrar la póliza o datos clave, intentar con V2 (Robust)
+            if not item or not item.get('numero_poliza') or not item.get('colectivo_asegurado') or not item.get('inicio_vigencia'):
+                print("[provider] mapfre equipo contratistas V1 falló o incompleto (póliza/asegurado/vigencia), intentando V2...")
+                try:
+                    from controllers.addMapfreEquipoContratistas_2 import parse_mapfre_equipo_contratistas_2
+                    item2 = parse_mapfre_equipo_contratistas_2(text)
+                    if item2 and item2.get('numero_poliza'):
+                        item = item2
+                        print("[provider] mapfre equipo contratistas V2 exitoso")
+                except Exception as e:
+                    print(f"[provider] mapfre equipo contratistas V2 error: {e}")
+
             print("[provider] mapfre equipo contratistas item:", item)
             return [item] if item else []
 
@@ -1660,10 +1692,20 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         return [item] if item else []
     # NUEVO: LPV Pension
     if prov == "mapfre-equipo-contratistas":
+        print("ENTRANDO A PARSER EQUIPO CONTRATISTAS (prov mapfre-equipo-contratistas)")
         from controllers.addMapfreEquipoContratistas import parse_mapfre_equipo_contratistas
         item = parse_mapfre_equipo_contratistas(text)
         print("[provider] mapfre-equipo-contratistas item:", item)
         return [item] if item else []
+
+    # NUEVO: Mapfre Vehicular
+    if prov == "mapfre-vehicular":
+        print("ENTRANDO A PARSER MAPFRE VEHICULAR")
+        from controllers.addMapfreVehicular import parse_mapfre_vehicular
+        item = parse_mapfre_vehicular(text)
+        print("[provider] mapfre-vehicular item:", item)
+        return [item] if item else []
+
     if prov == "lpv-pension":
         from controllers.addLPVPENSION import parse_positiva_Pension
         item = parse_positiva_Pension(text)

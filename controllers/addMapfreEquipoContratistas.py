@@ -42,10 +42,21 @@ def parse_mapfre_equipo_contratistas(text: str):
         
     # 4. Moneda
     # MONEDA US$ o DOLARES
-    if re.search(r'MONEDA\s+(?:US\$|DOLARES)', text_norm, re.IGNORECASE) or "US$" in text_norm:
-        item['moneda'] = 'USD'
-    elif re.search(r'MONEDA\s+(?:S/\.|SOLES)', text_norm, re.IGNORECASE) or "SOLES" in text_norm:
-        item['moneda'] = 'PEN'
+    # Prioridad: Buscar explícitamente debajo o al lado de "MONEDA"
+    m_mon = re.search(r'MONEDA\s*[:\.]?\s*(S/|S/\.|SOLES|US\$|USD|DOLARES)', text_norm, re.IGNORECASE | re.DOTALL)
+    
+    if m_mon:
+        val = m_mon.group(1).upper()
+        if "US" in val or "DOLAR" in val:
+            item['moneda'] = 'US$'
+        else:
+            item['moneda'] = 'S/'
+    else:
+        # Fallbacks más seguros
+        if re.search(r'\bS/\.', text_norm) or "SOLES" in text_norm:
+             item['moneda'] = 'S/'
+        elif "US$" in text_norm or "DOLARES" in text_norm:
+             item['moneda'] = 'US$'
 
     # 5. Datos Contratante (RUC)
     # Buscamos todos los RUCs y descartamos el de Mapfre (20418896915)

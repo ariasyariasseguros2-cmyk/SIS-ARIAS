@@ -61,10 +61,11 @@ def parse_mapfre(text: str) -> Dict[str, str]:
     print("[parse_mapfre] texto normalizado:", flat)
     print("item", item)
     # Número de póliza: variantes con acento y sin
+    # Regex ajustado para requerir al menos un dígito y evitar capturar palabras como "DE"
     item["numero_poliza"] = (
-        _find(r"N[ÚU]MERO\s+DE\s+P[ÓO]LIZA\s*:\s*([0-9A-Z\-]+)", text)
-        or _find(r"P[ÓO]LIZA\s*:?\s*([0-9A-Z\-]+)", text)
-        or _find(r"Poliza\s*:\s*([0-9A-Z\-]+)", text)
+        _find(r"N[ÚU]MERO\s+DE\s+P[ÓO]LIZA\s*:\s*([0-9A-Z\-]*\d[0-9A-Z\-]*)", text)
+        or _find(r"P[ÓO]LIZA\s*:?\s*([0-9A-Z\-]*\d[0-9A-Z\-]*)", text)
+        or _find(r"Poliza\s*:\s*([0-9A-Z\-]*\d[0-9A-Z\-]*)", text)
     )
     print("numero_poliza", item["numero_poliza"])
 
