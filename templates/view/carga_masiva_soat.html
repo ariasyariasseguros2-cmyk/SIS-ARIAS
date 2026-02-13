@@ -1,0 +1,302 @@
+{% extends "view/layout_dashboard.html" %}
+
+{% block html_title %}Carga Masiva SOAT | SIS-ARIAS{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-0">
+                <i class="bi bi-file-earmark-excel me-2"></i>
+                Carga Masiva de Pólizas SOAT
+            </h2>
+            <p class="text-muted">Carga múltiples pólizas y clientes desde un archivo Excel</p>
+        </div>
+    </div>
+
+    <!-- Instrucciones -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Instrucciones
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li>Descarga la plantilla de Excel haciendo clic en el botón "Descargar Plantilla"</li>
+                        <li>Completa la plantilla con los datos de clientes y pólizas SOAT</li>
+                        <li><strong>Campos principales:</strong>
+                            <ul class="mt-2">
+                                <li><strong>Cliente:</strong> TIPO_PERSONA, NOMBRE_RAZON_SOCIAL, TIPO_DOCUMENTO, NUMERO_DOCUMENTO, DIRECCION, etc.</li>
+                                <li><strong>Póliza:</strong> POLIZA_CERTF, COMPANIA_NOMBRE_CORTO, RAMO_ABREVIACION, VIGENCIA_INICIO/FIN, PRIMA_NETA, PRIMA_TOTAL, etc.</li>
+                                <li><strong>Vehículo:</strong> PLACA, CLASE, USO, MARCA, MODELO, SERIE, ANIO, etc.</li>
+                            </ul>
+                        </li>
+                        <li>Si un cliente ya existe en la base de datos (según número de documento), no se creará uno nuevo</li>
+                        <li>Un mismo cliente puede aparecer en múltiples filas si tiene varias pólizas</li>
+                        <li>Todos los campos marcados como obligatorios deben estar completos</li>
+                        <li>Fechas en formato: <strong>YYYY-MM-DD</strong> (ej: 2025-04-09)</li>
+                        <li>TIPO_PERSONA: <strong>1</strong>=Natural, <strong>2</strong>=Jurídica</li>
+                        <li>Sube el archivo completado usando el botón "Cargar Archivo"</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botones de acción -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-download display-4 text-primary mb-3"></i>
+                    <h5 class="card-title">Paso 1: Descargar Plantilla</h5>
+                    <p class="card-text text-muted">Descarga la plantilla de Excel con el formato correcto</p>
+                    <a href="{{ url_for('main.descargar_plantilla_soat') }}" class="btn btn-primary">
+                        <i class="bi bi-download me-2"></i>
+                        Descargar Plantilla Excel
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-upload display-4 text-success mb-3"></i>
+                    <h5 class="card-title">Paso 2: Cargar Archivo</h5>
+                    <p class="card-text text-muted">Sube el archivo Excel completado para procesarlo</p>
+                    <button type="button" class="btn btn-success" onclick="document.getElementById('excelFile').click()">
+                        <i class="bi bi-upload me-2"></i>
+                        Seleccionar Archivo Excel
+                    </button>
+                    <input type="file" id="excelFile" accept=".xlsx,.xls" style="display: none;" onchange="handleFileSelect(event)">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información del archivo seleccionado -->
+    <div id="fileInfo" class="row mb-4" style="display: none;">
+        <div class="col-12">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-file-earmark-text me-2"></i>
+                        Archivo Seleccionado
+                    </h6>
+                    <p class="mb-2"><strong>Nombre:</strong> <span id="fileName"></span></p>
+                    <p class="mb-3"><strong>Tamaño:</strong> <span id="fileSize"></span></p>
+                    <button type="button" class="btn btn-warning" onclick="processFile()">
+                        <i class="bi bi-gear-fill me-2"></i>
+                        Procesar Archivo
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="cancelFile()">
+                        <i class="bi bi-x-circle me-2"></i>
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de progreso -->
+    <div id="progressSection" class="row mb-4" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-hourglass-split me-2"></i>
+                        Procesando...
+                    </h6>
+                    <div class="progress" style="height: 25px;">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar" style="width: 0%">0%</div>
+                    </div>
+                    <p class="mt-2 mb-0 text-muted">Por favor espere mientras se procesan los datos...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    <div id="resultSection" class="row" style="display: none;">
+        <div class="col-12">
+            <div id="resultCard" class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i id="resultIcon" class="bi me-2"></i>
+                        <span id="resultTitle"></span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="resultStats" class="mb-3"></div>
+                    <div id="resultErrors"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedFile = null;
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    selectedFile = file;
+
+    // Mostrar información del archivo
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileSize').textContent = formatFileSize(file.size);
+    document.getElementById('fileInfo').style.display = 'block';
+
+    // Ocultar resultados previos
+    document.getElementById('resultSection').style.display = 'none';
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+function cancelFile() {
+    selectedFile = null;
+    document.getElementById('excelFile').value = '';
+    document.getElementById('fileInfo').style.display = 'none';
+}
+
+async function processFile() {
+    if (!selectedFile) {
+        alert('No se ha seleccionado ningún archivo');
+        return;
+    }
+
+    // Mostrar barra de progreso
+    document.getElementById('fileInfo').style.display = 'none';
+    document.getElementById('progressSection').style.display = 'block';
+    document.getElementById('resultSection').style.display = 'none';
+
+    // Simular progreso
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        progress += 10;
+        if (progress <= 90) {
+            document.getElementById('progressBar').style.width = progress + '%';
+            document.getElementById('progressBar').textContent = progress + '%';
+        }
+    }, 300);
+
+    try {
+        const formData = new FormData();
+        formData.append('excel_file', selectedFile);
+
+        const response = await fetch('{{ url_for("main.carga_masiva_soat_upload") }}', {
+            method: 'POST',
+            body: formData
+        });
+
+        clearInterval(progressInterval);
+        document.getElementById('progressBar').style.width = '100%';
+        document.getElementById('progressBar').textContent = '100%';
+
+        const result = await response.json();
+
+        setTimeout(() => {
+            document.getElementById('progressSection').style.display = 'none';
+            showResults(result);
+        }, 500);
+
+    } catch (error) {
+        clearInterval(progressInterval);
+        document.getElementById('progressSection').style.display = 'none';
+        showResults({
+            ok: false,
+            errors: ['Error al procesar el archivo: ' + error.message]
+        });
+    }
+}
+
+function showResults(result) {
+    const resultSection = document.getElementById('resultSection');
+    const resultCard = document.getElementById('resultCard');
+    const resultIcon = document.getElementById('resultIcon');
+    const resultTitle = document.getElementById('resultTitle');
+    const resultStats = document.getElementById('resultStats');
+    const resultErrors = document.getElementById('resultErrors');
+
+    if (result.ok) {
+        resultCard.className = 'card border-success';
+        resultCard.querySelector('.card-header').className = 'card-header bg-success text-white';
+        resultIcon.className = 'bi bi-check-circle-fill me-2';
+        resultTitle.textContent = 'Carga Completada Exitosamente';
+
+        let statsHtml = '<div class="row text-center">';
+        statsHtml += `
+            <div class="col-md-4 mb-3">
+                <div class="p-3 bg-light rounded">
+                    <i class="bi bi-person-plus-fill text-success display-6"></i>
+                    <h4 class="mt-2 mb-0">${result.clientes_nuevos}</h4>
+                    <small class="text-muted">Clientes Nuevos</small>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="p-3 bg-light rounded">
+                    <i class="bi bi-person-check-fill text-info display-6"></i>
+                    <h4 class="mt-2 mb-0">${result.clientes_existentes}</h4>
+                    <small class="text-muted">Clientes Existentes</small>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="p-3 bg-light rounded">
+                    <i class="bi bi-file-earmark-check-fill text-primary display-6"></i>
+                    <h4 class="mt-2 mb-0">${result.polizas_insertadas}</h4>
+                    <small class="text-muted">Pólizas Insertadas</small>
+                </div>
+            </div>
+        `;
+        statsHtml += '</div>';
+        resultStats.innerHTML = statsHtml;
+
+        if (result.errors && result.errors.length > 0) {
+            let errorsHtml = '<div class="alert alert-warning"><h6><i class="bi bi-exclamation-triangle me-2"></i>Advertencias:</h6><ul class="mb-0">';
+            result.errors.forEach(error => {
+                errorsHtml += `<li>${error}</li>`;
+            });
+            errorsHtml += '</ul></div>';
+            resultErrors.innerHTML = errorsHtml;
+        } else {
+            resultErrors.innerHTML = '<div class="alert alert-success mb-0"><i class="bi bi-check-circle me-2"></i>No se encontraron errores durante el proceso.</div>';
+        }
+
+    } else {
+        resultCard.className = 'card border-danger';
+        resultCard.querySelector('.card-header').className = 'card-header bg-danger text-white';
+        resultIcon.className = 'bi bi-x-circle-fill me-2';
+        resultTitle.textContent = 'Error en la Carga';
+
+        resultStats.innerHTML = '';
+
+        let errorsHtml = '<div class="alert alert-danger"><h6><i class="bi bi-exclamation-triangle me-2"></i>Errores:</h6><ul class="mb-0">';
+        (result.errors || ['Error desconocido']).forEach(error => {
+            errorsHtml += `<li>${error}</li>`;
+        });
+        errorsHtml += '</ul></div>';
+        resultErrors.innerHTML = errorsHtml;
+    }
+
+    resultSection.style.display = 'block';
+
+    // Resetear para nueva carga
+    selectedFile = null;
+    document.getElementById('excelFile').value = '';
+}
+</script>
+{% endblock %}
+
+
