@@ -16,11 +16,13 @@ def _money(s: Optional[str]) -> Optional[str]:
 
 def parse_protecta_pension(text: str) -> Dict[str, str]:
     # Contrato / Póliza
-    contrato = _find(r"Contrato\s*:\s*([0-9A-Z\-]+)", text) or _find(r"CONTRATO\s*:\s*([0-9A-Z\-]+)", text)
+    # Se añade robustez para espacios y caracteres
+    contrato = _find(r"Contrato\s*[:]\s*([\w\-]+)", text) or _find(r"CONTRATO\s*[:]\s*([\w\-]+)", text)
 
     # Proforma / Recibo (por etiqueta y fallback patrón PF/AC-SCTR-***)
-    recibo = _find(r"(?:PROFORMA|Proforma)\s*:\s*([A-Z0-9\-/]+)", text) \
+    recibo = _find(r"(?:PROFORMA|Proforma)\s*[:]\s*([A-Z0-9\-/]+)", text) \
         or _find(r"\b((?:PF|AC)[-\s]?SCTR[-\s]?[0-9A-Z\-]+)\b", text)
+    
     # Fallback adicional: buscar el código junto al encabezado “AVISO DE COBRANZA”
     if not recibo:
         m_aviso = re.search(r"AVISO\s+DE\s+COBRANZA.*?\b([A-Z]{2}\s*-\s*SCTR\s*-\s*[0-9A-Z\-]+)\b", text, re.IGNORECASE | re.DOTALL)
@@ -30,41 +32,70 @@ def parse_protecta_pension(text: str) -> Dict[str, str]:
             recibo = code
 
     # Vigencia: Desde ... hasta ...
-    m_vig = re.search(r"Vigencia\s*:\s*Desde\s*([0-9]{2}/[0-9]{2}/[0-9]{4}).*?hasta\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text, re.IGNORECASE | re.DOTALL)
-    inicio_vigencia = m_vig.group(1) if m_vig else _find(r"Desde\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
-    vencimiento = m_vig.group(2) if m_vig else _find(r"Hasta\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    # Se divide en dos búsquedas para mayor seguridad ante saltos de línea
+    inicio_vigencia = _find(r"Desde\s*(\d{2}/\d{2}/\d{4})", text)
+    vencimiento = _find(r"hasta\s*(\d{2}/\d{2}/\d{4})", text)
+    
+    if not inicio_vigencia or not vencimiento:
+        m_vig = re.search(r"Vigencia\s*[:]\s*Desde\s*(\d{2}/\d{2}/\d{4}).*?hasta\s*(\d{2}/\d{2}/\d{4})", text, re.IGNORECASE | re.DOTALL)
+        if m_vig:
+            inicio_vigencia = m_vig.group(1)
+            vencimiento = m_vig.group(2)
 
     # Fecha vencimiento del encabezado (último día de pago)
-    fecha_vencimiento = _find(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    # Se busca tanto 'Vencimiento:' como 'VCTO DE CIP' si fuera necesario
+    fecha_vencimiento = _find(r"Vencimiento\s*[:]\s*(\d{2}/\d{2}/\d{4})", text)
+    if not fecha_vencimiento:
+        fecha_vencimiento = _find(r"VCTO\s+DE\s+CIP\s*(\d{2}/\d{2}/\d{4})", text)
 
-    # Fecha emisión y vencimiento (superior derecho)
-    fecha_emision = _find(r"FECHA\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
-    fecha_vencimiento = _find(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    # Fecha emisión (superior derecho)
+    fecha_emision = _find(r"FECHA\s*[:]\s*(\d{2}/\d{2}/\d{4})", text)
 
     # Contratante / Colectivo
-    colectivo = _find(r"Contratante\s*:\s*(.+)", text) or _find(r"CONTRATANTE\s*:\s*(.+)", text)
+    colectivo = _find(r"Contratante\s*[:]\s*(.+)", text) or _find(r"CONTRATANTE\s*[:]\s*(.+)", text)
     if colectivo:
         colectivo = colectivo.split("\n")[0].strip()
 
     # Rubro / ramo
-    ramo = _find(r"Rubro\s*:\s*(.+)", text)
+    ramo = _find(r"Rubro\s*[:]\s*(.+)", text)
     if ramo:
         ramo = ramo.split("\n")[0].strip()
 
     # Concepto: IMPORTE / IGV / TOTAL
-    importe = _money(_find(r"CONCEPTO.*?SCTR.*?IMPORTE\s*([0-9\.,]+)", text)) or _money(_find(r"\bIMPORTE\b\s*([0-9\.,]+)", text))
-    igv_val = _money(_find(r"\bIGV\b\s*([0-9\.,]+)", text))
-    total_con_igv = _money(_find(r"\bTOTAL\b\s*([0-9\.,]+)", text))
+    # Mejorado para buscar por etiqueta de fila (PRIMA COMERCIAL, PRIMA TOTAL)
+    # Patrón general: Label + Espacios + Numero
+    
+    # Prima Comercial
+    prima_comercial = _money(_find(r"PRIMA\s+COMERCIAL\s*(\d+(?:[.,]\d+)*)", text))
+    
+    # IGV
+    igv_val = _money(_find(r"\bIGV\b\s*(\d+(?:[.,]\d+)*)", text))
+    
+    # Prima Total
+    total_con_igv = _money(_find(r"PRIMA\s+TOTAL\s*(\d+(?:[.,]\d+)*)", text))
+    
+    # Fallback si falla la búsqueda directa (a veces el texto se extrae desordenado)
+    if not prima_comercial:
+        # Intentar buscar bajo columna IMPORTE si existe esa estructura
+        prima_comercial = _money(_find(r"CONCEPTO.*?SCTR.*?IMPORTE\s*(\d+(?:[.,]\d+)*)", text))
 
-    # Derivar prima comercial si falta
-    prima_comercial = importe
+    if not total_con_igv:
+        total_con_igv = _money(_find(r"\bTOTAL\b\s*(\d+(?:[.,]\d+)*)", text))
+
+    # Derivar prima comercial si falta pero tenemos total e IGV
     if not prima_comercial and total_con_igv and igv_val:
         try:
             tc = float(total_con_igv.replace(',', '.'))
             igv = float(igv_val.replace(',', '.'))
-            prima_comercial = f"{(tc - igv):.2f}"  # 94.40 - 14.40 = 80.00
+            prima_comercial = f"{(tc - igv):.2f}"
         except Exception:
             pass
+    
+    # Si aun falta prima_comercial, usar prima_total como fallback (asumiendo exento o error)
+    if not prima_comercial and total_con_igv:
+        # Solo si IGV es 0 o no se encontró
+        if not igv_val or igv_val == '0.00':
+             prima_comercial = total_con_igv
 
     # Extraer RUC/DNI del cliente
     # Prioridad 1: Etiqueta "DNI/RUC" que usa Protecta explícitamente para el cliente
@@ -74,20 +105,21 @@ def parse_protecta_pension(text: str) -> Dict[str, str]:
     if not ruc_candidato:
         candidates = re.findall(r"(?:RUC|DNI)\s*[:]?\s*(\d{8,11})", text, re.IGNORECASE)
         for cand in candidates:
-             if cand != "20517207331": # RUC de Protecta Security
-                 ruc_candidato = cand
-                 break
+             if cand != "20517207331" and cand != "20601964482": # Filtrar RUCs conocidos de la aseguradora si los hubiera
+                 if cand != "20517207331":
+                    ruc_candidato = cand
+                    break
 
     item = {
-        "numero_poliza": _find(r"Contrato\s*:\s*([0-9A-Z\-]+)", text) or _find(r"CONTRATO\s*:\s*([0-9A-Z\-]+)", text),
-        "contrato_nro": _find(r"Contrato\s*:\s*([0-9A-Z\-]+)", text) or _find(r"CONTRATO\s*:\s*([0-9A-Z\-]+)", text),
+        "numero_poliza": contrato,
+        "contrato_nro": contrato,
         "recibo": recibo,
         "colectivo_asegurado": colectivo,
         "inicio_vigencia": inicio_vigencia,
         "vencimiento": vencimiento,
         "fecha_emision": fecha_emision or "",
         "ultimo_dia_pago": fecha_vencimiento,
-        "fecha_vencimiento": fecha_vencimiento or vencimiento or "",  # usar encabezado "Vencimiento"
+        "fecha_vencimiento": fecha_vencimiento or vencimiento or "",
         "ramo": ramo or "SCTR Salud",
         "moneda": "SOLES",
         "prima_comercial": prima_comercial,

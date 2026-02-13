@@ -1472,7 +1472,16 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
              prov = "crecer"
 
     # NUEVO: si vino 'pacifico' o 'positiva' desde UI pero el contenido dice 'sanitas', fuerza Sanitas
-    if prov in ('pacifico', 'positiva', 'protecta') and 'sanitas' in low:
+    # Se añade guardia para NO cambiar a Sanitas si realmente es Protecta (que puede tener links a sanitasperu.com)
+    is_protecta_likely = (
+        "protecta" in t or 
+        "protecta security" in t or 
+        re.search(r"p\s*r\s*o\s*t\s*e\s*c\s*t\s*a", t) or 
+        "20517207331" in t or 
+        "vi2097700027" in t
+    )
+    
+    if prov in ('pacifico', 'positiva', 'protecta') and 'sanitas' in low and not is_protecta_likely:
         prov = 'sanitas'
 
     # NUEVO: si vino 'positiva' (o cualquier otro) pero el contenido dice 'MAPFRE', fuerza Mapfre
@@ -1593,7 +1602,8 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
     # NUEVO: Protecta Pensión
     if prov in {"protecta", "proctecta"}:
         # Detectar si es Emisión (SCTR Pensiones con Prima Comercial)
-        if "prima comercial" in low and "pension" in low:
+        # Excluir 'aviso de cobranza' para que vaya al parser estándar (addProctectaPension)
+        if "prima comercial" in low and "pension" in low and "aviso de cobranza" not in low:
              from controllers.addProctectaPensionEmision import parse_protecta_pension_emision
              item = parse_protecta_pension_emision(text)
              print("[provider] protecta pension emision item:", item)
