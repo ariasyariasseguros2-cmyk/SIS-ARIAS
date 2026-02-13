@@ -11,6 +11,7 @@ def editar_cliente_route():
     try:
         # Obtener usuario de la sesión
         usuario_actual = session.get('user', 'SISTEMA')
+        role_name = session.get('role_name')
 
         data = request.get_json()
 
@@ -22,6 +23,26 @@ def editar_cliente_route():
             }), 400
 
         id_cliente = data['idCliente']
+
+        # RBAC: Verificar propiedad para SUB AGENTE
+        from utils.rbac import Roles
+        if role_name == Roles.SUB_AGENTE:
+            # Verificar si el cliente pertenece al subagente
+            conn_check = get_connection()
+            cur_check = conn_check.cursor(dictionary=True)
+            cur_check.execute("SELECT subagente FROM clientes WHERE idCliente = %s", (id_cliente,))
+            row = cur_check.fetchone()
+            cur_check.close()
+            conn_check.close()
+            
+            if not row or row['subagente'] != usuario_actual:
+                 return jsonify({
+                    'status': 'error',
+                    'message': 'No tiene permiso para editar este cliente'
+                }), 403
+            
+            # Forzar que no se cambie el subagente
+            data['subagente'] = usuario_actual
 
         # Validar campos requeridos
         required_fields = ['razon_social', 'tipo_documento', 'numero_documento']
@@ -166,6 +187,15 @@ def get_cliente_detalle_route(idCliente):
                 'status': 'error',
                 'message': 'Cliente no encontrado'
             }), 404
+
+        # RBAC: Verificar propiedad para SUB AGENTE
+        from utils.rbac import Roles
+        if session.get('role_name') == Roles.SUB_AGENTE:
+            if cliente.get('subagente') != session.get('user'):
+                return jsonify({
+                    'status': 'error',
+                    'message': 'No tiene permiso para ver este cliente'
+                }), 403
 
         # Convertir fechas a string formato ISO
         for field in ['fecha_ingreso', 'fecha_nacimiento', 'licencia_venc']:

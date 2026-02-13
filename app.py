@@ -55,6 +55,9 @@ def login():
 
         if row and verify_password(password, row['password']):
             session['user'] = row['username']
+            session['user_id'] = row['id']
+            session['role_id'] = row['id_rol']
+            session['role_name'] = row['rol_nombre']
             return redirect(url_for('main.home'))
         else:
             error = 'Credenciales inválidas. Intenta nuevamente.'

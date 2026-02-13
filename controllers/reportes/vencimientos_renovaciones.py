@@ -1,5 +1,6 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from models.db import get_connection
+from utils.rbac import Roles
 
 bp = Blueprint('reporte_vencimientos', __name__, url_prefix='/api/reportes')
 
@@ -39,6 +40,13 @@ def api_ramos():
 
 @bp.route('/vencimientos-renovaciones', methods=['GET'])
 def api_vencimientos():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+
+    role = session.get('role_name')
+    if role == Roles.SUB_AGENTE:
+        return {'ok': False, 'error': 'No autorizado'}, 403
+
     usuario = request.args.get('usuario', '')
     estado = request.args.get('estado', '')
     fecha_desde = request.args.get('fecha_desde')
@@ -50,6 +58,14 @@ def api_vencimientos():
     if not fecha_hasta: fecha_hasta = None
     
     data = get_vencimientos(usuario, estado, fecha_desde, fecha_hasta, ramo)
+
+    if role == Roles.OPERADOR:
+        # Eliminar columnas de comisiones
+        for row in data:
+            keys_to_remove = [k for k in row.keys() if 'comision' in k.lower()]
+            for k in keys_to_remove:
+                row.pop(k, None)
+
     return jsonify(data)
 
 def get_vencimientos(usuario, estado, fecha_desde=None, fecha_hasta=None, ramo=''):

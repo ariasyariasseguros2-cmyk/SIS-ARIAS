@@ -89,5 +89,8 @@
 
 {% block extra_js_bottom %}
 {{ super() }}
+<script>
+    const currentUserRole = "{{ session.role_name }}";
+</script>
 <script src="{{ url_for('static', filename='js/siniestros/siniestros_lista.js') }}"></script>
 {% endblock %}

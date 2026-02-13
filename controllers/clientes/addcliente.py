@@ -130,6 +130,13 @@ def save_cliente(data: dict) -> dict:
 
     # Obtener usuario de la sesión
     usuario_actual = session.get('user', 'SISTEMA')
+    role_name = session.get('role_name')
+
+    # RBAC: Si es SUB AGENTE, forzar que el subagente sea él mismo
+    from utils.rbac import Roles
+    if role_name == Roles.SUB_AGENTE:
+        # Sobreescribir el subagente con el usuario actual
+        data['subAgente'] = usuario_actual
 
     ok, errors = validate_cliente_payload(data)
     if not ok:

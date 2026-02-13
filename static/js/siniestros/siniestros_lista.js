@@ -159,8 +159,14 @@ function renderizarTabla(data) {
                     <span class="chip chip-info" role="button" onclick="descargarPDF(${siniestro.id})" title="Descargar PDF">
                         <i class="bi bi-file-pdf"></i> PDF
                     </span>
-                    <span class="chip chip-primary" role="button" onclick="editarSiniestro(${siniestro.id})" title="Editar">EDITAR</span>
-                    <span class="chip chip-danger" role="button" onclick="eliminarSiniestro(${siniestro.id})" title="Eliminar">ELIMINAR</span>
+                    ${ ['BROKER', 'OPERADOR'].includes(currentUserRole) ? 
+                        `<span class="chip chip-primary" role="button" onclick="editarSiniestro(${siniestro.id})" title="Editar">EDITAR</span>` 
+                        : '' 
+                    }
+                    ${ ['BROKER', 'EJECUTIVO DE CUENTAS'].includes(currentUserRole) ? 
+                        `<span class="chip chip-danger" role="button" onclick="eliminarSiniestro(${siniestro.id})" title="Eliminar">ELIMINAR</span>` 
+                        : '' 
+                    }
                 </div>
             </td>
         </tr>

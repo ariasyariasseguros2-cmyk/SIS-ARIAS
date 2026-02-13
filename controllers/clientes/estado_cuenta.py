@@ -1,6 +1,7 @@
-from flask import request
+from flask import request, session
 from models.db import get_connection
 from datetime import datetime
+from utils.rbac import Roles
 
 def get_estado_cuenta_data(filtros_input=None):
     """
@@ -48,57 +49,92 @@ def get_estado_cuenta_data(filtros_input=None):
         # Datos del cliente
         cliente = None
         polizas = []
+        
+        # RBAC: Verificar rol y usuario para filtros
+        role_name = session.get('role_name')
+        usuario_actual = session.get('user')
+        es_subagente = (role_name == Roles.SUB_AGENTE)
 
         # Buscar cliente
         if filters['cliente_id']:
-            cur.execute("""
+            query = """
                 SELECT idCliente, razon_social, tipo_documento, numero_documento,
-                       direccion, telefono, email
+                       direccion, telefono, email, subagente
                 FROM clientes 
                 WHERE idCliente = %s
-            """, (filters['cliente_id'],))
+            """
+            params = [filters['cliente_id']]
+            
+            if es_subagente:
+                query += " AND subagente = %s"
+                params.append(usuario_actual)
+                
+            cur.execute(query, params)
             cliente = cur.fetchone()
 
 
         elif filters['tipo_documento'] and filters['numero_documento']:
             # Búsqueda por tipo y número de documento (sin necesidad de cliente_search)
-
-            cur.execute("""
+            query = """
                 SELECT idCliente, razon_social, tipo_documento, numero_documento,
-                       direccion, telefono, email
+                       direccion, telefono, email, subagente
                 FROM clientes 
                 WHERE tipo_documento = %s 
                   AND numero_documento = %s
-            """, (filters['tipo_documento'], filters['numero_documento']))
+            """
+            params = [filters['tipo_documento'], filters['numero_documento']]
+            
+            if es_subagente:
+                query += " AND subagente = %s"
+                params.append(usuario_actual)
+                
+            cur.execute(query, params)
             cliente = cur.fetchone()
 
 
         elif filters['numero_documento']:
             # Búsqueda solo por número de documento
-
-            cur.execute("""
+            query = """
                 SELECT idCliente, razon_social, tipo_documento, numero_documento,
                        direccion, telefono, email
                 FROM clientes
                 WHERE numero_documento = %s
-            """, (filters['numero_documento'],))
+            """
+            params = [filters['numero_documento']]
+            
+            if es_subagente:
+                query += " AND subagente = %s"
+                params.append(usuario_actual)
+                
+            cur.execute(query, params)
             cliente = cur.fetchone()
 
 
         elif filters['cliente_search']:
             # Búsqueda por texto en nombre o documento
-
             search_term = f"%{filters['cliente_search']}%"
-            cur.execute("""
+            query = """
                 SELECT idCliente, razon_social, tipo_documento, numero_documento,
                        direccion, telefono, email
                 FROM clientes 
                 WHERE (razon_social LIKE %s OR numero_documento LIKE %s)
-                LIMIT 1
-            """, (search_term, search_term))
+            """
+            params = [search_term, search_term]
+            
+            if es_subagente:
+                query += " AND subagente = %s"
+                params.append(usuario_actual)
+                
+            query += " LIMIT 1"
+            
+            cur.execute(query, params)
             cliente = cur.fetchone()
 
 
+
+        if cliente and role_name == Roles.SUB_AGENTE:
+            if cliente.get('subagente') and cliente.get('subagente') != usuario_actual:
+                cliente = None
 
         if cliente:
 
@@ -271,19 +307,40 @@ def buscar_clientes(search_term):
         cur = cnx.cursor(dictionary=True)
 
         search = f"%{search_term}%"
-        cur.execute("""
-            SELECT 
-                idCliente,
-                razon_social,
-                tipo_documento,
-                numero_documento,
-                telefono,
-                email
-            FROM clientes
-            WHERE (razon_social LIKE %s OR numero_documento LIKE %s)
-            ORDER BY razon_social
-            LIMIT 20
-        """, (search, search))
+        
+        # RBAC: Si es SUB AGENTE, filtrar por su usuario
+        role_name = session.get('role_name')
+        usuario_actual = session.get('user')
+        
+        if role_name == Roles.SUB_AGENTE:
+            cur.execute("""
+                SELECT 
+                    idCliente,
+                    razon_social,
+                    tipo_documento,
+                    numero_documento,
+                    telefono,
+                    email
+                FROM clientes
+                WHERE (razon_social LIKE %s OR numero_documento LIKE %s)
+                  AND subagente = %s
+                ORDER BY razon_social
+                LIMIT 20
+            """, (search, search, usuario_actual))
+        else:
+            cur.execute("""
+                SELECT 
+                    idCliente,
+                    razon_social,
+                    tipo_documento,
+                    numero_documento,
+                    telefono,
+                    email
+                FROM clientes
+                WHERE (razon_social LIKE %s OR numero_documento LIKE %s)
+                ORDER BY razon_social
+                LIMIT 20
+            """, (search, search))
 
         clientes = cur.fetchall() or []
 
@@ -328,33 +385,73 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
     cliente = None
     polizas = []
 
+    # RBAC: Verificar rol y usuario para filtros
+    role_name = session.get('role_name')
+    usuario_actual = session.get('user')
+    es_subagente = (role_name == Roles.SUB_AGENTE)
+
     # Buscar cliente (misma lógica que get_estado_cuenta_data)
     if filters['cliente_id']:
-        cur.execute("""
-            SELECT idCliente, razon_social, tipo_documento, numero_documento
+        query = """
+            SELECT idCliente, razon_social, tipo_documento, numero_documento, subagente
             FROM clientes WHERE idCliente = %s
-        """, (filters['cliente_id'],))
+        """
+        params = [filters['cliente_id']]
+        
+        if es_subagente:
+            query += " AND subagente = %s"
+            params.append(usuario_actual)
+            
+        cur.execute(query, params)
         cliente = cur.fetchone()
+
     elif filters['tipo_documento'] and filters['numero_documento']:
-        cur.execute("""
-            SELECT idCliente, razon_social, tipo_documento, numero_documento
+        query = """
+            SELECT idCliente, razon_social, tipo_documento, numero_documento, subagente
             FROM clientes WHERE tipo_documento = %s AND numero_documento = %s
-        """, (filters['tipo_documento'], filters['numero_documento']))
+        """
+        params = [filters['tipo_documento'], filters['numero_documento']]
+        
+        if es_subagente:
+            query += " AND subagente = %s"
+            params.append(usuario_actual)
+            
+        cur.execute(query, params)
         cliente = cur.fetchone()
+
     elif filters['numero_documento']:
-        cur.execute("""
-            SELECT idCliente, razon_social, tipo_documento, numero_documento
+        query = """
+            SELECT idCliente, razon_social, tipo_documento, numero_documento, subagente
             FROM clientes WHERE numero_documento = %s
-        """, (filters['numero_documento'],))
+        """
+        params = [filters['numero_documento']]
+        
+        if es_subagente:
+            query += " AND subagente = %s"
+            params.append(usuario_actual)
+            
+        cur.execute(query, params)
         cliente = cur.fetchone()
+
     elif filters['cliente_search']:
         search_term = f"%{filters['cliente_search']}%"
-        cur.execute("""
-            SELECT idCliente, razon_social, tipo_documento, numero_documento
+        query = """
+            SELECT idCliente, razon_social, tipo_documento, numero_documento, subagente
             FROM clientes WHERE (razon_social LIKE %s OR numero_documento LIKE %s)
-            LIMIT 1
-        """, (search_term, search_term))
+        """
+        params = [search_term, search_term]
+        
+        if es_subagente:
+            query += " AND subagente = %s"
+            params.append(usuario_actual)
+            
+        query += " LIMIT 1"
+        cur.execute(query, params)
         cliente = cur.fetchone()
+
+    if cliente and role_name == Roles.SUB_AGENTE:
+        if cliente.get('subagente') and cliente.get('subagente') != usuario_actual:
+            cliente = None
 
     if cliente:
         query = """

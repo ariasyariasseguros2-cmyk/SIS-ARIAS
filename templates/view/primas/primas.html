@@ -18,7 +18,9 @@
             <i class="bi bi-receipt"></i>
             Primas / Plan de Pagos
         </div>
+        {% if session.role_name in ['BROKER', 'OPERADOR', 'SUB AGENTE'] %}
         <a class="btn btn-success btn-lift" href="#"><i class="bi-plus-lg"></i> Añadir</a>
+        {% endif %}
     </div>
     <div>
         <a href="{{ url_for('main.menu_page', page='polizas') }}" class="text-secondary text-decoration-none small fw-bold">
@@ -111,8 +113,12 @@
                             <button class="btn-action btn-primary btn-cuotas" data-poliza="{{ r.poliza }}">Cuotas</button>
                             <a href="{{ url_for('main.menu_page', page='avisos') }}?id={{ r.idPrima }}" class="btn-action btn-secondary">Pdf</a>
                             <button class="btn-action btn-info btn-detalles" data-id="{{ r.idPrima }}">Detalles</button>
+                            {% if session.role_name in ['BROKER', 'OPERADOR'] %}
                             <button class="btn-action btn-success btn-editar" data-id="{{ r.idPrima }}">Editar</button>
+                            {% endif %}
+                            {% if session.role_name in ['BROKER', 'EJECUTIVO DE CUENTAS'] %}
                             <button class="btn-action btn-danger btn-eliminar">Eliminar</button>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>

@@ -1,4 +1,7 @@
 # módulo: controllers/cliente.py
+from flask import session
+from utils.rbac import Roles
+
 def get_clientes_data():
     from models.db import get_connection
 
@@ -6,7 +9,22 @@ def get_clientes_data():
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
-        cur.execute("CALL sp_list_clientes()")
+        
+        role = session.get('role_name')
+        if role == Roles.SUB_AGENTE:
+            # RLS: Filtrar por subagente (username)
+            user = session.get('user')
+            query = """
+                SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, 
+                       telefono, subagente, email, direccion 
+                FROM clientes 
+                WHERE activo = 1 AND subagente = %s
+                ORDER BY fecha_registro DESC
+            """
+            cur.execute(query, (user,))
+        else:
+            cur.execute("CALL sp_list_clientes()")
+            
         db_rows = cur.fetchall()
         while cur.nextset():
             pass
@@ -43,7 +61,25 @@ def search_clientes_data(query):
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
-        cur.execute("CALL sp_buscar_cliente(%s)", (query,))
+        
+        role = session.get('role_name')
+        if role == Roles.SUB_AGENTE:
+            # RLS: Buscar solo en sus clientes
+            user = session.get('user')
+            q_like = f"%{query}%"
+            sql = """
+                SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, 
+                       telefono, subagente, email, direccion 
+                FROM clientes 
+                WHERE activo = 1 
+                  AND subagente = %s 
+                  AND (razon_social LIKE %s OR numero_documento LIKE %s)
+                LIMIT 50
+            """
+            cur.execute(sql, (user, q_like, q_like))
+        else:
+            cur.execute("CALL sp_buscar_cliente(%s)", (query,))
+            
         db_rows = cur.fetchall()
         while cur.nextset():
             pass
@@ -81,8 +117,16 @@ def get_clientes_anulados_data():
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
-        # No hay SP específico en el schema para anulados, hacemos SELECT directo
-        cur.execute("SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, telefono, subagente, email, direccion, tipo_persona FROM clientes WHERE activo = 0 ORDER BY fecha_registro DESC")
+        
+        role = session.get('role_name')
+        if role == Roles.SUB_AGENTE:
+            # RLS: Filtrar anulados por subagente
+            user = session.get('user')
+            cur.execute("SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, telefono, subagente, email, direccion, tipo_persona FROM clientes WHERE activo = 0 AND subagente = %s ORDER BY fecha_registro DESC", (user,))
+        else:
+            # No hay SP específico en el schema para anulados, hacemos SELECT directo
+            cur.execute("SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, telefono, subagente, email, direccion, tipo_persona FROM clientes WHERE activo = 0 ORDER BY fecha_registro DESC")
+            
         db_rows = cur.fetchall()
         cur.close()
         cnx.close()

@@ -24,9 +24,11 @@
             <i class="bi bi-credit-card"></i>
             Cuotas
         </div>
+        {% if session.role_name in ['BROKER', 'OPERADOR', 'SUB AGENTE'] %}
         <button type="button" class="btn btn-success btn-lift btn-add" onclick="Cuotas.onAdd()">
             <i class="bi-plus-lg"></i> Añadir
         </button>
+        {% endif %}
     </div>
     <div>
         <a href="{{ url_for('main.menu_page', page='primas') }}" class="text-secondary text-decoration-none small fw-bold">
@@ -148,10 +150,16 @@
               <td class="text-end actions">
                 <div class="action-buttons justify-content-end">
                   <button class="btn-action btn-secondary btn-pdf" onclick="Cuotas.onPDF({{ loop.index0 }})">PDF</button>
+                  {% if session.role_name in ['BROKER', 'OPERADOR'] %}
                   <button class="btn-action btn-warning btn-revert" onclick="Cuotas.onRevert({{ loop.index0 }})">Revertir</button>
+                  {% endif %}
                   <button class="btn-action btn-info btn-details" onclick="Cuotas.onDetails({{ loop.index0 }})">Detalles</button>
+                  {% if session.role_name in ['BROKER', 'OPERADOR'] %}
                   <button class="btn-action btn-success btn-edit" onclick="Cuotas.onEdit({{ loop.index0 }})">Editar</button>
+                  {% endif %}
+                  {% if session.role_name in ['BROKER', 'EJECUTIVO DE CUENTAS'] %}
                   <button class="btn-action btn-danger btn-delete" onclick="Cuotas.onDelete({{ loop.index0 }})">Eliminar</button>
+                  {% endif %}
                 </div>
               </td>
             </tr>

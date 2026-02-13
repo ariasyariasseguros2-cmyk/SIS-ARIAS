@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, send_file, current_app, abort, session, redirect, url_for
 from models.db import get_connection
+from utils.rbac import Roles
 import os
 import zipfile
 import io
@@ -36,6 +37,14 @@ def index():
 def api_client_files():
     if 'user' not in session:
         return jsonify([]), 401
+
+    # SUB AGENTE: Blocked (Only allowed 'estado de cuenta' and 'producción')
+    # Unless this is considered part of account management?
+    # User said "Reporte estado de cuenta y producción". This is "Reporte Archivos Cliente".
+    # Blocking to be safe and consistent with other reports.
+    if session.get('role_name') == Roles.SUB_AGENTE:
+        return jsonify([]), 403
+
     cliente_id = request.args.get('cliente_id')
     if not cliente_id:
         return jsonify([])
@@ -47,6 +56,10 @@ def api_client_files():
 def serve_client_file():
     if 'user' not in session:
         return redirect(url_for('login'))
+    
+    if session.get('role_name') == Roles.SUB_AGENTE:
+        abort(403)
+
     # Serve a single file (for iframe viewer)
     idArchivo = request.args.get('idArchivo') or request.args.get('id')
     if not idArchivo:
@@ -85,6 +98,10 @@ def serve_client_file():
 def download_zip_cliente():
     if 'user' not in session:
         return jsonify({'error': 'No autenticado'}), 401
+    
+    if session.get('role_name') == Roles.SUB_AGENTE:
+        return jsonify({'error': 'No autorizado'}), 403
+
     cliente_id = request.args.get('cliente_id')
     if not cliente_id:
         return jsonify({'error': 'cliente_id requerido'}), 400
@@ -133,6 +150,9 @@ def download_client_file():
     # Descarga un archivo como attachment. Acepta idArchivo (preferido) o cliente_id (último archivo)
     if 'user' not in session:
         return redirect(url_for('login'))
+    
+    if session.get('role_name') == Roles.SUB_AGENTE:
+        abort(403)
 
     idArchivo = request.args.get('idArchivo') or request.args.get('id')
     cliente_id = request.args.get('cliente_id')

@@ -1,6 +1,7 @@
 from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory,jsonify
 from werkzeug.utils import secure_filename
 import os
+from utils.rbac import can_access_maestros, can_delete, can_edit, can_create, Roles, get_role_scope
 from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards
 from datetime import datetime, timedelta
 from controllers.reportes.vencimientos_renovaciones import bp as vencimientos_bp
@@ -376,12 +377,16 @@ def menu_page(page):
 
     # Ajustadores (Maestros) - aceptar singular y plural para compatibilidad de URL
     if page in ('maestros-ajustadores', 'maestros-ajustador'):
+        if not can_access_maestros(session.get('role_name')):
+            return redirect(url_for('main.home'))
         from controllers.ajustadores.ajustadores import get_ajustadores
         rows = get_ajustadores() or []
         return render_template('view/ajustadores/ajustadores.html', page='maestros-ajustadores', title='Ajustadores', rows=rows)
 
     # Soporte para Productos (slug correcto y con typo del menú)
     if page in ('maestros-productos', 'maestros-prodcutos'):
+        if not can_access_maestros(session.get('role_name')):
+            return redirect(url_for('main.home'))
         # Cargamos filas si queremos pasar rows a la plantilla; la plantilla usa JS para consumo API
         from controllers.maestros.productos import get_productos
         rows = get_productos() or []
@@ -612,6 +617,18 @@ def menu_page(page):
             page='reporte-diario',
             filters=filters
         )
+
+@bp.route('/api/reporte-diario', methods=['POST'])
+def api_reporte_diario():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    
+    # Sub Agente allowed
+    
+    from controllers.reporte_diario import get_reporte_diario_data
+    filters = request.get_json(silent=True) or {}
+    rows = get_reporte_diario_data(filters)
+    return jsonify({'ok': True, 'rows': rows})
 
         # Fallback: otras secciones usan el dashboard con etiqueta de sección
     rows = get_dashboard_rows()
@@ -853,6 +870,9 @@ def clientes_add():
     if 'user' not in session:
         return {'ok': False, 'errors': ['No autenticado']}, 401
 
+    if not can_create(session.get('role_name')):
+        return {'ok': False, 'errors': ['No autorizado para crear']}, 403
+
     # Manejar upload de archivo si existe
     data = {}
     if request.files or request.form:
@@ -1049,6 +1069,9 @@ def polizas_save():
     if 'user' not in session:
         return {'ok': False, 'errors': ['No autenticado']}, 401
 
+    if not can_create(session.get('role_name')):
+        return {'ok': False, 'errors': ['No autorizado para crear']}, 403
+
     payload = request.get_json(silent=True) or {}
     items = payload.get('items') or []
     selected = payload.get('selected') or session.get('selected_cliente') or {}
@@ -1071,6 +1094,9 @@ def polizas_update():
     if 'user' not in session:
         return {'ok': False, 'errors': ['No autenticado']}, 401
 
+    if not can_edit(session.get('role_name')):
+        return {'ok': False, 'errors': ['No autorizado para editar']}, 403
+
     data = request.get_json(silent=True) or request.form.to_dict()
     from controllers.editar_poliza import update_poliza
     res = update_poliza(data)
@@ -1082,6 +1108,9 @@ def polizas_update():
 def primas_update():
     if 'user' not in session:
         return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    if not can_edit(session.get('role_name')):
+        return {'ok': False, 'errors': ['No autorizado para editar']}, 403
 
     data = request.get_json(silent=True) or request.form.to_dict()
     # Mapeo de campos de Primas a Pólizas
@@ -1099,6 +1128,9 @@ def primas_update():
 def polizas_renovar():
     if 'user' not in session:
         return {'ok': False, 'errors': ['No autenticado']}, 401
+    
+    if not can_create(session.get('role_name')):
+        return {'ok': False, 'errors': ['No autorizado para renovar (crear)']}, 403
     
     data = request.get_json(silent=True) or {}
     
@@ -1659,6 +1691,9 @@ def clientes_edit():
     if 'user' not in session:
         return {'ok': False, 'errors': ['No autenticado']}, 401
 
+    if not can_edit(session.get('role_name')):
+        return {'ok': False, 'errors': ['No autorizado para editar']}, 403
+
     from controllers.clientes.editcliente import editar_cliente_route
     return editar_cliente_route()
 
@@ -1675,6 +1710,9 @@ def clientes_detalle(idCliente):
 def clientes_delete():
     if 'user' not in session:
         return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    if not can_delete(session.get('role_name')):
+        return {'ok': False, 'errors': ['No autorizado para eliminar']}, 403
 
     from controllers.clientes.deletecliente import eliminar_cliente_route
     return eliminar_cliente_route()
@@ -1731,6 +1769,10 @@ def api_get_siniestro(id):
 def api_insert_siniestro():
     if 'user' not in session:
         return {'ok': False, 'error': 'No autenticado'}, 401
+    
+    if not can_create(session.get('role_name')):
+        return {'ok': False, 'error': 'No autorizado para crear'}, 403
+
     from controllers.siniestros.siniestros_controller import insert_siniestro
     return insert_siniestro()
 
@@ -1738,6 +1780,9 @@ def api_insert_siniestro():
 def api_update_siniestro(id):
     if 'user' not in session:
         return {'ok': False, 'error': 'No autenticado'}, 401
+
+    if not can_edit(session.get('role_name')):
+        return {'ok': False, 'error': 'No autorizado para editar'}, 403
     from controllers.siniestros.siniestros_controller import update_siniestro
     return update_siniestro(id)
 
@@ -1763,6 +1808,10 @@ def serve_siniestro_form(filename):
 def api_delete_siniestro(id):
     if 'user' not in session:
         return {'ok': False, 'error': 'No autenticado'}, 401
+    
+    if not can_delete(session.get('role_name')):
+        return {'ok': False, 'error': 'No autorizado para eliminar'}, 403
+
     from controllers.siniestros.siniestros_controller import delete_siniestro
     return delete_siniestro(id)
 
@@ -1846,37 +1895,81 @@ def menu_siniestros():
 def menu_maestros_clases():
     if 'user' not in session:
         return redirect(url_for('login'))
+    if not can_access_maestros(session.get('role_name')):
+        return redirect(url_for('main.dashboard'))
     return render_template('view/maestros/clases.html', page='maestros-clases')
 
 @bp.route('/menu/maestros-usos', methods=['GET'])
 def menu_maestros_usos():
     if 'user' not in session:
         return redirect(url_for('login'))
+    if not can_access_maestros(session.get('role_name')):
+        return redirect(url_for('main.dashboard'))
     return render_template('view/maestros/usos.html', page='maestros-usos')
 
 @bp.route('/menu/maestros-marcas', methods=['GET'])
 def menu_maestros_marcas():
     if 'user' not in session:
         return redirect(url_for('login'))
+    if not can_access_maestros(session.get('role_name')):
+        return redirect(url_for('main.dashboard'))
     return render_template('view/maestros/marcas.html', page='maestros-marcas')
 
 @bp.route('/menu/maestros-modelos', methods=['GET'])
 def menu_maestros_modelos():
     if 'user' not in session:
         return redirect(url_for('login'))
+    if not can_access_maestros(session.get('role_name')):
+        return redirect(url_for('main.dashboard'))
     return render_template('view/maestros/modelos.html', page='maestros-modelos')
 
 @bp.route('/menu/maestros-ramos', methods=['GET'])
 def menu_maestros_ramos():
     if 'user' not in session:
         return redirect(url_for('login'))
+    if not can_access_maestros(session.get('role_name')):
+        return redirect(url_for('main.dashboard'))
     return render_template('view/maestros/ramos.html', page='maestros-ramos')
 
 @bp.route('/menu/maestros-productos', methods=['GET'])
 def menu_maestros_productos():
     if 'user' not in session:
         return redirect(url_for('login'))
+    if not can_access_maestros(session.get('role_name')):
+        return redirect(url_for('main.dashboard'))
     return render_template('view/maestros/productos.html', page='maestros-productos')
+
+@bp.route('/menu/maestros-usuarios', methods=['GET'])
+def menu_maestros_usuarios():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    if not can_access_maestros(session.get('role_name')):
+        return redirect(url_for('main.dashboard'))
+    from controllers.maestros.usuarios import get_usuarios, get_roles
+    usuarios = get_usuarios()
+    roles = get_roles()
+    return render_template('view/maestros/usuarios.html', page='maestros-usuarios', usuarios=usuarios, roles=roles)
+
+@bp.route('/api/maestros/usuarios/rol', methods=['POST'])
+def api_maestros_usuarios_rol():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+    
+    if not can_access_maestros(session.get('role_name')):
+        return jsonify({'ok': False, 'error': 'Forbidden'}), 403
+
+    data = request.get_json()
+    user_id = data.get('user_id')
+    role_id = data.get('role_id')
+    
+    if not user_id or not role_id:
+        return jsonify({'ok': False, 'error': 'Missing parameters'}), 400
+        
+    from controllers.maestros.usuarios import update_usuario_rol
+    if update_usuario_rol(user_id, role_id):
+        return jsonify({'ok': True})
+    else:
+        return jsonify({'ok': False, 'error': 'Failed to update role'}), 500
 
 @bp.route('/api/maestros/<entidad>', methods=['GET', 'POST'])
 def api_maestros_list_create(entidad):
@@ -1885,6 +1978,9 @@ def api_maestros_list_create(entidad):
     """
     if 'user' not in session:
         return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    if not can_access_maestros(session.get('role_name')):
+        return jsonify({'ok': False, 'error': 'Forbidden'}), 403
 
     entidad = (entidad or '').lower()
 
@@ -1983,6 +2079,10 @@ def api_maestros_delete(entidad, id_):
     """Eliminar registro maestro por entidad e id."""
     if 'user' not in session:
         return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+    
+    if not can_access_maestros(session.get('role_name')):
+        return jsonify({'ok': False, 'error': 'Forbidden'}), 403
+
     entidad = (entidad or '').lower()
     try:
         if entidad == 'clases':

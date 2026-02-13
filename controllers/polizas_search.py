@@ -3,9 +3,29 @@ def search_polizas_global(query: str, search_type: str) -> dict:
     rows = []
     try:
         from models.db import get_connection
+        from flask import session
+        from utils.rbac import Roles
+
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
         
+        # Determine Role Context
+        role_name = session.get('role_name')
+        username = session.get('user')
+        
+        user_filter_sql = ""
+        user_filter_params = []
+
+        if role_name == Roles.SUB_AGENTE and username:
+            # Get user's full name for sub_agente match
+            cur.execute("SELECT nombre FROM usuarios WHERE username = %s", (username,))
+            u_row = cur.fetchone()
+            nombre_usuario = u_row['nombre'] if u_row else username
+            
+            # Filter by creator or assigned sub_agente
+            user_filter_sql = " AND (p.usuario_registro = %s OR p.sub_agente = %s)"
+            user_filter_params = [username, nombre_usuario]
+
         # Base query
         sql = """
             SELECT 
@@ -54,6 +74,11 @@ def search_polizas_global(query: str, search_type: str) -> dict:
             )"""
             params.extend([q, q, q, q, q])
             
+        # Apply User Filter (RLS)
+        if user_filter_sql:
+            sql += user_filter_sql
+            params.extend(user_filter_params)
+
         sql += " ORDER BY p.creado_en DESC LIMIT 100"
         
         cur.execute(sql, tuple(params))

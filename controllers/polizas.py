@@ -133,21 +133,46 @@ def get_polizas_all() -> dict:
     rows = []
     try:
         from models.db import get_connection
+        from flask import session
+        from utils.rbac import Roles
+
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
+        
+        # RLS Filter Logic
+        rls_filter = ""
+        rls_params = []
+        
+        if session.get('role_name') == Roles.SUB_AGENTE:
+            user = session.get('user')
+            # Get user's full name for sub_agente match if needed, or use username
+            # Assuming sub_agente column might store username or name. 
+            # Consistent with polizas_search.py logic:
+            cur.execute("SELECT nombre FROM usuarios WHERE username = %s", (user,))
+            u_row = cur.fetchone()
+            nombre_usuario = u_row['nombre'] if u_row else user
+            
+            rls_filter = " AND (p.usuario_registro = %s OR p.sub_agente = %s) "
+            rls_params = [user, nombre_usuario]
 
         # Primero intentamos con el SP, si existe
-        try:
-            cur.execute("CALL sp_list_polizas_all()")
-            rows = cur.fetchall() or []
+        # Nota: SP sp_list_polizas_all generalmente no acepta params de filtro RLS dinámico.
+        # Si es Sub Agente, forzamos el uso de SQL directo para aplicar RLS.
+        use_sp = (rls_filter == "")
+        
+        if use_sp:
             try:
-                while cur.nextset():
-                    pass
+                cur.execute("CALL sp_list_polizas_all()")
+                rows = cur.fetchall() or []
+                try:
+                    while cur.nextset(): pass
+                except: pass
             except Exception:
-                pass
-        except Exception:
-            # Fallback directo si el SP no existe
-            cur.execute("""
+                use_sp = False # Fallback to SQL
+
+        if not use_sp:
+            # Fallback directo o RLS aplicado
+            sql = """
                 SELECT 
                     p.idPoliza,
                     c.razon_social AS contratante,
@@ -165,8 +190,11 @@ def get_polizas_all() -> dict:
                     p.asegurada
                 FROM polizas p
                 INNER JOIN clientes c ON c.idCliente = p.cliente_id
+                WHERE 1=1 
+            """ + rls_filter + """
                 ORDER BY p.creado_en DESC
-            """)
+            """
+            cur.execute(sql, tuple(rls_params))
             rows = cur.fetchall() or []
 
         # Normalizar 'producto' si hiciera falta

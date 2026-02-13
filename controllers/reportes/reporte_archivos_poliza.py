@@ -1,6 +1,7 @@
 
-from flask import Blueprint, render_template, request, jsonify, send_file, current_app
+from flask import Blueprint, render_template, request, jsonify, send_file, current_app, session
 from models.db import get_connection
+from utils.rbac import Roles
 import os
 import zipfile
 import io
@@ -49,12 +50,24 @@ def index():
 
 @bp.route('/api/reportes/archivos-poliza', methods=['GET'])
 def api_search():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    
+    if session.get('role_name') == Roles.SUB_AGENTE:
+        return {'ok': False, 'error': 'No autorizado'}, 403
+
     search = request.args.get('search', '')
     data = get_reporte_archivos(search)
     return jsonify(data)
 
 @bp.route('/api/reportes/download-zip', methods=['GET'])
 def download_zip(): 
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    
+    if session.get('role_name') == Roles.SUB_AGENTE:
+        return {'ok': False, 'error': 'No autorizado'}, 403
+
     search = request.args.get('search', '')
     identificador = request.args.get('identificador', '')
     tipo_origen = request.args.get('tipo', '') # POLIZA or CLIENTE

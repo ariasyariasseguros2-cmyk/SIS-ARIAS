@@ -192,6 +192,7 @@
                     </ul>
                 </li>
 
+            {% if session.get('role_name') == 'BROKER' %}
             <li class="nav-group{% if page and page.startswith('maestros') %} open active-group{% endif %}">
                 <button class="group-toggle" type="button">
                     <i class="bi-journal-bookmark"></i> <span><strong>Maestros</strong></span>
@@ -215,6 +216,7 @@
                     <li><i class="bi-card-list"></i> <a data-page="maestros-usos" href="{{ url_for('main.menu_page', page='maestros-usos') }}">Usos</a></li>
                 </ul>
             </li>
+            {% endif %}
 
             <li style="margin-top: 50px;">
                 <img src="https://img.icons8.com/ios/50/ffffff/logout-rounded.png" alt="Logout" style="width: 20px; height: 20px;">

@@ -33,13 +33,46 @@ def list_siniestros_por_poliza():
 
 def list_siniestros():
 	try:
+		from utils.rbac import Roles
 		connection = get_connection()
 		cursor = connection.cursor(dictionary=True)
 
-		cursor.callproc('sp_list_siniestros')
+		# RLS Logic
+		rls_filter = ""
+		rls_params = []
+		if session.get('role_name') == Roles.SUB_AGENTE:
+			user = session.get('user')
+			# Get user's full name for sub_agente match
+			cursor.execute("SELECT nombre FROM usuarios WHERE username = %s", (user,))
+			u_row = cursor.fetchone()
+			nombre_usuario = u_row['nombre'] if u_row else user
+			
+			# Filter by creator or assigned sub_agente (via polizas join)
+			# Siniestros has poliza (varchar), polizas has poliza (varchar)
+			rls_filter = """
+				AND (
+					s.usuario_registro = %s 
+					OR EXISTS (
+						SELECT 1 FROM polizas p 
+						WHERE p.poliza = s.poliza 
+						AND (p.sub_agente = %s OR p.usuario_registro = %s)
+					)
+				)
+			"""
+			rls_params = [user, nombre_usuario, user]
 
-		for result in cursor.stored_results():
-			siniestros = result.fetchall()
+		# Use SQL directly instead of SP to support RLS
+		sql = f"""
+			SELECT
+				s.id, s.grupo_ramo, s.contratante, s.poliza, s.cia, s.ramo, s.fec_stro,
+				s.causa, s.siniestro_no, s.monto_siniestro, s.estado, s.ejecutivo_cia, s.placa, s.creado_en
+			FROM siniestros s
+			WHERE 1=1 {rls_filter}
+			ORDER BY s.creado_en DESC
+		"""
+		
+		cursor.execute(sql, tuple(rls_params))
+		siniestros = cursor.fetchall()
 
 		cursor.close()
 		connection.close()
@@ -596,15 +629,59 @@ def delete_siniestro(siniestro_id):
 
 def buscar_siniestros():
 	try:
+		from utils.rbac import Roles
 		texto = request.json.get('texto', '')
 
 		connection = get_connection()
 		cursor = connection.cursor(dictionary=True)
 
-		cursor.callproc('sp_buscar_siniestros', [texto])
+		# RLS Logic
+		rls_filter = ""
+		rls_params = []
+		if session.get('role_name') == Roles.SUB_AGENTE:
+			user = session.get('user')
+			# Get user's full name for sub_agente match
+			cursor.execute("SELECT nombre FROM usuarios WHERE username = %s", (user,))
+			u_row = cursor.fetchone()
+			nombre_usuario = u_row['nombre'] if u_row else user
+			
+			rls_filter = """
+				AND (
+					s.usuario_registro = %s 
+					OR EXISTS (
+						SELECT 1 FROM polizas p 
+						WHERE p.poliza = s.poliza 
+						AND (p.sub_agente = %s OR p.usuario_registro = %s)
+					)
+				)
+			"""
+			rls_params = [user, nombre_usuario, user]
 
-		for result in cursor.stored_results():
-			siniestros = result.fetchall()
+		# Use SQL directly instead of SP to support RLS and Search
+		term = f"%{texto}%"
+		sql = f"""
+			SELECT
+				s.id, s.grupo_ramo, s.contratante, s.poliza, s.cia, s.ramo, s.fec_stro,
+				s.causa, s.siniestro_no, s.monto_siniestro, s.estado, s.ejecutivo_cia, s.placa, s.creado_en
+			FROM siniestros s
+			WHERE (
+				s.poliza LIKE %s OR
+				s.contratante LIKE %s OR
+				s.asegurado LIKE %s OR
+				s.siniestro_no LIKE %s OR
+				s.placa LIKE %s OR
+				s.cia LIKE %s
+			)
+			{rls_filter}
+			ORDER BY s.creado_en DESC
+			LIMIT 100
+		"""
+		
+		# Combine params: search params * 6 + rls_params
+		params = [term] * 6 + rls_params
+		
+		cursor.execute(sql, tuple(params))
+		siniestros = cursor.fetchall()
 
 		cursor.close()
 		connection.close()
