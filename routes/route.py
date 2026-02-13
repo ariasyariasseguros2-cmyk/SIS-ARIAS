@@ -1031,6 +1031,88 @@ def clientes_extract_pdf():
         return {'ok': False, 'errors': [str(e)]}, 500
 
 
+# =====================================================
+# RUTAS PARA CARGA MASIVA DE SOAT
+# =====================================================
+@bp.route('/carga-masiva-soat', methods=['GET'])
+def carga_masiva_soat():
+    """Renderiza la página de carga masiva de SOAT"""
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    return render_template('view/carga_masiva_soat.html', page='carga-masiva-soat')
+
+
+@bp.route('/carga-masiva-soat/upload', methods=['POST'])
+def carga_masiva_soat_upload():
+    """Procesa el archivo Excel de carga masiva"""
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    if 'excel_file' not in request.files:
+        return {'ok': False, 'errors': ['No se envió ningún archivo']}, 400
+
+    file = request.files['excel_file']
+
+    if file.filename == '':
+        return {'ok': False, 'errors': ['Nombre de archivo vacío']}, 400
+
+    if not file.filename.lower().endswith(('.xlsx', '.xls')):
+        return {'ok': False, 'errors': ['El archivo debe ser un Excel (.xlsx o .xls)']}, 400
+
+    try:
+        # Guardar archivo temporalmente
+        filename = secure_filename(file.filename)
+        temp_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'temp_soat_' + filename)
+        file.save(temp_path)
+
+        # Procesar Excel
+        from controllers.carga_masiva_soat import process_soat_excel
+        result = process_soat_excel(temp_path, session.get('user'))
+
+        # Eliminar archivo temporal
+        try:
+            os.remove(temp_path)
+        except:
+            pass
+
+        if result.get('ok'):
+            return {
+                'ok': True,
+                'clientes_nuevos': result.get('clientes_nuevos', 0),
+                'clientes_existentes': result.get('clientes_existentes', 0),
+                'polizas_insertadas': result.get('polizas_insertadas', 0),
+                'errors': result.get('errors', [])
+            }, 200
+        else:
+            return {'ok': False, 'errors': result.get('errors', ['Error desconocido'])}, 400
+
+    except Exception as e:
+        current_app.logger.error(f'Error en carga masiva SOAT: {e}')
+        return {'ok': False, 'errors': [str(e)]}, 500
+
+
+@bp.route('/carga-masiva-soat/plantilla', methods=['GET'])
+def descargar_plantilla_soat():
+    """Descarga la plantilla de Excel para carga masiva"""
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    # Directorio de plantillas
+    plantillas_dir = os.path.join(current_app.root_path, 'static', 'plantillas')
+
+    return send_from_directory(
+        plantillas_dir,
+        'plantilla_carga_masiva_soat.xlsx',
+        as_attachment=True
+    )
+
+# =====================================================
+# FIN RUTAS CARGA MASIVA
+# =====================================================
+
+
+
 @bp.route('/clientes/select', methods=['POST'])
 def clientes_select():
     if 'user' not in session:
