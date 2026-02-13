@@ -95,7 +95,7 @@ def normalize_decimal(value) -> float | None:
         return None
 
 
-def get_or_create_uso(cursor, cnx, uso_nombre: str) -> int | None:
+def get_or_create_uso(cursor, cnx, uso_nombre: str, commit: bool = True) -> int | None:
     """Obtiene el ID de un uso, o lo crea si no existe"""
     if not uso_nombre or uso_nombre.strip() == '':
         return None
@@ -113,16 +113,18 @@ def get_or_create_uso(cursor, cnx, uso_nombre: str) -> int | None:
         # Recuperar el ID
         cursor.execute("SELECT @_sp_insertar_uso_1 AS uso_id")
         row = cursor.fetchone()
-        cnx.commit()
+        if commit:
+            cnx.commit()
 
         return row['uso_id'] if row else None
     except Exception as e:
-        cnx.rollback()
+        if commit:
+            cnx.rollback()
         print(f"Error al insertar uso '{uso_nombre}': {str(e)}")
         return None
 
 
-def get_or_create_marca(cursor, cnx, marca_nombre: str) -> int | None:
+def get_or_create_marca(cursor, cnx, marca_nombre: str, commit: bool = True) -> int | None:
     """Obtiene el ID de una marca, o la crea si no existe"""
     if not marca_nombre or marca_nombre.strip() == '':
         return None
@@ -140,16 +142,18 @@ def get_or_create_marca(cursor, cnx, marca_nombre: str) -> int | None:
         # Recuperar el ID
         cursor.execute("SELECT @_sp_insertar_marca_1 AS marca_id")
         row = cursor.fetchone()
-        cnx.commit()
+        if commit:
+            cnx.commit()
 
         return row['marca_id'] if row else None
     except Exception as e:
-        cnx.rollback()
+        if commit:
+            cnx.rollback()
         print(f"Error al insertar marca '{marca_nombre}': {str(e)}")
         return None
 
 
-def get_or_create_modelo(cursor, cnx, marca_nombre: str, modelo_nombre: str) -> tuple[int | None, int | None]:
+def get_or_create_modelo(cursor, cnx, marca_nombre: str, modelo_nombre: str, commit: bool = True) -> tuple[int | None, int | None]:
     """Obtiene los IDs de marca y modelo, o los crea si no existen"""
     if not marca_nombre or not modelo_nombre:
         return None, None
@@ -168,18 +172,20 @@ def get_or_create_modelo(cursor, cnx, marca_nombre: str, modelo_nombre: str) -> 
         # Recuperar los IDs
         cursor.execute("SELECT @_sp_insertar_modelo_por_nombres_2 AS marca_id, @_sp_insertar_modelo_por_nombres_3 AS modelo_id")
         row = cursor.fetchone()
-        cnx.commit()
+        if commit:
+            cnx.commit()
 
         if row:
             return row['marca_id'], row['modelo_id']
         return None, None
     except Exception as e:
-        cnx.rollback()
+        if commit:
+            cnx.rollback()
         print(f"Error al insertar marca/modelo '{marca_nombre}/{modelo_nombre}': {str(e)}")
         return None, None
 
 
-def get_or_create_agente(cursor, cnx, codigo_agente: str, nombre_vendedor: str) -> int | None:
+def get_or_create_agente(cursor, cnx, codigo_agente: str, nombre_vendedor: str, commit: bool = True) -> int | None:
     """Obtiene el ID de un agente, o lo crea si no existe"""
     if not codigo_agente or codigo_agente.strip() == '':
         return None
@@ -198,18 +204,25 @@ def get_or_create_agente(cursor, cnx, codigo_agente: str, nombre_vendedor: str) 
         # Recuperar el ID
         cursor.execute("SELECT @_sp_insertar_agente_2 AS agente_id")
         row = cursor.fetchone()
-        cnx.commit()
+        if commit:
+            cnx.commit()
 
         return row['agente_id'] if row else None
     except Exception as e:
-        cnx.rollback()
+        if commit:
+            cnx.rollback()
         print(f"Error al insertar agente '{codigo_agente}': {str(e)}")
         return None
 
 
-def process_soat_excel(file_path: str, usuario: str) -> dict:
+def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> dict:
     """
     Procesa un archivo Excel con datos de SOAT y los carga en la BD
+
+    Args:
+        file_path: Ruta al archivo Excel
+        usuario: Usuario que realiza la carga
+        preview: Si es True, no guarda cambios en BD (modo simulación)
 
     Returns:
         dict con estructura: {
@@ -238,6 +251,7 @@ def process_soat_excel(file_path: str, usuario: str) -> dict:
         # Conectar a BD
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
+        commit_db = not preview
 
         # Agrupar por cliente (NUMERO_DOCUMENTO)
         clientes_procesados = set()
@@ -303,7 +317,8 @@ def process_soat_excel(file_path: str, usuario: str) -> dict:
                                       cliente_args)
                             while cur.nextset():
                                 pass
-                            cnx.commit()
+                            if commit_db:
+                                cnx.commit()
                             clientes_nuevos += 1
                         except mysql.connector.Error as err:
                             errors_list.append(f"Fila {idx + 2}: Error al insertar cliente {numero_documento}: {str(err)}")
@@ -318,19 +333,19 @@ def process_soat_excel(file_path: str, usuario: str) -> dict:
                 # Validar e insertar USO si no existe
                 uso_nombre = normalize_string(row.get('USO', ''))
                 if uso_nombre:
-                    get_or_create_uso(cur, cnx, uso_nombre)
+                    get_or_create_uso(cur, cnx, uso_nombre, commit=commit_db)
 
                 # Validar e insertar MARCA y MODELO si no existen
                 marca_nombre = normalize_string(row.get('MARCA', ''))
                 modelo_nombre = normalize_string(row.get('MODELO', ''))
                 if marca_nombre and modelo_nombre:
-                    get_or_create_modelo(cur, cnx, marca_nombre, modelo_nombre)
+                    get_or_create_modelo(cur, cnx, marca_nombre, modelo_nombre, commit=commit_db)
 
                 # Validar e insertar AGENTE si no existe (solo si ambos tienen valor)
                 codigo_agente = normalize_string(row.get('COD_AGENTE', ''))
                 nombre_vendedor = normalize_string(row.get('VENDEDOR', ''))
                 if codigo_agente and nombre_vendedor:
-                    get_or_create_agente(cur, cnx, codigo_agente, nombre_vendedor)
+                    get_or_create_agente(cur, cnx, codigo_agente, nombre_vendedor, commit=commit_db)
 
                 # Si no hay código de agente, usar cadena vacía para evitar errores
                 if not codigo_agente:
@@ -405,19 +420,27 @@ def process_soat_excel(file_path: str, usuario: str) -> dict:
                     )
                     while cur.nextset():
                         pass
-                    cnx.commit()
+                    if commit_db:
+                        cnx.commit()
                     polizas_insertadas += 1
                 except mysql.connector.Error as err:
                     if 'Póliza ya existe' in str(err):
                         errors_list.append(f"Fila {idx + 2}: Póliza {row['POLIZA_CERTF']} ya existe para cliente {numero_documento}")
                     else:
                         errors_list.append(f"Fila {idx + 2}: Error al insertar póliza: {str(err)}")
-                    cnx.rollback()
+                    # Solo hacemos rollback si estábamos intentando commitear
+                    # Si estamos en preview, no commiteamos nada de todas formas
+                    if commit_db:
+                        cnx.rollback()
                     continue
 
             except Exception as e:
                 errors_list.append(f"Fila {idx + 2}: Error inesperado: {str(e)}")
                 continue
+
+        # Si estamos en modo preview, hacemos rollback de todo por si acaso
+        if preview:
+            cnx.rollback()
 
         cur.close()
         cnx.close()
@@ -435,7 +458,3 @@ def process_soat_excel(file_path: str, usuario: str) -> dict:
             'ok': False,
             'errors': [f"Error al procesar archivo: {str(e)}"]
         }
-
-
-
-

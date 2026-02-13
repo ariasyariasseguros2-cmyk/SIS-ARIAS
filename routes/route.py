@@ -1060,6 +1060,10 @@ def carga_masiva_soat_upload():
     if not file.filename.lower().endswith(('.xlsx', '.xls')):
         return {'ok': False, 'errors': ['El archivo debe ser un Excel (.xlsx o .xls)']}, 400
 
+    # Obtener flag de preview (default: False)
+    preview_str = request.form.get('preview', 'false')
+    preview = preview_str.lower() == 'true'
+
     try:
         # Guardar archivo temporalmente
         filename = secure_filename(file.filename)
@@ -1068,7 +1072,7 @@ def carga_masiva_soat_upload():
 
         # Procesar Excel
         from controllers.carga_masiva_soat import process_soat_excel
-        result = process_soat_excel(temp_path, session.get('user'))
+        result = process_soat_excel(temp_path, session.get('user'), preview=preview)
 
         # Eliminar archivo temporal
         try:
