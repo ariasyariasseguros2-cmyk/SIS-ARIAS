@@ -33,6 +33,35 @@
   let lastUploadedFilename = null;
   let productsCache = null;
 
+  function setIssuerFromProvider(provider) {
+    if (!issuerEl || !provider) return;
+    const prov = String(provider || '').toLowerCase();
+    const opts = Array.from(issuerEl.options || []);
+    let candidates = [];
+
+    if (prov === 'pacifico' || prov === 'pacifico_salud') {
+      candidates = ['pacifico'];
+    } else if (prov === 'sanitas') {
+      candidates = ['sanitas'];
+    } else if (prov === 'positiva' || prov === 'lpv-vida-ley' || prov === 'lpv-pension' || prov === 'lpv-salud') {
+      candidates = ['lpv-salud', 'lpv-pension', 'lpv-vida-ley', 'positiva'];
+    } else if (prov === 'protecta' || prov === 'proctecta') {
+      candidates = ['proctecta'];
+    } else if (prov === 'mapfre' || prov === 'mapfre-vida-ley' || prov === 'mapfre-vehicular' || prov === 'mapfre-equipo-contratistas') {
+      candidates = ['mapfre-vida-ley', 'mapfre'];
+    } else if (prov === 'crecer' || prov === 'vida-ley-crecer') {
+      candidates = ['vida-ley-crecer', 'crecer'];
+    }
+
+    for (const slug of candidates) {
+      const opt = opts.find(o => (o.value || '').toLowerCase() === slug);
+      if (opt) {
+        issuerEl.value = opt.value;
+        break;
+      }
+    }
+  }
+
   // Ventana modal de carga (Bootstrap) y alternativa con SweetAlert2
   const loadingModalEl = document.getElementById('loadingModal');
   const loadingModalMsgEl = document.getElementById('loadingModalMsg');
@@ -743,6 +772,10 @@
 
           if (payload && typeof payload.filename === 'string') {
             lastUploadedFilename = payload.filename;
+          }
+
+          if (payload && payload.provider) {
+            setIssuerFromProvider(payload.provider);
           }
 
           let items = [];

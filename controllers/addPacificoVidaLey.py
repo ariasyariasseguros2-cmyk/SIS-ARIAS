@@ -383,5 +383,5 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
     print("[pacifico] ramo:", item.get("ramo"))
 
     item = {k: v for k, v in item.items() if v}
-    print("[pacifico] item final:", item)
+    print("[pacifico] item final vida ley:", item)
     return item  # FIX: retornar el objeto

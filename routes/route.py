@@ -680,10 +680,12 @@ def upload():
     if filename.lower().endswith('.pdf'):
         try:
             items = parse_pdf_items_provider(save_path, issuer)
+            detected_provider = getattr(parse_pdf_items_provider, "_last_provider", None)
             LOG(f'[upload] provider items count={len(items)}')
         except Exception as e:
             LOG(f'[upload] provider parse error: {e}')
             items = []
+            detected_provider = None
 
     # Normalización: mapear variantes de claves a las usadas por la UI
     def _add_days_ddmmyyyy(date_str: str | None, days: int) -> str | None:
@@ -719,6 +721,28 @@ def upload():
             "contratante": it.get("contratante"),
             "razon_social": it.get("razon_social"),
         }
+        def _looks_like_insurer_name(name: str | None) -> bool:
+            if not name:
+                return False
+            low = name.lower()
+            tokens = [
+                "la positiva",
+                "positiva seguros",
+                "positiva vida",
+                "sanitas",
+                "pacifico",
+                "pacífico",
+                "mapfre",
+                "crecer seguros",
+                "rimac",
+            ]
+            return any(t in low for t in tokens)
+
+        aseg = (res.get("colectivo_asegurado") or "").strip()
+        cont = (res.get("contratante") or "").strip()
+        if aseg and _looks_like_insurer_name(aseg) and cont:
+            res["colectivo_asegurado"] = cont
+
         # Si hay Prima Comercial, derive Prima Neta; o viceversa
         try:
             if res["prima_comercial"]:
@@ -769,7 +793,7 @@ def upload():
             seen.add(key)
             unique.append(it)
 
-        return {'filename': filename, 'items': unique, 'debug': debug_logs}, 200
+        return {'filename': filename, 'items': unique, 'debug': debug_logs, 'provider': detected_provider}, 200
 
     # Fallback: comportamiento anterior (un solo objeto)
     extracted = {}
@@ -1543,6 +1567,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         except Exception as e:
             print(f"[provider] pacifico parse error: {e}")
 
+        parse_pdf_items_provider._last_provider = prov
         return items
 
     print(f"[provider] detectado: {prov}")
@@ -1715,7 +1740,9 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         from controllers.addLPVSALUD import parse_positiva_Salud
         item = parse_positiva_Salud(text)
         print("[provider] lpv-salud item:", item)
+        parse_pdf_items_provider._last_provider = prov
         return [item] if item else []
+    parse_pdf_items_provider._last_provider = prov
     return []
 
 def parse_pdf_fields_fitz(path: str) -> Dict[str, str]:

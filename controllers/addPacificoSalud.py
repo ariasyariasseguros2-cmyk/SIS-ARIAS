@@ -505,5 +505,5 @@ def parse_pacifico_salud(text: str) -> dict | None:
     print("[pacifico salud] ruc:", item.get("numero_documento_extracted"))
 
     item = {k: v for k, v in item.items() if v}
-    print("[pacifico] item final:", item)
+    print("[pacifico] item final salud:", item)
     return item if item else None

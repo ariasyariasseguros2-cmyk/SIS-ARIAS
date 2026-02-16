@@ -360,6 +360,15 @@ def parse_pacifico_pension(text: str) -> dict | None:
         or _find(r"(ACCIDENTES\s+DE\s+TRABAJO\s*\([^)]+\))", flat)
         or _find(r"Ramo\s*:?\s*([^\n]+)", text)
     )
+    ramo_main = None
+    ramos_producto = None
+    t_low = flat.lower()
+    if "pension" in t_low or "pensiones" in t_low:
+        ramo_main = "SCTR"
+        ramos_producto = "Pensión"
+    elif "salud" in t_low or "eps" in t_low:
+        ramo_main = "SCTR"
+        ramos_producto = "Salud"
 
     item = {
         "numero_poliza": _clean(numero_poliza),
@@ -377,7 +386,8 @@ def parse_pacifico_pension(text: str) -> dict | None:
             _clean(prima_comercial) and _clean(igv_val) and
             f"{float(prima_comercial.replace(',', '.')) + float(igv_val.replace(',', '.')):.2f}"
         ) or None,
-        "ramo": _clean(ramo),
+        "ramo": _clean(ramo_main) or _clean(ramo),
+        "ramos_producto": _clean(ramos_producto),
     }
     print("[pacifico] numero_poliza:", item.get("numero_poliza"))
     print("[pacifico] recibo:", item.get("recibo"))
@@ -390,7 +400,8 @@ def parse_pacifico_pension(text: str) -> dict | None:
     print("[pacifico] prima_comercial:", item.get("prima_comercial"))
     print("[pacifico] total (com+igv):", item.get("prima_comercial_igv"))
     print("[pacifico] ramo:", item.get("ramo"))
+    print("[pacifico] ramos_producto:", item.get("ramos_producto"))
 
     item = {k: v for k, v in item.items() if v}
-    print("[pacifico] item final:", item)
+    print("[pacifico] item final pension:", item)
     return item if item else None
