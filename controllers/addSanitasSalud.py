@@ -39,10 +39,27 @@ def parse_sanitas_salud(text: str) -> Dict[str, str]:
     if colectivo:
         colectivo = colectivo.split("\n")[0].strip()
 
-    # Rubro / ramo
+    # Rubro / ramo y producto (cascada: Ramo SCTR -> Producto Salud/Pensión)
     ramo = _find(r"Rubro\s*:\s*(.+)", text)
     if ramo:
         ramo = ramo.split("\n")[0].strip()
+    ramo_main = None
+    ramos_producto = None
+    t_low = text.lower()
+    # Mapeo explícito: si el rubro trae "SCTR Salud" o similar, normalizar a Ramo=SCTR y Producto=Salud
+    if ramo:
+        rl = ramo.lower()
+        if "sctr" in rl:
+            ramo_main = "SCTR"
+            if "salud" in rl or "eps" in rl:
+                ramos_producto = "Salud"
+            elif "pens" in rl:
+                ramos_producto = "Pensión"
+    # Si no se pudo derivar por rubro, usar el texto global
+    if not ramo_main and ("sctr" in t_low):
+        ramo_main = "SCTR"
+        if "salud" in t_low or "eps" in t_low:
+            ramos_producto = "Salud"
 
     # Concepto: IMPORTE / IGV / TOTAL
     importe = _money(_find(r"CONCEPTO.*?SCTR.*?IMPORTE\s*([0-9\.,]+)", text)) or _money(_find(r"\bIMPORTE\b\s*([0-9\.,]+)", text))
@@ -81,7 +98,8 @@ def parse_sanitas_salud(text: str) -> Dict[str, str]:
         "fecha_emision": fecha_emision or "",
         "ultimo_dia_pago": fecha_vencimiento,
         "fecha_vencimiento": fecha_vencimiento or vencimiento or "",  # usar encabezado "Vencimiento"
-        "ramo": ramo or "SCTR Salud",
+        "ramo": ramo_main or ramo or "SCTR",
+        "ramos_producto": ramos_producto,
         "moneda": "SOLES",
         "prima_comercial": prima_comercial,
         "prima_comercial_igv": total_con_igv or (f"{float((prima_comercial or '0').replace(',', '.')) + float((igv_val or '0').replace(',', '.')):.2f}" if prima_comercial and igv_val else None),

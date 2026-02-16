@@ -1145,6 +1145,45 @@
          sel.appendChild(opt);
        });
 
+       // Autoselección: si no hay valor actual y solo existe un producto para el ramo
+       if (!currentVal || currentVal.toString().trim() === '') {
+         if (matches.length === 1) {
+           sel.value = matches[0].nombre || matches[0].id || '';
+           // Reflejar en el modelo y disparar guardado
+           if (extractedItems && extractedItems[index]) {
+             const txt = matches[0].nombre || matches[0].id || '';
+             extractedItems[index].ramos_producto = txt;
+           }
+           scheduleAutoSave();
+         }
+       } else {
+         // Fallback: si hay valor actual pero no marcó nada por igualdad exacta,
+         // intentar seleccionar por coincidencia flexible (case-insensitive, incluye).
+         const cur = currentVal.toString().trim().toLowerCase();
+         const opts = Array.from(sel.options);
+         let picked = null;
+         // 1) Igualdad insensible a mayúsculas
+         picked = opts.find(o => (o.textContent || '').toString().trim().toLowerCase() === cur);
+         // 2) Contiene palabra clave (ej. "salud", "pensión") en el texto del option
+         if (!picked && cur) {
+           picked = opts.find(o => (o.textContent || '').toString().trim().toLowerCase().includes(cur));
+         }
+         // 3) Heurística para "Salud" o "Pensión"
+         if (!picked && (cur === 'salud' || cur === 'salúd')) {
+           picked = opts.find(o => (o.textContent || '').toString().trim().toLowerCase().includes('salud'));
+         } else if (!picked && cur.startsWith('pens')) {
+           picked = opts.find(o => (o.textContent || '').toString().trim().toLowerCase().includes('pens'));
+         }
+         if (picked && picked.value !== '') {
+           sel.value = picked.value;
+           if (extractedItems && extractedItems[index]) {
+             const txt = picked.textContent || picked.value || '';
+             extractedItems[index].ramos_producto = txt;
+           }
+           scheduleAutoSave();
+         }
+       }
+
        // Reemplazar el contenido de la celda
        td.classList.remove('editable');
        td.removeAttribute('contenteditable');
