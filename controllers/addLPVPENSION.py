@@ -132,6 +132,23 @@ def parse_positiva_Pension(text: str) -> Dict[str, str]:
         else:
             ramo = "La Positiva"
 
+    ramo_main = None
+    ramos_producto = None
+    if ramo:
+        ru = ramo.upper()
+        if "SCTR" in ru:
+            ramo_main = "SCTR"
+            if "PENSION" in ru or "PENSIÓN" in ru:
+                ramos_producto = "Pensión"
+            elif "SALUD" in ru or "EPS" in ru:
+                ramos_producto = "Salud"
+    if not ramo_main and ("sctr" in t_low):
+        ramo_main = "SCTR"
+        if "pension" in t_low or "pensi\u00f3n" in t_low:
+            ramos_producto = "Pensión"
+        elif "salud" in t_low or "eps" in t_low:
+            ramos_producto = "Salud"
+
     # Conceptos: capturas y prioridades (usar última coincidencia del bloque)
     sobrevivencia = _money(_find_last(r"Sobrevivencia[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text, flags=re.IGNORECASE))
     costos_emision = _money(_find_last(r"Costos?\s+de\s+Emisi[oó]n[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text, flags=re.IGNORECASE)) or \
@@ -224,7 +241,8 @@ def parse_positiva_Pension(text: str) -> Dict[str, str]:
         "prima_total": prima_comercial,
         "prima_comercial": prima_comercial,
         "prima_comercial_igv": prima_comercial_igv,
-        "ramo": ramo,
+        "ramo": ramo_main or ramo,
+        "ramos_producto": ramos_producto,
         "numero_documento_extracted": ruc_candidato,
     }
     print("item LPVPENSION", item)

@@ -264,6 +264,23 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
                 else:
                     ruc_candidato = generic_matches[0].group(1)
 
+    ramo_main = None
+    ramos_producto = None
+    if ramo:
+        ru = ramo.upper()
+        if "SCTR" in ru:
+            ramo_main = "SCTR"
+            if "SALUD" in ru or "EPS" in ru:
+                ramos_producto = "Salud"
+            elif "PENSION" in ru or "PENSIÓN" in ru:
+                ramos_producto = "Pensión"
+    if not ramo_main and ("sctr" in t_low):
+        ramo_main = "SCTR"
+        if "salud" in t_low or "eps" in t_low:
+            ramos_producto = "Salud"
+        elif "pension" in t_low or "pensi\u00f3n" in t_low:
+            ramos_producto = "Pensión"
+
     item = {
         "numero_poliza": (contrato_nro if (ramo and ramo.upper().startswith("SCTR SALUD") and contrato_nro) else (poliza_nro or contrato_nro)),
         "contrato_nro": contrato_nro,
@@ -280,7 +297,8 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
         "prima_total": prima_comercial,
         "prima_comercial": prima_comercial,
         "prima_comercial_igv": prima_comercial_igv,
-        "ramo": ramo,
+        "ramo": ramo_main or ramo,
+        "ramos_producto": ramos_producto,
         "numero_documento_extracted": ruc_candidato,
     }
     print("item LPVSALUD", item)
