@@ -174,6 +174,21 @@ def parse_mapfre(text: str) -> Dict[str, str]:
         or _find(r"(?:Ct\s*)?Cancelaci[oó]n\s+Recibo\s*[0-9]+\.?\s*(.+?)(?:\n|$)", text)
     )
 
+    # Normalizar ramo/producto para SCTR (Pensión/Salud)
+    ramo_main = None
+    ramos_producto = None
+    t_low = flat.lower()
+    if "seguro complementario de trabajo de riesgo" in t_low or "sctr" in t_low:
+        ramo_main = "SCTR"
+        if "pension" in t_low or "pensiones" in t_low:
+            ramos_producto = "Pensión"
+        elif "salud" in t_low or "eps" in t_low:
+            ramos_producto = "Salud"
+    if ramo_main:
+        item["ramo"] = ramo_main
+    if ramos_producto:
+        item["ramos_producto"] = ramos_producto
+
     # Prima
     # NUEVO: primero intentar "Prima Comercial + IGV"
     prima_com_igv = _find(r"Prima\s+Comercial\s*\+\s*IGV\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)

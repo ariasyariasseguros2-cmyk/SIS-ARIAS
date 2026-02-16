@@ -1543,6 +1543,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
 
     # Enrutamiento por proveedor (prioriza 'prov' si está presente)
     items: List[Dict[str, str]] = []
+    parse_pdf_items_provider._last_provider = prov
     if prov == 'pacifico':
         # Heurística por contenido para distinguir producto
         is_vida_ley = re.search(r'\bvida\s+ley\b', low) or re.search(r'\bcondicionado', low)
@@ -1567,7 +1568,6 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         except Exception as e:
             print(f"[provider] pacifico parse error: {e}")
 
-        parse_pdf_items_provider._last_provider = prov
         return items
 
     print(f"[provider] detectado: {prov}")
@@ -1598,7 +1598,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
             
         from controllers.addMapfre import parse_mapfre
         item = parse_mapfre(text)
-        print("[provider] mapfre item:", item)
+        print("[provider] mapfre item pension:", item)
         return [item] if item else []
     if prov == "mapfre-vida-ley":
         from controllers.addMapfreVidaLey import parse_mapfre_vidaley
