@@ -11,7 +11,7 @@ def validate_excel_structure(df: pd.DataFrame) -> tuple[bool, list[str]]:
     """Valida que el Excel tenga las columnas requeridas"""
     required_columns = [
         # Datos del cliente
-        'TIPO_PERSONA', 'NOMBRE_RAZON_SOCIAL', 'TIPO_DOCUMENTO', 'NUMERO_DOCUMENTO',
+        'TIPO_PERSONA', 'NOMBRE_RAZON_SOCIAL', 'NUMERO_DOCUMENTO',
         'DIRECCION', 'DEPARTAMENTO', 'PROVINCIA', 'DISTRITO',
 
         # Datos de la póliza
@@ -25,7 +25,8 @@ def validate_excel_structure(df: pd.DataFrame) -> tuple[bool, list[str]]:
         'INCISO', 'SUMA_ASEGURADA', 'FECINCLUSION', 'PLACA',
         'CLASE', 'USO', 'SERIE', 'MARCA', 'MODELO', 'ANIO'
 
-        # Nota: COD_AGENTE y VENDEDOR son opcionales
+        # Nota: TIPO_DOCUMENTO, COD_AGENTE y VENDEDOR son opcionales
+        # Si TIPO_DOCUMENTO está vacío, se detecta automáticamente según el número
     ]
 
     errors = []
@@ -93,6 +94,155 @@ def normalize_decimal(value) -> float | None:
         return float(value_str)
     except Exception:
         return None
+
+
+def normalize_numero_documento(value) -> str:
+    """
+    Normaliza el número de documento preservando ceros a la izquierda cuando el valor es texto.
+    - Si el valor viene como string y contiene ceros a la izquierda, los conserva.
+    - Si viene como float (p.ej. 102836.0) elimina la parte ".0" y devuelve el entero como string.
+    - Maneja notación científica y espacios/guiones.
+    """
+    if pd.isna(value) or value is None:
+        return ''
+
+    s = str(value).strip()
+    if not s:
+        return ''
+
+    # Quitar espacios y guiones
+    s = s.replace(' ', '').replace('-', '')
+
+    # Si es algo como '102836.0' -> quitar '.0'
+    if s.endswith('.0'):
+        s = s[:-2]
+
+    # Si tiene punto decimal y ambas partes son dígitos, quedarnos con la parte entera
+    if '.' in s and all(part.isdigit() for part in s.split('.')):
+        s = s.split('.')[0]
+
+    # Manejar notación científica (ej: '1.0202836E+05')
+    try:
+        if 'E' in s.upper():
+            from decimal import Decimal
+            d = Decimal(s)
+            if d == d.to_integral():
+                s = str(d.to_integral())
+            else:
+                # Normalizar a forma sin exponencial y quitar punto si existe
+                s = format(d.normalize(), 'f').replace('.', '')
+    except Exception:
+        pass
+
+    # Si después de limpiar es sólo dígitos, retornarlo tal cual (preserva ceros a la izquierda si existían)
+    # Si no son sólo dígitos (p.ej. pasaporte con letras), devolver la cadena limpia
+    return s
+
+
+def normalize_tipo_persona(value) -> int:
+    """
+    Normaliza el tipo de persona para aceptar texto o número.
+
+    Valores aceptados:
+    - 1, '1', 'Natural', 'NATURAL', 'Persona Natural' → 1
+    - 2, '2', 'Juridica', 'JURIDICA', 'Persona Juridica' → 2
+
+    Args:
+        value: Valor del tipo de persona (puede ser int, str, etc.)
+
+    Returns:
+        1 para Persona Natural, 2 para Persona Jurídica
+    """
+    if pd.isna(value) or value is None or value == '':
+        return 1  # Default: Persona Natural
+
+    # Si ya es un número, validar que sea 1 o 2
+    if isinstance(value, (int, float)):
+        return 2 if int(value) == 2 else 1
+
+    # Si es string, normalizar y comparar
+    value_str = str(value).strip().upper()
+
+    # Mapeo de valores de texto a números
+    juridica_values = ['2', 'JURIDICA', 'JURÍDICA', 'PERSONA JURIDICA', 'PERSONA JURÍDICA', 'PJ']
+    natural_values = ['1', 'NATURAL', 'PERSONA NATURAL', 'PN']
+
+    if value_str in juridica_values:
+        return 2
+    elif value_str in natural_values:
+        return 1
+
+    # Si contiene la palabra JURIDICA o NATURAL
+    if 'JURIDICA' in value_str or 'JURÍDICA' in value_str:
+        return 2
+    elif 'NATURAL' in value_str:
+        return 1
+
+    # Por defecto, Persona Natural
+    return 1
+
+
+def identificar_tipo_documento(numero_documento: str) -> str:
+    """
+    Identifica el tipo de documento basándose en la estructura del número.
+
+    IMPORTANTE: Devuelve solo valores válidos del ENUM de la BD:
+    'DNI', 'RUC', 'CE', 'PAS', 'CEX', 'DNI/CEDULA'
+
+    Reglas:
+    - DNI: 8 dígitos
+    - RUC: 11 dígitos (empieza con 10, 15, 17, 20)
+    - CE: 9 dígitos (Carnet de Extranjería)
+    - CEX: 7 dígitos o menos (Carnet de Extranjería antiguo)
+    - PAS: 12 dígitos o alfanumérico (Pasaporte)
+
+    Args:
+        numero_documento: Número de documento como string
+
+    Returns:
+        'DNI', 'RUC', 'CE', 'PAS', o 'CEX'
+    """
+    if not numero_documento:
+        return 'DNI'  # Default
+
+    # Limpiar el número (remover espacios, guiones, etc.)
+    numero_limpio = str(numero_documento).strip().replace('-', '').replace(' ', '')
+
+    if not numero_limpio:
+        return 'DNI'
+
+    # Verificar que solo contenga dígitos
+    if not numero_limpio.isdigit():
+        # Si tiene letras, probablemente es pasaporte
+        return 'PAS'
+
+    longitud = len(numero_limpio)
+
+    # DNI: 8 dígitos
+    if longitud == 8:
+        return 'DNI'
+
+    # RUC: 11 dígitos
+    if longitud == 11:
+        if numero_limpio.startswith(('10', '15', '17', '20')):
+            return 'RUC'
+        else:
+            return 'RUC'  # Otros RUC válidos
+
+    # Carnet de Extranjería: 9 dígitos
+    if longitud == 9:
+        return 'CE'
+
+    # Carnet de Extranjería antiguo: 7 dígitos o menos
+    if longitud <= 7:
+        return 'CEX'
+
+    # Pasaporte: 12 dígitos o más
+    if longitud >= 12:
+        return 'PAS'
+
+    # Por defecto: DNI
+    return 'DNI'
 
 
 def get_or_create_uso(cursor, cnx, uso_nombre: str, commit: bool = True) -> int | None:
@@ -234,8 +384,8 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
         }
     """
     try:
-        # Leer Excel
-        df = pd.read_excel(file_path)
+        # Leer Excel: forzar lectura como string para preservar ceros a la izquierda
+        df = pd.read_excel(file_path, dtype=str)
 
         # Validar estructura
         is_valid, errors = validate_excel_structure(df)
@@ -258,7 +408,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
 
         for idx, row in df.iterrows():
             try:
-                numero_documento = str(int(row['NUMERO_DOCUMENTO'])) if pd.notna(row['NUMERO_DOCUMENTO']) else ''
+                numero_documento = normalize_numero_documento(row['NUMERO_DOCUMENTO'])
 
                 if not numero_documento:
                     errors_list.append(f"Fila {idx + 2}: Número de documento vacío")
@@ -275,13 +425,18 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
 
                     if not cliente_existe:
                         # Insertar nuevo cliente
-                        tipo_persona = int(row['TIPO_PERSONA']) if pd.notna(row['TIPO_PERSONA']) else 1
+                        tipo_persona = normalize_tipo_persona(row.get('TIPO_PERSONA', 1))
                         telefono = str(row['TELEFONO']) if pd.notna(row['TELEFONO']) else '000000000'
                         email = str(row['EMAIL']) if pd.notna(row['EMAIL']) else f'cliente{numero_documento}@temp.com'
 
+                        # Detectar tipo de documento si no está presente o está vacío
+                        tipo_doc_excel = normalize_string(row.get('TIPO_DOCUMENTO', ''))
+                        if not tipo_doc_excel:
+                            tipo_doc_excel = identificar_tipo_documento(numero_documento)
+
                         cliente_args = (
                             normalize_string(row['NOMBRE_RAZON_SOCIAL']),
-                            normalize_string(row['TIPO_DOCUMENTO']),
+                            tipo_doc_excel,
                             numero_documento,
                             telefono,
                             telefono,  # celular
@@ -380,10 +535,10 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     normalize_string(row.get('NOMBRE_RAZON_SOCIAL', '')),  # asegurado
                     normalize_string(row['COMPANIA_NOMBRE_CORTO']),
                     normalize_string(row['RAMO_ABREVIACION']),
-                    str(int(row['POLIZA_CERTF'])) if pd.notna(row['POLIZA_CERTF']) else '',
-                    str(int(row.get('AVISO_COB', ''))) if pd.notna(row.get('AVISO_COB')) else '',  # recibo
-                    str(int(row['POLIZA_CERTF'])) if pd.notna(row['POLIZA_CERTF']) else '',  # contrato_nro
-                    str(int(row.get('INCISO', ''))) if pd.notna(row.get('INCISO')) else '',  # nro
+                    normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',
+                    normalize_numero_documento(row.get('AVISO_COB', '')) if pd.notna(row.get('AVISO_COB')) else '',  # recibo
+                    normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',  # contrato_nro
+                    normalize_numero_documento(row.get('INCISO', '')) if pd.notna(row.get('INCISO')) else '',  # nro
                     moneda,
                     normalize_date(row.get('VIGENCIA_INICIO')),  # fecha_emision = inicio_vig
                     normalize_date(row['VIGENCIA_INICIO']),
@@ -406,7 +561,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     normalize_decimal(row.get('PORCENTAJE_COMISION_SUBAGENTE')),
                     None,  # imp_subagente
                     normalize_string(row.get('PRODUCTO_ABREVIACION', 'SOAT')),
-                    'VIGENTE',
+                    'CANCELADO',
                     None,  # pdf_path
                     usuario,
                     datos_vehiculo_json,
