@@ -342,14 +342,21 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
         pc_g, igv_g, tot_g = _deduce_amounts_global(text)
         prima_comercial, igv_val, total_cobrar = pc_g, igv_g, tot_g
 
-    # Ramo: inicializar y normalizar explícitamente a Vida Ley
-    ramo = None  # FIX: evitar UnboundLocalError
+    ramo = None
     ramo = (
         ramo
         or (_find(r"\bVida\s+Ley\b", text) and "Vida Ley")
         or _find(r"(ACCIDENTES\s+DE\s+TRABAJO\s*\([^)]+\))", flat)
         or _find(r"Ramo\s*:?\s*([^\n]+)", text)
     )
+
+    ramo_main = None
+    ramos_producto = None
+    t_low = flat.lower()
+    if "vida ley" in t_low:
+        ramo_main = "VIDA - LEY"
+        if "empleados" in t_low:
+            ramos_producto = "EMPLEADOS"
 
     item = {
         "numero_poliza": _clean(numero_poliza),
@@ -368,7 +375,8 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
             _clean(prima_comercial) and _clean(igv_val) and
             f"{float(prima_comercial.replace(',', '.')) + float(igv_val.replace(',', '.')):.2f}"
         ) or None,
-        "ramo": _clean(ramo),
+        "ramo": _clean(ramo_main) or _clean(ramo),
+        "ramos_producto": _clean(ramos_producto),
     }
     print("[pacifico] numero_poliza:", item.get("numero_poliza"))
     print("[pacifico] recibo:", item.get("recibo"))
@@ -384,4 +392,4 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
 
     item = {k: v for k, v in item.items() if v}
     print("[pacifico] item final vida ley:", item)
-    return item  # FIX: retornar el objeto
+    return item  # FIX: retornar el objeto  
