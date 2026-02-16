@@ -60,6 +60,23 @@ def parse_protecta_pension(text: str) -> Dict[str, str]:
     ramo = _find(r"Rubro\s*[:]\s*(.+)", text)
     if ramo:
         ramo = ramo.split("\n")[0].strip()
+    ramo_main: Optional[str] = None
+    ramos_producto: Optional[str] = None
+    t_low = text.lower()
+    if ramo:
+        rl = ramo.lower()
+        if "sctr" in rl:
+            ramo_main = "SCTR"
+            if "salud" in rl or "eps" in rl:
+                ramos_producto = "Salud"
+            elif "pens" in rl:
+                ramos_producto = "Pensión"
+    if not ramo_main and "sctr" in t_low:
+        ramo_main = "SCTR"
+        if "salud" in t_low or "eps" in t_low:
+            ramos_producto = "Salud"
+        elif "pens" in t_low:
+            ramos_producto = "Pensión"
 
     # Concepto: IMPORTE / IGV / TOTAL
     # Mejorado para buscar por etiqueta de fila (PRIMA COMERCIAL, PRIMA TOTAL)
@@ -120,12 +137,13 @@ def parse_protecta_pension(text: str) -> Dict[str, str]:
         "fecha_emision": fecha_emision or "",
         "ultimo_dia_pago": fecha_vencimiento,
         "fecha_vencimiento": fecha_vencimiento or vencimiento or "",
-        "ramo": ramo or "SCTR Salud",
+        "ramo": ramo_main or ramo or "SCTR",
+        "ramos_producto": ramos_producto,
         "moneda": "SOLES",
         "prima_comercial": prima_comercial,
         "prima_comercial_igv": total_con_igv or (f"{float((prima_comercial or '0').replace(',', '.')) + float((igv_val or '0').replace(',', '.')):.2f}" if prima_comercial and igv_val else None),
         "numero_documento_extracted": ruc_candidato,
     }
-    print("item", item)
+    print("item sctr pension", item)
     # Limpieza final: quitar claves vacías
     return {k: _clean(v) for k, v in item.items() if v}
