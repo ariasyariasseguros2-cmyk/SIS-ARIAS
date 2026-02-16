@@ -93,8 +93,6 @@ bp.register_blueprint(reporte_archivos_bp)
 
 bp.register_blueprint(vencimientos_bp)
 
-from controllers.reportes.reporte_archivos_cliente import bp as reporte_archivos_cliente_bp
-bp.register_blueprint(reporte_archivos_cliente_bp)
 
 @bp.route('/dashboard')
 def dashboard():

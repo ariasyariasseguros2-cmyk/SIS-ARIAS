@@ -12,14 +12,20 @@ CREATE TABLE IF NOT EXISTS usuarios (
 );
 
 DELIMITER $$
+DROP PROCEDURE IF EXISTS sp_login_usuario $$
 CREATE PROCEDURE sp_login_usuario(IN p_username VARCHAR(50))
 BEGIN
-    SELECT u.id, u.username, u.password, u.id_rol, r.nombre as rol_nombre
+    SELECT 
+        u.id,
+        u.username,
+        u.password,
+        u.id_rol,
+        r.nombre AS rol_nombre
     FROM usuarios u
-    LEFT JOIN roles r ON u.id_rol = r.idRol
+    LEFT JOIN roles r ON r.idRol = u.id_rol
     WHERE u.username = p_username
     LIMIT 1;
-END$$
+END $$
 DELIMITER ;
 
 DELIMITER $$
@@ -387,8 +393,7 @@ CREATE PROCEDURE sp_insert_cliente (
     IN p_contacto_nombre VARCHAR(150),
     IN p_contacto_email VARCHAR(150),
     IN p_contacto_telefono VARCHAR(20),
-    IN p_usuario_creacion VARCHAR(50),
-    IN p_pdf_path VARCHAR(255)
+    IN p_usuario_creacion VARCHAR(50)
 )
 BEGIN
     DECLARE v_cliente_id INT;
@@ -418,11 +423,6 @@ BEGIN
     );
 
     SET v_cliente_id = LAST_INSERT_ID();
-
-    IF p_pdf_path IS NOT NULL AND p_pdf_path <> '' THEN
-        INSERT INTO cliente_archivos (cliente_id, numero_documento, ruta_archivo, nombre_original)
-        VALUES (v_cliente_id, p_numero_documento, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1));
-    END IF;
 END$$
 DELIMITER ;
 
@@ -531,17 +531,6 @@ CREATE TABLE IF NOT EXISTS poliza_archivos (
     FOREIGN KEY (poliza_id) REFERENCES polizas(idPoliza) ON DELETE CASCADE
 );
 
--- Tabla para archivos de clientes
-CREATE TABLE IF NOT EXISTS cliente_archivos (
-    idArchivo INT AUTO_INCREMENT PRIMARY KEY,
-    cliente_id INT NOT NULL,
-    numero_documento VARCHAR(20),
-    ruta_archivo VARCHAR(255) NOT NULL,
-    nombre_original VARCHAR(255),
-    origen VARCHAR(50) DEFAULT 'ALTA_CLIENTE',
-    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (cliente_id) REFERENCES clientes(idCliente) ON DELETE CASCADE
-);
 
 
 DELIMITER $$
@@ -568,25 +557,7 @@ BEGIN
            OR p.contrato_nro LIKE CONCAT('%', p_busqueda, '%')
            OR p.recibo LIKE CONCAT('%', p_busqueda, '%'))
       AND (p_identificador IS NULL OR p_identificador = '' OR p.poliza = p_identificador)
-      AND (p_tipo_origen IS NULL OR p_tipo_origen = '' OR 'POLIZA' = p_tipo_origen)
-
-    UNION ALL
-
-    -- Archivos de Clientes
-    SELECT
-        ca.idArchivo,
-        ca.ruta_archivo,
-        ca.nombre_original,
-        ca.numero_documento AS identificador,
-        'CLIENTE' AS tipo_origen
-    FROM cliente_archivos ca
-    INNER JOIN clientes c ON ca.cliente_id = c.idCliente
-    WHERE (p_busqueda IS NULL OR p_busqueda = ''
-           OR c.razon_social LIKE CONCAT('%', p_busqueda, '%')
-           OR ca.nombre_original LIKE CONCAT('%', p_busqueda, '%')
-           OR ca.numero_documento LIKE CONCAT('%', p_busqueda, '%'))
-      AND (p_identificador IS NULL OR p_identificador = '' OR ca.numero_documento = p_identificador)
-      AND (p_tipo_origen IS NULL OR p_tipo_origen = '' OR 'CLIENTE' = p_tipo_origen);
+      AND (p_tipo_origen IS NULL OR p_tipo_origen = '' OR 'POLIZA' = p_tipo_origen);
 END$$
 DELIMITER ;
 
@@ -623,25 +594,6 @@ BEGIN
            OR pa.nombre_original LIKE CONCAT('%', p_busqueda, '%')
            OR p.contrato_nro LIKE CONCAT('%', p_busqueda, '%')
            OR p.recibo LIKE CONCAT('%', p_busqueda, '%')
-
-        UNION ALL
-
-        -- Archivos de Clientes
-        SELECT
-            ca.numero_documento AS identificador,
-            'CLIENTE' AS tipo_origen,
-            c.razon_social AS contratante,
-            ca.creado_en AS fecha_subida,
-            'N/A' AS ramo,
-            'N/A' AS producto,
-            c.usuario_creacion AS usuario,
-            'N/A' AS compania
-        FROM cliente_archivos ca
-        INNER JOIN clientes c ON ca.cliente_id = c.idCliente
-        WHERE p_busqueda IS NULL OR p_busqueda = ''
-           OR c.razon_social LIKE CONCAT('%', p_busqueda, '%')
-           OR ca.nombre_original LIKE CONCAT('%', p_busqueda, '%')
-           OR ca.numero_documento LIKE CONCAT('%', p_busqueda, '%')
     ) AS combined
     GROUP BY identificador, tipo_origen, contratante, ramo, producto, usuario, compania
     ORDER BY ultima_fecha DESC

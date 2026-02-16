@@ -210,7 +210,6 @@ def save_cliente(data: dict) -> dict:
     contacto_telefono = (data.get('contactoTelefono') or '').strip()
 
     # Notas y campos eliminados: siniestralidad, referencias_interes, preferencias, notasInteres, masInformacion
-    pdf_path = (data.get('pdf_path') or '').strip()
 
     if tipo_persona is None:
         return {'ok': False, 'errors': ['tipoPersona inválida. Use NATURAL o JURIDICA']}
@@ -256,7 +255,7 @@ def save_cliente(data: dict) -> dict:
         current_app.logger.info(f"[addcliente] Insertando: {razon}, {numero}, subagente={subagente_nombre}, idProductor={idProductor}")
 
         # Insertar con campos actualizados (sin los eliminados)
-        args_with_pdf = (
+        args = (
             razon, tipo_documento, numero,
             telefono, celular, telefono_sec,
             subagente_nombre, idProductor,
@@ -266,33 +265,11 @@ def save_cliente(data: dict) -> dict:
             licencia_num, licencia_venc,
             grupo_economico, giro_negocio, referencia, recomendado_por,
             recibir_notificaciones, contacto_nombre, contacto_email, contacto_telefono,
-            usuario_actual, pdf_path
+            usuario_actual
         )
-        args_without_pdf = args_with_pdf[:-1]
 
         try:
-            # Determinar cuántos parámetros espera realmente el SP en la DB
-            cur.execute("SELECT COUNT(*) FROM information_schema.parameters WHERE specific_name = 'sp_insert_cliente' AND routine_schema = DATABASE()")
-            param_row = cur.fetchone()
-            param_count = int(param_row[0]) if param_row and param_row[0] is not None else None
-        except Exception:
-            param_count = None
-
-        # Preparar args según lo que la BD tenga (si no se puede determinar, intentar con args_with_pdf primero)
-        try:
-            if param_count is None:
-                # desconocido -> intentar con full args e intentar fallback
-                try:
-                    cur.callproc('sp_insert_cliente', args_with_pdf)
-                except Exception:
-                    cur.callproc('sp_insert_cliente', args_without_pdf)
-            else:
-                # recortar o usar según param_count
-                if param_count >= len(args_with_pdf):
-                    cur.callproc('sp_insert_cliente', args_with_pdf)
-                else:
-                    args_to_use = args_with_pdf[:param_count]
-                    cur.callproc('sp_insert_cliente', args_to_use)
+            cur.callproc('sp_insert_cliente', args)
         except Exception as e:
             current_app.logger.error(f"[addcliente] Error al llamar sp_insert_cliente: {e}")
             raise
