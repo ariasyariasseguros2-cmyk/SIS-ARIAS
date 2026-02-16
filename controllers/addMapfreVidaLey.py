@@ -132,6 +132,19 @@ def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
     item["ramo"] = cond.get("actividad")
     item["forma_pago"] = _find(r"Forma\s+de\s+Pago\s*:\s*([A-ZÁÉÍÓÚÑ0-9 \.\-]+)", flat)
 
+    # Normalizar ramo/producto para Vida Ley (D.L.688)
+    ramo_main = None
+    ramos_producto = None
+    t_low = flat.lower()
+    if "d.l.688" in t_low or "decreto legislativo 688" in t_low or "vida ley" in t_low:
+        ramo_main = "VIDA - LEY"
+        if "empleados" in t_low:
+            ramos_producto = "EMPLEADOS"
+    if ramo_main:
+        item["ramo"] = ramo_main
+    if ramos_producto:
+        item["ramos_producto"] = ramos_producto
+
     # Importes
     item["prima_comercial"] = _money(cond.get("prima_resultante")) or _money(_find(r"Prima\s+Comercial\s*:\s*S?\/?\s*([0-9\.,]+)", flat))
     item["prima_comercial_igv"] = _money(_find(r"Prima\s+Comercial\s*\+\s*IGV\s*:\s*S?\/?\s*([0-9\.,]+)", flat)) or _money(_find(r"(?:Importe\s+Total|Total)\s*:\s*S?\/?\s*([0-9\.,]+)", flat))

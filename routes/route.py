@@ -1526,8 +1526,8 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
 
     # NUEVO: si vino 'positiva' (o cualquier otro) pero el contenido dice 'MAPFRE', fuerza Mapfre
     # (corrige falsos positivos donde 'la positiva' aparece en textos legales de Mapfre)
-    # IMPORTANTE: No entrar si ya se detectó mapfre-equipo-contratistas para evitar downgrades
-    if prov != "mapfre" and prov != "mapfre-equipo-contratistas" and prov != "mapfre-vehicular" and (
+    # IMPORTANTE: No entrar si ya se detectó mapfre-equipo-contratistas, mapfre-vehicular o mapfre-vida-ley para evitar downgrades
+    if prov not in {"mapfre", "mapfre-equipo-contratistas", "mapfre-vehicular", "mapfre-vida-ley"} and (
         "mapfre" in t or 
         re.search(r"vencimiento\s+de\s+aplicaci[oó]n", t) or 
         re.search(r"inicio\s+de\s+vigencia\s+aplicaci[oó]n", t)
