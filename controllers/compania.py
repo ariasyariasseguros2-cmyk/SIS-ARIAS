@@ -50,8 +50,7 @@ def get_aseguradoras() -> list[dict]:
             rows.append({'nombre_corto': nombre, 'slug': slug})
 
         # Inyectar opción “Crecer Vida Ley” si solo existe “Crecer”
-        if has_crecer and not has_crecer_vidaley:
-            rows.append({'nombre_corto': 'Crecer Vida Ley', 'slug': 'vida-ley-crecer'})
+       
     except Exception:
         rows = []
     return rows

@@ -41,6 +41,23 @@ def parse_crecer_pension(text: str) -> Dict[str, str]:
     ramo = _find(r"Rubro\s*:\s*(.+)", text)
     if ramo:
         ramo = ramo.split("\n")[0].strip()
+    ramo_main: Optional[str] = None
+    ramos_producto: Optional[str] = None
+    t_low = text.lower()
+    if ramo:
+        rl = ramo.lower()
+        if "sctr" in rl:
+            ramo_main = "SCTR"
+            if "salud" in rl or "eps" in rl:
+                ramos_producto = "Salud"
+            elif "pens" in rl:
+                ramos_producto = "Pensión"
+    if not ramo_main and "sctr" in t_low:
+        ramo_main = "SCTR"
+        if "salud" in t_low or "eps" in t_low:
+            ramos_producto = "Salud"
+        elif "pens" in t_low:
+            ramos_producto = "Pensión"
 
     # Concepto: IMPORTE / IGV / TOTAL
     importe = _money(_find(r"CONCEPTO.*?SCTR.*?IMPORTE\s*([0-9\.,]+)", text)) or _money(_find(r"\bIMPORTE\b\s*([0-9\.,]+)", text))
@@ -65,7 +82,7 @@ def parse_crecer_pension(text: str) -> Dict[str, str]:
     if not ruc_candidato:
         candidates_ruc = re.findall(r"RUC\s*[:]?\s*(\d{11})", text, re.IGNORECASE)
         for cand in candidates_ruc:
-            if cand != "20600098633": 
+            if cand : 
                 ruc_candidato = cand
                 break
                 
@@ -73,7 +90,7 @@ def parse_crecer_pension(text: str) -> Dict[str, str]:
     if not ruc_candidato:
         all_candidates = re.findall(r"\b(10\d{9}|20\d{9})\b", text)
         for cand in all_candidates:
-            if cand != "20600098633":
+            if cand :
                 ruc_candidato = cand
                 break
 
@@ -86,7 +103,8 @@ def parse_crecer_pension(text: str) -> Dict[str, str]:
         "vencimiento": vencimiento,
         "fecha_emision": fecha_emision,
         "ultimo_dia_pago": ultimo_dia_pago,  # toma el “Vencimiento:” del encabezado superior
-        "ramo": ramo or "SCTR Pensión",
+        "ramo": ramo_main or ramo,
+        "ramos_producto": ramos_producto,
         "moneda": "SOLES",
         "prima_comercial": prima_comercial,
         "prima_comercial_igv": total_con_igv or (f"{float((prima_comercial or '0').replace(',', '.')) + float((igv_val or '0').replace(',', '.')):.2f}" if prima_comercial and igv_val else None),
