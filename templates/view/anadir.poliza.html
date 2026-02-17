@@ -101,7 +101,8 @@
                         <select id="ejecutivoTop" class="form-select">
                             <option value="">Selecciona...</option>
                             {% for e in (ejecutivos_rows or []) %}
-                            <option value="{{ e.abreviacion or e.nombre }}">{{ e.nombre }}</option>
+                            <option value="{{ (e.abreviacion or e.nombre) }}"
+                              {% if ((selected.ejecutivo or '')|lower|trim) == ((e.nombre or '')|lower|trim) or ((selected.ejecutivo or '')|lower|trim) == ((e.abreviacion or '')|lower|trim) %}selected{% endif %}>{{ e.nombre }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -316,6 +317,6 @@
   <script src="{{ url_for('static', filename='js/addCrecerVidaLey.js') }}?v=1"></script>
   
   <!-- Main Script -->
-  <script src="/static/js/anadir.poliza.js?v=6" defer></script>
+  <script src="/static/js/anadir.poliza.js?v=8" defer></script>
 </body>
 </html>

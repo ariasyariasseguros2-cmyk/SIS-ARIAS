@@ -2861,6 +2861,43 @@ EXECUTE addFK;
 DEALLOCATE PREPARE addFK;
 
 
+-- Add id_ejecutivo column to usuarios and FK to ejecutivos (if not exists)
+SET @dbname = DATABASE();
+SET @tablename = 'usuarios';
+SET @columnname = 'id_ejecutivo';
+SET @preparedStatement = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname)
+  ) > 0,
+  'SELECT 1',
+  'ALTER TABLE usuarios ADD COLUMN id_ejecutivo INT NULL AFTER id_rol;'
+));
+PREPARE alterIfNotExists2 FROM @preparedStatement;
+EXECUTE alterIfNotExists2;
+DEALLOCATE PREPARE alterIfNotExists2;
+
+-- Add FK constraint to ejecutivos.idEjecutivo if not exists
+SET @constraintname2 = 'fk_usuarios_ejecutivos';
+SET @preparedStatementFK2 = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (constraint_name = @constraintname2)
+  ) > 0,
+  'SELECT 1',
+  'ALTER TABLE usuarios ADD CONSTRAINT fk_usuarios_ejecutivos FOREIGN KEY (id_ejecutivo) REFERENCES ejecutivos(idEjecutivo);'
+));
+PREPARE addFK2 FROM @preparedStatementFK2;
+EXECUTE addFK2;
+DEALLOCATE PREPARE addFK2;
+
+
 -- 4. Update sp_login_usuario to return role info
 DROP PROCEDURE IF EXISTS sp_login_usuario;
 DELIMITER $$

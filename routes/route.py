@@ -593,6 +593,29 @@ def menu_page(page):
                 selected['subagente'] = match.get('subagente')
                 # Completar nombre si faltaba
                 selected['razon_social'] = selected.get('razon_social') or match.get('razon_social')
+        # Autocompletar Ejecutivo por usuario si existe mapeo en BD y no viene en selected
+        try:
+            if not selected.get('ejecutivo') and session.get('user'):
+                from models.db import get_connection
+                conn = get_connection()
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT e.nombre
+                    FROM usuarios u
+                    LEFT JOIN ejecutivos e ON e.idEjecutivo = u.id_ejecutivo
+                    WHERE u.username = %s
+                    LIMIT 1
+                """, (session.get('user'),))
+                r = cur.fetchone()
+                if r and r[0]:
+                    selected['ejecutivo'] = r[0]
+                    # Persistir en sesión para que JS también lo reciba siempre
+                    prev_sel = session.get('selected_cliente') or {}
+                    session['selected_cliente'] = {**prev_sel, **selected}
+                cur.close()
+                conn.close()
+        except Exception as _:
+            pass
 
         return render_template(
             'view/anadir.poliza.html',

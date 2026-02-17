@@ -85,6 +85,25 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
         cnx = get_connection()
         cur = cnx.cursor()
 
+        # Fallback: obtener ejecutivo por usuario actual (mapeado en usuarios.id_ejecutivo)
+        default_ejecutivo = None
+        try:
+            if session.get('user'):
+                c2 = cnx.cursor()
+                c2.execute("""
+                    SELECT e.nombre
+                    FROM usuarios u
+                    LEFT JOIN ejecutivos e ON e.idEjecutivo = u.id_ejecutivo
+                    WHERE u.username = %s
+                    LIMIT 1
+                """, (session.get('user'),))
+                r2 = c2.fetchone()
+                if r2 and r2[0]:
+                    default_ejecutivo = r2[0]
+                c2.close()
+        except Exception:
+            default_ejecutivo = None
+
         def find_client_doc(doc, name, cursor):
             # Prioridad: documento
             if doc:
@@ -139,6 +158,9 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                 
                 target_doc = found_row_doc
 
+            # Determinar ejecutivo efectivo: fila -> seleccionado -> fallback por usuario
+            efectivo_ejecutivo = U(row.get("ejecutivo") or (selected or {}).get("ejecutivo") or default_ejecutivo or "")
+
             args = (
                 str(target_doc).strip(),  # documento (puede ser el extraído o el seleccionado)
                 U((selected or {}).get("tipo_doc") or (selected or {}).get("tipo_documento") or ""),
@@ -161,8 +183,8 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                 U((selected or {}).get("endosatario") or ""),    # NUEVO
                 U(row.get("forma_pago") or ""),
                 U(row.get("subagente") or (selected or {}).get("subagente") or ""),
-                # NUEVO: ejecutivo
-                U(row.get("ejecutivo") or (selected or {}).get("ejecutivo") or ""),
+                # NUEVO: ejecutivo (con fallback por usuario)
+                efectivo_ejecutivo,
                 U(row.get("asegurada") or ""),
                 U(row.get("motivo") or (selected or {}).get("motivo") or ""),
                 parse_decimal(row.get("prima_comercial")),

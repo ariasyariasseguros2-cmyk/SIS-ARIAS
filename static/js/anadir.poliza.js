@@ -172,6 +172,29 @@
     subAgenteEl.value = val;
   }
 
+  // Preseleccionar Ejecutivo si viene del servidor
+  if (ejecutivoTopEl && window.selectedCliente) {
+    const nombreEjecutivo = (window.selectedCliente.ejecutivo || '').trim();
+    const normalize = (s) => (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+    if (nombreEjecutivo) {
+      const opts = Array.from(ejecutivoTopEl.options || []);
+      let opt = opts.find(o => {
+        const txt = (o.textContent || '').trim();
+        const val = (o.value || '').trim();
+        return txt === nombreEjecutivo || val === nombreEjecutivo ||
+               normalize(txt) === normalize(nombreEjecutivo) ||
+               normalize(val) === normalize(nombreEjecutivo);
+      });
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.value = nombreEjecutivo;
+        opt.textContent = nombreEjecutivo;
+        ejecutivoTopEl.appendChild(opt);
+      }
+      ejecutivoTopEl.value = opt.value;
+    }
+  }
+
   // Helper: construir opciones del select de Ramo
   function buildRamoOptions(selected) {
     const abbrs = (window.ramosAbbrs || []).filter(x => !!x && x.trim() !== '');
@@ -1038,8 +1061,34 @@
       // if (ramoProductoTopEl) ramoProductoTopEl.value = '';
       if (tipoDocTopEl) tipoDocTopEl.value = '';
       if (issuerEl) issuerEl.value = '';
-      if (subAgenteTopEl) subAgenteTopEl.value = '';
-      if (ejecutivoTopEl) ejecutivoTopEl.value = '';
+      // Mantener subagente y ejecutivo desde window.selectedCliente si existen
+      if (subAgenteTopEl) {
+        const subSel = (window.selectedCliente && window.selectedCliente.subagente) || '';
+        subAgenteTopEl.value = subSel;
+      }
+      if (ejecutivoTopEl) {
+        const nombreEjecutivo = ((window.selectedCliente && window.selectedCliente.ejecutivo) || '').trim();
+        const normalize = (s) => (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+        if (nombreEjecutivo) {
+          const opts = Array.from(ejecutivoTopEl.options || []);
+          let opt = opts.find(o => {
+            const txt = (o.textContent || '').trim();
+            const val = (o.value || '').trim();
+            return txt === nombreEjecutivo || val === nombreEjecutivo ||
+                   normalize(txt) === normalize(nombreEjecutivo) ||
+                   normalize(val) === normalize(nombreEjecutivo);
+          });
+          if (!opt) {
+            opt = document.createElement('option');
+            opt.value = nombreEjecutivo;
+            opt.textContent = nombreEjecutivo;
+            ejecutivoTopEl.appendChild(opt);
+          }
+          ejecutivoTopEl.value = opt.value;
+        } else {
+          ejecutivoTopEl.value = '';
+        }
+      }
       if (endosatarioTopEl) endosatarioTopEl.value = '';
       if (tipoVigenciaTopEl) tipoVigenciaTopEl.value = '';
       if (tipoPagoTopEl) tipoPagoTopEl.value = '';
