@@ -109,8 +109,25 @@ def parse_positiva_vidaley(text: str) -> Dict[str, str]:
                 else:
                     ruc_candidato = generic_matches[0].group(1)
 
-    # Ramo/marca de Vida Ley
     ramo = (_find(r"Ramo\s*:\s*(.+)", text) or "Vida Ley")
+
+    ramo_main = "VIDA - LEY"
+    ramos_producto: Optional[str] = None
+    t_low = text.lower()
+
+    producto_val = _find(r"Producto\s*:\s*([^\n]+)", text)
+    if producto_val:
+        p_low = producto_val.lower()
+        if "trabajador" in p_low or "trabajadores" in p_low:
+            ramos_producto = "OBRERO"
+        elif "empleado" in p_low or "empleados" in p_low:
+            ramos_producto = "EMPLEADOS"
+
+    if not ramos_producto:
+        if "trabajador" in t_low or "trabajadores" in t_low:
+            ramos_producto = "OBRERO"
+        elif "empleado" in t_low or "empleados" in t_low:
+            ramos_producto = "EMPLEADOS"
 
     # Conceptos: “Prima” y “IGV/Impuesto”
     prima_line = _find(r"\bPrima\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)
@@ -144,7 +161,8 @@ def parse_positiva_vidaley(text: str) -> Dict[str, str]:
         "ultimo_dia_pago": pago_venc,  # fecha de pago
         "fecha_vencimiento": fecha_venc,
         "prima_comercial": prima_comercial,
-        "ramo": ramo,
+        "ramo": ramo_main or ramo,
+        "ramos_producto": ramos_producto,
         "numero_documento_extracted": ruc_candidato,
     }
     print("item vida ley", item)
