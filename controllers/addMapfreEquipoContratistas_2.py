@@ -236,5 +236,6 @@ def parse_mapfre_equipo_contratistas_2(text: str):
 
     # Ramo
     item['ramo'] = 'EQUIPO DE CONTRATISTAS'
+    print("intem addMapfre Equipo Contratiste_2 ", item)
 
     return item

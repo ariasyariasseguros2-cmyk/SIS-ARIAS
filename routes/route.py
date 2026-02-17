@@ -1592,7 +1592,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
                 except Exception as e:
                     print(f"[provider] mapfre equipo contratistas V2 error: {e}")
 
-            print("[provider] mapfre equipo contratistas item:", item)
+            print("[provider] mapfre equipo contratistas item parse_mapfre_equipo_contratistas_2:", item)
             return [item] if item else []
 
             
@@ -1719,7 +1719,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         print("ENTRANDO A PARSER EQUIPO CONTRATISTAS (prov mapfre-equipo-contratistas)")
         from controllers.addMapfreEquipoContratistas import parse_mapfre_equipo_contratistas
         item = parse_mapfre_equipo_contratistas(text)
-        print("[provider] mapfre-equipo-contratistas item:", item)
+        print("[provider] mapfre-equipo-contratistas item parse_mapfre_equipo_contratistas:", item)
         return [item] if item else []
 
     # NUEVO: Mapfre Vehicular
