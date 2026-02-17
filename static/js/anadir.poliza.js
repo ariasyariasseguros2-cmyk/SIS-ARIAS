@@ -1033,12 +1033,25 @@
   tipoDocTopEl?.addEventListener('change', () => {
     const val = (tipoDocTopEl?.value || '').trim().toUpperCase();
     if (val === 'NETEO') {
+      resetAddPolizaView(true);
       if (tipoPagoTopEl) {
         tipoPagoTopEl.value = 'SIN PRIMA';
         tipoPagoTopEl.dispatchEvent(new Event('change'));
       }
       if (estadoTopEl) {
         estadoTopEl.value = 'SIN PRIMA';
+        estadoTopEl.dispatchEvent(new Event('change'));
+      }
+    } else {
+      if (tipoPagoTopEl) {
+        tipoPagoTopEl.value = '';
+        tipoPagoTopEl.dispatchEvent(new Event('change'));
+      }
+      if (estadoTopEl) {
+        estadoTopEl.value = '';
+        if (estadoTopEl.value !== '') {
+          estadoTopEl.selectedIndex = 0;
+        }
         estadoTopEl.dispatchEvent(new Event('change'));
       }
     }
@@ -1062,7 +1075,7 @@
 
 
   // NUEVO: función para resetear tabla y campos superiores
-  function resetAddPolizaView() {
+  function resetAddPolizaView(keepTipoDoc = false) {
       extractedItems = [];
       if (tbody) tbody.innerHTML = '';
       if (btnSave) btnSave.disabled = true;
@@ -1071,9 +1084,9 @@
       if (pctComCompaniaEl) pctComCompaniaEl.value = '';
       if (pctComSubAgenteEl) pctComSubAgenteEl.value = '';
       if (impComSubAgenteEl) impComSubAgenteEl.value = '';
-      if (motivoTop) motivoTop.value = '';
+      if (motivoTopEl) motivoTopEl.value = '';
       // if (ramoProductoTopEl) ramoProductoTopEl.value = '';
-      if (tipoDocTopEl) tipoDocTopEl.value = '';
+      if (tipoDocTopEl && !keepTipoDoc) tipoDocTopEl.value = '';
       if (issuerEl) issuerEl.value = '';
       // Mantener subagente y ejecutivo desde window.selectedCliente si existen
       if (subAgenteTopEl) {
