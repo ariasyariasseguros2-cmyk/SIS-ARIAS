@@ -31,6 +31,20 @@ def parse_crecer_vidaley_pocos_datos(text: str) -> Dict[str, str]:
         # Limpiar prefijos numéricos ej "73. Vida Ley..."
         item['ramo'] = re.sub(r"^\d+\.\s*", "", item['ramo'])
 
+    ramo_main = None
+    ramos_producto: Optional[str] = None
+    t_low = text.lower()
+    if "vida ley" in t_low:
+        ramo_main = "VIDA - LEY"
+        if "trabajador" in t_low or "trabajadores" in t_low:
+            ramos_producto = "OBRERO"
+        elif "empleado" in t_low or "empleados" in t_low:
+            ramos_producto = "EMPLEADOS"
+    if ramo_main:
+        item["ramo"] = ramo_main
+    if ramos_producto:
+        item["ramos_producto"] = ramos_producto
+
     # 3. Moneda
     item['moneda'] = _find(r"Moneda\s*(?:[\r\n]+)?\s*([A-Za-z]+)", text)
     

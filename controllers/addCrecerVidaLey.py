@@ -124,7 +124,20 @@ def parse_crecer_vidaley(text: str) -> Dict[str, str]:
     item["ramo"] = cond.get("actividad")
     item["forma_pago"] = _find(r"Forma\s+de\s+Pago\s*:\s*([A-ZÁÉÍÓÚÑ0-9 \.\-]+)", flat)
 
-    # Importes
+    ramo_main = None
+    ramos_producto = None
+    t_low = flat.lower()
+    if "vida ley" in t_low:
+        ramo_main = "VIDA - LEY"
+        if "trabajador" in t_low or "trabajadores" in t_low:
+            ramos_producto = "OBRERO"
+        elif "empleado" in t_low or "empleados" in t_low:
+            ramos_producto = "EMPLEADOS"
+    if ramo_main:
+        item["ramo"] = ramo_main
+    if ramos_producto:
+        item["ramos_producto"] = ramos_producto
+
     item["prima_comercial"] = _money(cond.get("prima_resultante")) or _money(_find(r"Prima\s+Comercial\s*:\s*S?\/?\s*([0-9\.,]+)", flat))
     item["prima_comercial_igv"] = _money(_find(r"Prima\s+Comercial\s*\+\s*IGV\s*:\s*S?\/?\s*([0-9\.,]+)", flat)) or _money(_find(r"(?:Importe\s+Total|Total)\s*:\s*S?\/?\s*([0-9\.,]+)", flat))
 
