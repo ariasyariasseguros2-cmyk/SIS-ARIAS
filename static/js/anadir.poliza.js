@@ -1030,6 +1030,20 @@
     render(extractedItems);
   });
 
+  tipoDocTopEl?.addEventListener('change', () => {
+    const val = (tipoDocTopEl?.value || '').trim().toUpperCase();
+    if (val === 'NETEO') {
+      if (tipoPagoTopEl) {
+        tipoPagoTopEl.value = 'SIN PRIMA';
+        tipoPagoTopEl.dispatchEvent(new Event('change'));
+      }
+      if (estadoTopEl) {
+        estadoTopEl.value = 'SIN PRIMA';
+        estadoTopEl.dispatchEvent(new Event('change'));
+      }
+    }
+  });
+
   /* REMOVED: ramoProductoTopEl listener
   ramoProductoTopEl?.addEventListener('input', () => {
     const val = (ramoProductoTopEl?.value || '').trim();
