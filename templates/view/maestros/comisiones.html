@@ -1,0 +1,55 @@
+{% extends 'view/layout_dashboard.html' %}
+{% block page_title %}Comisiones{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4>Comisiones por Producto y Compañía</h4>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Ramo</th>
+          <th>Abrev.</th>
+          <th>Producto</th>
+          <th>Prod. Abrev.</th>
+          <th>POS EPS</th>
+          <th>POS VSR</th>
+          <th>POS SR</th>
+          <th>Pacífico</th>
+          <th>Sanitas</th>
+          <th>Protecta</th>
+          <th>Mapfre</th>
+          <th>Crecer</th>
+          <th>Ohio Natural</th>
+          <th>Factor</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in rows or [] %}
+        <tr>
+          <td>{{ c.ramo_nombre }}</td>
+          <td>{{ c.ramo_abreviacion }}</td>
+          <td>{{ c.producto }}</td>
+          <td>{{ c.producto_abrev }}</td>
+          <td>{{ c.pos_eps }}</td>
+          <td>{{ c.pos_vsr }}</td>
+          <td>{{ c.pos_sr }}</td>
+          <td>{{ c.pacifico }}</td>
+          <td>{{ c.sanitas }}</td>
+          <td>{{ c.protecta }}</td>
+          <td>{{ c.mapfre }}</td>
+          <td>{{ c.crecer }}</td>
+          <td>{{ c.ohio_natural }}</td>
+          <td>{{ c.factor }}</td>
+        </tr>
+        {% endfor %}
+        {% if not rows or rows|length == 0 %}
+        <tr><td colspan="14" class="text-center text-muted">Sin datos</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  <div class="small text-muted">Fuente: comisiones_temp</div>
+</div>
+{% endblock %}

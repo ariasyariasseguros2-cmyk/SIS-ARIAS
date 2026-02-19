@@ -1,0 +1,31 @@
+{% extends 'view/layout_dashboard.html' %}
+{% block page_title %}Maestros - Compañías{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4>Compañías</h4>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-striped align-middle">
+      <thead>
+        <tr>
+          <th>Nombre Corto</th>
+          <th>Slug</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in rows or [] %}
+        <tr>
+          <td>{{ c.nombre_corto }}</td>
+          <td>{{ c.slug }}</td>
+        </tr>
+        {% endfor %}
+        {% if not rows or rows|length == 0 %}
+        <tr><td colspan="2" class="text-center text-muted">Sin datos</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  <div class="small text-muted">Fuente: sp_listar_companias()</div>
+ </div>
+{% endblock %}

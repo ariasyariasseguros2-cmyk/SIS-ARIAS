@@ -440,6 +440,49 @@ def menu_page(page):
         rows = get_productos() or []
         return render_template('view/maestros/productos.html', page='maestros-productos', rows=rows)
 
+    # Maestros: Compañías
+    if page == 'maestros-companias':
+        if not can_access_maestros(session.get('role_name')):
+            return redirect(url_for('main.home'))
+        from controllers.compania import get_aseguradoras
+        rows = get_aseguradoras() or []
+        return render_template('view/maestros/companias.html', page='maestros-companias', rows=rows)
+
+    # Maestros: Ejecutivos del Broker
+    if page == 'maestros-ejecutivos':
+        if not can_access_maestros(session.get('role_name')):
+            return redirect(url_for('main.home'))
+        from controllers.ejecutivos import get_ejecutivos
+        rows = get_ejecutivos() or []
+        return render_template('view/maestros/ejecutivos.html', page='maestros-ejecutivos', rows=rows)
+
+    # Maestros: Endosatarios
+    if page == 'maestros-endosatarios':
+        if not can_access_maestros(session.get('role_name')):
+            return redirect(url_for('main.home'))
+        from controllers.endosatario.endosatario import get_endosatarios
+        rows = get_endosatarios() or []
+        return render_template('view/maestros/endosatarios.html', page='maestros-endosatarios', rows=rows)
+
+    # Maestros: Sub Agentes
+    if page == 'maestros-subagentes':
+        if not can_access_maestros(session.get('role_name')):
+            return redirect(url_for('main.home'))
+        from controllers.maestros.subagentes import get_subagentes
+        rows = get_subagentes() or []
+        return render_template('view/maestros/subagentes.html', page='maestros-subagentes', rows=rows)
+
+    # Comisiones (listado, maestro)
+    if page == 'maestros-comisiones':
+        if not can_access_maestros(session.get('role_name')):
+            return redirect(url_for('main.home'))
+        try:
+            from controllers.maestros.comisiones import get_comisiones
+            rows = get_comisiones() or []
+        except Exception:
+            rows = []
+        return render_template('view/maestros/comisiones.html', page='maestros-comisiones', rows=rows)
+
     # NUEVO: Editar Póliza
     if page == 'editar-poliza':
         from controllers.editar_poliza import get_poliza_data

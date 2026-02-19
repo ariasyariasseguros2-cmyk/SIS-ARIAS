@@ -1,0 +1,33 @@
+{% extends 'view/layout_dashboard.html' %}
+{% block page_title %}Maestros - Ejecutivos del Broker{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4>Ejecutivos del Broker</h4>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-striped align-middle">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Abreviación</th>
+          <th>Grupo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in rows or [] %}
+        <tr>
+          <td>{{ e.nombre }}</td>
+          <td>{{ e.abreviacion }}</td>
+          <td>{{ e.grupo }}</td>
+        </tr>
+        {% endfor %}
+        {% if not rows or rows|length == 0 %}
+        <tr><td colspan="3" class="text-center text-muted">Sin datos</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  <div class="small text-muted">Fuente: sp_listar_ejecutivos</div>
+</div>
+{% endblock %}
