@@ -1,0 +1,17 @@
+.maestro-controls input[type="search"] {
+  border-radius: 999px;
+  padding-left: 16px;
+}
+.maestro-controls {
+  gap: 12px;
+}
+.table thead th {
+  white-space: nowrap;
+}
+.table-responsive {
+  border-radius: 8px;
+}
+.pagination .page-link {
+  border-radius: 6px;
+}
+

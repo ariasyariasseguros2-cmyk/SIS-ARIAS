@@ -5,6 +5,14 @@
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h4>Comisiones por Producto y Compañía</h4>
   </div>
+
+  <div class="maestro-controls d-flex flex-wrap align-items-center gap-2 mb-3">
+    <div class="flex-grow-1" style="max-width: 520px;">
+      <input id="comisiones-search" class="form-control" type="search" placeholder="Buscar en todas las columnas...">
+    </div>
+    <div id="comisiones-info" class="text-muted small ms-auto"></div>
+  </div>
+
   <div class="table-responsive">
     <table class="table table-bordered table-striped align-middle">
       <thead class="table-light">
@@ -25,7 +33,7 @@
           <th>Factor</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="comisiones-tbody">
         {% for c in rows or [] %}
         <tr>
           <td>{{ c.ramo_nombre }}</td>
@@ -50,6 +58,12 @@
       </tbody>
     </table>
   </div>
+  <nav id="comisiones-pagination" aria-label="Paginación" class="mt-2"></nav>
   <div class="small text-muted">Fuente: comisiones_temp</div>
 </div>
+{% endblock %}
+
+{% block extra_js_bottom %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/maestros/comisiones.css') }}">
+<script src="{{ url_for('static', filename='js/maestros/comisiones.js') }}"></script>
 {% endblock %}
