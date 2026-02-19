@@ -1,3 +1,4 @@
+CREATE DATABASE IF NOT EXISTS ariasyariaspe_bd_sisnet CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE ariasyariaspe_bd_sisnet;
 
 -- Tabla de usuarios (sin cambios del ejemplo del usuario)
@@ -57,8 +58,7 @@ BEGIN
     FROM ajustadores
     ORDER BY nombre ASC;
 END $$
-
-DELIMITER;
+DELIMITER ;
 
 
 
