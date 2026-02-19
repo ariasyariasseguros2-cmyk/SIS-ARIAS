@@ -213,35 +213,43 @@
   populateRamoProductoTopOptions();
 
   // Helpers de primas
-  function computePrimaNetaFromComercial(val) {
+  function parseNumber(val) {
     const raw = (val || '').toString().trim();
-    if (!raw) return '';
-    const num = parseFloat(raw.replace(/[^\d.,-]/g, '').replace(',', '.'));
+    if (!raw) return NaN;
+    const cleaned = raw.replace(/[^\d.,-]/g, '');
+    const lastDot = cleaned.lastIndexOf('.');
+    const lastComma = cleaned.lastIndexOf(',');
+    const sep = Math.max(lastDot, lastComma);
+    let intPart;
+    let decPart;
+    if (sep === -1) {
+      intPart = cleaned.replace(/[^\d-]/g, '');
+      decPart = '';
+    } else {
+      intPart = cleaned.slice(0, sep).replace(/[^\d-]/g, '');
+      decPart = cleaned.slice(sep + 1).replace(/[^\d]/g, '');
+    }
+    const combined = decPart ? `${intPart}.${decPart}` : intPart;
+    const num = parseFloat(combined);
+    return Number.isFinite(num) ? num : NaN;
+  }
+  function computePrimaNetaFromComercial(val) {
+    const num = parseNumber(val);
     if (!Number.isFinite(num)) return '';
     return (num / 1.03).toFixed(2);
   }
   function computePrimaComercialFromNeta(val) {
-    const raw = (val || '').toString().trim();
-    if (!raw) return '';
-    const num = parseFloat(raw.replace(/[^\d.,-]/g, '').replace(',', '.'));
+    const num = parseNumber(val);
     if (!Number.isFinite(num)) return '';
     return (num * 1.03).toFixed(2);
   }
   function computePrimaIGVFromComercial(val) {
-    const raw = (val || '').toString().trim();
-    if (!raw) return '';
-    const num = parseFloat(raw.replace(/[^\d.,-]/g, '').replace(',', '.'));
+    const num = parseNumber(val);
     if (!Number.isFinite(num)) return '';
     return (num * 1.18).toFixed(2);
   }
 
   // Números y comisiones
-  function parseNumber(val) {
-    const raw = (val || '').toString().trim();
-    if (!raw) return NaN;
-    const num = parseFloat(raw.replace(/[^\d.,-]/g, '').replace(',', '.'));
-    return Number.isFinite(num) ? num : NaN;
-  }
   function computeCommissionAmount(netaStr, pctStr) {
     const neta = parseNumber(netaStr);
     const pctVal = parseNumber(pctStr);
@@ -264,6 +272,15 @@
       if (Number.isFinite(v)) total += v;
     });
     return Number.isFinite(total) ? total.toFixed(2) : '';
+  }
+
+  function formatMoney(val) {
+    const num = parseNumber(val);
+    if (!Number.isFinite(num)) return (val || '');
+    return num.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
   }
 
   // Normalización de ítems
@@ -432,9 +449,9 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vencimiento || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${it.prima_neta || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${it.prima_comercial || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${it.prima_comercial_igv || it.prima_total || it.monto || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${formatMoney(it.prima_neta || '')}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${formatMoney(it.prima_comercial || '')}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${formatMoney(it.prima_comercial_igv || it.prima_total || it.monto || '')}</td>
         <td data-index="${idx}" data-field="comision_compania_pct">
           <input type="number" step="0.01" class="form-control form-control-sm pct-comp" value="${it.comision_compania_pct || ''}">
         </td>

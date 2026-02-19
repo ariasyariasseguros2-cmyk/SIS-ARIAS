@@ -1651,26 +1651,33 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
     print(f"[provider] detectado: {prov}")
 
     if prov == "mapfre":
-        # NUEVO: Equipo de Contratistas (usar regex para flexibilidad de espacios)
-        # Se incluye Responsabilidad Civil y Hidrocarburos como señales fuertes para este parser
         if re.search(r"equipo\s+de\s+contratistas", low) or re.search(r"responsabilidad\s+civil", low) or re.search(r"hidrocarburos", low):
             print("ENTRANDO A PARSER EQUIPO CONTRATISTAS (desde bloque mapfre - regex extendido)")
-            from controllers.addMapfreEquipoContratistas import parse_mapfre_equipo_contratistas
-            item = parse_mapfre_equipo_contratistas(text)
-            
-            # Validación: Si V1 falló en encontrar la póliza o datos clave, intentar con V2 (Robust)
-            if not item or not item.get('numero_poliza') or not item.get('colectivo_asegurado') or not item.get('inicio_vigencia'):
-                print("[provider] mapfre equipo contratistas V1 falló o incompleto (póliza/asegurado/vigencia), intentando V2...")
-                try:
-                    from controllers.addMapfreEquipoContratistas_2 import parse_mapfre_equipo_contratistas_2
-                    item2 = parse_mapfre_equipo_contratistas_2(text)
-                    if item2 and item2.get('numero_poliza'):
-                        item = item2
-                        print("[provider] mapfre equipo contratistas V2 exitoso")
-                except Exception as e:
-                    print(f"[provider] mapfre equipo contratistas V2 error: {e}")
+            from controllers.addMapfreEquipoContratistas_4 import parse_mapfre_equipo_contratistas_4
+            item = parse_mapfre_equipo_contratistas_4(text)
 
-            print("[provider] mapfre equipo contratistas item parse_mapfre_equipo_contratistas_2:", item)
+            if not item or not item.get('numero_poliza') or not item.get('colectivo_asegurado') or not item.get('inicio_vigencia'):
+                print("[provider] mapfre equipo contratistas V4 incompleto, intentando V3/V1/V2")
+                from controllers.addMapfreEquipoContratistas_3 import parse_mapfre_equipo_contratistas_3
+                item = parse_mapfre_equipo_contratistas_3(text)
+
+                if not item or not item.get('numero_poliza') or not item.get('colectivo_asegurado') or not item.get('inicio_vigencia'):
+                    print("[provider] mapfre equipo contratistas V3 incompleto, intentando V1/V2")
+                    from controllers.addMapfreEquipoContratistas import parse_mapfre_equipo_contratistas
+                    item = parse_mapfre_equipo_contratistas(text)
+
+                    if not item or not item.get('numero_poliza') or not item.get('colectivo_asegurado') or not item.get('inicio_vigencia'):
+                        print("[provider] mapfre equipo contratistas V1 incompleto, intentando V2")
+                        try:
+                            from controllers.addMapfreEquipoContratistas_2 import parse_mapfre_equipo_contratistas_2
+                            item2 = parse_mapfre_equipo_contratistas_2(text)
+                            if item2 and item2.get('numero_poliza'):
+                                item = item2
+                                print("[provider] mapfre equipo contratistas V2 exitoso")
+                        except Exception as e:
+                            print(f"[provider] mapfre equipo contratistas V2 error: {e}")
+
+            print("[provider] mapfre equipo contratistas item:", item)
             return [item] if item else []
 
             
@@ -1795,9 +1802,31 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
     # NUEVO: LPV Pension
     if prov == "mapfre-equipo-contratistas":
         print("ENTRANDO A PARSER EQUIPO CONTRATISTAS (prov mapfre-equipo-contratistas)")
-        from controllers.addMapfreEquipoContratistas import parse_mapfre_equipo_contratistas
-        item = parse_mapfre_equipo_contratistas(text)
-        print("[provider] mapfre-equipo-contratistas item parse_mapfre_equipo_contratistas:", item)
+        from controllers.addMapfreEquipoContratistas_4 import parse_mapfre_equipo_contratistas_4
+        item = parse_mapfre_equipo_contratistas_4(text)
+
+        if not item or not item.get('numero_poliza') or not item.get('colectivo_asegurado') or not item.get('inicio_vigencia'):
+            print("[provider] mapfre-equipo-contratistas V4 incompleto, intentando V3/V1/V2")
+            from controllers.addMapfreEquipoContratistas_3 import parse_mapfre_equipo_contratistas_3
+            item = parse_mapfre_equipo_contratistas_3(text)
+
+            if not item or not item.get('numero_poliza') or not item.get('colectivo_asegurado') or not item.get('inicio_vigencia'):
+                print("[provider] mapfre-equipo-contratistas V3 incompleto, intentando V1/V2")
+                from controllers.addMapfreEquipoContratistas import parse_mapfre_equipo_contratistas
+                item = parse_mapfre_equipo_contratistas(text)
+
+                if not item or not item.get('numero_poliza') or not item.get('colectivo_asegurado') or not item.get('inicio_vigencia'):
+                    print("[provider] mapfre-equipo-contratistas V1 incompleto, intentando V2")
+                    try:
+                        from controllers.addMapfreEquipoContratistas_2 import parse_mapfre_equipo_contratistas_2
+                        item2 = parse_mapfre_equipo_contratistas_2(text)
+                        if item2 and item2.get('numero_poliza'):
+                            item = item2
+                            print("[provider] mapfre-equipo-contratistas V2 exitoso")
+                    except Exception as e:
+                        print(f"[provider] mapfre-equipo-contratistas V2 error: {e}")
+
+        print("[provider] mapfre-equipo-contratistas item:", item)
         return [item] if item else []
 
     # NUEVO: Mapfre Vehicular
