@@ -1,10 +1,15 @@
-from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory,jsonify
+from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory, jsonify, send_file
 from werkzeug.utils import secure_filename
 import os
 from utils.rbac import can_access_maestros, can_delete, can_edit, can_create, Roles, get_role_scope
 from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards
 from datetime import datetime, timedelta
 from controllers.reportes.vencimientos_renovaciones import bp as vencimientos_bp
+from controllers.reportes.reporte_produccion import (
+    get_reporte_produccion_rows,
+    export_reporte_produccion,
+    get_reporte_produccion_filters,
+)
 
 bp = Blueprint('main', __name__)
 
@@ -102,6 +107,51 @@ def dashboard():
     chart = get_dashboard_data()
     cards = get_dashboard_cards()
     return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards)
+
+
+@bp.route('/reportes/produccion', methods=['GET'])
+def reporte_produccion_page():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    filters = get_reporte_produccion_filters()
+    return render_template('view/reportes/reporte-produccion.html', page='reporte-produccion', filtros=filters)
+
+
+@bp.route('/api/reportes/produccion', methods=['GET'])
+def api_reporte_produccion():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+
+    filters = {
+        'vig_desde': request.args.get('vig_desde') or None,
+        'vig_hasta': request.args.get('vig_hasta') or None,
+        'cia': request.args.get('cia') or None,
+        'ramo': request.args.get('ramo') or None,
+        'sub_agente': request.args.get('sub_agente') or None,
+        'ejecutivo': request.args.get('ejecutivo') or None,
+    }
+
+    rows = get_reporte_produccion_rows(filters)
+    return jsonify({'ok': True, 'rows': rows})
+
+
+@bp.route('/api/reportes/produccion/export', methods=['GET'])
+def api_reporte_produccion_export():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+
+    filters = {
+        'vig_desde': request.args.get('vig_desde') or None,
+        'vig_hasta': request.args.get('vig_hasta') or None,
+        'cia': request.args.get('cia') or None,
+        'ramo': request.args.get('ramo') or None,
+        'sub_agente': request.args.get('sub_agente') or None,
+        'ejecutivo': request.args.get('ejecutivo') or None,
+    }
+
+    filepath, filename = export_reporte_produccion(filters)
+    return send_file(filepath, as_attachment=True, download_name=filename)
 
 @bp.route('/api/clientes/search', methods=['GET'])
 def search_clientes_route():
@@ -639,6 +689,16 @@ def menu_page(page):
             filters=filters
         )
 
+    if page == 'reporte-produccion':
+        filters = get_reporte_produccion_filters()
+        return render_template('view/reportes/reporte-produccion.html', page='reporte-produccion', filtros=filters)
+
+    rows = get_dashboard_rows()
+    chart = get_dashboard_data()
+    cards = get_dashboard_cards()
+    return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards, page=page)
+
+
 @bp.route('/api/reporte-diario', methods=['POST'])
 def api_reporte_diario():
     if 'user' not in session:
@@ -650,11 +710,6 @@ def api_reporte_diario():
     filters = request.get_json(silent=True) or {}
     rows = get_reporte_diario_data(filters)
     return jsonify({'ok': True, 'rows': rows})
-
-        # Fallback: otras secciones usan el dashboard con etiqueta de sección
-    rows = get_dashboard_rows()
-    chart = get_dashboard_data()
-    return render_template('view/layout_dashboard.html', rows=rows, chart=chart, page=page)
 
 @bp.route('/upload', methods=['POST'])
 def upload():
