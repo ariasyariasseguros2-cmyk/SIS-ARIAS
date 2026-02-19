@@ -41,7 +41,7 @@ def _normalize_text(value):
 
 
 def _normalize_estado(value):
-    raw = (value or "").strip()
+    raw = _normalize_text(value)
     if not raw:
         return "Activo"
     lower = raw.lower()
@@ -51,14 +51,45 @@ def _normalize_estado(value):
         return "Inactivo"
     return "Activo"
 
+def _normalize_estado_activado(value):
+    raw = _normalize_text(value)
+    if not raw:
+        return "Activado"
+    lower = raw.lower()
+    if lower.startswith("act"):
+        return "Activado"
+    if lower.startswith("ina"):
+        return "Inactivo"
+    return "Activado"
+
+
+def _load_df_with_names(xls: pd.ExcelFile, sheet: str, usecols: str, names: list[str], skiprows: int = 1) -> pd.DataFrame:
+    try:
+        df = pd.read_excel(
+            xls,
+            sheet_name=sheet,
+            header=None,
+            skiprows=skiprows,
+            usecols=usecols,
+            names=names,
+        )
+    except ValueError:
+        # Hoja no existe
+        return pd.DataFrame(columns=names)
+    if not df.empty:
+        first_col_name = names[0]
+        first_val = df.iloc[0].get(first_col_name)
+        if isinstance(first_val, str) and first_val.strip().lower().startswith("nombre"):
+            df = df.iloc[1:].reset_index(drop=True)
+    return df
+
 
 def _load_dataframe() -> pd.DataFrame:
     path = _get_excel_path()
-    df = pd.read_excel(
-        path,
-        sheet_name=0,
-        header=None,
-        skiprows=1,
+    xls = pd.ExcelFile(path)
+    return _load_df_with_names(
+        xls,
+        sheet="RamoProducto",
         usecols="A:R",
         names=[
             "ramo_nombre",
@@ -81,11 +112,6 @@ def _load_dataframe() -> pd.DataFrame:
             "factor",
         ],
     )
-    if not df.empty:
-        first_ramo = df.iloc[0]["ramo_nombre"]
-        if isinstance(first_ramo, str) and first_ramo.strip().lower().startswith("nombre"):
-            df = df.iloc[1:].reset_index(drop=True)
-    return df
 
 
 def _upsert_ramos_y_productos(conn, df: pd.DataFrame) -> None:
@@ -142,8 +168,16 @@ def _upsert_ramos_y_productos(conn, df: pd.DataFrame) -> None:
 
 
 def _insert_comisiones_temp(conn, df: pd.DataFrame) -> None:
+    # Verificar que exista la tabla comisiones_temp
     cursor = conn.cursor()
     try:
+        try:
+            cursor.execute("SHOW TABLES LIKE 'comisiones_temp'")
+            exists = cursor.fetchone()
+            if not exists:
+                return
+        except Exception:
+            return
         cursor.execute("TRUNCATE TABLE comisiones_temp")
         rows = []
         for _, row in df.iterrows():
@@ -207,6 +241,16 @@ def _insert_comisiones_temp(conn, df: pd.DataFrame) -> None:
 def _refrescar_comisiones(conn) -> None:
     cursor = conn.cursor()
     try:
+        # Verificar existencia de tablas
+        try:
+            cursor.execute("SHOW TABLES LIKE 'comisiones'")
+            com_exists = cursor.fetchone()
+            cursor.execute("SHOW TABLES LIKE 'comisiones_temp'")
+            temp_exists = cursor.fetchone()
+            if not com_exists or not temp_exists:
+                return
+        except Exception:
+            return
         cursor.execute("TRUNCATE TABLE comisiones")
         sql_insert = """
             INSERT INTO comisiones (id_producto, id_compania, comision, factor)
@@ -270,13 +314,368 @@ def _refrescar_comisiones(conn) -> None:
         cursor.close()
 
 
+def _upsert_companias(conn, xls: pd.ExcelFile) -> None:
+    df = _load_df_with_names(
+        xls,
+        sheet="compania",
+        usecols="A:E",
+        names=["nombre", "nombre_corto", "ruc", "tel1", "central_emergencia"],
+    )
+    if df.empty:
+        return
+    cursor = conn.cursor()
+    try:
+        for _, row in df.iterrows():
+            nombre = _normalize_text(row.get("nombre"))
+            if not nombre:
+                continue
+            nombre_corto = _normalize_text(row.get("nombre_corto"))
+            ruc = _normalize_text(row.get("ruc"))
+            tel1 = _normalize_text(row.get("tel1"))
+            central = _normalize_text(row.get("central_emergencia"))
+            # Evitar duplicados por nombre/nombre_corto
+            cursor.execute(
+                "SELECT id_compania FROM companias WHERE nombre = %s OR nombre_corto = %s",
+                (nombre, nombre_corto),
+            )
+            rowid = cursor.fetchone()
+            if rowid:
+                # Opcional: actualizar datos cambiantes
+                cursor.execute(
+                    "UPDATE companias SET nombre=%s, nombre_corto=%s, ruc=%s, tel1=%s, central_emergencia=%s WHERE id_compania=%s",
+                    (nombre, nombre_corto, ruc, tel1, central, rowid[0]),
+                )
+            else:
+                cursor.execute(
+                    "INSERT INTO companias (nombre, nombre_corto, ruc, tel1, central_emergencia) VALUES (%s, %s, %s, %s, %s)",
+                    (nombre, nombre_corto, ruc, tel1, central),
+                )
+        conn.commit()
+    finally:
+        cursor.close()
+
+
+def _upsert_ejecutivos(conn, xls: pd.ExcelFile) -> None:
+    df = _load_df_with_names(
+        xls,
+        sheet="ejecutivo",
+        usecols="A:C",
+        names=["nombre", "abreviacion", "grupo"],
+    )
+    if df.empty:
+        return
+    cursor = conn.cursor()
+    try:
+        for _, row in df.iterrows():
+            nombre = _normalize_text(row.get("nombre"))
+            if not nombre:
+                continue
+            abreviacion = _normalize_text(row.get("abreviacion"))
+            grupo = _normalize_text(row.get("grupo"))
+            cursor.execute("SELECT idEjecutivo FROM ejecutivos WHERE nombre = %s", (nombre,))
+            rowid = cursor.fetchone()
+            if rowid:
+                cursor.execute(
+                    "UPDATE ejecutivos SET abreviacion=%s, grupo=%s WHERE idEjecutivo=%s",
+                    (abreviacion, grupo, rowid[0]),
+                )
+            else:
+                cursor.execute(
+                    "INSERT INTO ejecutivos (nombre, abreviacion, grupo) VALUES (%s, %s, %s)",
+                    (nombre, abreviacion, grupo),
+                )
+        conn.commit()
+    finally:
+        cursor.close()
+
+
+def _upsert_endosatarios(conn, xls: pd.ExcelFile) -> None:
+    df = _load_df_with_names(
+        xls,
+        sheet="Endosatarios",
+        usecols="A:B",
+        names=["nombre", "accion_o_estado"],
+    )
+    if df.empty:
+        return
+    cursor = conn.cursor()
+    try:
+        for _, row in df.iterrows():
+            nombre = _normalize_text(row.get("nombre"))
+            if not nombre:
+                continue
+            # No todos los archivos tienen estado; default 'Activo'
+            estado = _normalize_estado(row.get("accion_o_estado")) if _normalize_text(row.get("accion_o_estado")) else "Activo"
+            cursor.execute("SELECT idEndosatario FROM endosatarios WHERE nombre = %s", (nombre,))
+            rowid = cursor.fetchone()
+            if rowid:
+                cursor.execute(
+                    "UPDATE endosatarios SET estado=%s WHERE idEndosatario=%s",
+                    (estado, rowid[0]),
+                )
+            else:
+                cursor.execute(
+                    "INSERT INTO endosatarios (nombre, estado) VALUES (%s, %s)",
+                    (nombre, estado),
+                )
+        conn.commit()
+    finally:
+        cursor.close()
+
+
+def _upsert_clases(conn, xls: pd.ExcelFile) -> None:
+    df = _load_df_with_names(
+        xls,
+        sheet="Clases Veh",
+        usecols="A:C",
+        names=["nombre", "costo_soat", "estado"],
+    )
+    if df.empty:
+        return
+    cursor = conn.cursor()
+    try:
+        for _, row in df.iterrows():
+            nombre = _normalize_text(row.get("nombre"))
+            if not nombre:
+                continue
+            costo = _normalize_number(row.get("costo_soat")) or 0
+            estado = _normalize_estado_activado(row.get("estado"))
+            cursor.execute(
+                """
+                INSERT INTO clases (nombre, costo_soat, estado)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE costo_soat=VALUES(costo_soat), estado=VALUES(estado)
+                """,
+                (nombre, costo, estado),
+            )
+        conn.commit()
+    finally:
+        cursor.close()
+
+
+def _upsert_marcas(conn, xls: pd.ExcelFile) -> None:
+    df = _load_df_with_names(
+        xls,
+        sheet="Marca",
+        usecols="A:C",
+        names=["nombre", "blank1", "estado"],
+    )
+    if df.empty:
+        return
+    cursor = conn.cursor()
+    try:
+        for _, row in df.iterrows():
+            nombre = _normalize_text(row.get("nombre"))
+            if not nombre:
+                continue
+            estado = _normalize_estado_activado(row.get("estado"))
+            cursor.execute(
+                """
+                INSERT INTO marcas (nombre, estado)
+                VALUES (%s, %s)
+                ON DUPLICATE KEY UPDATE estado=VALUES(estado)
+                """,
+                (nombre, estado),
+            )
+        conn.commit()
+    finally:
+        cursor.close()
+
+
+def _upsert_subagentes(conn, xls: pd.ExcelFile) -> None:
+    df = _load_df_with_names(
+        xls,
+        sheet="SubAgent",
+        usecols="A:B",
+        names=["nombre", "abreviacion"],
+    )
+    if df.empty:
+        return
+    cursor = conn.cursor()
+    try:
+        for _, row in df.iterrows():
+            nombre = _normalize_text(row.get("nombre"))
+            if not nombre:
+                continue
+            abreviacion = _normalize_text(row.get("abreviacion"))
+            cursor.execute("SELECT idProductor FROM SubAgente WHERE nombre = %s", (nombre,))
+            rowid = cursor.fetchone()
+            if rowid:
+                cursor.execute(
+                    "UPDATE SubAgente SET abreviacion=%s WHERE idProductor=%s",
+                    (abreviacion, rowid[0]),
+                )
+            else:
+                cursor.execute(
+                    "INSERT INTO SubAgente (nombre, abreviacion) VALUES (%s, %s)",
+                    (nombre, abreviacion),
+                )
+        conn.commit()
+    finally:
+        cursor.close()
+
+
+def _upsert_usos(conn, xls: pd.ExcelFile) -> None:
+    df = _load_df_with_names(
+        xls,
+        sheet="Uso",
+        usecols="A:C",
+        names=["nombre", "estado", "accion"],
+    )
+    if df.empty:
+        return
+    cursor = conn.cursor()
+    try:
+        for _, row in df.iterrows():
+            nombre = _normalize_text(row.get("nombre"))
+            if not nombre:
+                continue
+            estado = _normalize_estado_activado(row.get("estado"))
+            cursor.execute(
+                """
+                INSERT INTO usos (nombre, estado)
+                VALUES (%s, %s)
+                ON DUPLICATE KEY UPDATE estado=VALUES(estado)
+                """,
+                (nombre, estado),
+            )
+        conn.commit()
+    finally:
+        cursor.close()
+
+
+def _upsert_ajustadores(conn, xls: pd.ExcelFile) -> None:
+    df = _load_df_with_names(
+        xls,
+        sheet="Ajustadores",
+        usecols="A:C",
+        names=["nombre", "abreviacion", "codigo"],
+    )
+    if df.empty:
+        return
+    cursor = conn.cursor()
+    try:
+        for _, row in df.iterrows():
+            nombre = _normalize_text(row.get("nombre"))
+            codigo = _normalize_text(row.get("codigo"))
+            if not nombre or not codigo:
+                continue
+            abreviacion = _normalize_text(row.get("abreviacion"))
+            cursor.execute(
+                """
+                INSERT INTO ajustadores (nombre, abreviacion, codigo)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE nombre=VALUES(nombre), abreviacion=VALUES(abreviacion)
+                """,
+                (nombre, abreviacion, codigo),
+            )
+        conn.commit()
+    finally:
+        cursor.close()
+
+
+def _upsert_modelos(conn, xls: pd.ExcelFile) -> None:
+    df = _load_df_with_names(
+        xls,
+        sheet="Modelo",
+        usecols="A:C",
+        names=["marca_nombre", "nombre", "accion"],
+    )
+    if df.empty:
+        return
+    cursor = conn.cursor()
+    try:
+        for _, row in df.iterrows():
+            marca_nombre = _normalize_text(row.get("marca_nombre"))
+            nombre_modelo = _normalize_text(row.get("nombre"))
+            if not marca_nombre or not nombre_modelo:
+                continue
+            estado = _normalize_estado_activado(row.get("accion"))
+            cursor.execute("SELECT id FROM marcas WHERE nombre = %s", (marca_nombre,))
+            res = cursor.fetchone()
+            if res:
+                marca_id = res[0]
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO marcas (nombre, estado)
+                    VALUES (%s, %s)
+                    ON DUPLICATE KEY UPDATE estado=VALUES(estado)
+                    """,
+                    (marca_nombre, estado),
+                )
+                cursor.execute("SELECT id FROM marcas WHERE nombre = %s", (marca_nombre,))
+                marca_id = cursor.fetchone()[0]
+            cursor.execute(
+                """
+                INSERT INTO modelos (marca_id, nombre, estado)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE estado=VALUES(estado)
+                """,
+                (marca_id, nombre_modelo, estado),
+            )
+        conn.commit()
+    finally:
+        cursor.close()
+
+
+def _upsert_usuarios(conn, xls: pd.ExcelFile) -> None:
+    df = _load_df_with_names(
+        xls,
+        sheet="Usuario",
+        usecols="A:C",
+        names=["nombre", "email", "privilegio"],
+    )
+    if df.empty:
+        return
+    cursor = conn.cursor()
+    try:
+        for _, row in df.iterrows():
+            nombre = _normalize_text(row.get("nombre"))
+            email = _normalize_text(row.get("email"))
+            if not email:
+                continue
+            username = email.lower()
+            password = ""
+            cursor.execute("SELECT id FROM usuarios WHERE username = %s", (username,))
+            res = cursor.fetchone()
+            if res:
+                cursor.execute(
+                    "UPDATE usuarios SET nombre=%s WHERE id=%s",
+                    (nombre or username, res[0]),
+                )
+            else:
+                cursor.execute(
+                    "INSERT INTO usuarios (username, password, nombre, estado) VALUES (%s, %s, %s, 1)",
+                    (username, password, nombre or username),
+                )
+        conn.commit()
+    finally:
+        cursor.close()
+
+
 def main():
-    df = _load_dataframe()
+    # RamoProducto + comisiones
+    df_ramo = _load_dataframe()
     conn = get_connection()
     try:
-        _upsert_ramos_y_productos(conn, df)
-        _insert_comisiones_temp(conn, df)
-        _refrescar_comisiones(conn)
+        if not df_ramo.empty:
+            _upsert_ramos_y_productos(conn, df_ramo)
+            _insert_comisiones_temp(conn, df_ramo)
+            _refrescar_comisiones(conn)
+
+        # Abrir Excel una vez para otras hojas
+        xls = pd.ExcelFile(_get_excel_path())
+        _upsert_companias(conn, xls)
+        _upsert_ejecutivos(conn, xls)
+        _upsert_endosatarios(conn, xls)
+        _upsert_clases(conn, xls)
+        _upsert_marcas(conn, xls)
+        _upsert_subagentes(conn, xls)
+        _upsert_usos(conn, xls)
+        _upsert_ajustadores(conn, xls)
+        _upsert_modelos(conn, xls)
+        _upsert_usuarios(conn, xls)
     finally:
         conn.close()
 
