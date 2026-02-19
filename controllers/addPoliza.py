@@ -158,6 +158,104 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                 
                 target_doc = found_row_doc
 
+            # AUTOCOMPLETAR % COMISIÓN COMPAÑÍA DESDE comisiones_temp (por compañía + producto/ramo)
+            try:
+                def cia_to_col(cia_txt: str | None) -> str | None:
+                    if not cia_txt:
+                        return None
+                    s = (str(cia_txt) or '').strip().lower()
+                    if 'mapfre' in s:
+                        return 'mapfre'
+                    if 'pacif' in s:
+                        return 'pacifico'
+                    if 'sanitas' in s:
+                        return 'sanitas'
+                    if 'protecta' in s:
+                        return 'protecta'
+                    if 'crecer' in s:
+                        return 'crecer'
+                    if 'positiva' in s:
+                        if 'eps' in s:
+                            return 'pos_eps'
+                        if 'vida' in s:
+                            return 'pos_vsr'
+                        return 'pos_sr'
+                    if 'ohio' in s:
+                        return 'ohio_natural'
+                    return None
+
+                def lookup_commission_pct(cnx_, cia_txt: str | None, candidates: list[str]) -> float | None:
+                    col = cia_to_col(cia_txt)
+                    if not col:
+                        return None
+                    try:
+                        cdict = cnx_.cursor(dictionary=True)
+                        for cand in candidates:
+                            if not cand:
+                                continue
+                            val = (str(cand) or '').strip().upper()
+                            if not val:
+                                continue
+                            cdict.execute(
+                                """
+                                SELECT 
+                                  pos_eps, pos_vsr, pos_sr, pacifico, sanitas, protecta, mapfre, crecer, ohio_natural, factor
+                                FROM comisiones_temp
+                                WHERE UPPER(producto_abrev) = %s
+                                   OR UPPER(producto) = %s
+                                   OR UPPER(ramo_abreviacion) = %s
+                                   OR UPPER(ramo_nombre) = %s
+                                LIMIT 1
+                                """,
+                                (val, val, val, val)
+                            )
+                            rowc = cdict.fetchone()
+                            if rowc:
+                                pct = rowc.get(col)
+                                if pct is not None:
+                                    try:
+                                        return float(pct)
+                                    except Exception:
+                                        pass
+                                # Fallback: usar factor general si existe
+                                fac = rowc.get('factor')
+                                if fac is not None:
+                                    try:
+                                        return float(fac)
+                                    except Exception:
+                                        pass
+                        cdict.close()
+                    except Exception:
+                        try:
+                            cdict.close()
+                        except Exception:
+                            pass
+                        return None
+                    return None
+
+                cia_txt = row.get("cia") or (selected or {}).get("cia") or (selected or {}).get("issuer") or ''
+                prod_candidates = [
+                    row.get("producto"),
+                    row.get("ramos_producto"),
+                    row.get("ramo"),
+                ]
+                auto_pct = None
+                # Solo intentar si el usuario no ingresó %
+                if not parse_decimal(row.get("comision_compania_pct")):
+                    auto_pct = lookup_commission_pct(cnx, cia_txt, prod_candidates)
+                    if auto_pct is not None:
+                        row["comision_compania_pct"] = auto_pct
+                        # Calcular importe si hay prima neta
+                        pn = parse_decimal(row.get("prima_neta"))
+                        if pn is not None:
+                            try:
+                                row["comision_compania_importe"] = round(pn * (auto_pct / 100.0), 2)
+                            except Exception:
+                                pass
+            except Exception as _e:
+                # Falla silenciosa: no bloquear guardado si no se puede autocompletar
+                pass
+
             # Determinar ejecutivo efectivo: fila -> seleccionado -> fallback por usuario
             efectivo_ejecutivo = U(row.get("ejecutivo") or (selected or {}).get("ejecutivo") or default_ejecutivo or "")
 

@@ -1251,6 +1251,92 @@ def api_polizas_search():
     
     return {'ok': True, 'rows': data['rows']}
 
+@bp.route('/api/comisiones/default', methods=['GET'])
+def api_comisiones_default():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    cia = (request.args.get('cia') or '').strip()
+    producto = (request.args.get('producto') or '').strip()
+    ramo = (request.args.get('ramo') or '').strip()
+    ramos_producto = (request.args.get('ramos_producto') or '').strip()
+
+    def cia_to_col(cia_txt: str | None) -> str | None:
+        if not cia_txt:
+            return None
+        s = (str(cia_txt) or '').strip().lower()
+        if 'mapfre' in s:
+            return 'mapfre'
+        if 'pacif' in s:
+            return 'pacifico'
+        if 'sanitas' in s:
+            return 'sanitas'
+        if 'protecta' in s:
+            return 'protecta'
+        if 'crecer' in s:
+            return 'crecer'
+        if 'positiva' in s:
+            if 'eps' in s:
+                return 'pos_eps'
+            if 'vida' in s:
+                return 'pos_vsr'
+            return 'pos_sr'
+        if 'ohio' in s:
+            return 'ohio_natural'
+        return None
+
+    col = cia_to_col(cia)
+    if not col:
+        return {'ok': True, 'pct': None}
+
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+
+        candidates = [producto, ramos_producto, ramo]
+        pct_val = None
+        for cand in candidates:
+            val = (cand or '').strip().upper()
+            if not val:
+                continue
+            cur.execute(
+                """
+                SELECT 
+                  pos_eps, pos_vsr, pos_sr, pacifico, sanitas, protecta, mapfre, crecer, ohio_natural, factor
+                FROM comisiones_temp
+                WHERE UPPER(producto_abrev) = %s
+                   OR UPPER(producto) = %s
+                   OR UPPER(ramo_abreviacion) = %s
+                   OR UPPER(ramo_nombre) = %s
+                LIMIT 1
+                """,
+                (val, val, val, val)
+            )
+            rowc = cur.fetchone()
+            if rowc:
+                pct = rowc.get(col)
+                if pct is not None:
+                    pct_val = float(pct)
+                    break
+                fac = rowc.get('factor')
+                if fac is not None:
+                    pct_val = float(fac)
+                    break
+        cur.close()
+        cnx.close()
+        return {'ok': True, 'pct': pct_val}
+    except Exception as e:
+        try:
+            cur.close()
+        except Exception:
+            pass
+        try:
+            cnx.close()
+        except Exception:
+            pass
+        return {'ok': False, 'errors': [str(e)]}, 500
+
 @bp.route('/polizas/save', methods=['POST'])
 def polizas_save():
     if 'user' not in session:

@@ -855,6 +855,36 @@
           extractedItems = items;
           render(extractedItems);
 
+          // Autocompletar % comisión de compañía desde la tabla comisiones_temp (servidor)
+          try {
+            const fillPromises = (extractedItems || []).map(async (it, i) => {
+              const hasPct = it.comision_compania_pct !== undefined && it.comision_compania_pct !== null && String(it.comision_compania_pct).trim() !== '';
+              const cia = (it.cia || '').trim();
+              if (!cia || hasPct) return;
+              const qs = new URLSearchParams({
+                cia: cia,
+                producto: (it.producto || '').trim(),
+                ramo: (it.ramo || '').trim(),
+                ramos_producto: (it.ramos_producto || '').trim()
+              });
+              const resp = await fetch(`/api/comisiones/default?${qs.toString()}`);
+              if (!resp.ok) return;
+              const jp = await resp.json();
+              if (jp && jp.ok && jp.pct !== null && jp.pct !== undefined) {
+                const pct = Number(jp.pct);
+                if (Number.isFinite(pct)) {
+                  extractedItems[i].comision_compania_pct = pct;
+                  extractedItems[i].comision_compania_importe = computeCommissionAmount(extractedItems[i].prima_neta || '', String(pct));
+                }
+              }
+            });
+            Promise.all(fillPromises).then(() => {
+              render(extractedItems);
+              if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+              scheduleAutoSave();
+            });
+          } catch {}
+
           const elapsed = ((performance.now() - startTs) / 1000).toFixed(2);
           if (hint) {
             hint.textContent = items.length
