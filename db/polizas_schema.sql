@@ -151,14 +151,14 @@ END$$
 DELIMITER ;
 
 CREATE TABLE IF NOT EXISTS productos (
-                                         id_producto BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                                         idRamo      INT NOT NULL,
-                                         nombre      VARCHAR(150) NOT NULL,
+    id_producto BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    idRamo      INT NOT NULL,
+    nombre      VARCHAR(150) NOT NULL,
     CONSTRAINT fk_productos_ramos
     FOREIGN KEY (idRamo) REFERENCES ramos(idRamo)
     ON UPDATE CASCADE
     ON DELETE RESTRICT
-    );
+);
 
 CREATE INDEX idx_productos_idRamo ON productos(idRamo);
 CREATE UNIQUE INDEX uk_productos_ramo_nombre ON productos(idRamo, nombre);
@@ -209,28 +209,55 @@ DELIMITER ;
 
 
 -- Table asegudoras = proveedor
-CREATE TABLE aseguradoras (
-    idAseguradora INT AUTO_INCREMENT PRIMARY KEY,
+CREATE TABLE companias (
+    id_compania INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
     nombre_corto VARCHAR(50),
     ruc VARCHAR(15),
     tel1 VARCHAR(20),
     central_emergencia VARCHAR(20),
-    logo VARCHAR(255)  -- ruta o nombre del archivo del logo
+    logo VARCHAR(255)
 );
+
 
 -- SP Listado de asegudora
 DELIMITER $$
 
-CREATE PROCEDURE sp_listar_aseguradoras()
+CREATE PROCEDURE sp_listar_companias()
 BEGIN
     SELECT
         nombre_corto
-    FROM aseguradoras
+    FROM companias
     ORDER BY nombre_corto ASC;
 END $$
 
 DELIMITER ;
+
+CREATE TABLE comisiones_temp (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+
+    ramo_nombre        VARCHAR(100),
+    ramo_abreviacion   VARCHAR(50),
+    ramo_codigo        VARCHAR(50),
+    ramo_grupo         VARCHAR(100),
+    ramo_estado        VARCHAR(20),
+
+    producto           VARCHAR(150),
+    producto_abrev     VARCHAR(50),
+    producto_codigo    VARCHAR(50),
+
+    pos_eps       DECIMAL(5,2),
+    pos_vsr       DECIMAL(5,2),
+    pos_sr        DECIMAL(5,2),
+    pacifico      DECIMAL(5,2),
+    sanitas       DECIMAL(5,2),
+    protecta      DECIMAL(5,2),
+    mapfre        DECIMAL(5,2),
+    crecer        DECIMAL(5,2),
+    ohio_natural  DECIMAL(5,2),
+
+    factor        DECIMAL(10,4)
+);
 
 -- Table de SUB AGENTE
 CREATE TABLE SubAgente (

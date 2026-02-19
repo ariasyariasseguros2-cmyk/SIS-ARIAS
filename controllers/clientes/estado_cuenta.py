@@ -253,7 +253,7 @@ def get_estado_cuenta_data(filtros_input=None):
                 totales['dolares_pagar'] += float(p['monto_cta_pagar'] or 0)
 
         # Obtener opciones para los filtros (sin depender del cliente)
-        cur.execute("SELECT nombre_corto FROM aseguradoras WHERE nombre_corto IS NOT NULL AND nombre_corto != '' ORDER BY nombre_corto")
+        cur.execute("SELECT nombre_corto FROM companias WHERE nombre_corto IS NOT NULL AND nombre_corto != '' ORDER BY nombre_corto")
         companias = [row['nombre_corto'] for row in cur.fetchall()]
 
         cur.execute("SELECT DISTINCT nombre FROM ramos WHERE estado = 'Activo' ORDER BY nombre")

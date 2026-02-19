@@ -7,7 +7,7 @@ def get_aseguradoras() -> list[dict]:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
         # SP: devuelve al menos nombre_corto
-        cur.execute("CALL sp_listar_aseguradoras()")
+        cur.execute("CALL sp_listar_companias()")
         db_rows = cur.fetchall() or []
         while cur.nextset():
             pass
