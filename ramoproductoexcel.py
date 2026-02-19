@@ -654,12 +654,218 @@ def _upsert_usuarios(conn, xls: pd.ExcelFile) -> None:
         cursor.close()
 
 
+def _parse_cliente_tipo_doc(value: str) -> str:
+    v = (_normalize_text(value) or "").upper()
+    if "RUC" in v:
+        return "RUC"
+    if "DNI" in v and "CED" in v:
+        return "DNI/CEDULA"
+    if "DNI" in v:
+        return "DNI"
+    if "CE" in v:
+        return "CE"
+    if "PAS" in v:
+        return "PAS"
+    if "CEX" in v:
+        return "CEX"
+    return "DNI"
+
+
+def _parse_cliente_tipo_persona(value: str) -> int:
+    v = (_normalize_text(value) or "").upper()
+    if "JURID" in v:
+        return 2
+    if "NAT" in v:
+        return 1
+    try:
+        return int(v)
+    except Exception:
+        return 1
+
+
+def _normalize_bool_from_number(value):
+    n = _normalize_number(value)
+    if n is None:
+        return 0
+    return 1 if n >= 1 else 0
+
+
+def _parse_cliente_fecha(value):
+    if value is None:
+        return None
+    if isinstance(value, (pd.Timestamp,)):
+        return value.to_pydatetime()
+    text = _normalize_text(value)
+    if not text:
+        return None
+    for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            from datetime import datetime
+            return datetime.strptime(text, fmt)
+        except Exception:
+            continue
+    return None
+
+
+def _upsert_clientes(conn, xls: pd.ExcelFile) -> None:
+    df = _load_df_with_names(
+        xls,
+        sheet="Clientes",
+        usecols="A:U",
+        names=[
+            "id_cliente_excel",
+            "fec_reg",
+            "razon_social",
+            "tipo_doc",
+            "num_doc",
+            "tel1",
+            "tel2",
+            "subagente",
+            "email",
+            "direccion",
+            "estado",
+            "notifica",
+            "cumple_aniv",
+            "tipo_persona_txt",
+            "persona",
+            "departamento",
+            "provincia",
+            "distrito",
+            "contacto_nombre",
+            "contacto_email",
+            "contacto_tel",
+        ],
+    )
+    if df.empty:
+        return
+    cursor = conn.cursor()
+    try:
+        for _, row in df.iterrows():
+            id_excel_val = _normalize_number(row.get("id_cliente_excel"))
+            try:
+                id_excel_int = int(id_excel_val) if id_excel_val is not None else None
+            except Exception:
+                id_excel_int = None
+            razon_social = _normalize_text(row.get("razon_social"))
+            num_doc = _normalize_text(row.get("num_doc"))
+            if not razon_social:
+                continue
+            tipo_doc = _parse_cliente_tipo_doc(row.get("tipo_doc"))
+            # Si no hay documento, generar uno placeholder estable basado en idCliente de Excel
+            if not num_doc:
+                tipo_persona_guess = _parse_cliente_tipo_persona(row.get("tipo_persona_txt") or row.get("persona"))
+                if tipo_persona_guess == 2:
+                    tipo_doc = "RUC"
+                    prefix = "R"
+                else:
+                    tipo_doc = "DNI"
+                    prefix = "D"
+                if id_excel_int is None:
+                    num_doc = f"{prefix}X{abs(hash(razon_social))%10_000_000:07d}"
+                else:
+                    num_doc = f"{prefix}{id_excel_int:09d}" if prefix == "R" else f"{prefix}{id_excel_int:08d}"
+                num_doc = num_doc[:20]
+            telefono = (_normalize_text(row.get("tel1")) or "")[:20] or None
+            celular = (_normalize_text(row.get("tel2")) or "")[:20] or None
+            telefono_sec = None
+            subagente = _normalize_text(row.get("subagente"))
+            email = _normalize_text(row.get("email"))
+            direccion = _normalize_text(row.get("direccion"))
+            departamento = _normalize_text(row.get("departamento"))
+            provincia = _normalize_text(row.get("provincia"))
+            distrito = _normalize_text(row.get("distrito"))
+            estado = _normalize_text(row.get("estado")) or "Vigente"
+            tipo_persona = _parse_cliente_tipo_persona(row.get("tipo_persona_txt") or row.get("persona"))
+            recibir_notif = _normalize_bool_from_number(row.get("notifica"))
+            contacto_nombre = _normalize_text(row.get("contacto_nombre"))
+            contacto_email = _normalize_text(row.get("contacto_email"))
+            contacto_tel = (_normalize_text(row.get("contacto_tel")) or "")[:20] or None
+            cursor.execute(
+                """
+                INSERT INTO clientes (
+                    razon_social, tipo_documento, numero_documento,
+                    telefono, celular, telefono_sec,
+                    subagente, idProductor,
+                    email, direccion, departamento, provincia, distrito,
+                    estado, tipo_persona,
+                    profesion, fecha_ingreso, fecha_nacimiento,
+                    licencia_num, licencia_venc,
+                    grupo_economico, giro_negocio, referencia, recomendado_por,
+                    recibir_notificaciones, contacto_nombre, contacto_email, contacto_telefono,
+                    usuario_creacion
+                ) VALUES (
+                    %s, %s, %s,
+                    %s, %s, %s,
+                    %s, NULL,
+                    %s, %s, %s, %s, %s,
+                    %s, %s,
+                    NULL, NULL, NULL,
+                    NULL, NULL,
+                    NULL, NULL, NULL, NULL,
+                    %s, %s, %s, %s,
+                    %s
+                )
+                ON DUPLICATE KEY UPDATE
+                    razon_social=VALUES(razon_social),
+                    telefono=VALUES(telefono),
+                    celular=VALUES(celular),
+                    telefono_sec=VALUES(telefono_sec),
+                    subagente=VALUES(subagente),
+                    email=VALUES(email),
+                    direccion=VALUES(direccion),
+                    departamento=VALUES(departamento),
+                    provincia=VALUES(provincia),
+                    distrito=VALUES(distrito),
+                    estado=VALUES(estado),
+                    tipo_persona=VALUES(tipo_persona),
+                    recibir_notificaciones=VALUES(recibir_notificaciones),
+                    contacto_nombre=VALUES(contacto_nombre),
+                    contacto_email=VALUES(contacto_email),
+                    contacto_telefono=VALUES(contacto_telefono)
+                """,
+                (
+                    razon_social,
+                    tipo_doc,
+                    num_doc,
+                    telefono,
+                    celular,
+                    telefono_sec,
+                    subagente,
+                    email,
+                    direccion,
+                    departamento,
+                    provincia,
+                    distrito,
+                    estado,
+                    tipo_persona,
+                    recibir_notif,
+                    contacto_nombre,
+                    contacto_email,
+                    contacto_tel,
+                    "excel-import",
+                ),
+            )
+        conn.commit()
+    finally:
+        cursor.close()
+
+
 def main():
     # RamoProducto + comisiones
     df_ramo = _load_dataframe()
     conn = get_connection()
     try:
-        if not df_ramo.empty:
+        def _table_exists(name: str) -> bool:
+            c = conn.cursor()
+            try:
+                c.execute(
+                    "SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s",
+                    (name,),
+                )
+                return c.fetchone() is not None
+            finally:
+                c.close()
+        if not df_ramo.empty and _table_exists("ramos") and _table_exists("productos"):
             _upsert_ramos_y_productos(conn, df_ramo)
             _insert_comisiones_temp(conn, df_ramo)
             _refrescar_comisiones(conn)
@@ -676,6 +882,7 @@ def main():
         _upsert_ajustadores(conn, xls)
         _upsert_modelos(conn, xls)
         _upsert_usuarios(conn, xls)
+        _upsert_clientes(conn, xls)
     finally:
         conn.close()
 
