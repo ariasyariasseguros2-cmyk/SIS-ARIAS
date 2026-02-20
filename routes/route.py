@@ -1380,6 +1380,211 @@ def api_comisiones_default():
             pass
         return {'ok': False, 'errors': [str(e)]}, 500
 
+
+@bp.route('/api/maestros/comisiones', methods=['POST'])
+def api_maestros_comisiones_save():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    if not can_access_maestros(session.get('role_name')):
+        return jsonify({'ok': False, 'error': 'Forbidden'}), 403
+
+    data = request.get_json(silent=True) or {}
+    mode = (data.get('mode') or '').lower()
+    row_id = data.get('id')
+
+    def _to_decimal(v):
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return v
+        s = str(v).strip().replace(',', '.')
+        if not s:
+            return None
+        try:
+            return float(s)
+        except Exception:
+            return None
+
+    ramo_nombre = (data.get('ramo_nombre') or '').strip()
+    ramo_abreviacion = (data.get('ramo_abreviacion') or '').strip() or None
+    ramo_grupo = (data.get('ramo_grupo') or '').strip() or None
+    producto = (data.get('producto') or '').strip()
+    producto_abrev = (data.get('producto_abrev') or '').strip() or None
+    pos_eps = _to_decimal(data.get('pos_eps'))
+    pos_vsr = _to_decimal(data.get('pos_vsr'))
+    pos_sr = _to_decimal(data.get('pos_sr'))
+    pacifico = _to_decimal(data.get('pacifico'))
+    sanitas = _to_decimal(data.get('sanitas'))
+    protecta = _to_decimal(data.get('protecta'))
+    mapfre = _to_decimal(data.get('mapfre'))
+    crecer = _to_decimal(data.get('crecer'))
+    ohio_natural = _to_decimal(data.get('ohio_natural'))
+    factor = _to_decimal(data.get('factor'))
+
+    if not ramo_nombre or not producto:
+        return jsonify({'ok': False, 'error': 'Ramo y producto son requeridos'}), 400
+
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor()
+        try:
+            if mode == 'editar' and row_id:
+                cur_prev = cnx.cursor(dictionary=True)
+                cur_prev.execute(
+                    """
+                    SELECT ramo_nombre, producto
+                    FROM comisiones_temp
+                    WHERE id=%s
+                    """,
+                    (row_id,),
+                )
+                prev = cur_prev.fetchone()
+                cur_prev.close()
+                prev_ramo = (prev.get('ramo_nombre') if prev else None) or ramo_nombre
+                prev_producto = (prev.get('producto') if prev else None) or producto
+                cur.execute(
+                    """
+                    UPDATE ramos
+                    SET nombre=%s,
+                        abreviacion=%s
+                    WHERE nombre=%s
+                    """,
+                    (ramo_nombre, ramo_abreviacion, prev_ramo),
+                )
+                cur.execute(
+                    "SELECT idRamo FROM ramos WHERE nombre=%s",
+                    (ramo_nombre,),
+                )
+                r = cur.fetchone()
+                ramo_id = r[0] if r else None
+                if ramo_id:
+                    cur.execute(
+                        """
+                        UPDATE productos
+                        SET nombre=%s
+                        WHERE idRamo=%s AND nombre=%s
+                        """,
+                        (producto, ramo_id, prev_producto),
+                    )
+                cur.execute(
+                    """
+                    UPDATE comisiones_temp
+                    SET ramo_nombre=%s,
+                        ramo_abreviacion=%s,
+                        producto=%s,
+                        producto_abrev=%s,
+                        pos_eps=%s,
+                        pos_vsr=%s,
+                        pos_sr=%s,
+                        pacifico=%s,
+                        sanitas=%s,
+                        protecta=%s,
+                        mapfre=%s,
+                        crecer=%s,
+                        ohio_natural=%s,
+                        factor=%s
+                    WHERE id=%s
+                    """,
+                    (
+                        ramo_nombre,
+                        ramo_abreviacion,
+                        producto,
+                        producto_abrev,
+                        pos_eps,
+                        pos_vsr,
+                        pos_sr,
+                        pacifico,
+                        sanitas,
+                        protecta,
+                        mapfre,
+                        crecer,
+                        ohio_natural,
+                        factor,
+                        row_id,
+                    ),
+                )
+            else:
+                ramo_id = None
+                cur.execute(
+                    """
+                    INSERT INTO ramos (nombre, abreviacion, codigo, grupo, estado)
+                    VALUES (%s, %s, NULL, %s, 'Activo')
+                    ON DUPLICATE KEY UPDATE
+                        abreviacion = VALUES(abreviacion),
+                        grupo = COALESCE(VALUES(grupo), grupo),
+                        estado = VALUES(estado),
+                        idRamo = LAST_INSERT_ID(idRamo)
+                    """,
+                    (ramo_nombre, ramo_abreviacion, ramo_grupo),
+                )
+                cur.execute("SELECT LAST_INSERT_ID()")
+                r = cur.fetchone()
+                if r:
+                    ramo_id = r[0]
+                if ramo_id and producto:
+                    cur.execute(
+                        """
+                        INSERT INTO productos (idRamo, nombre)
+                        VALUES (%s, %s)
+                        ON DUPLICATE KEY UPDATE id_producto = LAST_INSERT_ID(id_producto)
+                        """,
+                        (ramo_id, producto),
+                    )
+                cur.execute(
+                    """
+                    INSERT INTO comisiones_temp (
+                        ramo_nombre,
+                        ramo_abreviacion,
+                        producto,
+                        producto_abrev,
+                        pos_eps,
+                        pos_vsr,
+                        pos_sr,
+                        pacifico,
+                        sanitas,
+                        protecta,
+                        mapfre,
+                        crecer,
+                        ohio_natural,
+                        factor
+                    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    """,
+                    (
+                        ramo_nombre,
+                        ramo_abreviacion,
+                        producto,
+                        producto_abrev,
+                        pos_eps,
+                        pos_vsr,
+                        pos_sr,
+                        pacifico,
+                        sanitas,
+                        protecta,
+                        mapfre,
+                        crecer,
+                        ohio_natural,
+                        factor,
+                    ),
+                )
+                row_id = cur.lastrowid
+            cnx.commit()
+            return jsonify({'ok': True, 'id': int(row_id) if row_id else None})
+        finally:
+            try:
+                if cur:
+                    cur.close()
+            except Exception:
+                pass
+            try:
+                if cnx:
+                    cnx.close()
+            except Exception:
+                pass
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
 @bp.route('/polizas/save', methods=['POST'])
 def polizas_save():
     if 'user' not in session:

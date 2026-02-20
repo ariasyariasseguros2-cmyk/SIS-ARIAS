@@ -6,12 +6,38 @@ document.addEventListener('DOMContentLoaded', function(){
     const searchInput = document.getElementById('comisiones-search');
     const infoEl = document.getElementById('comisiones-info');
     const pagEl = document.getElementById('comisiones-pagination');
+    const modalEl = document.getElementById('comisiones-modal');
+    const modal = modalEl && window.bootstrap ? new bootstrap.Modal(modalEl) : null;
+    const modalTitleEl = document.getElementById('comisiones-modal-title');
+    const saveBtn = document.getElementById('comisiones-save-btn');
+    const addBtn = document.getElementById('comisiones-add-btn');
+
+    let currentMode = null;
+    let currentId = null;
+
+    const fields = {
+      ramo_nombre: document.getElementById('com-ramo-nombre'),
+      ramo_abreviacion: document.getElementById('com-ramo-abrev'),
+      ramo_grupo: document.getElementById('com-ramo-grupo'),
+      producto: document.getElementById('com-producto'),
+      producto_abrev: document.getElementById('com-producto-abrev'),
+      pos_eps: document.getElementById('com-pos-eps'),
+      pos_vsr: document.getElementById('com-pos-vsr'),
+      pos_sr: document.getElementById('com-pos-sr'),
+      pacifico: document.getElementById('com-pacifico'),
+      sanitas: document.getElementById('com-sanitas'),
+      protecta: document.getElementById('com-protecta'),
+      mapfre: document.getElementById('com-mapfre'),
+      crecer: document.getElementById('com-crecer'),
+      ohio_natural: document.getElementById('com-ohio-natural'),
+      factor: document.getElementById('com-factor')
+    };
 
     const allRows = Array.from(tbody.querySelectorAll('tr'));
-    // Guardar snapshot original
     const data = allRows.map(tr => ({
       html: tr.innerHTML,
-      text: tr.textContent.toLowerCase().replace(/\s+/g, ' ').trim()
+      text: tr.textContent.toLowerCase().replace(/\s+/g, ' ').trim(),
+      id: tr.getAttribute('data-id') || null
     }));
 
     let filtered = data.slice();
@@ -30,6 +56,7 @@ document.addEventListener('DOMContentLoaded', function(){
       for (let i = start; i < end; i++){
         const tr = document.createElement('tr');
         tr.innerHTML = filtered[i].html;
+        if (filtered[i].id) tr.setAttribute('data-id', filtered[i].id);
         tbody.appendChild(tr);
       }
 
@@ -108,6 +135,107 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // Inicio
     renderPage(1);
+
+    function fillFormFromRow(tr, mode){
+      const cells = Array.from(tr.querySelectorAll('td'));
+      if (!cells.length) return;
+      if (fields.ramo_nombre) fields.ramo_nombre.value = cells[0] ? cells[0].textContent.trim() : '';
+      if (fields.ramo_abreviacion) fields.ramo_abreviacion.value = cells[1] ? cells[1].textContent.trim() : '';
+      if (fields.producto) fields.producto.value = cells[2] ? cells[2].textContent.trim() : '';
+      if (fields.producto_abrev) fields.producto_abrev.value = cells[3] ? cells[3].textContent.trim() : '';
+      if (fields.pos_eps) fields.pos_eps.value = cells[4] ? cells[4].textContent.trim() : '';
+      if (fields.pos_vsr) fields.pos_vsr.value = cells[5] ? cells[5].textContent.trim() : '';
+      if (fields.pos_sr) fields.pos_sr.value = cells[6] ? cells[6].textContent.trim() : '';
+      if (fields.pacifico) fields.pacifico.value = cells[7] ? cells[7].textContent.trim() : '';
+      if (fields.sanitas) fields.sanitas.value = cells[8] ? cells[8].textContent.trim() : '';
+      if (fields.protecta) fields.protecta.value = cells[9] ? cells[9].textContent.trim() : '';
+      if (fields.mapfre) fields.mapfre.value = cells[10] ? cells[10].textContent.trim() : '';
+      if (fields.crecer) fields.crecer.value = cells[11] ? cells[11].textContent.trim() : '';
+      if (fields.ohio_natural) fields.ohio_natural.value = cells[12] ? cells[12].textContent.trim() : '';
+      if (fields.factor) fields.factor.value = cells[13] ? cells[13].textContent.trim() : '';
+    }
+
+    function clearForm(){
+      Object.keys(fields).forEach(k => {
+        if (fields[k]) fields[k].value = '';
+      });
+    }
+
+    if (tbody && modal){
+      tbody.addEventListener('click', function(e){
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        const tr = btn.closest('tr');
+        if (!tr) return;
+        if (btn.classList.contains('com-edit')){
+          currentMode = 'editar';
+          currentId = tr.getAttribute('data-id') || null;
+          fillFormFromRow(tr, 'editar');
+          if (modalTitleEl) modalTitleEl.textContent = 'Editar comisión';
+          modal.show();
+        }
+      });
+    }
+
+    if (addBtn && modal){
+      addBtn.addEventListener('click', function(){
+        currentMode = 'insertar';
+        currentId = null;
+        clearForm();
+        if (modalTitleEl) modalTitleEl.textContent = 'Agregar comisión';
+        modal.show();
+      });
+    }
+
+    async function saveComision(){
+      if (!currentMode) return;
+      const payload = {
+          mode: currentMode,
+          id: currentId,
+          ramo_nombre: fields.ramo_nombre ? fields.ramo_nombre.value : '',
+          ramo_abreviacion: fields.ramo_abreviacion ? fields.ramo_abreviacion.value : '',
+          ramo_grupo: fields.ramo_grupo ? fields.ramo_grupo.value : '',
+          producto: fields.producto ? fields.producto.value : '',
+          producto_abrev: fields.producto_abrev ? fields.producto_abrev.value : '',
+          pos_eps: fields.pos_eps ? fields.pos_eps.value : '',
+          pos_vsr: fields.pos_vsr ? fields.pos_vsr.value : '',
+          pos_sr: fields.pos_sr ? fields.pos_sr.value : '',
+          pacifico: fields.pacifico ? fields.pacifico.value : '',
+          sanitas: fields.sanitas ? fields.sanitas.value : '',
+          protecta: fields.protecta ? fields.protecta.value : '',
+          mapfre: fields.mapfre ? fields.mapfre.value : '',
+          crecer: fields.crecer ? fields.crecer.value : '',
+          ohio_natural: fields.ohio_natural ? fields.ohio_natural.value : '',
+          factor: fields.factor ? fields.factor.value : ''
+        };
+      try{
+        const res = await fetch('/api/maestros/comisiones', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data || data.ok !== true){
+          const msg = data && data.error ? data.error : 'Error guardando comisión';
+          alert(msg);
+          return;
+        }
+        if (modal) modal.hide();
+        clearForm();
+        currentMode = null;
+        currentId = null;
+        window.location.reload();
+      } catch(err){
+        console.error('save comision error', err);
+        alert('Error guardando comisión');
+      }
+    }
+
+    if (saveBtn && modal){
+      saveBtn.addEventListener('click', function(){
+        saveComision();
+      });
+    }
   } catch (err){
     console.error('comisiones.js error', err);
   }

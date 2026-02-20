@@ -9,6 +9,7 @@ def get_comisiones():
         try:
             cur.execute("""
                 SELECT 
+                  id,
                   ramo_nombre,
                   ramo_abreviacion,
                   producto,
