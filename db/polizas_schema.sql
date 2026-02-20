@@ -112,7 +112,7 @@ BEGIN
         nombre,
         abreviacion
     FROM ramos
-    ORDER BY nombre ASC;
+    ORDER BY idRamo ASC;
 END $$
 
 DELIMITER ;

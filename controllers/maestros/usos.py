@@ -5,7 +5,7 @@ def get_usos():
     conn = get_connection()
     try:
         cur = conn.cursor(dictionary=True)
-        cur.execute("SELECT id, nombre, estado FROM usos ORDER BY nombre ASC")
+        cur.execute("SELECT id, nombre, estado FROM usos ORDER BY id ASC")
         return cur.fetchall()
     finally:
         conn.close()

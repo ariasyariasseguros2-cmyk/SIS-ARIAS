@@ -23,8 +23,12 @@ def get_ejecutivos():
             rows = []
         # Si el SP no trae id, consultar tabla directa
         if not rows or all(r.get('id') is None for r in rows):
-            cur.execute("SELECT idEjecutivo AS id, nombre, abreviacion, grupo FROM ejecutivos ORDER BY nombre ASC")
+            cur.execute("SELECT idEjecutivo AS id, nombre, abreviacion, grupo FROM ejecutivos ORDER BY idEjecutivo ASC")
             rows = cur.fetchall() or []
+        try:
+            rows = sorted(rows, key=lambda r: r.get('id'))
+        except Exception:
+            pass
         cur.close()
     except Exception as e:
         print(f'[ejecutivos] error: {e}')

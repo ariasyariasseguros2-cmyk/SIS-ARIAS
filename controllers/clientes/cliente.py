@@ -19,14 +19,23 @@ def get_clientes_data():
                        telefono, subagente, email, direccion 
                 FROM clientes 
                 WHERE activo = 1 AND subagente = %s
-                ORDER BY fecha_registro DESC
+                ORDER BY idCliente ASC
             """
             cur.execute(query, (user,))
         else:
-            cur.execute("CALL sp_list_clientes()")
+            cur.execute("""
+                SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, 
+                       telefono, subagente, email, direccion 
+                FROM clientes 
+                WHERE activo = 1
+                ORDER BY idCliente ASC
+            """)
             
         db_rows = cur.fetchall()
-        while cur.nextset():
+        try:
+            while cur.nextset():
+                pass
+        except Exception:
             pass
         cur.close()
         cnx.close()
@@ -74,6 +83,7 @@ def search_clientes_data(query):
                 WHERE activo = 1 
                   AND subagente = %s 
                   AND (razon_social LIKE %s OR numero_documento LIKE %s)
+                ORDER BY idCliente ASC
                 LIMIT 50
             """
             cur.execute(sql, (user, q_like, q_like))
@@ -81,7 +91,10 @@ def search_clientes_data(query):
             cur.execute("CALL sp_buscar_cliente(%s)", (query,))
             
         db_rows = cur.fetchall()
-        while cur.nextset():
+        try:
+            while cur.nextset():
+                pass
+        except Exception:
             pass
         cur.close()
         cnx.close()
@@ -122,10 +135,10 @@ def get_clientes_anulados_data():
         if role == Roles.SUB_AGENTE:
             # RLS: Filtrar anulados por subagente
             user = session.get('user')
-            cur.execute("SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, telefono, subagente, email, direccion, tipo_persona FROM clientes WHERE activo = 0 AND subagente = %s ORDER BY fecha_registro DESC", (user,))
+            cur.execute("SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, telefono, subagente, email, direccion, tipo_persona FROM clientes WHERE activo = 0 AND subagente = %s ORDER BY idCliente ASC", (user,))
         else:
             # No hay SP específico en el schema para anulados, hacemos SELECT directo
-            cur.execute("SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, telefono, subagente, email, direccion, tipo_persona FROM clientes WHERE activo = 0 ORDER BY fecha_registro DESC")
+            cur.execute("SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, telefono, subagente, email, direccion, tipo_persona FROM clientes WHERE activo = 0 ORDER BY idCliente ASC")
             
         db_rows = cur.fetchall()
         cur.close()

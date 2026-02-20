@@ -25,7 +25,7 @@ def get_comisiones():
                   ohio_natural,
                   factor
                 FROM comisiones_temp
-                ORDER BY ramo_nombre, producto
+                ORDER BY id ASC
             """)
         except Exception:
             # Si no existe la tabla, devolver vacío

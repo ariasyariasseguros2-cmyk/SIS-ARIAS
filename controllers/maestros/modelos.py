@@ -5,7 +5,7 @@ def get_modelos():
     conn = get_connection()
     try:
         cur = conn.cursor(dictionary=True)
-        cur.execute("SELECT m.id, m.nombre, m.estado, m.marca_id, ma.nombre AS marca_nombre FROM modelos m JOIN marcas ma ON ma.id = m.marca_id ORDER BY ma.nombre, m.nombre")
+        cur.execute("SELECT m.id, m.nombre, m.estado, m.marca_id, ma.nombre AS marca_nombre FROM modelos m JOIN marcas ma ON ma.id = m.marca_id ORDER BY m.id ASC")
         return cur.fetchall()
     finally:
         conn.close()

@@ -6,7 +6,7 @@ def get_ramos():
     try:
         cur = conn.cursor(dictionary=True)
         # Incluir idRamo como id para consistencia con otras entidades
-        cur.execute("SELECT idRamo AS id, nombre, abreviacion, codigo, grupo, estado FROM ramos ORDER BY nombre ASC")
+        cur.execute("SELECT idRamo AS id, nombre, abreviacion, codigo, grupo, estado FROM ramos ORDER BY idRamo ASC")
         rows = cur.fetchall() or []
         return rows
     finally:
