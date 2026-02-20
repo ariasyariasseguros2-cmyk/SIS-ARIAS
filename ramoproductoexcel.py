@@ -90,7 +90,7 @@ def _load_dataframe() -> pd.DataFrame:
     return _load_df_with_names(
         xls,
         sheet="RamoProducto",
-        usecols="A:R",
+        usecols="A:S",
         names=[
             "ramo_nombre",
             "ramo_abreviacion",
@@ -108,6 +108,7 @@ def _load_dataframe() -> pd.DataFrame:
             "protecta",
             "mapfre",
             "crecer",
+            "crecer_porcentaje",
             "ohio_natural",
             "factor",
         ],
