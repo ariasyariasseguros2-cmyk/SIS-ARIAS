@@ -52,6 +52,7 @@
                             <th>Nombre</th>
                             <th>Estado</th>
                             <th>Rol Actual</th>
+                            <th>Ejecutivo</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -62,10 +63,11 @@
                             <td>{{ user.username }}</td>
                             <td>{{ user.nombre }}</td>
                             <td>
-                                {% if user.estado == 'ACTIVO' %}
-                                <span class="badge bg-success">Activo</span>
+                                {% set est = user.estado %}
+                                {% if est == 1 or est == '1' or est == 'ACTIVO' or est == 'Activo' %}
+                                  <span class="badge bg-success">Activo</span>
                                 {% else %}
-                                <span class="badge bg-secondary">{{ user.estado }}</span>
+                                  <span class="badge bg-secondary">{{ est }}</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -74,6 +76,16 @@
                                     {% for role in roles %}
                                     <option value="{{ role.idRol }}" {% if user.id_rol == role.idRol %}selected{% endif %}>
                                         {{ role.nombre }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <select class="form-select form-select-sm ejecutivo-select" data-user-id="{{ user.id }}" onchange="updateUserEjecutivo(this)">
+                                    <option value="" {% if not user.id_ejecutivo %}selected{% endif %}>Sin Ejecutivo</option>
+                                    {% for ej in ejecutivos %}
+                                    <option value="{{ ej.id }}" {% if user.id_ejecutivo == ej.id %}selected{% endif %}>
+                                        {{ ej.nombre }}
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -145,6 +157,41 @@
         });
     }
 
+    function updateUserEjecutivo(selectElement) {
+        const userId = selectElement.getAttribute('data-user-id');
+        const ejecutivoId = selectElement.value || null;
+        const ejecutivoName = selectElement.options[selectElement.selectedIndex].text;
+
+        if (!confirm(`¿Asignar ejecutivo "${ejecutivoName}" al usuario?`)) {
+            location.reload();
+            return;
+        }
+
+        fetch('/api/maestros/usuarios/ejecutivo', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                user_id: userId,
+                ejecutivo_id: ejecutivoId
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                showToast('Ejecutivo actualizado correctamente', 'bg-success');
+            } else {
+                showToast('Error al actualizar ejecutivo: ' + (data.error || 'Desconocido'), 'bg-danger');
+                setTimeout(() => location.reload(), 2000);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('Error de red', 'bg-danger');
+        });
+    }
+    
     function showToast(message, bgClass) {
         const toastEl = document.getElementById('liveToast');
         const toastBody = document.getElementById('toast-message');

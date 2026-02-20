@@ -2586,9 +2586,11 @@ def menu_maestros_usuarios():
     if not can_access_maestros(session.get('role_name')):
         return redirect(url_for('main.dashboard'))
     from controllers.maestros.usuarios import get_usuarios, get_roles
+    from controllers.ejecutivos import get_ejecutivos
     usuarios = get_usuarios()
     roles = get_roles()
-    return render_template('view/maestros/usuarios.html', page='maestros-usuarios', usuarios=usuarios, roles=roles)
+    ejecutivos = get_ejecutivos() or []
+    return render_template('view/maestros/usuarios.html', page='maestros-usuarios', usuarios=usuarios, roles=roles, ejecutivos=ejecutivos)
 
 @bp.route('/api/maestros/usuarios/rol', methods=['POST'])
 def api_maestros_usuarios_rol():
@@ -2610,6 +2612,27 @@ def api_maestros_usuarios_rol():
         return jsonify({'ok': True})
     else:
         return jsonify({'ok': False, 'error': 'Failed to update role'}), 500
+
+@bp.route('/api/maestros/usuarios/ejecutivo', methods=['POST'])
+def api_maestros_usuarios_ejecutivo():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+    
+    if not can_access_maestros(session.get('role_name')):
+        return jsonify({'ok': False, 'error': 'Forbidden'}), 403
+
+    data = request.get_json()
+    user_id = data.get('user_id')
+    ejecutivo_id = data.get('ejecutivo_id')
+    
+    if not user_id:
+        return jsonify({'ok': False, 'error': 'Missing parameters'}), 400
+        
+    from controllers.maestros.usuarios import update_usuario_ejecutivo
+    if update_usuario_ejecutivo(user_id, ejecutivo_id or None):
+        return jsonify({'ok': True})
+    else:
+        return jsonify({'ok': False, 'error': 'Failed to update ejecutivo'}), 500
 
 @bp.route('/api/maestros/<entidad>', methods=['GET', 'POST'])
 def api_maestros_list_create(entidad):
