@@ -1381,6 +1381,41 @@ def api_comisiones_default():
         return {'ok': False, 'errors': [str(e)]}, 500
 
 
+# Refrescar comisiones desde Excel (RamoProducto.xlsx)
+@bp.route('/api/comisiones/refresh', methods=['POST'])
+def api_comisiones_refresh():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+    try:
+        # Importar utilidades de lectura/carga desde el módulo de Excel
+        from ramoproductoexcel import (
+            _load_dataframe,
+            _upsert_ramos_y_productos,
+            _insert_comisiones_temp,
+            _refrescar_comisiones,
+        )
+        from models.db import get_connection
+
+        df = _load_dataframe()
+        if df is None or df.empty:
+            return {'ok': False, 'errors': ['Hoja RamoProducto vacía o no encontrada']}, 400
+
+        cnx = get_connection()
+        try:
+            # Asegurar productos y refrescar comisiones_temp/comisiones
+            _upsert_ramos_y_productos(cnx, df)
+            _insert_comisiones_temp(cnx, df)
+            _refrescar_comisiones(cnx)
+        finally:
+            try:
+                cnx.close()
+            except Exception:
+                pass
+        return {'ok': True}
+    except Exception as e:
+        return {'ok': False, 'errors': [str(e)]}, 500
+
+
 @bp.route('/api/maestros/comisiones', methods=['POST'])
 def api_maestros_comisiones_save():
     if 'user' not in session:
