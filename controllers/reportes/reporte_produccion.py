@@ -88,8 +88,8 @@ def get_reporte_produccion_rows(filters: Dict[str, Any]) -> List[Dict[str, Any]]
                 p.tipo_doc AS td,
                 p.recibo AS aviso_cob,
                 '' AS estado_comision,
-                p.vig_desde AS ini_vig,
-                p.vig_hasta AS fin_vig,
+                DATE_FORMAT(p.vig_desde, '%Y-%m-%d') AS ini_vig,
+                DATE_FORMAT(p.vig_hasta, '%Y-%m-%d') AS fin_vig,
                 p.moneda AS mon,
                 p.prima_neta AS prim_neta,
                 p.prima_total AS prim_total,
@@ -101,12 +101,12 @@ def get_reporte_produccion_rows(filters: Dict[str, Any]) -> List[Dict[str, Any]]
                 NULL AS fpago_sagt,
                 NULL AS comprobante_sagt,
                 p.motivo,
-                CONCAT_WS(' - ', c.departamento, c.provincia, c.distrito) AS ciudad,
+                c.departamento AS ciudad,
                 NULL AS factura_comision,
                 p.ejecutivo,
                 NULL AS breve_descripcion,
                 p.usuario_registro AS usuario,
-                p.creado_en AS f_reg
+                DATE_FORMAT(p.creado_en, '%Y-%m-%d %H:%i:%s') AS f_reg
             FROM polizas p
             INNER JOIN clientes c ON c.idCliente = p.cliente_id
         """

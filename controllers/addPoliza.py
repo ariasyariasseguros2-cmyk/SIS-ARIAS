@@ -152,7 +152,7 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                     return {
                         "ok": False, 
                         "errors": [
-                            f"El PDF corresponde al cliente {found_row_doc}, pero estás intentando guardarlo en la cuenta de {numero_documento}. Verifica el archivo o cambia de cliente."
+                            f"La proforma/cupón corresponde al cliente dni/ruc {found_row_doc}, estás intentando guardarlo en la cuenta de dni/ruc {numero_documento}. Verifica el archivo o cambia de cliente."
                         ]
                     }
                 
