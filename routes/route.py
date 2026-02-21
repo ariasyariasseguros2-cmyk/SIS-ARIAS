@@ -1318,7 +1318,7 @@ def api_comisiones_default():
             return 'protecta'
         if 'crecer' in s:
             return 'crecer'
-        if 'positiva' in s:
+        if 'positiva' in s or 'lpv' in s or 'la positiva' in s:
             if 'eps' in s:
                 return 'pos_eps'
             if 'vida' in s:
@@ -1329,6 +1329,20 @@ def api_comisiones_default():
         return None
 
     col = cia_to_col(cia)
+    # Ajuste: si es LPV/Positiva, utilizar ramos_producto/ramo/producto para elegir columna
+    try:
+        s = (cia or '').strip().lower()
+        is_lpv = ('lpv' in s) or ('positiva' in s) or ('la positiva' in s)
+        if is_lpv:
+            cand_join = ' '.join([(producto or ''), (ramos_producto or ''), (ramo or '')]).strip().lower()
+            if ('salud' in cand_join) or ('eps' in cand_join):
+                col = 'pos_eps'
+            elif 'vida' in cand_join:
+                col = 'pos_vsr'
+            elif 'pens' in cand_join:
+                col = 'pos_sr'
+    except Exception:
+        pass
     if not col:
         return {'ok': True, 'pct': None}
 

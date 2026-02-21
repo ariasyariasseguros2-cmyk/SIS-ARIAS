@@ -186,6 +186,39 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
 
                 def lookup_commission_pct(cnx_, cia_txt: str | None, candidates: list[str]) -> float | None:
                     col = cia_to_col(cia_txt)
+                    try:
+                        s = (str(cia_txt) or '').strip().lower()
+                        is_lpv = ('lpv' in s) or ('positiva' in s) or ('la positiva' in s)
+                        if is_lpv:
+                            for cand in (candidates or []):
+                                v = (str(cand) or '').strip().lower()
+                                if not v:
+                                    continue
+                                if ('salud' in v) or ('eps' in v):
+                                    col = 'pos_eps'
+                                    break
+                                if 'vida' in v:
+                                    col = 'pos_vsr'
+                                    break
+                                if 'pens' in v:
+                                    col = 'pos_sr'
+                                    break
+                        # Si no hay columna determinada aún y el texto de la cia trae pistas
+                        if not col and s:
+                            if 'mapfre' in s:
+                                col = 'mapfre'
+                            elif 'pacif' in s:
+                                col = 'pacifico'
+                            elif 'sanitas' in s:
+                                col = 'sanitas'
+                            elif 'protecta' in s:
+                                col = 'protecta'
+                            elif 'crecer' in s:
+                                col = 'crecer'
+                            elif 'ohio' in s:
+                                col = 'ohio_natural'
+                    except Exception:
+                        pass
                     if not col:
                         return None
                     try:
