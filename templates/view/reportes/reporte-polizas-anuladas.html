@@ -9,6 +9,24 @@
     </h1>
   </div>
 
+  <div class="table-toolbar uplifted d-flex align-items-end flex-wrap gap-2 mb-3">
+    <div style="max-width: 320px; width: 100%;">
+      <label class="form-label small mb-1">Búsqueda</label>
+      <input type="text" id="searchQ" class="form-control" placeholder="Contratante, asegurado, póliza, Cía, ramo...">
+    </div>
+    <div>
+      <label class="form-label small mb-1">Vigencia Inicio desde</label>
+      <input type="date" id="vigDesde" class="form-control">
+    </div>
+    <div>
+      <label class="form-label small mb-1">Vigencia Fin hasta</label>
+      <input type="date" id="vigHasta" class="form-control">
+    </div>
+    <div class="ms-auto">
+      <button class="btn btn-success text-white" id="btnBuscarAnuladas"><i class="bi-search me-1"></i> Buscar</button>
+    </div>
+  </div>
+
   <div class="table-card">
     <div class="table-responsive">
       <table class="table modern-table" id="polizasAnuladasTable">
@@ -62,6 +80,79 @@
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  const tbody = document.querySelector('#polizasAnuladasTable tbody');
+  const btnBuscar = document.getElementById('btnBuscarAnuladas');
+  const inputQ = document.getElementById('searchQ');
+  const inputDesde = document.getElementById('vigDesde');
+  const inputHasta = document.getElementById('vigHasta');
+
+  async function reload() {
+    const params = new URLSearchParams();
+    const q = (inputQ.value || '').trim();
+    const desde = (inputDesde.value || '').trim();
+    const hasta = (inputHasta.value || '').trim();
+    if (q) params.set('q', q);
+    if (desde) params.set('desde', desde);
+    if (hasta) params.set('hasta', hasta);
+    const url = '/api/polizas/anuladas' + (params.toString() ? ('?' + params.toString()) : '');
+    try {
+      if (tbody) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="11" class="text-center py-4">
+              <div class="spinner-border text-primary" role="status"></div>
+              <div class="text-muted small mt-2">Buscando...</div>
+            </td>
+          </tr>`;
+      }
+      const resp = await fetch(url);
+      const json = await resp.json();
+      const rows = json.ok ? (json.rows || []) : [];
+      renderRows(rows);
+    } catch (e) {
+      if (tbody) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="11" class="text-center text-danger py-4">Error al consultar</td>
+          </tr>`;
+      }
+    }
+  }
+
+  function renderRows(rows) {
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" class="text-center text-muted py-4">Sin resultados</td></tr>`;
+      return;
+    }
+    const v = (x) => x || '';
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-id', r.idPoliza);
+      tr.setAttribute('data-poliza', v(r.poliza));
+      tr.innerHTML = `
+        <td>${v(r.contratante)}</td>
+        <td>${v(r.asegurado)}</td>
+        <td>${v(r.cia)}</td>
+        <td>${v(r.ramo)}</td>
+        <td>${v(r.producto)}</td>
+        <td>${v(r.poliza)}</td>
+        <td>${v(r.vig_desde)}</td>
+        <td>${v(r.vig_hasta)}</td>
+        <td>${v(r.sub_agente)}</td>
+        <td>${v(r.asegurada)}</td>
+        <td class="text-end">
+          <button type="button" class="btn-action btn-success" data-action="restaurar">Restaurar</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  btnBuscar?.addEventListener('click', reload);
+  inputQ?.addEventListener('keypress', (e) => { if (e.key === 'Enter') reload(); });
+
   const table = document.getElementById('polizasAnuladasTable');
   table?.addEventListener('click', async (e) => {
     const el = e.target.closest('[data-action="restaurar"]');

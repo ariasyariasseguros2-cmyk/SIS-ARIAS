@@ -3045,3 +3045,17 @@ def api_polizas_restaurar():
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
+@bp.route('/api/polizas/anuladas', methods=['GET'])
+def api_polizas_anuladas_list():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+    q = request.args.get('q') or None
+    desde = request.args.get('desde') or None
+    hasta = request.args.get('hasta') or None
+    try:
+        from controllers.polizas import get_polizas_anuladas_filtered
+        rows = get_polizas_anuladas_filtered(q, desde, hasta)
+        return jsonify({'ok': True, 'rows': rows})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
