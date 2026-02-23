@@ -349,12 +349,12 @@ def menu_page(page):
     if page == 'vencimientos-renovaciones':
         return render_template('view/reportes/vencimientos-renovaciones.html')
 
-    if page == 'reporte-polizas-anuladas':
+    if page == 'polizas-anuladas':
         from controllers.polizas import get_polizas_anuladas
         data = get_polizas_anuladas()
         return render_template(
-            'view/reportes/reporte-polizas-anuladas.html',
-            page='reporte-polizas-anuladas',
+            'view/reportes/polizas-anuladas.html',
+            page='polizas-anuladas',
             rows=data['rows']
         )
 
