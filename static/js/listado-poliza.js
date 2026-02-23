@@ -244,8 +244,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('openRenovarPolizaModal no definido');
             }
         } else if (action === 'anular') {
-             if (confirm('¿Está seguro de anular esta póliza?')) {
-                 alert('Funcionalidad de anular pendiente de implementación backend');
+             if (!confirm('¿Está seguro de anular esta póliza?')) return;
+             try {
+                 const resp = await fetch('/api/polizas/anular', {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ idPoliza })
+                 });
+                 const json = await resp.json();
+                 if (json.ok) {
+                     row.style.opacity = '0.5';
+                     row.classList.add('table-warning');
+                 } else {
+                     alert(json.error || 'No se pudo anular la póliza');
+                 }
+             } catch (e) {
+                 console.error(e);
+                 alert('Error de conexión al anular');
              }
         } else if (action === 'eliminar') {
              if (confirm('¿Está seguro de eliminar esta póliza?')) {

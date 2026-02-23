@@ -349,6 +349,15 @@ def menu_page(page):
     if page == 'vencimientos-renovaciones':
         return render_template('view/reportes/vencimientos-renovaciones.html')
 
+    if page == 'reporte-polizas-anuladas':
+        from controllers.polizas import get_polizas_anuladas
+        data = get_polizas_anuladas()
+        return render_template(
+            'view/reportes/reporte-polizas-anuladas.html',
+            page='reporte-polizas-anuladas',
+            rows=data['rows']
+        )
+
     # Primas → plantilla dedicada
     if page == 'primas':
         from controllers.primas.primas import get_primas_data
@@ -2765,6 +2774,121 @@ def api_maestros_list_create(entidad):
 
     return jsonify({'ok': False, 'error': 'Entidad no soportada'}), 400
 
+@bp.route('/api/polizas/anular', methods=['POST'])
+def api_polizas_anular():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+    role = session.get('role_name')
+    if role not in [Roles.BROKER, Roles.OPERADOR]:
+        return jsonify({'ok': False, 'error': 'No autorizado'}), 403
+    data = request.get_json(silent=True) or {}
+    pid = data.get('idPoliza')
+    motivo = data.get('motivo') or ''
+    if not pid:
+        return jsonify({'ok': False, 'error': 'ID requerido'}), 400
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor()
+        try:
+            cur.execute("CALL sp_anular_poliza(%s,%s,%s)", (pid, session.get('user'), motivo))
+            affected = 0
+            try:
+                for result in cur.stored_results():
+                    row = result.fetchone()
+                    if row is not None:
+                        try:
+                            # row can be tuple or dict depending on cursor
+                            affected = int(row[0])
+                        except Exception:
+                            try:
+                                affected = int(row.get('affected_rows', 0))
+                            except Exception:
+                                affected = 0
+                # Drain any remaining result sets
+                while cur.nextset():
+                    pass
+            except Exception:
+                pass
+            cnx.commit()
+            if affected > 0:
+                cur.close()
+                cnx.close()
+                return jsonify({'ok': True})
+            # Fallback si el SP retornó 0 afectados: verificar estado y aplicar UPDATE directo
+            cur.execute("SELECT anulado, activo FROM polizas WHERE idPoliza=%s", (pid,))
+            st = cur.fetchone()
+            if st is None:
+                cur.close()
+                cnx.close()
+                return jsonify({'ok': False, 'error': 'Póliza no encontrada'}), 400
+            # Intentar actualizar directamente conservando la lógica
+            cur.execute(
+                "UPDATE polizas SET anulado=1, estado='ANULADA', motivo=%s, usuario_edicion=%s WHERE idPoliza=%s AND (anulado=0 OR anulado IS NULL) AND (activo=1 OR activo IS NULL)",
+                (motivo, session.get('user'), pid)
+            )
+            cnx.commit()
+            ok = cur.rowcount > 0
+            cur.close()
+            cnx.close()
+            if ok:
+                return jsonify({'ok': True})
+            # Comprobación idempotente: si ya está anulada, consideramos éxito
+            cnx = get_connection()
+            cur = cnx.cursor()
+            cur.execute("SELECT anulado FROM polizas WHERE idPoliza=%s", (pid,))
+            st2 = cur.fetchone()
+            cur.close()
+            cnx.close()
+            try:
+                already = (int(st2[0]) == 1) if st2 is not None else False
+            except Exception:
+                try:
+                    already = (int(st2.get('anulado', 0)) == 1)
+                except Exception:
+                    already = False
+            if already:
+                return jsonify({'ok': True, 'status': 'already_anulled'})
+            return jsonify({'ok': False, 'error': 'No se pudo anular'}), 400
+        except Exception:
+            try:
+                cur.execute(
+                    "UPDATE polizas SET anulado=1, estado='ANULADA', motivo=%s, usuario_edicion=%s WHERE idPoliza=%s AND activo=1 AND anulado=0",
+                    (motivo, session.get('user'), pid)
+                )
+                cnx.commit()
+                ok = cur.rowcount > 0
+                cur.close()
+                cnx.close()
+                if ok:
+                    return jsonify({'ok': True})
+                # Comprobación idempotente: ya anulada
+                cnx = get_connection()
+                cur = cnx.cursor()
+                cur.execute("SELECT anulado FROM polizas WHERE idPoliza=%s", (pid,))
+                st2 = cur.fetchone()
+                cur.close()
+                cnx.close()
+                try:
+                    already = (int(st2[0]) == 1) if st2 is not None else False
+                except Exception:
+                    try:
+                        already = (int(st2.get('anulado', 0)) == 1)
+                    except Exception:
+                        already = False
+                if already:
+                    return jsonify({'ok': True, 'status': 'already_anulled'})
+                return jsonify({'ok': False, 'error': 'No se pudo anular'}), 400
+            except Exception as e:
+                try:
+                    cur.close()
+                    cnx.close()
+                except Exception:
+                    pass
+                return jsonify({'ok': False, 'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
 
 @bp.route('/api/maestros/<entidad>/<int:id_>', methods=['DELETE'])
 def api_maestros_delete(entidad, id_):
@@ -2809,4 +2933,115 @@ def api_maestros_delete(entidad, id_):
         return jsonify({'ok': False, 'error': str(e)}), 500
 
     return jsonify({'ok': False, 'error': 'Entidad no soportada'}), 400
+
+@bp.route('/api/polizas/restaurar', methods=['POST'])
+def api_polizas_restaurar():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+    role = session.get('role_name')
+    if role not in [Roles.BROKER, Roles.OPERADOR]:
+        return jsonify({'ok': False, 'error': 'No autorizado'}), 403
+    data = request.get_json(silent=True) or {}
+    pid = data.get('idPoliza')
+    if not pid:
+        return jsonify({'ok': False, 'error': 'ID requerido'}), 400
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor()
+        try:
+            cur.execute("CALL sp_restore_poliza(%s,%s)", (pid, session.get('user')))
+            affected = 0
+            try:
+                for result in cur.stored_results():
+                    row = result.fetchone()
+                    if row is not None:
+                        try:
+                            affected = int(row[0])
+                        except Exception:
+                            try:
+                                affected = int(row.get('affected_rows', 0))
+                            except Exception:
+                                affected = 0
+                while cur.nextset():
+                    pass
+            except Exception:
+                pass
+            cnx.commit()
+            if affected > 0:
+                cur.close()
+                cnx.close()
+                return jsonify({'ok': True})
+            # Fallback cuando SP devuelve 0 afectados
+            cur.execute("SELECT anulado, activo FROM polizas WHERE idPoliza=%s", (pid,))
+            st = cur.fetchone()
+            if st is None:
+                cur.close()
+                cnx.close()
+                return jsonify({'ok': False, 'error': 'Póliza no encontrada'}), 400
+            cur.execute(
+                "UPDATE polizas SET anulado=0, estado='VIGENTE', usuario_edicion=%s WHERE idPoliza=%s AND (anulado=1 OR anulado IS NULL) AND (activo=1 OR activo IS NULL)",
+                (session.get('user'), pid)
+            )
+            cnx.commit()
+            ok = cur.rowcount > 0
+            cur.close()
+            cnx.close()
+            if ok:
+                return jsonify({'ok': True})
+            # Comprobación idempotente: si ya está restaurada, éxito
+            cnx = get_connection()
+            cur = cnx.cursor()
+            cur.execute("SELECT anulado FROM polizas WHERE idPoliza=%s", (pid,))
+            st2 = cur.fetchone()
+            cur.close()
+            cnx.close()
+            try:
+                already = (int(st2[0]) == 0) if st2 is not None else False
+            except Exception:
+                try:
+                    already = (int(st2.get('anulado', 1)) == 0)
+                except Exception:
+                    already = False
+            if already:
+                return jsonify({'ok': True, 'status': 'already_restored'})
+            return jsonify({'ok': False, 'error': 'No se pudo restaurar'}), 400
+        except Exception:
+            try:
+                cur.execute(
+                    "UPDATE polizas SET anulado=0, estado='VIGENTE', usuario_edicion=%s WHERE idPoliza=%s AND activo=1 AND anulado=1",
+                    (session.get('user'), pid)
+                )
+                cnx.commit()
+                ok = cur.rowcount > 0
+                cur.close()
+                cnx.close()
+                if ok:
+                    return jsonify({'ok': True})
+                # Comprobación idempotente
+                cnx = get_connection()
+                cur = cnx.cursor()
+                cur.execute("SELECT anulado FROM polizas WHERE idPoliza=%s", (pid,))
+                st2 = cur.fetchone()
+                cur.close()
+                cnx.close()
+                try:
+                    already = (int(st2[0]) == 0) if st2 is not None else False
+                except Exception:
+                    try:
+                        already = (int(st2.get('anulado', 1)) == 0)
+                    except Exception:
+                        already = False
+                if already:
+                    return jsonify({'ok': True, 'status': 'already_restored'})
+                return jsonify({'ok': False, 'error': 'No se pudo restaurar'}), 400
+            except Exception as e:
+                try:
+                    cur.close()
+                    cnx.close()
+                except Exception:
+                    pass
+                return jsonify({'ok': False, 'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
 

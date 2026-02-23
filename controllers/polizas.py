@@ -190,7 +190,7 @@ def get_polizas_all() -> dict:
                     p.asegurada
                 FROM polizas p
                 INNER JOIN clientes c ON c.idCliente = p.cliente_id
-                WHERE 1=1 
+                WHERE p.activo = 1 AND p.anulado = 0 
             """ + rls_filter + """
                 ORDER BY p.creado_en DESC
             """
@@ -260,4 +260,74 @@ def get_polizas_all() -> dict:
         'title': 'Pólizas',
         'rows': rows,
         'details': {},  # listado global no necesita cabecera de cliente
+    }
+
+def get_polizas_anuladas() -> dict:
+    rows = []
+    try:
+        from models.db import get_connection
+        from flask import session
+        from utils.rbac import Roles
+
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+
+        rls_filter = ""
+        rls_params = []
+        if session.get('role_name') == Roles.SUB_AGENTE:
+            user = session.get('user')
+            cur.execute("SELECT nombre FROM usuarios WHERE username = %s", (user,))
+            u_row = cur.fetchone()
+            nombre_usuario = u_row['nombre'] if u_row else user
+            rls_filter = " AND (p.usuario_registro = %s OR p.sub_agente = %s) "
+            rls_params = [user, nombre_usuario]
+
+        use_sp = (rls_filter == "")
+        if use_sp:
+            try:
+                cur.execute("CALL sp_list_polizas_anuladas()")
+                rows = cur.fetchall() or []
+                try:
+                    while cur.nextset(): pass
+                except: pass
+            except Exception:
+                use_sp = False
+
+        if not use_sp:
+            sql = """
+                SELECT 
+                    p.idPoliza,
+                    c.razon_social AS contratante,
+                    p.asegurado,
+                    p.cia,
+                    p.ramo,
+                    p.ramos_producto AS producto,
+                    p.poliza,
+                    p.nro,
+                    p.moneda,
+                    DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
+                    DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
+                    DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
+                    p.sub_agente,
+                    p.asegurada
+                FROM polizas p
+                INNER JOIN clientes c ON c.idCliente = p.cliente_id
+                WHERE p.activo = 1 AND p.anulado = 1
+            """ + rls_filter + """
+                ORDER BY p.creado_en DESC
+            """
+            cur.execute(sql, tuple(rls_params))
+            rows = cur.fetchall() or []
+
+        for r in rows:
+            r['producto'] = r.get('producto') or r.get('ramos_producto') or ''
+
+        cur.close()
+        cnx.close()
+    except Exception:
+        rows = []
+
+    return {
+        'title': 'Pólizas Anuladas',
+        'rows': rows
     }

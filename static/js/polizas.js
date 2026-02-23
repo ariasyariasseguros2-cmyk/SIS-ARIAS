@@ -314,7 +314,37 @@
            break;
 
         case 'anular':
-           alert(`Acción Anular para la póliza ${data.poliza} (Pendiente de implementación)`);
+           if (!data.idPoliza) {
+             alert('ID de póliza no encontrado');
+             return;
+           }
+           if (!confirm(`¿Seguro que desea ANULAR la póliza ${data.poliza}?`)) {
+             return;
+           }
+           (async () => {
+             try {
+               const resp = await fetch('/api/polizas/anular', {
+                 method: 'POST',
+                 headers: {
+                   'Content-Type': 'application/json'
+                 },
+                 body: JSON.stringify({
+                   idPoliza: data.idPoliza,
+                   motivo: ''
+                 })
+               });
+               const json = await resp.json();
+               if (json.ok) {
+                 row.style.opacity = '0.5';
+                 row.classList.add('table-warning');
+               } else {
+                 alert(json.error || 'No se pudo anular la póliza');
+               }
+             } catch (e) {
+               console.error(e);
+               alert('Error de conexión al anular la póliza');
+             }
+           })();
            break;
 
         default:

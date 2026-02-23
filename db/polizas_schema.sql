@@ -535,6 +535,8 @@ CREATE TABLE IF NOT EXISTS polizas (
     ramos_producto VARCHAR(120) NULL,
 
     estado VARCHAR(20) DEFAULT 'PENDIENTE',
+    anulado TINYINT(1) NOT NULL DEFAULT 0,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
     usuario_registro VARCHAR(50) NULL,
     usuario_edicion VARCHAR(50) NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -783,6 +785,7 @@ BEGIN
     (SELECT ruta_archivo FROM poliza_archivos WHERE poliza_id = p.idPoliza ORDER BY idArchivo DESC LIMIT 1) AS pdf_path
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
+    WHERE p.activo = 1 AND p.anulado = 0
     ORDER BY p.creado_en DESC;
 END$$
 DELIMITER ;
@@ -811,7 +814,7 @@ BEGIN
     (SELECT ruta_archivo FROM poliza_archivos WHERE poliza_id = p.idPoliza ORDER BY idArchivo DESC LIMIT 1) AS pdf_path
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
-    WHERE c.numero_documento = p_numero_documento
+    WHERE c.numero_documento = p_numero_documento AND p.activo = 1 AND p.anulado = 0
     ORDER BY p.creado_en DESC;
 END$$
 DELIMITER ;
@@ -889,7 +892,7 @@ BEGIN
     (SELECT ruta_archivo FROM poliza_archivos WHERE poliza_id = p.idPoliza ORDER BY idArchivo DESC LIMIT 1) AS pdf_path
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
-    WHERE p.cliente_id = p_cliente_id
+    WHERE p.cliente_id = p_cliente_id AND p.activo = 1 AND p.anulado = 0
     ORDER BY p.creado_en DESC;
 END$$
 DELIMITER ;
@@ -919,7 +922,7 @@ BEGIN
         p.motivo AS motivo
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
-    WHERE p.poliza = p_poliza
+    WHERE p.poliza = p_poliza AND p.activo = 1 AND p.anulado = 0
     ORDER BY p.creado_en DESC;
 END$$
 DELIMITER ;
@@ -947,7 +950,7 @@ BEGIN
         p.motivo AS motivo
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
-    WHERE p.cliente_id = p_cliente_id
+    WHERE p.cliente_id = p_cliente_id AND p.activo = 1 AND p.anulado = 0
     ORDER BY p.creado_en DESC;
 END$$
 DELIMITER ;
@@ -967,6 +970,78 @@ BEGIN
 END$$
 DELIMITER ;
 
+DELIMITER $$
+CREATE PROCEDURE sp_list_polizas_anuladas()
+BEGIN
+    SELECT
+        p.idPoliza,
+        c.razon_social AS contratante,
+        p.asegurado,
+        p.cia,
+        p.ramo,
+        p.ramos_producto AS producto,
+        p.poliza,
+        p.nro,
+        p.moneda,
+        DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
+        DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
+        DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
+        p.sub_agente,
+        p.asegurada,
+        p.usuario_registro,
+        p.usuario_edicion
+    FROM polizas p
+    INNER JOIN clientes c ON c.idCliente = p.cliente_id
+    WHERE p.activo = 1 AND p.anulado = 1
+    ORDER BY p.creado_en DESC;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE PROCEDURE sp_restore_poliza(
+    IN p_id INT,
+    IN p_usuario VARCHAR(50)
+)
+BEGIN
+    UPDATE polizas
+    SET anulado = 0,
+        estado = 'VIGENTE',
+        usuario_edicion = p_usuario
+    WHERE idPoliza = p_id AND activo = 1 AND anulado = 1;
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE PROCEDURE sp_anular_poliza(
+    IN p_id INT,
+    IN p_usuario VARCHAR(50),
+    IN p_motivo VARCHAR(200)
+)
+BEGIN
+    UPDATE polizas
+    SET anulado = 1,
+        estado = 'ANULADA',
+        motivo = p_motivo,
+        usuario_edicion = p_usuario
+    WHERE idPoliza = p_id AND activo = 1 AND anulado = 0;
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE PROCEDURE sp_delete_poliza(
+    IN p_id INT,
+    IN p_usuario VARCHAR(50)
+)
+BEGIN
+    UPDATE polizas
+    SET activo = 0,
+        usuario_edicion = p_usuario
+    WHERE idPoliza = p_id AND activo = 1;
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
+DELIMITER ;
 -- Tabla cuotas (mínima)
 CREATE TABLE IF NOT EXISTS cuotas (
     idCuota INT AUTO_INCREMENT PRIMARY KEY,

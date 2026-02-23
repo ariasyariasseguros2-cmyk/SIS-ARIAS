@@ -1,0 +1,93 @@
+{% extends 'view/layout_dashboard.html' %}
+{% block html_title %}Reporte Pólizas Anuladas{% endblock %}
+{% block page_title %}Reporte Pólizas Anuladas{% endblock %}
+{% block content %}
+<div class="container-fluid px-0">
+  <div class="page-header justify-content-start gap-3">
+    <h1 class="page-title mb-0">
+      <i class="bi-shield-x text-danger"></i> Pólizas Anuladas
+    </h1>
+  </div>
+
+  <div class="table-card">
+    <div class="table-responsive">
+      <table class="table modern-table" id="polizasAnuladasTable">
+        <thead>
+          <tr>
+            <th>Contratante</th>
+            <th>Asegurado</th>
+            <th>Cía</th>
+            <th>Ram</th>
+            <th>Prod</th>
+            <th>Póliza</th>
+            <th>Vig Inicio</th>
+            <th>Vig Fin</th>
+            <th>Sub Agente</th>
+            <th>M.Asegurada</th>
+            <th class="text-end">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr data-id="{{ r.idPoliza }}" data-poliza="{{ r.poliza }}">
+            <td>{{ r.contratante }}</td>
+            <td>{{ r.asegurado }}</td>
+            <td>{{ r.cia }}</td>
+            <td>{{ r.ramo }}</td>
+            <td>{{ r.producto }}</td>
+            <td>{{ r.poliza }}</td>
+            <td>{{ r.vig_desde }}</td>
+            <td>{{ r.vig_hasta }}</td>
+            <td>{{ r.sub_agente }}</td>
+            <td>{{ r.asegurada }}</td>
+            <td class="text-end">
+              {% if session.role_name in ['BROKER', 'OPERADOR'] %}
+              <button type="button" class="btn-action btn-success" data-action="restaurar">Restaurar</button>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="11" class="text-center text-muted py-4">Sin pólizas anuladas</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js_bottom %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const table = document.getElementById('polizasAnuladasTable');
+  table?.addEventListener('click', async (e) => {
+    const el = e.target.closest('[data-action="restaurar"]');
+    if (!el) return;
+    e.preventDefault();
+    const row = el.closest('tr');
+    const id = row?.getAttribute('data-id');
+    const pol = row?.getAttribute('data-poliza');
+    if (!id) return;
+    if (!confirm('¿Restaurar la póliza ' + (pol || '') + '?')) return;
+    try {
+      const resp = await fetch('/api/polizas/restaurar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idPoliza: id })
+      });
+      const json = await resp.json();
+      if (json.ok) {
+        row.remove();
+      } else {
+        alert(json.error || 'No se pudo restaurar');
+      }
+    } catch (err) {
+      alert('Error de conexión');
+    }
+  });
+});
+</script>
+{% endblock %}
