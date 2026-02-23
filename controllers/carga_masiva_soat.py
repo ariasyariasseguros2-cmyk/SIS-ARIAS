@@ -5,28 +5,21 @@ import pandas as pd
 from datetime import datetime
 from models.db import get_connection
 import mysql.connector
+import unicodedata
+from typing import Optional, Tuple
 
 
 def validate_excel_structure(df: pd.DataFrame) -> tuple[bool, list[str]]:
     """Valida que el Excel tenga las columnas requeridas"""
     required_columns = [
-        # Datos del cliente
         'TIPO_PERSONA', 'NOMBRE_RAZON_SOCIAL', 'NUMERO_DOCUMENTO',
         'DIRECCION', 'DEPARTAMENTO', 'PROVINCIA', 'DISTRITO',
 
-        # Datos de la póliza
-        'SUBAGENTE_ABREVIACION', 'POLIZA_CERTF', 'COMPANIA_NOMBRE_CORTO',
-        'RAMO_ABREVIACION', 'PRODUCTO_ABREVIACION',
-        'TIPO_POLIZA', 'VIGENCIA_INICIO', 'VIGENCIA_FIN', 'MONEDA_ABREVIACION',
-        'EJECUTIVO_ABREVIACION', 'AVISO_COB', 'TIPO_DOC', 'TIPO_PAGO',
-        'PRIMA_NETA', 'PRIMA_TOTAL', 'FECHA_VENCIMIENTO',
+        'POLIZA_CERTF',
+        'VIGENCIA_INICIO', 'VIGENCIA_FIN', 'MONEDA_ABREVIACION',
+        'PRIMA_NETA', 'PRIMA_TOTAL',
 
-        # Datos del vehículo
-        'INCISO', 'SUMA_ASEGURADA', 'FECINCLUSION', 'PLACA',
-        'CLASE', 'USO', 'SERIE', 'MARCA', 'MODELO', 'ANIO'
-
-        # Nota: TIPO_DOCUMENTO, COD_AGENTE y VENDEDOR son opcionales
-        # Si TIPO_DOCUMENTO está vacío, se detecta automáticamente según el número
+        'PLACA', 'CLASE', 'USO', 'SERIE', 'MARCA', 'MODELO', 'ANIO'
     ]
 
     errors = []
@@ -38,6 +31,161 @@ def validate_excel_structure(df: pd.DataFrame) -> tuple[bool, list[str]]:
 
     return True, []
 
+def map_excel_columns(df: pd.DataFrame) -> pd.DataFrame:
+    def _strip_accents(s: str) -> str:
+        return ''.join(ch for ch in unicodedata.normalize('NFKD', s) if not unicodedata.combining(ch))
+
+    def _normalize_header(h: str) -> str:
+        if h is None:
+            return ''
+        s = str(h).replace('\u00A0', ' ').strip()
+        # eliminar sufijo de duplicado tipo '.1', '.2'
+        if '.' in s:
+            base, last = s.rsplit('.', 1)
+            if last.isdigit():
+                s = base
+        s = ' '.join(s.split())
+        s = _strip_accents(s).lower()
+        return s
+
+    df2 = df.copy()
+    norm_to_indices = {}
+    for idx, col in enumerate(list(df2.columns)):
+        key = _normalize_header(col)
+        norm_to_indices.setdefault(key, []).append(idx)
+
+    synonyms = {
+        'poliza': 'POLIZA_CERTF',
+        'fec emision': 'FECHA_EMISION',
+        'fec. emision': 'FECHA_EMISION',
+        'ini vigencia': 'VIGENCIA_INICIO',
+        'ini.vigencia': 'VIGENCIA_INICIO',
+        'fin vigencia': 'VIGENCIA_FIN',
+        'moneda': 'MONEDA_ABREVIACION',
+        'prima': 'PRIMA',
+        'cod agenc': 'COD_AGENTE',
+        'vendedor': 'VENDEDOR',
+        'aplicacion': 'APLICACION',
+        'tipo persona': 'TIPO_PERSONA',
+        'tipopersona': 'TIPO_PERSONA',
+        'nombre': 'NOMBRE_RAZON_SOCIAL',
+        'numero documento': 'NUMERO_DOCUMENTO',
+        'direccion': 'DIRECCION',
+        'departamento': 'DEPARTAMENTO',
+        'provincia': 'PROVINCIA',
+        'distrito': 'DISTRITO',
+        'celular': 'CELULAR',
+        'email': 'EMAIL',
+        'tipo placa': 'TIPO_PLACA',
+        'tipoplaca': 'TIPO_PLACA',
+        'placa': 'PLACA',
+        'uso': 'USO',
+        'clase': 'CLASE',
+        'marca': 'MARCA',
+        'desc modelo': 'MODELO',
+        'desc.modelo': 'MODELO',
+        'serie': 'SERIE',
+        'asientos': 'ASIENTOS',
+        'anio': 'ANIO',
+        'ano': 'ANIO',
+        'año': 'ANIO',
+        'planilla': 'PLANILLA',
+        'recibo': 'RECIBO',
+        'formulario': 'FORMULARIO'
+    }
+
+    for norm_key, dst in synonyms.items():
+        if dst in df2.columns:
+            continue
+        if norm_key in norm_to_indices:
+            idxs = norm_to_indices[norm_key]
+            chosen_idx = idxs[-1]  # tomar la última aparición (contratante suele ir después)
+            df2[dst] = df2.iloc[:, chosen_idx]
+
+    if 'PRIMA' in df2.columns:
+        if 'PRIMA_NETA' not in df2.columns:
+            df2['PRIMA_NETA'] = df2['PRIMA']
+        if 'PRIMA_TOTAL' not in df2.columns:
+            df2['PRIMA_TOTAL'] = df2['PRIMA']
+    if 'RECIBO' in df2.columns and 'AVISO_COB' not in df2.columns:
+        df2['AVISO_COB'] = df2['RECIBO']
+    elif 'PLANILLA' in df2.columns and 'AVISO_COB' not in df2.columns:
+        df2['AVISO_COB'] = df2['PLANILLA']
+    if 'VENDEDOR' in df2.columns:
+        if 'SUBAGENTE_ABREVIACION' not in df2.columns:
+            df2['SUBAGENTE_ABREVIACION'] = df2['VENDEDOR']
+        if 'EJECUTIVO_ABREVIACION' not in df2.columns:
+            df2['EJECUTIVO_ABREVIACION'] = df2['VENDEDOR']
+    if 'VIGENCIA_FIN' in df2.columns and 'FECHA_VENCIMIENTO' not in df2.columns:
+        df2['FECHA_VENCIMIENTO'] = df2['VIGENCIA_FIN']
+    return df2
+
+
+def _normalize_header_token(token: str) -> str:
+    token = '' if token is None else str(token)
+    token = token.replace('\u00A0', ' ').strip()
+    token = ' '.join(token.split())
+    token = ''.join(ch for ch in unicodedata.normalize('NFKD', token) if not unicodedata.combining(ch))
+    return token.lower()
+
+
+def _detect_header_row(df_raw: pd.DataFrame) -> Optional[int]:
+    candidates = {
+        'poliza', 'ini vigencia', 'ini.vigencia', 'fin vigencia', 'fec emision', 'fec. emision',
+        'nombre', 'numero documento', 'direccion', 'departamento', 'provincia', 'distrito',
+        'moneda', 'prima', 'vendedor', 'cod agenc', 'placa', 'uso', 'clase', 'marca',
+        'desc modelo', 'desc.modelo', 'serie', 'ano', 'año', 'anio'
+    }
+    max_score = 0
+    best_row = None
+    check_rows = min(len(df_raw), 15)
+    for i in range(check_rows):
+        vals = [_normalize_header_token(x) for x in list(df_raw.iloc[i].values)]
+        score = sum(1 for v in vals if v in candidates)
+        if score > max_score:
+            max_score = score
+            best_row = i
+    return best_row if (best_row is not None and max_score >= 5) else None
+
+
+def load_excel_flexible(file_path: str) -> Tuple[pd.DataFrame, list[str]]:
+    debug_msgs = []
+    try:
+        df_std = pd.read_excel(file_path, dtype=str)
+        df_std = map_excel_columns(df_std)
+        cols_std = [str(c) for c in getattr(df_std, 'columns', [])]
+        # Heurística: si hay muchos 'Unnamed' o aparece un título de bloque como 'CERTIFICADO',
+        # o si falta un canónico clave tras el mapeo, intentamos detección flexible.
+        has_unnamed = sum(1 for c in cols_std if str(c).lower().startswith('unnamed')) >= max(3, len(cols_std)//3 if cols_std else 0)
+        has_group_title = any(_normalize_header_token(c) in {'certificado','resp de pago','contratante','vehiculo'} for c in cols_std)
+        lacks_key = not any(x in df_std.columns for x in ['POLIZA_CERTF','VIGENCIA_INICIO','NOMBRE_RAZON_SOCIAL','NUMERO_DOCUMENTO'])
+        if not (has_unnamed or has_group_title or lacks_key):
+            return df_std, debug_msgs
+        else:
+            debug_msgs.append('Se detectaron encabezados no estándar; intentando detección flexible')
+    except Exception as e:
+        debug_msgs.append(f'Lectura estándar falló: {e}')
+    try:
+        df_raw = pd.read_excel(file_path, header=None, dtype=str)
+        hdr_row = _detect_header_row(df_raw)
+        if hdr_row is not None:
+            headers = list(df_raw.iloc[hdr_row].values)
+            data = df_raw.iloc[hdr_row + 1:].reset_index(drop=True)
+            # aplicar headers sólo hasta el número de columnas de data
+            if len(headers) > data.shape[1]:
+                headers = headers[:data.shape[1]]
+            elif len(headers) < data.shape[1]:
+                headers = headers + [f'Unnamed_extra_{i}' for i in range(data.shape[1] - len(headers))]
+            data.columns = headers
+            df = map_excel_columns(data)
+            debug_msgs.append(f'Encabezado detectado en fila {hdr_row+1}')
+            return df, debug_msgs
+        else:
+            debug_msgs.append('No se detectó fila de encabezados compatible')
+    except Exception as e:
+        debug_msgs.append(f'Lectura flexible falló: {e}')
+    # Fallback vacío
+    return pd.DataFrame(), debug_msgs
 
 def normalize_string(value) -> str:
     """Normaliza valores a string limpio y en mayúsculas"""
@@ -384,12 +532,16 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
         }
     """
     try:
-        # Leer Excel: forzar lectura como string para preservar ceros a la izquierda
-        df = pd.read_excel(file_path, dtype=str)
+        df, load_debug = load_excel_flexible(file_path)
 
         # Validar estructura
         is_valid, errors = validate_excel_structure(df)
         if not is_valid:
+            # Añadir pistas de depuración para entender encabezados reales
+            head_cols = list(df.columns) if hasattr(df, 'columns') else []
+            if head_cols:
+                errors.append("Encabezados leídos: " + ", ".join([str(c) for c in head_cols]))
+            errors.extend(load_debug)
             return {'ok': False, 'errors': errors}
 
         # Contadores
@@ -402,6 +554,20 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
         commit_db = not preview
+
+        if commit_db:
+            try:
+                cur.execute("SELECT COALESCE(MAX(idPoliza),0)+1 AS next_id FROM polizas")
+                r1 = cur.fetchone()
+                expected_next = int(r1['next_id']) if r1 and r1.get('next_id') is not None else 1
+                cur.execute("SELECT AUTO_INCREMENT AS ai FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'polizas'")
+                r2 = cur.fetchone()
+                current_ai = int(r2['ai']) if r2 and r2.get('ai') is not None else 1
+                if expected_next > current_ai:
+                    cur.execute(f"ALTER TABLE polizas AUTO_INCREMENT = {expected_next}")
+                    cnx.commit()
+            except Exception:
+                pass
 
         # Agrupar por cliente (NUMERO_DOCUMENTO)
         clientes_procesados = set()
@@ -426,8 +592,8 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     if not cliente_existe:
                         # Insertar nuevo cliente
                         tipo_persona = normalize_tipo_persona(row.get('TIPO_PERSONA', 1))
-                        telefono = str(row['TELEFONO']) if pd.notna(row['TELEFONO']) else '000000000'
-                        email = str(row['EMAIL']) if pd.notna(row['EMAIL']) else f'cliente{numero_documento}@temp.com'
+                        telefono = str(row['TELEFONO']) if pd.notna(row.get('TELEFONO')) else (str(row['CELULAR']) if pd.notna(row.get('CELULAR')) else '000000000')
+                        email = str(row['EMAIL']) if pd.notna(row.get('EMAIL')) else f'cliente{numero_documento}@temp.com'
 
                         # Detectar tipo de documento si no está presente o está vacío
                         tipo_doc_excel = normalize_string(row.get('TIPO_DOCUMENTO', ''))
@@ -463,12 +629,11 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                             None,  # contacto_nombre
                             None,  # contacto_email
                             None,  # contacto_telefono
-                            usuario,
-                            None   # pdf_path
+                            usuario
                         )
 
                         try:
-                            cur.execute("CALL sp_insert_cliente(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                            cur.execute("CALL sp_insert_cliente(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                                       cliente_args)
                             while cur.nextset():
                                 pass
@@ -509,15 +674,15 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 # Construir JSON con datos del vehículo
                 datos_vehiculo = {
                     'inciso': normalize_string(row.get('INCISO', '')),
-                    'placa': normalize_string(row['PLACA']),
-                    'clase': normalize_string(row['CLASE']),
+                    'placa': normalize_string(row.get('PLACA', '')),
+                    'clase': normalize_string(row.get('CLASE', '')),
                     'uso': uso_nombre,
                     'motor': normalize_string(row.get('MOTOR', '')),
-                    'serie': normalize_string(row['SERIE']),
+                    'serie': normalize_string(row.get('SERIE', '')),
                     'marca': marca_nombre,
                     'modelo': modelo_nombre,
-                    'anio': int(row['ANIO']) if pd.notna(row['ANIO']) else None,
-                    'suma_asegurada': normalize_decimal(row['SUMA_ASEGURADA']),
+                    'anio': int(row['ANIO']) if pd.notna(row.get('ANIO')) else None,
+                    'suma_asegurada': normalize_decimal(row.get('SUMA_ASEGURADA')),
                     'fecha_inclusion': normalize_date(row.get('FECINCLUSION'))
                 }
 
@@ -533,8 +698,8 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     numero_documento,
                     normalize_string(row.get('TIPO_DOC', 'EMISION')),
                     normalize_string(row.get('NOMBRE_RAZON_SOCIAL', '')),  # asegurado
-                    normalize_string(row['COMPANIA_NOMBRE_CORTO']),
-                    normalize_string(row['RAMO_ABREVIACION']),
+                    normalize_string(row.get('COMPANIA_NOMBRE_CORTO', '')),
+                    normalize_string(row.get('RAMO_ABREVIACION', 'SOAT')),
                     normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',
                     normalize_numero_documento(row.get('AVISO_COB', '')) if pd.notna(row.get('AVISO_COB')) else '',  # recibo
                     normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',  # contrato_nro
