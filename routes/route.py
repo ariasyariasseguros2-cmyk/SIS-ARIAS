@@ -1889,7 +1889,12 @@ def _parse_positiva(text: str) -> List[Dict[str, str]]:
 
 def parse_pdf_items_provider(path: str, issuer: str | None = None):
     text = _extract_text_fitz(path)
-    print(f"[DEBUG TEXT HEAD] {text[:600]!r}")
+    if not text or not text.strip():
+        text = _extract_text_pypdf2(path)
+        print(f"[DEBUG TEXT HEAD PYPDF2] {text[:600]!r}")
+    else:
+        print(f"[DEBUG TEXT HEAD] {text[:600]!r}")
+
     t = text.lower()
     prov = (issuer or "").strip().lower() or None
     low = (text or "").lower()
@@ -2015,17 +2020,27 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
             if is_vida_ley:
                 from controllers.addPacificoVidaLey import parse_pacifico_vidaley
                 it = parse_pacifico_vidaley(text)
-                if it: items.append(it)
+                if it:
+                     items.append(it)
             elif is_sctr_pension:
-                # SCTR (Pensión/Salud) o genérico: usar el parser correcto
+
                 from controllers.addPacifico import parse_pacifico_pension
                 it = parse_pacifico_pension(text)
-                if it: items.append(it)
-            # Antes era "elif"; cambiamos a "if" para detectar ambos en un mismo PDF
+                if it:
+                    items.append(it)
+            else:
+                from controllers.addPacifico import parse_pacifico_convenio
+                it = parse_pacifico_convenio(text)
+                if it:
+                    items.append(it)
+
+            # Antes era "elif"; mantenemos "if" para detectar salud además del anterior
+
             if is_sctr_salud:
                 from controllers.addPacificoSalud import parse_pacifico_salud
                 it = parse_pacifico_salud(text)
-                if it: items.append(it)
+                if it:
+                    items.append(it)
         except Exception as e:
             print(f"[provider] pacifico parse error: {e}")
 

@@ -233,6 +233,14 @@
     const num = parseFloat(combined);
     return Number.isFinite(num) ? num : NaN;
   }
+  function mapCurrencySymbol(val) {
+    const raw = (val || '').toString().trim();
+    if (!raw) return '';
+    const up = raw.toUpperCase();
+    if (up.includes('SOL') || up === 'PEN' || up.startsWith('S/')) return 'S/.';
+    if (up.includes('DOLAR') || up.includes('DÓLAR') || up.includes('DÓLARES') || up.includes('USD') || up.includes('US$') || up === '$') return 'US$';
+    return raw;
+  }
   function computePrimaNetaFromComercial(val) {
     const num = parseNumber(val);
     if (!Number.isFinite(num)) return '';
@@ -304,6 +312,16 @@
 
   function normalizeItem(src) {
     const it = { ...src };
+    const totalNum = parseNumber(it.prima_total);
+    const comercialNum0 = parseNumber(it.prima_comercial);
+    const netaNum0 = parseNumber(it.prima_neta);
+    if (Number.isFinite(totalNum) && totalNum >= 100 && ((Number.isFinite(comercialNum0) && comercialNum0 < 10) || (Number.isFinite(netaNum0) && netaNum0 < 10))) {
+      const comercialFromTotal = totalNum / 1.18;
+      it.prima_comercial = comercialFromTotal.toFixed(2);
+      it.prima_neta = computePrimaNetaFromComercial(it.prima_comercial);
+      it.prima_comercial_igv = totalNum.toFixed(2);
+      return it;
+    }
     let comercial = (it.prima_comercial || '').toString().trim();
     let neta = (it.prima_neta || '').toString().trim();
 
@@ -313,9 +331,13 @@
     }
     if (comercial) {
       it.prima_neta = computePrimaNetaFromComercial(comercial);
-      it.prima_comercial_igv = computePrimaIGVFromComercial(comercial);
+      if (!it.prima_comercial_igv) {
+        it.prima_comercial_igv = computePrimaIGVFromComercial(comercial);
+      }
     } else {
-      it.prima_comercial_igv = '';
+      if (!it.prima_comercial_igv) {
+        it.prima_comercial_igv = '';
+      }
     }
 
     // Regla de fechas (fallback):
@@ -436,6 +458,9 @@
 
     tbody.innerHTML = '';
     items.forEach((it, idx) => {
+      if (it.moneda) {
+        it.moneda = mapCurrencySymbol(it.moneda);
+      }
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="numero_poliza">${it.numero_poliza || ''}</td>

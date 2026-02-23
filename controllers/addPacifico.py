@@ -13,6 +13,36 @@ def _money(s: str | None) -> str | None:
     m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+)", s)
     return m.group(1) if m else s
 
+def _to_float(num_str: str) -> float:
+    s = (num_str or "").strip().replace(" ", "")
+    if not s:
+        return float("nan")
+    has_comma = "," in s
+    has_dot = "." in s
+    if has_comma and has_dot:
+        last_sep_idx = max(s.rfind(","), s.rfind("."))
+        dec_sep = s[last_sep_idx]
+        thou_sep = "." if dec_sep == "," else ","
+        normalized = s.replace(thou_sep, "").replace(dec_sep, ".")
+        return float(normalized)
+    if has_comma:
+        if re.search(r",\d{2}$", s):
+            return float(s.replace(".", "").replace(",", "."))
+        return float(s.replace(",", ""))
+    if has_dot:
+        if re.search(r"\.\d{2}$", s):
+            return float(s)
+        return float(s.replace(".", ""))
+    return float(s)
+
+def _monto_total_pagar(text: str) -> str | None:
+    m = re.search(
+        r"Monto\s+total\s+a\s+pagar\s*:?\s*[^\d]{0,40}([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))",
+        text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    return m.group(1).strip() if m else None
+
 def _capture_block_after(label: str, text: str, end_labels: list[str]) -> str | None:
     m = re.search(label, text, re.IGNORECASE)
     if not m:
@@ -149,26 +179,41 @@ def parse_pacifico_pension(text: str) -> dict | None:
                         return f"{a:.2f}", f"{b:.2f}", f"{c:.2f}"
         return None, None, None
 
-    # Nuevo: leer el monto en la misma/primeras líneas tras la etiqueta
     def _label_amount(label_regex: str, raw_text: str, lookahead_lines: int = 6) -> str | None:
         lines = [l.strip() for l in raw_text.splitlines()]
         for i, l in enumerate(lines):
             if re.search(label_regex, l, re.IGNORECASE):
-                pattern = r"(?:S\/\s*)?([0-9]+(?:[.,][0-9]{2}))"
-                found = re.findall(pattern, l)
-                if found:
-                    return found[-1]
-                for j in range(1, lookahead_lines + 1):
-                    if i + j >= len(lines):
+                candidates_lines = [l] + lines[i + 1 : min(len(lines), i + 1 + lookahead_lines)]
+                stop_re = re.compile(r"\b(PRIMA\s+COMERCIAL|IGV|TOTAL\s+A\s+COBRAR)\b", re.IGNORECASE)
+                vals: list[tuple[float, str]] = []
+                for c in candidates_lines:
+                    if stop_re.search(c) and c is not l:
                         break
-                    nxt = lines[i + j]
-                    if re.search(r"\b(PRIMA\s+COMERCIAL|IGV|TOTAL\s+A\s+COBRAR)\b", nxt, re.IGNORECASE):
-                        break
-                    found = re.findall(pattern, nxt)
-                    if found:
-                        return found[-1]
-                return None
+                    for m in re.finditer(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))", c):
+                        raw_val = m.group(1)
+                        try:
+                            f = _to_float(raw_val)
+                        except Exception:
+                            continue
+                        vals.append((f, raw_val))
+                if not vals:
+                    return None
+                vals.sort(key=lambda x: x[0], reverse=True)
+                return vals[0][1]
         return None
+
+    def _max_amount(raw_text: str) -> str | None:
+        vals = re.findall(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))", raw_text)
+        best_val = None
+        best_raw = None
+        for raw in vals:
+            try:
+                f = _to_float(raw)
+            except Exception:
+                continue
+            if best_val is None or f > best_val:
+                best_val, best_raw = f, raw
+        return best_raw
 
     def _find_dates_near(label_regex: str, t: str, window: int = 160) -> tuple[str | None, str | None]:
         m = re.search(label_regex, t, re.IGNORECASE)
@@ -187,7 +232,62 @@ def parse_pacifico_pension(text: str) -> dict | None:
             return ds_sorted[0], ds_sorted[-1]
         return ds_sorted[0], None
 
+    def _poliza_auto_modular(raw: str) -> str | None:
+        m = re.search(
+            r"Auto\s+Modular\s*[-–]?\s*(?:P\S{1,3}LI?ZA\s*)?(?:N[°ºo\.]?\s*)?([0-9]{6,12})",
+            raw,
+            re.IGNORECASE | re.DOTALL,
+        )
+        return m.group(1) if m else None
+
+    def _codigo_cuota_first(raw: str) -> str | None:
+        header = r"C[ÓO]D\.?\s+CUOTA"
+        lines = raw.splitlines()
+        for i, l in enumerate(lines):
+            if re.search(header, l, re.IGNORECASE):
+                for j in range(i + 1, min(i + 8, len(lines))):
+                    m = re.search(r"\b([0-9]{6,12})\b", lines[j])
+                    if m:
+                        return m.group(1).strip()
+                break
+        m = re.search(header, raw, re.IGNORECASE)
+        if not m:
+            return None
+        seg = raw[m.end() : m.end() + 200]
+        m2 = re.search(r"\b([0-9]{6,12})\b", seg, re.IGNORECASE | re.DOTALL)
+        return m2.group(1).strip() if m2 else None
+
+    def _asegurado_otra_parte(raw: str) -> str | None:
+        m = re.search(
+            r"LA\s+COMPAÑ[ÍI]A[^,\n;]*[;:\-]?\s*y\s+de\s+la\s+otra\s+parte,\s*([^\n,;]+)",
+            raw,
+            re.IGNORECASE | re.DOTALL,
+        )
+        if not m:
+            m = re.search(
+                r"de\s+la\s+otra\s+parte,\s*([^\n,;]+)",
+                raw,
+                re.IGNORECASE | re.DOTALL,
+            )
+        return m.group(1).strip() if m else None
+
+    def _sanitize_entity_name(s: str | None) -> str | None:
+        if not s:
+            return None
+        out = re.sub(r"\bidentificado.*$", "", s, flags=re.IGNORECASE | re.DOTALL)
+        out = re.sub(r"\bcon\s+domicilio.*$", "", out, flags=re.IGNORECASE | re.DOTALL)
+        out = re.sub(r"[,;:\-]\s*$", "", out).strip()
+        out = re.sub(r"\s{2,}", " ", out)
+        return out or None
+
     flat = _canon(text)
+    head30 = "\n".join(text.splitlines()[:30]).upper()
+    flat_up = flat.upper()
+    is_convenio = (
+        "CONVENIO DE PAGO DE PRIMAS" in head30
+        or "CONVENIO DE PAGO DE PRIMAS" in flat_up
+        or "MONTO TOTAL A PAGAR" in flat_up
+    )
     print("[pacifico] texto extraído (head 600):", text[:600].replace("\n", "\\n"))
     print("[pacifico] flat (head 600):", flat[:600])
 
@@ -197,8 +297,11 @@ def parse_pacifico_pension(text: str) -> dict | None:
         or _find_after(r"LIQUIDACI[oó]N\s+DE\s+PRIMA\b", flat, r"N[°º]\s*([0-9]{6,12})", window=220)
         or _find_number_near(r"LIQUIDACI[oó]N\s+DE\s+PRIMA\b", flat, window=320)
     )
+    if not recibo:
+        recibo = _codigo_cuota_first(text) or _codigo_cuota_first(flat)
 
     # Póliza: elegir entre candidatos cerca de "POLIZA", descartando el recibo y prefiriendo 8+ dígitos
+    auto_poliza = _poliza_auto_modular(text) or _poliza_auto_modular(flat)
     poliza_candidates = (
         _numbers_after(r"\bP[ÓO]LI?ZA\b\s*:", flat, 500)
         or _numbers_after(r"\bP[ÓO]LI?ZA\b", flat, 500)
@@ -206,14 +309,26 @@ def parse_pacifico_pension(text: str) -> dict | None:
     )
     print("[pacifico] poliza candidatos:", poliza_candidates)
     numero_poliza = (
-        _choose_poliza(poliza_candidates, recibo)
+        auto_poliza
+        or _find(r"P[ÓO]LI?ZA\s*N\D{0,3}\s*([0-9]{6,12})", flat)
+        or _find(r"P[ÓO]LI?ZA\s*N\D{0,3}\s*([0-9]{6,12})", text)
+        or _choose_poliza(poliza_candidates, recibo)
         or _find(r"P[ÓO]LI?ZA\s*:?\s*(?:\n|\r|\s)*([0-9]{6,12})", text)
         or _find_after(r"\bP[ÓO]LI?ZA\b\s*:?", flat, r"([0-9]{6,12})", window=200)
         or _find_number_near(r"\bP[ÓO]LI?ZA\b", flat, window=400)
+        or _find_last(r"P[ÓO]LI?ZA[^0-9]{0,40}([0-9]{6,12})", flat)
+        or _find_last(r"P[ÓO]LI?ZA[^0-9]{0,40}([0-9]{6,12})", text)
+        or _find_last(r"P\S{1,3}LI?ZA[^0-9]{0,40}([0-9]{6,12})", flat)
+        or _find_last(r"P\S{1,3}LI?ZA[^0-9]{0,40}([0-9]{6,12})", text)
     )
     if numero_poliza and not re.match(r"^[0-9]{6,12}$", numero_poliza):
         print("[pacifico] numero_poliza inválido capturado:", numero_poliza)
         numero_poliza = None
+    if not numero_poliza:
+        numero_poliza = (
+            _find(r"\b(20[0-9]{8})\b", flat)
+            or _find(r"\b(20[0-9]{8})\b", text)
+        )
 
     # Contratante (Nuevo)
     contratante_blk = _capture_block_after(
@@ -251,15 +366,19 @@ def parse_pacifico_pension(text: str) -> dict | None:
         asegurado = _find_after(r"Asegurado\b\s*:?", flat, r"([A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120})", window=200) \
                     or _find(r"Asegurado\s*:?\s*(.+)", text) \
                     or _find(r"Asegurado\s*\n\s*(.+)", text)
-    # Asegurado: usar la ÚLTIMA coincidencia que termine en S.A.C.
     asegurado = (
-        _find_last(r"Asegurado\s*[:\s]*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120}?S\.A\.C\.?)", text)
+        _asegurado_otra_parte(text)
+        or _asegurado_otra_parte(flat)
+        or _find_last(r"Asegurado\s*[:\s]*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120}?S\.A\.C\.?)", text)
         or _find_last(r"Asegurado\s*[:\s]*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120}?S\.A\.C\.?)", flat)
         or _find_after(r"Asegurado\b\s*:?", flat, r"([A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120})", window=220)
         or _capture_block_after(r"Asegurado\b", text, ["Dirección", "Plan", "Agente", "REG. PROD.", "CODIGO", "Moneda", "DOCUMENTO", "LIQUIDACION", "Vigencia", "POLIZA"])
     )
     if asegurado:
         asegurado = re.sub(r"\bHAW\s+K\b", "HAWK", asegurado, flags=re.IGNORECASE)
+        asegurado = _sanitize_entity_name(asegurado) or asegurado
+        asegurado = asegurado.upper()
+        asegurado = asegurado.upper()
 
     # Vigencia (tomar ambas fechas y ordenarlas)
     ini_vig, fin_vig = _find_dates_near(r"\bVigencia\b", flat, window=200)
@@ -282,76 +401,82 @@ def parse_pacifico_pension(text: str) -> dict | None:
     # Fechas
     fecha_emision = (
         _find_last(r"Fecha\s+Emisi[oó]n\s*:?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
-        or _find_after(r"Fecha\s+Emisi[oó]n\b", flat, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=120)
+        or _find_after(r"Fecha\s+Emisi[oó]n\b", flat, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=160)
+        or _find(r"\bEmisi[oó]n\s*:?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+        or _find_after(r"\bEmisi[oó]n\b", flat, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=160)
     )
     ultimo_dia_pago = (
         _find_after(r"Fecha\s+Vencimiento\b", flat, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=120)
         or _find_last(r"Fecha\s+Vencimiento\s*:?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
     )
 
-    # Montos: ahora tomamos el primer decimal tras la etiqueta y aceptamos punto o coma
-    prima_comercial = (
-        _first_decimal_after(r"\bPRIMA\s+COMERCIAL\b", text, lookahead_lines=4, dot_only=False)
-        or _find_after(r"\bPRIMA\s+COMERCIAL\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
-        or _find_last(r"PRIMA\s+COMERCIAL(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
-    )
-    igv_val = (
-        _first_decimal_after(r"\bIGV\b", text, lookahead_lines=4, dot_only=False)
-        or _find_after(r"\bIGV\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
-        or _find_last(r"\bIGV\b(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
-    )
-    total_cobrar = (
-        _first_decimal_after(r"TOTAL\s+A\s+COBRAR\b", text, lookahead_lines=4, dot_only=False)
-        or _find_after(r"TOTAL\s+A\s+COBRAR\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
-        or _find_last(r"TOTAL\s+A\s+COBRAR(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
-    )
+    prima_neta = None
+    prima_comercial = None
+    prima_total = None
+    igv_val = None
 
-    # Normalizar y corregir usando la deducción por bloque si hay confusión
-    def _to_float(s: str | None) -> float | None:
-        if not s:
-            return None
-        try:
-            return float(s.replace(",", "."))
-        except Exception:
-            return None
+    debug_notes = []
+    debug_notes.append(f"detect_convenio={'sí' if is_convenio else 'no'}")
 
-    pc_num = _to_float(prima_comercial)
-    igv_num = _to_float(igv_val)
-    tot_num = _to_float(total_cobrar)
-
-    # Si hay total e IGV, fijar prima = total - igv
-    if igv_num is not None and tot_num is not None:
-        prima_comercial = f"{tot_num - igv_num:.2f}"
-        pc_num = _to_float(prima_comercial)
-
-    # Si falta alguno o hay coincidencias sospechosas, deducir por bloque; si no hay bloque, usar deducción global
-    if (pc_num is None or igv_num is None or tot_num is None or
-        (pc_num is not None and igv_num is not None and abs(pc_num - igv_num) < 1e-6) or
-        (pc_num is not None and tot_num is not None and abs(pc_num - tot_num) < 1e-6) or
-        (igv_num is not None and tot_num is not None and abs(igv_num - tot_num) < 1e-6)):
-        amts = _amounts_near(r"(PRIMA\s+COMERCIAL|IGV|TOTAL\s+A\s+COBRAR)", text, window=800)
-        if len(amts) >= 2:
-            tot_calc = max(amts)
-            igv_calc = min(amts)
-            prima_calc = round(tot_calc - igv_calc, 2)
-            prima_comercial = f"{prima_calc:.2f}"
-            igv_val = f"{igv_calc:.2f}"
-            total_cobrar = f"{tot_calc:.2f}"
-            print("[pacifico] montos deducidos -> prima:", prima_comercial, "igv:", igv_val, "total:", total_cobrar)
-        else:
-            pc_g, igv_g, tot_g = _deduce_amounts_global(text)
-            if tot_g and igv_g:
-                prima_comercial, igv_val, total_cobrar = pc_g, igv_g, tot_g
-                print("[pacifico] deducción global aplicada -> prima:", prima_comercial, "igv:", igv_val, "total:", total_cobrar)
-
-    # Si aún prima coincide con IGV/TOTAL, corregir por identidad contable
-    pc_num = _to_float(prima_comercial)
-    igv_num = _to_float(igv_val)
-    tot_num = _to_float(total_cobrar)
-    if pc_num is not None and igv_num is not None and tot_num is not None:
-        if abs(pc_num - igv_num) < 1e-6 or abs(pc_num - tot_num) < 1e-6:
-            prima_comercial = f"{tot_num - igv_num:.2f}"
-            print("[pacifico] prima_comercial recalculada como total - igv:", prima_comercial)
+    if is_convenio:
+        prima_total = (
+            _monto_total_pagar(text)
+            or _monto_total_pagar(flat)
+            or _label_amount(r"Monto\s+total\s+a\s+pagar\s*:", text, lookahead_lines=6)
+            or _label_amount(r"Monto\s+total\s+a\s+pagar\s*:", flat, lookahead_lines=6)
+            or _label_amount(r"Monto\s+total\s+a\s+pagar\b", text, lookahead_lines=6)
+            or _label_amount(r"Monto\s+total\s+a\s+pagar\b", flat, lookahead_lines=6)
+            or _max_amount(text)
+        )
+        debug_notes.append(f"total_source={'regex:Monto total a pagar' if prima_total else 'no_encontrado'}")
+        prima_comercial = (
+            _find(r"PRIMA\s+COMERCIAL\b\s*:?\s*([0-9][0-9\.,]*)", text)
+            or _first_decimal_after(r"\bPRIMA\s+COMERCIAL\b", text, lookahead_lines=4, dot_only=False)
+            or _find_after(r"\bPRIMA\s+COMERCIAL\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
+            or _find_last(r"PRIMA\s+COMERCIAL(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+        )
+        if prima_total:
+            try:
+                tot_val = _to_float(prima_total)
+                prima_total = f"{tot_val:.2f}"
+                if prima_comercial:
+                    debug_notes.append("prima_comercial=extraída")
+                else:
+                    prima_comercial = f"{tot_val / 1.18:.2f}"
+                    debug_notes.append("prima_comercial=calculada")
+            except Exception:
+                prima_total = None
+                debug_notes.append("total_parse_error")
+    else:
+        prima_neta = (
+            _find(r"PRIMA\s+NETA\s*:?\s*([0-9][0-9\.,]*)", text)
+            or _first_decimal_after(r"\bPRIMA\s+NETA\b", text, lookahead_lines=4, dot_only=False)
+        )
+        prima_comercial = (
+            _find(r"PRIMA\s+COMERCIAL\b\s*:?\s*([0-9][0-9\.,]*)", text)
+            or _first_decimal_after(r"\bPRIMA\s+COMERCIAL\b", text, lookahead_lines=4, dot_only=False)
+            or _find_after(r"\bPRIMA\s+COMERCIAL\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
+            or _find_last(r"PRIMA\s+COMERCIAL(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+        )
+        igv_val = (
+            _find(r"\bIGV\b\s*:?\s*([0-9][0-9\.,]*)", text)
+            or _first_decimal_after(r"\bIGV\b", text, lookahead_lines=4, dot_only=False)
+            or _find_after(r"\bIGV\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
+            or _find_last(r"\bIGV\b(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+        )
+        prima_total = (
+            _monto_total_pagar(text)
+            or _monto_total_pagar(flat)
+            or _find(r"PRIMA\s+COMERCIAL\s*\+\s*IGV\s*:?\s*([0-9][0-9\.,]*)", text)
+            or _first_decimal_after(r"PRIMA\s+COMERCIAL\s*\+\s*IGV\b", text, lookahead_lines=4, dot_only=False)
+            or _find(r"TOTAL\s+A\s+COBRAR\s*:?\s*([0-9][0-9\.,]*)", text)
+            or _first_decimal_after(r"TOTAL\s+A\s+COBRAR\b", text, lookahead_lines=4, dot_only=False)
+            or _find_after(r"TOTAL\s+A\s+COBRAR\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
+            or _find_last(r"TOTAL\s+A\s+COBRAR(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+            or _label_amount(r"Monto\s+total\s+a\s+pagar\b", text, lookahead_lines=6)
+            or _label_amount(r"Monto\s+total\s+a\s+pagar\b", flat, lookahead_lines=6)
+        )
+        debug_notes.append("total_source=normal_labels")
 
     # Ramo: inicializar para evitar NameError
     ramo = None
@@ -375,19 +500,20 @@ def parse_pacifico_pension(text: str) -> dict | None:
         "recibo": _clean(recibo),
         "contratante": _clean(contratante),
         "colectivo_asegurado": _clean(asegurado),
+        "prima_neta": _clean(_money(prima_neta)),
         "inicio_vigencia": _clean(inicio_vigencia),
         "vencimiento": _clean(vencimiento),
         "moneda": _clean(moneda),
         "fecha_emision": _clean(fecha_emision),
         "ultimo_dia_pago": _clean(ultimo_dia_pago),
         "fecha_vencimiento": _clean(ultimo_dia_pago),
-        "prima_comercial": _clean(_money(prima_comercial)),
-        "prima_comercial_igv": _clean(_money(total_cobrar)) or (
-            _clean(prima_comercial) and _clean(igv_val) and
-            f"{float(prima_comercial.replace(',', '.')) + float(igv_val.replace(',', '.')):.2f}"
-        ) or None,
+        "prima_comercial": _clean(prima_comercial),
+        "prima_total": _clean(prima_total),
+        "prima_comercial_igv": _clean(prima_total),
         "ramo": _clean(ramo_main) or _clean(ramo),
         "ramos_producto": _clean(ramos_producto),
+        "tipo_documento": "convenio" if is_convenio else "normal",
+        "debug_info": "; ".join(debug_notes),
     }
     print("[pacifico] numero_poliza:", item.get("numero_poliza"))
     print("[pacifico] recibo:", item.get("recibo"))
@@ -405,3 +531,7 @@ def parse_pacifico_pension(text: str) -> dict | None:
     item = {k: v for k, v in item.items() if v}
     print("[pacifico] item final pension:", item)
     return item if item else None
+
+
+def parse_pacifico_convenio(text: str) -> dict | None:
+    return parse_pacifico_pension(text)
