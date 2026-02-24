@@ -786,7 +786,7 @@ BEGIN
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
     WHERE p.activo = 1 AND p.anulado = 0
-    ORDER BY p.creado_en DESC;
+    ORDER BY p.idPoliza ASC;
 END$$
 DELIMITER ;
 

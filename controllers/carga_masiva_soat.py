@@ -561,16 +561,18 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
 
         if commit_db:
             try:
+                # Obtener el siguiente ID basado en el máximo actual
                 cur.execute("SELECT COALESCE(MAX(idPoliza),0)+1 AS next_id FROM polizas")
                 r1 = cur.fetchone()
                 expected_next = int(r1['next_id']) if r1 and r1.get('next_id') is not None else 1
-                cur.execute("SELECT AUTO_INCREMENT AS ai FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'polizas'")
-                r2 = cur.fetchone()
-                current_ai = int(r2['ai']) if r2 and r2.get('ai') is not None else 1
-                if expected_next > current_ai:
-                    cur.execute(f"ALTER TABLE polizas AUTO_INCREMENT = {expected_next}")
-                    cnx.commit()
-            except Exception:
+                
+                # Forzar el reinicio del AUTO_INCREMENT al valor correcto (rellena huecos al final si se borraron registros)
+                # Esto asegura que si la tabla está vacía, empiece en 1.
+                cur.execute(f"ALTER TABLE polizas AUTO_INCREMENT = {expected_next}")
+                cnx.commit()
+            except Exception as e:
+                # Si falla (ej. permisos), continuamos sin detener la carga, pero lo logueamos
+                print(f"Advertencia: No se pudo resetear AUTO_INCREMENT: {e}")
                 pass
 
         # Agrupar por cliente (NUMERO_DOCUMENTO)
