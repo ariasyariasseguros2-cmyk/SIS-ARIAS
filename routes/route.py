@@ -314,9 +314,9 @@ def menu_page(page):
         except Exception:
             page_num = 1
         try:
-            per_page = int(request.args.get('per_page') or 20)
+            per_page = int(request.args.get('per_page') or 10)
         except Exception:
-            per_page = 20
+            per_page = 10
 
         total = len(data.get('rows', []))
         pages = max(1, (total + per_page - 1) // per_page)
@@ -325,13 +325,31 @@ def menu_page(page):
         end = start + per_page
         page_rows = data.get('rows', [])[start:end]
 
+        # Logic for pagination iterator (smart pagination)
+        iter_pages = []
+        left_edge = 1
+        right_edge = 1
+        left_current = 2
+        right_current = 2
+        
+        last = 0
+        for num in range(1, pages + 1):
+            if num <= left_edge or \
+               (num > pages - right_edge) or \
+               (num >= page_num - left_current and num <= page_num + right_current):
+                if last + 1 != num:
+                    iter_pages.append(None) # Gap
+                iter_pages.append(num)
+                last = num
+
         pagination = {
             'page': page_num,
             'per_page': per_page,
             'total': total,
             'pages': pages,
             'has_prev': page_num > 1,
-            'has_next': page_num < pages
+            'has_next': page_num < pages,
+            'iter_pages': iter_pages
         }
 
         return render_template(

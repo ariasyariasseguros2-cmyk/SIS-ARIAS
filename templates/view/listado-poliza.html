@@ -5,6 +5,7 @@
 {% block extra_css %}
 <!-- Usamos polizas.css para mantener el mismo estilo que la vista de pólizas -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/polizas.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/listado-poliza.css') }}">
 <style>
     /* Ajustes específicos para listado-poliza si son necesarios */
     .table-card {
@@ -62,10 +63,10 @@
          data-siniestros-url="{{ url_for('main.menu_siniestros_poliza') }}">
         
         <!-- Toolbar de Tabla -->
-        <div class="table-toolbar">
-            <div class="table-actions d-flex align-items-center justify-content-end">
+        <div class="table-toolbar p-2 border-bottom">
+            <div class="table-actions d-flex align-items-center justify-content-end w-100">
                 <div class="page-size-selector d-flex align-items-center gap-2">
-                    <span class="selector-label text-secondary small">Mostrar:</span>
+                    <span class="selector-label text-secondary small fw-bold text-uppercase">Mostrar:</span>
                     <select id="page-size" class="form-select form-select-sm" style="width: auto; cursor: pointer;">
                         <option value="10" {% if pagination.per_page == 10 %}selected{% endif %}>10</option>
                         <option value="20" {% if pagination.per_page == 20 %}selected{% endif %}>20</option>
@@ -146,10 +147,9 @@
                                         
                                         <li><a class="dropdown-item" href="/menu/detalles-poliza?id={{ r.idPoliza }}&print=true" target="_blank"><i class="bi-printer"></i> Imprimir</a></li>
                                         
-                                        {% if session.role_name in ['BROKER', 'EJECUTIVO DE CUENTAS'] %}
-                                        <!--<li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash"></i> Eliminar</a></li> -->
-                                        {% endif %}
-                                    </ul>
+                                        <!-- {% if session.role_name in ['BROKER', 'EJECUTIVO DE CUENTAS'] %}
+                                       <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash"></i> Eliminar</a></li> 
+                                        {% endif %}-->
                                 </div>
                             </div>
                         </td>
@@ -165,17 +165,36 @@
 
         <!-- Barra de paginación (Se ocultará si hay búsqueda global) -->
         <div class="pagination-bar d-flex align-items-center justify-content-between" id="paginationBar">
-            <div class="small">Página {{ pagination.page }} de {{ pagination.pages }} ({{ pagination.total }} registro{{ 's' if pagination.total != 1 }})</div>
-            <div class="btn-group btn-group-sm">
+            <div class="text-muted small fw-medium">
+                Página {{ pagination.page }} de {{ pagination.pages }} ({{ pagination.total }} registro{{ 's' if pagination.total != 1 }})
+            </div>
+            <div class="d-flex align-items-center">
                 {% if pagination.has_prev %}
-                <a class="btn btn-outline-secondary" href="{{ url_for('main.menu_page', page='listado-poliza') }}?page={{ pagination.page - 1 }}&per_page={{ pagination.per_page }}">Anterior</a>
+                <a class="btn-pagination" href="{{ url_for('main.menu_page', page='listado-poliza') }}?page={{ pagination.page - 1 }}&per_page={{ pagination.per_page }}" title="Anterior">
+                    <i class="bi-chevron-left"></i>
+                </a>
                 {% else %}
-                <a class="btn btn-outline-secondary disabled" aria-disabled="true">Anterior</a>
+                <span class="btn-pagination disabled"><i class="bi-chevron-left"></i></span>
                 {% endif %}
+
+                {% for p in pagination.iter_pages %}
+                    {% if p %}
+                        {% if p == pagination.page %}
+                        <span class="btn-pagination active">{{ p }}</span>
+                        {% else %}
+                        <a class="btn-pagination" href="{{ url_for('main.menu_page', page='listado-poliza') }}?page={{ p }}&per_page={{ pagination.per_page }}">{{ p }}</a>
+                        {% endif %}
+                    {% else %}
+                        <span class="btn-pagination dots">...</span>
+                    {% endif %}
+                {% endfor %}
+
                 {% if pagination.has_next %}
-                <a class="btn btn-outline-secondary" href="{{ url_for('main.menu_page', page='listado-poliza') }}?page={{ pagination.page + 1 }}&per_page={{ pagination.per_page }}">Siguiente</a>
+                <a class="btn-pagination" href="{{ url_for('main.menu_page', page='listado-poliza') }}?page={{ pagination.page + 1 }}&per_page={{ pagination.per_page }}" title="Siguiente">
+                    <i class="bi-chevron-right"></i>
+                </a>
                 {% else %}
-                <a class="btn btn-outline-secondary disabled" aria-disabled="true">Siguiente</a>
+                <span class="btn-pagination disabled"><i class="bi-chevron-right"></i></span>
                 {% endif %}
             </div>
         </div>

@@ -258,4 +258,206 @@
 .chip-info     { background: #17a2b8; border-color: #148ea1; color: #fff; }
 .chip-warning  { background: #fd7e14; border-color: #ec6f07; color: #fff; }
 .chip-teal     { background: #20c997; border-color: #1bb387; color: #fff; }
-.chip-muted    { background: #e9ecef; border-color: #dee2e6; color: #333; }
+
+/* Estilos para botones de acción en la tabla */
+.btn-action {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.75rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    font-weight: 600;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none !important;
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    height: 30px;
+    line-height: 1;
+}
+
+.btn-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    filter: brightness(105%);
+    color: white;
+}
+
+.btn-action:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* Colores específicos para botones de acción */
+.btn-action.btn-danger { background: linear-gradient(135deg, #ff6b6b, #e03131); color: white; }
+.btn-action.btn-success { background: linear-gradient(135deg, #51cf66, #2f9e44); color: white; }
+.btn-action.btn-primary { background: linear-gradient(135deg, #4dabf7, #1971c2); color: white; }
+
+/* Botón Dropdown de Acción */
+.btn-dropdown {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    background: white;
+    color: #495057;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.btn-dropdown:hover {
+    background-color: #f8f9fa;
+    border-color: #adb5bd;
+    color: #212529;
+}
+
+.btn-dropdown::after {
+    margin-left: 2px;
+    font-size: 0.7em;
+}
+
+/* Contenedor de acciones */
+.action-buttons {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+/* Ajustes Responsive y Full Width */
+.container-fluid {
+    width: 100%;
+    max-width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+/* Responsive para Móviles */
+@media (max-width: 991px) {
+    /* Ajustar header para que ocupe menos espacio vertical si es necesario */
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 1rem !important;
+    }
+    
+    .header-actions {
+        width: 100%;
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding-bottom: 5px;
+    }
+
+    /* Tabla responsiva real */
+    .table-responsive {
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    /* Ajustar tamaño de fuente en móvil */
+    #polizasListTable th, 
+    #polizasListTable td {
+        white-space: nowrap; /* Evitar saltos de línea feos en celdas pequeñas */
+        padding: 10px 8px;
+        font-size: 0.8rem;
+    }
+    
+    /* Botones más compactos en móvil */
+    .btn-action, .btn-dropdown {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.7rem;
+        height: 26px;
+    }
+}
+
+/* Ajuste para pantallas muy pequeñas */
+@media (max-width: 576px) {
+    .search-container .input-group {
+        flex-direction: column;
+    }
+    .search-container .input-group-text {
+        width: 100%;
+        border-radius: 6px 6px 0 0 !important;
+        border-right: 1px solid #ced4da;
+    }
+    .search-container .form-control {
+        width: 100%;
+        border-radius: 0 !important;
+        border-left: 1px solid #ced4da;
+    }
+    .search-container .btn-search {
+        width: 100%;
+        border-radius: 0 0 6px 6px !important;
+    }
+    
+    /* Paginación en columna */
+    .pagination-bar {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+}
+
+/* Pagination Styling - Clean & Minimalist */
+.pagination-bar {
+  border-top: 1px solid #f1f1f1;
+  background: #FFFFFF;
+  padding: 0.75rem 1rem;
+}
+
+.btn-pagination {
+    border: none;
+    background-color: transparent;
+    color: #666;
+    min-width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%; /* Circular for modern feel */
+    font-weight: 500;
+    margin: 0 2px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    font-size: 0.85rem;
+}
+
+.btn-pagination:hover:not(.disabled):not(.active) {
+    background-color: #f0f4f8;
+    color: #0d6efd;
+}
+
+.btn-pagination.active {
+    background-color: #0d6efd;
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(13, 110, 253, 0.2);
+}
+
+.btn-pagination.disabled {
+    color: #d1d5db;
+    pointer-events: none;
+    background: transparent;
+}
+
+.btn-pagination.dots {
+    color: #999;
+    min-width: auto;
+    padding: 0 4px;
+}
+
+.btn-pagination i {
+    font-size: 0.8rem;
+    line-height: 1;
+}
