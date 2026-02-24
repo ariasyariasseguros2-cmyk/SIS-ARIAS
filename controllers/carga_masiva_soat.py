@@ -195,38 +195,24 @@ def normalize_string(value) -> str:
 
 
 def normalize_date(value) -> str | None:
-    """Convierte fechas a formato YYYY-MM-DD. Maneja DD/MM/YYYY y YYYY-MM-DD"""
+    """Convierte fechas a formato YYYY-MM-DD usando pandas para mayor robustez"""
     if pd.isna(value) or value is None or value == '':
         return None
 
     try:
-        # Si ya es datetime
-        if isinstance(value, datetime):
-            return value.strftime('%Y-%m-%d')
-
-        # Intentar parsear string
+        # Convertir a string primero para manejar tipos mixtos
         value_str = str(value).strip()
-
         if not value_str:
             return None
 
-        # Formato DD/MM/YYYY (convertir a YYYY-MM-DD)
-        if '/' in value_str:
-            parts = value_str.split('/')
-            if len(parts) == 3:
-                day, month, year = parts
-                return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
-
-        # Formato YYYY-MM-DD (ya está correcto)
-        if '-' in value_str and len(value_str) >= 10:
-            parts = value_str.split('-')
-            if len(parts) == 3:
-                year, month, day = parts
-                # Validar que year está primero (formato correcto)
-                if len(year) == 4:
-                    return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
-
-        return None
+        # Usar pandas to_datetime con dayfirst=True (común en Perú: DD/MM/YYYY)
+        # errors='coerce' devuelve NaT si falla
+        dt = pd.to_datetime(value_str, dayfirst=True, errors='coerce')
+        
+        if pd.isna(dt):
+            return None
+            
+        return dt.strftime('%Y-%m-%d')
     except Exception:
         return None
 
