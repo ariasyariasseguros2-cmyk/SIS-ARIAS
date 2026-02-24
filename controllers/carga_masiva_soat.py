@@ -690,9 +690,12 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 datos_vehiculo_json = json.dumps(datos_vehiculo)
 
                 # Normalizar moneda
-                moneda_map = {'S/.': 'PEN', 'S/': 'PEN', 'SOLES': 'PEN', '$': 'USD', 'DOLARES': 'USD'}
-                moneda_raw = normalize_string(row.get('MONEDA_ABREVIACION', 'PEN'))
-                moneda = moneda_map.get(moneda_raw, moneda_raw) if moneda_raw else 'PEN'
+                moneda_map = {'S/.': 'S/.', 'S/': 'S/.', 'SOLES': 'S/.', 'PEN': 'S/.', '$': '$', 'USD': '$', 'DOLARES': '$', 'DÓLARES': '$'}
+                moneda_raw = normalize_string(row.get('MONEDA_ABREVIACION', 'S/.'))
+                moneda = moneda_map.get(moneda_raw, 'S/.')
+
+                pn_val = normalize_decimal(row.get('PRIMA_NETA'))
+                pt_igv = round(pn_val * 1.18, 2) if pn_val is not None else normalize_decimal(row.get('PRIMA_TOTAL'))
 
                 poliza_args = (
                     numero_documento,
@@ -705,7 +708,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',  # contrato_nro
                     normalize_numero_documento(row.get('INCISO', '')) if pd.notna(row.get('INCISO')) else '',  # nro
                     moneda,
-                    normalize_date(row.get('VIGENCIA_INICIO')),  # fecha_emision = inicio_vig
+                    normalize_date(row.get('FECHA_EMISION')) if pd.notna(row.get('FECHA_EMISION')) else normalize_date(row.get('VIGENCIA_INICIO')),
                     normalize_date(row['VIGENCIA_INICIO']),
                     normalize_date(row['VIGENCIA_FIN']),
                     normalize_date(row.get('FECHA_VENCIMIENTO')),  # ultimo_dia_pago
@@ -717,10 +720,10 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     normalize_string(row.get('EJECUTIVO_ABREVIACION', '')),
                     normalize_string(row.get('AVISO_COB', '')),  # asegurada
                     normalize_string(row.get('MOTIVO', 'CARGA MASIVA SOAT')),
-                    None,  # prima_comercial
-                    normalize_decimal(row['PRIMA_NETA']),
-                    None,  # prima_comercial_igv
-                    normalize_decimal(row['PRIMA_TOTAL']),
+                    pn_val,
+                    pn_val,
+                    pn_val,
+                    pn_val,
                     normalize_decimal(row.get('PORCENTAJE_COMISION_COMPANIA')),
                     None,  # imp_compania
                     normalize_decimal(row.get('PORCENTAJE_COMISION_SUBAGENTE')),
