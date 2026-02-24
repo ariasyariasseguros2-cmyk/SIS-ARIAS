@@ -15,6 +15,7 @@
   grid-template-columns: 260px 1fr;
   min-height: 100vh;
   background: var(--layout-bg);
+  transition: all 0.3s ease;
 }
 
 .sidebar {
@@ -23,6 +24,7 @@
   padding: 12px 0 24px 12px;
   overflow-x: visible;
   color: var(--sidebar-fg);
+  z-index: 1000;
 }
 
 .brand {
@@ -146,7 +148,7 @@
   color: var(--sidebar-bg);
 }
 
-.content { display: flex; flex-direction: column; }
+.content { display: flex; flex-direction: column; width: 100%; }
 .topbar {
   display: flex; justify-content: space-between; align-items: center;
   background: #fff; padding: 10px 14px; border-bottom: none;
@@ -328,4 +330,78 @@
   position: relative;
   min-height: 250px;
   width: 100%;
+}
+
+/* ==========================================================================
+   Responsive & Mobile Sidebar
+   ========================================================================== */
+
+/* Toggle Button (Hidden on Desktop) */
+.mobile-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  color: #333;
+  font-size: 1.5rem;
+  padding: 0.25rem 0.5rem;
+  margin-right: 0.5rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-toggle:focus {
+  outline: none;
+}
+
+/* Sidebar Overlay */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  backdrop-filter: blur(2px);
+}
+
+.sidebar-overlay.show {
+  display: block;
+  opacity: 1;
+}
+
+@media (max-width: 991px) {
+  .layout {
+    grid-template-columns: 1fr; /* Single column on mobile/tablet */
+  }
+
+  /* Fixed sidebar off-canvas */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 260px;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 0 15px rgba(0,0,0,0.15);
+    overflow-y: auto; /* Allow scrolling inside sidebar */
+  }
+
+  .sidebar.show {
+    transform: translateX(0);
+  }
+
+  .mobile-toggle {
+    display: inline-flex; /* Show toggle button */
+  }
+  
+  /* Adjust topbar for mobile */
+  .topbar {
+    padding: 10px 16px;
+  }
 }

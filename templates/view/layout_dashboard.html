@@ -64,6 +64,7 @@
 </head>
 <body>
     <div class="layout">
+        <div class="sidebar-overlay"></div>
         <aside class="sidebar">
             <div class="brand">AAS NET</div>
             <div class="user-box">
@@ -229,7 +230,12 @@
 
         <main class="content">
             <nav class="topbar">
-                <div class="title">{% block page_title %}SISNET{% endblock %}</div>
+                <div class="d-flex align-items-center">
+                    <button class="mobile-toggle" type="button" aria-label="Toggle Navigation">
+                        <i class="bi-list"></i>
+                    </button>
+                    <div class="title">{% block page_title %}SISNET{% endblock %}</div>
+                </div>
                 <div class="actions d-flex align-items-center gap-2">
                     <!-- Notification Dropdown -->
                     <div class="dropdown">
@@ -282,6 +288,40 @@
 
 {% block before_js %}{% endblock %}
 <script>window.currentPage = "{{ _p }}";</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggleBtn = document.querySelector('.mobile-toggle');
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.querySelector('.sidebar-overlay');
+        
+        function toggleSidebar() {
+            sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
+            document.body.style.overflow = sidebar.classList.contains('show') ? 'hidden' : '';
+        }
+        
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', toggleSidebar);
+        }
+        
+        if (overlay) {
+            overlay.addEventListener('click', function() {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+                document.body.style.overflow = '';
+            });
+        }
+        
+        // Close sidebar on route change (optional/for safety) or when window resized
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 991) {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+        });
+    });
+</script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 {% block extra_js_bottom %}
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
