@@ -3250,6 +3250,220 @@ PREPARE alterStatement FROM @preparedStatement;
 EXECUTE alterStatement;
 DEALLOCATE PREPARE alterStatement;
 
+
+-- =============================================
+-- NUEVA ESTRUCTURA PARA COMISIONES SOAT
+-- =============================================
+
+-- 1. Tabla de Tipos de SOAT (Menor / Regular)
+CREATE TABLE IF NOT EXISTS tipos_soat (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL UNIQUE, 
+    tasa_aas DECIMAL(5,2) NOT NULL,
+    tasa_vendedor DECIMAL(5,2) NOT NULL,
+    estado ENUM('Activo','Inactivo') DEFAULT 'Activo'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2. Tabla de Configuracion de Comision Extra
+CREATE TABLE IF NOT EXISTS configuracion_comision_extra (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    descripcion VARCHAR(150) NOT NULL,
+    porcentaje DECIMAL(5,2) NOT NULL,
+    estado ENUM('Activo','Inactivo') DEFAULT 'Activo'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 3. Tabla Principal de Configuracion SOAT (Matriz Tipo-Uso-Clase)
+CREATE TABLE IF NOT EXISTS configuracion_soat (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tipo_soat_id INT NOT NULL,
+    uso_id INT NOT NULL,
+    clase_id INT NOT NULL,
+    tasa_final_override DECIMAL(5,2) NULL COMMENT 'Opcional: Si se define, sobrescribe la tasa calculada',
+    estado ENUM('Activo','Inactivo') DEFAULT 'Activo',
+    
+    CONSTRAINT fk_conf_soat_tipo FOREIGN KEY (tipo_soat_id) REFERENCES tipos_soat(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_conf_soat_uso FOREIGN KEY (uso_id) REFERENCES usos(id) ON DELETE CASCADE,
+    CONSTRAINT fk_conf_soat_clase FOREIGN KEY (clase_id) REFERENCES clases(id) ON DELETE CASCADE,
+    
+    UNIQUE KEY uq_conf_soat_uso_clase (uso_id, clase_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- =============================================
+-- DATOS INICIALES (SEMILLA)
+-- =============================================
+
+INSERT INTO tipos_soat (nombre, tasa_aas, tasa_vendedor) VALUES
+('Menor', 0.10, 0.60),
+('Regular', 0.18, 0.70)
+ON DUPLICATE KEY UPDATE tasa_aas=VALUES(tasa_aas), tasa_vendedor=VALUES(tasa_vendedor);
+
+INSERT INTO configuracion_comision_extra (descripcion, porcentaje) VALUES
+('Socopur y Promotora Genesis', 0.03),
+('Cliente filtrado', 0.05)
+ON DUPLICATE KEY UPDATE porcentaje=VALUES(porcentaje);
+
+-- Insertar Clases Completas
+INSERT IGNORE INTO clases (nombre) VALUES
+('Vehiculo Menor'),
+('Mototaxi'),
+('Automovil'),
+('Station Wagon'),
+('Cmta. Pick Up/Doble Cabina'),
+('Cmta. Pick Up/Cabina Simple'),
+('Camioneta Rural hasta 9 Astos'),
+('Camioneta Rural Mayor de 9 Astos'),
+('Furgoneta'),
+('Camioneta panel'),
+('Camion Baranda'),
+('Camion Furgon'),
+('Camion < 12 Ton'),
+('Remolcador > 12 Ton'),
+('Volquete < 12 Ton'),
+('Volquete > 12 Ton'),
+('Omnibus');
+
+-- Insertar Usos Completos
+INSERT IGNORE INTO usos (nombre) VALUES
+('Particular'),
+('Urbano'),
+('Carga'),
+('Interprovincial'),
+('Comercial'),
+('Transporte personal');
+
+-- =============================================
+-- MAPEO DE COMISIONES (CLASE + USO -> TIPO)
+-- =============================================
+
+-- 1. CASOS "MENOR" (10% AAS, 60% Vendedor)
+-- Motos y Vehiculos Menores (Todos los usos)
+INSERT IGNORE INTO configuracion_soat (tipo_soat_id, uso_id, clase_id)
+SELECT t.id, u.id, c.id
+FROM tipos_soat t
+JOIN usos u ON 1=1
+JOIN clases c ON c.nombre IN ('Vehiculo Menor', 'Mototaxi')
+WHERE t.nombre = 'Menor';
+
+-- Taxis y Urbanos (Station Wagon y Automovil en uso Urbano)
+INSERT IGNORE INTO configuracion_soat (tipo_soat_id, uso_id, clase_id)
+SELECT t.id, u.id, c.id
+FROM tipos_soat t
+JOIN usos u ON u.nombre = 'Urbano'
+JOIN clases c ON c.nombre IN ('Automovil', 'Station Wagon')
+WHERE t.nombre = 'Menor';
+
+
+-- 2. CASOS "REGULAR" (18% AAS, 70% Vendedor)
+-- Automoviles y SW (Uso Particular)
+INSERT IGNORE INTO configuracion_soat (tipo_soat_id, uso_id, clase_id)
+SELECT t.id, u.id, c.id
+FROM tipos_soat t
+JOIN usos u ON u.nombre = 'Particular'
+JOIN clases c ON c.nombre IN ('Automovil', 'Station Wagon')
+WHERE t.nombre = 'Regular';
+
+-- Camionetas y Pick Ups (Multiples usos: Particular, Carga, Comercial, etc)
+INSERT IGNORE INTO configuracion_soat (tipo_soat_id, uso_id, clase_id)
+SELECT t.id, u.id, c.id
+FROM tipos_soat t
+JOIN usos u ON u.nombre IN ('Particular', 'Carga', 'Comercial', 'Transporte personal')
+JOIN clases c ON c.nombre IN (
+    'Cmta. Pick Up/Doble Cabina',
+    'Cmta. Pick Up/Cabina Simple',
+    'Camioneta Rural hasta 9 Astos',
+    'Camioneta Rural Mayor de 9 Astos',
+    'Furgoneta',
+    'Camioneta panel'
+)
+WHERE t.nombre = 'Regular';
+
+-- Vehiculos Pesados (Carga)
+INSERT IGNORE INTO configuracion_soat (tipo_soat_id, uso_id, clase_id)
+SELECT t.id, u.id, c.id
+FROM tipos_soat t
+JOIN usos u ON u.nombre = 'Carga'
+JOIN clases c ON c.nombre IN (
+    'Camion Baranda',
+    'Camion Furgon',
+    'Camion < 12 Ton',
+    'Remolcador > 12 Ton',
+    'Volquete < 12 Ton',
+    'Volquete > 12 Ton'
+)
+WHERE t.nombre = 'Regular';
+
+-- Omnibus (Interprovincial, Transporte Personal, Urbano)
+INSERT IGNORE INTO configuracion_soat (tipo_soat_id, uso_id, clase_id)
+SELECT t.id, u.id, c.id
+FROM tipos_soat t
+JOIN usos u ON u.nombre IN ('Interprovincial', 'Transporte personal', 'Urbano')
+JOIN clases c ON c.nombre = 'Omnibus'
+WHERE t.nombre = 'Regular';
+
+
+
+-- =============================================
+-- PROCEDIMIENTO ALMACENADO PARA CALCULO
+-- =============================================
+
+DROP PROCEDURE IF EXISTS sp_calcular_comision_soat;
+DELIMITER $$
+CREATE PROCEDURE sp_calcular_comision_soat(
+    IN p_clase_id INT,
+    IN p_uso_id INT,
+    IN p_precio_soat DECIMAL(10,2),
+    IN p_extra_ids VARCHAR(255)
+)
+BEGIN
+    DECLARE v_tasa_aas DECIMAL(5,2);
+    DECLARE v_tasa_vendedor DECIMAL(5,2);
+    DECLARE v_comision_aas DECIMAL(10,2);
+    DECLARE v_comision_vendedor DECIMAL(10,2);
+    DECLARE v_utilidad DECIMAL(10,2);
+    DECLARE v_extra_total DECIMAL(10,2) DEFAULT 0.00;
+    
+    -- 1. Obtener Tasas Base
+    SELECT t.tasa_aas, t.tasa_vendedor
+    INTO v_tasa_aas, v_tasa_vendedor
+    FROM configuracion_soat cs
+    JOIN tipos_soat t ON cs.tipo_soat_id = t.id
+    WHERE cs.clase_id = p_clase_id AND cs.uso_id = p_uso_id
+    LIMIT 1;
+    
+    -- Si no existe configuracion, usar valores por defecto 0
+    IF v_tasa_aas IS NULL THEN
+        SET v_tasa_aas = 0;
+        SET v_tasa_vendedor = 0;
+    END IF;
+    
+    -- 2. Calcular Comisiones
+    SET v_comision_aas = p_precio_soat * v_tasa_aas;
+    SET v_comision_vendedor = v_comision_aas * v_tasa_vendedor;
+    
+    -- 3. Calcular Extras
+    IF p_extra_ids IS NOT NULL AND LENGTH(p_extra_ids) > 0 THEN
+        SELECT IFNULL(SUM(p_precio_soat * porcentaje), 0)
+        INTO v_extra_total
+        FROM configuracion_comision_extra
+        WHERE FIND_IN_SET(id, p_extra_ids);
+    END IF;
+    
+    -- Calcular Utilidad (Comision AAS - Comision Vendedor - Extras)
+    SET v_utilidad = v_comision_aas - v_comision_vendedor - v_extra_total;
+
+    -- Resultado
+    SELECT 
+        v_tasa_aas AS tasa_aas,
+        v_tasa_vendedor AS tasa_vendedor_pct,
+        ROUND(v_comision_aas, 2) AS monto_comision_aas,
+        ROUND(v_comision_vendedor, 2) AS monto_comision_vendedor,
+        ROUND(v_extra_total, 2) AS monto_extras,
+        ROUND(v_utilidad, 2) AS utilidad_empresa;
+        
+END$$
+DELIMITER ;
+
 -- Agregar columna codigo_agente si no existe
 SET @dbname = DATABASE();
 SET @tablename = 'polizas';

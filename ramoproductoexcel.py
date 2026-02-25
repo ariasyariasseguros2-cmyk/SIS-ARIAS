@@ -24,9 +24,11 @@ def _normalize_number(value):
     text = str(value).strip()
     if not text:
         return None
-    text = text.replace(",", ".")
+    is_percentage = "%" in text
+    text = text.replace(",", ".").replace("%", "")
     try:
-        return float(text)
+        val = float(text)
+        return val / 100.0 if is_percentage else val
     except Exception:
         return None
 
@@ -851,6 +853,146 @@ def _upsert_clientes(conn, xls: pd.ExcelFile) -> None:
         cursor.close()
 
 
+def _upsert_tasa_soat(conn, xls: pd.ExcelFile) -> None:
+    """
+    Lee la hoja 'TasaSoat' y configura:
+    1. Tipos de SOAT y sus tasas (Menor/Regular)
+    2. Comisiones extra
+    3. Mapeo de (Tipo, Uso, Clase) -> configuracion_soat
+    """
+    try:
+        df = pd.read_excel(xls, sheet_name="TasaSoat", header=None)
+    except ValueError:
+        return
+
+    cursor = conn.cursor()
+    try:
+        # -------------------------------------------------------
+        # 1. Parse Rates (Buscar encabezado "Tipo" y "Prod. AAS")
+        # -------------------------------------------------------
+        rate_start_row = -1
+        for idx, row in df.iterrows():
+            r0 = str(row[0]).strip().lower()
+            r1 = str(row[1]).strip().lower() if len(row) > 1 else ""
+            if "tipo" in r0 and "aas" in r1:
+                rate_start_row = idx
+                break
+        
+        if rate_start_row != -1:
+            for idx in range(rate_start_row + 1, len(df)):
+                row = df.iloc[idx]
+                nombre = _normalize_text(row[0])
+                if not nombre:
+                    # Si encontramos vacío, chequeamos si es el inicio de la siguiente tabla
+                    # O simplemente terminamos si hay muchos vacíos
+                    if idx > rate_start_row + 20: 
+                         break
+                    # Check if this row is actually the header for the next table
+                    if len(row) > 2 and str(row[0]).strip().lower() == "tipo" and "clase" in str(row[2]).strip().lower():
+                        break
+                    continue
+                
+                # Check for next table header in current row
+                if len(row) > 2 and str(row[0]).strip().lower() == "tipo" and "clase" in str(row[2]).strip().lower():
+                    break
+
+                val_aas = _normalize_number(row[1]) if len(row) > 1 else None
+                val_vend = _normalize_number(row[2]) if len(row) > 2 else None
+
+                if val_vend is not None:
+                    # Es un Tipo de SOAT (tiene tasa vendedor)
+                    cursor.execute("""
+                        INSERT INTO tipos_soat (nombre, tasa_aas, tasa_vendedor)
+                        VALUES (%s, %s, %s)
+                        ON DUPLICATE KEY UPDATE tasa_aas=VALUES(tasa_aas), tasa_vendedor=VALUES(tasa_vendedor)
+                    """, (nombre, val_aas, val_vend))
+                else:
+                    # Es un Extra (solo tiene porcentaje en columna AAS o similar)
+                    if val_aas is not None:
+                         cursor.execute("""
+                            INSERT INTO configuracion_comision_extra (descripcion, porcentaje)
+                            VALUES (%s, %s)
+                            ON DUPLICATE KEY UPDATE porcentaje=VALUES(porcentaje)
+                        """, (nombre, val_aas))
+        
+        conn.commit()
+
+        # -------------------------------------------------------
+        # 2. Parse Mappings (Buscar "Tipo", "Uso", "Clase")
+        # -------------------------------------------------------
+        map_start_row = -1
+        col_indices = {}
+        
+        # Escanear filas buscando los encabezados
+        for idx, row in df.iterrows():
+            row_str = [str(x).strip().lower() for x in row.values]
+            if "tipo" in row_str and "clase" in row_str:
+                map_start_row = idx
+                col_indices['tipo'] = row_str.index("tipo")
+                col_indices['clase'] = row_str.index("clase")
+                if "uso" in row_str:
+                    col_indices['uso'] = row_str.index("uso")
+                break
+        
+        if map_start_row != -1:
+            # Cargar todos los usos para cuando el Excel tenga Uso vacío (aplica a todos)
+            cursor.execute("SELECT id, nombre FROM usos")
+            all_usos = cursor.fetchall() # list of (id, nombre)
+            
+            for idx in range(map_start_row + 1, len(df)):
+                row = df.iloc[idx]
+                
+                # Extraer valores usando indices dinámicos
+                tipo_name = _normalize_text(row[col_indices['tipo']])
+                clase_name = _normalize_text(row[col_indices['clase']])
+                
+                if not tipo_name or not clase_name:
+                    continue
+                
+                uso_name = None
+                if 'uso' in col_indices:
+                    uso_name = _normalize_text(row[col_indices['uso']])
+                
+                # Obtener Tipo ID
+                cursor.execute("SELECT id FROM tipos_soat WHERE nombre = %s", (tipo_name,))
+                res_tipo = cursor.fetchone()
+                if not res_tipo:
+                    continue
+                tipo_id = res_tipo[0]
+                
+                # Obtener Clase ID
+                cursor.execute("SELECT id FROM clases WHERE nombre = %s", (clase_name,))
+                res_clase = cursor.fetchone()
+                if not res_clase:
+                    continue
+                clase_id = res_clase[0]
+                
+                if uso_name:
+                    # Caso 1: Uso especifico
+                    cursor.execute("SELECT id FROM usos WHERE nombre = %s", (uso_name,))
+                    res_uso = cursor.fetchone()
+                    if res_uso:
+                        uso_id = res_uso[0]
+                        cursor.execute("""
+                            INSERT INTO configuracion_soat (tipo_soat_id, uso_id, clase_id)
+                            VALUES (%s, %s, %s)
+                            ON DUPLICATE KEY UPDATE tipo_soat_id=VALUES(tipo_soat_id)
+                        """, (tipo_id, uso_id, clase_id))
+                else:
+                    # Caso 2: Uso vacio -> Aplicar a TODOS los usos
+                    for (uid, uname) in all_usos:
+                        cursor.execute("""
+                            INSERT INTO configuracion_soat (tipo_soat_id, uso_id, clase_id)
+                            VALUES (%s, %s, %s)
+                            ON DUPLICATE KEY UPDATE tipo_soat_id=VALUES(tipo_soat_id)
+                        """, (tipo_id, uid, clase_id))
+                        
+        conn.commit()
+
+    finally:
+        cursor.close()
+
+
 def main():
     # RamoProducto + comisiones
     df_ramo = _load_dataframe()
@@ -880,6 +1022,7 @@ def main():
         _upsert_marcas(conn, xls)
         _upsert_subagentes(conn, xls)
         _upsert_usos(conn, xls)
+        _upsert_tasa_soat(conn, xls)
         _upsert_ajustadores(conn, xls)
         _upsert_modelos(conn, xls)
         _upsert_usuarios(conn, xls)

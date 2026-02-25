@@ -1,0 +1,191 @@
+{% extends 'view/layout_dashboard.html' %}
+
+{% block html_title %}Configuración SOAT | SIS-ARIAS{% endblock %}
+
+{% block page_title %}
+    <h3 class="fw-bold mb-0 text-dark">Configuración SOAT (Tipos + Usos + Clases)</h3>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 pt-4 ps-4 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Matriz de Comisiones y Tasas</h5>
+            <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center me-2">
+                    <label class="small text-muted fw-bold me-2">MOSTRAR:</label>
+                    <select id="perPageSelect" class="form-select form-select-sm" style="width: 70px;">
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="-1">Todo</option>
+                    </select>
+                </div>
+                <button id="btnReload" class="btn btn-outline-primary btn-sm"><i class="bi-arrow-clockwise"></i> Recargar</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="soatTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Tipo SOAT</th>
+                            <th>Clase</th>
+                            <th>Uso</th>
+                            <th class="text-end">Tasa AAS</th>
+                            <th class="text-end">Tasa Vendedor</th>
+                            <th class="text-center">Override</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Dynamic Content -->
+                    </tbody>
+                </table>
+            </div>
+            <!-- Pagination Controls -->
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div class="text-muted small" id="paginationInfo">
+                    Mostrando 0 registros
+                </div>
+                <nav aria-label="Page navigation">
+                    <ul class="pagination pagination-sm mb-0" id="paginationControls">
+                        <!-- Dynamic -->
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js_bottom %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentPage = 1;
+    let perPage = 10;
+
+    const btnReload = document.getElementById('btnReload');
+    const perPageSelect = document.getElementById('perPageSelect');
+
+    loadSoatData(currentPage, perPage);
+
+    btnReload.addEventListener('click', () => {
+        currentPage = 1; // Reset to page 1 on reload
+        loadSoatData(currentPage, perPage);
+    });
+
+    perPageSelect.addEventListener('change', (e) => {
+        perPage = parseInt(e.target.value);
+        currentPage = 1;
+        loadSoatData(currentPage, perPage);
+    });
+});
+
+function loadSoatData(page, perPage) {
+    const tbody = document.querySelector('#soatTable tbody');
+    const paginationControls = document.getElementById('paginationControls');
+    const paginationInfo = document.getElementById('paginationInfo');
+    
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></td></tr>';
+
+    fetch(`/api/maestros/soat?page=${page}&per_page=${perPage}`)
+        .then(response => response.json())
+        .then(data => {
+            tbody.innerHTML = '';
+            if (data.ok && data.rows.length > 0) {
+                // Render Rows
+                data.rows.forEach(row => {
+                    const tr = document.createElement('tr');
+                    
+                    const tasaAas = (row.tasa_aas * 100).toFixed(2) + '%';
+                    const tasaVend = (row.tasa_vendedor * 100).toFixed(2) + '%';
+                    const override = row.tasa_final_override ? row.tasa_final_override + '%' : '-';
+
+                    tr.innerHTML = `
+                        <td><span class="badge bg-light text-dark border">${row.tipo_soat}</span></td>
+                        <td>${row.clase}</td>
+                        <td>${row.uso}</td>
+                        <td class="text-end fw-bold text-primary">${tasaAas}</td>
+                        <td class="text-end fw-bold text-success">${tasaVend}</td>
+                        <td class="text-center text-muted small">${override}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                // Render Pagination
+                renderPagination(data.page, data.pages, data.total, data.per_page);
+                
+                // Render Info
+                const start = (data.page - 1) * data.per_page + 1;
+                const end = Math.min(start + data.rows.length - 1, data.total);
+                paginationInfo.textContent = `Mostrando ${start} a ${end} de ${data.total} registros`;
+
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">No se encontraron configuraciones. Importe el Excel primero.</td></tr>';
+                paginationControls.innerHTML = '';
+                paginationInfo.textContent = '0 registros';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading SOAT data:', error);
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-danger">Error al cargar datos.</td></tr>';
+        });
+}
+
+function renderPagination(current, totalPages, totalItems, perPage) {
+    const ul = document.getElementById('paginationControls');
+    ul.innerHTML = '';
+
+    if (totalPages <= 1) return;
+
+    // Helper to create page item
+    const createItem = (label, page, isActive = false, isDisabled = false) => {
+        const li = document.createElement('li');
+        li.className = `page-item ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`;
+        const a = document.createElement('a');
+        a.className = 'page-link';
+        a.href = '#';
+        a.innerHTML = label;
+        if (!isDisabled && !isActive) {
+            a.addEventListener('click', (e) => {
+                e.preventDefault();
+                loadSoatData(page, perPage);
+            });
+        }
+        li.appendChild(a);
+        ul.appendChild(li);
+    };
+
+    // Previous
+    createItem('<i class="bi-chevron-left"></i>', current - 1, false, current === 1);
+
+    // Page Numbers (Simple logic: show all if <= 7, else show window around current)
+    // For simplicity, let's just show max 5 pages around current
+    let startPage = Math.max(1, current - 2);
+    let endPage = Math.min(totalPages, startPage + 4);
+    
+    if (endPage - startPage < 4) {
+        startPage = Math.max(1, endPage - 4);
+    }
+
+    if (startPage > 1) {
+        createItem('1', 1);
+        if (startPage > 2) createItem('...', current, false, true);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        createItem(i, i, i === current);
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) createItem('...', current, false, true);
+        createItem(totalPages, totalPages);
+    }
+
+    // Next
+    createItem('<i class="bi-chevron-right"></i>', current + 1, false, current === totalPages);
+}
+</script>
+{% endblock %}

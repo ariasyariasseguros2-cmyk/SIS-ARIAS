@@ -2635,6 +2635,52 @@ def menu_maestros_productos():
         return redirect(url_for('main.dashboard'))
     return render_template('view/maestros/productos.html', page='maestros-productos')
 
+@bp.route('/menu/maestros-soat', methods=['GET'])
+def menu_maestros_soat():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    if not can_access_maestros(session.get('role_name')):
+        return redirect(url_for('main.dashboard'))
+    return render_template('view/maestros/soat.html', page='maestros-soat')
+
+@bp.route('/api/maestros/soat', methods=['GET'])
+def api_maestros_soat():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+    
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 10))
+    except ValueError:
+        page = 1
+        per_page = 10
+
+    from controllers.maestros.soat import get_soat_conf
+    rows = get_soat_conf()
+    
+    total = len(rows)
+    # Paginación en memoria (si el dataset crece mucho, mover a SQL LIMIT/OFFSET)
+    if per_page > 0:
+        pages = max(1, (total + per_page - 1) // per_page)
+        page = max(1, min(page, pages))
+        start = (page - 1) * per_page
+        end = start + per_page
+        sliced = rows[start:end]
+    else:
+        # per_page <= 0 significa "todo"
+        pages = 1
+        page = 1
+        sliced = rows
+
+    return jsonify({
+        'ok': True, 
+        'rows': sliced, 
+        'total': total, 
+        'page': page, 
+        'pages': pages, 
+        'per_page': per_page
+    })
+
 @bp.route('/menu/maestros-usuarios', methods=['GET'])
 def menu_maestros_usuarios():
     if 'user' not in session:
