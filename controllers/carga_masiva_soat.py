@@ -103,10 +103,16 @@ def map_excel_columns(df: pd.DataFrame) -> pd.DataFrame:
             df2[dst] = df2.iloc[:, chosen_idx]
 
     if 'PRIMA' in df2.columns:
+        if 'PRIMA_MAS_IGV' not in df2.columns:
+            df2['PRIMA_MAS_IGV'] = df2['PRIMA']
+        # Mapeo corregido: PRIMA es Prima Comercial + IGV, no Prima Neta
+
+        # Asegurar que existan las columnas requeridas por el validador (aunque se calculen después)
         if 'PRIMA_NETA' not in df2.columns:
-            df2['PRIMA_NETA'] = df2['PRIMA']
+            df2['PRIMA_NETA'] = None
         if 'PRIMA_TOTAL' not in df2.columns:
             df2['PRIMA_TOTAL'] = df2['PRIMA']
+
     if 'RECIBO' in df2.columns and 'AVISO_COB' not in df2.columns:
         df2['AVISO_COB'] = df2['RECIBO']
     elif 'PLANILLA' in df2.columns and 'AVISO_COB' not in df2.columns:
@@ -700,8 +706,16 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 moneda_raw = normalize_string(row.get('MONEDA_ABREVIACION', 'S/.'))
                 moneda = moneda_map.get(moneda_raw, 'S/.')
 
-                pn_val = normalize_decimal(row.get('PRIMA_NETA'))
-                pt_igv = round(pn_val * 1.18, 2) if pn_val is not None else normalize_decimal(row.get('PRIMA_TOTAL'))
+                prima_mas_igv = normalize_decimal(row.get('PRIMA_MAS_IGV'))
+                prima_neta = normalize_decimal(row.get('PRIMA_NETA'))
+                
+                if prima_neta is None and prima_mas_igv is not None:
+                    # Si no hay PRIMA_NETA, calcular usando el factor 1.2154
+                    prima_neta = round(prima_mas_igv / 1.2154, 2)   
+                elif prima_neta is None:
+                    prima_neta = 0.0
+                
+                    prima_mas_igv = 0.0
 
                 poliza_args = (
                     numero_documento,
@@ -726,10 +740,10 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     normalize_string(row.get('EJECUTIVO_ABREVIACION', '')),
                     normalize_string(row.get('AVISO_COB', '')),  # asegurada
                     normalize_string(row.get('MOTIVO', 'CARGA MASIVA SOAT')),
-                    pn_val,
-                    pn_val,
-                    pn_val,
-                    pn_val,
+                    prima_neta,
+                    prima_neta,
+                    prima_mas_igv,
+                    prima_mas_igv,
                     normalize_decimal(row.get('PORCENTAJE_COMISION_COMPANIA')),
                     None,  # imp_compania
                     normalize_decimal(row.get('PORCENTAJE_COMISION_SUBAGENTE')),
