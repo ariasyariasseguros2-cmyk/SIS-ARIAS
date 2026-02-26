@@ -3,6 +3,112 @@ from models.db import get_connection
 import mysql.connector
 from flask import session
 
+def cia_to_col(cia_txt: str | None) -> str | None:
+    if not cia_txt:
+        return None
+    s = (str(cia_txt) or '').strip().lower()
+    if 'mapfre' in s:
+        return 'mapfre'
+    if 'pacif' in s:
+        return 'pacifico'
+    if 'sanitas' in s:
+        return 'sanitas'
+    if 'protecta' in s:
+        return 'protecta'
+    if 'crecer' in s:
+        return 'crecer'
+    if 'positiva' in s:
+        if 'eps' in s:
+            return 'pos_eps'
+        if 'vida' in s:
+            return 'pos_vsr'
+        return 'pos_sr'
+    if 'ohio' in s:
+        return 'ohio_natural'
+    return None
+
+def lookup_commission_pct(cnx_, cia_txt: str | None, candidates: list[str]) -> float | None:
+    col = cia_to_col(cia_txt)
+    try:
+        s = (str(cia_txt) or '').strip().lower()
+        is_lpv = ('lpv' in s) or ('positiva' in s) or ('la positiva' in s)
+        if is_lpv:
+            for cand in (candidates or []):
+                v = (str(cand) or '').strip().lower()
+                if not v:
+                    continue
+                if ('salud' in v) or ('eps' in v):
+                    col = 'pos_eps'
+                    break
+                if 'vida' in v:
+                    col = 'pos_vsr'
+                    break
+                if 'pens' in v:
+                    col = 'pos_sr'
+                    break
+        # Si no hay columna determinada aún y el texto de la cia trae pistas
+        if not col and s:
+            if 'mapfre' in s:
+                col = 'mapfre'
+            elif 'pacif' in s:
+                col = 'pacifico'
+            elif 'sanitas' in s:
+                col = 'sanitas'
+            elif 'protecta' in s:
+                col = 'protecta'
+            elif 'crecer' in s:
+                col = 'crecer'
+            elif 'ohio' in s:
+                col = 'ohio_natural'
+    except Exception:
+        pass
+    if not col:
+        return None
+    try:
+        cdict = cnx_.cursor(dictionary=True)
+        for cand in candidates:
+            if not cand:
+                continue
+            val = (str(cand) or '').strip().upper()
+            if not val:
+                continue
+            cdict.execute(
+                """
+                SELECT 
+                  pos_eps, pos_vsr, pos_sr, pacifico, sanitas, protecta, mapfre, crecer, ohio_natural, factor
+                FROM comisiones_temp
+                WHERE UPPER(producto_abrev) = %s
+                   OR UPPER(producto) = %s
+                   OR UPPER(ramo_abreviacion) = %s
+                   OR UPPER(ramo_nombre) = %s
+                LIMIT 1
+                """,
+                (val, val, val, val)
+            )
+            rowc = cdict.fetchone()
+            if rowc:
+                pct = rowc.get(col)
+                if pct is not None:
+                    try:
+                        return float(pct)
+                    except Exception:
+                        pass
+                # Fallback: usar factor general si existe
+                fac = rowc.get('factor')
+                if fac is not None:
+                    try:
+                        return float(fac)
+                    except Exception:
+                        pass
+        cdict.close()
+    except Exception:
+        try:
+            cdict.close()
+        except Exception:
+            pass
+        return None
+    return None
+
 def get_rows():
     # Filas de ayuda para la vista (placeholder)
     return [
@@ -160,112 +266,6 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
 
             # AUTOCOMPLETAR % COMISIÓN COMPAÑÍA DESDE comisiones_temp (por compañía + producto/ramo)
             try:
-                def cia_to_col(cia_txt: str | None) -> str | None:
-                    if not cia_txt:
-                        return None
-                    s = (str(cia_txt) or '').strip().lower()
-                    if 'mapfre' in s:
-                        return 'mapfre'
-                    if 'pacif' in s:
-                        return 'pacifico'
-                    if 'sanitas' in s:
-                        return 'sanitas'
-                    if 'protecta' in s:
-                        return 'protecta'
-                    if 'crecer' in s:
-                        return 'crecer'
-                    if 'positiva' in s:
-                        if 'eps' in s:
-                            return 'pos_eps'
-                        if 'vida' in s:
-                            return 'pos_vsr'
-                        return 'pos_sr'
-                    if 'ohio' in s:
-                        return 'ohio_natural'
-                    return None
-
-                def lookup_commission_pct(cnx_, cia_txt: str | None, candidates: list[str]) -> float | None:
-                    col = cia_to_col(cia_txt)
-                    try:
-                        s = (str(cia_txt) or '').strip().lower()
-                        is_lpv = ('lpv' in s) or ('positiva' in s) or ('la positiva' in s)
-                        if is_lpv:
-                            for cand in (candidates or []):
-                                v = (str(cand) or '').strip().lower()
-                                if not v:
-                                    continue
-                                if ('salud' in v) or ('eps' in v):
-                                    col = 'pos_eps'
-                                    break
-                                if 'vida' in v:
-                                    col = 'pos_vsr'
-                                    break
-                                if 'pens' in v:
-                                    col = 'pos_sr'
-                                    break
-                        # Si no hay columna determinada aún y el texto de la cia trae pistas
-                        if not col and s:
-                            if 'mapfre' in s:
-                                col = 'mapfre'
-                            elif 'pacif' in s:
-                                col = 'pacifico'
-                            elif 'sanitas' in s:
-                                col = 'sanitas'
-                            elif 'protecta' in s:
-                                col = 'protecta'
-                            elif 'crecer' in s:
-                                col = 'crecer'
-                            elif 'ohio' in s:
-                                col = 'ohio_natural'
-                    except Exception:
-                        pass
-                    if not col:
-                        return None
-                    try:
-                        cdict = cnx_.cursor(dictionary=True)
-                        for cand in candidates:
-                            if not cand:
-                                continue
-                            val = (str(cand) or '').strip().upper()
-                            if not val:
-                                continue
-                            cdict.execute(
-                                """
-                                SELECT 
-                                  pos_eps, pos_vsr, pos_sr, pacifico, sanitas, protecta, mapfre, crecer, ohio_natural, factor
-                                FROM comisiones_temp
-                                WHERE UPPER(producto_abrev) = %s
-                                   OR UPPER(producto) = %s
-                                   OR UPPER(ramo_abreviacion) = %s
-                                   OR UPPER(ramo_nombre) = %s
-                                LIMIT 1
-                                """,
-                                (val, val, val, val)
-                            )
-                            rowc = cdict.fetchone()
-                            if rowc:
-                                pct = rowc.get(col)
-                                if pct is not None:
-                                    try:
-                                        return float(pct)
-                                    except Exception:
-                                        pass
-                                # Fallback: usar factor general si existe
-                                fac = rowc.get('factor')
-                                if fac is not None:
-                                    try:
-                                        return float(fac)
-                                    except Exception:
-                                        pass
-                        cdict.close()
-                    except Exception:
-                        try:
-                            cdict.close()
-                        except Exception:
-                            pass
-                        return None
-                    return None
-
                 cia_txt = row.get("cia") or (selected or {}).get("cia") or (selected or {}).get("issuer") or ''
                 prod_candidates = [
                     row.get("producto"),

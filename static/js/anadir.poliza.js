@@ -504,6 +504,66 @@
     if (impComCompaniaEl) impComCompaniaEl.value = items.length ? total : '';
   }
 
+  // NUEVO: Función para buscar % comisión en BD
+  async function fetchCommissionPct(index) {
+    const item = extractedItems[index];
+    if (!item) return;
+
+    // Prioridad: Cía del select global, o fallback a item.cia (si existe)
+    // Pero el endpoint espera 'cia' como parámetro principal.
+    // Usaremos el valor del select global 'issuerEl' ya que es el que manda en la UI actual
+    // salvo que sea una carga masiva con distintas cias (que no parece ser el caso común aquí).
+    const cia = issuerEl?.value || '';
+    const ramo = item.ramo || '';
+    const producto = item.ramos_producto || '';
+
+    // Si no hay cia o no hay ni ramo ni producto, no podemos buscar
+    if (!cia || (!ramo && !producto)) return;
+
+    try {
+      // Construir query params
+      const qs = new URLSearchParams({ cia, ramo, producto }).toString();
+      const res = await fetch(`/api/comisiones/lookup?${qs}`);
+      const data = await res.json();
+
+      if (data.ok && data.pct !== null) {
+        const pctVal = parseFloat(data.pct);
+        if (!Number.isFinite(pctVal)) return;
+
+        // Actualizar modelo
+        item.comision_compania_pct = pctVal;
+        
+        // Recalcular importe cía
+        const neta = item.prima_neta || '';
+        item.comision_compania_importe = computeCommissionAmount(neta, pctVal);
+
+        // Recalcular importe subagente (si hay %)
+        const subPct = item.comision_subagente_pct || '';
+        if (subPct) {
+          item.comision_subagente_importe = computeSubAgentCommissionAmount(item.comision_compania_importe, subPct);
+        }
+
+        // Actualizar DOM
+        const tr = tbody.children[index];
+        if (tr) {
+          const pctInput = tr.querySelector('.pct-comp');
+          if (pctInput) pctInput.value = pctVal;
+
+          const impInput = tr.querySelector('.imp-comp');
+          if (impInput) impInput.value = item.comision_compania_importe || '';
+
+          const impSubInput = tr.querySelector('.imp-sub');
+          if (impSubInput) impSubInput.value = item.comision_subagente_importe || '';
+        }
+
+        // Actualizar total global
+        if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+      }
+    } catch (err) {
+      console.error('Error fetching commission pct:', err);
+    }
+  }
+
   // Cambios en select de Ramo por fila
   tbody.addEventListener('change', (e) => {
     const sel = e.target.closest('.ramo-select');
@@ -514,6 +574,8 @@
     extractedItems[idx].ramo = sel.value || '';
     // Al cambiar ramo, poblar select de productos relacionados (si los hay)
     populateProductsForRamo(idx, sel.value || '').then(()=>{}).catch(()=>{});
+    // NUEVO: buscar comisión
+    fetchCommissionPct(idx);
     scheduleAutoSave();
   });
 
@@ -629,6 +691,9 @@
     // Si se edita Producto en una fila, y las demás filas tienen ese campo vacío, replicarlo.
     if (field === 'ramos_producto') {
       const val = extractedItems[idx][field];
+      // Buscar comisión para la fila actual
+      fetchCommissionPct(idx);
+
       if (val) {
         let changed = false;
         extractedItems.forEach((it, i) => {
@@ -638,6 +703,8 @@
             const cell = getTd(i, 'ramos_producto');
             if (cell) cell.textContent = val;
             changed = true;
+            // Buscar comisión para las filas autocompletadas
+            fetchCommissionPct(i);
           }
         });
         if (changed) scheduleAutoSave();
@@ -888,38 +955,16 @@
 
           // Autocompletar % comisión de compañía desde la tabla comisiones_temp (servidor)
           try {
-            const fillPromises = (extractedItems || []).map(async (it, i) => {
+            const fillPromises = extractedItems.map(async (it, i) => {
               const hasPct = it.comision_compania_pct !== undefined && it.comision_compania_pct !== null && String(it.comision_compania_pct).trim() !== '';
-              const cia = (it.cia || '').trim();
-              if (!cia || hasPct) return;
-              const qs = new URLSearchParams({
-                cia: cia,
-                producto: (it.producto || '').trim(),
-                ramo: (it.ramo || '').trim(),
-                ramos_producto: (it.ramos_producto || '').trim()
-              });
-              const resp = await fetch(`/api/comisiones/default?${qs.toString()}`);
-              if (!resp.ok) return;
-              const jp = await resp.json();
-              if (jp && jp.ok && jp.pct !== null && jp.pct !== undefined) {
-                const pct = Number(jp.pct);
-                if (Number.isFinite(pct)) {
-                  extractedItems[i].comision_compania_pct = pct;
-                  extractedItems[i].comision_compania_importe = computeCommissionAmount(extractedItems[i].prima_neta || '', String(pct));
-                  // Recalcular también comisión subagente si existe porcentaje
-                  const subPct = extractedItems[i].comision_subagente_pct;
-                  if (subPct) {
-                    extractedItems[i].comision_subagente_importe = computeSubAgentCommissionAmount(extractedItems[i].comision_compania_importe, subPct);
-                  }
-                }
+              if (!hasPct) {
+                 await fetchCommissionPct(i);
               }
             });
-            Promise.all(fillPromises).then(() => {
-              render(extractedItems);
-              if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
-              scheduleAutoSave();
-            });
-          } catch {}
+            await Promise.all(fillPromises);
+          } catch (e) {
+             console.error('Error autocompleting commissions:', e);
+          }
 
           const elapsed = ((performance.now() - startTs) / 1000).toFixed(2);
           if (hint) {

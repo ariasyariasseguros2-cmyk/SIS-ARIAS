@@ -10,6 +10,8 @@ from controllers.reportes.reporte_produccion import (
     export_reporte_produccion,
     get_reporte_produccion_filters,
 )
+from controllers.addPoliza import lookup_commission_pct
+from models.db import get_connection
 
 bp = Blueprint('main', __name__)
 
@@ -84,6 +86,31 @@ def save_cuota_route():
         return {'ok': True}
     else:
         return {'ok': False, 'error': msg or 'Database error'}, 500
+
+@bp.route('/api/comisiones/lookup', methods=['GET'])
+def lookup_comision_route():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'Unauthorized'}, 401
+
+    cia = request.args.get('cia')
+    ramo = request.args.get('ramo')
+    producto = request.args.get('producto')
+
+    # Candidates for lookup: try producto first, then ramo
+    candidates = []
+    if producto: candidates.append(producto)
+    if ramo: candidates.append(ramo)
+
+    if not cia or not candidates:
+        return {'ok': True, 'pct': None}
+
+    try:
+        cnx = get_connection()
+        pct = lookup_commission_pct(cnx, cia, candidates)
+        cnx.close()
+        return {'ok': True, 'pct': pct}
+    except Exception as e:
+        return {'ok': False, 'error': str(e)}
 
 @bp.route('/home')
 def home():
