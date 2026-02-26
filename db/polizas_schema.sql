@@ -1366,7 +1366,9 @@ CREATE TABLE siniestros (
     grupo_ramo VARCHAR(50) NOT NULL COMMENT 'RRGG, VEHICULOS, RRHH, OTROS',
 
     -- Relación robusta
-    poliza_id INT NOT NULL,
+    -- poliza_id es NULL al insertar; el controlador Python lo resuelve desde
+    -- el número de póliza y lo actualiza justo después del INSERT.
+    poliza_id INT NULL,
     poliza VARCHAR(50) NOT NULL, -- opcional, solo para consulta rápida/visual
 
     cia VARCHAR(100) NOT NULL COMMENT 'Compañía aseguradora',
@@ -2738,29 +2740,33 @@ BEGIN
 END$$
 DELIMITER ;
 
--- 8) Listar siniestros (como estaba originalmente)
+-- 8) Listar siniestros
 DROP PROCEDURE IF EXISTS sp_list_siniestros;
 DELIMITER $$
 CREATE DEFINER=`root`@`localhost` PROCEDURE sp_list_siniestros()
 BEGIN
     SELECT
         id, grupo_ramo, contratante, poliza, cia, ramo, fec_stro,
-        causa, siniestro_no, monto_siniestro, estado, ejecutivo_cia, placa, creado_en
+        causa, siniestro_no, monto_siniestro, estado, ejecutivo_cia, placa,
+        fecha_registro AS creado_en
     FROM siniestros
-    ORDER BY creado_en DESC;
+    WHERE eliminado = 0
+    ORDER BY fecha_registro DESC;
 END$$
 DELIMITER ;
 
--- 9) Listar siniestros por póliza (como estaba originalmente)
+-- 9) Listar siniestros por póliza
 DROP PROCEDURE IF EXISTS sp_list_siniestros_por_poliza;
 DELIMITER $$
 CREATE DEFINER=`root`@`localhost` PROCEDURE sp_list_siniestros_por_poliza(IN p_poliza VARCHAR(50))
 BEGIN
     SELECT
         id, grupo_ramo, contratante, poliza, cia, ramo, fec_stro,
-        causa, siniestro_no, monto_siniestro, estado, ejecutivo_cia, placa, creado_en
+        causa, siniestro_no, monto_siniestro, estado, ejecutivo_cia, placa,
+        fecha_registro AS creado_en
     FROM siniestros
     WHERE poliza = p_poliza
+      AND eliminado = 0
     ORDER BY fec_stro DESC;
 END$$
 DELIMITER ;

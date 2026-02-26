@@ -17,10 +17,24 @@ def list_siniestros_por_poliza():
 		connection = get_connection()
 		cursor = connection.cursor(dictionary=True)
 
-		cursor.callproc('sp_list_siniestros_por_poliza', [poliza])
 
-		for result in cursor.stored_results():
-			siniestros = result.fetchall()
+		cursor.execute("""
+			SELECT
+				id, grupo_ramo, contratante, poliza, cia, ramo, fec_stro,
+				causa, siniestro_no, monto_siniestro, estado, ejecutivo_cia, placa,
+				fecha_registro AS creado_en
+			FROM siniestros
+			WHERE poliza = %s AND eliminado = 0
+			ORDER BY fec_stro DESC
+		""", (poliza,))
+		siniestros = cursor.fetchall()
+
+		# Serializar fechas a string ISO
+		from datetime import date, datetime
+		for s in siniestros:
+			for k, v in s.items():
+				if isinstance(v, (date, datetime)):
+					s[k] = v.isoformat()
 
 		cursor.close()
 		connection.close()
@@ -65,14 +79,21 @@ def list_siniestros():
 		sql = f"""
 			SELECT
 				s.id, s.grupo_ramo, s.contratante, s.poliza, s.cia, s.ramo, s.fec_stro,
-				s.causa, s.siniestro_no, s.monto_siniestro, s.estado, s.ejecutivo_cia, s.placa, s.creado_en
+				s.causa, s.siniestro_no, s.monto_siniestro, s.estado, s.ejecutivo_cia, s.placa, s.fecha_registro AS creado_en
 			FROM siniestros s
-			WHERE 1=1 {rls_filter}
-			ORDER BY s.creado_en DESC
+			WHERE s.eliminado = 0 {rls_filter}
+			ORDER BY s.fecha_registro DESC
 		"""
 		
 		cursor.execute(sql, tuple(rls_params))
 		siniestros = cursor.fetchall()
+
+		# Serializar fechas a string ISO
+		from datetime import date, datetime
+		for s in siniestros:
+			for k, v in s.items():
+				if isinstance(v, (date, datetime)):
+					s[k] = v.isoformat()
 
 		cursor.close()
 		connection.close()
@@ -166,6 +187,17 @@ def insert_siniestro():
 			return None
 
 		siniestro_id = None
+
+		# Resolver poliza_id desde número de póliza (requerido NOT NULL en tabla)
+		numero_poliza = data.get('poliza')
+		poliza_id = None
+		if numero_poliza:
+			cursor.execute("SELECT idPoliza FROM polizas WHERE poliza = %s AND activo = 1 LIMIT 1", (numero_poliza,))
+			row_poliza = cursor.fetchone()
+			if row_poliza:
+				poliza_id = row_poliza['idPoliza']
+		if not poliza_id:
+			return jsonify({'error': f'No se encontró la póliza: {numero_poliza}'}), 400
 
 		# Llamar al SP específico según el grupo
 		if grupo_ramo == 'RRGG':
@@ -347,6 +379,9 @@ def insert_siniestro():
 
 		siniestro_id = inserted['id']
 
+		# Actualizar poliza_id (los SPs no lo incluyen, se resuelve aquí)
+		cursor.execute("UPDATE siniestros SET poliza_id = %s WHERE id = %s", (poliza_id, siniestro_id))
+
 		# Insertar documentos si existen
 		if data.get('documentos'):
 			for doc in data.get('documentos', []):
@@ -359,17 +394,17 @@ def insert_siniestro():
 					pass
 
 		# Insertar bitácora si existe
-			if data.get('bitacora'):
-				for bit in data.get('bitacora', []):
-					cursor.callproc('sp_insert_bitacora_siniestro', [
-						siniestro_id,
-						bit.get('comentario'),
-						bit.get('prox_fecha'),
-						bit.get('gestion_a'),
-						usuario
-					])
-					for _ in cursor.stored_results():
-						pass
+		if data.get('bitacora'):
+			for bit in data.get('bitacora', []):
+				cursor.callproc('sp_insert_bitacora_siniestro', [
+					siniestro_id,
+					bit.get('comentario'),
+					bit.get('prox_fecha'),
+					bit.get('gestion_a'),
+					usuario
+				])
+				for _ in cursor.stored_results():
+					pass
 
 		connection.commit()
 		cursor.close()
@@ -662,9 +697,10 @@ def buscar_siniestros():
 		sql = f"""
 			SELECT
 				s.id, s.grupo_ramo, s.contratante, s.poliza, s.cia, s.ramo, s.fec_stro,
-				s.causa, s.siniestro_no, s.monto_siniestro, s.estado, s.ejecutivo_cia, s.placa, s.creado_en
+				s.causa, s.siniestro_no, s.monto_siniestro, s.estado, s.ejecutivo_cia, s.placa, s.fecha_registro AS creado_en
 			FROM siniestros s
-			WHERE (
+			WHERE s.eliminado = 0
+			AND (
 				s.poliza LIKE %s OR
 				s.contratante LIKE %s OR
 				s.asegurado LIKE %s OR
@@ -673,7 +709,7 @@ def buscar_siniestros():
 				s.cia LIKE %s
 			)
 			{rls_filter}
-			ORDER BY s.creado_en DESC
+			ORDER BY s.fecha_registro DESC
 			LIMIT 100
 		"""
 		
@@ -682,6 +718,13 @@ def buscar_siniestros():
 		
 		cursor.execute(sql, tuple(params))
 		siniestros = cursor.fetchall()
+
+		# Serializar fechas a string ISO
+		from datetime import date, datetime
+		for s in siniestros:
+			for k, v in s.items():
+				if isinstance(v, (date, datetime)):
+					s[k] = v.isoformat()
 
 		cursor.close()
 		connection.close()
