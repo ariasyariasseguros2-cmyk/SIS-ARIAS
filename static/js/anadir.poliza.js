@@ -271,7 +271,9 @@
     const pctVal = parseNumber(subPctStr);
     if (!Number.isFinite(comp) || !Number.isFinite(pctVal)) return '';
     const ratio = pctVal <= 1 ? pctVal : (pctVal / 100);
-    return (comp * ratio).toFixed(2);
+    // Lógica solicitada: dividir entre * 1 antes de aplicar el porcentaje
+    const base = comp * 1;
+    return (base * ratio).toFixed(2);
   }
   function sumCommission(items) {
     let total = 0;
@@ -748,7 +750,7 @@
     const estado    = estadoTopEl?.value || 'PENDIENTE';
     // const ramoTop   = (ramoProductoTopEl?.value || '').trim(); // REMOVED
     const pctCC     = (pctComCompaniaEl?.value || '').trim();
-    const pctSA     = (pctComSubAgenteEl?.value || '').trim();
+    const pctSA     = (pctComSubAgenteEl?.value || '').trim() || '100';
     const nroOpTop  = (nroOperacionTopEl?.value || '').trim(); // NUEVO
 
     const blank = normalizeItem({
@@ -779,6 +781,9 @@
   
     if (blank.comision_compania_pct && blank.prima_neta) {
       blank.comision_compania_importe = computeCommissionAmount(blank.prima_neta, blank.comision_compania_pct);
+    }
+    if (blank.comision_subagente_pct && blank.comision_compania_importe) {
+      blank.comision_subagente_importe = computeSubAgentCommissionAmount(blank.comision_compania_importe, blank.comision_subagente_pct);
     }
 
     extractedItems.push(blank);
@@ -855,13 +860,14 @@
           const tipoPago = tipoPagoTopEl?.value || '';
           const estado   = estadoTopEl?.value || 'PENDIENTE';
           const pctCC    = pctComCompaniaEl?.value || '';
-          const pctSA    = pctComSubAgenteEl?.value || '';
+          const pctSA    = pctComSubAgenteEl?.value || '100';
           const impSA    = impComSubAgenteEl?.value || '';
           // NUEVO: Obtener producto por defecto del cliente si existe
           const defaultProducto = (window.selectedCliente && window.selectedCliente.ramos_producto) || '';
 
           items = items.map(it => {
             const importeCC = pctCC ? computeCommissionAmount(it.prima_neta, pctCC) : '';
+            const importeSA = (pctSA && importeCC) ? computeSubAgentCommissionAmount(importeCC, pctSA) : impSA;
             // Si no viene producto del PDF, usar el del cliente
             const rProd = (it.ramos_producto && it.ramos_producto.trim()) ? it.ramos_producto : defaultProducto;
             
@@ -873,7 +879,7 @@
               comision_compania_pct: pctCC,
               comision_compania_importe: importeCC,
               comision_subagente_pct: pctSA,
-              comision_subagente_importe: impSA
+              comision_subagente_importe: importeSA
             };
           });
 
@@ -900,6 +906,11 @@
                 if (Number.isFinite(pct)) {
                   extractedItems[i].comision_compania_pct = pct;
                   extractedItems[i].comision_compania_importe = computeCommissionAmount(extractedItems[i].prima_neta || '', String(pct));
+                  // Recalcular también comisión subagente si existe porcentaje
+                  const subPct = extractedItems[i].comision_subagente_pct;
+                  if (subPct) {
+                    extractedItems[i].comision_subagente_importe = computeSubAgentCommissionAmount(extractedItems[i].comision_compania_importe, subPct);
+                  }
                 }
               }
             });
@@ -1154,7 +1165,7 @@
       if (hint) hint.textContent = 'Sube un PDF para ver información.';
       if (impComCompaniaEl) impComCompaniaEl.value = '';
       if (pctComCompaniaEl) pctComCompaniaEl.value = '';
-      if (pctComSubAgenteEl) pctComSubAgenteEl.value = '';
+      if (pctComSubAgenteEl) pctComSubAgenteEl.value = '100';
       if (impComSubAgenteEl) impComSubAgenteEl.value = '';
       if (motivoTopEl) motivoTopEl.value = '';
       // if (ramoProductoTopEl) ramoProductoTopEl.value = '';
