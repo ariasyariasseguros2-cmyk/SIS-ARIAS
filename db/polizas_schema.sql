@@ -1077,6 +1077,9 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
+
+DROP PROCEDURE IF EXISTS sp_insert_cuota$$
+
 CREATE PROCEDURE sp_insert_cuota(
     IN p_poliza VARCHAR(50),
     IN p_cupon VARCHAR(50),
@@ -1089,6 +1092,16 @@ CREATE PROCEDURE sp_insert_cuota(
     IN p_usuario VARCHAR(50)
 )
 BEGIN
+    DECLARE v_msg VARCHAR(255);
+
+    -- Validar si factura ya existe
+    IF p_factura IS NOT NULL AND TRIM(p_factura) <> '' THEN
+        IF EXISTS (SELECT 1 FROM cuotas WHERE factura = TRIM(p_factura)) THEN
+            SET v_msg = CONCAT('El número de factura ya existe: ', TRIM(p_factura));
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+        END IF;
+    END IF;
+
     INSERT INTO cuotas (
         poliza, cupon, fecha_vencimiento, moneda, importe,
         fecha_pago, factura, observacion, usuario_registro
@@ -1104,6 +1117,7 @@ BEGIN
         WHERE TRIM(poliza) = TRIM(p_poliza);
     END IF;
 END$$
+
 DELIMITER ;
 
 -- NEW PROCEDURES FOR EDITING

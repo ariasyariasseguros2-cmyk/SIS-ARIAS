@@ -48,9 +48,8 @@
                         <select class="form-select" id="tipoDoc">
                             <option value="EMISION" {% if prima and prima.tipo_doc == 'EMISION' %}selected{% endif %}>EMISION</option>
                             <option value="RENOVACION" {% if prima and prima.tipo_doc == 'RENOVACION' %}selected{% endif %}>RENOVACION</option>
-                            <option value="ENDOSO" {% if prima and prima.tipo_doc == 'ENDOSO' %}selected{% endif %}>ENDOSO</option>
                             <option value="DEVOLUCION" {% if prima and prima.tipo_doc == 'DEVOLUCION' %}selected{% endif %}>DEVOLUCION</option>
-                            <option value="DIFERENCIA" {% if prima and prima.tipo_doc == 'DIFERENCIA' %}selected{% endif %}>DIFERENCIA</option>
+                            <option value="DIFERENCIA" {% if prima and prima.tipo_doc == 'DIFERENCIA' %}selected{% endif %}>INCLUSIÓN</option>
                             <option value="NETEO" {% if prima and prima.tipo_doc == 'NETEO' %}selected{% endif %}>NETEO</option>
                         </select>
                     </div>

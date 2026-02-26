@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from datetime import date, datetime
 
 def format_date_custom(d):
@@ -146,7 +146,7 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
         'total_monto': total_monto
     }
 
-def save_cuota(data: Dict[str, object]) -> bool:
+def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
     try:
         from models.db import get_connection
         cnx = get_connection()
@@ -178,10 +178,13 @@ def save_cuota(data: Dict[str, object]) -> bool:
         cnx.commit()
         cur.close()
         cnx.close()
-        return True
+        return True, ""
     except Exception as e:
         print(f"Error saving cuota: {e}")
-        return False
+        err_msg = str(e)
+        if "El número de factura ya existe" in err_msg:
+             return False, "El número de factura ya existe."
+        return False, err_msg
 
 def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
     import re

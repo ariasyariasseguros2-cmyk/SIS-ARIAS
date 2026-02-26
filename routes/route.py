@@ -78,12 +78,12 @@ def save_cuota_route():
     data['usuario'] = session['user']
     
     from controllers.cuotas.cuotas import save_cuota
-    success = save_cuota(data)
+    success, msg = save_cuota(data)
     
     if success:
         return {'ok': True}
     else:
-        return {'ok': False, 'error': 'Database error'}, 500
+        return {'ok': False, 'error': msg or 'Database error'}, 500
 
 @bp.route('/home')
 def home():

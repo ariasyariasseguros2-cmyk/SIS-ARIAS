@@ -1162,8 +1162,8 @@
       if (issuerEl) issuerEl.value = '';
       // Mantener subagente y ejecutivo desde window.selectedCliente si existen
       if (subAgenteTopEl) {
-        const subSel = (window.selectedCliente && window.selectedCliente.subagente) || '';
-        subAgenteTopEl.value = subSel;
+        // Por defecto 'ARIAS Y ARIAS' (ID 3) siempre, ignorando el del cliente por solicitud
+        subAgenteTopEl.value = 'ARIAS Y ARIAS';
       }
       if (ejecutivoTopEl) {
         const nombreEjecutivo = ((window.selectedCliente && window.selectedCliente.ejecutivo) || '').trim();
@@ -1189,7 +1189,7 @@
         }
       }
       if (endosatarioTopEl) endosatarioTopEl.value = '';
-      if (tipoVigenciaTopEl) tipoVigenciaTopEl.value = '';
+      if (tipoVigenciaTopEl) tipoVigenciaTopEl.value = 'DECLARACION MENSUAL';
       if (tipoPagoTopEl) tipoPagoTopEl.value = '';
       if (estadoTopEl) estadoTopEl.value = '';
       if (fileEl) fileEl.value = '';
