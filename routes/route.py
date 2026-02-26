@@ -2017,10 +2017,14 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
     if prov in ('pacifico', 'positiva', 'protecta') and 'sanitas' in low and not is_protecta_likely:
         prov = 'sanitas'
 
+    # NUEVO: Forzar Pacifico si se detecta Multisalud o RUC Pacifico (corrige falsos positivos de Mapfre)
+    if "multisalud" in t or "20332970411" in t or "pacifico seguros" in t:
+        prov = "pacifico"
+
     # NUEVO: si vino 'positiva' (o cualquier otro) pero el contenido dice 'MAPFRE', fuerza Mapfre
     # (corrige falsos positivos donde 'la positiva' aparece en textos legales de Mapfre)
     # IMPORTANTE: No entrar si ya se detectó mapfre-equipo-contratistas, mapfre-vehicular o mapfre-vida-ley para evitar downgrades
-    if prov not in {"mapfre", "mapfre-equipo-contratistas", "mapfre-vehicular", "mapfre-vida-ley"} and (
+    if prov not in {"mapfre", "mapfre-equipo-contratistas", "mapfre-vehicular", "mapfre-vida-ley", "pacifico"} and (
         "mapfre" in t or 
         re.search(r"vencimiento\s+de\s+aplicaci[oó]n", t) or 
         re.search(r"inicio\s+de\s+vigencia\s+aplicaci[oó]n", t)
@@ -2043,8 +2047,39 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         is_sctr_pension = re.search(r'\bsctr\b', low) or re.search(r'\baccidentes\s+de\s+trabajo\b', low)
         is_sctr_salud = re.search(r'\bsctr\b', low) or re.search(r'\bsalud\b', low)
         
+        # NUEVO: Detección de Aviso de Cobranza (Pacifico Generales V2 - Multisalud)
+        is_multisalud = re.search(r'multisalud', low) or re.search(r'aviso\s+de\s+cobranza', low)
+
         try:
-            if is_vida_ley:
+            if is_multisalud:
+                from controllers.addPacificoGenerales_V2 import addPacificoGenerales_V2
+                # Pasamos 'path' porque el controlador usa pdfplumber sobre el archivo
+                data = addPacificoGenerales_V2(path)
+                
+                if data and not data.get('error') and data.get('poliza'):
+                    it = {
+                        'numero_poliza': data.get('poliza'),
+                        'recibo': data.get('recibo', ''),  # Added field
+                        'colectivo_asegurado': data.get('asegurado'),  # Added field
+                        'inicio_vigencia': data.get('inicio'),
+                        'vencimiento': data.get('fecha_pago') or data.get('fin'),
+                        'fecha_emision': data.get('emision'),  # Added field
+                        'ultimo_dia_pago': data.get('fecha_pago'), # Added field
+                        'fecha_vencimiento': data.get('fecha_pago'), # Added field
+                        'prima_neta': str(data.get('prima_neta', '')),
+                        'prima_comercial_igv': str(data.get('total', '')),
+                        'prima_comercial': str(data.get('total', '')), # Duplicamos en prima comercial para asegurar visualizacion
+                        'moneda': data.get('moneda'),
+                        'ramo': 'SALUD', 
+                        'ramos_producto': data.get('producto')
+                    }
+                    
+                    # Ensure prima comercial is set correctly if total exists
+                    if data.get('total'):
+                        it['prima_comercial'] = str(data.get('total', ''))
+                    items.append(it)
+
+            elif is_vida_ley:
                 from controllers.addPacificoVidaLey import parse_pacifico_vidaley
                 it = parse_pacifico_vidaley(text)
                 if it:
@@ -2063,7 +2098,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
 
             # Antes era "elif"; mantenemos "if" para detectar salud además del anterior
 
-            if is_sctr_salud:
+            if is_sctr_salud and not is_multisalud:
                 from controllers.addPacificoSalud import parse_pacifico_salud
                 it = parse_pacifico_salud(text)
                 if it:
