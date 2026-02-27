@@ -345,15 +345,15 @@
     // Regla de fechas (fallback):
     // - Si NO viene ultimo_dia_pago, usar Emisión + 15
     // - Si NO viene fecha_vencimiento, usar ultimo_dia_pago o Emisión + 15
-    if (it.fecha_emision) {
-      const calcPago = addDaysToDateStr(it.fecha_emision, 15);
-      if (!it.ultimo_dia_pago && calcPago) {
-        it.ultimo_dia_pago = calcPago;
-      }
-      if (!it.fecha_vencimiento) {
-        it.fecha_vencimiento = it.ultimo_dia_pago || calcPago || '';
-      }
-    }
+    // if (it.fecha_emision) {
+    //   const calcPago = addDaysToDateStr(it.fecha_emision, 15);
+    //   if (!it.ultimo_dia_pago && calcPago) {
+    //     it.ultimo_dia_pago = calcPago;
+    //   }
+    //   if (!it.fecha_vencimiento) {
+    //     it.fecha_vencimiento = it.ultimo_dia_pago || calcPago || '';
+    //   }
+    // }
 
     // Mantener "Fin Vigencia" (vencimiento) tal cual PDF para la columna "Fin Vigencia"
     return it;
@@ -411,7 +411,7 @@
   function render(items) {
     ensureHeader();
     console.log('[render] fechas', items.map(it => ({
-      ultimo_dia_pago: it.ultimo_dia_pago,
+      //ultimo_dia_pago: it.ultimo_dia_pago,
       fecha_vencimiento: it.fecha_vencimiento,
       vencimiento: it.vencimiento
     })));
@@ -470,13 +470,14 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="colectivo_asegurado">${it.colectivo_asegurado || ''}</td>
         <td class="ramo-col" data-index="${idx}" data-field="ramo">${buildRamoSelect(it.ramo || '')}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="ramos_producto">${it.ramos_producto || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${formatMoney(it.prima_neta || '')}</td>
+        
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="inicio_vigencia">${it.inicio_vigencia || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="vencimiento">${it.vencimiento || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="ultimo_dia_pago">${it.ultimo_dia_pago || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vencimiento || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${formatMoney(it.prima_neta || '')}</td>
+        
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${formatMoney(it.prima_comercial || '')}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${formatMoney(it.prima_comercial_igv || it.prima_total || it.monto || '')}</td>
         <td data-index="${idx}" data-field="comision_compania_pct">
@@ -829,7 +830,7 @@
       vencimiento: '',
       moneda: '',
       fecha_emision: '',
-      ultimo_dia_pago: '',
+      //ultimo_dia_pago: '',
       fecha_vencimiento: '',   // agregado: permite editar/ver la columna
       prima_neta: '',
       prima_comercial: '',

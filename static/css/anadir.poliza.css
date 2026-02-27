@@ -305,23 +305,23 @@ body {
 /* Manual mapping of column headers */
 .table-custom td:nth-child(1)::before { content: "Póliza"; }
 .table-custom td:nth-child(2)::before { content: "Proforma/Recibo"; }
-.table-custom td:nth-child(3)::before { content: "Colectivo Asegurado"; }
+.table-custom td:nth-child(3)::before { content: "Asegurado"; }
 .table-custom td:nth-child(4)::before { content: "Ramo"; }
 .table-custom td:nth-child(5)::before { content: "Producto"; }
-.table-custom td:nth-child(6)::before { content: "Inicio Vigencia"; }
-.table-custom td:nth-child(7)::before { content: "Fin Vigencia"; }
-.table-custom td:nth-child(8)::before { content: "Moneda"; }
-.table-custom td:nth-child(9)::before { content: "Fecha Emisión"; }
-.table-custom td:nth-child(10)::before { content: "Último Día Pago"; }
+.table-custom td:nth-child(6)::before { content: "Moneda"; }
+.table-custom td:nth-child(7)::before { content: "Prima Neta"; }
+.table-custom td:nth-child(8)::before { content: "Inicio Vigencia"; }
+.table-custom td:nth-child(9)::before { content: "Fin Vigencia"; }
+.table-custom td:nth-child(10)::before { content: "Fecha Emisión"; }
+/* .table-custom td:nth-child(10)::before { content: "Último Día Pago"; } */
 .table-custom td:nth-child(11)::before { content: "Fecha Vencimiento"; }
-.table-custom td:nth-child(12)::before { content: "Prima Neta"; }
-.table-custom td:nth-child(13)::before { content: "Prima Comercial"; }
-.table-custom td:nth-child(14)::before { content: "Prima + IGV"; }
-.table-custom td:nth-child(15)::before { content: "% Com. Cía"; }
-.table-custom td:nth-child(16)::before { content: "Imp. Com. Cía"; }
-.table-custom td:nth-child(17)::before { content: "% Com. Sub"; }
-.table-custom td:nth-child(18)::before { content: "Imp. Com. Sub"; }
-.table-custom td:nth-child(19)::before { content: "Acciones"; }
+.table-custom td:nth-child(12)::before { content: "Prima Comercial"; }
+.table-custom td:nth-child(13)::before { content: "Prima + IGV"; }
+.table-custom td:nth-child(14)::before { content: "% Com. Cía"; }
+.table-custom td:nth-child(15)::before { content: "Imp. Com. Cía"; }
+.table-custom td:nth-child(16)::before { content: "% Com. Sub"; }
+.table-custom td:nth-child(17)::before { content: "Imp. Com. Sub"; }
+.table-custom td:nth-child(18)::before { content: "Acciones"; }
 
 /* Highlight Important Fields */
 .table-custom td:nth-child(1) { /* Poliza */

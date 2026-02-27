@@ -94,7 +94,7 @@ def lookup_comision_route():
 
     cia = request.args.get('cia')
     ramo = request.args.get('ramo')
-    producto = request.args.get('producto')
+    producto = request.args.get('producto') 
 
     # Candidates for lookup: try producto first, then ramo
     candidates = []
@@ -929,23 +929,15 @@ def upload():
         except Exception:
             pass
 
-        # Regla de negocio de fechas (UI):
-        # - último día de pago = fecha_emision (+fallback inicio_vigencia) + 15
-        # - fecha_vencimiento (UI) = último día de pago
-        cand = res.get("fecha_emision") or res.get("inicio_vigencia")
-        calc = _add_days_ddmmyyyy(cand, 15)
-    
-        # 1) Completar último día de pago si falta
-        if not res.get("ultimo_dia_pago") and calc:
-            res["ultimo_dia_pago"] = calc
-    
-        # 2) Completar fecha_vencimiento si falta, prefiriendo último día de pago
-        if not res.get("fecha_vencimiento"):
-            res["fecha_vencimiento"] = res.get("ultimo_dia_pago") or calc
-    
-        # 3) Completar fecha_vecimiento (campo legacy) si falta, igual a fecha de pago
-        if not res.get("fecha_vecimiento"):
-            res["fecha_vecimiento"] = res.get("ultimo_dia_pago") or calc
+        # Regla de negocio de fechas (UI) deshabilitada: cálculo de último día de pago
+        # cand = res.get("fecha_emision") or res.get("inicio_vigencia")
+        # calc = _add_days_ddmmyyyy(cand, 15)
+        # if not res.get("ultimo_dia_pago") and calc:
+        #     res["ultimo_dia_pago"] = calc
+        # if not res.get("fecha_vencimiento"):
+        #     res["fecha_vencimiento"] = res.get("ultimo_dia_pago") or calc
+        # if not res.get("fecha_vecimiento"):
+        #     res["fecha_vecimiento"] = res.get("ultimo_dia_pago") or calc
     
         return res
 
@@ -1015,33 +1007,28 @@ def upload():
     except Exception:
         pass
 
-    # NUEVO: derivar ultimo_dia_pago = fecha_emision + 15 si falta
-    try:
-        if not extracted.get('ultimo_dia_pago'):
-            # NUEVO: derivación SIEMPRE desde fecha_emision (+15)
-            try:
-                cand = extracted.get('fecha_emision') or extracted.get('inicio_vigencia')
-                calc = _add_days_ddmmyyyy(cand, 15)
-                if calc:
-                    extracted['ultimo_dia_pago'] = calc
-                    extracted['fecha_vencimiento'] = calc
-                    extracted['fecha_vecimiento'] = calc
-            except Exception:
-                pass
-            
-            # Ajuste de fechas (regla negocio):
-            # - fecha_vencimiento = fecha de pago (emisión + 15)
-            # - fecha_vecimiento = idem
-            try:
-                cand = extracted.get('fecha_emision') or extracted.get('inicio_vigencia')
-                calc = _add_days_ddmmyyyy(cand, 15)
-                if calc:
-                    extracted['fecha_vencimiento'] = calc
-                    extracted['fecha_vecimiento'] = calc
-            except Exception:
-                pass
-    except Exception:
-        pass
+    # Cálculo de ultimo_dia_pago deshabilitado
+    # try:
+    #     if not extracted.get('ultimo_dia_pago'):
+    #         try:
+    #             cand = extracted.get('fecha_emision') or extracted.get('inicio_vigencia')
+    #             calc = _add_days_ddmmyyyy(cand, 15)
+    #             if calc:
+    #                 extracted['ultimo_dia_pago'] = calc
+    #                 extracted['fecha_vencimiento'] = calc
+    #                 extracted['fecha_vecimiento'] = calc
+    #         except Exception:
+    #             pass
+    #         try:
+    #             cand = extracted.get('fecha_emision') or extracted.get('inicio_vigencia')
+    #             calc = _add_days_ddmmyyyy(cand, 15)
+    #             if calc:
+    #                 extracted['fecha_vencimiento'] = calc
+    #                 extracted['fecha_vecimiento'] = calc
+    #         except Exception:
+    #             pass
+    # except Exception:
+    #     pass
 
     # Ajuste de fechas:
     # - fecha_vencimiento = vigencia (si existe)
