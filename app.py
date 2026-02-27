@@ -32,12 +32,17 @@ def login():
             cur.execute("CALL sp_login_usuario(%s)", (username,))
             row = cur.fetchone()
             # Consumir cualquier conjunto de resultados adicional del SP
-            while cur.nextset():
+            try:
+                while cur.nextset():
+                    pass
+            except Exception:
                 pass
             cur.close()
             cnx.close()
-        except Exception:
-            error = 'Error de conexión a base de datos.'
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            error = f'Error de conexión: {e}'
             return render_template('view/login.html', error=error)
 
         def verify_password(plain: str, stored: str) -> bool:
