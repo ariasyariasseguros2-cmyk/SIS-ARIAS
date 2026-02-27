@@ -56,6 +56,12 @@ def map_excel_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     synonyms = {
         'poliza': 'POLIZA_CERTF',
+        'cia'                   : 'COMPANIA_NOMBRE_CORTO',
+        'cia.'                  : 'COMPANIA_NOMBRE_CORTO',
+        'compania'              : 'COMPANIA_NOMBRE_CORTO',
+        'compañia'              : 'COMPANIA_NOMBRE_CORTO',
+        'compania nombre corto' : 'COMPANIA_NOMBRE_CORTO',
+        'aseguradora'           : 'COMPANIA_NOMBRE_CORTO',
         'fec emision': 'FECHA_EMISION',
         'fec. emision': 'FECHA_EMISION',
         'ini vigencia': 'VIGENCIA_INICIO',
@@ -140,7 +146,8 @@ def _detect_header_row(df_raw: pd.DataFrame) -> Optional[int]:
         'poliza', 'ini vigencia', 'ini.vigencia', 'fin vigencia', 'fec emision', 'fec. emision',
         'nombre', 'numero documento', 'direccion', 'departamento', 'provincia', 'distrito',
         'moneda', 'prima', 'vendedor', 'cod agenc', 'placa', 'uso', 'clase', 'marca',
-        'desc modelo', 'desc.modelo', 'serie', 'ano', 'año', 'anio'
+        'desc modelo', 'desc.modelo', 'serie', 'ano', 'año', 'anio',
+        'cia', 'cia.', 'compania', 'compañia', 'aseguradora'
     }
     max_score = 0
     best_row = None
@@ -717,11 +724,16 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 
                     prima_mas_igv = 0.0
 
+                # Validar que la compañía no venga vacía (advertencia, no bloquea)
+                compania_nombre_corto = normalize_string(row.get('COMPANIA_NOMBRE_CORTO', ''))
+                if not compania_nombre_corto:
+                    errors_list.append(f"Fila {idx + 2}: Advertencia - Compañía no encontrada (columna CIA/COMPAÑIA vacía o no detectada)")
+
                 poliza_args = (
                     numero_documento,
                     normalize_string(row.get('TIPO_DOC', 'EMISION')),
                     normalize_string(row.get('NOMBRE_RAZON_SOCIAL', '')),  # asegurado
-                    normalize_string(row.get('COMPANIA_NOMBRE_CORTO', '')),
+                    compania_nombre_corto,
                     normalize_string(row.get('RAMO_ABREVIACION', 'SOAT')),
                     normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',
                     normalize_numero_documento(row.get('AVISO_COB', '')) if pd.notna(row.get('AVISO_COB')) else '',  # recibo
