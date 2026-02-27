@@ -146,14 +146,15 @@ def get_estado_cuenta_data(filtros_input=None):
                     p.ramos_producto AS producto,
                     p.tipo_doc,
                     p.poliza,
+                    p.recibo AS proforma_cupon, 
+                    DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
                     DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
                     DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
-                    DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
                     DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_facturacion,
                     DATE_FORMAT(p.fecha_vencimiento, '%d/%m/%Y') AS fecha_venc,
                     p.moneda,
-                    p.prima_neta AS monto_cta_cobrar,
-                    p.prima_comercial_igv AS monto_cta_pagar,
+                    p.prima_comercial_igv AS monto_cta_cobrar,
+                    CASE WHEN UPPER(IFNULL(p.estado,'')) = 'CANCELADO' THEN 0 ELSE p.prima_comercial_igv END AS monto_cta_pagar,
                     p.estado
                 FROM polizas p
                 WHERE p.cliente_id = %s
@@ -461,13 +462,14 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
                 p.ramos_producto AS producto,
                 p.tipo_doc,
                 p.poliza,
+                p.recibo AS proforma_cupon, 
+                DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
                 DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
                 DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
-                DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
                 DATE_FORMAT(p.fecha_vencimiento, '%d/%m/%Y') AS fecha_venc,
                 p.moneda,
-                p.prima_comercial AS monto_cta_cobrar,
-                p.prima_neta AS monto_cta_pagar,
+                p.prima_comercial_igv AS monto_cta_cobrar,
+                CASE WHEN UPPER(IFNULL(p.estado,'')) = 'CANCELADO' THEN 0 ELSE p.prima_comercial_igv END AS monto_cta_pagar,
                 p.estado
             FROM polizas p
             WHERE p.cliente_id = %s

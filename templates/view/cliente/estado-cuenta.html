@@ -174,13 +174,14 @@
                             <th>Producto</th>
                             <th>Tipo Doc</th>
                             <th>N° de Póliza</th>
-                            <th>Vigencia (Desde - Hasta)</th>
+                            <th>Proforma/Cupon</th>
                             <th>Fecha Emisión</th>
+                            <th>Vigencia (Desde - Hasta)</th>
                             <th>Fecha Facturación</th>
                             <th>Fecha Vencimiento</th>
                             <th>Moneda</th>
-                            <th>Cta. Cobrar</th>
-                            <th>Cta. Pagar</th>
+                            <th>Monto</th>
+                            <th>Cta. Por Pagar</th>
                             <th>Estado</th>
                         </tr>
                     </thead>
@@ -208,8 +209,9 @@
                                 {% endif %}
                             </td>
                             <td>{{ p.poliza or '-' }}</td>
-                            <td>{{ (p.vig_inicio or '-') ~ ' - ' ~ (p.vig_fin or '-') }}</td>
+                            <td>{{ p.proforma_cupon or '-' }}</td>
                             <td>{{ p.fecha_emision or '-' }}</td>
+                            <td>{{ (p.vig_inicio or '-') ~ ' - ' ~ (p.vig_fin or '-') }}</td>
                             <td>{{ p.fecha_facturacion or '-' }}</td>
                             <td>{{ p.fecha_venc or '-' }}</td>
                             <td>
