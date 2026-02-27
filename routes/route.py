@@ -944,6 +944,36 @@ def upload():
     if items and len(items) > 0:
         LOG('[upload] Origen de datos: provider parser (items).')
         items_ui = [_normalize_to_ui(it) for it in items]
+        # Rimac: garantizar UN solo ítem y priorizar póliza en formato '#### - #######'
+        try:
+            issuer_low = (issuer or '').lower()
+        except Exception:
+            issuer_low = ''
+        if (detected_provider and 'rimac' in str(detected_provider)) or ('rimac' in issuer_low):
+            def _score_rimac(it: dict) -> int:
+                s = 0
+                np = (it.get('numero_poliza') or it.get('poliza') or '').strip()
+                # formato con guion
+                if re.search(r"\b\d{3,6}\s*-\s*\d{5,12}\b", np):
+                    s += 100
+                # longitud mayor suele ser '2101 - 1618199' vs '1618199'
+                s += min(len(np), 20)
+                return s
+            items_ui.sort(key=_score_rimac, reverse=True)
+            items_ui = [items_ui[0]]
+            LOG(f"[upload] rimac: reducido a un ítem: {items_ui[0].get('numero_poliza')}")
+
+        if ((detected_provider or '') and 'rimac' in str(detected_provider)) or ((issuer or '').lower().find('rimac') != -1):
+            def _score(it: dict) -> int:
+                s = 0
+                np = (it.get('numero_poliza') or it.get('poliza') or '').strip()
+                if re.search(r"\b\d{3,6}\s*-\s*\d{5,12}\b", np):
+                    s += 100
+                s += min(len(np), 20)
+                return s
+            items_ui.sort(key=_score, reverse=True)
+            items_ui = [items_ui[0]]
+            LOG(f"[upload] rimac: forzado a un solo ítem")
         LOG(f"[upload] fechas normalizadas: {[(x.get('ultimo_dia_pago'), x.get('fecha_vencimiento'), x.get('vencimiento')) for x in items_ui]}")
         # Dedupe por combinación clave y descartar muy vacíos
         unique = []
@@ -1940,6 +1970,43 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
     prov = (issuer or "").strip().lower() or None
     low = (text or "").lower()
 
+    # Normalizar slugs del selector si vino algo como 'rimac-seguros'
+    if prov:
+        try:
+            pnorm = re.sub(r"[^a-z]", "", prov)
+        except Exception:
+            pnorm = prov.replace("-", "").replace("_", "")
+        if "rimac" in pnorm:
+            prov = "rimac"
+        elif "mapfre" in pnorm and "vidaley" in pnorm:
+            prov = "mapfre-vida-ley"
+        elif "pacifico" in pnorm and "salud" in pnorm:
+            prov = "pacifico_salud"
+        elif "positiva" in pnorm and "vidaley" in pnorm:
+            prov = "lpv-vida-ley"
+        elif "positiva" in pnorm and "pension" in pnorm:
+            prov = "lpv-pension"
+        elif "positiva" in pnorm and "salud" in pnorm:
+            prov = "lpv-salud"
+
+    if prov:
+        try:
+            pnorm = re.sub(r"[^a-z]", "", prov)
+        except Exception:
+            pnorm = prov.replace("-", "").replace("_", "")
+        if "rimac" in pnorm:
+            prov = "rimac"
+        elif "mapfre" in pnorm and "vidaley" in pnorm:
+            prov = "mapfre-vida-ley"
+        elif "pacifico" in pnorm and "salud" in pnorm:
+            prov = "pacifico_salud"
+        elif "positiva" in pnorm and "vidaley" in pnorm:
+            prov = "lpv-vida-ley"
+        elif "positiva" in pnorm and "pension" in pnorm:
+            prov = "lpv-pension"
+        elif "positiva" in pnorm and "salud" in pnorm:
+            prov = "lpv-salud"
+
     if not prov:
         # detección básica por contenido
         # Primero: Vida Ley de Mapfre por patrones de contenido
@@ -1995,6 +2062,8 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
             prov = "sanitas"
         elif "pacifico" in t or "pacífico" in t:
                 prov = "pacifico"
+        elif ("rimac" in t or "rimac seguros" in t) or re.search(r"pol[ií]za\s*\d{3,6}\s*-\s*\d{5,12}", t):
+            prov = "rimac"
         elif "vida-ley-crecer" in t:
                 prov = "vida-ley-crecer"
         else:
@@ -2017,6 +2086,11 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
              prov = "vida-ley-crecer"
         else:
              prov = "crecer"
+
+    # Forzar Rimac si aparecen señales claras del encabezado Rimac Generales
+    # (ej.: "Web Vehiculos" y "Póliza #### - #######"), incluso si antes se clasificó erróneamente
+    if re.search(r"\bweb\s+vehicul", t) and re.search(r"pol[ií]za\s*\d{3,6}\s*-\s*\d{5,12}", t):
+        prov = "rimac"
 
     # NUEVO: si vino 'pacifico' o 'positiva' desde UI pero el contenido dice 'sanitas', fuerza Sanitas
     # Se añade guardia para NO cambiar a Sanitas si realmente es Protecta (que puede tener links a sanitasperu.com)
@@ -2218,6 +2292,13 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         item = parse_sanitas_salud(text)
         print("[provider] sanitas salud item:", item)
         return [item] if item else []
+        
+    if prov == "rimac":
+        from controllers.addRimacGenerales import parse_rimac_generales
+        item = parse_rimac_generales(text)
+        print("[provider] rimac item:", item)
+        return [item] if item else []
+
     # NUEVO: Protecta Pensión
     if prov in {"protecta", "proctecta"}:
         # Detectar si es Emisión (SCTR Pensiones con Prima Comercial)
