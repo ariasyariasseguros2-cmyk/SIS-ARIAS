@@ -3183,17 +3183,22 @@ DELIMITER ;
 -- =========================================================
 -- TABLA: AGENTES/VENDEDORES
 -- =========================================================
+-- =========================================================
+-- TABLA: AGENTES/VENDEDORES
+-- =========================================================
 CREATE TABLE IF NOT EXISTS agentes (
-    id INT NOT NULL AUTO_INCREMENT,
-    codigo_agente VARCHAR(50) NOT NULL,
+                                       id INT NOT NULL AUTO_INCREMENT,
+                                       codigo_agente VARCHAR(50) NOT NULL,
     nombre_vendedor VARCHAR(255) NOT NULL,
+    tipo_menor DECIMAL(10,2) NOT NULL DEFAULT 0,
+    tipo_regular DECIMAL(10,2) NOT NULL DEFAULT 0,
     estado ENUM('ACTIVO','INACTIVO') NOT NULL DEFAULT 'ACTIVO',
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uq_agentes_codigo (codigo_agente),
     KEY idx_agentes_estado (estado),
     KEY idx_agentes_nombre (nombre_vendedor)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- =========================================================
@@ -3204,9 +3209,14 @@ DROP PROCEDURE IF EXISTS sp_listar_agentes;
 DELIMITER $$
 CREATE PROCEDURE sp_listar_agentes()
 BEGIN
-    SELECT id, codigo_agente, nombre_vendedor, estado
-    FROM agentes
-    ORDER BY nombre_vendedor ASC;
+SELECT id,
+       codigo_agente,
+       nombre_vendedor,
+       tipo_menor,
+       tipo_regular,
+       estado
+FROM agentes
+ORDER BY nombre_vendedor ASC;
 END$$
 DELIMITER ;
 
@@ -3215,22 +3225,29 @@ DELIMITER $$
 CREATE PROCEDURE sp_insertar_agente(
     IN p_codigo_agente VARCHAR(50),
     IN p_nombre_vendedor VARCHAR(255),
+    IN p_tipo_menor DECIMAL(10,2),
+    IN p_tipo_regular DECIMAL(10,2),
     OUT p_new_id INT
 )
 BEGIN
     IF TRIM(p_codigo_agente) = '' THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El código de agente no puede estar vacío';
-    END IF;
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El código de agente no puede estar vacío';
+END IF;
 
     IF TRIM(p_nombre_vendedor) = '' THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre del vendedor no puede estar vacío';
-    END IF;
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El nombre del vendedor no puede estar vacío';
+END IF;
 
-    INSERT INTO agentes (codigo_agente, nombre_vendedor)
-    VALUES (TRIM(p_codigo_agente), TRIM(p_nombre_vendedor))
+INSERT INTO agentes (codigo_agente, nombre_vendedor, tipo_menor, tipo_regular)
+VALUES (TRIM(p_codigo_agente),
+        TRIM(p_nombre_vendedor),
+        IFNULL(p_tipo_menor,0),
+        IFNULL(p_tipo_regular,0))
     ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
 
-    SET p_new_id = LAST_INSERT_ID();
+SET p_new_id = LAST_INSERT_ID();
 END$$
 DELIMITER ;
 
