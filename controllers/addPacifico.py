@@ -448,35 +448,79 @@ def parse_pacifico_pension(text: str) -> dict | None:
                 prima_total = None
                 debug_notes.append("total_parse_error")
     else:
+        triad_match = re.search(
+            r"PRIMA\s+COMERCIAL[^0-9]{0,60}([0-9]+(?:[.,][0-9]{2}))[^A-Z]{0,160}I\.?G\.?V\.?[^0-9]{0,60}([0-9]+(?:[.,][0-9]{2}))[^A-Z]{0,200}(?:TOTAL\s+A\s+COBRAR|TOTAL\s+A\s+PAGAR)[^0-9]{0,60}([0-9]+(?:[.,][0-9]{2}))",
+            text, re.IGNORECASE | re.DOTALL
+        ) or re.search(
+            r"PRIMA\s+COMERCIAL[^0-9]{0,60}([0-9]+(?:[.,][0-9]{2}))[^A-Z]{0,160}IGV[^0-9]{0,60}([0-9]+(?:[.,][0-9]{2}))[^A-Z]{0,200}(?:TOTAL\s+A\s+COBRAR|TOTAL\s+A\s+PAGAR)[^0-9]{0,60}([0-9]+(?:[.,][0-9]{2}))",
+            text, re.IGNORECASE | re.DOTALL
+        )
+        if triad_match:
+            prima_comercial = triad_match.group(1)
+            igv_val = triad_match.group(2)
+            total_cobrar = triad_match.group(3)
+            debug_notes.append("triada=directa")
+        # Montos principales por etiqueta, priorizando valores cercanos a cada rótulo.
         prima_neta = (
             _find(r"PRIMA\s+NETA\s*:?\s*([0-9][0-9\.,]*)", text)
             or _first_decimal_after(r"\bPRIMA\s+NETA\b", text, lookahead_lines=4, dot_only=False)
         )
-        prima_comercial = (
-            _find(r"PRIMA\s+COMERCIAL\b\s*:?\s*([0-9][0-9\.,]*)", text)
-            or _first_decimal_after(r"\bPRIMA\s+COMERCIAL\b", text, lookahead_lines=4, dot_only=False)
+        prima_comercial = prima_comercial or (
+            _first_decimal_after(r"\bPRIMA\s+COMERCIAL\b", text, lookahead_lines=4, dot_only=False)
             or _find_after(r"\bPRIMA\s+COMERCIAL\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
             or _find_last(r"PRIMA\s+COMERCIAL(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+            or _find(r"PRIMA\s+COMERCIAL\b\s*:?\s*([0-9][0-9\.,]*)", text)
         )
-        igv_val = (
-            _find(r"\bIGV\b\s*:?\s*([0-9][0-9\.,]*)", text)
-            or _first_decimal_after(r"\bIGV\b", text, lookahead_lines=4, dot_only=False)
+        igv_val = igv_val or (
+            _first_decimal_after(r"\bIGV\b", text, lookahead_lines=4, dot_only=False)
             or _find_after(r"\bIGV\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
             or _find_last(r"\bIGV\b(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+            or _find(r"\bIGV\b\s*:?\s*([0-9][0-9\.,]*)", text)
         )
-        prima_total = (
-            _monto_total_pagar(text)
-            or _monto_total_pagar(flat)
-            or _find(r"PRIMA\s+COMERCIAL\s*\+\s*IGV\s*:?\s*([0-9][0-9\.,]*)", text)
-            or _first_decimal_after(r"PRIMA\s+COMERCIAL\s*\+\s*IGV\b", text, lookahead_lines=4, dot_only=False)
-            or _find(r"TOTAL\s+A\s+COBRAR\s*:?\s*([0-9][0-9\.,]*)", text)
-            or _first_decimal_after(r"TOTAL\s+A\s+COBRAR\b", text, lookahead_lines=4, dot_only=False)
+        total_cobrar = (locals().get("total_cobrar") if "total_cobrar" in locals() else None) or (
+            _first_decimal_after(r"TOTAL\s+A\s+COBRAR\b", text, lookahead_lines=4, dot_only=False)
             or _find_after(r"TOTAL\s+A\s+COBRAR\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
             or _find_last(r"TOTAL\s+A\s+COBRAR(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+            or _find(r"PRIMA\s+COMERCIAL\s*\+\s*IGV\s*:?\s*([0-9][0-9\.,]*)", text)
+            or _first_decimal_after(r"PRIMA\s+COMERCIAL\s*\+\s*IGV\b", text, lookahead_lines=4, dot_only=False)
+            or _monto_total_pagar(text)
+            or _monto_total_pagar(flat)
             or _label_amount(r"Monto\s+total\s+a\s+pagar\b", text, lookahead_lines=6)
             or _label_amount(r"Monto\s+total\s+a\s+pagar\b", flat, lookahead_lines=6)
         )
         debug_notes.append("total_source=normal_labels")
+
+        # Si alguna parte de la triada falta, completarla por identidad contable.
+        try:
+            if not prima_comercial and total_cobrar and igv_val:
+                prima_comercial = f"{_to_float(total_cobrar) - _to_float(igv_val):.2f}"
+                debug_notes.append("prima_comercial=total-igv")
+            if not igv_val and total_cobrar and prima_comercial:
+                igv_val = f"{_to_float(total_cobrar) - _to_float(prima_comercial):.2f}"
+                debug_notes.append("igv=total-prima")
+            if not total_cobrar and prima_comercial and igv_val:
+                total_cobrar = f"{_to_float(prima_comercial) + _to_float(igv_val):.2f}"
+                debug_notes.append("total=prima+igv")
+        except Exception:
+            pass
+
+        # Heurística anti-falsos positivos: si prima == total o los valores son muy pequeños, deducir globalmente
+        def _is_small(v: str | None) -> bool:
+            try:
+                return v is not None and _to_float(v) < 3.0
+            except Exception:
+                return False
+        suspicious = False
+        try:
+            if prima_comercial and total_cobrar:
+                suspicious = abs(_to_float(prima_comercial) - _to_float(total_cobrar)) < 0.01
+        except Exception:
+            suspicious = False
+        if (not prima_comercial or not igv_val or not total_cobrar) or suspicious or _is_small(prima_comercial) or _is_small(total_cobrar):
+            a, b, c = _deduce_amounts_global(text)
+            if a and b and c:
+                prima_comercial, igv_val, total_cobrar = a, b, c
+                debug_notes.append("triada=deduccion-global")
 
     # Ramo: inicializar para evitar NameError
     ramo = None
@@ -507,9 +551,9 @@ def parse_pacifico_pension(text: str) -> dict | None:
         "fecha_emision": _clean(fecha_emision),
         "ultimo_dia_pago": _clean(ultimo_dia_pago),
         "fecha_vencimiento": _clean(ultimo_dia_pago),
-        "prima_comercial": _clean(prima_comercial),
-        "prima_total": _clean(prima_total),
-        "prima_comercial_igv": _clean(prima_total),
+        "prima_comercial": _clean(_money(prima_comercial)),
+        "prima_total": _clean(_money(total_cobrar or prima_total)),
+        "prima_comercial_igv": _clean(_money(total_cobrar or prima_total)),
         "ramo": _clean(ramo_main) or _clean(ramo),
         "ramos_producto": _clean(ramos_producto),
         "tipo_documento": "convenio" if is_convenio else "normal",

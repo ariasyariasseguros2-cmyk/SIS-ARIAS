@@ -2174,8 +2174,10 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
                      items.append(it)
             elif is_sctr_pension:
 
-                from controllers.addPacifico import parse_pacifico_pension
-                it = parse_pacifico_pension(text)
+                import importlib
+                pac_mod = importlib.import_module('controllers.addPacifico')
+                pac_mod = importlib.reload(pac_mod)
+                it = pac_mod.parse_pacifico_pension(text)
                 if it:
                     items.append(it)
             else:
@@ -2319,11 +2321,17 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         print("[provider] crecer pension item:", item)
         return [item] if item else []
     if prov == "pacifico":
+        import importlib
+        pac_mod = importlib.import_module('controllers.addPacifico')
+        pac_mod = importlib.reload(pac_mod)
+        pac_vl_mod = importlib.import_module('controllers.addPacificoVidaLey')
+        pac_vl_mod = importlib.reload(pac_vl_mod)
         from controllers.addPacifico import parse_pacifico_pension
         from controllers.addPacificoVidaLey import parse_pacifico_vidaley  # NUEVO
         print("[provider] branch: pacifico; texto (head 600):", text[:600].replace("\n", "\\n"))
         # Detectar Vida Ley por contenido
         hint_vidaley = re.search(r"\bvida\s+ley\b", text, re.IGNORECASE) or re.search(r"decreto\s+legislativo\s*n?\s*688", text, re.IGNORECASE)
+        item = pac_vl_mod.parse_pacifico_vidaley(text) if hint_vidaley else pac_mod.parse_pacifico_pension(text)
         item = parse_pacifico_vidaley(text) if hint_vidaley else parse_pacifico_pension(text)
         print("[provider] pacifico item:", item)
         return [item] if item else []
