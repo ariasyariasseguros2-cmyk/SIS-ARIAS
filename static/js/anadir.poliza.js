@@ -499,7 +499,11 @@
       tbody.appendChild(tr);
     });
 
-    if (btnSave) btnSave.disabled = items.length === 0;
+    if (btnSave) {
+      const hasTipoDoc = ((tipoDocTopEl?.value || '').toString().trim() !== '');
+      const hasTipoPago = ((tipoPagoTopEl?.value || '').toString().trim() !== '');
+      btnSave.disabled = items.length === 0 || !hasTipoDoc || !hasTipoPago;
+    }
     if (hint) hint.textContent = items.length ? `Se extrajeron ${items.length} ítem(s). Revisa y guarda.` : 'Sube un PDF para ver información.';
     const total = sumCommission(items);
     if (impComCompaniaEl) impComCompaniaEl.value = items.length ? total : '';
@@ -1060,6 +1064,25 @@
     if (isSaving) return; // evita clics repetidos
     isSaving = true;
     try {
+      const tipoDocSel = (tipoDocTopEl?.value || '').toString().trim();
+      if (!tipoDocSel) {
+        isSaving = false;
+        if (window.Swal) Swal.fire({ icon: 'warning', title: 'Falta completar', text: 'Selecciona el Tipo de Doc antes de guardar.' });
+        else alert('Selecciona el Tipo de Doc antes de guardar.');
+        if (btnSave) btnSave.disabled = (extractedItems || []).length === 0 || true;
+        return;
+      }
+      const tipoPagoSel = (tipoPagoTopEl?.value || '').toString().trim();
+      if (!tipoPagoSel) {
+        isSaving = false;
+        if (window.Swal) Swal.fire({ icon: 'warning', title: 'Falta completar', text: 'Selecciona el Tipo de Pago antes de guardar.' });
+        else alert('Selecciona el Tipo de Pago antes de guardar.');
+        if (btnSave) {
+          const hasTipoDoc = ((tipoDocTopEl?.value || '').toString().trim() !== '');
+          btnSave.disabled = (extractedItems || []).length === 0 || !hasTipoDoc || true;
+        }
+        return;
+      }
       if (btnSave) btnSave.disabled = true;
 
       const selected = Object.assign({}, (window.selectedCliente || {}), {
@@ -1151,6 +1174,11 @@
     const val = (tipoPagoTopEl?.value || '').trim();
     extractedItems = (extractedItems || []).map(it => ({ ...it, forma_pago: val }));
     render(extractedItems);
+    if (btnSave) {
+      const hasTipoDoc = ((tipoDocTopEl?.value || '').toString().trim() !== '');
+      const hasTipoPago = ((tipoPagoTopEl?.value || '').toString().trim() !== '');
+      btnSave.disabled = (extractedItems || []).length === 0 || !hasTipoDoc || !hasTipoPago;
+    }
   });
 
   estadoTopEl?.addEventListener('change', () => {
@@ -1183,6 +1211,11 @@
         }
         estadoTopEl.dispatchEvent(new Event('change'));
       }
+    }
+    if (btnSave) {
+      const hasTipoDoc = ((tipoDocTopEl?.value || '').toString().trim() !== '');
+      const hasTipoPago = ((tipoPagoTopEl?.value || '').toString().trim() !== '');
+      btnSave.disabled = (extractedItems || []).length === 0 || !hasTipoDoc || !hasTipoPago;
     }
   });
 
