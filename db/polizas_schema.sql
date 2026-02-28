@@ -3118,10 +3118,10 @@ CREATE PROCEDURE sp_insert_poliza_soat_masivo (
     IN p_prima_neta DECIMAL(15,2),
     IN p_prima_comercial_igv DECIMAL(15,2),
     IN p_prima_total DECIMAL(15,2),
-    IN p_porc_compania DECIMAL(5,2),
-    IN p_imp_compania DECIMAL(15,2),
-    IN p_porc_subagente DECIMAL(5,2),
-    IN p_imp_subagente DECIMAL(15,2),
+    IN p_porc_compania DECIMAL(10,3),
+    IN p_imp_compania DECIMAL(15,3),
+    IN p_porc_subagente DECIMAL(10,3),
+    IN p_imp_subagente DECIMAL(15,3),
     IN p_ramos_producto VARCHAR(120),
     IN p_estado VARCHAR(20),
     IN p_pdf_path VARCHAR(255),
@@ -3194,6 +3194,8 @@ BEGIN
         INSERT INTO poliza_archivos (poliza_id, numero_poliza, ruta_archivo, nombre_original, ramo, producto, usuario, compania)
         VALUES (v_poliza_id, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1), p_ramo, p_ramos_producto, p_usuario_registro, p_cia);
     END IF;
+
+    SELECT v_poliza_id AS id;
 
 END$$
 DELIMITER ;
@@ -3350,8 +3352,8 @@ CREATE TABLE IF NOT EXISTS configuracion_soat (
 -- =============================================
 
 INSERT INTO tipos_soat (nombre, tasa_aas, tasa_vendedor) VALUES
-('Menor', 10.00, 60.00),
-('Regular', 18.00, 70.00)
+('Menor', 10.00, 0.00),
+('Regular', 18.00, 0.00)
 ON DUPLICATE KEY UPDATE tasa_aas=VALUES(tasa_aas), tasa_vendedor=VALUES(tasa_vendedor);
 
 INSERT INTO configuracion_comision_extra (descripcion, porcentaje) VALUES
@@ -3466,57 +3468,67 @@ WHERE t.nombre = 'Regular';
 DROP PROCEDURE IF EXISTS sp_calcular_comision_soat;
 DELIMITER $$
 CREATE PROCEDURE sp_calcular_comision_soat(
-    IN p_clase_id INT,
-    IN p_uso_id INT,
+    IN p_clase_id    INT,
+    IN p_uso_id      INT,
     IN p_precio_soat DECIMAL(10,2),
-    IN p_extra_ids VARCHAR(255)
+    IN p_extra_ids   VARCHAR(255),
+    IN p_codigo_agente VARCHAR(50)   -- porcentaje vendedor viene de tabla agentes
 )
 BEGIN
-    DECLARE v_tasa_aas DECIMAL(5,2);
-    DECLARE v_tasa_vendedor DECIMAL(5,2);
-    DECLARE v_comision_aas DECIMAL(10,2);
+    DECLARE v_tipo_soat_nom     VARCHAR(50);
+    DECLARE v_tasa_aas          DECIMAL(5,2)  DEFAULT 0;
+    DECLARE v_tasa_vendedor     DECIMAL(10,2) DEFAULT 0;
+    DECLARE v_comision_aas      DECIMAL(10,2);
     DECLARE v_comision_vendedor DECIMAL(10,2);
-    DECLARE v_utilidad DECIMAL(10,2);
-    DECLARE v_extra_total DECIMAL(10,2) DEFAULT 0.00;
-    
-    -- 1. Obtener Tasas Base
-    SELECT t.tasa_aas, t.tasa_vendedor
-    INTO v_tasa_aas, v_tasa_vendedor
+    DECLARE v_utilidad          DECIMAL(10,2);
+    DECLARE v_extra_total       DECIMAL(10,2) DEFAULT 0.00;
+
+    -- 1. Obtener tasa_aas y nombre del tipo SOAT desde configuracion_soat
+    SELECT t.nombre, t.tasa_aas
+    INTO v_tipo_soat_nom, v_tasa_aas
     FROM configuracion_soat cs
     JOIN tipos_soat t ON cs.tipo_soat_id = t.id
     WHERE cs.clase_id = p_clase_id AND cs.uso_id = p_uso_id
     LIMIT 1;
-    
-    -- Si no existe configuracion, usar valores por defecto 0
+
     IF v_tasa_aas IS NULL THEN
         SET v_tasa_aas = 0;
-        SET v_tasa_vendedor = 0;
     END IF;
-    
-    -- 2. Calcular Comisiones (tasa_aas y tasa_vendedor son porcentajes: 10.00, 18.00, 60.00, 70.00)
-    SET v_comision_aas = p_precio_soat * (v_tasa_aas / 100);
-    SET v_comision_vendedor = v_comision_aas * (v_tasa_vendedor / 100);
 
-    -- 3. Calcular Extras
+    -- 2. Obtener porcentaje vendedor desde tabla agentes según tipo SOAT
+    IF p_codigo_agente IS NOT NULL AND TRIM(p_codigo_agente) <> '' THEN
+        IF v_tipo_soat_nom = 'Menor' THEN
+            SELECT tipo_menor INTO v_tasa_vendedor FROM agentes
+            WHERE codigo_agente = TRIM(p_codigo_agente) LIMIT 1;
+        ELSE
+            SELECT tipo_regular INTO v_tasa_vendedor FROM agentes
+            WHERE codigo_agente = TRIM(p_codigo_agente) LIMIT 1;
+        END IF;
+    END IF;
+
+    SET v_tasa_vendedor = IFNULL(v_tasa_vendedor, 0);
+
+    -- 3. Calcular montos
+    SET v_comision_aas      = ROUND(p_precio_soat * (v_tasa_aas / 100), 2);
+    SET v_comision_vendedor = ROUND(v_comision_aas * (v_tasa_vendedor / 100), 2);
+
+    -- 4. Extras
     IF p_extra_ids IS NOT NULL AND LENGTH(p_extra_ids) > 0 THEN
         SELECT IFNULL(SUM(p_precio_soat * (porcentaje / 100)), 0)
         INTO v_extra_total
         FROM configuracion_comision_extra
         WHERE FIND_IN_SET(id, p_extra_ids);
     END IF;
-    
-    -- Calcular Utilidad (Comision AAS - Comision Vendedor - Extras)
+
     SET v_utilidad = v_comision_aas - v_comision_vendedor - v_extra_total;
 
-    -- Resultado
-    SELECT 
-        v_tasa_aas AS tasa_aas,
-        v_tasa_vendedor AS tasa_vendedor_pct,
-        ROUND(v_comision_aas, 2) AS monto_comision_aas,
+    SELECT
+        v_tasa_aas                    AS tasa_aas,
+        v_tasa_vendedor               AS tasa_vendedor_pct,
+        ROUND(v_comision_aas, 2)      AS monto_comision_aas,
         ROUND(v_comision_vendedor, 2) AS monto_comision_vendedor,
-        ROUND(v_extra_total, 2) AS monto_extras,
-        ROUND(v_utilidad, 2) AS utilidad_empresa;
-        
+        ROUND(v_extra_total, 2)       AS monto_extras,
+        ROUND(v_utilidad, 2)          AS utilidad_empresa;
 END$$
 DELIMITER ;
 
