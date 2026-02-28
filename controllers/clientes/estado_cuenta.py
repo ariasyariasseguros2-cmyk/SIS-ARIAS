@@ -146,17 +146,26 @@ def get_estado_cuenta_data(filtros_input=None):
                     p.ramos_producto AS producto,
                     p.tipo_doc,
                     p.poliza,
-                    p.recibo AS proforma_cupon, 
+                    p.recibo AS proforma,
+                    q.cupon AS cupon,
+                    q.factura AS factura,
+                    DATE_FORMAT(q.fecha_pago, '%d/%m/%Y') AS fecha_pago,
                     DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
                     DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
                     DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
-                    DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_facturacion,
-                    DATE_FORMAT(p.fecha_vencimiento, '%d/%m/%Y') AS fecha_venc,
-                    p.moneda,
-                    p.prima_comercial_igv AS monto_cta_cobrar,
-                    CASE WHEN UPPER(IFNULL(p.estado,'')) = 'CANCELADO' THEN 0 ELSE p.prima_comercial_igv END AS monto_cta_pagar,
-                    p.estado
+                    DATE_FORMAT(COALESCE(q.fecha_vencimiento, p.fecha_vencimiento), '%d/%m/%Y') AS fecha_venc,
+                    COALESCE(q.moneda, p.moneda) AS moneda,
+                    CASE WHEN q.idCuota IS NOT NULL THEN q.importe ELSE p.prima_comercial_igv END AS monto_cta_cobrar,
+                    CASE 
+                        WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 0 ELSE q.importe END
+                        ELSE CASE WHEN UPPER(IFNULL(p.estado,'')) = 'CANCELADO' THEN 0 ELSE p.prima_comercial_igv END
+                    END AS monto_cta_pagar,
+                    CASE 
+                        WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 'CANCELADO' ELSE 'PENDIENTE' END
+                        ELSE p.estado
+                    END AS estado
                 FROM polizas p
+                LEFT JOIN cuotas q ON q.poliza_id = p.idPoliza
                 WHERE p.cliente_id = %s
             """
 
@@ -181,9 +190,7 @@ def get_estado_cuenta_data(filtros_input=None):
                 query += " AND p.ramo = %s"
                 params.append(filters['ramo'])
 
-            if filters['estado']:
-                query += " AND p.estado = %s"
-                params.append(filters['estado'])
+            # estado filtrado luego en Python para considerar cuotas
 
             if filters['fecha_desde'] and filters['fecha_hasta']:
                 # Buscar pólizas donde CUALQUIER fecha esté dentro del rango
@@ -191,13 +198,15 @@ def get_estado_cuenta_data(filtros_input=None):
                     (p.fecha_emision BETWEEN %s AND %s) OR
                     (p.fecha_vencimiento BETWEEN %s AND %s) OR
                     (p.vig_desde BETWEEN %s AND %s) OR
-                    (p.vig_hasta BETWEEN %s AND %s)
+                    (p.vig_hasta BETWEEN %s AND %s) OR
+                    (q.fecha_vencimiento BETWEEN %s AND %s)
                 )"""
                 params.extend([
                     filters['fecha_desde'], filters['fecha_hasta'],  # fecha_emision
                     filters['fecha_desde'], filters['fecha_hasta'],  # fecha_vencimiento
                     filters['fecha_desde'], filters['fecha_hasta'],  # vig_desde
-                    filters['fecha_desde'], filters['fecha_hasta']   # vig_hasta
+                    filters['fecha_desde'], filters['fecha_hasta'],  # vig_hasta
+                    filters['fecha_desde'], filters['fecha_hasta']   # cuotas.fecha_vencimiento
                 ])
             elif filters['fecha_desde']:
                 # Solo fecha desde: cualquier fecha >= fecha_desde
@@ -205,9 +214,11 @@ def get_estado_cuenta_data(filtros_input=None):
                     p.fecha_emision >= %s OR
                     p.fecha_vencimiento >= %s OR
                     p.vig_desde >= %s OR
-                    p.vig_hasta >= %s
+                    p.vig_hasta >= %s OR
+                    q.fecha_vencimiento >= %s
                 )"""
                 params.extend([
+                    filters['fecha_desde'],
                     filters['fecha_desde'],
                     filters['fecha_desde'],
                     filters['fecha_desde'],
@@ -219,9 +230,11 @@ def get_estado_cuenta_data(filtros_input=None):
                     p.fecha_emision <= %s OR
                     p.fecha_vencimiento <= %s OR
                     p.vig_desde <= %s OR
-                    p.vig_hasta <= %s
+                    p.vig_hasta <= %s OR
+                    q.fecha_vencimiento <= %s
                 )"""
                 params.extend([
+                    filters['fecha_hasta'],
                     filters['fecha_hasta'],
                     filters['fecha_hasta'],
                     filters['fecha_hasta'],
@@ -232,6 +245,10 @@ def get_estado_cuenta_data(filtros_input=None):
 
             cur.execute(query, params)
             polizas = cur.fetchall() or []
+
+            if filters['estado']:
+                est = filters['estado'].strip().upper()
+                polizas = [r for r in polizas if (r.get('estado') or '').upper() == est]
 
 
         # Calcular totales por moneda
@@ -462,16 +479,26 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
                 p.ramos_producto AS producto,
                 p.tipo_doc,
                 p.poliza,
-                p.recibo AS proforma_cupon, 
+                p.recibo AS proforma,
+                q.cupon AS cupon,
+                q.factura AS factura,
+                DATE_FORMAT(q.fecha_pago, '%d/%m/%Y') AS fecha_pago,
                 DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
                 DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
                 DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
-                DATE_FORMAT(p.fecha_vencimiento, '%d/%m/%Y') AS fecha_venc,
-                p.moneda,
-                p.prima_comercial_igv AS monto_cta_cobrar,
-                CASE WHEN UPPER(IFNULL(p.estado,'')) = 'CANCELADO' THEN 0 ELSE p.prima_comercial_igv END AS monto_cta_pagar,
-                p.estado
+                DATE_FORMAT(COALESCE(q.fecha_vencimiento, p.fecha_vencimiento), '%d/%m/%Y') AS fecha_venc,
+                COALESCE(q.moneda, p.moneda) AS moneda,
+                CASE WHEN q.idCuota IS NOT NULL THEN q.importe ELSE p.prima_comercial_igv END AS monto_cta_cobrar,
+                CASE 
+                    WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 0 ELSE q.importe END
+                    ELSE CASE WHEN UPPER(IFNULL(p.estado,'')) = 'CANCELADO' THEN 0 ELSE p.prima_comercial_igv END
+                END AS monto_cta_pagar,
+                CASE 
+                    WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 'CANCELADO' ELSE 'PENDIENTE' END
+                    ELSE p.estado
+                END AS estado
             FROM polizas p
+            LEFT JOIN cuotas q ON q.poliza_id = p.idPoliza
             WHERE p.cliente_id = %s
         """
         params = [cliente['idCliente']]
@@ -494,29 +521,47 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             query += " AND p.ramo = %s"
             params.append(filters['ramo'])
 
-        if filters['estado']:
-            query += " AND p.estado = %s"
-            params.append(filters['estado'])
+        # estado filtrado luego en Python para considerar cuotas
 
         if filters['fecha_desde'] and filters['fecha_hasta']:
-            query += """ AND ((p.fecha_emision BETWEEN %s AND %s) OR (p.fecha_vencimiento BETWEEN %s AND %s) OR (p.vig_desde BETWEEN %s AND %s) OR (p.vig_hasta BETWEEN %s AND %s))"""
-            params.extend([filters['fecha_desde'], filters['fecha_hasta']] * 4)
+            query += """ AND ((p.fecha_emision BETWEEN %s AND %s) OR (p.fecha_vencimiento BETWEEN %s AND %s) OR (p.vig_desde BETWEEN %s AND %s) OR (p.vig_hasta BETWEEN %s AND %s) OR (q.fecha_vencimiento BETWEEN %s AND %s))"""
+            params.extend([filters['fecha_desde'], filters['fecha_hasta']] * 5)
         elif filters['fecha_desde']:
-            query += """ AND (p.fecha_emision >= %s OR p.fecha_vencimiento >= %s OR p.vig_desde >= %s OR p.vig_hasta >= %s)"""
-            params.extend([filters['fecha_desde']] * 4)
+            query += """ AND (p.fecha_emision >= %s OR p.fecha_vencimiento >= %s OR p.vig_desde >= %s OR p.vig_hasta >= %s OR q.fecha_vencimiento >= %s)"""
+            params.extend([filters['fecha_desde']] * 5)
         elif filters['fecha_hasta']:
-            query += """ AND (p.fecha_emision <= %s OR p.fecha_vencimiento <= %s OR p.vig_desde <= %s OR p.vig_hasta <= %s)"""
-            params.extend([filters['fecha_hasta']] * 4)
+            query += """ AND (p.fecha_emision <= %s OR p.fecha_vencimiento <= %s OR p.vig_desde <= %s OR p.vig_hasta <= %s OR q.fecha_vencimiento <= %s)"""
+            params.extend([filters['fecha_hasta']] * 5)
 
         query += " ORDER BY p.fecha_emision DESC, p.vig_desde DESC"
         cur.execute(query, params)
         polizas = cur.fetchall() or []
 
+        if filters['estado']:
+            est = filters['estado'].strip().upper()
+            polizas = [r for r in polizas if (r.get('estado') or '').upper() == est]
     cur.close()
     cnx.close()
 
     # Preparar datos para exportar
-    headers = ['Compañía', 'Ramo', 'Producto', 'Tipo Doc', 'N° de Póliza', 'Vigencia (Desde - Hasta)', 'Fecha Emisión', 'Fecha Vencimiento', 'Moneda', 'Cta. Cobrar', 'Cta. Pagar', 'Estado']
+    headers = [
+        'Compañía',
+        'Ramo',
+        'Producto',
+        'Tipo Doc',
+        'N° de Póliza',
+        'Proforma',
+        'Cupón',
+        'Fecha Emisión',
+        'Vigencia (Desde - Hasta)',
+        'Factura',
+        'Fecha de Pago',
+        'Fecha Vencimiento',
+        'Moneda',
+        'Cta. Cobrar',
+        'Cta. Pagar',
+        'Estado'
+    ]
     rows = []
     for p in polizas:
         vig = f"{p.get('vig_inicio') or '-'} - {p.get('vig_fin') or '-'}"
@@ -534,7 +579,13 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             p.get('producto') or '-',
             p.get('tipo_doc') or '-',
             p.get('poliza') or '-',
+            p.get('proforma') or '-',
+            p.get('cupon') or '-',
+            p.get('fecha_emision') or '-',
             vig,
+            p.get('factura') or '-',
+            p.get('fecha_pago') or '-',
+            p.get('fecha_facturacion') or '-',
             p.get('fecha_emision') or '-',
             p.get('fecha_venc') or '-',
             moneda or '-',
@@ -658,18 +709,22 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             # Definir anchos de columna específicos (en orden de las columnas)
             # Total disponible en landscape A4 ≈ 267mm - 30mm (márgenes) = 237mm
             col_widths = [
-                35*mm,  # Compañía
-                22*mm,  # Ramo
-                30*mm,  # Producto
-                18*mm,  # Tipo Doc
-                25*mm,  # N° de Póliza
-                42*mm,  # Vigencia (Desde - Hasta)
-                22*mm,  # Fecha Emisión
-                22*mm,  # Fecha Vencimiento
-                15*mm,  # Moneda
-                20*mm,  # Cta. Cobrar
-                20*mm,  # Cta. Pagar
-                20*mm   # Estado
+                28*mm,  # Compañía
+                20*mm,  # Ramo
+                26*mm,  # Producto
+                16*mm,  # Tipo Doc
+                22*mm,  # N° de Póliza
+                22*mm,  # Proforma
+                22*mm,  # Cupón
+                18*mm,  # Fecha Emisión
+                32*mm,  # Vigencia (Desde - Hasta)
+                22*mm,  # Factura
+                20*mm,  # Fecha de Pago
+                18*mm,  # Fecha Vencimiento
+                14*mm,  # Moneda
+                16*mm,  # Cta. Cobrar
+                16*mm,  # Cta. Pagar
+                16*mm   # Estado
             ]
 
             t = Table(table_data, colWidths=col_widths, repeatRows=1)
@@ -689,8 +744,8 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
                 # Datos
                 ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
                 ('FONTSIZE', (0, 1), (-1, -1), 7),
-                ('ALIGN', (0, 1), (7, -1), 'LEFT'),      # Columnas de texto alineadas a la izquierda
-                ('ALIGN', (8, 1), (-1, -1), 'RIGHT'),    # Moneda, Cobrar, Pagar, Estado a la derecha
+                ('ALIGN', (0, 1), (12, -1), 'LEFT'),      # Texto a la izquierda hasta Fecha Vencimiento
+                ('ALIGN', (13, 1), (-1, -1), 'RIGHT'),    # Moneda, Cobrar, Pagar, Estado a la derecha
                 ('VALIGN', (0, 1), (-1, -1), 'MIDDLE'),
                 ('TOPPADDING', (0, 1), (-1, -1), 4),
                 ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
@@ -702,9 +757,9 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F2F2F2')]),
 
                 # Resaltar columnas numéricas
-                ('FONTNAME', (9, 1), (10, -1), 'Helvetica-Bold'),
-                ('TEXTCOLOR', (9, 1), (9, -1), colors.HexColor('#0066CC')),  # Cta. Cobrar en azul
-                ('TEXTCOLOR', (10, 1), (10, -1), colors.HexColor('#CC0000')), # Cta. Pagar en rojo
+                ('FONTNAME', (14, 1), (15, -1), 'Helvetica-Bold'),
+                ('TEXTCOLOR', (14, 1), (14, -1), colors.HexColor('#0066CC')),  # Cta. Cobrar en azul
+                ('TEXTCOLOR', (15, 1), (15, -1), colors.HexColor('#CC0000')), # Cta. Pagar en rojo
             ]))
 
             elements.append(t)

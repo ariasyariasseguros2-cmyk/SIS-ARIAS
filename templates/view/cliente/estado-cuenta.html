@@ -174,10 +174,12 @@
                             <th>Producto</th>
                             <th>Tipo Doc</th>
                             <th>N° de Póliza</th>
-                            <th>Proforma/Cupon</th>
+                            <th>Proforma</th>
+                            <th>Cupón</th>
                             <th>Fecha Emisión</th>
                             <th>Vigencia (Desde - Hasta)</th>
-                            <th>Fecha Facturación</th>
+                            <th>Factura</th>
+                            <th>Fecha de Pago</th>
                             <th>Fecha Vencimiento</th>
                             <th>Moneda</th>
                             <th>Monto</th>
@@ -209,10 +211,12 @@
                                 {% endif %}
                             </td>
                             <td>{{ p.poliza or '-' }}</td>
-                            <td>{{ p.proforma_cupon or '-' }}</td>
+                            <td>{{ p.proforma or '-' }}</td>
+                            <td>{{ p.cupon or '-' }}</td>
                             <td>{{ p.fecha_emision or '-' }}</td>
                             <td>{{ (p.vig_inicio or '-') ~ ' - ' ~ (p.vig_fin or '-') }}</td>
-                            <td>{{ p.fecha_facturacion or '-' }}</td>
+                            <td>{{ p.factura or '-' }}</td>
+                            <td>{{ p.fecha_pago or '-' }}</td>
                             <td>{{ p.fecha_venc or '-' }}</td>
                             <td>
                                 {% set moneda_upper = (p.moneda|upper) if p.moneda else '' %}
@@ -241,7 +245,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="table-totales">
-                            <td colspan="10" class="text-end fw-bold">TOTALES:</td>
+                            <td colspan="13" class="text-end fw-bold">TOTALES:</td>
                             <td class="text-end fw-bold bg-info-subtle">
                                 S/: {{ "%.2f"|format(totales.soles_cobrar) }}<br>
                                 US$: {{ "%.2f"|format(totales.dolares_cobrar) }}
