@@ -52,12 +52,13 @@ def get_cuota_info():
         return {'ok': False, 'error': 'Unauthorized'}, 401
     
     poliza = request.args.get('poliza')
+    poliza_id = request.args.get('poliza_id') or request.args.get('idPrima')
+    aviso = request.args.get('aviso')
     if not poliza:
         return {'ok': False, 'error': 'Missing poliza'}, 400
         
     from controllers.cuotas.cuotas import get_cuotas_data
-    # Reuse existing logic to get data (which uses sp_list_primas_por_poliza)
-    data = get_cuotas_data(None, poliza)
+    data = get_cuotas_data(None, poliza, poliza_id, aviso)
     
     # We are interested in the 'rows' part, specifically the first one if it exists.
     # This effectively allows pre-filling the modal with the "current" or "next" premium info found.
@@ -466,7 +467,9 @@ def menu_page(page):
         from controllers.cuotas.cuotas import get_cuotas_data
         selected = session.get('selected_cliente') or {}
         numero_poliza = request.args.get('poliza') or None
-        data = get_cuotas_data(selected, numero_poliza)
+        poliza_id = request.args.get('idPrima') or request.args.get('poliza_id')
+        aviso = request.args.get('aviso')
+        data = get_cuotas_data(selected, numero_poliza, poliza_id, aviso)
         return render_template(
             'view/cuotas/cuotas.html',
             page='cuotas',

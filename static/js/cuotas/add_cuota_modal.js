@@ -18,9 +18,12 @@
     }
 
     window.CuotaModal = {
-        open: function(poliza) {
+        open: function(poliza, primaId, aviso) {
             const modalEl = document.getElementById('cuotaAddModal');
             if (!modalEl) return;
+
+            modalEl.dataset.primaId = primaId || '';
+            modalEl.dataset.aviso = aviso || '';
 
             // Reset form
             const form = document.getElementById('addCuotaForm');
@@ -47,9 +50,13 @@
             const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
             modal.show();
 
-            // Fetch default data for this policy
             if (poliza) {
-                fetch(`/cuotas/info?poliza=${encodeURIComponent(poliza)}`)
+                const params = new URLSearchParams();
+                params.set('poliza', poliza);
+                if (primaId) params.set('poliza_id', primaId);
+                if (aviso) params.set('aviso', aviso);
+
+                fetch(`/cuotas/info?${params.toString()}`)
                     .then(r => r.json())
                     .then(res => {
                         if (res.ok && res.data) {
@@ -260,6 +267,9 @@
                  const el = document.getElementById(id);
                  return el ? el.value.trim() : '';
               };
+
+              const modalEl = document.getElementById('cuotaAddModal');
+              const primaId = modalEl ? (modalEl.dataset.primaId || '') : '';
               
               const poliza = getVal('addPolizaContext');
               const cupon = getVal('addCupon');
@@ -278,6 +288,7 @@
               const payload = {
                 poliza: poliza,
                 cupon: cupon,
+                prima_id: primaId,
                 fecha_vencimiento: venc,
                 moneda: getVal('addMoneda') || 'S/.', 
                 importe: imp,
@@ -326,7 +337,7 @@
              
              if (currentPoliza) {
                  setTimeout(() => {
-                    window.CuotaModal.open(currentPoliza);
+                    window.CuotaModal.open(currentPoliza, window.currentPrimaId, window.currentAviso);
                  }, 500);
              }
         }

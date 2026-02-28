@@ -64,8 +64,14 @@
             const poliza = t.getAttribute('data-poliza')
                 || t.closest('tr')?.querySelector('td:nth-child(2)')?.textContent?.trim()
                 || '';
+            const idPrima = t.getAttribute('data-idprima') || '';
+            const aviso = t.getAttribute('data-aviso') || '';
             if (poliza) {
-                window.location.href = `/menu/cuotas?poliza=${encodeURIComponent(poliza)}`;
+                const params = new URLSearchParams();
+                params.set('poliza', poliza);
+                if (idPrima) params.set('idPrima', idPrima);
+                if (aviso) params.set('aviso', aviso);
+                window.location.href = `/menu/cuotas?${params.toString()}`;
             } else {
                 alert('No se pudo obtener el número de póliza.');
             }

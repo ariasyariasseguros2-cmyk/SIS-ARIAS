@@ -296,7 +296,7 @@ const Cuotas = (() => {
   }
   function onAdd() { 
     if (window.CuotaModal) {
-      window.CuotaModal.open(window.currentPoliza);
+      window.CuotaModal.open(window.currentPoliza, window.currentPrimaId, window.currentAviso);
     } else {
       console.error('CuotaModal not loaded');
     }

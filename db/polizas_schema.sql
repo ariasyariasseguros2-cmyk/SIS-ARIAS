@@ -1045,6 +1045,7 @@ DELIMITER ;
 -- Tabla cuotas (mínima)
 CREATE TABLE IF NOT EXISTS cuotas (
     idCuota INT AUTO_INCREMENT PRIMARY KEY,
+    poliza_id INT NULL,
     poliza VARCHAR(50) NOT NULL,
     cupon VARCHAR(50) NULL,
     fecha_vencimiento DATE NOT NULL,
@@ -1055,7 +1056,8 @@ CREATE TABLE IF NOT EXISTS cuotas (
     observacion VARCHAR(255) NULL,
     usuario_registro VARCHAR(50) NULL,
     usuario_edicion VARCHAR(50) NULL,
-    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    numero_cuota INT NULL
 );
 
 DELIMITER $$
@@ -1089,12 +1091,14 @@ CREATE PROCEDURE sp_insert_cuota(
     IN p_fecha_pago DATE,
     IN p_factura VARCHAR(50),
     IN p_observacion VARCHAR(255),
-    IN p_usuario VARCHAR(50)
+    IN p_usuario VARCHAR(50),
+    IN p_numero_cuota INT
 )
 BEGIN
     DECLARE v_msg VARCHAR(255);
+    DECLARE v_poliza_id INT;
 
-    -- Validar si factura ya existe
+    -- Validar factura duplicada
     IF p_factura IS NOT NULL AND TRIM(p_factura) <> '' THEN
         IF EXISTS (SELECT 1 FROM cuotas WHERE factura = TRIM(p_factura)) THEN
             SET v_msg = CONCAT('El número de factura ya existe: ', TRIM(p_factura));
@@ -1102,19 +1106,34 @@ BEGIN
         END IF;
     END IF;
 
+    -- Buscar idPoliza correspondiente a esta póliza + proforma (recibo)
+    SELECT idPoliza
+    INTO v_poliza_id
+    FROM polizas
+    WHERE TRIM(poliza) = TRIM(p_poliza)
+      AND TRIM(recibo) = TRIM(p_cupon)
+    ORDER BY creado_en DESC
+    LIMIT 1;
+
     INSERT INTO cuotas (
-        poliza, cupon, fecha_vencimiento, moneda, importe,
-        fecha_pago, factura, observacion, usuario_registro
+        poliza_id, poliza, cupon, fecha_vencimiento, moneda, importe,
+        fecha_pago, factura, observacion, usuario_registro, numero_cuota
     ) VALUES (
-        p_poliza, p_cupon, p_fecha_vencimiento, p_moneda, p_importe,
-        p_fecha_pago, p_factura, p_observacion, p_usuario
+        v_poliza_id, p_poliza, p_cupon, p_fecha_vencimiento, p_moneda, p_importe,
+        p_fecha_pago, p_factura, p_observacion, p_usuario, p_numero_cuota
     );
 
-    -- Update poliza status to CANCELADO if payment date is present
     IF p_fecha_pago IS NOT NULL THEN
-        UPDATE polizas
-        SET estado = 'CANCELADO'
-        WHERE TRIM(poliza) = TRIM(p_poliza);
+        IF p_cupon IS NOT NULL AND TRIM(p_cupon) <> '' THEN
+            UPDATE polizas
+            SET estado = 'CANCELADO'
+            WHERE TRIM(poliza) = TRIM(p_poliza)
+            AND TRIM(recibo) = TRIM(p_cupon);
+        ELSE
+            UPDATE polizas
+            SET estado = 'CANCELADO'
+            WHERE TRIM(poliza) = TRIM(p_poliza);
+        END IF;
     END IF;
 END$$
 

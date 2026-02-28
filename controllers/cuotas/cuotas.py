@@ -1,6 +1,7 @@
 from typing import Dict, List, Tuple
 from datetime import date, datetime
 
+
 def format_date_custom(d):
     """Format date to DD/MM/YYYY"""
     if not d:
@@ -21,7 +22,12 @@ def format_date_custom(d):
         
     return s
 
-def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = None) -> Dict[str, object]:
+def get_cuotas_data(
+    selected: dict | None = None,
+    numero_poliza: str | None = None,
+    poliza_id: int | str | None = None,
+    aviso: str | None = None,
+) -> Dict[str, object]:
     poliza = (numero_poliza or (selected or {}).get('poliza') or (selected or {}).get('numero_poliza') or '').strip()
     rows: List[Dict[str, str]] = []
     encabezado = {
@@ -35,7 +41,8 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
         'vig_inicio': '',
         'vig_fin': '',
         'tipo_doc': '',
-        'concepto': 'EMISION'
+        'concepto': 'EMISION',
+        'prima_id': None,
     }
 
     # Try DB-backed primas to populate cuotas context
@@ -51,19 +58,41 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
                     pass
             except Exception:
                 pass
+
+            selected_prima = None
+            prima_id_int = None
+            if poliza_id is not None:
+                try:
+                    prima_id_int = int(poliza_id)
+                except Exception:
+                    prima_id_int = None
+
             if prima_rows:
-                pr = prima_rows[0]
+                for pr in prima_rows:
+                    if prima_id_int is not None and (pr.get('idPoliza') == prima_id_int or str(pr.get('idPoliza')) == str(prima_id_int)):
+                        selected_prima = pr
+                        break
+                if selected_prima is None and aviso:
+                    aviso_clean = str(aviso).strip()
+                    for pr in prima_rows:
+                        rec = (pr.get('recibo') or pr.get('cupon') or pr.get('aviso') or pr.get('nro_aviso') or '').strip()
+                        if rec == aviso_clean:
+                            selected_prima = pr
+                            break
+                if selected_prima is None:
+                    selected_prima = prima_rows[0]
+
+                pr = selected_prima
                 encabezado['contratante'] = pr.get('contratante') or ''
                 encabezado['compania'] = pr.get('compania') or pr.get('cia') or ''
                 encabezado['ramo'] = pr.get('ramo') or ''
-                # Corregido para coincidir con la lógica de primas.py (columna Aviso)
                 resumen['aviso_cob'] = pr.get('recibo') or pr.get('aviso') or pr.get('nro_aviso') or ''
                 resumen['vig_inicio'] = format_date_custom(pr.get('vig_inicio'))
                 resumen['vig_fin'] = format_date_custom(pr.get('vig_fin'))
                 resumen['tipo_doc'] = pr.get('tipo') or pr.get('tipo_mov') or ''
                 resumen['concepto'] = pr.get('motivo') or resumen['concepto']
+                resumen['prima_id'] = pr.get('idPoliza') or None
 
-                # One cuota row mirroring screenshot
                 rows = [{
                     'cupon': pr.get('cupon') or pr.get('recibo') or '',
                     'fecha_vencimiento': format_date_custom(pr.get('fecha_vencimiento') or pr.get('vig_fin')),
@@ -74,14 +103,47 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
                     'observacion': '',
                 }]
 
-            # Try to fetch actual Cuotas from DB (overrides prima suggestion)
             try:
-                cur.execute("CALL sp_list_cuotas_por_poliza(%s)", (poliza,))
-                cuota_rows = cur.fetchall() or []
-                try:
-                    while cur.nextset(): pass
-                except: pass
-                
+                cuota_rows: List[Dict[str, str]] = []
+                target_prima_id = None
+                if resumen['prima_id'] is not None:
+                    target_prima_id = resumen['prima_id']
+                elif prima_id_int is not None:
+                    target_prima_id = prima_id_int
+
+                if target_prima_id is not None:
+                    cur.execute(
+                        """
+                        SELECT
+                            idCuota,
+                            cupon,
+                            DATE_FORMAT(fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
+                            moneda,
+                            FORMAT(importe, 2) AS importe,
+                            DATE_FORMAT(fecha_pago, '%d-%m-%Y') AS fecha_pago,
+                            factura,
+                            observacion
+                        FROM cuotas
+                        WHERE poliza_id = %s
+                        ORDER BY fecha_vencimiento ASC, idCuota ASC
+                        """,
+                        (target_prima_id,),
+                    )
+                    cuota_rows = cur.fetchall() or []
+                    try:
+                        while cur.nextset():
+                            pass
+                    except Exception:
+                        pass
+                else:
+                    cur.execute("CALL sp_list_cuotas_por_poliza(%s)", (poliza,))
+                    cuota_rows = cur.fetchall() or []
+                    try:
+                        while cur.nextset():
+                            pass
+                    except Exception:
+                        pass
+
                 if cuota_rows:
                     rows = []
                     for c in cuota_rows:
@@ -100,10 +162,8 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
             cur.close()
             cnx.close()
     except Exception:
-        # Fall through to sample data below
         pass
 
-    # Fallback sample matching the screenshot when DB is not ready
     if not encabezado['contratante']:
         encabezado = {
             'contratante': 'MASGO ARQUITECTOS E INGENIEROS SAC',
@@ -130,7 +190,6 @@ def get_cuotas_data(selected: dict | None = None, numero_poliza: str | None = No
             'observacion': ''
         }]
 
-    # Compute total
     def _to_float(s: str) -> float:
         try:
             return float(str(s).replace(',', '.').replace('S/.', '').strip())
@@ -151,12 +210,7 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
         from models.db import get_connection
         cnx = get_connection()
         cur = cnx.cursor()
-        
-        # sp_insert_cuota parameters:
-        # p_poliza, p_cupon, p_fecha_vencimiento, p_moneda, p_importe,
-        # p_fecha_pago, p_factura, p_observacion, p_usuario
-        
-        # Helper to convert empty string to None
+
         def val_or_none(v):
             if v is None:
                 return None
@@ -164,17 +218,103 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                 return None
             return v
 
-        cur.execute("CALL sp_insert_cuota(%s, %s, %s, %s, %s, %s, %s, %s, %s)", (
-            data.get('poliza'),
-            data.get('cupon'),
-            data.get('fecha_vencimiento'), # Ensure DATE format YYYY-MM-DD
-            data.get('moneda', 'S/.'),
-            data.get('importe'),
-            val_or_none(data.get('fecha_pago')), # Ensure DATE format
-            val_or_none(data.get('factura')),
-            val_or_none(data.get('observacion')),
-            data.get('usuario', 'SYSTEM')
-        ))
+        poliza = (data.get('poliza') or '').strip()
+        cupon = (data.get('cupon') or '').strip()
+
+        cur.execute(
+            "SELECT IFNULL(MAX(numero_cuota), 0) + 1 FROM cuotas WHERE poliza = %s AND cupon = %s",
+            (poliza, cupon)
+        )
+        row = cur.fetchone()
+        numero_cuota = row[0] if row and row[0] is not None else 1
+
+        factura = val_or_none(data.get('factura'))
+        if factura:
+            cur.execute("SELECT 1 FROM cuotas WHERE factura = %s LIMIT 1", (factura,))
+            if cur.fetchone():
+                cur.close()
+                cnx.close()
+                return False, "El número de factura ya existe."
+
+        poliza_id = None
+        prima_raw = data.get('prima_id') or data.get('poliza_id') or data.get('idPrima')
+        if prima_raw is not None:
+            try:
+                poliza_id = int(prima_raw)
+            except Exception:
+                poliza_id = None
+
+        if poliza_id is None:
+            cur.execute(
+                """
+                SELECT idPoliza
+                FROM polizas
+                WHERE TRIM(poliza) = TRIM(%s)
+                  AND TRIM(recibo) = TRIM(%s)
+                ORDER BY creado_en DESC
+                LIMIT 1
+                """,
+                (poliza, cupon),
+            )
+            row = cur.fetchone()
+            if row:
+                poliza_id = row[0]
+
+        cur.execute(
+            """
+            INSERT INTO cuotas (
+                poliza_id,
+                poliza,
+                cupon,
+                fecha_vencimiento,
+                moneda,
+                importe,
+                fecha_pago,
+                factura,
+                observacion,
+                usuario_registro,
+                numero_cuota
+            ) VALUES (
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s
+            )
+            """,
+            (
+                poliza_id,
+                poliza,
+                cupon,
+                data.get('fecha_vencimiento'),
+                data.get('moneda', 'S/.'),
+                data.get('importe'),
+                val_or_none(data.get('fecha_pago')),
+                factura,
+                val_or_none(data.get('observacion')),
+                data.get('usuario'),
+                numero_cuota,
+            ),
+        )
+
+        has_pago = val_or_none(data.get('fecha_pago')) is not None
+        if has_pago:
+            if cupon:
+                cur.execute(
+                    """
+                    UPDATE polizas
+                    SET estado = 'CANCELADO'
+                    WHERE TRIM(poliza) = TRIM(%s)
+                      AND TRIM(recibo) = TRIM(%s)
+                    """,
+                    (poliza, cupon),
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE polizas
+                    SET estado = 'CANCELADO'
+                    WHERE TRIM(poliza) = TRIM(%s)
+                    """,
+                    (poliza,),
+                )
+
         cnx.commit()
         cur.close()
         cnx.close()

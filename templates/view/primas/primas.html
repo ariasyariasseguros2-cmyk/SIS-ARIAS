@@ -110,7 +110,10 @@
                     <td>{{ r.motivo }}</td>
                     <td class="text-end">
                         <div class="action-buttons justify-content-end">
-                            <button class="btn-action btn-primary btn-cuotas" data-poliza="{{ r.poliza }}">Cuotas</button>
+                            <button class="btn-action btn-primary btn-cuotas"
+                                    data-poliza="{{ r.poliza }}"
+                                    data-idprima="{{ r.idPrima }}"
+                                    data-aviso="{{ r.aviso }}">Cuotas</button>
                             <a href="{{ url_for('main.menu_page', page='avisos') }}?id={{ r.idPrima }}" class="btn-action btn-secondary">Pdf</a>
                             <button class="btn-action btn-info btn-detalles" data-id="{{ r.idPrima }}">Detalles</button>
                             {% if session.role_name in ['BROKER', 'OPERADOR'] %}
