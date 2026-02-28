@@ -467,17 +467,15 @@
       tr.innerHTML = `
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="numero_poliza">${it.numero_poliza || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="recibo">${it.recibo || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="colectivo_asegurado">${it.colectivo_asegurado || ''}</td>
         <td class="ramo-col" data-index="${idx}" data-field="ramo">${buildRamoSelect(it.ramo || '')}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="ramos_producto">${it.ramos_producto || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${formatMoney(it.prima_neta || '')}</td>
-        
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="inicio_vigencia">${it.inicio_vigencia || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="vencimiento">${it.vencimiento || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vencimiento || ''}</td>
-        
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${formatMoney(it.prima_neta || '')}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${formatMoney(it.prima_comercial || '')}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${formatMoney(it.prima_comercial_igv || it.prima_total || it.monto || '')}</td>
         <td data-index="${idx}" data-field="comision_compania_pct">
@@ -662,6 +660,103 @@
   }
 
   // Edición de celdas contenteditable
+  function isDateField(field) {
+    return field === 'inicio_vigencia' ||
+           field === 'vencimiento' ||
+           field === 'fecha_emision' ||
+           field === 'fecha_vencimiento';
+  }
+  function isRimacSelected() {
+    const val = (issuerEl?.value || '').toLowerCase();
+    const txt = issuerEl?.options?.[issuerEl.selectedIndex]?.text?.toLowerCase?.() || '';
+    return val.includes('rimac') || txt.includes('rimac');
+  }
+  function maskDate(value) {
+    const digits = (value || '').toString().replace(/[^\d]/g, '').slice(0, 8);
+    const a = digits.slice(0, 2);
+    const b = digits.slice(2, 4);
+    const c = digits.slice(4, 8);
+    if (digits.length <= 2) return a;
+    if (digits.length <= 4) return `${a}/${b}`;
+    return `${a}/${b}/${c}`;
+  }
+  function sanitizeDateInCell(td) {
+    const masked = maskDate(td.textContent || '');
+    if (td.textContent !== masked) td.textContent = masked;
+    return masked;
+  }
+  function getDigitsFromCell(td) {
+    return (td.textContent || '').replace(/[^\d]/g, '');
+  }
+  function setCaretToEnd(el) {
+    try {
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch {}
+  }
+  function setDateByDigits(td, digits) {
+    const limited = digits.slice(0, 8);
+    const a = limited.slice(0, 2);
+    const b = limited.slice(2, 4);
+    const c = limited.slice(4, 8);
+    const masked = limited.length <= 2 ? a : (limited.length <= 4 ? `${a}/${b}` : `${a}/${b}/${c}`);
+    td.textContent = masked;
+    setCaretToEnd(td);
+    return masked;
+  }
+
+  // Filtro de teclado: fechas solo números y '/'
+  tbody.addEventListener('keydown', (e) => {
+    const td = e.target.closest('td.editable');
+    if (!td) return;
+    const field = td.dataset.field;
+    if (!isDateField(field)) return;
+
+    // Control fino: escribir dígitos paso a paso DD/MM/AAAA, sin correr
+    const nav = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End'];
+    if (nav.includes(e.key) || e.ctrlKey || e.metaKey) return;
+
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault();
+      const idx = Number(td.dataset.index);
+      const digits = getDigitsFromCell(td);
+      const newDigits = digits.slice(0, Math.max(0, digits.length - 1));
+      const masked = setDateByDigits(td, newDigits);
+      if (Number.isFinite(idx)) extractedItems[idx][field] = masked;
+      return;
+    }
+
+    if (/\d/.test(e.key)) {
+      e.preventDefault();
+      const idx = Number(td.dataset.index);
+      const digits = getDigitsFromCell(td);
+      if (digits.length >= 8) return; // máx 8 dígitos
+      const newDigits = digits + e.key;
+      const masked = setDateByDigits(td, newDigits);
+      if (Number.isFinite(idx)) extractedItems[idx][field] = masked;
+      return;
+    }
+
+    // Bloquear cualquier otra tecla, incluso '/'
+    e.preventDefault();
+  });
+
+  // Filtro de pegado: fechas al patrón DD/MM/AAAA
+  tbody.addEventListener('paste', (e) => {
+    const td = e.target.closest('td.editable');
+    if (!td) return;
+    const field = td.dataset.field;
+    if (!isDateField(field)) return;
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+    const masked = maskDate(text);
+    document.execCommand('insertText', false, masked);
+  });
+
   tbody.addEventListener('input', (e) => {
     const td = e.target.closest('td.editable');
     if (!td) return;
@@ -669,7 +764,12 @@
     const field = td.dataset.field;
     if (!Number.isFinite(idx) || !field) return;
 
-    extractedItems[idx][field] = (td.textContent || '').trim();
+    if (isDateField(field)) {
+      const masked = sanitizeDateInCell(td);
+      extractedItems[idx][field] = masked;
+    } else {
+      extractedItems[idx][field] = (td.textContent || '').trim();
+    }
     if (field === 'prima_comercial' || field === 'prima_neta') {
       updateDependents(idx, field, td);
     }

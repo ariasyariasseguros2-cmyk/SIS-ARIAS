@@ -305,16 +305,15 @@ body {
 /* Manual mapping of column headers */
 .table-custom td:nth-child(1)::before { content: "Póliza"; }
 .table-custom td:nth-child(2)::before { content: "Proforma/Recibo"; }
-.table-custom td:nth-child(3)::before { content: "Asegurado"; }
-.table-custom td:nth-child(4)::before { content: "Ramo"; }
-.table-custom td:nth-child(5)::before { content: "Producto"; }
-.table-custom td:nth-child(6)::before { content: "Moneda"; }
-.table-custom td:nth-child(7)::before { content: "Prima Neta"; }
-.table-custom td:nth-child(8)::before { content: "Inicio Vigencia"; }
-.table-custom td:nth-child(9)::before { content: "Fin Vigencia"; }
-.table-custom td:nth-child(10)::before { content: "Fecha Emisión"; }
-/* .table-custom td:nth-child(10)::before { content: "Último Día Pago"; } */
-.table-custom td:nth-child(11)::before { content: "Fecha Vencimiento"; }
+.table-custom td:nth-child(3)::before { content: "Fecha Emisión"; }
+.table-custom td:nth-child(4)::before { content: "Fecha Vencimiento"; }
+.table-custom td:nth-child(5)::before { content: "Asegurado"; }
+.table-custom td:nth-child(6)::before { content: "Ramo"; }
+.table-custom td:nth-child(7)::before { content: "Producto"; }
+.table-custom td:nth-child(8)::before { content: "Moneda"; }
+.table-custom td:nth-child(9)::before { content: "Inicio Vigencia"; }
+.table-custom td:nth-child(10)::before { content: "Fin Vigencia"; }
+.table-custom td:nth-child(11)::before { content: "Prima Neta"; }
 .table-custom td:nth-child(12)::before { content: "Prima Comercial"; }
 .table-custom td:nth-child(13)::before { content: "Prima + IGV"; }
 .table-custom td:nth-child(14)::before { content: "% Com. Cía"; }
@@ -336,7 +335,7 @@ body {
 }
 
 /* Full width rows within the card */
-.table-custom td:nth-child(3) { /* Colectivo */
+.table-custom td:nth-child(5) { /* Asegurado en posición 5 */
     grid-column: 1 / -1;
     border-bottom: 1px dashed var(--card-border);
     padding-bottom: 1rem;
@@ -344,19 +343,29 @@ body {
 }
 
 /* Double width fields for long text */
-.table-custom td:nth-child(4), /* Ramo */
-.table-custom td:nth-child(5) { /* Producto */
+.table-custom td:nth-child(6), /* Ramo */
+.table-custom td:nth-child(7) { /* Producto */
     grid-column: span 2;
 }
 /* On small screens, force them to auto span to avoid breaking */
 @media (max-width: 600px) {
-    .table-custom td:nth-child(4), 
-    .table-custom td:nth-child(5) {
+    .table-custom td:nth-child(6), 
+    .table-custom td:nth-child(7) {
         grid-column: auto;
     }
 }
 
-.table-custom td:nth-child(19) { /* Acciones */
+/* Force a new row starting at Moneda so that RAMO-PRODUCTO stay alone */
+.table-custom td:nth-child(8) { /* Moneda */
+    grid-column: 1;
+}
+
+/* Ensure the block of commissions starts on its own row */
+.table-custom td:nth-child(14) { /* % Com. Cía */
+    grid-column: 1;
+}
+
+.table-custom td:nth-child(18) { /* Acciones en posición 18 */
     grid-column: 1 / -1;
     border-top: 1px dashed var(--card-border);
     padding-top: 1rem;
@@ -367,7 +376,7 @@ body {
     gap: 0.5rem;
     min-height: auto;
 }
-.table-custom td:nth-child(19)::before {
+.table-custom td:nth-child(18)::before {
     display: none; /* Hide label for actions */
 }
 
