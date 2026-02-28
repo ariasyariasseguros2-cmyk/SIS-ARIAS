@@ -137,6 +137,21 @@ def _extract_fecha_emision(text: str) -> Optional[str]:
             return d.group(0)
     return None
 
+def _extract_primera_fecha_vencimiento(text: str) -> Optional[str]:
+    m = re.search(r"fecha\s+de?\s*vencim(?:iento)?", text, flags=re.IGNORECASE)
+    if m:
+        window = text[m.end(): m.end() + 1200]
+        dates = re.findall(r"\b\d{1,2}/\d{1,2}/\d{4}\b", window)
+        if dates:
+            return dates[0]
+    m2 = re.search(r"documentos?\s+generados?", text, flags=re.IGNORECASE)
+    if m2:
+        window = text[m2.end(): m2.end() + 1200]
+        dates = re.findall(r"\b\d{1,2}/\d{1,2}/\d{4}\b", window)
+        if dates:
+            return dates[0]
+    return None
+
 def _extract_contratante(text: str) -> Optional[str]:
     # 1) Patrón principal: entre "Contratante :" y "Profesión" (tolerante a saltos y espacios)
     m_global = re.search(r"contratante\s*[:：]\s*(.+?)\bprofesi[oó]n\b", text, flags=re.IGNORECASE | re.DOTALL)
@@ -256,6 +271,13 @@ def parse_rimac_generales(text: str) -> Dict[str, str]:
     except Exception:
         pass
 
+    try:
+        fv = _extract_primera_fecha_vencimiento(text)
+        if fv:
+            item["fecha_vencimiento"] = fv
+    except Exception:
+        pass
+
     if contratante:
         item["contratante"] = contratante
         item["colectivo_asegurado"] = contratante
@@ -276,6 +298,8 @@ def parse_rimac_generales(text: str) -> Dict[str, str]:
             print("[rimac] vigencia:", item.get("inicio_vigencia"), "-", item.get("vencimiento"))
         if item.get("fecha_emision"):
             print("[rimac] fecha_emision:", item.get("fecha_emision"))
+        if item.get("fecha_vencimiento"):
+            print("[rimac] fecha_vencimiento:", item.get("fecha_vencimiento"))
     except Exception:
         pass
 
