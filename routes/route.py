@@ -1289,7 +1289,7 @@ def carga_masiva_soat_upload():
         file.save(temp_path)
 
         # Procesar Excel
-        from controllers.carga_masiva_soat import process_soat_excel
+        from controllers.soat.carga_masiva import process_soat_excel
         result = process_soat_excel(temp_path, session.get('user'), preview=preview)
 
         # Eliminar archivo temporal
@@ -2821,6 +2821,66 @@ def api_maestros_soat():
         'pages': pages, 
         'per_page': per_page
     })
+
+@bp.route('/menu/produccion-soat', methods=['GET'])
+def menu_produccion_soat():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    if not can_access_maestros(session.get('role_name')):
+        return redirect(url_for('main.dashboard'))
+    return render_template('view/maestros/produccion_soat.html', page='maestros-produccion-soat')
+
+@bp.route('/api/produccion-soat', methods=['GET'])
+def api_produccion_soat():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+    try:
+        page     = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 20))
+    except ValueError:
+        page, per_page = 1, 20
+
+    search      = request.args.get('search', '').strip()
+    fecha_desde = request.args.get('fecha_desde', None)
+    fecha_hasta = request.args.get('fecha_hasta', None)
+
+    from controllers.maestros.produccion_soat import get_produccion_soat
+    data = get_produccion_soat(
+        page=page,
+        per_page=per_page,
+        search=search,
+        fecha_desde=fecha_desde or None,
+        fecha_hasta=fecha_hasta or None
+    )
+
+    total    = data['total']
+    rows     = data['rows']
+    totales  = data['totales']
+    pages    = max(1, (total + per_page - 1) // per_page) if per_page > 0 else 1
+
+    # Convertir Decimal/date a tipos serializables
+    import decimal, datetime
+    def serialize(obj):
+        if isinstance(obj, decimal.Decimal):
+            return float(obj)
+        if isinstance(obj, (datetime.date, datetime.datetime)):
+            return obj.isoformat()
+        return obj
+
+    rows_clean    = [{k: serialize(v) for k, v in r.items()} for r in rows]
+    totales_clean = {k: serialize(v) for k, v in (totales or {}).items()}
+
+    return jsonify({
+        'ok': True,
+        'rows': rows_clean,
+        'total': total,
+        'page': page,
+        'pages': pages,
+        'per_page': per_page,
+        'totales': totales_clean
+    })
+
+
 
 @bp.route('/menu/maestros-usuarios', methods=['GET'])
 def menu_maestros_usuarios():
