@@ -293,27 +293,46 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
             ),
         )
 
-        has_pago = val_or_none(data.get('fecha_pago')) is not None
-        if has_pago:
-            if cupon:
+        target_poliza_id = poliza_id
+        if target_poliza_id is None:
+            try:
                 cur.execute(
                     """
-                    UPDATE polizas
-                    SET estado = 'CANCELADO'
+                    SELECT idPoliza
+                    FROM polizas
                     WHERE TRIM(poliza) = TRIM(%s)
                       AND TRIM(recibo) = TRIM(%s)
+                    ORDER BY creado_en DESC
+                    LIMIT 1
                     """,
                     (poliza, cupon),
                 )
-            else:
-                cur.execute(
-                    """
-                    UPDATE polizas
-                    SET estado = 'CANCELADO'
-                    WHERE TRIM(poliza) = TRIM(%s)
-                    """,
-                    (poliza,),
-                )
+                row = cur.fetchone()
+                if row:
+                    target_poliza_id = row[0]
+            except Exception:
+                target_poliza_id = None
+
+        if target_poliza_id is not None:
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM cuotas
+                WHERE poliza_id = %s
+                  AND (
+                    fecha_pago IS NULL
+                    OR factura IS NULL OR factura = ''
+                  )
+                """,
+                (target_poliza_id,),
+            )
+            row = cur.fetchone()
+            pendientes = row[0] if row and row[0] is not None else 0
+            nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'CANCELADO'
+            cur.execute(
+                "UPDATE polizas SET estado = %s WHERE idPoliza = %s",
+                (nuevo_estado, target_poliza_id),
+            )
 
         cnx.commit()
         cur.close()
