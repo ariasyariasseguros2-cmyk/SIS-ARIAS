@@ -70,6 +70,7 @@ def map_excel_columns(df: pd.DataFrame) -> pd.DataFrame:
         'moneda': 'MONEDA_ABREVIACION',
         'prima': 'PRIMA',
         'cod agenc': 'COD_AGENTE',
+        'cod.agenc': 'COD_AGENTE',
         'vendedor': 'VENDEDOR',
         'aplicacion': 'APLICACION',
         'tipo persona': 'TIPO_PERSONA',
@@ -111,9 +112,7 @@ def map_excel_columns(df: pd.DataFrame) -> pd.DataFrame:
     if 'PRIMA' in df2.columns:
         if 'PRIMA_MAS_IGV' not in df2.columns:
             df2['PRIMA_MAS_IGV'] = df2['PRIMA']
-        # Mapeo corregido: PRIMA es Prima Comercial + IGV, no Prima Neta
 
-        # Asegurar que existan las columnas requeridas por el validador (aunque se calculen después)
         if 'PRIMA_NETA' not in df2.columns:
             df2['PRIMA_NETA'] = None
         if 'PRIMA_TOTAL' not in df2.columns:
@@ -418,19 +417,15 @@ def get_or_create_uso(cursor, cnx, uso_nombre: str, commit: bool = True) -> int 
     uso_nombre = uso_nombre.strip().upper()
 
     try:
-        # Intentar insertar (ON DUPLICATE KEY lo maneja)
-        cursor.callproc('sp_insertar_uso', [uso_nombre, 0])
-
-        # Obtener el resultado (OUT parameter)
-        for result in cursor.stored_results():
+        cur2 = cnx.cursor(dictionary=True)
+        cur2.callproc('sp_insertar_uso', [uso_nombre, 0])
+        for _ in cur2.stored_results():
             pass
-
-        # Recuperar el ID
-        cursor.execute("SELECT @_sp_insertar_uso_1 AS uso_id")
-        row = cursor.fetchone()
+        cur2.execute("SELECT @_sp_insertar_uso_1 AS uso_id")
+        row = cur2.fetchone()
+        cur2.close()
         if commit:
             cnx.commit()
-
         return row['uso_id'] if row else None
     except Exception as e:
         if commit:
@@ -447,19 +442,15 @@ def get_or_create_marca(cursor, cnx, marca_nombre: str, commit: bool = True) -> 
     marca_nombre = marca_nombre.strip().upper()
 
     try:
-        # Intentar insertar (ON DUPLICATE KEY lo maneja)
-        cursor.callproc('sp_insertar_marca', [marca_nombre, 0])
-
-        # Obtener el resultado
-        for result in cursor.stored_results():
+        cur2 = cnx.cursor(dictionary=True)
+        cur2.callproc('sp_insertar_marca', [marca_nombre, 0])
+        for _ in cur2.stored_results():
             pass
-
-        # Recuperar el ID
-        cursor.execute("SELECT @_sp_insertar_marca_1 AS marca_id")
-        row = cursor.fetchone()
+        cur2.execute("SELECT @_sp_insertar_marca_1 AS marca_id")
+        row = cur2.fetchone()
+        cur2.close()
         if commit:
             cnx.commit()
-
         return row['marca_id'] if row else None
     except Exception as e:
         if commit:
@@ -477,19 +468,15 @@ def get_or_create_modelo(cursor, cnx, marca_nombre: str, modelo_nombre: str, com
     modelo_nombre = modelo_nombre.strip().upper()
 
     try:
-        # Usar el SP que maneja marca y modelo juntos
-        cursor.callproc('sp_insertar_modelo_por_nombres', [marca_nombre, modelo_nombre, 0, 0])
-
-        # Obtener los resultados
-        for result in cursor.stored_results():
+        cur2 = cnx.cursor(dictionary=True)
+        cur2.callproc('sp_insertar_modelo_por_nombres', [marca_nombre, modelo_nombre, 0, 0])
+        for _ in cur2.stored_results():
             pass
-
-        # Recuperar los IDs
-        cursor.execute("SELECT @_sp_insertar_modelo_por_nombres_2 AS marca_id, @_sp_insertar_modelo_por_nombres_3 AS modelo_id")
-        row = cursor.fetchone()
+        cur2.execute("SELECT @_sp_insertar_modelo_por_nombres_2 AS marca_id, @_sp_insertar_modelo_por_nombres_3 AS modelo_id")
+        row = cur2.fetchone()
+        cur2.close()
         if commit:
             cnx.commit()
-
         if row:
             return row['marca_id'], row['modelo_id']
         return None, None
@@ -500,34 +487,147 @@ def get_or_create_modelo(cursor, cnx, marca_nombre: str, modelo_nombre: str, com
         return None, None
 
 
+def get_or_create_clase(cursor, cnx, clase_nombre: str, commit: bool = True) -> int | None:
+    """Obtiene el ID de una clase, o la crea si no existe"""
+    if not clase_nombre or clase_nombre.strip() == '':
+        return None
+
+    clase_nombre = clase_nombre.strip().upper()
+
+    try:
+        cur2 = cnx.cursor(dictionary=True)
+        cur2.callproc('sp_insertar_clase', [clase_nombre, 0])
+        for _ in cur2.stored_results():
+            pass
+        cur2.execute("SELECT @_sp_insertar_clase_1 AS clase_id")
+        row = cur2.fetchone()
+        cur2.close()
+        if commit:
+            cnx.commit()
+        return row['clase_id'] if row else None
+    except Exception:
+        # Si el SP no existe, buscar directamente por nombre
+        try:
+            cur2 = cnx.cursor(dictionary=True)
+            cur2.execute("SELECT id FROM clases WHERE UPPER(nombre) = %s LIMIT 1", (clase_nombre,))
+            row = cur2.fetchone()
+            cur2.close()
+            return row['id'] if row else None
+        except Exception as e:
+            print(f"Error al obtener clase '{clase_nombre}': {str(e)}")
+            return None
+
+
 def get_or_create_agente(cursor, cnx, codigo_agente: str, nombre_vendedor: str, commit: bool = True) -> int | None:
-    """Obtiene el ID de un agente, o lo crea si no existe"""
+    """Obtiene el ID de un agente. Si no existe lo crea. Si ya existe, NO sobreescribe porcentajes."""
     if not codigo_agente or codigo_agente.strip() == '':
         return None
 
     codigo_agente = codigo_agente.strip()
-    nombre_vendedor = nombre_vendedor.strip() if nombre_vendedor else ''
+    nombre_vendedor = nombre_vendedor.strip() if nombre_vendedor else codigo_agente
 
     try:
-        # Intentar insertar (ON DUPLICATE KEY lo maneja)
-        cursor.callproc('sp_insertar_agente', [codigo_agente, nombre_vendedor, 0])
-
-        # Obtener el resultado
-        for result in cursor.stored_results():
+        cur2 = cnx.cursor(dictionary=True)
+        # Primero intentar obtener el agente existente
+        cur2.execute(
+            "SELECT id FROM agentes WHERE codigo_agente = %s LIMIT 1",
+            (codigo_agente,)
+        )
+        row = cur2.fetchone()
+        if row:
+            cur2.close()
+            return row['id']
+        # Si no existe, crear con porcentajes en 0 (serán configurados manualmente)
+        cur2.callproc('sp_insertar_agente', [codigo_agente, nombre_vendedor, 0])
+        for _ in cur2.stored_results():
             pass
-
-        # Recuperar el ID
-        cursor.execute("SELECT @_sp_insertar_agente_2 AS agente_id")
-        row = cursor.fetchone()
+        cur2.execute("SELECT @_sp_insertar_agente_2 AS agente_id")
+        row = cur2.fetchone()
+        cur2.close()
         if commit:
             cnx.commit()
-
         return row['agente_id'] if row else None
     except Exception as e:
         if commit:
             cnx.rollback()
         print(f"Error al insertar agente '{codigo_agente}': {str(e)}")
         return None
+
+
+def get_tipo_soat(cnx, clase_id: int | None, uso_id: int | None) -> tuple[int | None, str | None, float]:
+    """
+    Consulta configuracion_soat y tipos_soat para obtener el tipo de SOAT
+    según la clase y uso del vehículo.
+    Retorna (tipo_soat_id, tipo_soat_nombre, tasa_aas)
+    """
+    if clase_id is None:
+        return None, None, 0.0
+
+    try:
+        cur2 = cnx.cursor(dictionary=True)
+
+        # Intentar con clase_id + uso_id
+        if uso_id is not None:
+            cur2.execute("""
+                SELECT cs.tipo_soat_id, ts.nombre, ts.tasa_aas
+                FROM configuracion_soat cs
+                JOIN tipos_soat ts ON ts.id = cs.tipo_soat_id
+                WHERE cs.clase_id = %s AND cs.uso_id = %s
+                  AND cs.estado = 'Activo' AND ts.estado = 'Activo'
+                LIMIT 1
+            """, (clase_id, uso_id))
+            row = cur2.fetchone()
+            if row:
+                cur2.close()
+                return row['tipo_soat_id'], row['nombre'], float(row['tasa_aas'] or 0)
+
+        # Fallback: solo clase_id
+        cur2.execute("""
+            SELECT cs.tipo_soat_id, ts.nombre, ts.tasa_aas
+            FROM configuracion_soat cs
+            JOIN tipos_soat ts ON ts.id = cs.tipo_soat_id
+            WHERE cs.clase_id = %s
+              AND cs.estado = 'Activo' AND ts.estado = 'Activo'
+            LIMIT 1
+        """, (clase_id,))
+        row = cur2.fetchone()
+        cur2.close()
+        if row:
+            return row['tipo_soat_id'], row['nombre'], float(row['tasa_aas'] or 0)
+        return None, None, 0.0
+    except Exception as e:
+        print(f"Error en get_tipo_soat clase_id={clase_id} uso_id={uso_id}: {e}")
+        return None, None, 0.0
+
+
+def get_porc_subagente(cnx, codigo_agente: str, tipo_soat_nom: str | None) -> float:
+    """
+    Consulta SELECT * FROM agentes WHERE codigo_agente = %s
+    y retorna tipo_menor o tipo_regular según el tipo de SOAT.
+    """
+    if not codigo_agente or codigo_agente.strip() == '':
+        return 0.0
+
+    try:
+        cur2 = cnx.cursor(dictionary=True)
+        cur2.execute(
+            "SELECT tipo_menor, tipo_regular FROM agentes WHERE codigo_agente = %s LIMIT 1",
+            (codigo_agente.strip(),)
+        )
+        row = cur2.fetchone()
+        cur2.close()
+
+        if not row:
+            print(f"Agente no encontrado: codigo_agente='{codigo_agente}'")
+            return 0.0
+
+        if tipo_soat_nom == 'Menor':
+            return float(row['tipo_menor'] or 0)
+        else:
+            return float(row['tipo_regular'] or 0)
+    except Exception as e:
+        print(f"Error en get_porc_subagente codigo_agente='{codigo_agente}': {e}")
+        return 0.0
 
 
 def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> dict:
@@ -654,8 +754,15 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                         try:
                             cur.execute("CALL sp_insert_cliente(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                                       cliente_args)
-                            while cur.nextset():
+                            try:
+                                cur.fetchall()
+                            except Exception:
                                 pass
+                            while cur.nextset():
+                                try:
+                                    cur.fetchall()
+                                except Exception:
+                                    pass
                             if commit_db:
                                 cnx.commit()
                             clientes_nuevos += 1
@@ -669,10 +776,11 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     clientes_procesados.add(numero_documento)
 
                 # 2. PROCESAR PÓLIZA
-                # Validar e insertar USO si no existe
+                # Validar e insertar USO si no existe, y obtener su ID
                 uso_nombre = normalize_string(row.get('USO', ''))
+                uso_id = None
                 if uso_nombre:
-                    get_or_create_uso(cur, cnx, uso_nombre, commit=commit_db)
+                    uso_id = get_or_create_uso(cur, cnx, uso_nombre, commit=commit_db)
 
                 # Validar e insertar MARCA y MODELO si no existen
                 marca_nombre = normalize_string(row.get('MARCA', ''))
@@ -680,21 +788,59 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 if marca_nombre and modelo_nombre:
                     get_or_create_modelo(cur, cnx, marca_nombre, modelo_nombre, commit=commit_db)
 
-                # Validar e insertar AGENTE si no existe (solo si ambos tienen valor)
-                codigo_agente = normalize_string(row.get('COD_AGENTE', ''))
-                nombre_vendedor = normalize_string(row.get('VENDEDOR', ''))
-                if codigo_agente and nombre_vendedor:
+                # Resolver clase_id desde nombre de clase (para cálculo de comisiones en SP)
+                clase_nombre = normalize_string(row.get('CLASE', ''))
+                clase_id = None
+                if clase_nombre:
+                    clase_id = get_or_create_clase(cur, cnx, clase_nombre, commit=commit_db)
+
+                # Validar e insertar AGENTE si no existe (solo si tiene código)
+                raw_cod = row.get('COD_AGENTE', '')
+                raw_vend = row.get('VENDEDOR', '')
+                print(f"[DEBUG] COD_AGENTE raw='{raw_cod}' | VENDEDOR raw='{raw_vend}' | cols={[c for c in row.index if 'COD' in str(c).upper() or 'AGENC' in str(c).upper() or 'VEND' in str(c).upper()]}")
+                codigo_agente = normalize_numero_documento(raw_cod)
+                nombre_vendedor = normalize_string(raw_vend)
+                print(f"[DEBUG] codigo_agente normalizado='{codigo_agente}'")
+                if codigo_agente:
                     get_or_create_agente(cur, cnx, codigo_agente, nombre_vendedor, commit=commit_db)
 
                 # Si no hay código de agente, usar cadena vacía para evitar errores
                 if not codigo_agente:
                     codigo_agente = ''
 
+                # ── Normalizar primas (necesario antes del cálculo de comisiones) ──
+                prima_mas_igv = normalize_decimal(row.get('PRIMA_MAS_IGV'))
+                prima_neta = normalize_decimal(row.get('PRIMA_NETA'))
+
+                if prima_neta is None and prima_mas_igv is not None:
+                    prima_neta = round(prima_mas_igv / 1.2154, 2)
+                elif prima_neta is None:
+                    prima_neta = 0.0
+
+                if prima_mas_igv is None:
+                    prima_mas_igv = 0.0
+
+                # ── Calcular comisiones en Python directamente ──────────────
+                # 1. Obtener tipo SOAT desde configuracion_soat
+                _, tipo_soat_nom, tasa_aas = get_tipo_soat(cnx, clase_id, uso_id)
+
+                # 2. porc_compania e imp_compania
+                porc_compania = round(tasa_aas, 2)
+                imp_compania  = round((porc_compania / 100) * prima_neta, 3)
+
+                # 3. porc_subagente desde tabla agentes directamente
+                porc_subagente = get_porc_subagente(cnx, codigo_agente, tipo_soat_nom)
+                imp_subagente  = round((porc_subagente / 100) * imp_compania, 3)
+
+                print(f"[COMISION] cod={codigo_agente} tipo_soat={tipo_soat_nom} "
+                      f"porc_cia={porc_compania} imp_cia={imp_compania} "
+                      f"porc_sub={porc_subagente} imp_sub={imp_subagente}")
+
                 # Construir JSON con datos del vehículo
                 datos_vehiculo = {
                     'inciso': normalize_string(row.get('INCISO', '')),
                     'placa': normalize_string(row.get('PLACA', '')),
-                    'clase': normalize_string(row.get('CLASE', '')),
+                    'clase': clase_nombre,
                     'uso': uso_nombre,
                     'motor': normalize_string(row.get('MOTOR', '')),
                     'serie': normalize_string(row.get('SERIE', '')),
@@ -712,17 +858,6 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 moneda_map = {'S/.': 'S/.', 'S/': 'S/.', 'SOLES': 'S/.', 'PEN': 'S/.', '$': '$', 'USD': '$', 'DOLARES': '$', 'DÓLARES': '$'}
                 moneda_raw = normalize_string(row.get('MONEDA_ABREVIACION', 'S/.'))
                 moneda = moneda_map.get(moneda_raw, 'S/.')
-
-                prima_mas_igv = normalize_decimal(row.get('PRIMA_MAS_IGV'))
-                prima_neta = normalize_decimal(row.get('PRIMA_NETA'))
-                
-                if prima_neta is None and prima_mas_igv is not None:
-                    # Si no hay PRIMA_NETA, calcular usando el factor 1.2154
-                    prima_neta = round(prima_mas_igv / 1.2154, 2)   
-                elif prima_neta is None:
-                    prima_neta = 0.0
-                
-                    prima_mas_igv = 0.0
 
                 # Validar que la compañía no venga vacía (advertencia, no bloquea)
                 compania_nombre_corto = normalize_string(row.get('COMPANIA_NOMBRE_CORTO', ''))
@@ -756,16 +891,16 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     prima_neta,
                     prima_mas_igv,
                     prima_mas_igv,
-                    normalize_decimal(row.get('PORCENTAJE_COMISION_COMPANIA')),
-                    None,  # imp_compania
-                    normalize_decimal(row.get('PORCENTAJE_COMISION_SUBAGENTE')),
-                    None,  # imp_subagente
+                    porc_compania,   # calculado en Python
+                    imp_compania,    # calculado en Python
+                    porc_subagente,  # calculado en Python desde tabla agentes
+                    imp_subagente,   # calculado en Python
                     normalize_string(row.get('PRODUCTO_ABREVIACION', 'SOAT')),
                     'CANCELADO',
                     None,  # pdf_path
                     usuario,
                     datos_vehiculo_json,
-                    codigo_agente  # Código de agente
+                    codigo_agente
                 )
 
                 try:
@@ -773,8 +908,16 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                         "CALL sp_insert_poliza_soat_masivo(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                         poliza_args
                     )
-                    while cur.nextset():
+                    # Consumir todos los resultsets que devuelve el SP (incluido el SELECT final)
+                    try:
+                        cur.fetchall()
+                    except Exception:
                         pass
+                    while cur.nextset():
+                        try:
+                            cur.fetchall()
+                        except Exception:
+                            pass
                     if commit_db:
                         cnx.commit()
                     polizas_insertadas += 1
