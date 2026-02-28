@@ -1,0 +1,238 @@
+{% extends 'view/layout_dashboard.html' %}
+
+{% block html_title %}Cálculos Producción SOAT | SIS-ARIAS{% endblock %}
+
+{% block page_title %}
+    <h3 class="fw-bold mb-0 text-dark">Cálculos Producción SOAT</h3>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+
+    <!-- Filtros -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold text-muted mb-1">Buscar (póliza / recibo / planilla / código / vendedor)</label>
+                    <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Buscar...">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted mb-1">Venc. desde</label>
+                    <input type="date" id="fechaDesde" class="form-control form-control-sm">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted mb-1">Venc. hasta</label>
+                    <input type="date" id="fechaHasta" class="form-control form-control-sm">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted mb-1">Mostrar</label>
+                    <select id="perPageSelect" class="form-select form-select-sm">
+                        <option value="10" selected>10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="-1">Todo</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button id="btnBuscar" class="btn btn-primary btn-sm w-100">
+                        <i class="bi-search"></i> Buscar
+                    </button>
+                    <button id="btnLimpiar" class="btn btn-outline-secondary btn-sm w-100">
+                        <i class="bi-x-circle"></i> Limpiar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small" id="produccionTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="ps-3">Póliza</th>
+                            <th>Recibo</th>
+                            <th>Planilla</th>
+                            <th>Código</th>
+                            <th>Vendedor</th>
+                            <th class="text-end">Prima Neta</th>
+                            <th class="text-end">Prima C. IGV</th>
+                            <th class="text-end">% Cía</th>
+                            <th class="text-end">Imp. Cía</th>
+                            <th class="text-end">% Agente</th>
+                            <th class="text-end">Imp. Agente</th>
+                            <th class="text-end fw-bold text-warning">Producción Neta</th>
+                        </tr>
+                    </thead>
+                    <tbody id="produccionBody">
+                        <tr><td colspan="12" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </td></tr>
+                    </tbody>
+                    <!-- Fila de totales -->
+                    <tfoot class="table-secondary fw-bold" id="produccionTotales" style="display:none;">
+                        <tr>
+                            <td colspan="5" class="ps-3 text-end">TOTALES</td>
+                            <td class="text-end" id="tot_prima_neta">-</td>
+                            <td class="text-end" id="tot_prima_igv">-</td>
+                            <td class="text-end" colspan="2" id="tot_imp_compania">-</td>
+                            <td class="text-end" colspan="2" id="tot_imp_subagente">-</td>
+                            <td class="text-end text-warning" id="tot_produccion_neta">-</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        <!-- Paginación -->
+        <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center py-2 px-3">
+            <div class="text-muted small" id="paginationInfo">Cargando...</div>
+            <nav><ul class="pagination pagination-sm mb-0" id="paginationControls"></ul></nav>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js_bottom %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    let currentPage = 1;
+    let perPage = 10;
+
+    // Cargar al inicio
+    loadData();
+
+    document.getElementById('btnBuscar').addEventListener('click', () => { currentPage = 1; loadData(); });
+    document.getElementById('btnLimpiar').addEventListener('click', () => {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('fechaDesde').value = '';
+        document.getElementById('fechaHasta').value = '';
+        currentPage = 1;
+        loadData();
+    });
+    document.getElementById('perPageSelect').addEventListener('change', e => {
+        perPage = parseInt(e.target.value);
+        currentPage = 1;
+        loadData();
+    });
+    document.getElementById('searchInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') { currentPage = 1; loadData(); }
+    });
+
+    function fmt(val) {
+        if (val === null || val === undefined) return '-';
+        return parseFloat(val).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function loadData() {
+        const tbody   = document.getElementById('produccionBody');
+        const tfoot   = document.getElementById('produccionTotales');
+        const search  = document.getElementById('searchInput').value.trim();
+        const fDesde  = document.getElementById('fechaDesde').value;
+        const fHasta  = document.getElementById('fechaHasta').value;
+
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></td></tr>';
+        tfoot.style.display = 'none';
+
+        const params = new URLSearchParams({
+            page: currentPage,
+            per_page: perPage,
+            search,
+            fecha_desde: fDesde,
+            fecha_hasta: fHasta
+        });
+
+        fetch(`/api/produccion-soat?${params}`)
+            .then(r => r.json())
+            .then(data => {
+                tbody.innerHTML = '';
+                if (!data.ok || data.rows.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="12" class="text-center py-5 text-muted">No se encontraron registros.</td></tr>';
+                    document.getElementById('paginationInfo').textContent = '0 registros';
+                    document.getElementById('paginationControls').innerHTML = '';
+                    return;
+                }
+
+                data.rows.forEach(row => {
+                    const tr = document.createElement('tr');
+                    const prodNeta = parseFloat(row.produccion_neta || 0);
+                    const netaClass = prodNeta >= 0 ? 'text-success' : 'text-danger';
+                    tr.innerHTML = `
+                        <td class="ps-3 fw-bold text-primary">${row.poliza || '-'}</td>
+                        <td>${row.recibo || '-'}</td>
+                        <td>${row.planilla || '-'}</td>
+                        <td><span class="badge bg-secondary">${row.codigo || '-'}</span></td>
+                        <td>${row.vendedor || '-'}</td>
+                        <td class="text-end">S/ ${fmt(row.prima_neta)}</td>
+                        <td class="text-end">S/ ${fmt(row.prima_comercial_igv)}</td>
+                        <td class="text-end text-muted small">${fmt(row.porc_compania)}%</td>
+                        <td class="text-end">S/ ${fmt(row.imp_compania)}</td>
+                        <td class="text-end text-muted small">${fmt(row.porc_subagente)}%</td>
+                        <td class="text-end">S/ ${fmt(row.imp_subagente)}</td>
+                        <td class="text-end fw-bold ${netaClass}">S/ ${fmt(row.produccion_neta)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                // Totales
+                const t = data.totales || {};
+                document.getElementById('tot_prima_neta').textContent      = `S/ ${fmt(t.total_prima_neta)}`;
+                document.getElementById('tot_prima_igv').textContent       = `S/ ${fmt(t.total_prima_igv)}`;
+                document.getElementById('tot_imp_compania').textContent    = `S/ ${fmt(t.total_imp_compania)}`;
+                document.getElementById('tot_imp_subagente').textContent   = `S/ ${fmt(t.total_imp_subagente)}`;
+                document.getElementById('tot_produccion_neta').textContent = `S/ ${fmt(t.total_produccion_neta)}`;
+                tfoot.style.display = '';
+
+                // Info y paginación
+                const start = (data.page - 1) * data.per_page + 1;
+                const end   = Math.min(start + data.rows.length - 1, data.total);
+                document.getElementById('paginationInfo').textContent = `Mostrando ${start}–${end} de ${data.total} registros`;
+                renderPagination(data.page, data.pages, data.per_page);
+            })
+            .catch(err => {
+                console.error(err);
+                tbody.innerHTML = '<tr><td colspan="12" class="text-center py-4 text-danger">Error al cargar datos.</td></tr>';
+            });
+    }
+
+    function renderPagination(current, totalPages, pp) {
+        const ul = document.getElementById('paginationControls');
+        ul.innerHTML = '';
+        if (totalPages <= 1) return;
+
+        const mkItem = (label, pg, active=false, disabled=false) => {
+            const li = document.createElement('li');
+            li.className = `page-item ${active ? 'active' : ''} ${disabled ? 'disabled' : ''}`;
+            const a = document.createElement('a');
+            a.className = 'page-link';
+            a.href = '#';
+            a.innerHTML = label;
+            if (!disabled && !active) a.addEventListener('click', e => { e.preventDefault(); currentPage = pg; loadData(); });
+            li.appendChild(a);
+            ul.appendChild(li);
+        };
+
+        mkItem('<i class="bi-chevron-left"></i>', current - 1, false, current === 1);
+
+        let start = Math.max(1, current - 2);
+        let end   = Math.min(totalPages, start + 4);
+        if (end - start < 4) start = Math.max(1, end - 4);
+
+        if (start > 1) { mkItem('1', 1); if (start > 2) mkItem('…', current, false, true); }
+        for (let i = start; i <= end; i++) mkItem(i, i, i === current);
+        if (end < totalPages) { if (end < totalPages - 1) mkItem('…', current, false, true); mkItem(totalPages, totalPages); }
+
+        mkItem('<i class="bi-chevron-right"></i>', current + 1, false, current === totalPages);
+    }
+});
+</script>
+{% endblock %}
+
+
+
+
+
