@@ -3350,8 +3350,8 @@ CREATE TABLE IF NOT EXISTS configuracion_soat (
 -- =============================================
 
 INSERT INTO tipos_soat (nombre, tasa_aas, tasa_vendedor) VALUES
-('Menor', 0.10, 0.60),
-('Regular', 0.18, 0.70)
+('Menor', 10.00, 60.00),
+('Regular', 18.00, 70.00)
 ON DUPLICATE KEY UPDATE tasa_aas=VALUES(tasa_aas), tasa_vendedor=VALUES(tasa_vendedor);
 
 INSERT INTO configuracion_comision_extra (descripcion, porcentaje) VALUES
@@ -3493,13 +3493,13 @@ BEGIN
         SET v_tasa_vendedor = 0;
     END IF;
     
-    -- 2. Calcular Comisiones
-    SET v_comision_aas = p_precio_soat * v_tasa_aas;
-    SET v_comision_vendedor = v_comision_aas * v_tasa_vendedor;
-    
+    -- 2. Calcular Comisiones (tasa_aas y tasa_vendedor son porcentajes: 10.00, 18.00, 60.00, 70.00)
+    SET v_comision_aas = p_precio_soat * (v_tasa_aas / 100);
+    SET v_comision_vendedor = v_comision_aas * (v_tasa_vendedor / 100);
+
     -- 3. Calcular Extras
     IF p_extra_ids IS NOT NULL AND LENGTH(p_extra_ids) > 0 THEN
-        SELECT IFNULL(SUM(p_precio_soat * porcentaje), 0)
+        SELECT IFNULL(SUM(p_precio_soat * (porcentaje / 100)), 0)
         INTO v_extra_total
         FROM configuracion_comision_extra
         WHERE FIND_IN_SET(id, p_extra_ids);
