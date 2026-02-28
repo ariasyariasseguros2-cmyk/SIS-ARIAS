@@ -99,8 +99,8 @@ function loadSoatData(page, perPage) {
                 data.rows.forEach(row => {
                     const tr = document.createElement('tr');
                     
-                    const tasaAas = (row.tasa_aas * 100).toFixed(2) + '%';
-                    const tasaVend = (row.tasa_vendedor * 100).toFixed(2) + '%';
+                    const tasaAas = parseFloat(row.tasa_aas).toFixed(2) + '%';
+                    const tasaVend = parseFloat(row.tasa_vendedor).toFixed(2) + '%';
                     const override = row.tasa_final_override ? row.tasa_final_override + '%' : '-';
 
                     tr.innerHTML = `
