@@ -2089,10 +2089,10 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
             prov = "protecta"
         elif "sanitas" in t:
             prov = "sanitas"
+        elif ("rimac" in t or "rimac seguros" in t) or re.search(r"\bNro\.?\s*[:：]?\s*\d{3,6}\s*[-–—]\s*\d{5,12}\b", t) or re.search(r"pol[ií]za\s*\d{3,6}\s*-\s*\d{5,12}", t):
+            prov = "rimac"
         elif "pacifico" in t or "pacífico" in t:
                 prov = "pacifico"
-        elif ("rimac" in t or "rimac seguros" in t) or re.search(r"pol[ií]za\s*\d{3,6}\s*-\s*\d{5,12}", t):
-            prov = "rimac"
         elif "vida-ley-crecer" in t:
                 prov = "vida-ley-crecer"
         else:
@@ -2325,6 +2325,17 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         return [item] if item else []
         
     if prov == "rimac":
+        hint_v2 = re.search(r"\bNro\.?\s*[:：]?\s*\d{3,6}\s*[-–—]\s*\d{5,12}\b", text, re.IGNORECASE) or re.search(r"pol[ií]za\s*nro", text, re.IGNORECASE) or re.search(r"poliza\s+anual\s+de\s+transportes", text, re.IGNORECASE)
+        if hint_v2:
+            try:
+                from controllers.addRimacGenerales_V2 import parse_rimac_generales as parse_rimac_generales_v2
+                item_v2 = parse_rimac_generales_v2(text)
+                ok_v2 = item_v2 and re.search(r"\b\d{3,6}\s*-\s*\d{5,12}\b", str(item_v2.get('numero_poliza') or ''))
+                if ok_v2:
+                    print("[provider] rimac V2 item:", item_v2)
+                    return [item_v2]
+            except Exception as e:
+                print("[provider] rimac V2 error:", e)
         from controllers.addRimacGenerales import parse_rimac_generales
         item = parse_rimac_generales(text)
         print("[provider] rimac item:", item)
