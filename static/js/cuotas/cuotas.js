@@ -291,8 +291,27 @@ const Cuotas = (() => {
     const tr = tbody.querySelectorAll('tr')[idx];
     if (!tr) return;
     openConfirm('¿Eliminar definitivamente esta cuota?', () => {
-      tr.remove();
-      recalcTotal();
+      const idCuota = tr.dataset.idcuota;
+      if (idCuota) {
+        fetch('/cuotas/delete', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({idCuota: idCuota})
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res.ok) {
+            tr.remove();
+            recalcTotal();
+          } else {
+            alert('Error al eliminar: ' + (res.error || 'Desconocido'));
+          }
+        })
+        .catch(e => alert('Error de red: ' + e));
+      } else {
+        tr.remove();
+        recalcTotal();
+      }
     }, 'delete');
   }
   function onAdd() { 

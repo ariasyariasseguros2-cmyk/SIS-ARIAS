@@ -153,9 +153,9 @@
               <td class="text-end actions">
                 <div class="action-buttons justify-content-end">
                   <button class="btn-action btn-secondary btn-pdf" onclick="Cuotas.onPDF({{ loop.index0 }})">PDF</button>
-                  {% if session.role_name in ['BROKER', 'OPERADOR'] %}
+                  <!--{% if session.role_name in ['BROKER', 'OPERADOR'] %}
                   <button class="btn-action btn-warning btn-revert" onclick="Cuotas.onRevert({{ loop.index0 }})">Revertir</button>
-                  {% endif %}
+                  {% endif %}-->
                   <button class="btn-action btn-info btn-details" onclick="Cuotas.onDetails({{ loop.index0 }})">Detalles</button>
                   {% if session.role_name in ['BROKER', 'OPERADOR'] %}
                   <button class="btn-action btn-success btn-edit" onclick="Cuotas.onEdit({{ loop.index0 }})">Editar</button>

@@ -1057,7 +1057,8 @@ CREATE TABLE IF NOT EXISTS cuotas (
     usuario_registro VARCHAR(50) NULL,
     usuario_edicion VARCHAR(50) NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    numero_cuota INT NULL
+    numero_cuota INT NULL,
+    activo TINYINT(1) DEFAULT 1
 );
 
 DELIMITER $$
@@ -1074,6 +1075,7 @@ BEGIN
         observacion
     FROM cuotas
     WHERE poliza = p_poliza
+      AND activo = 1
     ORDER BY fecha_vencimiento ASC, idCuota ASC;
 END$$
 DELIMITER ;
@@ -1100,7 +1102,7 @@ BEGIN
 
     -- Validar factura duplicada
     IF p_factura IS NOT NULL AND TRIM(p_factura) <> '' THEN
-        IF EXISTS (SELECT 1 FROM cuotas WHERE factura = TRIM(p_factura)) THEN
+        IF EXISTS (SELECT 1 FROM cuotas WHERE factura = TRIM(p_factura) AND activo = 1) THEN
             SET v_msg = CONCAT('El número de factura ya existe: ', TRIM(p_factura));
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
         END IF;
@@ -1108,7 +1110,7 @@ BEGIN
 
     -- Validar cupón duplicado por póliza
     IF p_cupon IS NOT NULL AND TRIM(p_cupon) <> '' THEN
-        IF EXISTS (SELECT 1 FROM cuotas WHERE TRIM(poliza) = TRIM(p_poliza) AND TRIM(cupon) = TRIM(p_cupon)) THEN
+        IF EXISTS (SELECT 1 FROM cuotas WHERE TRIM(poliza) = TRIM(p_poliza) AND TRIM(cupon) = TRIM(p_cupon) AND activo = 1) THEN
             SET v_msg = CONCAT('El cupón ya existe para esta póliza: ', TRIM(p_cupon));
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
         END IF;
@@ -1116,7 +1118,7 @@ BEGIN
 
     -- Validar factura duplicada
     IF p_factura IS NOT NULL AND TRIM(p_factura) <> '' THEN
-        IF EXISTS (SELECT 1 FROM cuotas WHERE factura = TRIM(p_factura)) THEN
+        IF EXISTS (SELECT 1 FROM cuotas WHERE factura = TRIM(p_factura) AND activo = 1) THEN
             SET v_msg = CONCAT('El número de factura ya existe: ', TRIM(p_factura));
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
         END IF;
@@ -1133,10 +1135,10 @@ BEGIN
 
     INSERT INTO cuotas (
         poliza_id, poliza, cupon, fecha_vencimiento, moneda, importe,
-        fecha_pago, factura, observacion, usuario_registro, numero_cuota
+        fecha_pago, factura, observacion, usuario_registro, numero_cuota, activo
     ) VALUES (
         v_poliza_id, p_poliza, p_cupon, p_fecha_vencimiento, p_moneda, p_importe,
-        p_fecha_pago, p_factura, p_observacion, p_usuario, p_numero_cuota
+        p_fecha_pago, p_factura, p_observacion, p_usuario, p_numero_cuota, 1
     );
 
     IF p_fecha_pago IS NOT NULL THEN

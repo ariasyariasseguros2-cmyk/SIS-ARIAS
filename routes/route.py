@@ -100,6 +100,20 @@ def update_cuota_cupon_route():
         return {'ok': False, 'error': msg}, 400
     return {'ok': True}
 
+@bp.route('/cuotas/delete', methods=['POST'])
+def delete_cuota_route():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'Unauthorized'}, 401
+    data = request.json
+    cuota_id = data.get('idCuota')
+    
+    from controllers.cuotas.cuotas import delete_cuota
+    success, msg = delete_cuota(cuota_id)
+    
+    if success:
+        return {'ok': True}
+    return {'ok': False, 'error': msg}, 400
+
 @bp.route('/api/comisiones/lookup', methods=['GET'])
 def lookup_comision_route():
     if 'user' not in session:

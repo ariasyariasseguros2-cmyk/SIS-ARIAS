@@ -245,7 +245,7 @@
                           }
                      }
                      
-                     setVal('addObservacion', 'Datos extraídos automáticamente del PDF.');
+                     //setVal('addObservacion', 'Datos extraídos automáticamente del PDF.');
 
                  } else {
                      alert('No se pudieron extraer datos: ' + (result.error || 'Revise el archivo'));

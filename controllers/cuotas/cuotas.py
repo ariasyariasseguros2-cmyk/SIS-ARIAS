@@ -125,6 +125,7 @@ def get_cuotas_data(
                             observacion
                         FROM cuotas
                         WHERE poliza_id = %s
+                          AND activo = 1
                         ORDER BY fecha_vencimiento ASC, idCuota ASC
                         """,
                         (target_prima_id,),
@@ -229,6 +230,7 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                 FROM cuotas
                 WHERE TRIM(poliza) = TRIM(%s)
                   AND TRIM(cupon) = TRIM(%s)
+                  AND activo = 1
                 LIMIT 1
                 """,
                 (poliza, cupon),
@@ -247,7 +249,7 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
 
         factura = val_or_none(data.get('factura'))
         if factura:
-            cur.execute("SELECT 1 FROM cuotas WHERE factura = %s LIMIT 1", (factura,))
+            cur.execute("SELECT 1 FROM cuotas WHERE factura = %s AND activo = 1 LIMIT 1", (factura,))
             if cur.fetchone():
                 cur.close()
                 cnx.close()
@@ -290,9 +292,10 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                 factura,
                 observacion,
                 usuario_registro,
-                numero_cuota
+                numero_cuota,
+                activo
             ) VALUES (
-                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, 1
             )
             """,
             (
@@ -340,6 +343,7 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                     fecha_pago IS NULL
                     OR factura IS NULL OR factura = ''
                   )
+                  AND activo = 1
                 """,
                 (target_poliza_id,),
             )
@@ -438,6 +442,7 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
                 WHERE TRIM(poliza) = TRIM(%s)
                   AND TRIM(cupon) = TRIM(%s)
                   AND idCuota <> %s
+                  AND activo = 1
                 LIMIT 1
                 """,
                 (poliza_actual, cupon_nuevo, cuota_id),
@@ -449,7 +454,7 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
 
         if factura_nueva and factura_nueva != factura_actual:
             cur.execute(
-                "SELECT 1 FROM cuotas WHERE factura = %s AND idCuota <> %s LIMIT 1",
+                "SELECT 1 FROM cuotas WHERE factura = %s AND idCuota <> %s AND activo = 1 LIMIT 1",
                 (factura_nueva, cuota_id),
             )
             if cur.fetchone():
@@ -513,6 +518,7 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
                     fecha_pago IS NULL
                     OR factura IS NULL OR factura = ''
                   )
+                  AND activo = 1
                 """,
                 (target_poliza_id,),
             )
@@ -530,6 +536,53 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
         return True, ""
     except Exception as e:
         print(f"Error updating cuota cupon: {e}")
+        return False, str(e)
+
+def delete_cuota(cuota_id: int) -> Tuple[bool, str]:
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor()
+        
+        # Get poliza_id before deleting to update status later
+        cur.execute("SELECT poliza_id FROM cuotas WHERE idCuota = %s", (cuota_id,))
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            cnx.close()
+            return False, "Cuota no encontrada"
+            
+        poliza_id = row[0]
+        
+        # Soft delete
+        cur.execute("UPDATE cuotas SET activo = 0 WHERE idCuota = %s", (cuota_id,))
+        
+        # Update poliza status
+        if poliza_id:
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM cuotas
+                WHERE poliza_id = %s
+                  AND (fecha_pago IS NULL OR factura IS NULL OR factura = '')
+                  AND activo = 1
+                """,
+                (poliza_id,),
+            )
+            r = cur.fetchone()
+            pendientes = r[0] if r else 0
+            nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'CANCELADO'
+            cur.execute(
+                "UPDATE polizas SET estado = %s WHERE idPoliza = %s",
+                (nuevo_estado, poliza_id),
+            )
+            
+        cnx.commit()
+        cur.close()
+        cnx.close()
+        return True, ""
+    except Exception as e:
+        print(f"Error deleting cuota: {e}")
         return False, str(e)
 
 def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
