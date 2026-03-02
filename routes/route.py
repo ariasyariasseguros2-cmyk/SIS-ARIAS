@@ -85,8 +85,20 @@ def save_cuota_route():
     
     if success:
         return {'ok': True}
-    else:
-        return {'ok': False, 'error': msg or 'Database error'}, 500
+    return {'ok': False, 'error': msg or 'Error al guardar cuota'}, 400
+
+
+@bp.route('/cuotas/update-cupon', methods=['POST'])
+def update_cuota_cupon_route():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'Unauthorized'}, 401
+    data = request.get_json(force=True) or {}
+    data['usuario'] = session.get('user')
+    from controllers.cuotas.cuotas import update_cuota_cupon
+    success, msg = update_cuota_cupon(data)
+    if not success:
+        return {'ok': False, 'error': msg}, 400
+    return {'ok': True}
 
 @bp.route('/api/comisiones/lookup', methods=['GET'])
 def lookup_comision_route():

@@ -63,6 +63,7 @@ const Cuotas = (() => {
     if (!tr) return null;
     const tds = tr.querySelectorAll('td');
     return {
+      idCuota: tr.dataset.idcuota || '',
       secuencia: (idx + 1),
       cupon: tds[1]?.textContent.trim() || '',
       fecha_vencimiento: tds[2]?.textContent.trim() || '',
@@ -354,49 +355,85 @@ const Cuotas = (() => {
         const tr = getRow(editIndex);
         if (!tr) return;
 
-        const tds = tr.querySelectorAll('td');
         const getVal = (id) => {
           const el = document.getElementById(id);
           return el ? el.value.trim() : '';
         };
 
-        const nuevaFechaPago = fromISODate(getVal('editFechaPago'));
+        const vencISO = getVal('editFechaVenc');
+        const pagoISO = getVal('editFechaPago');
+
+        const nuevaFechaPago = fromISODate(pagoISO);
         const nuevaFactura = getVal('editFactura');
         const nuevaObservacion = getVal('editObservacion');
         const nuevoImporte = getVal('editImporte');
+        const nuevoCupon = getVal('editCupon');
 
-        if (tds[2]) tds[2].textContent = fromISODate(getVal('editFechaVenc'));
-        if (tds[4]) tds[4].textContent = nuevoImporte;
-        if (tds[5]) tds[5].textContent = nuevaFechaPago;
-        if (tds[6]) tds[6].textContent = nuevaFactura;
-        if (tds[7]) tds[7].textContent = nuevaObservacion;
-        
-        // Update dataset instead of cells for hidden columns
-        tr.dataset.fechaPago = nuevaFechaPago;
-        tr.dataset.factura = nuevaFactura;
-        tr.dataset.observacion = nuevaObservacion;
+        const idCuota = tr.dataset.idcuota || '';
+        if (idCuota && window.currentPoliza) {
+          fetch('/cuotas/update-cupon', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              idCuota: idCuota,
+              poliza: window.currentPoliza,
+              cupon: nuevoCupon,
+              fecha_vencimiento: vencISO,
+              importe: nuevoImporte,
+              fecha_pago: pagoISO,
+              factura: nuevaFactura,
+              observacion: nuevaObservacion
+            })
+          }).then(r => r.json()).then(res => {
+            if (!res.ok) {
+              alert('Error al actualizar cupón: ' + (res.error || 'Error desconocido'));
+              return;
+            }
 
-        const docNombre = getVal('editDocumentoNombre');
-        tr.dataset.documento = docNombre;
+            const tds = tr.querySelectorAll('td');
+            if (tds[2]) tds[2].textContent = fromISODate(vencISO);
+            if (tds[1]) tds[1].textContent = nuevoCupon;
+            if (tds[4]) tds[4].textContent = nuevoImporte;
+            if (tds[5]) tds[5].textContent = nuevaFechaPago;
+            if (tds[6]) tds[6].textContent = nuevaFactura;
+            if (tds[7]) tds[7].textContent = nuevaObservacion;
+            
+            tr.dataset.fechaPago = nuevaFechaPago;
+            tr.dataset.factura = nuevaFactura;
+            tr.dataset.observacion = nuevaObservacion;
 
-        // Actualizar visibilidad botón Revertir
-        const btnRevert = tr.querySelector('.btn-revert');
-        if (btnRevert) {
-          if (nuevoImporte || nuevaFechaPago || nuevaFactura || nuevaObservacion) {
-            btnRevert.style.display = 'inline-block'; // o '' para default
-          } else {
-            btnRevert.style.display = 'none';
+            const docNombre = getVal('editDocumentoNombre');
+            tr.dataset.documento = docNombre;
+
+            const btnRevert = tr.querySelector('.btn-revert');
+            if (btnRevert) {
+              if (nuevoImporte || nuevaFechaPago || nuevaFactura || nuevaObservacion) {
+                btnRevert.style.display = 'inline-block';
+              } else {
+                btnRevert.style.display = 'none';
+              }
+            }
+
+            recalcTotal();
+          }).catch(err => {
+            console.error(err);
+            alert('Error de conexión al actualizar cupón.');
+          }).finally(() => {
+            const modalEl = document.getElementById('cuotaEditModal');
+            if (modalEl) {
+              const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+              modal.hide();
+            }
+            editIndex = null;
+          });
+        } else {
+          const modalEl = document.getElementById('cuotaEditModal');
+          if (modalEl) {
+            const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.hide();
           }
+          editIndex = null;
         }
-
-        recalcTotal();
-
-        const modalEl = document.getElementById('cuotaEditModal');
-        if (modalEl) {
-          const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
-          modal.hide();
-        }
-        editIndex = null;
       });
     }
 

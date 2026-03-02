@@ -148,6 +148,7 @@ def get_cuotas_data(
                     rows = []
                     for c in cuota_rows:
                         rows.append({
+                            'idCuota': c.get('idCuota'),
                             'cupon': c.get('cupon') or '',
                             'fecha_vencimiento': format_date_custom(c.get('fecha_vencimiento')),
                             'moneda': c.get('moneda') or '',
@@ -360,6 +361,176 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
         if "El número de factura ya existe" in err_msg:
              return False, "El número de factura ya existe."
         return False, err_msg
+
+
+def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor()
+
+        def val_or_none(v):
+            if v is None:
+                return None
+            if isinstance(v, str) and not v.strip():
+                return None
+            return v
+
+        cuota_id_raw = data.get('idCuota') or data.get('id_cuota') or data.get('id')
+        if cuota_id_raw is None:
+            cur.close()
+            cnx.close()
+            return False, "Falta id de cuota."
+        try:
+            cuota_id = int(cuota_id_raw)
+        except Exception:
+            cur.close()
+            cnx.close()
+            return False, "Id de cuota inválido."
+
+        cur.execute(
+            """
+            SELECT poliza,
+                   cupon,
+                   poliza_id,
+                   fecha_vencimiento,
+                   importe,
+                   fecha_pago,
+                   factura,
+                   observacion
+            FROM cuotas
+            WHERE idCuota = %s
+            """,
+            (cuota_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            cnx.close()
+            return False, "Cuota no encontrada."
+
+        poliza_actual = (row[0] or '').strip()
+        cupon_actual = (row[1] or '').strip()
+        poliza_id_actual = row[2]
+        fecha_venc_actual = row[3]
+        importe_actual = row[4]
+        fecha_pago_actual = row[5]
+        factura_actual = row[6]
+        observacion_actual = row[7]
+
+        cupon_nuevo = (data.get('cupon') or cupon_actual or '').strip()
+        if not cupon_nuevo:
+            cur.close()
+            cnx.close()
+            return False, "El cupón no puede estar vacío."
+
+        fecha_venc_nueva = val_or_none(data.get('fecha_vencimiento')) or fecha_venc_actual
+        importe_nuevo = val_or_none(data.get('importe')) or importe_actual
+        fecha_pago_nueva = val_or_none(data.get('fecha_pago')) or fecha_pago_actual
+        factura_nueva = val_or_none(data.get('factura')) or factura_actual
+        observacion_nueva = val_or_none(data.get('observacion')) or observacion_actual
+
+        if cupon_nuevo != cupon_actual:
+            cur.execute(
+                """
+                SELECT 1
+                FROM cuotas
+                WHERE TRIM(poliza) = TRIM(%s)
+                  AND TRIM(cupon) = TRIM(%s)
+                  AND idCuota <> %s
+                LIMIT 1
+                """,
+                (poliza_actual, cupon_nuevo, cuota_id),
+            )
+            if cur.fetchone():
+                cur.close()
+                cnx.close()
+                return False, "El nuevo cupón ya existe para esta póliza."
+
+        if factura_nueva and factura_nueva != factura_actual:
+            cur.execute(
+                "SELECT 1 FROM cuotas WHERE factura = %s AND idCuota <> %s LIMIT 1",
+                (factura_nueva, cuota_id),
+            )
+            if cur.fetchone():
+                cur.close()
+                cnx.close()
+                return False, "El número de factura ya existe."
+
+        usuario = val_or_none(data.get('usuario'))
+
+        cur.execute(
+            """
+            UPDATE cuotas
+            SET cupon = %s,
+                fecha_vencimiento = %s,
+                importe = %s,
+                fecha_pago = %s,
+                factura = %s,
+                observacion = %s,
+                usuario_registro = COALESCE(%s, usuario_registro)
+            WHERE idCuota = %s
+            """,
+            (
+                cupon_nuevo,
+                fecha_venc_nueva,
+                importe_nuevo,
+                fecha_pago_nueva,
+                factura_nueva,
+                observacion_nueva,
+                usuario,
+                cuota_id,
+            ),
+        )
+
+        target_poliza_id = poliza_id_actual
+        if target_poliza_id is None:
+            try:
+                cur.execute(
+                    """
+                    SELECT idPoliza
+                    FROM polizas
+                    WHERE TRIM(poliza) = TRIM(%s)
+                      AND TRIM(recibo) = TRIM(%s)
+                    ORDER BY creado_en DESC
+                    LIMIT 1
+                    """,
+                    (poliza_actual, cupon_nuevo),
+                )
+                row2 = cur.fetchone()
+                if row2:
+                    target_poliza_id = row2[0]
+            except Exception:
+                target_poliza_id = None
+
+        if target_poliza_id is not None:
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM cuotas
+                WHERE poliza_id = %s
+                  AND (
+                    fecha_pago IS NULL
+                    OR factura IS NULL OR factura = ''
+                  )
+                """,
+                (target_poliza_id,),
+            )
+            row3 = cur.fetchone()
+            pendientes = row3[0] if row3 and row3[0] is not None else 0
+            nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'CANCELADO'
+            cur.execute(
+                "UPDATE polizas SET estado = %s WHERE idPoliza = %s",
+                (nuevo_estado, target_poliza_id),
+            )
+
+        cnx.commit()
+        cur.close()
+        cnx.close()
+        return True, ""
+    except Exception as e:
+        print(f"Error updating cuota cupon: {e}")
+        return False, str(e)
 
 def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
     import re

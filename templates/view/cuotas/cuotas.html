@@ -137,7 +137,8 @@
           </thead>
           <tbody>
             {% for r in rows %}
-            <tr data-documento="{{ r.documento or '' }}" 
+            <tr data-idcuota="{{ r.idCuota or '' }}"
+                data-documento="{{ r.documento or '' }}" 
                 data-fecha-pago="{{ r.fecha_pago or '' }}"
                 data-factura="{{ r.factura or '' }}"
                 data-observacion="{{ r.observacion or '' }}">
