@@ -2325,7 +2325,18 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         return [item] if item else []
         
     if prov == "rimac":
+        hint_v3 = re.search(r"fecha\s+(?:de\s+)?emisi[oó]n\s*[:：]?\s*\d{4}-\d{2}-\d{2}", text, re.IGNORECASE)
         hint_v2 = re.search(r"\bNro\.?\s*[:：]?\s*\d{3,6}\s*[-–—]\s*\d{5,12}\b", text, re.IGNORECASE) or re.search(r"pol[ií]za\s*nro", text, re.IGNORECASE) or re.search(r"poliza\s+anual\s+de\s+transportes", text, re.IGNORECASE)
+        if hint_v3:
+            try:
+                from controllers.addRimacGenerales_V3 import parse_rimac_generales as parse_rimac_generales_v3
+                item_v3 = parse_rimac_generales_v3(text)
+                ok_v3 = item_v3 and re.search(r"\b\d{1,2}/\d{1,2}/\d{4}\b", str(item_v3.get('fecha_emision') or ''))
+                if ok_v3:
+                    print("[provider] rimac V3 item:", item_v3)
+                    return [item_v3]
+            except Exception as e:
+                print("[provider] rimac V3 error:", e)
         if hint_v2:
             try:
                 from controllers.addRimacGenerales_V2 import parse_rimac_generales as parse_rimac_generales_v2
