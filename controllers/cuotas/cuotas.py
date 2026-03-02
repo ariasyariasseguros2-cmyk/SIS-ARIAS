@@ -221,6 +221,22 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
         poliza = (data.get('poliza') or '').strip()
         cupon = (data.get('cupon') or '').strip()
 
+        if cupon:
+            cur.execute(
+                """
+                SELECT 1
+                FROM cuotas
+                WHERE TRIM(poliza) = TRIM(%s)
+                  AND TRIM(cupon) = TRIM(%s)
+                LIMIT 1
+                """,
+                (poliza, cupon),
+            )
+            if cur.fetchone():
+                cur.close()
+                cnx.close()
+                return False, "El cupón ya existe para esta póliza."
+
         cur.execute(
             "SELECT IFNULL(MAX(numero_cuota), 0) + 1 FROM cuotas WHERE poliza = %s AND cupon = %s",
             (poliza, cupon)

@@ -1106,6 +1106,22 @@ BEGIN
         END IF;
     END IF;
 
+    -- Validar cupón duplicado por póliza
+    IF p_cupon IS NOT NULL AND TRIM(p_cupon) <> '' THEN
+        IF EXISTS (SELECT 1 FROM cuotas WHERE TRIM(poliza) = TRIM(p_poliza) AND TRIM(cupon) = TRIM(p_cupon)) THEN
+            SET v_msg = CONCAT('El cupón ya existe para esta póliza: ', TRIM(p_cupon));
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+        END IF;
+    END IF;
+
+    -- Validar factura duplicada
+    IF p_factura IS NOT NULL AND TRIM(p_factura) <> '' THEN
+        IF EXISTS (SELECT 1 FROM cuotas WHERE factura = TRIM(p_factura)) THEN
+            SET v_msg = CONCAT('El número de factura ya existe: ', TRIM(p_factura));
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+        END IF;
+    END IF;
+
     -- Buscar idPoliza correspondiente a esta póliza + proforma (recibo)
     SELECT idPoliza
     INTO v_poliza_id
