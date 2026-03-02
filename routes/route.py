@@ -68,6 +68,20 @@ def get_cuota_info():
         
     return {'ok': True, 'data': row}
 
+@bp.route('/api/cuotas/list', methods=['GET'])
+def api_cuotas_list():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'Unauthorized'}, 401
+    poliza = request.args.get('poliza', '').strip()
+    aviso = request.args.get('aviso') or request.args.get('cupon')
+    if not poliza:
+        return {'ok': False, 'error': 'Missing poliza'}, 400
+    from controllers.cuotas.cuotas import get_cuotas_data
+    data = get_cuotas_data(None, poliza, None, aviso)
+    rows = data.get('rows') or []
+    return jsonify({'ok': True, 'rows': rows})
+
+
 @bp.route('/cuotas/save', methods=['POST'])
 def save_cuota_route():
     if 'user' not in session:

@@ -144,6 +144,37 @@ def get_cuotas_data(
                             pass
                     except Exception:
                         pass
+                    if (not cuota_rows) and aviso:
+                        try:
+                            cur.execute(
+                                """
+                                SELECT
+                                    idCuota,
+                                    cupon,
+                                    DATE_FORMAT(fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
+                                    moneda,
+                                    FORMAT(importe, 2) AS importe,
+                                    DATE_FORMAT(fecha_pago, '%d-%m-%Y') AS fecha_pago,
+                                    factura,
+                                    observacion
+                                FROM cuotas
+                                WHERE activo = 1
+                                  AND (
+                                        TRIM(cupon) = TRIM(%s)
+                                        OR TRIM(factura) = TRIM(%s)
+                                      )
+                                ORDER BY fecha_vencimiento ASC, idCuota ASC
+                                """,
+                                (aviso, aviso),
+                            )
+                            cuota_rows = cur.fetchall() or []
+                            try:
+                                while cur.nextset():
+                                    pass
+                            except Exception:
+                                pass
+                        except Exception:
+                            cuota_rows = []
 
                 if cuota_rows:
                     rows = []

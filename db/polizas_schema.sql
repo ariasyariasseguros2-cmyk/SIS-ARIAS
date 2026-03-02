@@ -1266,9 +1266,36 @@ BEGIN
         c.razon_social AS contratante,
         p.poliza,
         p.recibo AS aviso_cobranza,
+        (
+            SELECT q.cupon
+            FROM cuotas q
+            WHERE (q.poliza_id = p.idPoliza OR TRIM(q.poliza) = TRIM(p.poliza))
+              AND (p.recibo IS NULL OR TRIM(p.recibo) = '' OR TRIM(q.cupon) = TRIM(p.recibo))
+              AND q.activo = 1
+            ORDER BY q.fecha_vencimiento DESC, q.idCuota DESC
+            LIMIT 1
+        ) AS cupon,
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
-        (SELECT DATE_FORMAT(MAX(q.fecha_pago), '%d/%m/%Y') FROM cuotas q WHERE TRIM(q.poliza) = TRIM(p.poliza)) AS fecha_pago,
+        (
+            SELECT DATE_FORMAT(MAX(q.fecha_pago), '%d/%m/%Y')
+            FROM cuotas q
+            WHERE (q.poliza_id = p.idPoliza OR TRIM(q.poliza) = TRIM(p.poliza))
+              AND (
+                    (p.recibo IS NULL OR TRIM(p.recibo) = '')
+                    OR (q.cupon IS NOT NULL AND TRIM(q.cupon) = TRIM(p.recibo))
+                  )
+        ) AS fecha_pago,
+        (
+            SELECT COUNT(*)
+            FROM cuotas q
+            WHERE q.activo = 1
+              AND (
+                    q.poliza_id = p.idPoliza
+                    OR TRIM(q.poliza) = TRIM(p.poliza)
+                    OR (p.recibo IS NOT NULL AND TRIM(p.recibo) <> '' AND TRIM(q.cupon) = TRIM(p.recibo))
+                  )
+        ) AS cuotas_count,
         p.moneda,
         p.prima_neta AS prima_neta,
         p.prima_comercial_igv AS prima_total,

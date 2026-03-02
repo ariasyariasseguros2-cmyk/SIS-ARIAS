@@ -340,6 +340,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${row.contratante || '-'}</td>
                     <td>${row.poliza || '-'}</td>
                     <td>${row.aviso_cobranza || '-'}</td>
+                    <td>${row.cupon || '-'}</td>
                     <td>${row.vig_desde || '-'}</td>
                     <td>${row.vig_hasta || '-'}</td>
                     <td>${row.fecha_pago || '-'}</td>
@@ -347,13 +348,53 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${primaTotal}</td>
                     <td><span class="badge bg-${getStatusColor(row.estado)}">${row.estado || '-'}</span></td>
                     <td>
-                        <button type="button" onclick="CuotaModal.open('${row.poliza || ''}')" class="btn btn-sm btn-info text-white">
-                            Cuotas
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary expand-cuotas"
+                                data-poliza="${row.poliza || ''}"
+                                data-aviso="${row.aviso_cobranza || ''}">
+                            <span class="me-1">Cuotas</span>
+                            <span class="chev">▼</span>
                         </button>
+                    </td>
+                </tr>
+                <tr class="cuotas-detail d-none">
+                    <td colspan="16">
+                        <div class="py-2 text-muted small">Cargando cuotas...</div>
                     </td>
                 </tr>
             `;
         }).join('');
+
+        const expandBtns = tableBody.querySelectorAll('.expand-cuotas');
+        expandBtns.forEach((btn) => {
+            btn.addEventListener('click', async function() {
+                const tr = this.closest('tr');
+                const detailRow = tr.nextElementSibling;
+                if (!detailRow || !detailRow.classList.contains('cuotas-detail')) return;
+                const isHidden = detailRow.classList.contains('d-none');
+                if (isHidden) {
+                    // Load cuotas
+                    const poliza = this.dataset.poliza || '';
+                    const aviso = this.dataset.aviso || '';
+                    try {
+                        const url = `/api/cuotas/list?poliza=${encodeURIComponent(poliza)}${aviso ? `&aviso=${encodeURIComponent(aviso)}` : ''}`;
+                        const resp = await fetch(url);
+                        const json = await resp.json();
+                        const rows = (json && json.rows) ? json.rows : [];
+                        detailRow.querySelector('td').innerHTML = renderCuotasRows(rows, poliza);
+                    } catch (err) {
+                        detailRow.querySelector('td').innerHTML = `<div class="text-danger small">Error cargando cuotas</div>`;
+                    }
+                    detailRow.classList.remove('d-none');
+                    const chev = this.querySelector('.chev');
+                    if (chev) chev.textContent = '▲';
+                } else {
+                    detailRow.classList.add('d-none');
+                    const chev = this.querySelector('.chev');
+                    if (chev) chev.textContent = '▼';
+                }
+            });
+        });
     }
 
     function getStatusColor(status) {
@@ -364,5 +405,61 @@ document.addEventListener('DOMContentLoaded', function() {
         if (s.includes('anulado') || s.includes('cancelado')) return 'danger';
         if (s.includes('sin prima')) return 'dark';
         return 'secondary';
+    }
+
+    function renderCuotasRows(rows, polizaCtx) {
+        if (!rows || rows.length === 0) {
+            return `<div class="text-muted small">No hay cuotas registradas</div>`;
+        }
+        const header = `
+            <div class="table-responsive">
+              <table class="table table-sm mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>CUPÓN</th>
+                    <th>VENCIMIENTO</th>
+                    <th>MONEDA</th>
+                    <th>IMPORTE</th>
+                    <th>FECHA DE PAGO</th>
+                    <th>FACTURA</th>
+                    <th>OBSERVACIÓN</th>
+                    <th>ACCIONES</th>
+                  </tr>
+                </thead>
+                <tbody>
+        `;
+        const body = rows.map(r => {
+            const hasPago = !!(r.fecha_pago && String(r.fecha_pago).trim() !== '' && r.fecha_pago !== '-');
+            const hasFactura = !!(r.factura && String(r.factura).trim() !== '' && r.factura !== '-');
+            const showEdit = !(hasPago || hasFactura);
+            return `
+            <tr>
+                <td>${r.cupon || '-'}</td>
+                <td>${r.fecha_vencimiento || '-'}</td>
+                <td>${r.moneda || '-'}</td>
+                <td>${r.importe || '-'}</td>
+                <td>${r.fecha_pago || '-'}</td>
+                <td>${r.factura || '-'}</td>
+                <td>${r.observacion || '-'}</td>
+                <td>
+                    ${showEdit
+                        ? `<button type="button"
+                                   class="btn btn-sm btn-outline-secondary"
+                                   title="Agregar/Actualizar pago"
+                                   onclick="CuotaModal.open('${polizaCtx || ''}', '', '${r.cupon || ''}')">
+                               <i class="bi bi-pencil"></i>
+                           </button>`
+                        : ''
+                    }
+                </td>
+            </tr>
+        `;
+        }).join('');
+        const footer = `
+                </tbody>
+              </table>
+            </div>
+        `;
+        return header + body + footer;
     }
 });
