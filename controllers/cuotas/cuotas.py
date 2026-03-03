@@ -106,10 +106,10 @@ def get_cuotas_data(
             try:
                 cuota_rows: List[Dict[str, str]] = []
                 target_prima_id = None
-                if resumen['prima_id'] is not None:
-                    target_prima_id = resumen['prima_id']
-                elif prima_id_int is not None:
+                if prima_id_int is not None:
                     target_prima_id = prima_id_int
+                elif aviso and resumen['prima_id'] is not None:
+                    target_prima_id = resumen['prima_id']
 
                 if target_prima_id is not None:
                     cur.execute(

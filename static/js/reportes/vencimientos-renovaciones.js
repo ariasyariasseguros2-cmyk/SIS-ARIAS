@@ -302,7 +302,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function fetchData(usuario, estado, fechaDesde, fechaHasta, ramo) {
         try {
-            tableBody.innerHTML = `<tr><td colspan="14" class="text-center py-4 text-muted">Cargando datos...</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="13" class="text-center py-4 text-muted">Cargando datos...</td></tr>`;
 
             let url = `/api/reportes/vencimientos-renovaciones?usuario=${encodeURIComponent(usuario)}&estado=${encodeURIComponent(estado)}`;
             
@@ -315,17 +315,20 @@ document.addEventListener('DOMContentLoaded', function() {
             renderTable(data);
         } catch (error) {
             console.error('Error loading data:', error);
-            tableBody.innerHTML = `<tr><td colspan="14" class="text-center text-danger">Error cargando datos</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="13" class="text-center text-danger">Error cargando datos</td></tr>`;
         }
     }
 
     function renderTable(data) {
         if (!data || data.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="14" class="text-center text-muted py-4">No se encontraron resultados</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="13" class="text-center text-muted py-4">No se encontraron resultados</td></tr>`;
             return;
         }
 
-        tableBody.innerHTML = data.map(row => {
+        // Agrupar por póliza y acumular primas por recibo
+        const grouped = groupByPoliza(data);
+
+        tableBody.innerHTML = grouped.map(row => {
             const moneda = row.moneda || '';
             const primaNeta = row.prima_neta ? parseFloat(row.prima_neta).toFixed(2) : '0.00';
             const primaTotal = row.prima_total ? parseFloat(row.prima_total).toFixed(2) : '0.00';
@@ -339,62 +342,58 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${row.numero_documento || '-'}</td>
                     <td>${row.contratante || '-'}</td>
                     <td>${row.poliza || '-'}</td>
-                    <td>${row.aviso_cobranza || '-'}</td>
-                    <td>${row.cupon || '-'}</td>
                     <td>${row.vig_desde || '-'}</td>
                     <td>${row.vig_hasta || '-'}</td>
-                    <td>${row.fecha_pago || '-'}</td>
                     <td>${primaNeta}</td>
                     <td>${primaTotal}</td>
                     <td><span class="badge bg-${getStatusColor(row.estado)}">${row.estado || '-'}</span></td>
-                    <td>
-                        <button type="button"
-                                class="btn btn-sm btn-outline-primary expand-cuotas"
-                                data-poliza="${row.poliza || ''}"
-                                data-aviso="${row.aviso_cobranza || ''}">
-                            <span class="me-1">Cuotas</span>
-                            <span class="chev">▼</span>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleCuotasRow('${row.poliza || ''}')">
+                            Ver recibos
                         </button>
                     </td>
                 </tr>
-                <tr class="cuotas-detail d-none">
-                    <td colspan="16">
-                        <div class="py-2 text-muted small">Cargando cuotas...</div>
+                <tr id="cuotas_${row.poliza || ''}" class="d-none">
+                    <td colspan="13">
+                        <div id="cuotas_container_${row.poliza || ''}" class="py-2"></div>
                     </td>
                 </tr>
             `;
         }).join('');
 
-        const expandBtns = tableBody.querySelectorAll('.expand-cuotas');
-        expandBtns.forEach((btn) => {
-            btn.addEventListener('click', async function() {
-                const tr = this.closest('tr');
-                const detailRow = tr.nextElementSibling;
-                if (!detailRow || !detailRow.classList.contains('cuotas-detail')) return;
-                const isHidden = detailRow.classList.contains('d-none');
-                if (isHidden) {
-                    // Load cuotas
-                    const poliza = this.dataset.poliza || '';
-                    const aviso = this.dataset.aviso || '';
-                    try {
-                        const url = `/api/cuotas/list?poliza=${encodeURIComponent(poliza)}${aviso ? `&aviso=${encodeURIComponent(aviso)}` : ''}`;
-                        const resp = await fetch(url);
-                        const json = await resp.json();
-                        const rows = (json && json.rows) ? json.rows : [];
-                        detailRow.querySelector('td').innerHTML = renderCuotasRows(rows, poliza);
-                    } catch (err) {
-                        detailRow.querySelector('td').innerHTML = `<div class="text-danger small">Error cargando cuotas</div>`;
-                    }
-                    detailRow.classList.remove('d-none');
-                    const chev = this.querySelector('.chev');
-                    if (chev) chev.textContent = '▲';
-                } else {
-                    detailRow.classList.add('d-none');
-                    const chev = this.querySelector('.chev');
-                    if (chev) chev.textContent = '▼';
-                }
-            });
+        // Se elimina el detalle expandible de cuotas
+    }
+
+    // Helper: agrupar por póliza y sumar primas neta y total,
+    // mostrando "VARIOS" cuando hay múltiples recibos/proformas
+    function groupByPoliza(rows) {
+        const map = new Map();
+        rows.forEach(r => {
+            const key = r.poliza || '';
+            if (!map.has(key)) {
+                map.set(key, {
+                    compania: r.compania,
+                    ramo: r.ramo,
+                    producto: r.producto,
+                    tipo_documento: r.tipo_documento,
+                    numero_documento: r.numero_documento,
+                    contratante: r.contratante,
+                    poliza: r.poliza,
+                    vig_desde: r.vig_desde,
+                    vig_hasta: r.vig_hasta,
+                    estado: r.estado,
+                    moneda: r.moneda,
+                    prima_neta: 0,
+                    prima_total: 0
+                });
+            }
+            const acc = map.get(key);
+            const pn = r.prima_neta ? parseFloat(r.prima_neta) : 0;
+            const pt = r.prima_total ? parseFloat(r.prima_total) : 0;
+            acc.prima_neta += isNaN(pn) ? 0 : pn;
+            acc.prima_total += isNaN(pt) ? 0 : pt;
         });
+        return Array.from(map.values());
     }
 
     function getStatusColor(status) {
@@ -416,31 +415,29 @@ document.addEventListener('DOMContentLoaded', function() {
               <table class="table table-sm mb-0">
                 <thead class="table-light">
                   <tr>
+                    <th>RECIBO</th>
                     <th>CUPÓN</th>
-                    <th>VENCIMIENTO</th>
-                    <th>MONEDA</th>
-                    <th>IMPORTE</th>
                     <th>FECHA DE PAGO</th>
+                    <th>IMPORTE</th>
                     <th>FACTURA</th>
-                    <th>OBSERVACIÓN</th>
                     <th>ACCIONES</th>
                   </tr>
                 </thead>
                 <tbody>
         `;
         const body = rows.map(r => {
-            const hasPago = !!(r.fecha_pago && String(r.fecha_pago).trim() !== '' && r.fecha_pago !== '-');
             const hasFactura = !!(r.factura && String(r.factura).trim() !== '' && r.factura !== '-');
-            const showEdit = !(hasPago || hasFactura);
+            // User requested to show edit button even if it has factura ("le falta pagar")
+            // and explicitly mentioned "que tenga 2 ambos" (both rows should have actions).
+            // So we enable the edit button always.
+            const showEdit = true; 
             return `
             <tr>
+                <td>${String(r.cupon || '').replace(/-\d+$/,'') || '-'}</td>
                 <td>${r.cupon || '-'}</td>
-                <td>${r.fecha_vencimiento || '-'}</td>
-                <td>${r.moneda || '-'}</td>
-                <td>${r.importe || '-'}</td>
                 <td>${r.fecha_pago || '-'}</td>
+                <td>${r.importe || '-'}</td>
                 <td>${r.factura || '-'}</td>
-                <td>${r.observacion || '-'}</td>
                 <td>
                     ${showEdit
                         ? `<button type="button"
@@ -461,5 +458,26 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
         return header + body + footer;
+    }
+
+    window.toggleCuotasRow = async function(poliza) {
+        const row = document.getElementById(`cuotas_${poliza}`);
+        const container = document.getElementById(`cuotas_container_${poliza}`);
+        if (!row || !container) return;
+        const isHidden = row.classList.contains('d-none');
+        if (isHidden) {
+            container.innerHTML = `<div class="text-muted small px-2">Cargando recibos...</div>`;
+            try {
+                const resp = await fetch(`/api/cuotas/list?poliza=${encodeURIComponent(poliza)}`);
+                const json = await resp.json();
+                const rows = (json && json.rows) ? json.rows : [];
+                container.innerHTML = renderCuotasRows(rows, poliza);
+            } catch (err) {
+                container.innerHTML = `<div class="text-danger small px-2">Error cargando recibos</div>`;
+            }
+            row.classList.remove('d-none');
+        } else {
+            row.classList.add('d-none');
+        }
     }
 });
