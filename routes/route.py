@@ -997,7 +997,7 @@ def upload():
                 s = 0
                 np = (it.get('numero_poliza') or it.get('poliza') or '').strip()
                 # formato con guion
-                if re.search(r"\b\d{3,6}\s*-\s*\d{5,12}\b", np):
+                if re.search(r"\b\d{2,6}\s*-\s*\d{5,12}\b", np):
                     s += 100
                 # longitud mayor suele ser '2101 - 1618199' vs '1618199'
                 s += min(len(np), 20)
@@ -1010,20 +1010,58 @@ def upload():
             def _score(it: dict) -> int:
                 s = 0
                 np = (it.get('numero_poliza') or it.get('poliza') or '').strip()
-                if re.search(r"\b\d{3,6}\s*-\s*\d{5,12}\b", np):
+                if re.search(r"\b\d{2,6}\s*-\s*\d{5,12}\b", np):
                     s += 100
                 s += min(len(np), 20)
                 return s
             items_ui.sort(key=_score, reverse=True)
             items_ui = [items_ui[0]]
             LOG(f"[upload] rimac: forzado a un solo ítem")
-        LOG(f"[upload] fechas normalizadas: {[(x.get('ultimo_dia_pago'), x.get('fecha_vencimiento'), x.get('vencimiento')) for x in items_ui]}")
+        try:
+            dash = r"(?:-|–|—|‑|−)"
+            pdf_text = _extract_text_pypdf2(save_path)
+            if pdf_text:
+                for it in items_ui:
+                    np = (it.get('numero_poliza') or it.get('poliza') or '').strip()
+                    if not re.search(r"\b\d{2,6}\s*-\s*\d{5,12}\b", np):
+                        m = re.search(r"(?:pol[ií]za|p[oó]liza)\s*N[°º]\s*[:：]?\s*([0-9]{2,6})(\s*" + dash + r"\s*)([0-9]{5,12})", pdf_text, re.IGNORECASE | re.DOTALL)
+                        if not m:
+                            m = re.search(r"\bNro\.?\s*[:：]?\s*([0-9]{2,6})(\s*" + dash + r"\s*)([0-9]{5,12})", pdf_text, re.IGNORECASE | re.DOTALL)
+                        if m:
+                            it['numero_poliza'] = f"{m.group(1)}{m.group(2)}{m.group(3)}"
+                    iv = (it.get('inicio_vigencia') or '').strip()
+                    ve = (it.get('vencimiento') or '').strip()
+                    if not (iv and ve):
+                        mv = re.search(r"vigencia\s*[:：]?\s*(?:del\s*)?(\d{1,2}[/-]\d{1,2}[/-]\d{4})\s*(?:al|a\s*al|-\s*)\s*(\d{1,2}[/-]\d{1,2}[/-]\d{4})", pdf_text, re.IGNORECASE | re.DOTALL)
+                        if not mv:
+                            mv = re.search(r"\bdel\s*(\d{1,2}/\d{1,2}/\d{4})\s*(?:al|-\s*)\s*(\d{1,2}/\d{1,2}/\d{4})", pdf_text, re.IGNORECASE | re.DOTALL)
+                        if mv:
+                            it['inicio_vigencia'] = mv.group(1).replace("-", "/")
+                            it['vencimiento'] = mv.group(2).replace("-", "/")
+                    fe = (it.get('fecha_emision') or '').strip()
+                    if not fe:
+                        mwords = re.search(r"\b(\d{1,2})\s+de\s+([A-Za-zÁÉÍÓÚÑáéíóúñ]+)\s+de\s+(\d{4})\b", pdf_text, re.IGNORECASE)
+                        if mwords:
+                            meses = {
+                                "enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
+                                "mayo": "05", "junio": "06", "julio": "07", "agosto": "08",
+                                "setiembre": "09", "septiembre": "09", "octubre": "10",
+                                "noviembre": "11", "diciembre": "12",
+                            }
+                            mon = mwords.group(2).lower()
+                            mon_num = meses.get(mon)
+                            if mon_num:
+                                dd = f"{int(mwords.group(1)):02d}"
+                                it['fecha_emision'] = f"{dd}/{mon_num}/{mwords.group(3)}"
+        except Exception:
+            pass
+        LOG(f"[upload] fechas normalizadas: {[(x.get('ultimo_dia_pago'), x.get('vencimiento')) for x in items_ui]}")
         # Dedupe por combinación clave y descartar muy vacíos
         unique = []
         seen = set()
         for it in items_ui:
-            key = f"{it.get('numero_poliza') or ''}|{it.get('recibo') or ''}|{it.get('ramo') or ''}"
-            is_meaningful = any(it.get(k) for k in ['numero_poliza', 'recibo', 'colectivo_asegurado', 'moneda', 'prima_comercial_igv'])
+            key = f"{it.get('numero_poliza') or ''}|{it.get('ramo') or ''}"
+            is_meaningful = any(it.get(k) for k in ['numero_poliza', 'colectivo_asegurado', 'moneda', 'prima_comercial_igv'])
             if not is_meaningful:
                 LOG(f"[upload] descartado item vacío: {it}")
                 continue
@@ -2339,8 +2377,22 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         return [item] if item else []
         
     if prov == "rimac":
+        dash = r"(?:-|–|—|‑|−)"
+        hint_v4 = re.search(r"(?:pol[ií]za|p[oó]liza)\s*N[°º]\s*[:：]?\s*\d{2,6}\s*" + dash + r"\s*\d{5,12}\b", text, re.IGNORECASE) \
+            or re.search(r"\bN[°º]\s*[:：]?\s*\d{2,6}\s*" + dash + r"\s*\d{5,12}\b", text, re.IGNORECASE) \
+            or re.search(r"\bNro\.?\s*[:：]?\s*\d{2,6}\s*" + dash + r"\s*\d{5,12}\b", text, re.IGNORECASE)
         hint_v3 = re.search(r"fecha\s+(?:de\s+)?emisi[oó]n\s*[:：]?\s*\d{4}-\d{2}-\d{2}", text, re.IGNORECASE)
         hint_v2 = re.search(r"\bNro\.?\s*[:：]?\s*\d{3,6}\s*[-–—]\s*\d{5,12}\b", text, re.IGNORECASE) or re.search(r"pol[ií]za\s*nro", text, re.IGNORECASE) or re.search(r"poliza\s+anual\s+de\s+transportes", text, re.IGNORECASE)
+        if hint_v4:
+            try:
+                from controllers.addRimacGenerales_V4 import parse_rimac_generales as parse_rimac_generales_v4
+                item_v4 = parse_rimac_generales_v4(text)
+                ok_v4 = item_v4 and re.search(r"\b\d{2,6}\s*-\s*\d{5,12}\b", str(item_v4.get('numero_poliza') or ''))
+                if ok_v4:
+                    print("[provider] rimac V4 item:", item_v4)
+                    return [item_v4]
+            except Exception as e:
+                print("[provider] rimac V4 error:", e)
         if hint_v3:
             try:
                 from controllers.addRimacGenerales_V3 import parse_rimac_generales as parse_rimac_generales_v3
