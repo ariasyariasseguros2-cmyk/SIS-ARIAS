@@ -1331,6 +1331,7 @@ CREATE PROCEDURE sp_reporte_vencimientos(
 )
 BEGIN
     SELECT
+        p.idPoliza,
         p.cia AS compania,
         p.ramo,
         p.ramos_producto AS producto,
@@ -1342,8 +1343,7 @@ BEGIN
         (
             SELECT q.cupon
             FROM cuotas q
-            WHERE (q.poliza_id = p.idPoliza OR TRIM(q.poliza) = TRIM(p.poliza))
-              AND (p.recibo IS NULL OR TRIM(p.recibo) = '' OR TRIM(q.cupon) = TRIM(p.recibo))
+            WHERE q.poliza_id = p.idPoliza
               AND q.activo = 1
             ORDER BY q.fecha_vencimiento DESC, q.idCuota DESC
             LIMIT 1
@@ -1353,7 +1353,7 @@ BEGIN
         (
             SELECT DATE_FORMAT(MAX(q.fecha_pago), '%d/%m/%Y')
             FROM cuotas q
-            WHERE (q.poliza_id = p.idPoliza OR TRIM(q.poliza) = TRIM(p.poliza))
+            WHERE q.poliza_id = p.idPoliza
               AND (
                     (p.recibo IS NULL OR TRIM(p.recibo) = '')
                     OR (q.cupon IS NOT NULL AND TRIM(q.cupon) = TRIM(p.recibo))
@@ -1363,11 +1363,7 @@ BEGIN
             SELECT COUNT(*)
             FROM cuotas q
             WHERE q.activo = 1
-              AND (
-                    q.poliza_id = p.idPoliza
-                    OR TRIM(q.poliza) = TRIM(p.poliza)
-                    OR (p.recibo IS NOT NULL AND TRIM(p.recibo) <> '' AND TRIM(q.cupon) = TRIM(p.recibo))
-                  )
+              AND q.poliza_id = p.idPoliza
         ) AS cuotas_count,
         p.moneda,
         p.prima_neta AS prima_neta,
@@ -1375,10 +1371,14 @@ BEGIN
         p.estado
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
-    WHERE (p_usuarios IS NULL OR p_usuarios = '' OR FIND_IN_SET(p.usuario_registro, p_usuarios))
+    WHERE p.activo = 1 AND p.anulado = 0
+    AND (p_usuarios IS NULL OR p_usuarios = '' OR FIND_IN_SET(p.usuario_registro, p_usuarios))
     AND (p_estado IS NULL OR p_estado = '' OR p.estado = p_estado)
-    AND (p_fecha_desde IS NULL OR p.vig_hasta >= p_fecha_desde)
-    AND (p_fecha_hasta IS NULL OR p.vig_hasta <= p_fecha_hasta)
+    -- Filtro por fecha de vigencia hasta (vencimiento)
+    AND (
+        (p_fecha_desde IS NULL AND p_fecha_hasta IS NULL)
+        OR (p.vig_hasta BETWEEN COALESCE(p_fecha_desde, '1900-01-01') AND COALESCE(p_fecha_hasta, '2900-12-31'))
+    )
     AND (p_ramo IS NULL OR p_ramo = '' OR FIND_IN_SET(p.ramo, p_ramo))
     ORDER BY p.vig_hasta ASC;
 END$$

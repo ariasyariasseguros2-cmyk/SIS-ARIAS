@@ -348,14 +348,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${primaTotal}</td>
                     <td><span class="badge bg-${getStatusColor(row.estado)}">${row.estado || '-'}</span></td>
                     <td class="text-end">
-                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleCuotasRow('${row.poliza || ''}')">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleCuotasRow('${row.poliza || ''}', '${row.idPoliza || ''}')">
                             Ver recibos
                         </button>
                     </td>
                 </tr>
-                <tr id="cuotas_${row.poliza || ''}" class="d-none">
+                <tr id="cuotas_${row.poliza || ''}_${row.idPoliza || ''}" class="d-none">
                     <td colspan="13">
-                        <div id="cuotas_container_${row.poliza || ''}" class="py-2"></div>
+                        <div id="cuotas_container_${row.poliza || ''}_${row.idPoliza || ''}" class="py-2"></div>
                     </td>
                 </tr>
             `;
@@ -364,14 +364,16 @@ document.addEventListener('DOMContentLoaded', function() {
         // Se elimina el detalle expandible de cuotas
     }
 
-    // Helper: agrupar por póliza y sumar primas neta y total,
-    // mostrando "VARIOS" cuando hay múltiples recibos/proformas
+    // Helper: agrupar por póliza (o idPoliza si existe) y sumar primas neta y total
     function groupByPoliza(rows) {
         const map = new Map();
         rows.forEach(r => {
+            // Group by policy number string to merge renewals
             const key = r.poliza || '';
             if (!map.has(key)) {
                 map.set(key, {
+                    // Usar el idPoliza del registro actual (si hay filtro de fecha, será el único visible)
+                    idPoliza: r.idPoliza, 
                     compania: r.compania,
                     ramo: r.ramo,
                     producto: r.producto,
@@ -388,12 +390,40 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
             const acc = map.get(key);
+            
+            // Actualizar fechas para mostrar el rango completo (min vig_desde, max vig_hasta)
+            const newDesde = parseDate(r.vig_desde);
+            if (newDesde) {
+                const currentDesde = parseDate(acc.vig_desde);
+                if (!currentDesde || newDesde < currentDesde) {
+                    acc.vig_desde = r.vig_desde;
+                }
+            }
+
+            const newHasta = parseDate(r.vig_hasta);
+            if (newHasta) {
+                const currentHasta = parseDate(acc.vig_hasta);
+                if (!currentHasta || newHasta > currentHasta) {
+                    acc.vig_hasta = r.vig_hasta;
+                }
+            }
+
             const pn = r.prima_neta ? parseFloat(r.prima_neta) : 0;
             const pt = r.prima_total ? parseFloat(r.prima_total) : 0;
             acc.prima_neta += isNaN(pn) ? 0 : pn;
             acc.prima_total += isNaN(pt) ? 0 : pt;
         });
         return Array.from(map.values());
+    }
+
+    // Helper to parse DD/MM/YYYY to Date object
+    function parseDate(dateStr) {
+        if (!dateStr || dateStr === '-' || dateStr === '') return null;
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) return null;
+        // DD/MM/YYYY -> YYYY, MM-1, DD
+        const d = new Date(parts[2], parts[1] - 1, parts[0]);
+        return isNaN(d.getTime()) ? null : d;
     }
 
     function getStatusColor(status) {
@@ -415,7 +445,7 @@ document.addEventListener('DOMContentLoaded', function() {
               <table class="table table-sm mb-0">
                 <thead class="table-light">
                   <tr>
-                    <th>RECIBO</th>
+                    <th>PROFORMA</th>
                     <th>TIPO</th>
                     <th>CUPÓN</th>
                     <th>FECHA VENCIMIENTO</th>
@@ -464,15 +494,30 @@ document.addEventListener('DOMContentLoaded', function() {
         return header + body + footer;
     }
 
-    window.toggleCuotasRow = async function(poliza) {
-        const row = document.getElementById(`cuotas_${poliza}`);
-        const container = document.getElementById(`cuotas_container_${poliza}`);
+    window.toggleCuotasRow = async function(poliza, idPoliza) {
+        const rowId = `cuotas_${poliza || ''}_${idPoliza || ''}`;
+        const containerId = `cuotas_container_${poliza || ''}_${idPoliza || ''}`;
+        const row = document.getElementById(rowId);
+        const container = document.getElementById(containerId);
+        
         if (!row || !container) return;
         const isHidden = row.classList.contains('d-none');
         if (isHidden) {
             container.innerHTML = `<div class="text-muted small px-2">Cargando recibos...</div>`;
             try {
-                const resp = await fetch(`/api/cuotas/list?poliza=${encodeURIComponent(poliza)}`);
+                let url = `/api/cuotas/list?poliza=${encodeURIComponent(poliza)}`;
+                
+                // Get date filters from the main form
+                const fechaDesde = document.getElementById('fechaDesde').value;
+                const fechaHasta = document.getElementById('fechaHasta').value;
+                
+                if (fechaDesde) url += `&fecha_desde=${encodeURIComponent(fechaDesde)}`;
+                if (fechaHasta) url += `&fecha_hasta=${encodeURIComponent(fechaHasta)}`;
+
+                // if (idPoliza) {
+                //     url += `&poliza_id=${encodeURIComponent(idPoliza)}`;
+                // }
+                const resp = await fetch(url);
                 const json = await resp.json();
                 const rows = (json && json.rows) ? json.rows : [];
                 container.innerHTML = renderCuotasRows(rows, poliza);

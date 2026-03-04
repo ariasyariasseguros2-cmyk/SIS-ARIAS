@@ -22,11 +22,30 @@ def format_date_custom(d):
         
     return s
 
+def parse_date_input(date_str):
+    """Ensure date is in YYYY-MM-DD format for SQL comparison"""
+    if not date_str:
+        return None
+    s = str(date_str).strip()
+    # Handle DD/MM/YYYY
+    if '/' in s:
+        parts = s.split('/')
+        if len(parts) == 3:
+            # Check if first part is year (YYYY/MM/DD)
+            if len(parts[0]) == 4:
+                 return f"{parts[0]}-{parts[1].zfill(2)}-{parts[2].zfill(2)}"
+            # Assume DD/MM/YYYY -> YYYY-MM-DD
+            return f"{parts[2]}-{parts[1].zfill(2)}-{parts[0].zfill(2)}"
+    # Handle YYYY-MM-DD (already correct, or needs verification)
+    return s
+
 def get_cuotas_data(
     selected: dict | None = None,
     numero_poliza: str | None = None,
     poliza_id: int | str | None = None,
     aviso: str | None = None,
+    fecha_desde: str | None = None,
+    fecha_hasta: str | None = None,
 ) -> Dict[str, object]:
     poliza = (numero_poliza or (selected or {}).get('poliza') or (selected or {}).get('numero_poliza') or '').strip()
     rows: List[Dict[str, str]] = []
@@ -129,6 +148,8 @@ def get_cuotas_data(
                         LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
                         WHERE c.poliza_id = %s
                           AND c.activo = 1
+                          -- Sanity Check: Exclude receipts incorrectly linked to wrong renewal period
+                          AND (c.fecha_vencimiento <= DATE_ADD(p.vig_hasta, INTERVAL 400 DAY))
                         ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
                         """,
                         (target_prima_id,),
@@ -140,8 +161,7 @@ def get_cuotas_data(
                     except Exception:
                         pass
                 else:
-                    cur.execute(
-                        """
+                    sql_query = """
                         SELECT
                             c.idCuota,
                             c.cupon,
@@ -157,10 +177,25 @@ def get_cuotas_data(
                         LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
                         WHERE c.poliza = %s
                           AND c.activo = 1
-                        ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
-                        """,
-                        (poliza,),
-                    )
+                    """
+                    params = [poliza]
+
+                    if fecha_desde or fecha_hasta:
+                          f_desde = parse_date_input(fecha_desde)
+                          f_hasta = parse_date_input(fecha_hasta)
+                          start_date = f_desde if f_desde else '1900-01-01'
+                          end_date = f_hasta if f_hasta else '2900-12-31'
+                          sql_query += " AND (p.vig_hasta BETWEEN %s AND %s) "
+                          params.append(start_date)
+                          params.append(end_date)
+                    
+                    # Sanity Check: Exclude receipts incorrectly linked to wrong renewal period
+                    # Increased to 400 days to allow receipts due significantly after policy end (e.g. data anomalies or long extensions)
+                    sql_query += " AND (c.fecha_vencimiento <= DATE_ADD(p.vig_hasta, INTERVAL 400 DAY)) "
+
+                    sql_query += " ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC "
+
+                    cur.execute(sql_query, tuple(params))
                     cuota_rows = cur.fetchall() or []
                     try:
                         while cur.nextset():

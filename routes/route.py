@@ -74,10 +74,16 @@ def api_cuotas_list():
         return {'ok': False, 'error': 'Unauthorized'}, 401
     poliza = request.args.get('poliza', '').strip()
     aviso = request.args.get('aviso') or request.args.get('cupon')
+    poliza_id = request.args.get('poliza_id')
+    
     if not poliza:
         return {'ok': False, 'error': 'Missing poliza'}, 400
     from controllers.cuotas.cuotas import get_cuotas_data
-    data = get_cuotas_data(None, poliza, None, aviso)
+    
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
+    
+    data = get_cuotas_data(None, poliza, poliza_id, aviso, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta)
     rows = data.get('rows') or []
     return jsonify({'ok': True, 'rows': rows})
 
