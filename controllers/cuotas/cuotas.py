@@ -297,7 +297,7 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
             if cur.fetchone():
                 cur.close()
                 cnx.close()
-                return False, "El cupón ya existe para esta póliza."
+                return False, "El cupón ya existe para esta póliza.", None
 
         cur.execute(
             "SELECT IFNULL(MAX(numero_cuota), 0) + 1 FROM cuotas WHERE poliza = %s AND cupon = %s",
@@ -312,7 +312,7 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
             if cur.fetchone():
                 cur.close()
                 cnx.close()
-                return False, "El número de factura ya existe."
+                return False, "El número de factura ya existe.", None
 
         poliza_id = None
         prima_raw = data.get('prima_id') or data.get('poliza_id') or data.get('idPrima')
@@ -371,6 +371,8 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                 numero_cuota,
             ),
         )
+        # Capturar AQUÍ antes de cualquier otro execute que lo pise
+        new_id = cur.lastrowid
 
         target_poliza_id = poliza_id
         if target_poliza_id is None:
@@ -417,13 +419,13 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
         cnx.commit()
         cur.close()
         cnx.close()
-        return True, ""
+        return True, "", new_id
     except Exception as e:
         print(f"Error saving cuota: {e}")
         err_msg = str(e)
         if "El número de factura ya existe" in err_msg:
-             return False, "El número de factura ya existe."
-        return False, err_msg
+             return False, "El número de factura ya existe.", None
+        return False, err_msg, None
 
 
 def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
