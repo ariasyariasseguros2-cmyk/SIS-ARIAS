@@ -65,8 +65,11 @@
                 <div class="col-12 col-md-6">
                    <label class="form-label fw-bold small text-uppercase text-muted">Importe <span class="text-danger">*</span></label>
                    <div class="input-group">
-                     <span class="input-group-text bg-light border-end-0 text-muted">S/.</span>
-                     <input type="number" step="0.01" class="form-control bg-light border-start-0" id="addImporte" required placeholder="0.00">
+                     <select class="form-select bg-light flex-grow-0" style="max-width:90px;" id="addMoneda">
+                       <option value="S/.">S/.</option>
+                       <option value="USD">USD</option>
+                     </select>
+                     <input type="number" step="0.01" class="form-control bg-light" id="addImporte" required placeholder="0.00">
                    </div>
                 </div>
                  <div class="col-12 col-md-6">
@@ -82,6 +85,18 @@
                   <textarea class="form-control bg-light" id="addObservacion" rows="2" placeholder="Observaciones adicionales..."></textarea>
                 </div>
             </form>
+          </div>
+        </div>
+
+        <!-- Archivos guardados (visible solo al editar una cuota existente) -->
+        <div class="card border-0 shadow-sm mt-3 d-none" id="cuotaArchivosSection">
+          <div class="card-header bg-white border-bottom d-flex align-items-center gap-2 py-2">
+            <i class="bi bi-paperclip text-primary"></i>
+            <span class="fw-bold small text-uppercase text-muted">Archivos Guardados</span>
+            <span class="badge bg-secondary ms-auto" id="cuotaArchivosCount">0</span>
+          </div>
+          <div class="card-body p-2" id="cuotaArchivosList">
+            <p class="text-muted small text-center py-2 mb-0">Sin archivos</p>
           </div>
         </div>
 
