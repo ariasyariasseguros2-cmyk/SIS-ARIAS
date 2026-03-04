@@ -47,6 +47,14 @@
                 if (fileInput) fileInput.value = '';
             }
 
+            // Ocultar sección de archivos guardados
+            const archivosSection = document.getElementById('cuotaArchivosSection');
+            if (archivosSection) archivosSection.classList.add('d-none');
+            const archivosCount = document.getElementById('cuotaArchivosCount');
+            if (archivosCount) archivosCount.textContent = '0';
+            const archivosList = document.getElementById('cuotaArchivosList');
+            if (archivosList) archivosList.innerHTML = '<p class="text-muted small text-center py-2 mb-0">Sin archivos</p>';
+
             const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
             modal.show();
 
@@ -307,13 +315,48 @@
                   const res = await resp.json();
                   
                   if (res.ok) {
-                      alert('Cuota guardada exitosamente.');
-                      const modalEl = document.getElementById('cuotaAddModal');
+                      // --- UPLOAD PDF si hay archivo seleccionado ---
+                      const fileInput = document.getElementById('addDocumentoFile');
+                      const newCuotaId = res.idCuota || res.cuota_id || null;
+
+                      console.log('[cuota:save] idCuota recibido:', newCuotaId);
+                      console.log('[cuota:save] archivo seleccionado:', fileInput?.files?.length);
+
+                      if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                          if (!newCuotaId) {
+                              console.warn('[cuota:save] No se recibió idCuota del servidor, no se puede subir el archivo.');
+                          } else {
+                              try {
+                                  const fd = new FormData();
+                                  fd.append('archivo', fileInput.files[0]);
+                                  fd.append('cuota_id', newCuotaId);
+                                  fd.append('poliza_id', primaId || '');
+                                  fd.append('numero_poliza', poliza);
+                                  fd.append('cupon', cupon);
+
+                                  console.log('[cuota:upload] Enviando archivo:', fileInput.files[0].name, 'cuota_id:', newCuotaId);
+
+                                  const upResp = await fetch('/api/cuotas/upload-archivo', {
+                                      method: 'POST',
+                                      body: fd
+                                  });
+                                  const upRes = await upResp.json();
+                                  console.log('[cuota:upload] respuesta:', upRes);
+                                  if (!upRes.ok) {
+                                      alert('Cuota guardada, pero error al subir el archivo: ' + upRes.error);
+                                  }
+                              } catch (upErr) {
+                                  console.error('[cuota:upload] Error:', upErr);
+                                  alert('Cuota guardada, pero error de red al subir el archivo.');
+                              }
+                          }
+                      }
+
                       const modal = window.bootstrap.Modal.getInstance(modalEl);
                       modal.hide();
-                      
+
                       // Dispatch event for listeners
-                      const event = new CustomEvent('cuota:saved', { detail: payload });
+                      const event = new CustomEvent('cuota:saved', { detail: { ...payload, idCuota: newCuotaId } });
                       document.dispatchEvent(event);
                   } else {
                       alert('Error al guardar: ' + (res.error || 'Error desconocido'));
@@ -326,7 +369,65 @@
               }
           });
         }
-        
+
+        // ---- Función global para cargar archivos de una cuota existente ----
+        window.loadCuotaArchivos = async function(cuotaId) {
+            const section = document.getElementById('cuotaArchivosSection');
+            const list = document.getElementById('cuotaArchivosList');
+            const countBadge = document.getElementById('cuotaArchivosCount');
+            if (!section || !list) return;
+
+            try {
+                const resp = await fetch(`/api/cuotas/archivos/${cuotaId}`);
+                const res = await resp.json();
+                if (res.ok && res.archivos && res.archivos.length > 0) {
+                    section.classList.remove('d-none');
+                    countBadge.textContent = res.archivos.length;
+                    list.innerHTML = res.archivos.map(a => `
+                        <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-file-earmark-pdf text-danger fs-5"></i>
+                                <div>
+                                    <div class="small fw-semibold text-truncate" style="max-width:220px;" title="${a.nombre_original || ''}">${a.nombre_original || 'archivo.pdf'}</div>
+                                    <div class="text-muted" style="font-size:0.75rem;">${a.creado_en || ''}</div>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-1">
+                                <a href="/uploads/${a.ruta_archivo}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill py-0 px-2" title="Ver archivo">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill py-0 px-2 btn-del-cuota-archivo" 
+                                        data-id="${a.idArchivo}" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    // Listeners eliminar
+                    list.querySelectorAll('.btn-del-cuota-archivo').forEach(btn => {
+                        btn.addEventListener('click', async function() {
+                            if (!confirm('¿Eliminar este archivo?')) return;
+                            const aid = this.dataset.id;
+                            const dr = await fetch(`/api/cuotas/archivos/delete/${aid}`, { method: 'DELETE' });
+                            const dres = await dr.json();
+                            if (dres.ok) {
+                                window.loadCuotaArchivos(cuotaId);
+                            } else {
+                                alert('Error al eliminar: ' + (dres.error || ''));
+                            }
+                        });
+                    });
+                } else {
+                    section.classList.remove('d-none');
+                    countBadge.textContent = '0';
+                    list.innerHTML = '<p class="text-muted small text-center py-2 mb-0">Sin archivos guardados</p>';
+                }
+            } catch(e) {
+                console.error('Error cargando archivos de cuota:', e);
+            }
+        };
+
         // URL Parameter Handler (Auto Open)
         const params = new URLSearchParams(window.location.search);
         if (params.get('action') === 'add') {
