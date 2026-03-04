@@ -116,42 +116,53 @@ const Cuotas = (() => {
     confirmModal.show();
   }
 
-  // Acción PDF: abre modal con visualizador y opción de descarga
+  // Acción PDF: consulta la ruta real en cuota_archivos y abre el visualizador
   function onPDF(idx) {
     const tr = getRow(idx);
     const data = getCellsData(tr, idx);
     if (!data) return;
-    const base = data.factura || data.cupon;
-    if (!base) {
+
+    const idCuota = data.idCuota;
+    if (!idCuota) {
       alert('No hay documento asociado a esta cuota.');
       return;
     }
-    const filename = encodeURIComponent(String(base).trim() + '.pdf');
-    const url = `/uploads/${filename}`;
-    
-    // Configurar modal PDF
-    const modalEl = document.getElementById('cuotaPdfModal');
-    if (!modalEl) {
-        // Fallback si no existe el modal
-        window.open(url, '_blank');
-        return;
-    }
 
-    // Actualizar elementos del modal
-    const frame = document.getElementById('pdfViewerFrame');
-    const downloadBtn = document.getElementById('btnDownloadPdf');
-    const titleEl = document.getElementById('pdfFileName');
-    
-    if (frame) frame.src = url;
-    if (downloadBtn) {
-        downloadBtn.href = url;
-        downloadBtn.download = String(base).trim() + '.pdf';
-    }
-    if (titleEl) titleEl.textContent = String(base).trim();
+    // Consultar archivos reales guardados para esta cuota
+    fetch(`/api/cuotas/archivos/${idCuota}`)
+      .then(r => r.json())
+      .then(res => {
+        if (!res.ok || !res.archivos || res.archivos.length === 0) {
+          alert('No hay archivos PDF guardados para esta cuota.');
+          return;
+        }
 
-    // Mostrar modal
-    const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
-    modal.show();
+        // Usar el archivo más reciente (primero del array, ya viene ordenado DESC)
+        const archivo = res.archivos[0];
+        const url = `/uploads/${archivo.ruta_archivo}`;
+        const displayName = archivo.nombre_original || archivo.ruta_archivo.split('/').pop();
+
+        const modalEl = document.getElementById('cuotaPdfModal');
+        if (!modalEl) {
+          window.open(url, '_blank');
+          return;
+        }
+
+        const frame       = document.getElementById('pdfViewerFrame');
+        const downloadBtn = document.getElementById('btnDownloadPdf');
+        const titleEl     = document.getElementById('pdfFileName');
+
+        if (frame) frame.src = url;
+        if (downloadBtn) { downloadBtn.href = url; downloadBtn.download = displayName; }
+        if (titleEl) titleEl.textContent = displayName;
+
+        const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+      })
+      .catch(err => {
+        console.error('Error cargando archivos de cuota:', err);
+        alert('Error al intentar cargar el documento.');
+      });
   }
 
   function onRevert(idx) {
@@ -186,7 +197,6 @@ const Cuotas = (() => {
     if (!data) return;
 
     const usuario = window.currentUser || '';
-    const docName = data.documento || data.factura || '';
 
     const setText = (id, val) => {
       const el = document.getElementById(id);
@@ -202,25 +212,69 @@ const Cuotas = (() => {
     setText('detailObservacion', data.observacion);
     setText('detailUsuario', usuario);
 
+    // Limpiar el campo de documento mientras carga
     const docEl = document.getElementById('detailDocumento');
-    if (docEl) {
-      docEl.innerHTML = '';
-      if (docName) {
-        const link = document.createElement('a');
-        link.href = `/uploads/${encodeURIComponent(docName.endsWith('.pdf') ? docName : `${docName}.pdf`)}`;
-        link.target = '_blank';
-        link.rel = 'noopener';
-        link.textContent = docName;
-        docEl.appendChild(link);
-      } else {
-        docEl.textContent = 'Sin documento';
-      }
-    }
+    if (docEl) docEl.innerHTML = '<span class="text-muted small">Cargando...</span>';
 
     const modalEl = document.getElementById('cuotaDetailsModal');
     if (!modalEl) return;
     const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
     modal.show();
+
+    // Consultar archivos reales desde la DB
+    const idCuota = data.idCuota;
+    if (idCuota && docEl) {
+      fetch(`/api/cuotas/archivos/${idCuota}`)
+        .then(r => r.json())
+        .then(res => {
+          if (!res.ok || !res.archivos || res.archivos.length === 0) {
+            docEl.textContent = 'Sin documento';
+            return;
+          }
+          docEl.innerHTML = '';
+          res.archivos.forEach(archivo => {
+            const url = `/uploads/${archivo.ruta_archivo}`;
+            const displayName = archivo.nombre_original || archivo.ruta_archivo.split('/').pop();
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'd-flex align-items-center gap-2 mb-1';
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.textContent = displayName;
+
+            // Botón abrir en visor
+            const btnVisor = document.createElement('button');
+            btnVisor.type = 'button';
+            btnVisor.className = 'btn btn-sm btn-outline-primary py-0 px-2 rounded-pill';
+            btnVisor.title = 'Ver en visor';
+            btnVisor.innerHTML = '<i class="bi bi-eye"></i>';
+            btnVisor.addEventListener('click', () => {
+              const pdfModalEl = document.getElementById('cuotaPdfModal');
+              if (!pdfModalEl) { window.open(url, '_blank'); return; }
+              const frame       = document.getElementById('pdfViewerFrame');
+              const downloadBtn = document.getElementById('btnDownloadPdf');
+              const titleEl     = document.getElementById('pdfFileName');
+              if (frame) frame.src = url;
+              if (downloadBtn) { downloadBtn.href = url; downloadBtn.download = displayName; }
+              if (titleEl) titleEl.textContent = displayName;
+              const pdfModal = window.bootstrap.Modal.getOrCreateInstance(pdfModalEl);
+              pdfModal.show();
+            });
+
+            wrapper.appendChild(link);
+            wrapper.appendChild(btnVisor);
+            docEl.appendChild(wrapper);
+          });
+        })
+        .catch(() => {
+          if (docEl) docEl.textContent = 'Sin documento';
+        });
+    } else if (docEl) {
+      docEl.textContent = 'Sin documento';
+    }
   }
 
   // Helper: convierte DD/MM/YYYY o DD-MM-YYYY -> YYYY-MM-DD
@@ -459,49 +513,42 @@ const Cuotas = (() => {
     const btnVer = document.getElementById('btnEditDocumentoVer');
     if (btnVer) {
       btnVer.addEventListener('click', () => {
-        const nombreEl = document.getElementById('editDocumentoNombre');
-        const name = nombreEl ? nombreEl.value.trim() : '';
-        if (!name) {
+        // Obtener idCuota del row en edición
+        const tr = getRow(editIndex);
+        const idCuota = tr ? (tr.dataset.idcuota || '') : '';
+        if (!idCuota) {
           alert('No hay documento para visualizar.');
           return;
         }
-        const filename = encodeURIComponent(name.endsWith('.pdf') ? name : `${name}.pdf`);
-        const url = `/uploads/${filename}`;
 
-        // Verificar si el archivo existe antes de abrir el modal
-        fetch(url, { method: 'HEAD' })
-          .then(response => {
-              if (response.ok) {
-                  // Configurar modal PDF
-                  const modalEl = document.getElementById('cuotaPdfModal');
-                  if (!modalEl) {
-                      // Fallback si no existe el modal
-                      window.open(url, '_blank');
-                      return;
-                  }
+        fetch(`/api/cuotas/archivos/${idCuota}`)
+          .then(r => r.json())
+          .then(res => {
+            if (!res.ok || !res.archivos || res.archivos.length === 0) {
+              alert('No hay archivos PDF guardados para esta cuota.');
+              return;
+            }
+            const archivo = res.archivos[0];
+            const url = `/uploads/${archivo.ruta_archivo}`;
+            const displayName = archivo.nombre_original || archivo.ruta_archivo.split('/').pop();
 
-                  // Actualizar elementos del modal
-                  const frame = document.getElementById('pdfViewerFrame');
-                  const downloadBtn = document.getElementById('btnDownloadPdf');
-                  const titleEl = document.getElementById('pdfFileName');
-                  
-                  if (frame) frame.src = url;
-                  if (downloadBtn) {
-                      downloadBtn.href = url;
-                      downloadBtn.download = name.endsWith('.pdf') ? name : `${name}.pdf`;
-                  }
-                  if (titleEl) titleEl.textContent = name;
+            const modalEl = document.getElementById('cuotaPdfModal');
+            if (!modalEl) { window.open(url, '_blank'); return; }
 
-                  // Mostrar modal (Bootstrap maneja el z-index automáticamente para modales apilados)
-                  const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
-                  modal.show();
-              } else {
-                  alert('El documento PDF no se encuentra disponible en el servidor.');
-              }
+            const frame       = document.getElementById('pdfViewerFrame');
+            const downloadBtn = document.getElementById('btnDownloadPdf');
+            const titleEl     = document.getElementById('pdfFileName');
+
+            if (frame) frame.src = url;
+            if (downloadBtn) { downloadBtn.href = url; downloadBtn.download = displayName; }
+            if (titleEl) titleEl.textContent = displayName;
+
+            const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
           })
-          .catch(error => {
-              console.error('Error verificando archivo:', error);
-              alert('Ocurrió un error al intentar localizar el documento.');
+          .catch(err => {
+            console.error('Error cargando archivos de cuota:', err);
+            alert('Error al intentar localizar el documento.');
           });
       });
     }
