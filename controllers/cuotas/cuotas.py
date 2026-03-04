@@ -115,18 +115,21 @@ def get_cuotas_data(
                     cur.execute(
                         """
                         SELECT
-                            idCuota,
-                            cupon,
-                            DATE_FORMAT(fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
-                            moneda,
-                            FORMAT(importe, 2) AS importe,
-                            DATE_FORMAT(fecha_pago, '%d-%m-%Y') AS fecha_pago,
-                            factura,
-                            observacion
-                        FROM cuotas
-                        WHERE poliza_id = %s
-                          AND activo = 1
-                        ORDER BY fecha_vencimiento ASC, idCuota ASC
+                            c.idCuota,
+                            c.cupon,
+                            DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
+                            c.moneda,
+                            FORMAT(c.importe, 2) AS importe,
+                            DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
+                            c.factura,
+                            c.observacion,
+                            p.recibo AS aviso_cobranza,
+                            p.tipo_doc
+                        FROM cuotas c
+                        LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
+                        WHERE c.poliza_id = %s
+                          AND c.activo = 1
+                        ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
                         """,
                         (target_prima_id,),
                     )
@@ -137,7 +140,27 @@ def get_cuotas_data(
                     except Exception:
                         pass
                 else:
-                    cur.execute("CALL sp_list_cuotas_por_poliza(%s)", (poliza,))
+                    cur.execute(
+                        """
+                        SELECT
+                            c.idCuota,
+                            c.cupon,
+                            DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
+                            c.moneda,
+                            FORMAT(c.importe, 2) AS importe,
+                            DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
+                            c.factura,
+                            c.observacion,
+                            p.recibo AS aviso_cobranza,
+                            p.tipo_doc
+                        FROM cuotas c
+                        LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
+                        WHERE c.poliza = %s
+                          AND c.activo = 1
+                        ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
+                        """,
+                        (poliza,),
+                    )
                     cuota_rows = cur.fetchall() or []
                     try:
                         while cur.nextset():
@@ -149,21 +172,24 @@ def get_cuotas_data(
                             cur.execute(
                                 """
                                 SELECT
-                                    idCuota,
-                                    cupon,
-                                    DATE_FORMAT(fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
-                                    moneda,
-                                    FORMAT(importe, 2) AS importe,
-                                    DATE_FORMAT(fecha_pago, '%d-%m-%Y') AS fecha_pago,
-                                    factura,
-                                    observacion
-                                FROM cuotas
-                                WHERE activo = 1
+                                    c.idCuota,
+                                    c.cupon,
+                                    DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
+                                    c.moneda,
+                                    FORMAT(c.importe, 2) AS importe,
+                                    DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
+                                    c.factura,
+                                    c.observacion,
+                                    p.recibo AS aviso_cobranza,
+                                    p.tipo_doc
+                                FROM cuotas c
+                                LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
+                                WHERE c.activo = 1
                                   AND (
-                                        TRIM(cupon) = TRIM(%s)
-                                        OR TRIM(factura) = TRIM(%s)
+                                        TRIM(c.cupon) = TRIM(%s)
+                                        OR TRIM(c.factura) = TRIM(%s)
                                       )
-                                ORDER BY fecha_vencimiento ASC, idCuota ASC
+                                ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
                                 """,
                                 (aviso, aviso),
                             )
@@ -188,6 +214,8 @@ def get_cuotas_data(
                             'fecha_pago': format_date_custom(c.get('fecha_pago')),
                             'factura': c.get('factura') or '',
                             'observacion': c.get('observacion') or '',
+                            'aviso_cobranza': c.get('aviso_cobranza') or '',
+                            'tipo_doc': c.get('tipo_doc') or '',
                         })
             except Exception as e:
                 print(f"Error fetching cuotas list: {e}")

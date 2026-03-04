@@ -416,7 +416,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 <thead class="table-light">
                   <tr>
                     <th>RECIBO</th>
+                    <th>TIPO</th>
                     <th>CUPÓN</th>
+                    <th>FECHA VENCIMIENTO</th>
                     <th>FECHA DE PAGO</th>
                     <th>IMPORTE</th>
                     <th>FACTURA</th>
@@ -433,8 +435,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const showEdit = true; 
             return `
             <tr>
-                <td>${String(r.cupon || '').replace(/-\d+$/,'') || '-'}</td>
+                <td>${r.aviso_cobranza || String(r.cupon || '').replace(/-\d+$/,'') || '-'}</td>
+                <td>${r.tipo_doc || '-'}</td>
                 <td>${r.cupon || '-'}</td>
+                <td>${r.fecha_vencimiento || '-'}</td>
                 <td>${r.fecha_pago || '-'}</td>
                 <td>${r.importe || '-'}</td>
                 <td>${r.factura || '-'}</td>

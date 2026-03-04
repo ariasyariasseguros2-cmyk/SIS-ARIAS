@@ -350,6 +350,45 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                 while cur.nextset():
                     pass
                 inserted += 1
+
+                # INSERTAR CUOTA AUTOMÁTICA
+                try:
+                    c_poliza = U(row.get("numero_poliza") or "")
+                    c_cupon = U(row.get("recibo") or "")
+                    # Prioridad: fecha_vencimiento (pago) > vencimiento (vigencia fin) > inicio_vigencia
+                    c_fec_venc = parse_date(row.get("fecha_vencimiento"))
+                    if not c_fec_venc:
+                        c_fec_venc = parse_date(row.get("vencimiento"))
+                    
+                    c_moneda = U(row.get("moneda") or "SOLES")
+                    c_importe = parse_decimal(row.get("prima_comercial_igv"))
+                    if c_importe is None:
+                         c_importe = parse_decimal(row.get("prima_total"))
+
+                    # Solo insertar si tenemos los datos mínimos requeridos por la tabla cuotas (NOT NULL)
+                    if c_poliza and c_fec_venc and c_importe is not None:
+                        cur.execute(
+                            "CALL sp_insert_cuota(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                            (
+                                c_poliza,
+                                c_cupon,
+                                c_fec_venc,
+                                c_moneda,
+                                c_importe,
+                                None,   # fecha_pago
+                                None,   # factura
+                                None, # observacion
+                                session.get('user'),
+                                1       # numero_cuota
+                            )
+                        )
+                        while cur.nextset():
+                            pass
+                except Exception as ex_cuota:
+                    print(f"[WARNING] No se pudo crear cuota automática: {ex_cuota}")
+                    # No bloqueamos el flujo principal, pero lo logueamos
+                    pass
+
             except mysql.connector.Error as err:
                 # Detecta SIGNAL SQLSTATE '45000' del SP (duplicado / cliente no existe)
                 if getattr(err, 'sqlstate', '') == '45000':
