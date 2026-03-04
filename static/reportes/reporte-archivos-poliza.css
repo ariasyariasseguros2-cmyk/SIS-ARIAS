@@ -20,3 +20,30 @@
 .placeholder-row td {
     color: #6c757d;
 }
+
+/* ---- Filas de cuotas como subnivel ---- */
+.cuota-child-row td {
+    background-color: #f0fdf4;
+    border-left: 3px solid #22c55e;
+    font-size: 0.875rem;
+}
+
+.cuota-child-row:hover td {
+    background-color: #dcfce7 !important;
+}
+
+.poliza-row.has-children td:first-child {
+    position: relative;
+}
+
+/* Animación del chevron */
+.transition-icon {
+    display: inline-block;
+    transition: transform 0.2s ease;
+}
+
+.btn-toggle-children {
+    line-height: 1;
+    vertical-align: middle;
+}
+
