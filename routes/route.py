@@ -95,10 +95,13 @@ def save_cuota_route():
     data['usuario'] = session['user']
     
     from controllers.cuotas.cuotas import save_cuota
-    success, msg = save_cuota(data)
-    
+    result = save_cuota(data)
+    success = result[0]
+    msg = result[1] if len(result) > 1 else ''
+    new_id = result[2] if len(result) > 2 else None
+
     if success:
-        return {'ok': True}
+        return {'ok': True, 'idCuota': new_id}
     return {'ok': False, 'error': msg or 'Error al guardar cuota'}, 400
 
 
@@ -127,6 +130,128 @@ def delete_cuota_route():
     if success:
         return {'ok': True}
     return {'ok': False, 'error': msg}, 400
+
+@bp.route('/api/cuotas/upload-archivo', methods=['POST'])
+def upload_cuota_archivo():
+    """Guarda un PDF asociado a una cuota en static/uploads/cuotas/ y registra en cuota_archivos."""
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    cuota_id   = request.form.get('cuota_id')
+    poliza_id  = request.form.get('poliza_id')
+    numero_poliza = request.form.get('numero_poliza', '')
+    cupon      = request.form.get('cupon', '')
+
+    print(f"[upload_cuota_archivo] cuota_id={cuota_id} poliza_id={poliza_id} cupon={cupon}")
+
+    if not cuota_id:
+        return jsonify({'ok': False, 'error': 'Falta cuota_id'}), 400
+
+    if 'archivo' not in request.files:
+        return jsonify({'ok': False, 'error': 'No se envió archivo (key=archivo)'}), 400
+
+    file = request.files['archivo']
+    if not file or file.filename == '':
+        return jsonify({'ok': False, 'error': 'Archivo vacío'}), 400
+
+    try:
+        import time
+        original_filename = file.filename
+        safe_name = secure_filename(original_filename)
+        ts = int(time.time())
+        # Nombre en disco: timestamp_cuotaID_nombreOriginal  (evita colisiones)
+        disk_filename = f"{ts}_cuota{cuota_id}_{safe_name}"
+
+        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'cuotas')
+        os.makedirs(upload_folder, exist_ok=True)
+
+        save_path = os.path.join(upload_folder, disk_filename)
+        file.save(save_path)
+        print(f"[upload_cuota_archivo] guardado en {save_path}, existe={os.path.exists(save_path)}")
+
+        # Ruta relativa a UPLOAD_FOLDER (igual que polizas usa 'polizas/archivo.pdf')
+        ruta_relativa = f"cuotas/{disk_filename}"
+        usuario = session.get('user', '')
+
+        pid = int(poliza_id) if poliza_id and str(poliza_id).strip() not in ('', 'None') else None
+
+        cnx = get_connection()
+        cur = cnx.cursor()
+        cur.execute(
+            """INSERT INTO cuota_archivos
+               (cuota_id, poliza_id, numero_poliza, cupon, ruta_archivo, nombre_original, usuario)
+               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+            (int(cuota_id), pid, numero_poliza, cupon, ruta_relativa, original_filename, usuario)
+        )
+        cnx.commit()
+        new_archivo_id = cur.lastrowid
+        cur.close()
+        cnx.close()
+        print(f"[upload_cuota_archivo] registro creado idArchivo={new_archivo_id} ruta={ruta_relativa}")
+
+        return jsonify({'ok': True, 'ruta': ruta_relativa, 'idArchivo': new_archivo_id}), 200
+
+    except Exception as e:
+        print(f"[upload_cuota_archivo] ERROR: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/cuotas/archivos/<int:cuota_id>', methods=['GET'])
+def get_cuota_archivos(cuota_id):
+    """Lista los archivos PDF guardados para una cuota."""
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute(
+            """SELECT idArchivo, ruta_archivo, nombre_original, cupon, creado_en
+               FROM cuota_archivos
+               WHERE cuota_id = %s
+               ORDER BY creado_en DESC""",
+            (cuota_id,)
+        )
+        rows = cur.fetchall()
+        cur.close()
+        cnx.close()
+        # serialize datetimes
+        for r in rows:
+            if r.get('creado_en'):
+                r['creado_en'] = r['creado_en'].strftime('%d/%m/%Y %H:%M')
+        return jsonify({'ok': True, 'archivos': rows})
+    except Exception as e:
+        return {'ok': False, 'error': str(e)}, 500
+
+
+@bp.route('/api/cuotas/archivos/delete/<int:archivo_id>', methods=['DELETE'])
+def delete_cuota_archivo(archivo_id):
+    """Elimina un archivo de cuota del disco y de la tabla."""
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute("SELECT ruta_archivo FROM cuota_archivos WHERE idArchivo = %s", (archivo_id,))
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            cnx.close()
+            return {'ok': False, 'error': 'Archivo no encontrado'}, 404
+
+        # Eliminar del disco — ruta en DB es relativa a UPLOAD_FOLDER (ej: cuotas/archivo.pdf)
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'static', 'uploads'))
+        abs_path = os.path.join(upload_folder, row['ruta_archivo'].lstrip('/\\'))
+        if os.path.exists(abs_path):
+            os.remove(abs_path)
+
+        cur.execute("DELETE FROM cuota_archivos WHERE idArchivo = %s", (archivo_id,))
+        cnx.commit()
+        cur.close()
+        cnx.close()
+        return {'ok': True}
+    except Exception as e:
+        return {'ok': False, 'error': str(e)}, 500
+
 
 @bp.route('/api/comisiones/lookup', methods=['GET'])
 def lookup_comision_route():
@@ -2599,13 +2724,13 @@ def dashboard_notes():
 def serve_upload(filename):
     folder = current_app.config.get('UPLOAD_FOLDER')
     
-    # 1. Soporte para subcarpetas (ej: polizas/archivo.pdf)
+    # 1. Soporte para subcarpetas (ej: polizas/archivo.pdf, cuotas/archivo.pdf)
     # Evitamos secure_filename en la ruta completa para no romper los slashes
     if '/' in filename or '\\' in filename:
         # Extraer subcarpeta y archivo
         parts = filename.replace('\\', '/').split('/')
-        # Solo permitimos subcarpeta 'polizas' u 'clientes' por seguridad
-        if parts[0] in ['polizas', 'clientes']:
+        # Solo permitimos subcarpetas conocidas por seguridad
+        if parts[0] in ['polizas', 'clientes', 'cuotas', 'siniestros', 'soat']:
              sub = parts[0]
              name = secure_filename(parts[-1])
              target_dir = os.path.join(folder, sub)
@@ -2619,10 +2744,11 @@ def serve_upload(filename):
     if os.path.isfile(full):
         return send_from_directory(folder, safe, as_attachment=False)
         
-    # 3. Fallback: Buscar en 'polizas' si no se especificó ruta (para previews recién subidos)
-    full_poliza = os.path.join(folder, 'polizas', safe)
-    if os.path.isfile(full_poliza):
-        return send_from_directory(os.path.join(folder, 'polizas'), safe, as_attachment=False)
+    # 3. Fallback: buscar en subcarpetas conocidas
+    for sub in ['polizas', 'cuotas', 'clientes', 'siniestros']:
+        full_sub = os.path.join(folder, sub, safe)
+        if os.path.isfile(full_sub):
+            return send_from_directory(os.path.join(folder, sub), safe, as_attachment=False)
 
     return {'error': 'Archivo no encontrado', 'path': full}, 404
 
