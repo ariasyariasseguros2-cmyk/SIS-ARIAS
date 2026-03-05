@@ -334,13 +334,6 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                 cnx.close()
                 return False, "El cupón ya existe para esta póliza.", None
 
-        cur.execute(
-            "SELECT IFNULL(MAX(numero_cuota), 0) + 1 FROM cuotas WHERE poliza = %s AND cupon = %s",
-            (poliza, cupon)
-        )
-        row = cur.fetchone()
-        numero_cuota = row[0] if row and row[0] is not None else 1
-
         factura = val_or_none(data.get('factura'))
         if factura:
             cur.execute("SELECT 1 FROM cuotas WHERE factura = %s AND activo = 1 LIMIT 1", (factura,))
@@ -372,6 +365,20 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
             row = cur.fetchone()
             if row:
                 poliza_id = row[0]
+
+        # Calcular numero_cuota (basado en póliza, no cupón)
+        if poliza_id:
+            cur.execute(
+                "SELECT IFNULL(MAX(numero_cuota), 0) + 1 FROM cuotas WHERE poliza_id = %s",
+                (poliza_id,)
+            )
+        else:
+            cur.execute(
+                "SELECT IFNULL(MAX(numero_cuota), 0) + 1 FROM cuotas WHERE poliza = %s",
+                (poliza,)
+            )
+        row = cur.fetchone()
+        numero_cuota = row[0] if row and row[0] is not None else 1
 
         cur.execute(
             """
