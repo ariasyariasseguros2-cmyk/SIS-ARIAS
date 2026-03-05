@@ -29,6 +29,7 @@
 
   let subAgenteEl = subAgenteTopEl || document.getElementById('subAgente');
   let extractedItems = [];
+  let allAnexos = []; // NUEVO: Acumulador de archivos anexos
   let autoSaveTimer = null;
   const AUTO_SAVE_ENABLED = false;
   let isSaving = false;
@@ -1233,8 +1234,9 @@
       const formData = new FormData();
       formData.append('json_data', JSON.stringify({ items: itemsForAuto, selected }));
 
-      if (anexosFilesEl && anexosFilesEl.files) {
-        Array.from(anexosFilesEl.files).forEach(file => {
+      // Usar allAnexos (acumulados) en lugar de anexosFilesEl.files
+      if (allAnexos && allAnexos.length > 0) {
+        allAnexos.forEach(file => {
           formData.append('anexos', file);
         });
       }
@@ -1347,16 +1349,56 @@
 
 
 
-  // NUEVO: Anexos
-  anexosFilesEl?.addEventListener('change', () => {
+  // NUEVO: Anexos (acumulativo)
+  function renderAnexosList() {
     if (!anexosListEl) return;
-    const files = Array.from(anexosFilesEl.files || []);
-    if (files.length === 0) {
-      anexosListEl.textContent = 'Sin anexos seleccionados.';
+    if (allAnexos.length === 0) {
+      anexosListEl.innerHTML = '<span class="text-muted">Sin anexos seleccionados.</span>';
       return;
     }
-    const names = files.map(f => f.name).join(', ');
-    anexosListEl.textContent = `Seleccionados: ${names}`;
+    let html = '<ul class="list-unstyled mb-0">';
+    allAnexos.forEach((file, idx) => {
+      html += `
+        <li class="d-flex justify-content-between align-items-center mb-1">
+          <span class="text-truncate me-2" style="max-width: 200px;" title="${file.name}">
+            <i class="bi bi-paperclip me-1"></i>${file.name}
+          </span>
+          <button type="button" class="btn btn-sm btn-link text-danger p-0 border-0 btn-remove-anexo" data-index="${idx}">
+            <i class="bi bi-x-circle"></i>
+          </button>
+        </li>
+      `;
+    });
+    html += '</ul>';
+    anexosListEl.innerHTML = html;
+
+    // Listener para eliminar
+    anexosListEl.querySelectorAll('.btn-remove-anexo').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = Number(e.currentTarget.dataset.index);
+        if (Number.isFinite(idx)) {
+          allAnexos.splice(idx, 1);
+          renderAnexosList();
+        }
+      });
+    });
+  }
+
+  anexosFilesEl?.addEventListener('change', () => {
+    if (!anexosFilesEl.files || anexosFilesEl.files.length === 0) return;
+    
+    // Acumular archivos
+    Array.from(anexosFilesEl.files).forEach(file => {
+      // Evitar duplicados por nombre y tamaño (básico)
+      const exists = allAnexos.some(f => f.name === file.name && f.size === file.size);
+      if (!exists) {
+        allAnexos.push(file);
+      }
+    });
+
+    // Limpiar input para permitir seleccionar el mismo archivo de nuevo si se borró
+    anexosFilesEl.value = '';
+    renderAnexosList();
   });
 
   // NUEVO: función para resetear tabla y campos superiores
@@ -1374,7 +1416,12 @@
       if (tipoDocTopEl && !keepTipoDoc) tipoDocTopEl.value = '';
       if (issuerEl) issuerEl.value = '';
       if (anexosFilesEl) anexosFilesEl.value = '';
-      if (anexosListEl) anexosListEl.textContent = '';
+      allAnexos = [];
+      if (typeof renderAnexosList === 'function') {
+        renderAnexosList();
+      } else if (anexosListEl) {
+        anexosListEl.innerHTML = '';
+      }
       // Mantener subagente y ejecutivo desde window.selectedCliente si existen
       if (subAgenteTopEl) {
         // Por defecto 'ARIAS Y ARIAS' (ID 3) siempre, ignorando el del cliente por solicitud
