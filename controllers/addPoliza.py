@@ -1,7 +1,10 @@
 
 from models.db import get_connection
 import mysql.connector
-from flask import session
+from flask import session, current_app
+from werkzeug.utils import secure_filename
+import os
+import time
 
 def cia_to_col(cia_txt: str | None) -> str | None:
     if not cia_txt:
@@ -116,8 +119,28 @@ def get_rows():
         {"label": "Se soporta La Positiva, MAPFRE; EPS/Vida/Seguros"},
     ]
 
-def save_polizas(items: list, selected: dict | None = None) -> dict:
+def save_polizas(items: list, selected: dict | None = None, anexos: list = None) -> dict:
     # Insertar en BD usando SP
+    saved_anexos = []
+    if anexos:
+        try:
+            upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'polizas')
+            os.makedirs(upload_folder, exist_ok=True)
+            for file in anexos:
+                if file and file.filename:
+                    original_name = file.filename
+                    safe_name = secure_filename(original_name)
+                    ts = int(time.time())
+                    disk_name = f"{ts}_{safe_name}"
+                    save_path = os.path.join(upload_folder, disk_name)
+                    file.save(save_path)
+                    saved_anexos.append({
+                        'ruta': f"uploads/polizas/{disk_name}",
+                        'nombre': original_name
+                    })
+        except Exception as e:
+            print(f"[save_polizas] Error saving anexos: {e}")
+
     try:
         if items:
             print(f"[DEBUG] save_polizas items[0]: {items[0]}")
@@ -350,6 +373,43 @@ def save_polizas(items: list, selected: dict | None = None) -> dict:
                 while cur.nextset():
                     pass
                 inserted += 1
+
+                # NUEVO: Vincular Anexos
+                if saved_anexos:
+                    try:
+                        cur.execute("SELECT LAST_INSERT_ID()")
+                        lid_row = cur.fetchone()
+                        lid = lid_row[0] if lid_row else 0
+                        
+                        real_poliza_id = None
+                        # args[32] es pdf_path. Si existe, el último insert fue en poliza_archivos
+                        if args[32]:
+                            cur.execute("SELECT poliza_id FROM poliza_archivos WHERE idArchivo = %s", (lid,))
+                            pid_row = cur.fetchone()
+                            if pid_row:
+                                real_poliza_id = pid_row[0]
+                        else:
+                            # Si no hubo PDF, el último insert fue en polizas
+                            real_poliza_id = lid
+                        
+                        if real_poliza_id:
+                            for sa in saved_anexos:
+                                cur.execute("""
+                                    INSERT INTO poliza_archivos 
+                                    (poliza_id, numero_poliza, ruta_archivo, nombre_original, ramo, producto, usuario, compania, origen)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ANEXO')
+                                """, (
+                                    real_poliza_id, 
+                                    row.get('poliza') or row.get('numero_poliza') or "", 
+                                    sa['ruta'], 
+                                    sa['nombre'], 
+                                    row.get('ramo') or "", 
+                                    row.get('ramos_producto') or "", 
+                                    session.get('user'), 
+                                    row.get('cia') or ""
+                                ))
+                    except Exception as e_anexos:
+                        print(f"[save_polizas] Error linking anexos: {e_anexos}")
 
                 # INSERTAR CUOTA AUTOMÁTICA
                 try:

@@ -1940,7 +1940,18 @@ def polizas_save():
     if not can_create(session.get('role_name')):
         return {'ok': False, 'errors': ['No autorizado para crear']}, 403
 
-    payload = request.get_json(silent=True) or {}
+    # Support both JSON and multipart/form-data (for attachments)
+    if request.files or request.form.get('json_data'):
+        import json
+        try:
+            payload = json.loads(request.form.get('json_data', '{}'))
+        except:
+            payload = {}
+        anexos = request.files.getlist('anexos')
+    else:
+        payload = request.get_json(silent=True) or {}
+        anexos = []
+
     items = payload.get('items') or []
     selected = payload.get('selected') or session.get('selected_cliente') or {}
 
@@ -1950,7 +1961,7 @@ def polizas_save():
         session['selected_cliente'] = {**prev, **selected}
 
     from controllers.addPoliza import save_polizas
-    res = save_polizas(items, selected)
+    res = save_polizas(items, selected, anexos=anexos)
     if not res.get('ok'):
         current_app.logger.error('polizas_save error: %s', res.get('errors'))
     status = 200 if res.get('ok') else 400

@@ -16,6 +16,8 @@
   const tipoVigenciaTopEl = document.getElementById('tipoVigenciaTop'); // NUEVO
   const aseguradaTopEl = document.getElementById('aseguradaTop'); // Campo superior de asegurada (texto)
   const motivoTopEl = document.getElementById('motivoTop'); // Campo superior de motivo (texto)
+  const anexosFilesEl = document.getElementById('anexosFiles'); // NUEVO: Input de anexos
+  const anexosListEl = document.getElementById('anexosList'); // NUEVO: Lista de anexos
   // Campos de comisiones (superior)
   const pctComCompaniaEl   = document.getElementById('pctComCompania');
   const impComCompaniaEl   = document.getElementById('impComCompania');
@@ -1227,10 +1229,19 @@
       // NUEVO: Log para verificar lo que se envía
       console.log('[save:manual] sending selected:', selected);
 
+      // PREPARAR FORMDATA (para incluir archivos anexos)
+      const formData = new FormData();
+      formData.append('json_data', JSON.stringify({ items: itemsForAuto, selected }));
+
+      if (anexosFilesEl && anexosFilesEl.files) {
+        Array.from(anexosFilesEl.files).forEach(file => {
+          formData.append('anexos', file);
+        });
+      }
+
       const r = await fetch('/polizas/save', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: itemsForAuto, selected })
+        body: formData
       });
 
       const ct = (r.headers.get('content-type') || '').toLowerCase();
@@ -1336,6 +1347,18 @@
 
 
 
+  // NUEVO: Anexos
+  anexosFilesEl?.addEventListener('change', () => {
+    if (!anexosListEl) return;
+    const files = Array.from(anexosFilesEl.files || []);
+    if (files.length === 0) {
+      anexosListEl.textContent = 'Sin anexos seleccionados.';
+      return;
+    }
+    const names = files.map(f => f.name).join(', ');
+    anexosListEl.textContent = `Seleccionados: ${names}`;
+  });
+
   // NUEVO: función para resetear tabla y campos superiores
   function resetAddPolizaView(keepTipoDoc = false) {
       extractedItems = [];
@@ -1350,6 +1373,8 @@
       // if (ramoProductoTopEl) ramoProductoTopEl.value = '';
       if (tipoDocTopEl && !keepTipoDoc) tipoDocTopEl.value = '';
       if (issuerEl) issuerEl.value = '';
+      if (anexosFilesEl) anexosFilesEl.value = '';
+      if (anexosListEl) anexosListEl.textContent = '';
       // Mantener subagente y ejecutivo desde window.selectedCliente si existen
       if (subAgenteTopEl) {
         // Por defecto 'ARIAS Y ARIAS' (ID 3) siempre, ignorando el del cliente por solicitud

@@ -71,7 +71,7 @@
     <!-- Main Form Grid -->
     <div class="row g-4">
         <!-- Column 1: Entidades -->
-        <div class="col-lg-4">
+        <div class="col-lg-3">
             <div class="card h-100">
                 <div class="card-body">
                     <div class="section-title"><i class="bi bi-building"></i> Entidades</div>
@@ -121,7 +121,7 @@
         </div>
 
         <!-- Column 2: Detalles de Operación -->
-        <div class="col-lg-4">
+        <div class="col-lg-3">
             <div class="card h-100">
                 <div class="card-body">
                     <div class="section-title"><i class="bi bi-clipboard-data"></i> Detalles</div>
@@ -158,7 +158,7 @@
         </div>
 
         <!-- Column 3: Financiero -->
-        <div class="col-lg-4">
+        <div class="col-lg-3">
             <div class="card h-100">
                 <div class="card-body">
                     <div class="section-title"><i class="bi bi-cash-coin"></i> Financiero</div>
@@ -201,6 +201,21 @@
                             <option>SIN PRIMA</option>
                         </select>
                     </div>-->
+                </div>
+            </div>
+        </div>
+
+        <!-- Column 4: Anexos (New) -->
+        <div class="col-lg-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="section-title"><i class="bi bi-paperclip"></i> Anexos</div>
+                    <div class="mb-3">
+                        <label class="form-label">Adjuntar Archivos</label>
+                        <input class="form-control" type="file" id="anexosFiles" multiple>
+                        <div class="form-text small">Selecciona múltiples archivos (PDF, Imágenes, etc).</div>
+                    </div>
+                    <div id="anexosList" class="small text-muted mt-2"></div>
                 </div>
             </div>
         </div>
