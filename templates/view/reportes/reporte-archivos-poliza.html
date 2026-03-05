@@ -4,6 +4,23 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='reportes/reporte-archivos-poliza.css') }}">
+<!-- Estilos mínimos para el autocomplete -->
+<style>
+.autocomplete-container { position: relative; }
+.autocomplete-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1055;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid rgba(0,0,0,0.125);
+  background: #fff;
+}
+.autocomplete-item { cursor: pointer; padding: .5rem .75rem; }
+.autocomplete-item:hover, .autocomplete-item.active { background: #f8f9fa; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -17,12 +34,20 @@
             <!-- Search Bar -->
             <div class="row g-3 mb-4">
                 <div class="col-md-6">
-                    <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0">
-                            <i class="bi-search text-muted"></i>
-                        </span>
-                        <input type="text" id="searchInput" class="form-control border-start-0 ps-0" 
-                               placeholder="Buscar por póliza, cliente, contrato o archivo...">
+                    <div class="autocomplete-container">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0">
+                                <i class="bi-search text-muted"></i>
+                            </span>
+                            <input type="text" id="searchInput" class="form-control border-start-0 ps-0"
+                                   placeholder="Buscar por póliza, cliente, contrato o archivo..." autocomplete="off">
+                            <!-- Botón para descargar por contratante usando el texto del buscador -->
+                            <button id="btnDownloadByContratante" class="btn btn-outline-secondary" type="button" title="Descargar archivos por contratante">
+                                <i class="bi-file-zip"></i>
+                            </button>
+                        </div>
+                        <input type="hidden" id="selectedClienteId" value="">
+                        <div id="contratanteSuggestions" class="autocomplete-list d-none"></div>
                     </div>
                 </div>
             </div>
@@ -72,15 +97,60 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Selección de Contratante -->
+<div class="modal fade" id="contratanteSelectModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Seleccionar Contratante</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="contratanteList">
+          <!-- JS llenará con botones/list items -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 
 {% block before_js %}
 <script>
-    window.currentPage = "{{ page }}";
+    // Asegurar currentPage compatible con layout
+    window.currentPage = window.currentPage || "{{ page if page is defined else _p if _p is defined else '' }}";
 </script>
 {% endblock %}
 
 {% block extra_js_bottom %}
+{{ super() }}
 <script src="{{ url_for('static', filename='js/reportes/reporte-archivos-poliza.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    try {
+        const a = document.querySelector('.sidebar a[data-page="reporte-archivos-poliza"]');
+        if (a) {
+            // usar isactive (solo color de texto) en lugar de active
+            a.classList.add('isactive');
+            const li = a.closest('li'); if (li) li.classList.add('isactive');
+            const group = a.closest('.nav-group');
+            if (group) group.classList.add('open','active-group');
+        } else {
+            // Fallback: buscar por href que contenga el segmento 'reporte-archivos-poliza'
+            const fallback = Array.from(document.querySelectorAll('.sidebar a')).find(x => (x.getAttribute('href')||'').includes('reporte-archivos-poliza') || (x.href||'').includes('reporte-archivos-poliza'));
+            if (fallback) {
+                fallback.classList.add('isactive');
+                const li2 = fallback.closest('li'); if (li2) li2.classList.add('isactive');
+                const group2 = fallback.closest('.nav-group'); if (group2) group2.classList.add('open','active-group');
+            }
+        }
+    } catch (err) { console.error('set active menu error', err); }
+});
+</script>
 {% endblock %}
