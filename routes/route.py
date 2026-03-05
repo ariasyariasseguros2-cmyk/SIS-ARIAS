@@ -292,6 +292,21 @@ def home():
     chart = get_dashboard_data()
     cards = get_dashboard_cards()
     return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards)
+
+
+@bp.route('/gestion')
+def gestion():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+        
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
+    orden_fechas = request.args.get('orden_fechas', 'ASC')
+    
+    from controllers.gestion import get_gestion_rows
+    rows = get_gestion_rows(fecha_desde, fecha_hasta, orden_fechas)
+    
+    return render_template('view/gestion.html', rows=rows, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas=orden_fechas)
 from controllers.reportes.reporte_archivos_poliza import bp as reporte_archivos_bp
 bp.register_blueprint(reporte_archivos_bp)
 
