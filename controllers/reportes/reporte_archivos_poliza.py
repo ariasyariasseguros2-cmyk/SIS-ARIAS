@@ -4,6 +4,7 @@ from utils.rbac import Roles
 import os
 import zipfile
 import io
+import traceback
 
 bp = Blueprint('reporte_archivos_poliza', __name__)
 
@@ -24,6 +25,7 @@ def get_reporte_archivos(search=''):
         return results
     except Exception as e:
         print(f"Error fetching reporte archivos: {e}")
+        traceback.print_exc()
         return []
 
 def get_archivos_detalle(search='', identificador='', tipo_origen=''):
@@ -39,6 +41,7 @@ def get_archivos_detalle(search='', identificador='', tipo_origen=''):
         return results
     except Exception as e:
         print(f"Error fetching detalle archivos: {e}")
+        traceback.print_exc()
         return []
 
 @bp.route('/reportes/reporte-archivos-poliza', methods=['GET'])
@@ -79,7 +82,9 @@ def download_zip():
                 os.path.join(current_app.root_path, 'static', 'uploads'))
 
             for row in results:
-                file_path = row['ruta_archivo']
+                file_path = row.get('ruta_archivo')
+                if not file_path:
+                    continue
 
                 # Candidatos de ruta en orden de prioridad:
                 # 1. Relativo a UPLOAD_FOLDER  (ej: cuotas/archivo.pdf  o  polizas/archivo.pdf)
@@ -112,5 +117,141 @@ def download_zip():
         )
     except Exception as e:
         print(f"Error generating zip: {e}")
+        traceback.print_exc()
         return jsonify({'error': 'Error generando archivo ZIP'}), 500
+
+
+@bp.route('/api/reportes/search-contratantes', methods=['GET'])
+def search_contratantes():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    if session.get('role_name') == Roles.SUB_AGENTE:
+        return {'ok': False, 'error': 'No autorizado'}, 403
+
+    busqueda = (request.args.get('busqueda') or '').strip()
+    # Si no hay busqueda, devolver un listado por defecto (top 50 clientes activos)
+    if not busqueda:
+        try:
+            conn = get_connection()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT idCliente, razon_social, numero_documento FROM clientes WHERE activo = 1 ORDER BY razon_social ASC LIMIT 50")
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            return jsonify(rows)
+        except Exception as e:
+            print(f"Error buscando contratantes (defecto): {e}")
+            traceback.print_exc()
+            return jsonify([]), 500
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        # Buscar por numero_documento exacto y luego por razon_social parcial; devolver hasta 20 coincidencias
+        cursor.execute("SELECT idCliente, razon_social, numero_documento FROM clientes WHERE numero_documento = %s LIMIT 1", (busqueda,))
+        exact = cursor.fetchall()
+        if exact:
+            cursor.close()
+            conn.close()
+            return jsonify(exact)
+
+        cursor.execute("SELECT idCliente, razon_social, numero_documento FROM clientes WHERE razon_social LIKE %s LIMIT 20", ('%'+busqueda+'%',))
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return jsonify(rows)
+    except Exception as e:
+        print(f"Error buscando contratantes: {e}")
+        traceback.print_exc()
+        return jsonify([]), 500
+
+
+@bp.route('/api/reportes/download-zip-contratante', methods=['GET'])
+def download_zip_contratante():
+    """Descarga ZIP por cliente. Acepta cliente_id (preferido) o busqueda (legacy)."""
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    if session.get('role_name') == Roles.SUB_AGENTE:
+        return {'ok': False, 'error': 'No autorizado'}, 403
+
+    cliente_id = request.args.get('cliente_id')
+    busqueda = (request.args.get('busqueda') or '').strip()
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        if not cliente_id:
+            if not busqueda:
+                cursor.close()
+                conn.close()
+                return jsonify({'error': 'Parametro cliente_id o busqueda requerido'}), 400
+            # Intentar encontrar cliente por numero_documento exacto
+            cursor.execute("SELECT idCliente, razon_social, numero_documento FROM clientes WHERE numero_documento = %s LIMIT 1", (busqueda,))
+            cliente = cursor.fetchone()
+            if not cliente:
+                cursor.execute("SELECT idCliente, razon_social, numero_documento FROM clientes WHERE razon_social LIKE %s LIMIT 1", ('%'+busqueda+'%',))
+                cliente = cursor.fetchone()
+            if not cliente:
+                cursor.close()
+                conn.close()
+                return jsonify({'error': 'No se encontró un contratante con la búsqueda dada'}), 404
+            cliente_id = cliente['idCliente']
+
+        # Recolectar archivos: de poliza_archivos y cuota_archivos relacionados a pólizas del cliente
+        # Para evitar problemas de collation en UNION, forzamos same CHARACTER SET
+        sql = '''
+            SELECT pa.idArchivo,
+                   CAST(pa.ruta_archivo AS CHAR CHARACTER SET utf8mb4) AS ruta_archivo,
+                   CAST(pa.nombre_original AS CHAR CHARACTER SET utf8mb4) AS nombre_original
+            FROM poliza_archivos pa
+            INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
+            WHERE p.cliente_id = %s
+            UNION ALL
+            SELECT ca.idArchivo,
+                   CAST(ca.ruta_archivo AS CHAR CHARACTER SET utf8mb4) AS ruta_archivo,
+                   CAST(ca.nombre_original AS CHAR CHARACTER SET utf8mb4) AS nombre_original
+            FROM cuota_archivos ca
+            INNER JOIN cuotas cu ON ca.cuota_id = cu.idCuota
+            INNER JOIN polizas p2 ON cu.poliza_id = p2.idPoliza
+            WHERE p2.cliente_id = %s
+        '''
+        cursor.execute(sql, (cliente_id, cliente_id))
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        if not rows:
+            return jsonify({'error': 'No se encontraron archivos para el contratante seleccionado'}), 404
+
+        memory_file = io.BytesIO()
+        with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+            files_added = 0
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'static', 'uploads'))
+            for row in rows:
+                file_path = row.get('ruta_archivo')
+                if not file_path:
+                    continue
+                candidates = [
+                    os.path.join(upload_folder, file_path.lstrip('/\\')),
+                    os.path.join(current_app.root_path, file_path.lstrip('/\\')),
+                    os.path.join(current_app.root_path, 'static', file_path.lstrip('/\\')),
+                ]
+                final_path = next((p for p in candidates if os.path.exists(p)), None)
+                if final_path:
+                    arcname = f"{row.get('idArchivo')}_{row.get('nombre_original') or os.path.basename(file_path)}"
+                    zf.write(final_path, arcname)
+                    files_added += 1
+
+            if files_added == 0:
+                return jsonify({'error': 'Los archivos físicos no existen en el servidor'}), 404
+
+        memory_file.seek(0)
+        zip_name = f"contratante_{cliente_id}_archivos.zip"
+        return send_file(memory_file, mimetype='application/zip', as_attachment=True, download_name=zip_name)
+
+    except Exception as e:
+        print(f"Error descargando zip por contratante: {e}")
+        traceback.print_exc()
+        return jsonify({'error': 'Error interno generando ZIP'}), 500
 
