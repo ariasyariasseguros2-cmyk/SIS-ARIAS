@@ -825,12 +825,15 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 _, tipo_soat_nom, tasa_aas = get_tipo_soat(cnx, clase_id, uso_id)
 
                 # 2. porc_compania e imp_compania
+                # Lógica para manejar tasas: si <= 1.0 se asume factor (ej: 0.10 = 10%), si > 1.0 se asume porcentaje (ej: 10 = 10%)
                 porc_compania = round(tasa_aas, 2)
-                imp_compania  = round((porc_compania / 100) * prima_neta, 3)
+                factor_cia = porc_compania if porc_compania <= 1.0 else (porc_compania / 100.0)
+                imp_compania  = round(factor_cia * prima_neta, 2)
 
                 # 3. porc_subagente desde tabla agentes directamente
                 porc_subagente = get_porc_subagente(cnx, codigo_agente, tipo_soat_nom)
-                imp_subagente  = round((porc_subagente / 100) * imp_compania, 3)
+                factor_sub = porc_subagente if porc_subagente <= 1.0 else (porc_subagente / 100.0)
+                imp_subagente  = round(factor_sub * imp_compania, 2)
 
                 print(f"[COMISION] cod={codigo_agente} tipo_soat={tipo_soat_nom} "
                       f"porc_cia={porc_compania} imp_cia={imp_compania} "
