@@ -25,7 +25,7 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC'):
             FROM cuotas c
             INNER JOIN polizas p ON c.poliza_id = p.idPoliza
             LEFT JOIN clientes cl ON p.cliente_id = cl.idCliente
-            WHERE c.activo = 1
+            WHERE c.activo = 1 AND c.fecha_pago IS NULL
         """
         
         # Agregar filtros de fecha si existen
