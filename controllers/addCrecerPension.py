@@ -78,11 +78,16 @@ def parse_crecer_pension(text: str) -> Dict[str, str]:
     # Prioridad 1: Buscar etiqueta "DNI/RUC" seguida de un número (formato específico de Crecer)
     ruc_candidato = _find(r"DNI/RUC\s*[:]?\s*(\d{8,11})", text)
 
+    # Ignorar el RUC de la propia compañía si se captura por error
+    if ruc_candidato and ruc_candidato.strip() == "20600098633":
+        ruc_candidato = None
+
     # Prioridad 2: Buscar etiqueta "RUC" si no se halló DNI/RUC, filtrando el de Crecer (20600098633)
     if not ruc_candidato:
         candidates_ruc = re.findall(r"RUC\s*[:]?\s*(\d{11})", text, re.IGNORECASE)
         for cand in candidates_ruc:
-            if cand : 
+            cand = cand.strip()
+            if cand and cand != "20600098633":
                 ruc_candidato = cand
                 break
                 
@@ -90,7 +95,8 @@ def parse_crecer_pension(text: str) -> Dict[str, str]:
     if not ruc_candidato:
         all_candidates = re.findall(r"\b(10\d{9}|20\d{9})\b", text)
         for cand in all_candidates:
-            if cand :
+            cand = cand.strip()
+            if cand and cand != "20600098633":
                 ruc_candidato = cand
                 break
 
