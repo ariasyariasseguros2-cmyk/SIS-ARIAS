@@ -2327,7 +2327,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
 
     # Forzar Rimac si aparecen señales claras del encabezado Rimac Generales
     # (ej.: "Web Vehiculos" y "Póliza #### - #######"), incluso si antes se clasificó erróneamente
-    if re.search(r"\bweb\s+vehicul", t) and re.search(r"pol[ií]za\s*\d{3,6}\s*-\s*\d{5,12}", t):
+    if ("rimac" in t or "rimac seguros" in t or re.search(r"pol[ií]za\s*\d{2,6}\s*[-–—]\s*\d{5,12}", t)) and (re.search(r"\bContratante\b", t, re.IGNORECASE) or re.search(r"\bNro\.?\b", t, re.IGNORECASE)):
         prov = "rimac"
 
     # NUEVO: si vino 'pacifico' o 'positiva' desde UI pero el contenido dice 'sanitas', fuerza Sanitas
@@ -2533,23 +2533,9 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         print("[provider] sanitas salud item:", item)
         return [item] if item else []
         
-    if prov == "rimac":
-        dash = r"(?:-|–|—|‑|−)"
-        hint_v4 = re.search(r"(?:pol[ií]za|p[oó]liza)\s*N[°º]\s*[:：]?\s*\d{2,6}\s*" + dash + r"\s*\d{5,12}\b", text, re.IGNORECASE) \
-            or re.search(r"\bN[°º]\s*[:：]?\s*\d{2,6}\s*" + dash + r"\s*\d{5,12}\b", text, re.IGNORECASE) \
-            or re.search(r"\bNro\.?\s*[:：]?\s*\d{2,6}\s*" + dash + r"\s*\d{5,12}\b", text, re.IGNORECASE)
+    if prov == "rimac": 
         hint_v3 = re.search(r"fecha\s+(?:de\s+)?emisi[oó]n\s*[:：]?\s*\d{4}-\d{2}-\d{2}", text, re.IGNORECASE)
         hint_v2 = re.search(r"\bNro\.?\s*[:：]?\s*\d{3,6}\s*[-–—]\s*\d{5,12}\b", text, re.IGNORECASE) or re.search(r"pol[ií]za\s*nro", text, re.IGNORECASE) or re.search(r"poliza\s+anual\s+de\s+transportes", text, re.IGNORECASE)
-        if hint_v4:
-            try:
-                from controllers.addRimacGenerales_V4 import parse_rimac_generales as parse_rimac_generales_v4
-                item_v4 = parse_rimac_generales_v4(text)
-                ok_v4 = item_v4 and re.search(r"\b\d{2,6}\s*-\s*\d{5,12}\b", str(item_v4.get('numero_poliza') or ''))
-                if ok_v4:
-                    print("[provider] rimac V4 item:", item_v4)
-                    return [item_v4]
-            except Exception as e:
-                print("[provider] rimac V4 error:", e)
         if hint_v3:
             try:
                 from controllers.addRimacGenerales_V3 import parse_rimac_generales as parse_rimac_generales_v3
