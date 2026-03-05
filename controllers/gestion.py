@@ -39,9 +39,9 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC'):
             
         # Ordenar
         if orden_fechas and orden_fechas.upper() == 'DESC':
-            query += " ORDER BY c.fecha_vencimiento DESC"
+            query += " ORDER BY c.fecha_vencimiento DESC, c.idCuota DESC"
         else:
-            query += " ORDER BY c.fecha_vencimiento ASC"
+            query += " ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC"
             
         # Límite
         query += " LIMIT 500"
@@ -67,5 +67,5 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC'):
         
         return rows
     except Exception as e:
-        print(f"Error getting gestion rows: {e}")
+        # print(f"Error getting gestion rows: {e}")
         return []

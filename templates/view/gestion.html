@@ -101,10 +101,13 @@
         </div>
         <div class="gestion-actions">
             <button class="btn btn-custom btn-icon-only"><i class="bi-chevron-left"></i></button>
-            <button class="btn btn-custom"><i class="bi-calendar-event"></i> Vencen Hoy</button>
+            <form action="{{ url_for('main.gestion') }}" method="POST" style="display:inline;">
+                <input type="hidden" name="fecha_hasta" value="{{ today }}">
+                <button type="submit" class="btn btn-custom text-decoration-none" title="Ver cuotas vencidas hasta hoy"><i class="bi-calendar-event"></i> Vencen Hoy</button>
+            </form>
             <button class="btn btn-custom btn-icon-only"><i class="bi-chevron-right"></i></button>
             <button class="btn btn-custom"><i class="bi-ticket-detailed"></i> Cupones Comisionables</button>
-            <button class="btn btn-custom"><i class="bi-list-ul"></i> Ver Todos</button>
+            <a href="{{ url_for('main.gestion') }}" class="btn btn-custom text-decoration-none"><i class="bi-list-ul"></i> Ver Todos</a>
         </div>
     </div>
 
@@ -117,7 +120,7 @@
     <!-- Table Container -->
     <div class="table-container">
         <!-- Search and Filter Row -->
-        <form action="{{ url_for('main.gestion') }}" method="GET" class="search-row">
+        <form action="{{ url_for('main.gestion') }}" method="POST" class="search-row">
             <div class="d-flex gap-2 align-items-center">
                 <div class="input-group" title="Filtrar por fecha de vencimiento inicial">
                     <span class="input-group-text bg-light">Venc. Desde</span>

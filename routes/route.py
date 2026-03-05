@@ -294,19 +294,22 @@ def home():
     return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards)
 
 
-@bp.route('/gestion')
+@bp.route('/gestion', methods=['GET', 'POST'])
 def gestion():
     if 'user' not in session:
         return redirect(url_for('login'))
         
-    fecha_desde = request.args.get('fecha_desde')
-    fecha_hasta = request.args.get('fecha_hasta')
-    orden_fechas = request.args.get('orden_fechas', 'ASC')
+    fecha_desde = request.args.get('fecha_desde') or request.form.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta') or request.form.get('fecha_hasta')
+    orden_fechas = request.args.get('orden_fechas') or request.form.get('orden_fechas') or 'ASC'
     
     from controllers.gestion import get_gestion_rows
     rows = get_gestion_rows(fecha_desde, fecha_hasta, orden_fechas)
     
-    return render_template('view/gestion.html', rows=rows, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas=orden_fechas)
+    from datetime import date
+    today = date.today().isoformat()
+    
+    return render_template('view/gestion.html', rows=rows, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas=orden_fechas, today=today)
 from controllers.reportes.reporte_archivos_poliza import bp as reporte_archivos_bp
 bp.register_blueprint(reporte_archivos_bp)
 
@@ -1034,7 +1037,7 @@ def upload():
     debug_enabled = (request.form.get('debug') == '1') or (request.args.get('debug') == '1')
     debug_logs = []
     def LOG(msg):
-        print(msg)
+        # print(msg)
         if debug_enabled:
             debug_logs.append(str(msg))
 
