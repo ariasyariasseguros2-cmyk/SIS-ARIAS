@@ -9,6 +9,7 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC'):
         params = []
         
         # Consulta base
+        # Se asegura que fecha_pago sea NULL (no pagado)
         query = """
             SELECT 
                 c.idCuota,
@@ -29,13 +30,18 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC'):
         """
         
         # Agregar filtros de fecha si existen
+        # Aseguramos que los parámetros sean cadenas limpias y no vacías
         if fecha_desde:
-            query += " AND c.fecha_vencimiento >= %s"
-            params.append(fecha_desde)
+            fecha_desde_str = str(fecha_desde).strip()
+            if fecha_desde_str:
+                query += " AND c.fecha_vencimiento >= %s"
+                params.append(fecha_desde_str)
             
         if fecha_hasta:
-            query += " AND c.fecha_vencimiento <= %s"
-            params.append(fecha_hasta)
+            fecha_hasta_str = str(fecha_hasta).strip()
+            if fecha_hasta_str:
+                query += " AND c.fecha_vencimiento <= %s"
+                params.append(fecha_hasta_str)
             
         # Ordenar
         if orden_fechas and orden_fechas.upper() == 'DESC':
@@ -45,6 +51,10 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC'):
             
         # Límite
         query += " LIMIT 500"
+        
+        # Debug logging
+        # print(f"DEBUG QUERY: {query}")
+        # print(f"DEBUG PARAMS: {params}")
         
         cursor.execute(query, params)
         rows = cursor.fetchall()
@@ -67,5 +77,5 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC'):
         
         return rows
     except Exception as e:
-        # print(f"Error getting gestion rows: {e}")
+        print(f"Error getting gestion rows: {e}")
         return []
