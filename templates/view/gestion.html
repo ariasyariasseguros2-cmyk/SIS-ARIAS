@@ -223,6 +223,7 @@
 {% endblock %}
 
 {% block extra_js_bottom %}
+{{ super() }}
 <script src="{{ url_for('static', filename='js/cuotas/edit_cuota_modal.js') }}"></script>
 <script>
     document.addEventListener('cuota:saved', function(e) {

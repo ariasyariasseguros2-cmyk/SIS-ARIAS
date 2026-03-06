@@ -156,6 +156,7 @@
 {% endblock %}
 
 {% block extra_js_bottom %}
+{{ super() }}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/maestros/comisiones.css') }}">
 <script src="{{ url_for('static', filename='js/maestros/comisiones.js') }}"></script>
 {% endblock %}

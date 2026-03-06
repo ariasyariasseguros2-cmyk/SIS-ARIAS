@@ -118,6 +118,7 @@
 {% endblock %}
 
 {% block extra_js_bottom %}
+{{ super() }}
 <script>
     function updateUserRole(selectElement) {
         const userId = selectElement.getAttribute('data-user-id');

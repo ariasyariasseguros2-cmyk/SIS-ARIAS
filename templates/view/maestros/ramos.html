@@ -53,7 +53,7 @@
 {% endblock %}
 
 {% block extra_js_bottom %}
-<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{{ super() }}
 <script src="{{ url_for('static', filename='js/maestros/ramos.js') }}"></script>
 {% endblock %}
 
