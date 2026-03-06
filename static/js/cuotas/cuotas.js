@@ -315,28 +315,13 @@ const Cuotas = (() => {
     if (!data) return;
     editIndex = idx;
 
-    const setValue = (id, val) => {
-      const el = document.getElementById(id);
-      if (el) el.value = val || '';
-    };
-
-    setValue('editSecuencia', data.secuencia);
-    setValue('editCupon', data.cupon);
-    setValue('editFechaVenc', toISODate(data.fecha_vencimiento));
-    setValue('editImporte', data.importe);
-    setValue('editFechaPago', toISODate(data.fecha_pago));
-    setValue('editFactura', data.factura);
-    setValue('editDocumentoNombre', data.documento || data.factura || '');
-    const obsEl = document.getElementById('editObservacion');
-    if (obsEl) obsEl.value = data.observacion || '';
-
-    const fileInput = document.getElementById('editDocumentoFile');
-    if (fileInput) fileInput.value = '';
-
-    const modalEl = document.getElementById('cuotaEditModal');
-    if (!modalEl) return;
-    const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
-    modal.show();
+    if (window.CuotaEditModal) {
+        // Pass global poliza context if available
+        const poliza = window.currentPoliza || ''; 
+        window.CuotaEditModal.open(data, poliza);
+    } else {
+        console.error('CuotaEditModal no cargado');
+    }
   }
 
   function onDelete(idx) {
@@ -380,25 +365,42 @@ const Cuotas = (() => {
   document.addEventListener('DOMContentLoaded', () => {
     // Note: Add Modal logic is handled by add_cuota_modal.js
 
-    // Listen for shared modal save event
+    // Listen for shared modal save event (Add or Edit)
     document.addEventListener('cuota:saved', (e) => {
         const data = e.detail;
         const tbody = document.querySelector('#cuotas-table tbody');
         if (!tbody) return;
         
-        // Check if we are on the page for this poliza
-        if (window.currentPoliza && window.currentPoliza !== data.poliza) return;
+        // Check if we are on the page for this poliza (if poliza context is active)
+        if (window.currentPoliza && data.poliza && window.currentPoliza !== data.poliza) return;
 
-        const rowCount = tbody.rows.length;
-        const tr = document.createElement('tr');
-        
-        tr.dataset.documento = ''; 
+        // Try to find existing row
+        let tr = null;
+        if (data.idCuota) {
+            tr = Array.from(tbody.querySelectorAll('tr')).find(row => row.dataset.idcuota == data.idCuota);
+        }
+
+        const isNew = !tr;
+        if (isNew) {
+            tr = document.createElement('tr');
+            tbody.appendChild(tr);
+            allRows.push(tr);
+        }
+
+        // Update dataset
+        tr.dataset.idcuota = data.idCuota || ''; // important for new rows
         tr.dataset.fechaPago = data.fecha_pago || '';
         tr.dataset.factura = data.factura || '';
         tr.dataset.observacion = data.observacion || '';
+        // If file was uploaded, we might want to update this, but usually handled by reload or just assuming
+        // For now, if we saved via edit modal, we can assume document exists if file was selected, 
+        // but the event doesn't carry file info directly.
+        // However, edit_cuota_modal sets data.documento if needed, or we rely on user refresh for perfect sync.
         
+        const rowCount = isNew ? tbody.rows.length : (Array.from(tbody.rows).indexOf(tr) + 1);
+
         tr.innerHTML = `
-            <td>${data.secuencia || rowCount + 1}</td>
+            <td>${data.secuencia || (isNew ? rowCount : tr.cells[0].textContent)}</td>
             <td>${data.cupon || ''}</td>
             <td>${fromISODate(data.fecha_vencimiento) || ''}</td>
             <td>${data.moneda || 'USD'}</td>
@@ -408,107 +410,19 @@ const Cuotas = (() => {
             <td>${data.observacion || ''}</td>
             <td class="text-end actions">
                 <div class="action-buttons justify-content-end">
-                  <button class="btn-action btn-secondary btn-pdf" onclick="Cuotas.onPDF(${rowCount})">PDF</button>
-                  <button class="btn-action btn-warning btn-revert" onclick="Cuotas.onRevert(${rowCount})">Revertir</button>
-                  <button class="btn-action btn-info btn-details" onclick="Cuotas.onDetails(${rowCount})">Detalles</button>
-                  <button class="btn-action btn-success btn-edit" onclick="Cuotas.onEdit(${rowCount})">Editar</button>
-                  <button class="btn-action btn-danger btn-delete" onclick="Cuotas.onDelete(${rowCount})">Eliminar</button>
+                  <button class="btn-action btn-secondary btn-pdf" onclick="Cuotas.onPDF(${rowCount - 1})">PDF</button>
+                  <button class="btn-action btn-warning btn-revert" onclick="Cuotas.onRevert(${rowCount - 1})" style="${(data.importe || data.fecha_pago || data.factura) ? '' : 'display:none'}">Revertir</button>
+                  <button class="btn-action btn-info btn-details" onclick="Cuotas.onDetails(${rowCount - 1})">Detalles</button>
+                  <button class="btn-action btn-success btn-edit" onclick="Cuotas.onEdit(${rowCount - 1})">Editar</button>
+                  <button class="btn-action btn-danger btn-delete" onclick="Cuotas.onDelete(${rowCount - 1})">Eliminar</button>
                 </div>
             </td>
         `;
-        tbody.appendChild(tr);
-        allRows.push(tr);
+        
         recalcTotal();
     });
 
-    const btnGuardar = document.getElementById('btnGuardarCuota');
-    if (btnGuardar) {
-      btnGuardar.addEventListener('click', () => {
-        if (editIndex === null) return;
-        const tr = getRow(editIndex);
-        if (!tr) return;
-
-        const getVal = (id) => {
-          const el = document.getElementById(id);
-          return el ? el.value.trim() : '';
-        };
-
-        const vencISO = getVal('editFechaVenc');
-        const pagoISO = getVal('editFechaPago');
-
-        const nuevaFechaPago = fromISODate(pagoISO);
-        const nuevaFactura = getVal('editFactura');
-        const nuevaObservacion = getVal('editObservacion');
-        const nuevoImporte = getVal('editImporte');
-        const nuevoCupon = getVal('editCupon');
-
-        const idCuota = tr.dataset.idcuota || '';
-        if (idCuota && window.currentPoliza) {
-          fetch('/cuotas/update-cupon', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              idCuota: idCuota,
-              poliza: window.currentPoliza,
-              cupon: nuevoCupon,
-              fecha_vencimiento: vencISO,
-              importe: nuevoImporte,
-              fecha_pago: pagoISO,
-              factura: nuevaFactura,
-              observacion: nuevaObservacion
-            })
-          }).then(r => r.json()).then(res => {
-            if (!res.ok) {
-              alert('Error al actualizar cupón: ' + (res.error || 'Error desconocido'));
-              return;
-            }
-
-            const tds = tr.querySelectorAll('td');
-            if (tds[2]) tds[2].textContent = fromISODate(vencISO);
-            if (tds[1]) tds[1].textContent = nuevoCupon;
-            if (tds[4]) tds[4].textContent = nuevoImporte;
-            if (tds[5]) tds[5].textContent = nuevaFechaPago;
-            if (tds[6]) tds[6].textContent = nuevaFactura;
-            if (tds[7]) tds[7].textContent = nuevaObservacion;
-            
-            tr.dataset.fechaPago = nuevaFechaPago;
-            tr.dataset.factura = nuevaFactura;
-            tr.dataset.observacion = nuevaObservacion;
-
-            const docNombre = getVal('editDocumentoNombre');
-            tr.dataset.documento = docNombre;
-
-            const btnRevert = tr.querySelector('.btn-revert');
-            if (btnRevert) {
-              if (nuevoImporte || nuevaFechaPago || nuevaFactura || nuevaObservacion) {
-                btnRevert.style.display = 'inline-block';
-              } else {
-                btnRevert.style.display = 'none';
-              }
-            }
-
-            recalcTotal();
-          }).catch(err => {
-            console.error(err);
-            alert('Error de conexión al actualizar cupón.');
-          }).finally(() => {
-            const modalEl = document.getElementById('cuotaEditModal');
-            if (modalEl) {
-              const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
-              modal.hide();
-            }
-            editIndex = null;
-          });
-        } else {
-          const modalEl = document.getElementById('cuotaEditModal');
-          if (modalEl) {
-            const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
-            modal.hide();
-          }
-          editIndex = null;
-        }
-      });
-    }
+    // Removed duplicate btnGuardarCuota listener as it is handled by CuotaEditModal
 
     const btnVer = document.getElementById('btnEditDocumentoVer');
     if (btnVer) {

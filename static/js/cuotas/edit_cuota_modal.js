@@ -130,7 +130,19 @@
                         const fd = new FormData();
                         fd.append('archivo', fileInput.files[0]);
                         fd.append('cuota_id', this.currentId);
-                        // We might need poliza info for folder structure, backend handles it by idCuota mostly?
+                        
+                        // Pass additional context fields
+                        fd.append('cupon', payload.cupon);
+                        if (this.currentPoliza) {
+                            fd.append('numero_poliza', this.currentPoliza);
+                        }
+                        // Try to find poliza_id from global scope if available
+                        if (window.currentPrimaId) {
+                            fd.append('poliza_id', window.currentPrimaId);
+                        } else if (window.currentPolizaId) {
+                            fd.append('poliza_id', window.currentPolizaId);
+                        }
+
                         // api/cuotas/upload-archivo expects cuota_id. 
                         await fetch('/api/cuotas/upload-archivo', { method: 'POST', body: fd });
                     }
