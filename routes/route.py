@@ -1589,7 +1589,7 @@ def clientes_select():
         'n_doc': payload.get('n_doc') or payload.get('numero_documento'),
         'tel': payload.get('tel') or payload.get('telefono'),
         'subagente': payload.get('subagente') or payload.get('subAgente'),
-        'motivo': payload.get('motivo'),
+        # 'motivo': payload.get('motivo'),
         'ramos_producto': payload.get('ramos_producto'),
         'idCliente': payload.get('idCliente')
     }
