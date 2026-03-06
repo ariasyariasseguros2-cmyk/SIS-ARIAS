@@ -155,7 +155,7 @@ def get_estado_cuenta_data(filtros_input=None):
                     DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
                     DATE_FORMAT(COALESCE(q.fecha_vencimiento, p.fecha_vencimiento), '%d/%m/%Y') AS fecha_venc,
                     COALESCE(q.moneda, p.moneda) AS moneda,
-                    CASE WHEN q.idCuota IS NOT NULL THEN q.importe ELSE p.prima_comercial_igv END AS monto_cta_cobrar,
+                    p.prima_comercial_igv AS monto_cta_cobrar,
                     CASE 
                         WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 0 ELSE q.importe END
                         ELSE CASE WHEN UPPER(IFNULL(p.estado,'')) = 'CANCELADO' THEN 0 ELSE p.prima_comercial_igv END
@@ -241,7 +241,7 @@ def get_estado_cuenta_data(filtros_input=None):
                     filters['fecha_hasta']
                 ])
 
-            query += " ORDER BY p.fecha_emision DESC, p.vig_desde DESC"
+            query += " ORDER BY p.cia ASC, p.fecha_emision DESC, p.vig_desde DESC"
 
             cur.execute(query, params)
             polizas = cur.fetchall() or []
@@ -488,7 +488,7 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
                 DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
                 DATE_FORMAT(COALESCE(q.fecha_vencimiento, p.fecha_vencimiento), '%d/%m/%Y') AS fecha_venc,
                 COALESCE(q.moneda, p.moneda) AS moneda,
-                CASE WHEN q.idCuota IS NOT NULL THEN q.importe ELSE p.prima_comercial_igv END AS monto_cta_cobrar,
+                p.prima_comercial_igv AS monto_cta_cobrar,
                 CASE 
                     WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 0 ELSE q.importe END
                     ELSE CASE WHEN UPPER(IFNULL(p.estado,'')) = 'CANCELADO' THEN 0 ELSE p.prima_comercial_igv END
@@ -533,7 +533,7 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             query += """ AND (p.fecha_emision <= %s OR p.fecha_vencimiento <= %s OR p.vig_desde <= %s OR p.vig_hasta <= %s OR q.fecha_vencimiento <= %s)"""
             params.extend([filters['fecha_hasta']] * 5)
 
-        query += " ORDER BY p.fecha_emision DESC, p.vig_desde DESC"
+        query += " ORDER BY p.cia ASC, p.fecha_emision DESC, p.vig_desde DESC"
         cur.execute(query, params)
         polizas = cur.fetchall() or []
 

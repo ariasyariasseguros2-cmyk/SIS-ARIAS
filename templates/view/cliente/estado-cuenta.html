@@ -159,114 +159,161 @@
     </div>
 
     <!-- Tabla de Pólizas -->
+    {% if polizas %}
+        {% for compania, items in polizas|groupby('compania') %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="bi bi-table"></i> {{ compania or 'SIN COMPAÑÍA' }} ({{ items|length }} resultados)</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered table-hover mb-0">
+                        <thead class="table-warning">
+                            <tr>
+                                <th>Compañía</th>
+                                <th>Ramo</th>
+                                <th>Producto</th>
+                                <th>Tipo Doc</th>
+                                <th>N° de Póliza</th>
+                                <th>Proforma</th>
+                                <th>Cupón</th>
+                                <th>Fecha Emisión</th>
+                                <th>Vigencia (Desde - Hasta)</th>
+                                <th>Factura</th>
+                                <th>Fecha de Pago</th>
+                                <th>Fecha Vencimiento</th>
+                                <th>Moneda</th>
+                                <th>Monto</th>
+                                <th>Cta. Por Pagar</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in items %}
+                            <tr>
+                                <td>{{ p.compania or '-' }}</td>
+                                <td>{{ p.ramo or '-' }}</td>
+                                <td>{{ p.producto or '-' }}</td>
+                                <td>
+                                    {% if p.tipo_doc %}
+                                        {% set tipo_upper = p.tipo_doc.upper() %}
+                                        <span class="badge badge-tipo-doc
+                                            {% if 'RENOVACION' in tipo_upper %}tipo-doc-renovacion
+                                            {% elif 'EMISION' in tipo_upper %}tipo-doc-emision
+                                            {% elif 'ENDOSO' in tipo_upper %}tipo-doc-endoso
+                                            {% elif 'DEVOLUCION' in tipo_upper or 'DEVOLUCIÓN' in tipo_upper %}tipo-doc-devolucion
+                                            {% elif 'DIFERENCIA' in tipo_upper %}tipo-doc-diferencia
+                                            {% elif 'ANULACION' in tipo_upper or 'ANULACIÓN' in tipo_upper %}tipo-doc-anulacion
+                                            {% else %}tipo-doc-default{% endif %}">
+                                            {{ p.tipo_doc }}
+                                        </span>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ p.poliza or '-' }}</td>
+                                <td>{{ p.proforma or '-' }}</td>
+                                <td>{{ p.cupon or '-' }}</td>
+                                <td>{{ p.fecha_emision or '-' }}</td>
+                                <td>{{ (p.vig_inicio or '-') ~ ' - ' ~ (p.vig_fin or '-') }}</td>
+                                <td>{{ p.factura or '-' }}</td>
+                                <td>{{ p.fecha_pago or '-' }}</td>
+                                <td>{{ p.fecha_venc or '-' }}</td>
+                                <td>
+                                    {% set moneda_upper = (p.moneda|upper) if p.moneda else '' %}
+                                    {% if 'SOLES' in moneda_upper or 'S/' in moneda_upper %}
+                                        S/
+                                    {% elif 'DOLAR' in moneda_upper or 'US$' in moneda_upper or 'USD' in moneda_upper %}
+                                        US$
+                                    {% else %}
+                                        {{ p.moneda or '-' }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">{{ "%.2f"|format(p.monto_cta_cobrar|float) if p.monto_cta_cobrar else '0.00' }}</td>
+                                <td class="text-end">{{ "%.2f"|format(p.monto_cta_pagar|float) if p.monto_cta_pagar else '0.00' }}</td>
+                                <td>
+                                    <span class="badge
+                                        {% if p.estado and p.estado.upper() == 'CANCELADO' %}bg-danger
+                                        {% elif p.estado and p.estado.upper() == 'PENDIENTE' %}bg-warning text-dark
+                                        {% elif p.estado and p.estado.upper() == 'SIN PRIMA' %}bg-info text-dark
+                                        {% elif p.estado and p.estado.upper() == 'VIGENTE' %}bg-success
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ p.estado or '-' }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            {% set sub_soles_cobrar = namespace(value=0) %}
+                            {% set sub_dolares_cobrar = namespace(value=0) %}
+                            {% set sub_soles_pagar = namespace(value=0) %}
+                            {% set sub_dolares_pagar = namespace(value=0) %}
+                            
+                            {% for p in items %}
+                               {% set moneda_upper = (p.moneda|upper) if p.moneda else '' %}
+                               {% if 'SOLES' in moneda_upper or 'S/' in moneda_upper %}
+                                   {% set sub_soles_cobrar.value = sub_soles_cobrar.value + (p.monto_cta_cobrar|float if p.monto_cta_cobrar else 0) %}
+                                   {% set sub_soles_pagar.value = sub_soles_pagar.value + (p.monto_cta_pagar|float if p.monto_cta_pagar else 0) %}
+                               {% elif 'DOLAR' in moneda_upper or 'US$' in moneda_upper or 'USD' in moneda_upper %}
+                                   {% set sub_dolares_cobrar.value = sub_dolares_cobrar.value + (p.monto_cta_cobrar|float if p.monto_cta_cobrar else 0) %}
+                                   {% set sub_dolares_pagar.value = sub_dolares_pagar.value + (p.monto_cta_pagar|float if p.monto_cta_pagar else 0) %}
+                               {% endif %}
+                            {% endfor %}
+
+                           <tr class="table-totales">
+                               <td colspan="13" class="text-end fw-bold">SUBTOTAL {{ compania }}:</td>
+                               <td class="text-end fw-bold bg-info-subtle">
+                                   S/: {{ "%.2f"|format(sub_soles_cobrar.value) }}<br>
+                                   US$: {{ "%.2f"|format(sub_dolares_cobrar.value) }}
+                               </td>
+                               <td class="text-end fw-bold bg-warning-subtle">
+                                   S/: {{ "%.2f"|format(sub_soles_pagar.value) }}<br>
+                                   US$: {{ "%.2f"|format(sub_dolares_pagar.value) }}
+                               </td>
+                               <td></td>
+                           </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Totales Generales -->
+        <div class="card shadow-sm mb-4 border-primary">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-calculator"></i> Totales Generales</h5>
+            </div>
+             <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Total por Cobrar</h6>
+                        <p class="h4 text-primary">S/: {{ "%.2f"|format(totales.soles_cobrar) }}</p>
+                        <p class="h4 text-success">US$: {{ "%.2f"|format(totales.dolares_cobrar) }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Total por Pagar</h6>
+                         <p class="h4 text-danger">S/: {{ "%.2f"|format(totales.soles_pagar) }}</p>
+                         <p class="h4 text-warning text-dark">US$: {{ "%.2f"|format(totales.dolares_pagar) }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    {% else %}
     <div class="card shadow-sm mb-4">
         <div class="card-header bg-secondary text-white">
-            <h5 class="mb-0"><i class="bi bi-table"></i> Pólizas ({{ polizas|length }} resultados)</h5>
+            <h5 class="mb-0"><i class="bi bi-table"></i> Pólizas (0 resultados)</h5>
         </div>
         <div class="card-body p-0">
-            {% if polizas %}
-            <div class="table-responsive">
-                <table class="table table-sm table-bordered table-hover mb-0">
-                    <thead class="table-warning">
-                        <tr>
-                            <th>Compañía</th>
-                            <th>Ramo</th>
-                            <th>Producto</th>
-                            <th>Tipo Doc</th>
-                            <th>N° de Póliza</th>
-                            <th>Proforma</th>
-                            <th>Cupón</th>
-                            <th>Fecha Emisión</th>
-                            <th>Vigencia (Desde - Hasta)</th>
-                            <th>Factura</th>
-                            <th>Fecha de Pago</th>
-                            <th>Fecha Vencimiento</th>
-                            <th>Moneda</th>
-                            <th>Monto</th>
-                            <th>Cta. Por Pagar</th>
-                            <th>Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for p in polizas %}
-                        <tr>
-                            <td>{{ p.compania or '-' }}</td>
-                            <td>{{ p.ramo or '-' }}</td>
-                            <td>{{ p.producto or '-' }}</td>
-                            <td>
-                                {% if p.tipo_doc %}
-                                    {% set tipo_upper = p.tipo_doc.upper() %}
-                                    <span class="badge badge-tipo-doc
-                                        {% if 'RENOVACION' in tipo_upper %}tipo-doc-renovacion
-                                        {% elif 'EMISION' in tipo_upper %}tipo-doc-emision
-                                        {% elif 'ENDOSO' in tipo_upper %}tipo-doc-endoso
-                                        {% elif 'DEVOLUCION' in tipo_upper or 'DEVOLUCIÓN' in tipo_upper %}tipo-doc-devolucion
-                                        {% elif 'DIFERENCIA' in tipo_upper %}tipo-doc-diferencia
-                                        {% elif 'ANULACION' in tipo_upper or 'ANULACIÓN' in tipo_upper %}tipo-doc-anulacion
-                                        {% else %}tipo-doc-default{% endif %}">
-                                        {{ p.tipo_doc }}
-                                    </span>
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </td>
-                            <td>{{ p.poliza or '-' }}</td>
-                            <td>{{ p.proforma or '-' }}</td>
-                            <td>{{ p.cupon or '-' }}</td>
-                            <td>{{ p.fecha_emision or '-' }}</td>
-                            <td>{{ (p.vig_inicio or '-') ~ ' - ' ~ (p.vig_fin or '-') }}</td>
-                            <td>{{ p.factura or '-' }}</td>
-                            <td>{{ p.fecha_pago or '-' }}</td>
-                            <td>{{ p.fecha_venc or '-' }}</td>
-                            <td>
-                                {% set moneda_upper = (p.moneda|upper) if p.moneda else '' %}
-                                {% if 'SOLES' in moneda_upper or 'S/' in moneda_upper %}
-                                    S/
-                                {% elif 'DOLAR' in moneda_upper or 'US$' in moneda_upper or 'USD' in moneda_upper %}
-                                    US$
-                                {% else %}
-                                    {{ p.moneda or '-' }}
-                                {% endif %}
-                            </td>
-                            <td class="text-end">{{ "%.2f"|format(p.monto_cta_cobrar|float) if p.monto_cta_cobrar else '0.00' }}</td>
-                            <td class="text-end">{{ "%.2f"|format(p.monto_cta_pagar|float) if p.monto_cta_pagar else '0.00' }}</td>
-                            <td>
-                                <span class="badge
-                                    {% if p.estado and p.estado.upper() == 'CANCELADO' %}bg-danger
-                                    {% elif p.estado and p.estado.upper() == 'PENDIENTE' %}bg-warning text-dark
-                                    {% elif p.estado and p.estado.upper() == 'SIN PRIMA' %}bg-info text-dark
-                                    {% elif p.estado and p.estado.upper() == 'VIGENTE' %}bg-success
-                                    {% else %}bg-secondary{% endif %}">
-                                    {{ p.estado or '-' }}
-                                </span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr class="table-totales">
-                            <td colspan="13" class="text-end fw-bold">TOTALES:</td>
-                            <td class="text-end fw-bold bg-info-subtle">
-                                S/: {{ "%.2f"|format(totales.soles_cobrar) }}<br>
-                                US$: {{ "%.2f"|format(totales.dolares_cobrar) }}
-                            </td>
-                            <td class="text-end fw-bold bg-warning-subtle">
-                                S/: {{ "%.2f"|format(totales.soles_pagar) }}<br>
-                                US$: {{ "%.2f"|format(totales.dolares_pagar) }}
-                            </td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-            {% else %}
             <div class="p-4 text-center text-muted">
                 <i class="bi bi-inbox" style="font-size: 3rem;"></i>
                 <p class="mt-3">No se encontraron pólizas con los filtros aplicados.</p>
             </div>
-            {% endif %}
         </div>
     </div>
+    {% endif %}
     {% else %}
     <div class="alert alert-info">
         <i class="bi bi-info-circle"></i> Ingrese los filtros y haga clic en "Buscar" para ver el estado de cuenta.
