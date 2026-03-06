@@ -73,14 +73,8 @@ document.addEventListener('DOMContentLoaded', function() {
         filtrosForm.addEventListener('submit', function(e) {
             e.preventDefault();
 
-            // Obtener el número de documento para la URL limpia
-            const numeroDocInput = document.querySelector('input[name="numero_documento"]');
-            const numeroDoc = numeroDocInput && numeroDocInput.value ? numeroDocInput.value.trim() : '';
-
-            // Construir URL limpia (solo con número de documento, si existe)
-            const cleanUrl = numeroDoc
-                ? `${this.action}?numero_documento=${encodeURIComponent(numeroDoc)}`
-                : this.action;
+            // Construir URL limpia (sin parámetros en la URL)
+            const cleanUrl = this.action;
 
 
             // Enviar formulario vía POST usando fetch

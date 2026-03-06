@@ -22,7 +22,7 @@
             <h5 class="mb-0"><i class="bi bi-funnel"></i> Filtros de Búsqueda</h5>
         </div>
         <div class="card-body">
-            <form id="filtrosForm" method="GET" action="{{ url_for('main.menu_page', page='clientes-estado-cuenta') }}">
+            <form id="filtrosForm" method="POST" action="{{ url_for('main.menu_page', page='clientes-estado-cuenta') }}">
                 <div class="row g-3">
                     <!-- Cliente - Campo de búsqueda -->
                     <div class="col-md-6 position-relative">
