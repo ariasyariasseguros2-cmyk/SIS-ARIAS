@@ -459,6 +459,13 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         const body = rows.map((r, index) => {
             const hasFactura = !!(r.factura && String(r.factura).trim() !== '' && r.factura !== '-');
+            const hasFechaPago = !!(r.fecha_pago && String(r.fecha_pago).trim() !== '' && r.fecha_pago !== '-');
+
+            // Filtrar las filas que tienen tanto la fecha de pago como la factura
+            if (hasFactura && hasFechaPago) {
+                return '';
+            }
+
             // User requested to show edit button even if it has factura ("le falta pagar")
             // and explicitly mentioned "que tenga 2 ambos" (both rows should have actions).
             // So we enable the edit button always.
@@ -486,6 +493,11 @@ document.addEventListener('DOMContentLoaded', function() {
             </tr>
         `;
         }).join('');
+
+        if (!body.trim()) {
+            return `<div class="text-muted small px-2">No hay cuotas pendientes</div>`;
+        }
+
         const footer = `
                 </tbody>
               </table>
