@@ -64,7 +64,7 @@ const Cuotas = (() => {
     const tds = tr.querySelectorAll('td');
     return {
       idCuota: tr.dataset.idcuota || '',
-      secuencia: (idx + 1),
+      secuencia: tds[0]?.textContent.trim() || (idx + 1),
       cupon: tds[1]?.textContent.trim() || '',
       fecha_vencimiento: tds[2]?.textContent.trim() || '',
       moneda: tds[3]?.textContent.trim() || '',

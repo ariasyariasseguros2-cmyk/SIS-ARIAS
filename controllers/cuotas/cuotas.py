@@ -135,6 +135,7 @@ def get_cuotas_data(
                         """
                         SELECT
                             c.idCuota,
+                            c.numero_cuota,
                             c.cupon,
                             DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
                             c.moneda,
@@ -164,6 +165,7 @@ def get_cuotas_data(
                     sql_query = """
                         SELECT
                             c.idCuota,
+                            c.numero_cuota,
                             c.cupon,
                             DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
                             c.moneda,
@@ -208,6 +210,7 @@ def get_cuotas_data(
                                 """
                                 SELECT
                                     c.idCuota,
+                                    c.numero_cuota,
                                     c.cupon,
                                     DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
                                     c.moneda,
@@ -242,6 +245,7 @@ def get_cuotas_data(
                     for c in cuota_rows:
                         rows.append({
                             'idCuota': c.get('idCuota'),
+                            'numero_cuota': c.get('numero_cuota'),
                             'cupon': c.get('cupon') or '',
                             'fecha_vencimiento': format_date_custom(c.get('fecha_vencimiento')),
                             'moneda': c.get('moneda') or '',
