@@ -22,7 +22,10 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC'):
                 p.forma_pago,
                 c.numero_cuota,
                 c.moneda,
-                c.importe
+                c.importe,
+                c.fecha_pago,
+                c.factura,
+                c.observacion
             FROM cuotas c
             INNER JOIN polizas p ON c.poliza_id = p.idPoliza
             LEFT JOIN clientes cl ON p.cliente_id = cl.idCliente

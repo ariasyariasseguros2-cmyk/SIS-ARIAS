@@ -3,6 +3,8 @@
 {% block html_title %}Gestión | SISNET{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cuotas/cuotas.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/primas/Mostrar-detalles-primas.css') }}">
 <style>
     .gestion-header {
         display: flex;
@@ -191,7 +193,18 @@
                         <td>{{ row.moneda_simbolo or row.moneda }}</td>
                         <td>{{ row.importe }}</td>
                         <td>
-                            <button class="btn-action"><i class="bi-pencil-fill"></i></button>
+                            <button class="btn-action" 
+                                    onclick='CuotaEditModal.open({
+                                        idCuota: "{{ row.idCuota }}",
+                                        poliza: "{{ row.poliza }}",
+                                        cupon: "{{ row.cupon }}",
+                                        fecha_vencimiento: "{{ row.fecha_vencimiento }}",
+                                        importe: "{{ row.importe }}",
+                                        moneda: "{{ row.moneda_simbolo or row.moneda }}",
+                                        numero_cuota: "{{ row.numero_cuota }}",
+                                    })'>
+                                <i class="bi-pencil-fill"></i>
+                            </button>
                         </td>
                     </tr>
                     {% else %}
@@ -204,4 +217,18 @@
         </div>
     </div>
 </div>
+
+{% include 'view/cuotas/modal_edit_cuota.html' %}
+
+{% endblock %}
+
+{% block extra_js_bottom %}
+<script src="{{ url_for('static', filename='js/cuotas/edit_cuota_modal.js') }}"></script>
+<script>
+    document.addEventListener('cuota:saved', function(e) {
+        // Refresh page or reload table data
+        // For simplicity, reload page to reflect changes (e.g. if it disappears from list because it is paid)
+        window.location.reload();
+    });
+</script>
 {% endblock %}
