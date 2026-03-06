@@ -11,12 +11,14 @@ def get_reporte_produccion_filters() -> Dict[str, Any]:
     from controllers.ramos import get_ramos
     from controllers.subagente import get_subagentes_abreviaciones
     from controllers.ejecutivos import get_ejecutivos
+    from controllers.maestros.usuarios import get_usuarios
 
     return {
         "companias": get_aseguradoras() or [],
         "ramos": get_ramos() or [],
         "subagentes": get_subagentes_abreviaciones() or [],
         "ejecutivos": get_ejecutivos() or [],
+        "usuarios": get_usuarios() or [],
     }
 
 
@@ -54,6 +56,21 @@ def _build_filters(filters: Dict[str, Any]) -> Tuple[str, List[Any]]:
     if filters.get("ejecutivo"):
         sql_filters.append("p.ejecutivo = %s")
         params.append(filters["ejecutivo"])
+
+    if filters.get("usuario"):
+        sql_filters.append("p.usuario_registro = %s")
+        params.append(filters["usuario"])
+
+    f_reg_desde = filters.get("f_reg_desde")
+    f_reg_hasta = filters.get("f_reg_hasta")
+
+    if f_reg_desde:
+        sql_filters.append("DATE(p.creado_en) >= %s")
+        params.append(f_reg_desde)
+    
+    if f_reg_hasta:
+        sql_filters.append("DATE(p.creado_en) <= %s")
+        params.append(f_reg_hasta)
 
     # Filtro por rol: sub agente solo ve sus pólizas
     role = session.get("role_name")

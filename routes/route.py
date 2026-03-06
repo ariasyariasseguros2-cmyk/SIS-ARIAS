@@ -347,6 +347,9 @@ def api_reporte_produccion():
         'ramo': request.args.get('ramo') or None,
         'sub_agente': request.args.get('sub_agente') or None,
         'ejecutivo': request.args.get('ejecutivo') or None,
+        'usuario': request.args.get('usuario') or None,
+        'f_reg_desde': request.args.get('f_reg_desde') or None,
+        'f_reg_hasta': request.args.get('f_reg_hasta') or None,
     }
 
     rows = get_reporte_produccion_rows(filters)
@@ -365,6 +368,9 @@ def api_reporte_produccion_export():
         'ramo': request.args.get('ramo') or None,
         'sub_agente': request.args.get('sub_agente') or None,
         'ejecutivo': request.args.get('ejecutivo') or None,
+        'usuario': request.args.get('usuario') or None,
+        'f_reg_desde': request.args.get('f_reg_desde') or None,
+        'f_reg_hasta': request.args.get('f_reg_hasta') or None,
     }
 
     try:
