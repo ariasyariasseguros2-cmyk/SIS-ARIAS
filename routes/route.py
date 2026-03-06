@@ -367,8 +367,12 @@ def api_reporte_produccion_export():
         'ejecutivo': request.args.get('ejecutivo') or None,
     }
 
-    filepath, filename = export_reporte_produccion(filters)
-    return send_file(filepath, as_attachment=True, download_name=filename)
+    try:
+        filepath, filename = export_reporte_produccion(filters)
+        return send_file(filepath, as_attachment=True, download_name=filename)
+    except Exception as e:
+        current_app.logger.error(f"Error exportando reporte produccion: {e}")
+        return jsonify({'ok': False, 'error': f"Error generando Excel: {str(e)}"}), 500
 
 @bp.route('/api/clientes/search', methods=['GET'])
 def search_clientes_route():

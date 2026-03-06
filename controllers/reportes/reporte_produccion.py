@@ -70,7 +70,7 @@ def _build_filters(filters: Dict[str, Any]) -> Tuple[str, List[Any]]:
     return where_clause, params
 
 
-def get_reporte_produccion_rows(filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+def get_reporte_produccion_rows(filters: Dict[str, Any], limit: int = 1000) -> List[Dict[str, Any]]:
     conn = get_connection()
     try:
         cursor = conn.cursor(dictionary=True)
@@ -92,7 +92,7 @@ def get_reporte_produccion_rows(filters: Dict[str, Any]) -> List[Dict[str, Any]]
                 DATE_FORMAT(p.vig_hasta, '%Y-%m-%d') AS fin_vig,
                 p.moneda AS mon,
                 p.prima_neta AS prim_neta,
-                p.prima_total AS prim_total,
+                p.prima_comercial_igv AS prim_total,
                 p.porc_compania AS porc_cia,
                 p.imp_compania AS comision_cia,
                 p.sub_agente AS sagt,
@@ -112,7 +112,10 @@ def get_reporte_produccion_rows(filters: Dict[str, Any]) -> List[Dict[str, Any]]
         """
 
         where_clause, params = _build_filters(filters)
-        order_clause = " ORDER BY p.fecha_emision DESC, p.creado_en DESC LIMIT 1000"
+        
+        order_clause = " ORDER BY p.fecha_emision DESC, p.creado_en DESC"
+        if limit:
+            order_clause += f" LIMIT {limit}"
 
         sql = base_sql + where_clause + order_clause
 
@@ -124,7 +127,8 @@ def get_reporte_produccion_rows(filters: Dict[str, Any]) -> List[Dict[str, Any]]
 
 
 def export_reporte_produccion(filters: Dict[str, Any]) -> Tuple[str, str]:
-    rows = get_reporte_produccion_rows(filters)
+    # Para exportación, traemos todo (o un límite alto)
+    rows = get_reporte_produccion_rows(filters, limit=None)
 
     headers = [
         "RUC",
@@ -217,13 +221,17 @@ def export_reporte_produccion(filters: Dict[str, Any]) -> Tuple[str, str]:
     filepath = os.path.join(exports_dir, filename)
 
     from openpyxl import Workbook
+    from openpyxl.styles import Font
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Produccion"
 
+    bold_font = Font(bold=True)
+
     for col, h in enumerate(headers, start=1):
-        ws.cell(row=1, column=col, value=h)
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = bold_font
 
     for row_idx, row in enumerate(table_rows, start=2):
         for col_idx, value in enumerate(row, start=1):
