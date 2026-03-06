@@ -127,6 +127,7 @@
 {% endblock %}3
 
 {% block extra_js_bottom %}
+{{ super() }}
 <script src="{{ url_for('static', filename='js/reportes/vencimientos-renovaciones.js') }}"></script>
 <script src="{{ url_for('static', filename='js/cuotas/add_cuota_modal.js') }}"></script>
 <script src="{{ url_for('static', filename='js/cuotas/edit_cuota_modal.js') }}"></script>
