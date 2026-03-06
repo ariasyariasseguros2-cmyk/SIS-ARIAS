@@ -352,8 +352,12 @@ def api_reporte_produccion():
         'f_reg_hasta': request.args.get('f_reg_hasta') or None,
     }
 
-    rows = get_reporte_produccion_rows(filters)
-    return jsonify({'ok': True, 'rows': rows})
+    try:
+        rows = get_reporte_produccion_rows(filters)
+        return jsonify({'ok': True, 'rows': rows})
+    except Exception as e:
+        current_app.logger.error(f"Error en reporte produccion: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 
 @bp.route('/api/reportes/produccion/export', methods=['GET'])

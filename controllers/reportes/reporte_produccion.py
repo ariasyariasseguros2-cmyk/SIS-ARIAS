@@ -29,16 +29,12 @@ def _build_filters(filters: Dict[str, Any]) -> Tuple[str, List[Any]]:
     vig_desde = filters.get("vig_desde")
     vig_hasta = filters.get("vig_hasta")
 
-    if vig_desde and vig_hasta:
-        sql_filters.append(
-            "(p.vig_desde <= %s AND (p.vig_hasta IS NULL OR p.vig_hasta >= %s))"
-        )
-        params.extend([vig_hasta, vig_desde])
-    elif vig_desde:
-        sql_filters.append("(p.vig_hasta IS NULL OR p.vig_hasta >= %s)")
+    if vig_desde:
+        sql_filters.append("p.vig_hasta >= %s")
         params.append(vig_desde)
-    elif vig_hasta:
-        sql_filters.append("p.vig_desde <= %s")
+
+    if vig_hasta:
+        sql_filters.append("p.vig_hasta <= %s")
         params.append(vig_hasta)
 
     if filters.get("cia"):
@@ -105,8 +101,8 @@ def get_reporte_produccion_rows(filters: Dict[str, Any], limit: int = 1000) -> L
                 p.tipo_doc AS td,
                 p.recibo AS aviso_cob,
                 '' AS estado_comision,
-                DATE_FORMAT(p.vig_desde, '%Y-%m-%d') AS ini_vig,
-                DATE_FORMAT(p.vig_hasta, '%Y-%m-%d') AS fin_vig,
+                p.vig_desde AS ini_vig,
+                p.vig_hasta AS fin_vig,
                 p.moneda AS mon,
                 p.prima_neta AS prim_neta,
                 p.prima_comercial_igv AS prim_total,
@@ -123,7 +119,7 @@ def get_reporte_produccion_rows(filters: Dict[str, Any], limit: int = 1000) -> L
                 p.ejecutivo,
                 NULL AS breve_descripcion,
                 p.usuario_registro AS usuario,
-                DATE_FORMAT(p.creado_en, '%Y-%m-%d %H:%i:%s') AS f_reg
+                p.creado_en AS f_reg
             FROM polizas p
             INNER JOIN clientes c ON c.idCliente = p.cliente_id
         """
@@ -138,6 +134,16 @@ def get_reporte_produccion_rows(filters: Dict[str, Any], limit: int = 1000) -> L
 
         cursor.execute(sql, tuple(params))
         rows = cursor.fetchall() or []
+        
+        # Post-process to format dates as strings
+        for row in rows:
+            if row.get('ini_vig'):
+                row['ini_vig'] = str(row['ini_vig'])
+            if row.get('fin_vig'):
+                row['fin_vig'] = str(row['fin_vig'])
+            if row.get('f_reg'):
+                row['f_reg'] = str(row['f_reg'])
+
         return rows
     finally:
         conn.close()
