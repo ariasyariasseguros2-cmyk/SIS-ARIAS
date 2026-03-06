@@ -457,7 +457,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </thead>
                 <tbody>
         `;
-        const body = rows.map(r => {
+        const body = rows.map((r, index) => {
             const hasFactura = !!(r.factura && String(r.factura).trim() !== '' && r.factura !== '-');
             // User requested to show edit button even if it has factura ("le falta pagar")
             // and explicitly mentioned "que tenga 2 ambos" (both rows should have actions).
@@ -476,8 +476,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${showEdit
                         ? `<button type="button"
                                    class="btn btn-sm btn-outline-secondary"
-                                   title="Agregar/Actualizar pago"
-                                   onclick="CuotaModal.open('${polizaCtx || ''}', '', '${r.cupon || ''}')">
+                                   title="Editar cuota"
+                                   onclick="CuotaEditModal.open(window.cuotasCache['${polizaCtx || ''}'][${index}], '${polizaCtx || ''}')">
                                <i class="bi bi-pencil"></i>
                            </button>`
                         : ''
@@ -493,6 +493,8 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         return header + body + footer;
     }
+
+    window.cuotasCache = {};
 
     window.toggleCuotasRow = async function(poliza, idPoliza) {
         const rowId = `cuotas_${poliza || ''}_${idPoliza || ''}`;
@@ -520,8 +522,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 const resp = await fetch(url);
                 const json = await resp.json();
                 const rows = (json && json.rows) ? json.rows : [];
+                
+                // Cache rows for modal access
+                window.cuotasCache[poliza] = rows;
+                
                 container.innerHTML = renderCuotasRows(rows, poliza);
             } catch (err) {
+                console.error(err);
                 container.innerHTML = `<div class="text-danger small px-2">Error cargando recibos</div>`;
             }
             row.classList.remove('d-none');

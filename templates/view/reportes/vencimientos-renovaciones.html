@@ -4,6 +4,8 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/reportes/vencimientos-renovaciones.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cuotas/cuotas.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/primas/Mostrar-detalles-primas.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -100,12 +102,13 @@
     </div>
 </div>
 
-<!-- Modal Añadir Cuota (Reused from Cuotas) -->
-{% include 'view/cuotas/modal_add_cuota.html' %}
+<!-- Modal Editar Cuota (Reused from Cuotas) -->
+{% include 'view/cuotas/modal_edit_cuota.html' %}
 
 {% endblock %}3
 
 {% block extra_js_bottom %}
 <script src="{{ url_for('static', filename='js/reportes/vencimientos-renovaciones.js') }}"></script>
 <script src="{{ url_for('static', filename='js/cuotas/add_cuota_modal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/cuotas/edit_cuota_modal.js') }}"></script>
 {% endblock %}

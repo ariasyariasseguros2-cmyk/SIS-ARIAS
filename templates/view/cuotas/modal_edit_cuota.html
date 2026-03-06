@@ -1,0 +1,124 @@
+<!-- Modal Editar -->
+<div class="modal fade" id="cuotaEditModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content border-0 bg-transparent">
+        
+        <!-- MASTER PANEL: Contenedor Único -->
+        <div class="master-panel m-0">
+            
+            <!-- 1. Header Integrado -->
+            <div class="panel-header">
+                <div class="header-title-group">
+                    <h1>
+                        <i class="bi bi-pencil-square"></i>
+                        Editar Cuota
+                    </h1>
+                    <div class="header-subtitle">
+                        Modifique los detalles del registro de pago
+                    </div>
+                </div>
+                <button type="button" class="btn-close-custom" data-bs-dismiss="modal" aria-label="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <!-- 2. Cuerpo del Panel (Layout Grid) -->
+            <div class="panel-body d-block" style="min-height: auto;">
+                
+                <!-- A. Área Principal (Izquierda) -->
+                <div class="main-content-area w-100">
+                    
+                    <div class="row g-4">
+                        <!-- Columna Izquierda: Datos Principales -->
+                        <div class="col-lg-8">
+                            <div class="section-heading mb-4">Información del Cupón</div>
+                            
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="label"># Secuencia</label>
+                                    <input id="editSecuencia" type="text" class="form-control bg-light" readonly>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="label">Número Cupón</label>
+                                    <input id="editCupon" type="text" class="form-control bg-light" readonly>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="label">Fecha Vencimiento</label>
+                                    <input id="editFechaVenc" type="date" class="form-control bg-light" readonly>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="label">Importe (S/.)</label>
+                                    <input id="editImporte" type="text" class="form-control fw-bold">
+                                </div>
+                            </div>
+
+                            <div class="section-heading mb-4 mt-2">Detalles del Pago</div>
+                            
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="label">Fecha de Pago</label>
+                                    <input id="editFechaPago" type="date" class="form-control">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="label">Factura / Recibo</label>
+                                    <input id="editFactura" type="text" class="form-control">
+                                </div>
+                                <div class="col-12">
+                                    <label class="label">Observación</label>
+                                    <textarea id="editObservacion" class="form-control" rows="3" placeholder="Ingrese notas adicionales..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Columna Derecha: Gestión de Documentos -->
+                        <div class="col-lg-4 border-start ps-lg-4">
+                            <div class="section-heading mb-4">Documento Adjunto</div>
+                            
+                            <div class="sub-card bg-light p-3 border-0">
+                                <div class="mb-3">
+                                    <label class="label mb-2 text-custom-blue">Archivo Actual</label>
+                                    <input id="editDocumentoNombre" type="text" class="form-control form-control-sm bg-white mb-2" placeholder="Sin archivo adjunto" readonly>
+                                    
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm flex-fill" id="btnEditDocumentoVer">
+                                            <i class="bi bi-eye"></i> Ver
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger btn-sm flex-fill" id="btnEditDocumentoEliminar">
+                                            <i class="bi bi-trash"></i> Quitar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <hr class="hr-custom-blue my-3">
+
+                                <div>
+                                    <label class="label mb-2">Subir Nuevo Archivo</label>
+                                    <label class="btn btn-outline-primary btn-sm w-100 dashed-border d-flex flex-column align-items-center justify-content-center p-3" style="border-style: dashed; height: auto;">
+                                        <i class="bi bi-cloud-upload fs-4 mb-1"></i>
+                                        <span>Seleccionar archivo</span>
+                                        <small class="text-muted fw-normal" style="font-size: 0.7rem;">PDF, JPG, PNG</small>
+                                        <input id="editDocumentoFile" type="file" accept=".pdf,.jpg,.jpeg,.png" hidden>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 3. Footer de Acciones -->
+            <div class="panel-footer-info d-flex justify-content-end gap-3 pt-4 border-top">
+                <button type="button" class="btn btn-sm d-flex align-items-center gap-2 btn-gradient-secondary px-4 py-2" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-sm d-flex align-items-center gap-2 btn-gradient-success px-4 py-2" id="btnGuardarCuota">
+                    <i class="bi bi-check-lg"></i>
+                    Guardar Cambios
+                </button>
+            </div>
+            
+        </div>
+    </div>
+  </div>
+</div>
