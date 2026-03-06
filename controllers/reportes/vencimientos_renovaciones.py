@@ -47,16 +47,19 @@ def api_vencimientos():
     if role == Roles.SUB_AGENTE:
         return {'ok': False, 'error': 'No autorizado'}, 403
 
-    usuario = request.args.get('usuario', '')
-    estado = request.args.get('estado', '')
+    usuario = request.args.get('usuario', '').strip()
+    estado = request.args.get('estado', '').strip()
     fecha_desde = request.args.get('fecha_desde')
     fecha_hasta = request.args.get('fecha_hasta')
-    ramo = request.args.get('ramo', '')
+    ramo = request.args.get('ramo', '').strip()
     
-    # Handle empty strings as None
+    # Handle empty strings as None for dates
     if not fecha_desde: fecha_desde = None
     if not fecha_hasta: fecha_hasta = None
     
+    # Debug print
+    print(f"Reporte Vencimientos Params: user='{usuario}', estado='{estado}', ramo='{ramo}', desde={fecha_desde}, hasta={fecha_hasta}")
+
     data = get_vencimientos(usuario, estado, fecha_desde, fecha_hasta, ramo)
 
     if role == Roles.OPERADOR:

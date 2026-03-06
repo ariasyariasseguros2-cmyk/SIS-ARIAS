@@ -12,9 +12,35 @@ document.addEventListener('DOMContentLoaded', function() {
     const ramoDropdownBtn = document.getElementById('ramoDropdownBtn');
     const ramoValue = document.getElementById('ramoValue');
 
+    // Pagination state
+    let allData = [];
+    let currentPage = 1;
+    let rowsPerPage = 15;
+
+    const rowsPerPageSelect = document.getElementById('rowsPerPage');
+    const paginationControls = document.getElementById('paginationControls');
+    const pageInfo = document.getElementById('pageInfo');
+    const paginationContainer = document.getElementById('paginationContainer');
+
+    if (rowsPerPageSelect) {
+        rowsPerPageSelect.addEventListener('change', function() {
+            rowsPerPage = parseInt(this.value);
+            currentPage = 1;
+            renderPaginatedTable();
+        });
+    }
+
     // Load users and ramos on init
     loadUsuarios();
     loadRamos();
+
+    // Trigger initial load automatically
+    if (filterForm) {
+        // Small delay to ensure dropdowns might be ready (though not strictly necessary for default 'all' filter)
+        setTimeout(() => {
+            filterForm.dispatchEvent(new Event('submit'));
+        }, 100);
+    }
 
     // Listen for Cuota Saved event (from Modal)
     document.addEventListener('cuota:saved', function(e) {
@@ -303,6 +329,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function fetchData(usuario, estado, fechaDesde, fechaHasta, ramo) {
         try {
             tableBody.innerHTML = `<tr><td colspan="13" class="text-center py-4 text-muted">Cargando datos...</td></tr>`;
+            if (paginationContainer) paginationContainer.style.display = 'none';
 
             let url = `/api/reportes/vencimientos-renovaciones?usuario=${encodeURIComponent(usuario)}&estado=${encodeURIComponent(estado)}`;
             
@@ -312,23 +339,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const response = await fetch(url);
             const data = await response.json();
-            renderTable(data);
+            
+            if (!data || data.length === 0) {
+                allData = [];
+                renderPaginatedTable();
+                return;
+            }
+
+            // Group data first
+            allData = groupByPoliza(data);
+            currentPage = 1;
+            renderPaginatedTable();
         } catch (error) {
             console.error('Error loading data:', error);
             tableBody.innerHTML = `<tr><td colspan="13" class="text-center text-danger">Error cargando datos</td></tr>`;
         }
     }
 
-    function renderTable(data) {
-        if (!data || data.length === 0) {
+    function renderPaginatedTable() {
+        if (!allData || allData.length === 0) {
             tableBody.innerHTML = `<tr><td colspan="13" class="text-center text-muted py-4">No se encontraron resultados</td></tr>`;
+            if (paginationContainer) paginationContainer.style.display = 'none';
             return;
         }
 
-        // Agrupar por póliza y acumular primas por recibo
-        const grouped = groupByPoliza(data);
+        if (paginationContainer) paginationContainer.style.display = 'flex';
 
-        tableBody.innerHTML = grouped.map(row => {
+        if (rowsPerPageSelect) rowsPerPage = parseInt(rowsPerPageSelect.value);
+
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        const endIndex = startIndex + rowsPerPage;
+        const slicedData = allData.slice(startIndex, endIndex);
+
+        renderTableRows(slicedData);
+        renderPaginationControls();
+    }
+
+    function renderTableRows(rows) {
+        tableBody.innerHTML = rows.map(row => {
             const moneda = row.moneda || '';
             const primaNeta = row.prima_neta ? parseFloat(row.prima_neta).toFixed(2) : '0.00';
             const primaTotal = row.prima_total ? parseFloat(row.prima_total).toFixed(2) : '0.00';
@@ -360,9 +408,66 @@ document.addEventListener('DOMContentLoaded', function() {
                 </tr>
             `;
         }).join('');
-
-        // Se elimina el detalle expandible de cuotas
     }
+
+    function renderPaginationControls() {
+        if (!paginationControls) return;
+        
+        const totalPages = Math.ceil(allData.length / rowsPerPage);
+        let html = '';
+
+        // Previous
+        html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">Anterior</a>
+                 </li>`;
+
+        // Page numbers
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, currentPage + 2);
+
+        if (currentPage <= 3) {
+            endPage = Math.min(totalPages, 5);
+        }
+        if (currentPage >= totalPages - 2) {
+            startPage = Math.max(1, totalPages - 4);
+        }
+
+        if (startPage > 1) {
+             html += `<li class="page-item"><a class="page-link" href="#" onclick="changePage(1); return false;">1</a></li>`;
+             if (startPage > 2) html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>
+                     </li>`;
+        }
+
+        if (endPage < totalPages) {
+             if (endPage < totalPages - 1) html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+             html += `<li class="page-item"><a class="page-link" href="#" onclick="changePage(${totalPages}); return false;">${totalPages}</a></li>`;
+        }
+
+        // Next
+        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">Siguiente</a>
+                 </li>`;
+
+        paginationControls.innerHTML = html;
+
+        if (pageInfo) {
+            const start = (currentPage - 1) * rowsPerPage + 1;
+            const end = Math.min(currentPage * rowsPerPage, allData.length);
+            pageInfo.textContent = `${start}-${end} de ${allData.length}`;
+        }
+    }
+
+    window.changePage = function(page) {
+        const totalPages = Math.ceil(allData.length / rowsPerPage);
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        renderPaginatedTable();
+    };
 
     // Helper: agrupar por póliza (o idPoliza si existe) y sumar primas neta y total
     function groupByPoliza(rows) {
