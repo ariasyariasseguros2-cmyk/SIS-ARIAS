@@ -6,20 +6,20 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='reportes/reporte-archivos-poliza.css') }}">
 <!-- Estilos mínimos para el autocomplete -->
 <style>
-.autocomplete-container { position: relative; }
-.autocomplete-list {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 1055;
-  max-height: 240px;
-  overflow-y: auto;
-  border: 1px solid rgba(0,0,0,0.125);
-  background: #fff;
-}
-.autocomplete-item { cursor: pointer; padding: .5rem .75rem; }
-.autocomplete-item:hover, .autocomplete-item.active { background: #f8f9fa; }
+    .autocomplete-container { position: relative; }
+    .autocomplete-list {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1055;
+        max-height: 240px;
+        overflow-y: auto;
+        border: 1px solid rgba(0,0,0,0.125);
+        background: #fff;
+    }
+    .autocomplete-item { cursor: pointer; padding: .5rem .75rem; }
+    .autocomplete-item:hover, .autocomplete-item.active { background: #f8f9fa; }
 </style>
 {% endblock %}
 
@@ -56,26 +56,26 @@
             <div class="table-responsive">
                 <table class="table table-hover align-middle" id="filesTable">
                     <thead class="table-light">
-                        <tr>
-                            <th scope="col" style="width: 50px;" class="text-center">Acciones</th>
-                            <th scope="col">Origen</th>
-                            <th scope="col">Poliza/Nro Documento</th>
-                            <th scope="col">Contratante</th>
-                            <th scope="col">Ramo</th>
-                            <th scope="col">Producto</th>
-                            <th scope="col">Compañía</th>
-                            <th scope="col">Usuario</th>
-                            <th scope="col" class="text-center">Cantidad</th>
-                            <th scope="col">Fecha/Hora</th>
-                        </tr>
+                    <tr>
+                        <th scope="col" style="width: 50px;" class="text-center">Acciones</th>
+                        <th scope="col">Origen</th>
+                        <th scope="col">Poliza/Nro Documento</th>
+                        <th scope="col">Contratante</th>
+                        <th scope="col">Ramo</th>
+                        <th scope="col">Producto</th>
+                        <th scope="col">Compañía</th>
+                        <th scope="col">Usuario</th>
+                        <th scope="col" class="text-center">Cantidad</th>
+                        <th scope="col">Fecha/Hora</th>
+                    </tr>
                     </thead>
                     <tbody>
-                        <!-- Rows will be populated by JS -->
-                        <tr class="placeholder-row">
-                            <td colspan="10" class="text-center py-4 text-muted">
-                                Cargando archivos...
-                            </td>
-                        </tr>
+                    <!-- Rows will be populated by JS -->
+                    <tr class="placeholder-row">
+                        <td colspan="10" class="text-center py-4 text-muted">
+                            Cargando archivos...
+                        </td>
+                    </tr>
                     </tbody>
                 </table>
             </div>
@@ -100,22 +100,63 @@
 
 <!-- Modal Selección de Contratante -->
 <div class="modal fade" id="contratanteSelectModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Seleccionar Contratante</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div id="contratanteList">
-          <!-- JS llenará con botones/list items -->
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Seleccionar Contratante</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="contratanteList">
+                    <!-- JS llenará con botones/list items -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-      </div>
     </div>
-  </div>
+</div>
+
+<!-- Modal Detalle de Archivos (listado completo: normales + extras) -->
+<div class="modal fade" id="modalDetalleArchivos" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title d-flex align-items-center gap-2">
+                    <i class="bi-folder2-open me-1"></i>
+                    Archivos de <strong id="modalDetalleTitulo" class="ms-1"></strong>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="modalDetalleLoading" class="text-center py-5 text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div> Cargando archivos...
+                </div>
+                <table class="table table-sm align-middle mb-0 d-none" id="modalDetalleTabla">
+                    <thead class="table-light">
+                    <tr>
+                        <th style="width:40px" class="text-center">#</th>
+                        <th>Nombre del documento</th>
+                        <th style="width:150px">Tipo</th>
+                        <th style="width:160px">Fecha</th>
+                        <th style="width:70px" class="text-center">Ver</th>
+                    </tr>
+                    </thead>
+                    <tbody id="modalDetalleTbody"></tbody>
+                </table>
+                <div id="modalDetalleVacio" class="text-center py-5 text-muted d-none">
+                    <i class="bi-inbox fs-2 d-block mb-2"></i>Sin archivos registrados.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="modalDetalleZipBtn">
+                    <i class="bi-file-zip me-1"></i>Descargar ZIP
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock %}
@@ -132,25 +173,25 @@
 {{ super() }}
 <script src="{{ url_for('static', filename='js/reportes/reporte-archivos-poliza.js') }}"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function(){
-    try {
-        const a = document.querySelector('.sidebar a[data-page="reporte-archivos-poliza"]');
-        if (a) {
-            // usar isactive (solo color de texto) en lugar de active
-            a.classList.add('isactive');
-            const li = a.closest('li'); if (li) li.classList.add('isactive');
-            const group = a.closest('.nav-group');
-            if (group) group.classList.add('open','active-group');
-        } else {
-            // Fallback: buscar por href que contenga el segmento 'reporte-archivos-poliza'
-            const fallback = Array.from(document.querySelectorAll('.sidebar a')).find(x => (x.getAttribute('href')||'').includes('reporte-archivos-poliza') || (x.href||'').includes('reporte-archivos-poliza'));
-            if (fallback) {
-                fallback.classList.add('isactive');
-                const li2 = fallback.closest('li'); if (li2) li2.classList.add('isactive');
-                const group2 = fallback.closest('.nav-group'); if (group2) group2.classList.add('open','active-group');
+    document.addEventListener('DOMContentLoaded', function(){
+        try {
+            const a = document.querySelector('.sidebar a[data-page="reporte-archivos-poliza"]');
+            if (a) {
+                // usar isactive (solo color de texto) en lugar de active
+                a.classList.add('isactive');
+                const li = a.closest('li'); if (li) li.classList.add('isactive');
+                const group = a.closest('.nav-group');
+                if (group) group.classList.add('open','active-group');
+            } else {
+                // Fallback: buscar por href que contenga el segmento 'reporte-archivos-poliza'
+                const fallback = Array.from(document.querySelectorAll('.sidebar a')).find(x => (x.getAttribute('href')||'').includes('reporte-archivos-poliza') || (x.href||'').includes('reporte-archivos-poliza'));
+                if (fallback) {
+                    fallback.classList.add('isactive');
+                    const li2 = fallback.closest('li'); if (li2) li2.classList.add('isactive');
+                    const group2 = fallback.closest('.nav-group'); if (group2) group2.classList.add('open','active-group');
+                }
             }
-        }
-    } catch (err) { console.error('set active menu error', err); }
-});
+        } catch (err) { console.error('set active menu error', err); }
+    });
 </script>
 {% endblock %}
