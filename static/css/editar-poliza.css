@@ -46,3 +46,31 @@
 .bi-check-square-fill {
     color: #212529; 
 }
+
+/* Badges suaves para tipos de documentos */
+.badge-soft-proforma {
+    display: inline-block;
+    padding: .25em .45em;
+    font-size: .78rem;
+    font-weight: 600;
+    color: #856404; /* texto oscuro tipo amarillo suave */
+    background-color: #fff3cd; /* amarillo pálido */
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: .35rem;
+}
+
+.badge-soft-extra {
+    display: inline-block;
+    padding: .25em .45em;
+    font-size: .78rem;
+    font-weight: 600;
+    color: #1b2b34; /* texto oscuro */
+    background-color: #e9f2f5; /* azul muy pálido */
+    border: 1px solid rgba(0,0,0,0.04);
+    border-radius: .35rem;
+}
+
+/* ajuste tabla para que no se vea tan chillón */
+#tablaArchivosPoliza td, #tablaArchivosPoliza th {
+    vertical-align: middle;
+}
