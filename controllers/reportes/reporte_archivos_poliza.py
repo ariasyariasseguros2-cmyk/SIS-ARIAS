@@ -79,7 +79,7 @@ def download_zip():
         with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
             files_added = 0
             upload_folder = current_app.config.get('UPLOAD_FOLDER',
-                os.path.join(current_app.root_path, 'static', 'uploads'))
+                                                   os.path.join(current_app.root_path, 'static', 'uploads'))
 
             for row in results:
                 file_path = row.get('ruta_archivo')
@@ -119,6 +119,51 @@ def download_zip():
         print(f"Error generating zip: {e}")
         traceback.print_exc()
         return jsonify({'error': 'Error generando archivo ZIP'}), 500
+
+
+@bp.route('/api/reportes/archivos-detalle-completo', methods=['GET'])
+def api_archivos_detalle_completo():
+    """Devuelve los archivos del SP de detalle + los archivos extra (proforma/archivo_extra) de poliza_archivos."""
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    identificador = request.args.get('identificador', '').strip()
+    tipo_origen   = request.args.get('tipo', '').strip()       # POLIZA | CUOTA
+    poliza_id     = request.args.get('poliza_id', '').strip()
+
+    # 1. Archivos del SP (CARGA_MASIVA y otros)
+    archivos_sp = get_archivos_detalle('', identificador, tipo_origen)
+    for a in archivos_sp:
+        a['es_extra'] = False
+        if a.get('creado_en') and hasattr(a['creado_en'], 'strftime'):
+            a['creado_en'] = a['creado_en'].strftime('%d/%m/%Y %H:%M')
+
+    # 2. Archivos extra de poliza_archivos (PROFORMA / ARCHIVO_EXTRA) — solo para POLIZA
+    archivos_extra = []
+    if tipo_origen == 'POLIZA' and poliza_id:
+        try:
+            conn = get_connection()
+            cur  = conn.cursor(dictionary=True)
+            cur.execute(
+                """SELECT idArchivo, ruta_archivo, nombre_original, origen, creado_en
+                   FROM poliza_archivos
+                   WHERE poliza_id = %s
+                   ORDER BY creado_en DESC""",
+                (int(poliza_id),)
+            )
+            rows = cur.fetchall()
+            cur.close()
+            conn.close()
+            for a in rows:
+                if a.get('creado_en') and hasattr(a['creado_en'], 'strftime'):
+                    a['creado_en'] = a['creado_en'].strftime('%d/%m/%Y %H:%M')
+                a['es_extra'] = True
+                a['identificador'] = identificador
+                archivos_extra.append(a)
+        except Exception as e:
+            print(f"[archivos_detalle_completo] error extras: {e}")
+
+    return jsonify({'ok': True, 'archivos': archivos_sp, 'archivos_extra': archivos_extra})
 
 
 @bp.route('/api/reportes/search-contratantes', methods=['GET'])
@@ -201,21 +246,21 @@ def download_zip_contratante():
         # Recolectar archivos: de poliza_archivos y cuota_archivos relacionados a pólizas del cliente
         # Para evitar problemas de collation en UNION, forzamos same CHARACTER SET
         sql = '''
-            SELECT pa.idArchivo,
-                   CAST(pa.ruta_archivo AS CHAR CHARACTER SET utf8mb4) AS ruta_archivo,
-                   CAST(pa.nombre_original AS CHAR CHARACTER SET utf8mb4) AS nombre_original
-            FROM poliza_archivos pa
-            INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
-            WHERE p.cliente_id = %s
-            UNION ALL
-            SELECT ca.idArchivo,
-                   CAST(ca.ruta_archivo AS CHAR CHARACTER SET utf8mb4) AS ruta_archivo,
-                   CAST(ca.nombre_original AS CHAR CHARACTER SET utf8mb4) AS nombre_original
-            FROM cuota_archivos ca
-            INNER JOIN cuotas cu ON ca.cuota_id = cu.idCuota
-            INNER JOIN polizas p2 ON cu.poliza_id = p2.idPoliza
-            WHERE p2.cliente_id = %s
-        '''
+              SELECT pa.idArchivo,
+                     CAST(pa.ruta_archivo AS CHAR CHARACTER SET utf8mb4) AS ruta_archivo,
+                     CAST(pa.nombre_original AS CHAR CHARACTER SET utf8mb4) AS nombre_original
+              FROM poliza_archivos pa
+                       INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
+              WHERE p.cliente_id = %s
+              UNION ALL
+              SELECT ca.idArchivo,
+                     CAST(ca.ruta_archivo AS CHAR CHARACTER SET utf8mb4) AS ruta_archivo,
+                     CAST(ca.nombre_original AS CHAR CHARACTER SET utf8mb4) AS nombre_original
+              FROM cuota_archivos ca
+                       INNER JOIN cuotas cu ON ca.cuota_id = cu.idCuota
+                       INNER JOIN polizas p2 ON cu.poliza_id = p2.idPoliza
+              WHERE p2.cliente_id = %s \
+              '''
         cursor.execute(sql, (cliente_id, cliente_id))
         rows = cursor.fetchall()
         cursor.close()
