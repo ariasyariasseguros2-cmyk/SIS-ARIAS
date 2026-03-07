@@ -1,4 +1,3 @@
-
 .table-hover tbody tr:hover {
     background-color: #f8f9fa;
 }
@@ -47,3 +46,90 @@
     vertical-align: middle;
 }
 
+/* ---- Filas de archivos extra de póliza (proforma / archivo extra) ---- */
+.arch-extra-row td {
+    background-color: #fffbeb;          /* amarillo muy pálido */
+    border-left: 3px solid #f59e0b;     /* borde izquierdo ámbar */
+    font-size: 0.85rem;
+}
+
+.arch-extra-row:hover td {
+    background-color: #fef3c7 !important;
+}
+
+/* Badge de cantidad de póliza — clickeable para abrir modal de archivos */
+.badge-cantidad-poliza {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    padding: .2em .5em;
+    font-size: .78rem;
+    font-weight: 700;
+    color: #92400e;
+    background-color: #fde68a;
+    border: 1px solid #f59e0b;
+    border-radius: .35rem;
+    cursor: pointer;
+    transition: background-color .15s, box-shadow .15s;
+    line-height: 1.4;
+}
+
+.badge-cantidad-poliza:hover {
+    background-color: #fcd34d;
+    box-shadow: 0 0 0 3px rgba(245,158,11,.25);
+}
+
+.badge-cantidad-poliza.active {
+    background-color: #fcd34d;
+    box-shadow: 0 0 0 3px rgba(245,158,11,.35);
+}
+
+/* Badge label "ARCHIVO" dentro de filas inline */
+.badge-arch-poliza-label {
+    display: inline-block;
+    padding: .18em .45em;
+    font-size: .72rem;
+    font-weight: 700;
+    color: #92400e;
+    background-color: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: .3rem;
+    white-space: nowrap;
+}
+
+.badge-arch-proforma {
+    display: inline-block;
+    padding: .18em .45em;
+    font-size: .72rem;
+    font-weight: 600;
+    color: #92400e;
+    background-color: #fde68a;
+    border: 1px solid rgba(0,0,0,0.07);
+    border-radius: .3rem;
+    white-space: nowrap;
+}
+
+.badge-arch-extra {
+    display: inline-block;
+    padding: .18em .45em;
+    font-size: .72rem;
+    font-weight: 600;
+    color: #1e3a5f;
+    background-color: #dbeafe;
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: .3rem;
+    white-space: nowrap;
+}
+
+.badge-arch-masiva {
+    display: inline-block;
+    padding: .18em .45em;
+    font-size: .72rem;
+    font-weight: 600;
+    color: #374151;
+    background-color: #e5e7eb;
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: .3rem;
+    white-space: nowrap;
+}
