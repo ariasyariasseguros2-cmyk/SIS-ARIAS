@@ -259,6 +259,133 @@ def delete_cuota_archivo(archivo_id):
         return {'ok': False, 'error': str(e)}, 500
 
 
+
+@bp.route('/api/polizas/upload-archivo', methods=['POST'])
+def upload_poliza_archivo():
+    """Sube un archivo (proforma o extra) asociado a una póliza y registra en poliza_archivos."""
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    poliza_id = request.form.get('poliza_id')
+    numero_poliza = request.form.get('numero_poliza', '')
+    tipo_documento = request.form.get('tipo_documento', 'ARCHIVO_EXTRA')  # PROFORMA | ARCHIVO_EXTRA
+    nombre_documento = request.form.get('nombre_documento', '').strip()
+
+    if not poliza_id:
+        return jsonify({'ok': False, 'error': 'Falta poliza_id'}), 400
+
+    if 'archivo' not in request.files:
+        return jsonify({'ok': False, 'error': 'No se envió archivo (key=archivo)'}), 400
+
+    file = request.files['archivo']
+    if not file or file.filename == '':
+        return jsonify({'ok': False, 'error': 'Archivo vacío'}), 400
+
+    try:
+        import time
+        original_filename = file.filename
+        safe_name = secure_filename(original_filename)
+        ts = int(time.time())
+        disk_filename = f"{ts}_poliza{poliza_id}_{safe_name}"
+
+        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'polizas')
+        os.makedirs(upload_folder, exist_ok=True)
+
+        save_path = os.path.join(upload_folder, disk_filename)
+        file.save(save_path)
+
+        ruta_relativa = f"polizas/{disk_filename}"
+        usuario = session.get('user', '')
+        nombre_final = nombre_documento or original_filename
+
+        # Obtener datos de la póliza para guardar ramo, producto, compania
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute("SELECT ramo, ramos_producto, cia, poliza FROM polizas WHERE idPoliza = %s", (int(poliza_id),))
+        prow = cur.fetchone() or {}
+
+        cur.execute(
+            """INSERT INTO poliza_archivos
+               (poliza_id, numero_poliza, ruta_archivo, nombre_original, origen, ramo, producto, usuario, compania)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            (
+                int(poliza_id),
+                numero_poliza or prow.get('poliza', ''),
+                ruta_relativa,
+                nombre_final,
+                tipo_documento,
+                prow.get('ramo', ''),
+                prow.get('ramos_producto', ''),
+                usuario,
+                prow.get('cia', '')
+            )
+        )
+        cnx.commit()
+        new_id = cur.lastrowid
+        cur.close()
+        cnx.close()
+
+        return jsonify({'ok': True, 'ruta': ruta_relativa, 'idArchivo': new_id, 'nombre': nombre_final}), 200
+
+    except Exception as e:
+        print(f"[upload_poliza_archivo] ERROR: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/polizas/archivos/<int:poliza_id>', methods=['GET'])
+def get_poliza_archivos(poliza_id):
+    """Lista los archivos guardados para una póliza."""
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute(
+            """SELECT idArchivo, ruta_archivo, nombre_original, origen, creado_en
+               FROM poliza_archivos
+               WHERE poliza_id = %s
+               ORDER BY creado_en DESC""",
+            (poliza_id,)
+        )
+        rows = cur.fetchall()
+        cur.close()
+        cnx.close()
+        for r in rows:
+            if r.get('creado_en'):
+                r['creado_en'] = r['creado_en'].strftime('%d/%m/%Y %H:%M')
+        return jsonify({'ok': True, 'archivos': rows})
+    except Exception as e:
+        return {'ok': False, 'error': str(e)}, 500
+
+
+@bp.route('/api/polizas/archivos/delete/<int:archivo_id>', methods=['DELETE'])
+def delete_poliza_archivo(archivo_id):
+    """Elimina un archivo de póliza del disco y de la tabla."""
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute("SELECT ruta_archivo FROM poliza_archivos WHERE idArchivo = %s", (archivo_id,))
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            cnx.close()
+            return {'ok': False, 'error': 'Archivo no encontrado'}, 404
+
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'static', 'uploads'))
+        abs_path = os.path.join(upload_folder, row['ruta_archivo'].lstrip('/\\'))
+        if os.path.exists(abs_path):
+            os.remove(abs_path)
+
+        cur.execute("DELETE FROM poliza_archivos WHERE idArchivo = %s", (archivo_id,))
+        cnx.commit()
+        cur.close()
+        cnx.close()
+        return {'ok': True}
+    except Exception as e:
+        return {'ok': False, 'error': str(e)}, 500
+
 @bp.route('/api/comisiones/lookup', methods=['GET'])
 def lookup_comision_route():
     if 'user' not in session:
