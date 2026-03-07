@@ -182,12 +182,61 @@
                 </div>
 
                 <div class="row mb-3 align-items-center">
-                    <label for="archivoGarantias" class="col-sm-3 col-form-label text-end fw-bold">Archivo de Garantías</label>
+                    <label class="col-sm-3 col-form-label text-end fw-bold">Archivos de Póliza</label>
                     <div class="col-sm-9">
-                         <div class="input-group">
-                            <button class="btn btn-light border" type="button">Seleccionar archivo</button>
-                            <input type="text" class="form-control bg-white" readonly value="Sin archivos seleccionados">
+                        <!-- Input file oculto -->
+                        <input type="file" id="archivoPolizaInput" class="d-none" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx">
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="btnAdjuntarArchivo">
+                            <i class="bi-paperclip me-1"></i> Adjuntar archivo
+                        </button>
+
+                        <!-- Panel inline que aparece al seleccionar archivo -->
+                        <div id="panelArchivoSeleccionado" class="border rounded p-3 mt-2 bg-light d-none">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi-file-earmark-text fs-5 text-primary"></i>
+                                <span id="nombreArchivoSeleccionado" class="fw-bold text-truncate flex-grow-1"></span>
+                                <button type="button" class="btn btn-sm btn-link text-danger p-0" id="btnCancelarArchivo" title="Cancelar">
+                                    <i class="bi-x-lg"></i>
+                                </button>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-sm-5">
+                                    <select class="form-select form-select-sm" id="inlineTipoDocumento">
+                                        <option value="">Tipo de documento...</option>
+                                        <option value="PROFORMA">Proforma</option>
+                                        <option value="ARCHIVO_EXTRA">Archivo extra</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-5">
+                                    <input type="text" class="form-control form-control-sm" id="inlineNombreDocumento" placeholder="Nombre del documento">
+                                </div>
+                                <div class="col-sm-2">
+                                    <button type="button" class="btn btn-sm btn-primary w-100" id="btnSubirArchivo">
+                                        <i class="bi-cloud-upload"></i> Subir
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="inlineArchivoProgress" class="mt-2 d-none">
+                                <div class="progress" style="height:6px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
+                                </div>
+                                <small class="text-muted">Subiendo...</small>
+                            </div>
                         </div>
+
+                        <!-- Tabla de archivos existentes -->
+                        <table class="table table-sm table-bordered mt-2 d-none" id="tablaArchivosPoliza">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Nombre del documento</th>
+                                    <th>Tipo</th>
+                                    <th>Fecha</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="archivosPolizaTbody"></tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -267,6 +316,7 @@
             Guardar
         </button>
     </div>
+
 
 </div>
 {% endblock %}
