@@ -1077,7 +1077,8 @@ BEGIN
         compania,
         poliza_padre_id,
         cupon,
-        cuota_id
+        cuota_id,
+        MAX(poliza_id) AS poliza_id
     FROM (
         SELECT
             p.poliza COLLATE utf8mb4_0900_ai_ci AS identificador,
@@ -1090,7 +1091,8 @@ BEGIN
             p.cia COLLATE utf8mb4_0900_ai_ci AS compania,
             NULL AS poliza_padre_id,
             NULL AS cupon,
-            NULL AS cuota_id
+            NULL AS cuota_id,
+            p.idPoliza AS poliza_id
         FROM poliza_archivos pa
         INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
         INNER JOIN clientes c ON p.cliente_id = c.idCliente
@@ -1114,7 +1116,8 @@ BEGIN
             p.cia COLLATE utf8mb4_0900_ai_ci AS compania,
             p.poliza COLLATE utf8mb4_0900_ai_ci AS poliza_padre_id,
             cu.cupon COLLATE utf8mb4_0900_ai_ci AS cupon,
-            ca.cuota_id AS cuota_id
+            ca.cuota_id AS cuota_id,
+            p.idPoliza AS poliza_id
         FROM cuota_archivos ca
         INNER JOIN cuotas cu ON ca.cuota_id = cu.idCuota
         INNER JOIN polizas p ON cu.poliza_id = p.idPoliza
