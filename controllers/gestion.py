@@ -50,14 +50,12 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC'):
         if orden_fechas and orden_fechas.upper() == 'DESC':
             query += " ORDER BY c.fecha_vencimiento DESC, c.idCuota DESC"
         else:
-            query += " ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC"
+            # Priorizar fechas no nulas y las más antiguas primero
+            # Para fechas iguales, mostrar los registros más recientes primero
+            query += " ORDER BY (c.fecha_vencimiento IS NULL), c.fecha_vencimiento ASC, c.idCuota DESC"
             
         # Límite
         query += " LIMIT 500"
-        
-        # Debug logging
-        # print(f"DEBUG QUERY: {query}")
-        # print(f"DEBUG PARAMS: {params}")
         
         cursor.execute(query, params)
         rows = cursor.fetchall()
@@ -75,7 +73,7 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC'):
             else:
                 row['moneda_simbolo'] = row['moneda']
 
-        cursor.close()
+        cursor.close()  
         conn.close()
         
         return rows
