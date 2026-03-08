@@ -3283,6 +3283,29 @@ def api_produccion_soat():
     })
 
 
+@bp.route('/api/produccion-soat/export', methods=['GET'])
+def api_produccion_soat_export():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+    
+    search      = request.args.get('search', '').strip()
+    fecha_desde = request.args.get('fecha_desde', None)
+    fecha_hasta = request.args.get('fecha_hasta', None)
+
+    try:
+        from controllers.maestros.produccion_soat import export_produccion_soat_excel
+        filepath, filename = export_produccion_soat_excel(
+            search=search,
+            fecha_desde=fecha_desde or None,
+            fecha_hasta=fecha_hasta or None
+        )
+        return send_file(filepath, as_attachment=True, download_name=filename)
+    except Exception as e:
+        current_app.logger.error(f"Error exportando produccion soat: {e}")
+        return jsonify({'ok': False, 'error': f"Error generando Excel: {str(e)}"}), 500
+
+
+
 
 @bp.route('/menu/maestros-usuarios', methods=['GET'])
 def menu_maestros_usuarios():
