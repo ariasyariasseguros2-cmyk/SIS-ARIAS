@@ -169,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Pre-rellena el nombre con el nombre del archivo (sin extensión)
             const sinExt = file.name.replace(/\.[^/.]+$/, '');
             document.getElementById('inlineNombreDocumento').value = sinExt;
-            document.getElementById('inlineTipoDocumento').value = '';
+            document.getElementById('inlineTipoDocumento').value = 'ARCHIVO_EXTRA';
             panel.classList.remove('d-none');
         });
     }
@@ -202,11 +202,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!file) return;
 
             const numeroPoliza = document.getElementById('poliza').value || '';
+            // Preservar la extensión original del archivo
+            const extMatch = file.name.match(/\.[^/.]+$/);
+            const ext = extMatch ? extMatch[0] : '';
+            const nombreConExt = nombre.endsWith(ext) ? nombre : nombre + ext;
+
             const formData = new FormData();
             formData.append('poliza_id', polizaId);
             formData.append('numero_poliza', numeroPoliza);
             formData.append('tipo_documento', tipo);
-            formData.append('nombre_documento', nombre);
+            formData.append('nombre_documento', nombreConExt);
             formData.append('archivo', file);
 
             progress.classList.remove('d-none');
