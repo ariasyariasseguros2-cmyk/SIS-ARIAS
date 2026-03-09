@@ -15,6 +15,7 @@
   window.currentUser = "{{ session.get('user', '') }}";
   window.currentPoliza = "{{ encabezado.poliza }}";
   window.currentPrimaId = "{{ resumen.prima_id or '' }}";
+  window.currentPolizaId = "{{ resumen.prima_id or '' }}";
   window.currentAviso = "{{ resumen.aviso_cob }}";
 </script>
 {% endblock %}

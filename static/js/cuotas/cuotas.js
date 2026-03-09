@@ -122,22 +122,21 @@ const Cuotas = (() => {
     const data = getCellsData(tr, idx);
     if (!data) return;
 
-    const idCuota = data.idCuota;
-    if (!idCuota) {
-      alert('No hay documento asociado a esta cuota.');
+    // Buscar archivos por poliza_id con origen=CUOTA en poliza_archivos
+    const polizaId = window.currentPolizaId || window.currentPrimaId || '';
+    if (!polizaId) {
+      alert('No hay documento asociado a esta póliza.');
       return;
     }
 
-    // Consultar archivos reales guardados para esta cuota
-    fetch(`/api/cuotas/archivos/${idCuota}`)
+    fetch(`/api/cuotas/archivos/${polizaId}`)
       .then(r => r.json())
       .then(res => {
         if (!res.ok || !res.archivos || res.archivos.length === 0) {
-          alert('No hay archivos PDF guardados para esta cuota.');
+          alert('No hay archivos PDF guardados para esta póliza.');
           return;
         }
 
-        // Usar el archivo más reciente (primero del array, ya viene ordenado DESC)
         const archivo = res.archivos[0];
         const url = `/uploads/${archivo.ruta_archivo}`;
         const displayName = archivo.nombre_original || archivo.ruta_archivo.split('/').pop();
@@ -221,10 +220,10 @@ const Cuotas = (() => {
     const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
     modal.show();
 
-    // Consultar archivos reales desde la DB
-    const idCuota = data.idCuota;
-    if (idCuota && docEl) {
-      fetch(`/api/cuotas/archivos/${idCuota}`)
+    // Consultar archivos reales desde la DB (por poliza_id con origen=CUOTA)
+    const polizaId = window.currentPolizaId || window.currentPrimaId || '';
+    if (polizaId && docEl) {
+      fetch(`/api/cuotas/archivos/${polizaId}`)
         .then(r => r.json())
         .then(res => {
           if (!res.ok || !res.archivos || res.archivos.length === 0) {
