@@ -1031,14 +1031,17 @@ CREATE PROCEDURE sp_reporte_archivos_detalle(
 )
 BEGIN
     IF p_tipo_origen = 'CUOTA' THEN
+        -- Los archivos de cuotas se almacenan en poliza_archivos con origen='CUOTA'
         SELECT
-            ca.idArchivo,
-            ca.ruta_archivo,
-            ca.nombre_original,
-            CAST(ca.cuota_id AS CHAR) AS identificador,
+            pa.idArchivo,
+            pa.ruta_archivo,
+            pa.nombre_original,
+            p.poliza AS identificador,
             'CUOTA' AS tipo_origen
-        FROM cuota_archivos ca
-        WHERE ca.cuota_id = CAST(p_identificador AS UNSIGNED);
+        FROM poliza_archivos pa
+        INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
+        WHERE pa.origen = 'CUOTA'
+          AND (p_identificador IS NULL OR p_identificador = '' OR p.poliza = p_identificador OR CAST(pa.poliza_id AS CHAR) = p_identificador);
     ELSE
         SELECT
             pa.idArchivo,
@@ -1063,8 +1066,12 @@ DELIMITER ;
 
 DELIMITER $$
 DROP PROCEDURE IF EXISTS sp_reporte_archivos_resumen$$
-CREATE PROCEDURE sp_reporte_archivos_resumen(IN p_busqueda VARCHAR(100))
+CREATE PROCEDURE sp_reporte_archivos_resumen(IN p_busqueda VARCHAR(100), IN p_limite INT)
 BEGIN
+    -- Si p_limite es NULL o 0 se usa 200 por defecto
+    IF p_limite IS NULL OR p_limite <= 0 THEN
+        SET p_limite = 200;
+    END IF;
     SELECT
         identificador,
         tipo_origen,
@@ -1077,9 +1084,10 @@ BEGIN
         compania,
         poliza_padre_id,
         cupon,
-        cuota_id,
+        NULL AS cuota_id,
         MAX(poliza_id) AS poliza_id
     FROM (
+        -- Archivos de pólizas (origen != 'CUOTA')
         SELECT
             p.poliza COLLATE utf8mb4_0900_ai_ci AS identificador,
             'POLIZA' AS tipo_origen,
@@ -1091,12 +1099,12 @@ BEGIN
             p.cia COLLATE utf8mb4_0900_ai_ci AS compania,
             NULL AS poliza_padre_id,
             NULL AS cupon,
-            NULL AS cuota_id,
             p.idPoliza AS poliza_id
         FROM poliza_archivos pa
         INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
         INNER JOIN clientes c ON p.cliente_id = c.idCliente
-        WHERE (p_busqueda IS NULL OR p_busqueda = ''
+        WHERE (pa.origen IS NULL OR pa.origen != 'CUOTA')
+          AND (p_busqueda IS NULL OR p_busqueda = ''
                OR p.poliza        LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%')
                OR c.razon_social  LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%')
                OR pa.nombre_original LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%')
@@ -1105,35 +1113,39 @@ BEGIN
 
         UNION ALL
 
+        -- Archivos de cuotas guardados en poliza_archivos con origen='CUOTA'
         SELECT
-            CAST(ca.cuota_id AS CHAR) COLLATE utf8mb4_0900_ai_ci AS identificador,
+            p.poliza COLLATE utf8mb4_0900_ai_ci AS identificador,
             'CUOTA' AS tipo_origen,
             c.razon_social COLLATE utf8mb4_0900_ai_ci AS contratante,
-            ca.creado_en AS fecha_subida,
+            pa.creado_en AS fecha_subida,
             p.ramo COLLATE utf8mb4_0900_ai_ci AS ramo,
             p.ramos_producto COLLATE utf8mb4_0900_ai_ci AS producto,
-            ca.usuario COLLATE utf8mb4_0900_ai_ci AS usuario,
+            pa.usuario COLLATE utf8mb4_0900_ai_ci AS usuario,
             p.cia COLLATE utf8mb4_0900_ai_ci AS compania,
             p.poliza COLLATE utf8mb4_0900_ai_ci AS poliza_padre_id,
-            cu.cupon COLLATE utf8mb4_0900_ai_ci AS cupon,
-            ca.cuota_id AS cuota_id,
+            -- Extraer cupon del nombre_original ("[CUOTA xxx] archivo.pdf")
+            CASE
+                WHEN pa.nombre_original LIKE '[CUOTA %] %'
+                THEN TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(pa.nombre_original, '] ', 1), '[CUOTA ', -1))
+                ELSE NULL
+            END COLLATE utf8mb4_0900_ai_ci AS cupon,
             p.idPoliza AS poliza_id
-        FROM cuota_archivos ca
-        INNER JOIN cuotas cu ON ca.cuota_id = cu.idCuota
-        INNER JOIN polizas p ON cu.poliza_id = p.idPoliza
+        FROM poliza_archivos pa
+        INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
         INNER JOIN clientes c ON p.cliente_id = c.idCliente
-        WHERE (p_busqueda IS NULL OR p_busqueda = ''
+        WHERE pa.origen = 'CUOTA'
+          AND (p_busqueda IS NULL OR p_busqueda = ''
                OR p.poliza           LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%')
                OR c.razon_social     LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%')
-               OR ca.nombre_original LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%')
-               OR cu.cupon           LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%'))
+               OR pa.nombre_original LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%'))
     ) AS combined
-    GROUP BY identificador, tipo_origen, contratante, ramo, producto, usuario, compania, poliza_padre_id, cupon, cuota_id
+    GROUP BY identificador, tipo_origen, contratante, ramo, producto, usuario, compania, poliza_padre_id, cupon
     ORDER BY
         COALESCE(poliza_padre_id, identificador) ASC,
         tipo_origen ASC,
         ultima_fecha DESC
-    LIMIT 200;
+    LIMIT p_limite;
 END$$
 DELIMITER ;
 
