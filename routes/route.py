@@ -2346,10 +2346,24 @@ def _parse_positiva(text: str) -> List[Dict[str, str]]:
 
     for blk in blocks:
         numero_proforma = _find(r"N[uú]mero de Proforma\s*:\s*([0-9A-Z\-]+)", blk)
-        poliza_nro = _find(r"P[oó]liza\s*Nro\s*:\s*([0-9A-Z\-]+)", blk) or _find(r"P[oó]liza\s*N°\s*:\s*([0-9A-Z\-]+)", blk) or _find(r"Poliza\s*:\s*([0-9A-Z\-]+)", blk)
+        # Soporta “Póliza Nº:” con número en la siguiente línea
+        poliza_nro = (
+            _find(r"P[oó]liza\s*N(?:ro|°|º)?\s*[:\n]\s*([0-9A-Z\-]+)", blk)
+            or _find(r"P[oó]liza\s*N[°º]\s*[:\n]\s*([0-9A-Z\-]+)", blk)
+            or _find(r"P[oó]liza\s*Nro\s*[:\n]\s*([0-9A-Z\-]+)", blk)
+            or _find(r"P[oó]liza\s*N°\s*[:\n]\s*([0-9A-Z\-]+)", blk)
+        )
         contrato_nro = _find(r"Contrato\s+Nro\s*:\s*([0-9A-Z\-]+)", blk)
-        vig_desde = _find(r"Vigencia Desde\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
-        vig_hasta = _find(r"Hasta\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk) or _find(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
+        # Vigencias: soporta “Vigencia-Inicio:” y “Término:” (guion normal/en dash/em dash, “:” o “：”, fecha en misma o siguiente línea)
+        vig_desde = (
+            _find(r"Vigencia Desde\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
+            or _find(r"Vigencia[-\s]?Inicio\s*[:\n]\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
+        )
+        vig_hasta = (
+            _find(r"Hasta\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
+            or _find(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
+            or _find(r"T[ée]rmino\s*[:\n]\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
+        )
         moneda = _find(r"Moneda\s*:\s*([A-Za-z]+)", blk)
         emision = _find(r"Emisi[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
         ramo = _find(r"Ramo\s*:\s*(.+)", blk)
@@ -2708,24 +2722,88 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
                 items = []
                 if item_salud: items.append(item_salud)
                 if item_pension: items.append(item_pension)
+                try:
+                    from controllers.addPositivaGenerales import extract_razon_social, extract_razon_social_strict, _clean_company_name
+                    name = extract_razon_social_strict(text) or extract_razon_social(text)
+                    name = _clean_company_name(name) or name
+                    if name:
+                        rx = re.compile(r"\b(bajo|alto|mediano|medio)\s+riesgo\b", re.IGNORECASE)
+                        long_text_re = re.compile(r"[a-záéíóúñ]{3,}\s+[a-záéíóúñ]{3,}")
+                        for it in items:
+                            cur = (it.get('colectivo_asegurado') or it.get('asegurado') or '').strip()
+                            if not cur or rx.search(cur) or long_text_re.search(cur) or 'incumplimiento' in cur.lower():
+                                it['colectivo_asegurado'] = name
+                except Exception:
+                    pass
                 return items
             if has_salud:
                 from controllers.addLPVSALUD import parse_positiva_Salud
                 item = parse_positiva_Salud(text)
+                try:
+                    from controllers.addPositivaGenerales import extract_razon_social, extract_razon_social_strict, _clean_company_name
+                    name = extract_razon_social_strict(text) or extract_razon_social(text)
+                    name = _clean_company_name(name) or name
+                    if name:
+                        rx = re.compile(r"\b(bajo|alto|mediano|medio)\s+riesgo\b", re.IGNORECASE)
+                        long_text_re = re.compile(r"[a-záéíóúñ]{3,}\s+[a-záéíóúñ]{3,}")
+                        cur = (item or {}).get('colectivo_asegurado') or ''
+                        if (not cur.strip()) or rx.search(cur) or long_text_re.search(cur) or 'incumplimiento' in cur.lower():
+                            item['colectivo_asegurado'] = name
+                except Exception:
+                    pass
                 print("[provider] positiva-sctr-salud item:", item)
                 return [item] if item else []
             elif has_pension:
                 from controllers.addLPVPENSION import parse_positiva_Pension
                 item = parse_positiva_Pension(text)
+                try:
+                    from controllers.addPositivaGenerales import extract_razon_social, extract_razon_social_strict, _clean_company_name
+                    name = extract_razon_social_strict(text) or extract_razon_social(text)
+                    name = _clean_company_name(name) or name
+                    if name:
+                        rx = re.compile(r"\b(bajo|alto|mediano|medio)\s+riesgo\b", re.IGNORECASE)
+                        long_text_re = re.compile(r"[a-záéíóúñ]{3,}\s+[a-záéíóúñ]{3,}")
+                        cur = (item or {}).get('colectivo_asegurado') or ''
+                        if (not cur.strip()) or rx.search(cur) or long_text_re.search(cur) or 'incumplimiento' in cur.lower():
+                            item['colectivo_asegurado'] = name
+                except Exception:
+                    pass
                 print("[provider] positiva-sctr-pension item:", item)
                 return [item] if item else []
             else:
                 # Ambiguo: por ahora cae en Pensión (comportamiento previo)
                 from controllers.addLPVPENSION import parse_positiva_Pension
                 item = parse_positiva_Pension(text)
+                try:
+                    from controllers.addPositivaGenerales import extract_razon_social, extract_razon_social_strict, _clean_company_name
+                    name = extract_razon_social_strict(text) or extract_razon_social(text)
+                    name = _clean_company_name(name) or name
+                    if name:
+                        rx = re.compile(r"\b(bajo|alto|mediano|medio)\s+riesgo\b", re.IGNORECASE)
+                        long_text_re = re.compile(r"[a-záéíóúñ]{3,}\s+[a-záéíóúñ]{3,}")
+                        cur = (item or {}).get('colectivo_asegurado') or ''
+                        if (not cur.strip()) or rx.search(cur) or long_text_re.search(cur) or 'incumplimiento' in cur.lower():
+                            item['colectivo_asegurado'] = name
+                except Exception:
+                    pass
                 print("[provider] positiva-sctr item:", item)
                 return [item] if item else []
-        return _parse_positiva(text)
+        items = _parse_positiva(text)
+        try:
+            from controllers.addPositivaGenerales import extract_razon_social, extract_razon_social_strict, _clean_company_name
+            name = extract_razon_social_strict(text) or extract_razon_social(text)
+            name = _clean_company_name(name) or name
+            if name:
+                risk_re = re.compile(r"\b(bajo|alto|mediano|medio)\s+riesgo\b", re.IGNORECASE)
+                long_text_re = re.compile(r"[a-záéíóúñ]{3,}\s+[a-záéíóúñ]{3,}")
+                for it in items:
+                    current = (it.get('colectivo_asegurado') or it.get('asegurado') or '').strip()
+                    if not current or risk_re.search(current) or long_text_re.search(current) or 'incumplimiento' in current.lower():
+                        it['colectivo_asegurado'] = name
+        except Exception:
+            pass
+        return items
+
     # Sanitas (EPS Salud / SCTR)
     if prov == "sanitas":
         from controllers.addSanitasSalud import parse_sanitas_salud
