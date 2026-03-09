@@ -35,6 +35,8 @@
                     if (nombreEl) nombreEl.value = '';
                     const fileInput = document.getElementById('editDocumentoFile');
                     if (fileInput) fileInput.value = '';
+                    // Limpiar referencia del archivo actual para que Ver no lo muestre
+                    this._archivoActual = null;
                 });
             }
             
@@ -72,18 +74,38 @@
                 return str;
             };
 
-            setValue('editSecuencia', data.numero_cuota || data.secuencia || ''); // Use sequence if available
+            setValue('editSecuencia', data.numero_cuota || data.secuencia || '');
             setValue('editCupon', data.cupon);
             setValue('editFechaVenc', toISO(data.fecha_vencimiento));
             setValue('editImporte', data.importe);
             setValue('editFechaPago', toISO(data.fecha_pago));
             setValue('editFactura', data.factura);
             setValue('editObservacion', data.observacion);
-            
-            // Document handling
-            setValue('editDocumentoNombre', data.documento || data.factura || ''); // Simplified logic
+
+            // Limpiar campo de archivo y file input
+            setValue('editDocumentoNombre', '');
             const fileInput = document.getElementById('editDocumentoFile');
             if (fileInput) fileInput.value = '';
+
+            // Cargar archivo existente desde la DB (busca por poliza_id con origen=CUOTA)
+            const polizaIdCtx = window.currentPolizaId || window.currentPrimaId || '';
+            if (polizaIdCtx) {
+                fetch(`/api/cuotas/archivos/${polizaIdCtx}`)
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res.ok && res.archivos && res.archivos.length > 0) {
+                            const archivo = res.archivos[0];
+                            const nombreEl = document.getElementById('editDocumentoNombre');
+                            if (nombreEl) nombreEl.value = archivo.nombre_original || archivo.ruta_archivo.split('/').pop();
+                            this._archivoActual = archivo;
+                        } else {
+                            this._archivoActual = null;
+                        }
+                    })
+                    .catch(() => { this._archivoActual = null; });
+            } else {
+                this._archivoActual = null;
+            }
 
             const modalEl = document.getElementById('cuotaEditModal');
             if (modalEl) {
@@ -109,7 +131,6 @@
                 fecha_pago: getVal('editFechaPago'),
                 factura: getVal('editFactura'),
                 observacion: getVal('editObservacion'),
-                // documento is handled via file upload usually, or just keeping the name
             };
 
             try {
@@ -130,21 +151,37 @@
                         const fd = new FormData();
                         fd.append('archivo', fileInput.files[0]);
                         fd.append('cuota_id', this.currentId);
-                        
-                        // Pass additional context fields
                         fd.append('cupon', payload.cupon);
                         if (this.currentPoliza) {
                             fd.append('numero_poliza', this.currentPoliza);
                         }
-                        // Try to find poliza_id from global scope if available
-                        if (window.currentPrimaId) {
-                            fd.append('poliza_id', window.currentPrimaId);
-                        } else if (window.currentPolizaId) {
-                            fd.append('poliza_id', window.currentPolizaId);
+                        // Pasar poliza_id con todas las fuentes disponibles
+                        const polizaId = window.currentPolizaId || window.currentPrimaId || '';
+                        if (polizaId) {
+                            fd.append('poliza_id', polizaId);
                         }
 
-                        // api/cuotas/upload-archivo expects cuota_id. 
-                        await fetch('/api/cuotas/upload-archivo', { method: 'POST', body: fd });
+                        try {
+                            const upResp = await fetch('/api/cuotas/upload-archivo', { method: 'POST', body: fd });
+                            const upRes = await upResp.json();
+                            if (upRes.ok) {
+                                // Actualizar referencia del archivo actual
+                                this._archivoActual = {
+                                    ruta_archivo: upRes.ruta,
+                                    nombre_original: fileInput.files[0].name,
+                                    idArchivo: upRes.idArchivo
+                                };
+                                // Actualizar nombre visible en el input
+                                const nombreEl = document.getElementById('editDocumentoNombre');
+                                if (nombreEl) nombreEl.value = fileInput.files[0].name;
+                            } else {
+                                console.warn('[editCuota] Error al subir archivo:', upRes.error);
+                                alert('Cuota guardada, pero error al subir el archivo: ' + (upRes.error || ''));
+                            }
+                        } catch (upErr) {
+                            console.error('[editCuota] Error de red al subir archivo:', upErr);
+                            alert('Cuota guardada, pero error de red al subir el archivo.');
+                        }
                     }
 
                     // Dispatch event
@@ -169,40 +206,54 @@
         },
         
         viewDocument: function(idCuota) {
-             fetch(`/api/cuotas/archivos/${idCuota}`)
+            // Si ya tenemos el archivo cargado, usarlo directamente
+            if (this._archivoActual) {
+                this._openPdfViewer(this._archivoActual);
+                return;
+            }
+            // Buscar por poliza_id con origen=CUOTA en poliza_archivos
+            const polizaIdCtx = window.currentPolizaId || window.currentPrimaId || '';
+            if (!polizaIdCtx) {
+                alert('No hay documento para visualizar.');
+                return;
+            }
+            fetch(`/api/cuotas/archivos/${polizaIdCtx}`)
               .then(r => r.json())
               .then(res => {
                 if (!res.ok || !res.archivos || res.archivos.length === 0) {
-                  alert('No hay archivos PDF guardados para esta cuota.');
+                  alert('No hay archivos guardados para esta póliza.');
                   return;
                 }
-                // Use most recent
                 const archivo = res.archivos[0];
-                const url = `/uploads/${archivo.ruta_archivo}`;
-                const displayName = archivo.nombre_original || archivo.ruta_archivo.split('/').pop();
-                
-                const modalEl = document.getElementById('cuotaPdfModal');
-                if (!modalEl) {
-                    // Fallback if modal is missing
-                    window.open(url, '_blank');
-                    return;
-                }
-
-                const frame       = document.getElementById('pdfViewerFrame');
-                const downloadBtn = document.getElementById('btnDownloadPdf');
-                const titleEl     = document.getElementById('pdfFileName');
-
-                if (frame) frame.src = url;
-                if (downloadBtn) { downloadBtn.href = url; downloadBtn.download = displayName; }
-                if (titleEl) titleEl.textContent = displayName;
-
-                const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
-                modal.show();
+                this._archivoActual = archivo;
+                this._openPdfViewer(archivo);
               })
               .catch(err => {
                 console.error('Error cargando archivos:', err);
                 alert('Error al intentar localizar el documento.');
               });
+        },
+
+        _openPdfViewer: function(archivo) {
+            const url = `/uploads/${archivo.ruta_archivo}`;
+            const displayName = archivo.nombre_original || archivo.ruta_archivo.split('/').pop();
+
+            const modalEl = document.getElementById('cuotaPdfModal');
+            if (!modalEl) {
+                window.open(url, '_blank');
+                return;
+            }
+
+            const frame       = document.getElementById('pdfViewerFrame');
+            const downloadBtn = document.getElementById('btnDownloadPdf');
+            const titleEl     = document.getElementById('pdfFileName');
+
+            if (frame) frame.src = url;
+            if (downloadBtn) { downloadBtn.href = url; downloadBtn.download = displayName; }
+            if (titleEl) titleEl.textContent = displayName;
+
+            const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
         }
     };
 

@@ -377,8 +377,11 @@
             const countBadge = document.getElementById('cuotaArchivosCount');
             if (!section || !list) return;
 
+            // Usar poliza_id para buscar en poliza_archivos con origen=CUOTA
+            const polizaId = window.currentPolizaId || window.currentPrimaId || cuotaId;
+
             try {
-                const resp = await fetch(`/api/cuotas/archivos/${cuotaId}`);
+                const resp = await fetch(`/api/cuotas/archivos/${polizaId}`);
                 const res = await resp.json();
                 if (res.ok && res.archivos && res.archivos.length > 0) {
                     section.classList.remove('d-none');
@@ -412,7 +415,7 @@
                             const dr = await fetch(`/api/cuotas/archivos/delete/${aid}`, { method: 'DELETE' });
                             const dres = await dr.json();
                             if (dres.ok) {
-                                window.loadCuotaArchivos(cuotaId);
+                                window.loadCuotaArchivos(polizaId);
                             } else {
                                 alert('Error al eliminar: ' + (dres.error || ''));
                             }
