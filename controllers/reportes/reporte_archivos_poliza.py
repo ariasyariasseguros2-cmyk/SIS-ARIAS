@@ -8,25 +8,33 @@ import traceback
 
 bp = Blueprint('reporte_archivos_poliza', __name__)
 
-def get_reporte_archivos(search=''):
+INITIAL_LIMIT = 20   # filas en la carga inicial (sin búsqueda)
+SEARCH_LIMIT  = 500  # filas cuando el usuario busca un contratante específico
+
+def get_reporte_archivos(search='', limit=INITIAL_LIMIT):
     try:
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.callproc('sp_reporte_archivos_resumen', [search])
+        # Pedimos limit+1 para saber si hay más registros sin hacer un COUNT(*)
+        cursor.callproc('sp_reporte_archivos_resumen', [search, limit + 1])
         results = []
         for result in cursor.stored_results():
             results = result.fetchall()
         cursor.close()
         conn.close()
-        # serializar datetimes
+
+        has_more = len(results) > limit
+        if has_more:
+            results = results[:limit]
+
         for r in results:
             if r.get('ultima_fecha') and hasattr(r['ultima_fecha'], 'strftime'):
                 r['ultima_fecha'] = r['ultima_fecha'].strftime('%Y-%m-%dT%H:%M:%S')
-        return results
+        return results, has_more
     except Exception as e:
         print(f"Error fetching reporte archivos: {e}")
         traceback.print_exc()
-        return []
+        return [], False
 
 def get_archivos_detalle(search='', identificador='', tipo_origen=''):
     try:
@@ -54,9 +62,11 @@ def api_search():
         return {'ok': False, 'error': 'No autenticado'}, 401
     if session.get('role_name') == Roles.SUB_AGENTE:
         return {'ok': False, 'error': 'No autorizado'}, 403
-    search = request.args.get('search', '')
-    data = get_reporte_archivos(search)
-    return jsonify(data)
+    search = request.args.get('search', '').strip()
+    # Sin búsqueda → carga inicial limitada; con búsqueda → límite amplio
+    limit = SEARCH_LIMIT if search else INITIAL_LIMIT
+    data, has_more = get_reporte_archivos(search, limit)
+    return jsonify({'data': data, 'has_more': has_more, 'limit': limit})
 
 @bp.route('/api/reportes/download-zip', methods=['GET'])
 def download_zip():
@@ -87,9 +97,6 @@ def download_zip():
                     continue
 
                 # Candidatos de ruta en orden de prioridad:
-                # 1. Relativo a UPLOAD_FOLDER  (ej: cuotas/archivo.pdf  o  polizas/archivo.pdf)
-                # 2. Relativo a root_path       (legacy: static/uploads/polizas/archivo.pdf)
-                # 3. Relativo a root_path/static (doble prefijo legacy)
                 candidates = [
                     os.path.join(upload_folder, file_path.lstrip('/\\')),
                     os.path.join(current_app.root_path, file_path.lstrip('/\\')),
@@ -243,8 +250,8 @@ def download_zip_contratante():
                 return jsonify({'error': 'No se encontró un contratante con la búsqueda dada'}), 404
             cliente_id = cliente['idCliente']
 
-        # Recolectar archivos: de poliza_archivos y cuota_archivos relacionados a pólizas del cliente
-        # Para evitar problemas de collation en UNION, forzamos same CHARACTER SET
+        # Recolectar todos los archivos (pólizas + cuotas) de poliza_archivos relacionados al cliente
+        # Los archivos de cuotas se almacenan en poliza_archivos con origen='CUOTA'
         sql = '''
               SELECT pa.idArchivo,
                      CAST(pa.ruta_archivo AS CHAR CHARACTER SET utf8mb4) AS ruta_archivo,
@@ -252,16 +259,8 @@ def download_zip_contratante():
               FROM poliza_archivos pa
                        INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
               WHERE p.cliente_id = %s
-              UNION ALL
-              SELECT ca.idArchivo,
-                     CAST(ca.ruta_archivo AS CHAR CHARACTER SET utf8mb4) AS ruta_archivo,
-                     CAST(ca.nombre_original AS CHAR CHARACTER SET utf8mb4) AS nombre_original
-              FROM cuota_archivos ca
-                       INNER JOIN cuotas cu ON ca.cuota_id = cu.idCuota
-                       INNER JOIN polizas p2 ON cu.poliza_id = p2.idPoliza
-              WHERE p2.cliente_id = %s \
               '''
-        cursor.execute(sql, (cliente_id, cliente_id))
+        cursor.execute(sql, (cliente_id,))
         rows = cursor.fetchall()
         cursor.close()
         conn.close()
