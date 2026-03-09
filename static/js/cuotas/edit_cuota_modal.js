@@ -179,8 +179,25 @@
                 // Use most recent
                 const archivo = res.archivos[0];
                 const url = `/uploads/${archivo.ruta_archivo}`;
-                // Simplified view: open in new tab
-                window.open(url, '_blank');
+                const displayName = archivo.nombre_original || archivo.ruta_archivo.split('/').pop();
+                
+                const modalEl = document.getElementById('cuotaPdfModal');
+                if (!modalEl) {
+                    // Fallback if modal is missing
+                    window.open(url, '_blank');
+                    return;
+                }
+
+                const frame       = document.getElementById('pdfViewerFrame');
+                const downloadBtn = document.getElementById('btnDownloadPdf');
+                const titleEl     = document.getElementById('pdfFileName');
+
+                if (frame) frame.src = url;
+                if (downloadBtn) { downloadBtn.href = url; downloadBtn.download = displayName; }
+                if (titleEl) titleEl.textContent = displayName;
+
+                const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
               })
               .catch(err => {
                 console.error('Error cargando archivos:', err);

@@ -424,6 +424,8 @@ const Cuotas = (() => {
 
     // Removed duplicate btnGuardarCuota listener as it is handled by CuotaEditModal
 
+    // Logic for edit modal listeners is now handled in edit_cuota_modal.js
+    /*
     const btnVer = document.getElementById('btnEditDocumentoVer');
     if (btnVer) {
       btnVer.addEventListener('click', () => {
@@ -487,6 +489,7 @@ const Cuotas = (() => {
         }
       });
     }
+    */
 
     const btnConfirmOk = document.getElementById('btnCuotaConfirmOk');
     if (btnConfirmOk) {
