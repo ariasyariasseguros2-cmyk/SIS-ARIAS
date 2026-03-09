@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
             selectedClienteIdInput.value = '';
             lastSelectedName = '';
             hideSuggestions();
+            hideBanner();
             fetchFiles('');
             return;
         }
@@ -163,13 +164,32 @@ document.addEventListener('DOMContentLoaded', function() {
     async function fetchFiles(query = '') {
         try {
             tableBody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">Cargando...</td></tr>`;
+            hideBanner();
             const response = await fetch(`/api/reportes/archivos-poliza?search=${encodeURIComponent(query)}`);
-            const data = await response.json();
+            const json = await response.json();
+            // El API devuelve { data: [...], has_more: bool }
+            const data     = json.data     ?? json;   // fallback por si acaso
+            const has_more = json.has_more ?? false;
             renderTable(data);
+            if (has_more && !query) {
+                showBanner();
+            }
         } catch (error) {
             console.error('Error loading files:', error);
             tableBody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Error cargando datos</td></tr>`;
         }
+    }
+
+    // ── Banner "hay más registros" ────────────────────────────────────────────
+    function showBanner() {
+        let banner = document.getElementById('more-records-banner');
+        if (!banner) return;
+        banner.classList.remove('d-none');
+    }
+    function hideBanner() {
+        let banner = document.getElementById('more-records-banner');
+        if (!banner) return;
+        banner.classList.add('d-none');
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
