@@ -139,14 +139,14 @@ def delete_cuota_route():
 
 @bp.route('/api/cuotas/upload-archivo', methods=['POST'])
 def upload_cuota_archivo():
-    """Guarda un PDF asociado a una cuota en static/uploads/cuotas/ y registra en cuota_archivos."""
+    """Guarda un PDF de cuota en static/uploads/cuotas/ y registra en poliza_archivos con origen=CUOTA."""
     if 'user' not in session:
         return jsonify({'ok': False, 'error': 'No autenticado'}), 401
 
-    cuota_id   = request.form.get('cuota_id')
-    poliza_id  = request.form.get('poliza_id')
+    cuota_id      = request.form.get('cuota_id')
+    poliza_id     = request.form.get('poliza_id')
     numero_poliza = request.form.get('numero_poliza', '')
-    cupon      = request.form.get('cupon', '')
+    cupon         = request.form.get('cupon', '')
 
     print(f"[upload_cuota_archivo] cuota_id={cuota_id} poliza_id={poliza_id} cupon={cupon}")
 
@@ -165,7 +165,6 @@ def upload_cuota_archivo():
         original_filename = file.filename
         safe_name = secure_filename(original_filename)
         ts = int(time.time())
-        # Nombre en disco: timestamp_cuotaID_nombreOriginal  (evita colisiones)
         disk_filename = f"{ts}_cuota{cuota_id}_{safe_name}"
 
         upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'cuotas')
@@ -175,25 +174,38 @@ def upload_cuota_archivo():
         file.save(save_path)
         print(f"[upload_cuota_archivo] guardado en {save_path}, existe={os.path.exists(save_path)}")
 
-        # Ruta relativa a UPLOAD_FOLDER (igual que polizas usa 'polizas/archivo.pdf')
         ruta_relativa = f"cuotas/{disk_filename}"
         usuario = session.get('user', '')
-
         pid = int(poliza_id) if poliza_id and str(poliza_id).strip() not in ('', 'None') else None
 
+        # Obtener datos de la póliza para completar ramo, producto, compania
+        p_ramo = p_producto = p_cia = ''
+        p_poliza = numero_poliza
         cnx = get_connection()
         cur = cnx.cursor()
+        if pid is not None:
+            cur.execute("SELECT ramo, ramos_producto, cia, poliza FROM polizas WHERE idPoliza = %s", (pid,))
+            prow = cur.fetchone()
+            if prow:
+                p_ramo     = prow[0] or ''
+                p_producto = prow[1] or ''
+                p_cia      = prow[2] or ''
+                p_poliza   = prow[3] or numero_poliza
+
+        nombre_doc = f"[CUOTA {cupon}] {original_filename}" if cupon else original_filename
+
+        # Insertar en poliza_archivos con origen=CUOTA (sin modificar la tabla)
         cur.execute(
-            """INSERT INTO cuota_archivos
-               (cuota_id, poliza_id, numero_poliza, cupon, ruta_archivo, nombre_original, usuario)
-               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-            (int(cuota_id), pid, numero_poliza, cupon, ruta_relativa, original_filename, usuario)
+            """INSERT INTO poliza_archivos
+               (poliza_id, numero_poliza, ruta_archivo, nombre_original, origen, ramo, producto, usuario, compania)
+               VALUES (%s, %s, %s, %s, 'CUOTA', %s, %s, %s, %s)""",
+            (pid, p_poliza, ruta_relativa, nombre_doc, p_ramo, p_producto, usuario, p_cia)
         )
-        cnx.commit()
         new_archivo_id = cur.lastrowid
+        cnx.commit()
         cur.close()
         cnx.close()
-        print(f"[upload_cuota_archivo] registro creado idArchivo={new_archivo_id} ruta={ruta_relativa}")
+        print(f"[upload_cuota_archivo] registro en poliza_archivos idArchivo={new_archivo_id} ruta={ruta_relativa}")
 
         return jsonify({'ok': True, 'ruta': ruta_relativa, 'idArchivo': new_archivo_id}), 200
 
@@ -204,23 +216,23 @@ def upload_cuota_archivo():
 
 @bp.route('/api/cuotas/archivos/<int:cuota_id>', methods=['GET'])
 def get_cuota_archivos(cuota_id):
-    """Lista los archivos PDF guardados para una cuota."""
+    """Lista los archivos de una cuota buscando en poliza_archivos por poliza_id y origen=CUOTA."""
     if 'user' not in session:
         return {'ok': False, 'error': 'No autenticado'}, 401
+    # cuota_id aquí es en realidad el poliza_id (prima_id) pasado desde el frontend
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
         cur.execute(
-            """SELECT idArchivo, ruta_archivo, nombre_original, cupon, creado_en
-               FROM cuota_archivos
-               WHERE cuota_id = %s
+            """SELECT idArchivo, ruta_archivo, nombre_original, origen, creado_en
+               FROM poliza_archivos
+               WHERE poliza_id = %s AND origen = 'CUOTA'
                ORDER BY creado_en DESC""",
             (cuota_id,)
         )
         rows = cur.fetchall()
         cur.close()
         cnx.close()
-        # serialize datetimes
         for r in rows:
             if r.get('creado_en'):
                 r['creado_en'] = r['creado_en'].strftime('%d/%m/%Y %H:%M')
@@ -231,26 +243,25 @@ def get_cuota_archivos(cuota_id):
 
 @bp.route('/api/cuotas/archivos/delete/<int:archivo_id>', methods=['DELETE'])
 def delete_cuota_archivo(archivo_id):
-    """Elimina un archivo de cuota del disco y de la tabla."""
+    """Elimina un archivo de cuota del disco y de poliza_archivos."""
     if 'user' not in session:
         return {'ok': False, 'error': 'No autenticado'}, 401
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
-        cur.execute("SELECT ruta_archivo FROM cuota_archivos WHERE idArchivo = %s", (archivo_id,))
+        cur.execute("SELECT ruta_archivo FROM poliza_archivos WHERE idArchivo = %s AND origen = 'CUOTA'", (archivo_id,))
         row = cur.fetchone()
         if not row:
             cur.close()
             cnx.close()
             return {'ok': False, 'error': 'Archivo no encontrado'}, 404
 
-        # Eliminar del disco — ruta en DB es relativa a UPLOAD_FOLDER (ej: cuotas/archivo.pdf)
         upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'static', 'uploads'))
         abs_path = os.path.join(upload_folder, row['ruta_archivo'].lstrip('/\\'))
         if os.path.exists(abs_path):
             os.remove(abs_path)
 
-        cur.execute("DELETE FROM cuota_archivos WHERE idArchivo = %s", (archivo_id,))
+        cur.execute("DELETE FROM poliza_archivos WHERE idArchivo = %s", (archivo_id,))
         cnx.commit()
         cur.close()
         cnx.close()
@@ -964,7 +975,8 @@ def menu_page(page):
         # NUEVO: Avisos - Documentos
     if page == 'avisos':
         from controllers.editar_poliza import get_poliza_data
-        
+        from models.db import get_connection
+
         prima_id = request.args.get('id')
         if not prima_id:
              return redirect(url_for('main.menu_page', page='primas'))
@@ -973,14 +985,28 @@ def menu_page(page):
         if not prima:
              return redirect(url_for('main.menu_page', page='primas'))
 
-        # Prepare documents list
+        # Listar todos los archivos desde poliza_archivos
         documents = []
-        pdf_url = prima.get('pdf_url')
-        if pdf_url:
-             documents.append({
-                 'name': pdf_url, 
-                 'url': url_for('main.serve_upload', filename=pdf_url)
-             })
+        try:
+            cnx = get_connection()
+            cur = cnx.cursor(dictionary=True)
+            cur.execute(
+                """SELECT idArchivo, ruta_archivo, nombre_original
+                   FROM poliza_archivos
+                   WHERE poliza_id = %s
+                   ORDER BY creado_en DESC""",
+                (prima_id,)
+            )
+            archivos = cur.fetchall()
+            cur.close()
+            cnx.close()
+            for a in archivos:
+                documents.append({
+                    'name': a['nombre_original'] or a['ruta_archivo'],
+                    'url': url_for('main.serve_upload', filename=a['ruta_archivo'])
+                })
+        except Exception:
+            pass
 
         return render_template(
             'view/avisos/avisos.html',
@@ -992,7 +1018,8 @@ def menu_page(page):
     # NUEVO: Detalles Avisos
     if page == 'detalles-avisos':
         from controllers.editar_poliza import get_poliza_data
-        
+        from models.db import get_connection
+
         prima_id = request.args.get('id')
         if not prima_id:
              return redirect(url_for('main.menu_page', page='avisos'))
@@ -1001,14 +1028,28 @@ def menu_page(page):
         if not prima:
              return redirect(url_for('main.menu_page', page='avisos'))
 
-        # Prepare documents list
+        # Listar todos los archivos desde poliza_archivos
         documents = []
-        pdf_url = prima.get('pdf_url')
-        if pdf_url:
-             documents.append({
-                 'name': pdf_url, 
-                 'url': pdf_url
-             })
+        try:
+            cnx = get_connection()
+            cur = cnx.cursor(dictionary=True)
+            cur.execute(
+                """SELECT idArchivo, ruta_archivo, nombre_original
+                   FROM poliza_archivos
+                   WHERE poliza_id = %s
+                   ORDER BY creado_en DESC""",
+                (prima_id,)
+            )
+            archivos = cur.fetchall()
+            cur.close()
+            cnx.close()
+            for a in archivos:
+                documents.append({
+                    'name': a['nombre_original'] or a['ruta_archivo'],
+                    'url': url_for('main.serve_upload', filename=a['ruta_archivo'])
+                })
+        except Exception:
+            pass
 
         return render_template(
             'view/avisos/detalles-avisos.html',
@@ -1020,7 +1061,8 @@ def menu_page(page):
     # NUEVO: Editar Avisos Form
     if page == 'avisos-editar-form':
         from controllers.editar_poliza import get_poliza_data
-        
+        from models.db import get_connection
+
         prima_id = request.args.get('id')
         if not prima_id:
              return redirect(url_for('main.menu_page', page='avisos'))
@@ -1029,14 +1071,28 @@ def menu_page(page):
         if not prima:
              return redirect(url_for('main.menu_page', page='avisos'))
 
-        # Prepare documents list
+        # Listar todos los archivos desde poliza_archivos
         documents = []
-        pdf_url = prima.get('pdf_url')
-        if pdf_url:
-             documents.append({
-                 'name': pdf_url, 
-                 'url': pdf_url
-             })
+        try:
+            cnx = get_connection()
+            cur = cnx.cursor(dictionary=True)
+            cur.execute(
+                """SELECT idArchivo, ruta_archivo, nombre_original
+                   FROM poliza_archivos
+                   WHERE poliza_id = %s
+                   ORDER BY creado_en DESC""",
+                (prima_id,)
+            )
+            archivos = cur.fetchall()
+            cur.close()
+            cnx.close()
+            for a in archivos:
+                documents.append({
+                    'name': a['nombre_original'] or a['ruta_archivo'],
+                    'url': url_for('main.serve_upload', filename=a['ruta_archivo'])
+                })
+        except Exception:
+            pass
 
         return render_template(
             'view/avisos/editar-avisos.html',
