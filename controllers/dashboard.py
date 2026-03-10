@@ -28,28 +28,39 @@ def get_dashboard_cards() -> Dict[str, Any]:
         'comision_dolares': '0.00'
     }
     
-    # RLS: Filter for Sub Agente
-    user_filter = ""
-    user_filter_args = []
-    if session.get('role_name') == Roles.SUB_AGENTE:
-        user_filter = " AND subagente = %s "
-        user_filter_args = [session.get('user')]
-
-    # RLS for clients (filtered by subagente field in clients table, assuming polizas filter covers policies)
-    # But for 'total_clients' we query 'clientes' table.
-    client_filter = ""
-    client_filter_args = []
-    if session.get('role_name') == Roles.SUB_AGENTE:
-        client_filter = " WHERE subagente = %s "
-        client_filter_args = [session.get('user')]
-    
     try:
         cnx = get_connection()
         cur = cnx.cursor()
+
+        user_filter = ""
+        user_filter_args = []
+
+        client_where = "WHERE activo = 1"
+        client_where_args = []
+
+        if session.get('role_name') == Roles.SUB_AGENTE:
+            user = session.get('user')
+            nombre_usuario = user
+            try:
+                cur.execute(
+                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1",
+                    (user,),
+                )
+                u_row = cur.fetchone()
+                if u_row and u_row[0]:
+                    nombre_usuario = u_row[0]
+            except Exception:
+                nombre_usuario = user
+
+            user_filter = " AND (sub_agente = %s OR sub_agente = %s) "
+            user_filter_args = [user, nombre_usuario]
+
+            client_where += " AND (subagente = %s OR subagente = %s) "
+            client_where_args = [user, nombre_usuario]
         
         # 1. Total Clientes
         try:
-            cur.execute(f"SELECT COUNT(*) FROM clientes {client_filter}", client_filter_args)
+            cur.execute(f"SELECT COUNT(*) FROM clientes {client_where}", client_where_args)
             res = cur.fetchone()
             if res: cards['total_clients'] = res[0]
         except Exception: pass
@@ -57,7 +68,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
         # 2. Pólizas Activas (vigencia_hasta >= hoy)
         try:
             # Note: user_filter starts with AND, so we need WHERE clause first
-            sql = f"SELECT COUNT(*) FROM polizas WHERE vig_hasta >= CURDATE() {user_filter}"
+            sql = f"SELECT COUNT(*) FROM polizas WHERE activo = 1 AND anulado = 0 AND vig_hasta >= CURDATE() {user_filter}"
             cur.execute(sql, user_filter_args)
             res = cur.fetchone()
             if res: cards['active_policies'] = res[0]
@@ -67,7 +78,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
         # vigencia_hasta BETWEEN FirstDayNextMonth AND LastDayNextMonth
         try:
             # Simplificado: entre hoy y hoy+30 días
-            sql = f"SELECT COUNT(*) FROM polizas WHERE vig_hasta BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) {user_filter}"
+            sql = f"SELECT COUNT(*) FROM polizas WHERE activo = 1 AND anulado = 0 AND vig_hasta BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) {user_filter}"
             cur.execute(sql, user_filter_args)
             res = cur.fetchone()
             if res: cards['pending_renewals'] = res[0]
@@ -79,8 +90,10 @@ def get_dashboard_cards() -> Dict[str, Any]:
         try:
             # Mes Actual
             sql = f"""
-                SELECT SUM(prima_total) FROM polizas 
-                WHERE MONTH(fecha_emision) = MONTH(CURDATE()) 
+                SELECT SUM(COALESCE(prima_total, prima_comercial_igv, prima_neta, 0)) FROM polizas 
+                WHERE activo = 1 AND anulado = 0
+                  AND fecha_emision IS NOT NULL
+                  AND MONTH(fecha_emision) = MONTH(CURDATE()) 
                   AND YEAR(fecha_emision) = YEAR(CURDATE())
                   {user_filter}
             """
@@ -90,8 +103,10 @@ def get_dashboard_cards() -> Dict[str, Any]:
             
             # Mes Anterior
             sql = f"""
-                SELECT SUM(prima_total) FROM polizas 
-                WHERE MONTH(fecha_emision) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) 
+                SELECT SUM(COALESCE(prima_total, prima_comercial_igv, prima_neta, 0)) FROM polizas 
+                WHERE activo = 1 AND anulado = 0
+                  AND fecha_emision IS NOT NULL
+                  AND MONTH(fecha_emision) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) 
                   AND YEAR(fecha_emision) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
                   {user_filter}
             """
@@ -111,16 +126,16 @@ def get_dashboard_cards() -> Dict[str, Any]:
             print(f"[Dashboard] Error calculating production: {e}")
             pass
 
-        # 5. Primas Netas y Comisiones (Soles y Dólares) - Mes Actual
+        # 5. Primas Netas y Comisiones (Soles y Dólares) - Pólizas Vigentes
         # Se asume moneda: 'PEN'/'Soles' y 'USD'/'Dólares'
         # Se asume campos: prima_neta, imp_subagente (comision)
         try:
             # Prima Neta Soles
             sql = f"""
-                SELECT SUM(prima_neta) FROM polizas 
-                WHERE (moneda LIKE 'S%%' OR moneda = 'PEN')
-                  AND MONTH(fecha_emision) = MONTH(CURDATE()) 
-                  AND YEAR(fecha_emision) = YEAR(CURDATE())
+                SELECT SUM(COALESCE(prima_neta, 0)) FROM polizas 
+                WHERE activo = 1 AND anulado = 0
+                  AND vig_hasta >= CURDATE()
+                  AND (moneda LIKE 'S%%' OR moneda = 'PEN')
                   {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -130,10 +145,10 @@ def get_dashboard_cards() -> Dict[str, Any]:
 
             # Prima Neta Dólares
             sql = f"""
-                SELECT SUM(prima_neta) FROM polizas 
-                WHERE (moneda LIKE 'D%%' OR moneda LIKE 'U%%' OR moneda = 'USD')
-                  AND MONTH(fecha_emision) = MONTH(CURDATE()) 
-                  AND YEAR(fecha_emision) = YEAR(CURDATE())
+                SELECT SUM(COALESCE(prima_neta, 0)) FROM polizas 
+                WHERE activo = 1 AND anulado = 0
+                  AND vig_hasta >= CURDATE()
+                  AND (moneda LIKE 'D%%' OR moneda LIKE 'U%%' OR moneda = 'USD')
                   {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -143,10 +158,10 @@ def get_dashboard_cards() -> Dict[str, Any]:
 
             # Comisión Soles (imp_subagente)
             sql = f"""
-                SELECT SUM(imp_subagente) FROM polizas 
-                WHERE (moneda LIKE 'S%%' OR moneda = 'PEN')
-                  AND MONTH(fecha_emision) = MONTH(CURDATE()) 
-                  AND YEAR(fecha_emision) = YEAR(CURDATE())
+                SELECT SUM(COALESCE(imp_subagente, 0)) FROM polizas 
+                WHERE activo = 1 AND anulado = 0
+                  AND vig_hasta >= CURDATE()
+                  AND (moneda LIKE 'S%%' OR moneda = 'PEN')
                   {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -156,10 +171,10 @@ def get_dashboard_cards() -> Dict[str, Any]:
 
             # Comisión Dólares (imp_subagente)
             sql = f"""
-                SELECT SUM(imp_subagente) FROM polizas 
-                WHERE (moneda LIKE 'D%%' OR moneda LIKE 'U%%' OR moneda = 'USD')
-                  AND MONTH(fecha_emision) = MONTH(CURDATE()) 
-                  AND YEAR(fecha_emision) = YEAR(CURDATE())
+                SELECT SUM(COALESCE(imp_subagente, 0)) FROM polizas 
+                WHERE activo = 1 AND anulado = 0
+                  AND vig_hasta >= CURDATE()
+                  AND (moneda LIKE 'D%%' OR moneda LIKE 'U%%' OR moneda = 'USD')
                   {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -182,16 +197,29 @@ def get_dashboard_data() -> Dict[str, Any]:
     months_labels = []
     totals_data = []
     
-    # RLS: Filter for Sub Agente
-    user_filter = ""
-    user_filter_args = []
-    if session.get('role_name') == Roles.SUB_AGENTE:
-        user_filter = " AND subagente = %s "
-        user_filter_args = [session.get('user')]
-
     try:
         cnx = get_connection()
         cur = cnx.cursor()
+
+        user_filter = ""
+        user_filter_args = []
+
+        if session.get('role_name') == Roles.SUB_AGENTE:
+            user = session.get('user')
+            nombre_usuario = user
+            try:
+                cur.execute(
+                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1",
+                    (user,),
+                )
+                u_row = cur.fetchone()
+                if u_row and u_row[0]:
+                    nombre_usuario = u_row[0]
+            except Exception:
+                nombre_usuario = user
+
+            user_filter = " AND (sub_agente = %s OR sub_agente = %s) "
+            user_filter_args = [user, nombre_usuario]
         
         # Obtener producción de los últimos 12 meses
         # Query puede variar según versión de MySQL, usaremos un loop simple en python para llenar huecos
@@ -199,9 +227,11 @@ def get_dashboard_data() -> Dict[str, Any]:
         sql = f"""
             SELECT 
                 DATE_FORMAT(fecha_emision, '%%Y-%%m') as m, 
-                SUM(prima_total) as total
+                SUM(COALESCE(prima_total, prima_comercial_igv, prima_neta, 0)) as total
             FROM polizas
-            WHERE fecha_emision >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)
+            WHERE activo = 1 AND anulado = 0
+              AND fecha_emision IS NOT NULL
+              AND fecha_emision >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)
             {user_filter}
             GROUP BY DATE_FORMAT(fecha_emision, '%%Y-%%m')
             ORDER BY m ASC
