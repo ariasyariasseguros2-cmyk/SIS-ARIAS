@@ -1,0 +1,160 @@
+{% extends 'view/layout_dashboard.html' %}
+{% block page_title %}Maestros - Vendedores{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4>Vendedores</h4>
+    <button id="btnNuevoVendedor" class="btn btn-primary">Nuevo Vendedor</button>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-striped align-middle" id="vendedoresTable">
+      <thead>
+        <tr>
+          <th>Cód. Agente</th>
+          <th>Nombre Vendedor</th>
+          <th>Tipo Menor (%)</th>
+          <th>Tipo Regular (%)</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in rows or [] %}
+        <tr>
+          <td>{{ v.codigo_agente }}</td>
+          <td>{{ v.nombre_vendedor }}</td>
+          <td>{{ v.tipo_menor }}</td>
+          <td>{{ v.tipo_regular }}</td>
+          <td>
+            <span class="badge {{ 'bg-success' if v.estado == 'ACTIVO' else 'bg-secondary' }}">
+              {{ v.estado }}
+            </span>
+          </td>
+          <td>
+            <button class="btn btn-sm btn-outline-secondary btn-editar"
+                    data-id="{{ v.id }}"
+                    data-codigo="{{ v.codigo_agente }}"
+                    data-nombre="{{ v.nombre_vendedor }}"
+                    data-tipo_menor="{{ v.tipo_menor }}"
+                    data-tipo_regular="{{ v.tipo_regular }}"
+                    data-estado="{{ v.estado }}">
+              Editar
+            </button>
+            <form method="post"
+                  action="{{ url_for('main.delete_vendedor', id=v.id) }}"
+                  class="d-inline"
+                  onsubmit="return confirm('¿Eliminar este vendedor?')">
+              <button class="btn btn-sm btn-outline-danger">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not rows or rows|length == 0 %}
+        <tr><td colspan="6" class="text-center text-muted">Sin datos</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Crear / Editar Vendedor -->
+<div class="modal fade" id="modalVendedor" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalVendedorTitle">Nuevo Vendedor</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="vendedorForm" method="post">
+
+          <div class="mb-3">
+            <label class="form-label">Código de Agente <span class="text-danger">*</span></label>
+            <input type="text" name="codigo_agente" id="fld_codigo" class="form-control" required />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Nombre Vendedor <span class="text-danger">*</span></label>
+            <input type="text" name="nombre_vendedor" id="fld_nombre" class="form-control" required />
+          </div>
+
+          <div class="row">
+            <div class="col mb-3">
+              <label class="form-label">Tipo Menor (%)</label>
+              <input type="number" step="0.01" min="0" max="100"
+                     name="tipo_menor" id="fld_tipo_menor" class="form-control" value="0" />
+            </div>
+            <div class="col mb-3">
+              <label class="form-label">Tipo Regular (%)</label>
+              <input type="number" step="0.01" min="0" max="100"
+                     name="tipo_regular" id="fld_tipo_regular" class="form-control" value="0" />
+            </div>
+          </div>
+
+          <div class="mb-3" id="estadoGroup" style="display:none;">
+            <label class="form-label">Estado</label>
+            <select name="estado" id="fld_estado" class="form-select">
+              <option value="ACTIVO">ACTIVO</option>
+              <option value="INACTIVO">INACTIVO</option>
+            </select>
+          </div>
+
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="btnGuardarVendedor" class="btn btn-primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js_bottom %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script>
+(function () {
+  const modal      = new bootstrap.Modal(document.getElementById('modalVendedor'));
+  const form       = document.getElementById('vendedorForm');
+  const title      = document.getElementById('modalVendedorTitle');
+  const estadoGrp  = document.getElementById('estadoGroup');
+
+  const urlNuevo   = "{{ url_for('main.save_vendedor') }}";
+
+  // Abrir modal para NUEVO
+  document.getElementById('btnNuevoVendedor').addEventListener('click', () => {
+    title.textContent = 'Nuevo Vendedor';
+    form.action = urlNuevo;
+    form.reset();
+    document.getElementById('fld_tipo_menor').value  = '0';
+    document.getElementById('fld_tipo_regular').value = '0';
+    estadoGrp.style.display = 'none';
+    modal.show();
+  });
+
+  // Abrir modal para EDITAR
+  document.querySelectorAll('.btn-editar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      title.textContent = 'Editar Vendedor';
+      form.action = `/maestros/vendedores/${id}/update`;
+      document.getElementById('fld_codigo').value       = btn.dataset.codigo;
+      document.getElementById('fld_nombre').value       = btn.dataset.nombre;
+      document.getElementById('fld_tipo_menor').value   = btn.dataset.tipo_menor;
+      document.getElementById('fld_tipo_regular').value = btn.dataset.tipo_regular;
+      document.getElementById('fld_estado').value       = btn.dataset.estado;
+      estadoGrp.style.display = '';
+      modal.show();
+    });
+  });
+
+  // Guardar → submit del form
+  document.getElementById('btnGuardarVendedor').addEventListener('click', () => {
+    if (form.reportValidity()) form.submit();
+  });
+})();
+</script>
+{% endblock %}
