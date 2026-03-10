@@ -1,0 +1,6 @@
+{% extends 'view/layout_dashboard.html' %}
+{% block page_title %}Maestros - Vendedores{% endblock %}
+{% block content %}
+{# Este formulario ya no se usa; el crear/editar se gestiona con modal en vendedores_list.html #}
+<script>window.location.href = "{{ url_for('main.menu_page', page='maestros-vendedores') }}";</script>
+{% endblock %}
