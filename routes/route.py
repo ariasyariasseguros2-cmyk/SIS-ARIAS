@@ -894,6 +894,41 @@ def menu_page(page):
         rows = get_subagentes() or []
         return render_template('view/maestros/subagentes.html', page='maestros-subagentes', rows=rows)
 
+    # Maestros: Vendedores (tabla agentes)
+    if page == 'maestros-vendedores':
+        if not can_access_maestros(session.get('role_name')):
+            return redirect(url_for('main.home'))
+        from controllers.maestros.vendedores import get_vendedores
+        rows = get_vendedores() or []
+        return render_template('view/maestros/vendedores_list.html', page='maestros-vendedores', rows=rows)
+
+    if page == 'maestros-vendedores-nuevo':
+        if not can_access_maestros(session.get('role_name')):
+            return redirect(url_for('main.home'))
+        return render_template(
+            'view/maestros/vendedores_form.html',
+            page='maestros-vendedores-nuevo',
+            vendedor=None,
+            action_url=url_for('main.save_vendedor')
+        )
+
+    if page == 'maestros-vendedores-editar':
+        if not can_access_maestros(session.get('role_name')):
+            return redirect(url_for('main.home'))
+        vid = request.args.get('id')
+        if not vid:
+            return redirect(url_for('main.menu_page', page='maestros-vendedores'))
+        from controllers.maestros.vendedores import get_vendedor_by_id
+        vendedor = get_vendedor_by_id(vid)
+        if not vendedor:
+            return redirect(url_for('main.menu_page', page='maestros-vendedores'))
+        return render_template(
+            'view/maestros/vendedores_form.html',
+            page='maestros-vendedores-editar',
+            vendedor=vendedor,
+            action_url=url_for('main.update_vendedor', id=vid)
+        )
+
     # Comisiones (listado, maestro)
     if page == 'maestros-comisiones':
         if not can_access_maestros(session.get('role_name')):
@@ -3906,4 +3941,49 @@ def api_polizas_anuladas_list():
         return jsonify({'ok': True, 'rows': rows})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@bp.route('/maestros/vendedores/save', methods=['POST'])
+def save_vendedor():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    if not can_create(session.get('role_name')):
+        return redirect(url_for('main.home'))
+    codigo_agente   = (request.form.get('codigo_agente') or '').strip()
+    nombre_vendedor = (request.form.get('nombre_vendedor') or '').strip()
+    tipo_menor      = request.form.get('tipo_menor') or '0'
+    tipo_regular    = request.form.get('tipo_regular') or '0'
+    if not codigo_agente or not nombre_vendedor:
+        return redirect(url_for('main.menu_page', page='maestros-vendedores'))
+    from controllers.maestros.vendedores import insertar_vendedor
+    insertar_vendedor(codigo_agente, nombre_vendedor, tipo_menor, tipo_regular)
+    return redirect(url_for('main.menu_page', page='maestros-vendedores'))
+
+
+@bp.route('/maestros/vendedores/<int:id>/update', methods=['POST'])
+def update_vendedor(id):
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    if not can_edit(session.get('role_name')):
+        return redirect(url_for('main.home'))
+    codigo_agente   = (request.form.get('codigo_agente') or '').strip()
+    nombre_vendedor = (request.form.get('nombre_vendedor') or '').strip()
+    tipo_menor      = request.form.get('tipo_menor') or '0'
+    tipo_regular    = request.form.get('tipo_regular') or '0'
+    estado          = request.form.get('estado') or 'ACTIVO'
+    from controllers.maestros.vendedores import actualizar_vendedor
+    actualizar_vendedor(id, codigo_agente, nombre_vendedor, tipo_menor, tipo_regular, estado)
+    return redirect(url_for('main.menu_page', page='maestros-vendedores'))
+
+
+@bp.route('/maestros/vendedores/<int:id>/delete', methods=['POST'])
+def delete_vendedor(id):
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    if not can_delete(session.get('role_name')):
+        return redirect(url_for('main.home'))
+    from controllers.maestros.vendedores import eliminar_vendedor
+    eliminar_vendedor(id)
+    return redirect(url_for('main.menu_page', page='maestros-vendedores'))
+
 
