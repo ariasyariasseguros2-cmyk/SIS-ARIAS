@@ -123,15 +123,95 @@
     return { prima_comercial: norm(m1 && m1[1]), prima_comercial_igv: norm(m2 && m2[1]) };
   }
 
-  // (Removido) extracción de vigencias por pegado específico
+  function extractProformaNumero(s) {
+    const txt = (s || '').replace(/\u00A0/g, ' ');
+    const head = txt.match(/cup[oó]n[\s|]+n[uú]mero[\s|]+vencimiento[\s|]+monto/i);
+    if (head) {
+      const win = txt.slice(head.index + head[0].length, head.index + head[0].length + 2200);
+      const row = win.match(/^\s*\d{1,3}\s*(?:\||\s+)\s*(\d{6,20})\s*(?:\||\s+)\s*\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/m);
+      if (row) return row[1];
+      const lines = (win || '').split(/\r?\n/);
+      for (const ln of lines) {
+        const m = (ln || '').trim().match(/^\d{1,3}\s+(\d{6,20})\b/);
+        if (m) return m[1];
+      }
+    }
+    const n = txt.match(/N[uú]mero\s+de\s+Proforma\s*[:：]?\s*(?:\r?\n\s*)?([0-9A-Z\-]{5,30})\b/i);
+    if (n) return n[1];
+    const p = txt.match(/Proforma\s*N(?:ro\.?|[°º])\s*[:：]?\s*(?:\r?\n\s*)?([0-9]{6,20})\b/i);
+    return p ? p[1] : null;
+  }
+
+  function normalizeDateDDMMYYYY(s) {
+    const raw = (s || '').trim();
+    const parts = raw.split(/[\/\-]/).map(p => p.trim()).filter(Boolean);
+    if (parts.length !== 3) return raw;
+    let [dd, mm, yy] = parts;
+    if (yy.length === 2) yy = `20${yy}`;
+    const ddi = Number(dd);
+    const mmi = Number(mm);
+    const yyi = Number(yy);
+    if (!Number.isFinite(ddi) || !Number.isFinite(mmi) || !Number.isFinite(yyi)) return `${dd}/${mm}/${yy}`;
+    return `${String(ddi).padStart(2, '0')}/${String(mmi).padStart(2, '0')}/${String(yyi).padStart(4, '0')}`;
+  }
+
+  function extractVigencias(s) {
+    const txt = (s || '').replace(/\u00A0/g, ' ');
+    const m0i = txt.match(/vigencia\s*[-–—]?\s*inicio\s*[:：]?\s*(?:\r?\n\s*)?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i);
+    const m0t = txt.match(/\bt(?:e|é)rmino\b\s*[:：]?\s*(?:\r?\n\s*)?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i);
+    if (m0i || m0t) {
+      const out = {};
+      if (m0i) out.inicio_vigencia = normalizeDateDDMMYYYY(m0i[1]);
+      if (m0t) out.vencimiento = normalizeDateDDMMYYYY(m0t[1]);
+      return out;
+    }
+    const m1 = txt.match(/vigencia\s+(?:inicia|empieza|comienza)\s*(?:el\s*)?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})[\s\S]{0,200}?\b(?:y\s+)?(?:vence|venc(?:e|imiento)|finaliza|termina)\s*(?:el\s*)?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i);
+    if (m1) return { inicio_vigencia: normalizeDateDDMMYYYY(m1[1]), vencimiento: normalizeDateDDMMYYYY(m1[2]) };
+    const m2 = txt.match(/\bvigencia\s*[:：]?\s*(?:del\s*)?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\s*(?:al|a\s*al|-\s*)\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\b/i);
+    if (m2) return { inicio_vigencia: normalizeDateDDMMYYYY(m2[1]), vencimiento: normalizeDateDDMMYYYY(m2[2]) };
+    const m3 = txt.match(/\bdesde\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})[\s\S]{0,120}?\bhasta\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\b/i);
+    if (m3) return { inicio_vigencia: normalizeDateDDMMYYYY(m3[1]), vencimiento: normalizeDateDDMMYYYY(m3[2]) };
+    return null;
+  }
 
   tbody.addEventListener('paste', (e) => {
     const td = e.target.closest('td.editable');
     if (!td) return;
     const field = td.dataset.field;
-    if (!isPositiva()) return;
-
     const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+    const issuerOk = isPositiva();
+    const issuerIsAuto = !((issuerEl?.value || '').toString().trim());
+
+    if ((issuerOk || issuerIsAuto) && (/vigencia/i.test(text) || /\bt(?:e|é)rmino\b/i.test(text))) {
+      const vig = extractVigencias(text);
+      if (vig && (vig.inicio_vigencia || vig.vencimiento)) {
+        e.preventDefault();
+        const tr = td.closest('tr');
+        const ivCell = tr?.querySelector('td.editable[data-field="inicio_vigencia"]');
+        const veCell = tr?.querySelector('td.editable[data-field="vencimiento"]');
+        if (vig.inicio_vigencia && ivCell) {
+          ivCell.textContent = vig.inicio_vigencia;
+          ivCell.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (vig.vencimiento && veCell) {
+          veCell.textContent = vig.vencimiento;
+          veCell.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        return;
+      }
+    }
+
+    if (field === 'recibo' && (issuerOk || issuerIsAuto) && (/proforma\s*n(?:ro\.?|[°º])\b/i.test(text) || (/\bcup[oó]n\b/i.test(text) && /\bn[uú]mero\b/i.test(text) && /\bvencimiento\b/i.test(text) && /\bmonto\b/i.test(text)))) {
+      const nro = extractProformaNumero(text);
+      if (nro) {
+        e.preventDefault();
+        td.textContent = nro;
+        td.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+      }
+    }
+
+    if (!issuerOk) return;
 
     if (/raz[oó]n\s+social/i.test(text) && (field === 'colectivo_asegurado' || field === 'asegurado')) {
       e.preventDefault();

@@ -1,6 +1,24 @@
 import re
 from typing import Optional
 
+def _normalize_date_ddmmyyyy(s: str | None) -> Optional[str]:
+    if not s:
+        return None
+    raw = (s or "").strip()
+    parts = re.split(r"[\/\-]", raw)
+    if len(parts) != 3:
+        return raw
+    dd, mm, yy = [p.strip() for p in parts]
+    if len(yy) == 2:
+        yy = f"20{yy}"
+    try:
+        ddi = int(dd)
+        mmi = int(mm)
+        yyi = int(yy)
+    except Exception:
+        return f"{dd}/{mm}/{yy}"
+    return f"{ddi:02d}/{mmi:02d}/{yyi:04d}"
+
 def _extract_after_label(text: str, label_pattern: str) -> Optional[str]:
     m = re.search(label_pattern, text, flags=re.IGNORECASE)
     if not m:
@@ -88,6 +106,107 @@ def extract_primas_positiva(text: str) -> dict:
     if m_pigv:
         out['prima_comercial_igv'] = _normalize_amount(m_pigv.group(1))
     return {k: v for k, v in out.items() if v}
+
+def extract_proforma_numero_positiva(text: str) -> Optional[str]:
+    if not text:
+        return None
+    t = (text or "").replace("\u00A0", " ")
+    m_head = re.search(
+        r"cup[oó]n[\s\|]+n[uú]mero[\s\|]+vencimiento[\s\|]+monto",
+        t,
+        flags=re.IGNORECASE,
+    )
+    if m_head:
+        window = t[m_head.end(): m_head.end() + 2200]
+        m_row = re.search(
+            r"(?m)^\s*\d{1,3}\s*(?:\||\s{1,})\s*(\d{6,20})\s*(?:\||\s{1,})\s*\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b",
+            window,
+            flags=re.IGNORECASE,
+        )
+        if m_row:
+            return m_row.group(1)
+        for ln in (window or "").splitlines():
+            m_ln = re.search(r"^\s*\d{1,3}\s+(\d{6,20})\b", ln.strip())
+            if m_ln:
+                return m_ln.group(1)
+    m_num = re.search(
+        r"N[uú]mero\s+de\s+Proforma\s*[:：]?\s*(?:\r?\n\s*)?([0-9A-Z\-]{5,30})\b",
+        t,
+        flags=re.IGNORECASE,
+    )
+    if m_num:
+        return m_num.group(1)
+    m_prof = re.search(
+        r"Proforma\s*N(?:ro\.?|[°º])\s*[:：]?\s*(?:\r?\n\s*)?([0-9]{6,20})\b",
+        t,
+        flags=re.IGNORECASE,
+    )
+    if m_prof:
+        return m_prof.group(1)
+    return None
+
+def extract_numero_poliza_positiva(text: str) -> Optional[str]:
+    if not text:
+        return None
+    t = (text or "").replace("\u00A0", " ")
+    m_pol = re.search(
+        r"P[oó]liza\s*N(?:ro\.?|[°º]|o)?\s*[:：]?\s*(?:\r?\n\s*)?([0-9]{6,20})\b",
+        t,
+        flags=re.IGNORECASE,
+    )
+    if m_pol:
+        return m_pol.group(1)
+    m_pol2 = re.search(
+        r"\bP[oó]liza\b[\s\S]{0,120}?N(?:ro\.?|[°º]|o)\s*[:：]?\s*([0-9]{6,20})\b",
+        t,
+        flags=re.IGNORECASE,
+    )
+    if m_pol2:
+        return m_pol2.group(1)
+    return None
+
+def extract_vigencias_positiva(text: str) -> dict:
+    if not text:
+        return {}
+    t = (text or "").replace("\u00A0", " ")
+    out = {}
+    m_iv = re.search(
+        r"vigencia\s*[-–—]?\s*inicio\s*[:：]?\s*(?:\r?\n\s*)?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})",
+        t,
+        flags=re.IGNORECASE,
+    )
+    m_ve = re.search(
+        r"\bt(?:e|é)rmino\s*[:：]?\s*(?:\r?\n\s*)?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})",
+        t,
+        flags=re.IGNORECASE,
+    )
+    if m_iv:
+        iv = _normalize_date_ddmmyyyy(m_iv.group(1))
+        if iv:
+            out["inicio_vigencia"] = iv
+    if m_ve:
+        ve = _normalize_date_ddmmyyyy(m_ve.group(1))
+        if ve:
+            out["vencimiento"] = ve
+    if out.get("inicio_vigencia") and out.get("vencimiento"):
+        return out
+    patterns = [
+        r"vigencia\s+(?:inicia|empieza|comienza)\s*(?:el\s*)?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})[\s\S]{0,200}?\b(?:y\s+)?(?:vence|venc(?:e|imiento)|finaliza|termina)\s*(?:el\s*)?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})",
+        r"\bvigencia\s*[:：]?\s*(?:del\s*)?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\s*(?:al|a\s*al|-\s*)\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\b",
+        r"\bdesde\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})[\s\S]{0,120}?\bhasta\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\b",
+    ]
+    for pat in patterns:
+        m = re.search(pat, t, flags=re.IGNORECASE)
+        if not m:
+            continue
+        iv = _normalize_date_ddmmyyyy(m.group(1))
+        ve = _normalize_date_ddmmyyyy(m.group(2))
+        if iv and not out.get("inicio_vigencia"):
+            out["inicio_vigencia"] = iv
+        if ve and not out.get("vencimiento"):
+            out["vencimiento"] = ve
+        return out
+    return out
 
 def _clean_company_name(raw: str | None) -> Optional[str]:
     if not raw:

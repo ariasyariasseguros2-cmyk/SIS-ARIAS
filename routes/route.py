@@ -1436,10 +1436,17 @@ def upload():
                             it['numero_poliza'] = f"{m.group(1)}{m.group(2)}{m.group(3)}"
                     iv = (it.get('inicio_vigencia') or '').strip()
                     ve = (it.get('vencimiento') or '').strip()
-                    if not (iv and ve):
+                    mv_label_iv = re.search(r"vigencia\s*[-–—]?\s*inicio\s*[:：]?\s*(?:\r?\n\s*)?(\d{1,2}[/-]\d{1,2}[/-]\d{4})", pdf_text, re.IGNORECASE | re.DOTALL)
+                    mv_label_ve = re.search(r"\bt(?:e|é)rmino\s*[:：]?\s*(?:\r?\n\s*)?(\d{1,2}[/-]\d{1,2}[/-]\d{4})", pdf_text, re.IGNORECASE | re.DOTALL)
+                    if mv_label_iv and mv_label_ve:
+                        it['inicio_vigencia'] = mv_label_iv.group(1).replace("-", "/")
+                        it['vencimiento'] = mv_label_ve.group(1).replace("-", "/")
+                    elif not (iv and ve):
                         mv = re.search(r"vigencia\s*[:：]?\s*(?:del\s*)?(\d{1,2}[/-]\d{1,2}[/-]\d{4})\s*(?:al|a\s*al|-\s*)\s*(\d{1,2}[/-]\d{1,2}[/-]\d{4})", pdf_text, re.IGNORECASE | re.DOTALL)
                         if not mv:
                             mv = re.search(r"\bdel\s*(\d{1,2}/\d{1,2}/\d{4})\s*(?:al|-\s*)\s*(\d{1,2}/\d{1,2}/\d{4})", pdf_text, re.IGNORECASE | re.DOTALL)
+                        if not mv:
+                            mv = re.search(r"vigencia\s+(?:inicia|empieza|comienza)\s*(?:el\s*)?(\d{1,2}[/-]\d{1,2}[/-]\d{4})[\s\S]{0,200}?\b(?:y\s+)?(?:vence|venc(?:e|imiento)|finaliza|termina)\s*(?:el\s*)?(\d{1,2}[/-]\d{1,2}[/-]\d{4})", pdf_text, re.IGNORECASE | re.DOTALL)
                         if mv:
                             it['inicio_vigencia'] = mv.group(1).replace("-", "/")
                             it['vencimiento'] = mv.group(2).replace("-", "/")
@@ -2405,6 +2412,12 @@ def _parse_positiva(text: str) -> List[Dict[str, str]]:
 
     for blk in blocks:
         numero_proforma = _find(r"N[uú]mero de Proforma\s*:\s*([0-9A-Z\-]+)", blk)
+        if not numero_proforma:
+            try:
+                from controllers.addPositivaGenerales import extract_proforma_numero_positiva
+                numero_proforma = extract_proforma_numero_positiva(blk)
+            except Exception:
+                pass
         # Soporta “Póliza Nº:” con número en la siguiente línea
         poliza_nro = (
             _find(r"P[oó]liza\s*N(?:ro|°|º)?\s*[:\n]\s*([0-9A-Z\-]+)", blk)
@@ -2782,6 +2795,20 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
                 if item_salud: items.append(item_salud)
                 if item_pension: items.append(item_pension)
                 try:
+                    from controllers.addPositivaGenerales import extract_proforma_numero_positiva, extract_numero_poliza_positiva
+                    proforma = extract_proforma_numero_positiva(text)
+                    poliza = extract_numero_poliza_positiva(text)
+                    if proforma:
+                        for it in items:
+                            if isinstance(it, dict) and not (it.get('recibo') or '').strip():
+                                it['recibo'] = proforma
+                    if poliza:
+                        for it in items:
+                            if isinstance(it, dict) and not (it.get('numero_poliza') or '').strip():
+                                it['numero_poliza'] = poliza
+                except Exception:
+                    pass
+                try:
                     from controllers.addPositivaGenerales import extract_razon_social, extract_razon_social_strict, _clean_company_name
                     name = extract_razon_social_strict(text) or extract_razon_social(text)
                     name = _clean_company_name(name) or name
@@ -2798,6 +2825,26 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
             if has_salud:
                 from controllers.addLPVSALUD import parse_positiva_Salud
                 item = parse_positiva_Salud(text)
+                try:
+                    from controllers.addPositivaGenerales import extract_proforma_numero_positiva, extract_numero_poliza_positiva
+                    proforma = extract_proforma_numero_positiva(text)
+                    poliza = extract_numero_poliza_positiva(text)
+                    if proforma and isinstance(item, dict) and not (item.get('recibo') or '').strip():
+                        item['recibo'] = proforma
+                    if poliza and isinstance(item, dict) and not (item.get('numero_poliza') or '').strip():
+                        item['numero_poliza'] = poliza
+                except Exception:
+                    pass
+                try:
+                    from controllers.addPositivaGenerales import extract_vigencias_positiva
+                    vig = extract_vigencias_positiva(text)
+                    if vig and isinstance(item, dict):
+                        if vig.get('inicio_vigencia') and not (item.get('inicio_vigencia') or '').strip():
+                            item['inicio_vigencia'] = vig['inicio_vigencia']
+                        if vig.get('vencimiento') and not (item.get('vencimiento') or '').strip():
+                            item['vencimiento'] = vig['vencimiento']
+                except Exception:
+                    pass
                 try:
                     from controllers.addPositivaGenerales import extract_razon_social, extract_razon_social_strict, _clean_company_name
                     name = extract_razon_social_strict(text) or extract_razon_social(text)
@@ -2816,6 +2863,26 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
                 from controllers.addLPVPENSION import parse_positiva_Pension
                 item = parse_positiva_Pension(text)
                 try:
+                    from controllers.addPositivaGenerales import extract_proforma_numero_positiva, extract_numero_poliza_positiva
+                    proforma = extract_proforma_numero_positiva(text)
+                    poliza = extract_numero_poliza_positiva(text)
+                    if proforma and isinstance(item, dict) and not (item.get('recibo') or '').strip():
+                        item['recibo'] = proforma
+                    if poliza and isinstance(item, dict) and not (item.get('numero_poliza') or '').strip():
+                        item['numero_poliza'] = poliza
+                except Exception:
+                    pass
+                try:
+                    from controllers.addPositivaGenerales import extract_vigencias_positiva
+                    vig = extract_vigencias_positiva(text)
+                    if vig and isinstance(item, dict):
+                        if vig.get('inicio_vigencia') and not (item.get('inicio_vigencia') or '').strip():
+                            item['inicio_vigencia'] = vig['inicio_vigencia']
+                        if vig.get('vencimiento') and not (item.get('vencimiento') or '').strip():
+                            item['vencimiento'] = vig['vencimiento']
+                except Exception:
+                    pass
+                try:
                     from controllers.addPositivaGenerales import extract_razon_social, extract_razon_social_strict, _clean_company_name
                     name = extract_razon_social_strict(text) or extract_razon_social(text)
                     name = _clean_company_name(name) or name
@@ -2833,6 +2900,26 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
                 # Ambiguo: por ahora cae en Pensión (comportamiento previo)
                 from controllers.addLPVPENSION import parse_positiva_Pension
                 item = parse_positiva_Pension(text)
+                try:
+                    from controllers.addPositivaGenerales import extract_proforma_numero_positiva, extract_numero_poliza_positiva
+                    proforma = extract_proforma_numero_positiva(text)
+                    poliza = extract_numero_poliza_positiva(text)
+                    if proforma and isinstance(item, dict) and not (item.get('recibo') or '').strip():
+                        item['recibo'] = proforma
+                    if poliza and isinstance(item, dict) and not (item.get('numero_poliza') or '').strip():
+                        item['numero_poliza'] = poliza
+                except Exception:
+                    pass
+                try:
+                    from controllers.addPositivaGenerales import extract_vigencias_positiva
+                    vig = extract_vigencias_positiva(text)
+                    if vig and isinstance(item, dict):
+                        if vig.get('inicio_vigencia') and not (item.get('inicio_vigencia') or '').strip():
+                            item['inicio_vigencia'] = vig['inicio_vigencia']
+                        if vig.get('vencimiento') and not (item.get('vencimiento') or '').strip():
+                            item['vencimiento'] = vig['vencimiento']
+                except Exception:
+                    pass
                 try:
                     from controllers.addPositivaGenerales import extract_razon_social, extract_razon_social_strict, _clean_company_name
                     name = extract_razon_social_strict(text) or extract_razon_social(text)
