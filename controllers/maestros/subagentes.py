@@ -14,7 +14,8 @@ def get_subagentes():
                     abreviacion,
                     email,
                     telefono,
-                    celular
+                    celular,
+                    codigo_subagente
                 FROM SubAgente
                 ORDER BY nombre ASC
             """)

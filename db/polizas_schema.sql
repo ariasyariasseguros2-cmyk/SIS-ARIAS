@@ -266,7 +266,8 @@ CREATE TABLE SubAgente (
     abreviacion VARCHAR(100),
     email VARCHAR(120),
     telefono VARCHAR(20),
-    celular VARCHAR(20)
+    celular VARCHAR(20),
+    codigo_subagente VARCHAR(50)
 );
 
 -- SP lista SUB AGENTE

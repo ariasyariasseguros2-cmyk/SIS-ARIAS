@@ -489,8 +489,8 @@ def _upsert_subagentes(conn, xls: pd.ExcelFile) -> None:
     df = _load_df_with_names(
         xls,
         sheet="SubAgent",
-        usecols="A:B",
-        names=["nombre", "abreviacion"],
+        usecols="A:B,F",
+        names=["nombre", "abreviacion", "codigo_subagente"],
     )
     if df.empty:
         return
@@ -501,17 +501,18 @@ def _upsert_subagentes(conn, xls: pd.ExcelFile) -> None:
             if not nombre:
                 continue
             abreviacion = _normalize_text(row.get("abreviacion"))
+            codigo_subagente = _normalize_text(row.get("codigo_subagente"))
             cursor.execute("SELECT idProductor FROM SubAgente WHERE nombre = %s", (nombre,))
             rowid = cursor.fetchone()
             if rowid:
                 cursor.execute(
-                    "UPDATE SubAgente SET abreviacion=%s WHERE idProductor=%s",
-                    (abreviacion, rowid[0]),
+                    "UPDATE SubAgente SET abreviacion=%s, codigo_subagente=%s WHERE idProductor=%s",
+                    (abreviacion, codigo_subagente, rowid[0]),
                 )
             else:
                 cursor.execute(
-                    "INSERT INTO SubAgente (nombre, abreviacion) VALUES (%s, %s)",
-                    (nombre, abreviacion),
+                    "INSERT INTO SubAgente (nombre, abreviacion, codigo_subagente) VALUES (%s, %s, %s)",
+                    (nombre, abreviacion, codigo_subagente),
                 )
         conn.commit()
     finally:

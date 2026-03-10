@@ -12,6 +12,7 @@
           <th>ID</th>
           <th>Nombre</th>
           <th>Abreviación</th>
+          <th>Cód. Subagente</th>
           <th>Email</th>
           <th>Teléfono</th>
           <th>Celular</th>
@@ -23,13 +24,14 @@
           <td>{{ s.id }}</td>
           <td>{{ s.nombre }}</td>
           <td>{{ s.abreviacion }}</td>
+          <td>{{ s.codigo_subagente }}</td>
           <td>{{ s.email }}</td>
           <td>{{ s.telefono }}</td>
           <td>{{ s.celular }}</td>
         </tr>
         {% endfor %}
         {% if not rows or rows|length == 0 %}
-        <tr><td colspan="6" class="text-center text-muted">Sin datos</td></tr>
+        <tr><td colspan="7" class="text-center text-muted">Sin datos</td></tr>
         {% endif %}
       </tbody>
     </table>
