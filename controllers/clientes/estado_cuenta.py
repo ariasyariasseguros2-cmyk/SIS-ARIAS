@@ -250,6 +250,7 @@ def get_estado_cuenta_data(filtros_input=None):
                 est = filters['estado'].strip().upper()
                 polizas = [r for r in polizas if (r.get('estado') or '').upper() == est]
 
+            # (No filtrar aquí: mostrar todas las pólizas, no eliminar por monto_cta_pagar)
 
         # Calcular totales por moneda
         totales = {
@@ -540,7 +541,9 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
         if filters['estado']:
             est = filters['estado'].strip().upper()
             polizas = [r for r in polizas if (r.get('estado') or '').upper() == est]
-    cur.close()
+
+            # (No filtrar aquí para export: mantener todas las pólizas, no eliminar por monto_cta_pagar)
+        cur.close()
     cnx.close()
 
     # Preparar datos para exportar
@@ -585,8 +588,6 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             vig,
             p.get('factura') or '-',
             p.get('fecha_pago') or '-',
-            p.get('fecha_facturacion') or '-',
-            p.get('fecha_emision') or '-',
             p.get('fecha_venc') or '-',
             moneda or '-',
             float(p.get('monto_cta_cobrar') or 0),
@@ -612,18 +613,142 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
     if fmt == 'xlsx':
         try:
             from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            from openpyxl.utils import get_column_letter
+
             wb = Workbook()
             ws = wb.active
             ws.title = 'Estado de Cuenta'
 
-            # Escribir headers
-            for col, h in enumerate(headers, start=1):
-                ws.cell(row=1, column=col, value=h)
+            # No insertar logo (solicitado). Mantener layout simple.
+            start_row = 1
 
-            # Escribir filas
-            for r, row in enumerate(rows, start=2):
-                for c, val in enumerate(row, start=1):
-                    ws.cell(row=r, column=c, value=val)
+            # Título (centrado sobre las 16 columnas)
+            title_row = start_row
+            title_cell = ws.cell(row=title_row, column=1, value='Estado de Cuenta')
+            title_cell.font = Font(size=14, bold=True, color='1F59A3')
+            ws.merge_cells(start_row=title_row, start_column=1, end_row=title_row, end_column=16)
+            title_cell.alignment = Alignment(horizontal='center')
+
+            # Información del cliente debajo del título
+            info_row = title_row + 1
+            if cliente:
+                razon = (cliente.get('razon_social') or 'N/A')
+                tipo_doc = cliente.get('tipo_documento') or ''
+                num_doc = cliente.get('numero_documento') or 'N/A'
+                info_text = f"Cliente: {razon}    Documento: {tipo_doc} - {num_doc}"
+                ws.merge_cells(start_row=info_row, start_column=1, end_row=info_row, end_column=16)
+                c = ws.cell(row=info_row, column=1, value=info_text)
+                c.font = Font(size=9)
+                c.alignment = Alignment(horizontal='left')
+
+            # Encabezados
+            header_row = title_row + 3
+            for col_idx, h in enumerate(headers, start=1):
+                cell = ws.cell(row=header_row, column=col_idx, value=h)
+                cell.font = Font(bold=True, size=9, color='FFFFFF')
+                cell.fill = PatternFill('solid', fgColor='4472C4')
+                cell.alignment = Alignment(horizontal='center', wrap_text=True, vertical='center')
+                thin = Side(border_style='thin', color='AAAAAA')
+                cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
+
+            # Ajuste de anchos de columna (más espacio para Producto y Vigencia)
+            # Aumentados para evitar que el texto se desplace o queden espacios en blanco
+            col_widths_chars = [30, 14, 30, 12, 18, 14, 12, 12, 36, 14, 14, 14, 10, 18, 18, 14]
+            for i, w in enumerate(col_widths_chars, start=1):
+                ws.column_dimensions[get_column_letter(i)].width = w
+
+            # Escribir filas con formato y acumular totales por moneda
+            row_idx = header_row + 1
+            totales_pdf = {}  # { 'S/': [cobrar, pagar], 'US$': [cobrar,pagar] }
+
+            for r in rows:
+                for col_idx, val in enumerate(r, start=1):
+                    cell = ws.cell(row=row_idx, column=col_idx)
+                    # Sanitizar cadenas: colapsar espacios múltiples y eliminar saltos de línea innecesarios
+                    if isinstance(val, (float, int)):
+                        cell.value = float(val)
+                        cell.number_format = '#,##0.00'
+                        cell.alignment = Alignment(horizontal='right', vertical='center')
+                        cell.font = Font(bold=True)
+                    else:
+                        # colapsar espacios (ej: 'A   B  C' -> 'A B C') y limpiar
+                        txt = ' '.join(str(val).split()) if val is not None else '-'
+                        cell.value = txt
+                        # Fechas y moneda centradas
+                        if col_idx in (8, 11, 12):  # fecha_emision (8), fecha_pago(11), fecha_venc(12)
+                            cell.alignment = Alignment(horizontal='center', vertical='center')
+                        elif col_idx == 13:  # Moneda
+                            cell.alignment = Alignment(horizontal='center', vertical='center')
+                        else:
+                            # Wrap para evitar que el texto genere espacios vacíos; no usar shrink_to_fit
+                            cell.alignment = Alignment(horizontal='left', wrap_text=True, vertical='center')
+
+                # Fijar altura de fila para evitar desalineaciones (p.ej. 18pt)
+                try:
+                    ws.row_dimensions[row_idx].height = 18
+                except Exception:
+                    pass
+
+                # Acumular totales (índices 12=moneda, 13=cobrar, 14=pagar en 0-based r[12], r[13], r[14])
+                mon = ' '.join(str(r[12]).split()) if r[12] else '-'
+                cobrar_val = float(r[13]) if isinstance(r[13], (float, int)) else 0.0
+                pagar_val = float(r[14]) if isinstance(r[14], (float, int)) else 0.0
+                if mon not in totales_pdf:
+                    totales_pdf[mon] = [0.0, 0.0]
+                totales_pdf[mon][0] += cobrar_val
+                totales_pdf[mon][1] += pagar_val
+
+                # Alternar color de fila (sutil)
+                fill_color = 'FFFFFF' if (row_idx - header_row) % 2 == 1 else 'F7F9FC'
+                for col_idx in range(1, len(headers) + 1):
+                    ws.cell(row=row_idx, column=col_idx).fill = PatternFill('solid', fgColor=fill_color)
+                row_idx += 1
+
+            # Ajustar altura del encabezado y título para balance visual
+            try:
+                ws.row_dimensions[header_row].height = 20
+                ws.row_dimensions[title_row].height = 22
+            except Exception:
+                pass
+
+            # Agregar filas de totales por moneda (estilo simple y legible)
+            for mon_key, (cobrar, pagar) in sorted(totales_pdf.items()):
+                ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=12)
+                lbl_cell = ws.cell(row=row_idx, column=1, value=f'TOTAL {mon_key}')
+                lbl_cell.font = Font(bold=True, color='1A3A6B')
+                lbl_cell.alignment = Alignment(horizontal='right', vertical='center')
+
+                mon_cell = ws.cell(row=row_idx, column=13, value=mon_key)
+                mon_cell.font = Font(bold=True, color='1A3A6B')
+                mon_cell.alignment = Alignment(horizontal='center', vertical='center')
+
+                cobrar_cell = ws.cell(row=row_idx, column=14, value=cobrar)
+                cobrar_cell.number_format = '#,##0.00'
+                cobrar_cell.font = Font(bold=True, color='0047AB')
+                cobrar_cell.alignment = Alignment(horizontal='right', vertical='center')
+
+                pagar_cell = ws.cell(row=row_idx, column=15, value=pagar)
+                pagar_cell.number_format = '#,##0.00'
+                pagar_cell.font = Font(bold=True, color='B22222')
+                pagar_cell.alignment = Alignment(horizontal='right', vertical='center')
+
+                # Fondo sutil para fila de totales y borde superior
+                for col_idx in range(1, len(headers) + 1):
+                    ws.cell(row=row_idx, column=col_idx).fill = PatternFill('solid', fgColor='FFF3CD')
+                thick_side = Side(border_style='medium', color='4472C4')
+                for col_idx in range(1, len(headers) + 1):
+                    c = ws.cell(row=row_idx, column=col_idx)
+                    c.border = Border(top=thick_side)
+                # altura de fila total
+                try:
+                    ws.row_dimensions[row_idx].height = 18
+                except Exception:
+                    pass
+                row_idx += 1
+
+            # Freeze header
+            ws.freeze_panes = ws['A' + str(header_row + 1)]
 
             filename = f"{base_name}.xlsx"
             filepath = os.path.join(exports_dir, filename)
@@ -644,128 +769,269 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             filename = f"{base_name}.pdf"
             filepath = os.path.join(exports_dir, filename)
 
-            # Landscape A4 con márgenes ajustados
+            # Landscape A4: ancho=297mm, alto=210mm. Márgenes 10mm c/u => usable=277mm
+            PAGE_W, PAGE_H = landscape(A4)
+            MARGIN = 10 * mm
+            USABLE_W = PAGE_W - 2 * MARGIN
+
             doc = SimpleDocTemplate(
                 filepath,
                 pagesize=landscape(A4),
-                rightMargin=15*mm,
-                leftMargin=15*mm,
-                topMargin=15*mm,
-                bottomMargin=15*mm
+                rightMargin=MARGIN,
+                leftMargin=MARGIN,
+                topMargin=MARGIN,
+                bottomMargin=MARGIN
             )
             elements = []
             styles = getSampleStyleSheet()
 
-            # Agregar logo de la empresa
+            # ── Logo con proporción real ──────────────────────────────────────
             try:
+                from PIL import Image as PILImage
                 logo_path = os.path.join(upload_folder, 'logo', 'Logo-banner.png')
                 if os.path.exists(logo_path):
-                    logo = Image(logo_path)
-                    # Ajustar tamaño del logo (ancho máximo 60mm, mantener proporción)
-                    logo.drawHeight = 15*mm
-                    logo.drawWidth = 60*mm
+                    with PILImage.open(logo_path) as pil_img:
+                        orig_w, orig_h = pil_img.size
+                    MAX_W = 55 * mm
+                    MAX_H = 18 * mm
+                    ratio = min(MAX_W / orig_w, MAX_H / orig_h)
+                    logo = Image(logo_path, width=orig_w * ratio, height=orig_h * ratio)
                     logo.hAlign = 'LEFT'
                     elements.append(logo)
-                    elements.append(Spacer(1, 8))
+                    elements.append(Spacer(1, 4 * mm))
             except Exception as e:
                 print(f"[WARN] No se pudo cargar el logo: {e}")
 
-            # Título principal
+            # ── Título principal ──────────────────────────────────────────────
             title_style = ParagraphStyle(
                 'CustomTitle',
                 parent=styles['Heading1'],
-                fontSize=16,
+                fontSize=14,
                 textColor=colors.HexColor('#1F59A3'),
-                spaceAfter=10,
+                spaceAfter=6,
                 alignment=TA_CENTER
             )
-            title = Paragraph('<b>Estado de Cuenta</b>', title_style)
-            elements.append(title)
+            elements.append(Paragraph('<b>Estado de Cuenta</b>', title_style))
 
-            # Información del cliente
+            # ── Info del cliente ──────────────────────────────────────────────
             if cliente:
                 cliente_info_style = ParagraphStyle(
                     'ClienteInfo',
                     parent=styles['Normal'],
                     fontSize=9,
-                    spaceAfter=5,
+                    spaceAfter=4,
                     alignment=TA_LEFT
                 )
-                info_text = f"<b>Cliente:</b> {cliente.get('razon_social', 'N/A')} | "
-                info_text += f"<b>Documento:</b> {cliente.get('tipo_documento', '')} - {cliente.get('numero_documento', 'N/A')}"
+                razon = (cliente.get('razon_social') or 'N/A').upper()
+                tipo_doc = cliente.get('tipo_documento') or ''
+                num_doc = cliente.get('numero_documento') or 'N/A'
+                info_text = (
+                    f"<b>Cliente:</b> {razon} &nbsp;&nbsp;|&nbsp;&nbsp; "
+                    f"<b>Documento:</b> {tipo_doc} - {num_doc}"
+                )
+                elements.append(Paragraph(info_text, cliente_info_style))
 
-                cliente_para = Paragraph(info_text, cliente_info_style)
-                elements.append(cliente_para)
+            elements.append(Spacer(1, 4 * mm))
 
-            elements.append(Spacer(1, 10))
+            # ── Estilos de párrafo para celdas (wrapping) ────────────────────
+            cell_style = ParagraphStyle(
+                'CellNormal',
+                parent=styles['Normal'],
+                fontSize=6.5,
+                leading=8,
+                wordWrap='CJK',
+            )
+            cell_bold = ParagraphStyle(
+                'CellBold',
+                parent=cell_style,
+                fontName='Helvetica-Bold',
+            )
+            cell_blue = ParagraphStyle(
+                'CellBlue',
+                parent=cell_style,
+                fontName='Helvetica-Bold',
+                textColor=colors.HexColor('#0066CC'),
+                alignment=TA_RIGHT,
+            )
+            cell_red = ParagraphStyle(
+                'CellRed',
+                parent=cell_style,
+                fontName='Helvetica-Bold',
+                textColor=colors.HexColor('#CC0000'),
+                alignment=TA_RIGHT,
+            )
+            cell_center = ParagraphStyle(
+                'CellCenter',
+                parent=cell_style,
+                alignment=TA_CENTER,
+            )
+            hdr_style = ParagraphStyle(
+                'HdrStyle',
+                parent=styles['Normal'],
+                fontSize=6.5,
+                leading=8,
+                fontName='Helvetica-Bold',
+                textColor=colors.whitesmoke,
+                alignment=TA_CENTER,
+                wordWrap='CJK',
+            )
 
-            # Preparar datos de la tabla
-            table_data = [headers]
-            for r in rows:
-                # Convertir numéricos a string con 2 decimales
-                r2 = [("{:.2f}".format(x) if isinstance(x, float) else x) for x in r]
-                table_data.append(r2)
-
-            # Definir anchos de columna específicos (en orden de las columnas)
-            # Total disponible en landscape A4 ≈ 267mm - 30mm (márgenes) = 237mm
+            # ── Anchos de columna (suman exactamente USABLE_W) ───────────────
+            # 16 columnas: Compañía Ramo Producto TipoDoc NoPol Proforma Cupón
+            #              FechaEm Vigencia Factura FechaPago FechaVenc Moneda CtaCob CtaPag Estado
             col_widths = [
-                28*mm,  # Compañía
-                20*mm,  # Ramo
-                26*mm,  # Producto
-                16*mm,  # Tipo Doc
-                22*mm,  # N° de Póliza
-                22*mm,  # Proforma
-                22*mm,  # Cupón
-                18*mm,  # Fecha Emisión
-                32*mm,  # Vigencia (Desde - Hasta)
-                22*mm,  # Factura
-                20*mm,  # Fecha de Pago
-                18*mm,  # Fecha Vencimiento
-                14*mm,  # Moneda
-                16*mm,  # Cta. Cobrar
-                16*mm,  # Cta. Pagar
-                16*mm   # Estado
+                USABLE_W * 0.085,   # Compañía
+                USABLE_W * 0.048,   # Ramo
+                USABLE_W * 0.075,   # Producto
+                USABLE_W * 0.055,   # Tipo Doc
+                USABLE_W * 0.075,   # N° de Póliza
+                USABLE_W * 0.065,   # Proforma
+                USABLE_W * 0.055,   # Cupón
+                USABLE_W * 0.062,   # Fecha Emisión
+                USABLE_W * 0.095,   # Vigencia (Desde - Hasta)
+                USABLE_W * 0.065,   # Factura
+                USABLE_W * 0.062,   # Fecha de Pago
+                USABLE_W * 0.062,   # Fecha Vencimiento
+                USABLE_W * 0.040,   # Moneda
+                USABLE_W * 0.060,   # Cta. Cobrar
+                USABLE_W * 0.060,   # Cta. Pagar
+                USABLE_W * 0.060,   # Estado
             ]
+            # Ajuste fino: asegurar que la suma sea exactamente USABLE_W
+            diff = USABLE_W - sum(col_widths)
+            col_widths[8] += diff   # absorber diferencia en columna Vigencia
+
+            # ── Encabezados como Paragraph para wrapping ─────────────────────
+            hdr_row = [Paragraph(h, hdr_style) for h in headers]
+
+            # ── Filas de datos ────────────────────────────────────────────────
+            table_data = [hdr_row]
+
+            # Acumuladores de totales por moneda  { moneda_key: [cobrar, pagar] }
+            totales_pdf = {}   # e.g. {'S/': [100.0, 80.0], 'US$': [50.0, 40.0]}
+
+            for r in rows:
+                row_cells = []
+                for i, val in enumerate(r):
+                    if isinstance(val, float):
+                        txt = "{:.2f}".format(val)
+                        st = cell_blue if i == 13 else cell_red  # 13=CtaCob, 14=CtaPag
+                    elif i in (7, 10, 11):  # fechas → centrado
+                        txt = str(val) if val else '-'
+                        st = cell_center
+                    elif i == 12:  # moneda → centrado
+                        txt = str(val) if val else '-'
+                        st = cell_center
+                    elif i == 15:  # estado → centrado
+                        txt = str(val) if val else '-'
+                        st = cell_center
+                    else:
+                        txt = str(val) if val else '-'
+                        st = cell_style
+                    row_cells.append(Paragraph(txt, st))
+                table_data.append(row_cells)
+
+                # Acumular totales (índice 12=moneda, 13=cobrar, 14=pagar)
+                mon_key = str(r[12]) if r[12] else '-'
+                if mon_key not in totales_pdf:
+                    totales_pdf[mon_key] = [0.0, 0.0]
+                totales_pdf[mon_key][0] += float(r[13]) if isinstance(r[13], float) else 0.0
+                totales_pdf[mon_key][1] += float(r[14]) if isinstance(r[14], float) else 0.0
+
+            # ── Filas de totales por moneda ───────────────────────────────────
+            total_row_style_lbl = ParagraphStyle(
+                'TotalLbl',
+                parent=styles['Normal'],
+                fontSize=7.5,
+                fontName='Helvetica-Bold',
+                textColor=colors.HexColor('#1A3A6B'),
+                alignment=TA_RIGHT,
+            )
+            total_row_style_blue = ParagraphStyle(
+                'TotalBlue',
+                parent=styles['Normal'],
+                fontSize=7.5,
+                fontName='Helvetica-Bold',
+                textColor=colors.HexColor('#0047AB'),
+                alignment=TA_RIGHT,
+            )
+            total_row_style_red = ParagraphStyle(
+                'TotalRed',
+                parent=styles['Normal'],
+                fontSize=7.5,
+                fontName='Helvetica-Bold',
+                textColor=colors.HexColor('#B22222'),
+                alignment=TA_RIGHT,
+            )
+            total_row_style_mon = ParagraphStyle(
+                'TotalMon',
+                parent=styles['Normal'],
+                fontSize=7.5,
+                fontName='Helvetica-Bold',
+                textColor=colors.HexColor('#1A3A6B'),
+                alignment=TA_CENTER,
+            )
+
+            NUM_COLS = len(headers)   # 16
+            total_rows_start = len(table_data)  # primera fila de totales (0-based)
+
+            for mon_key, (cobrar, pagar) in sorted(totales_pdf.items()):
+                total_cells = [Paragraph('', cell_style)] * NUM_COLS
+                # Etiqueta "TOTAL" fusionada visualmente en col 0..11
+                lbl_cell = Paragraph(f'TOTAL {mon_key}', total_row_style_lbl)
+                total_cells = (
+                    [lbl_cell] +
+                    [Paragraph('', cell_style)] * 11 +   # cols 1-11 vacías
+                    [Paragraph(mon_key,            total_row_style_mon),   # col 12 moneda
+                     Paragraph(f'{cobrar:,.2f}',   total_row_style_blue),  # col 13 cobrar
+                     Paragraph(f'{pagar:,.2f}',    total_row_style_red),   # col 14 pagar
+                     Paragraph('',                 cell_style)]             # col 15 estado
+                )
+                table_data.append(total_cells)
+
+            total_rows_end = len(table_data) - 1  # última fila de totales (0-based)
 
             t = Table(table_data, colWidths=col_widths, repeatRows=1)
 
-            # Estilo mejorado de la tabla
-            t.setStyle(TableStyle([
-                # Encabezado
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 8),
-                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-                ('TOPPADDING', (0, 0), (-1, 0), 8),
+            table_style_cmds = [
+                # ── Encabezado ──
+                ('BACKGROUND',    (0, 0), (-1, 0), colors.HexColor('#4472C4')),
+                ('VALIGN',        (0, 0), (-1, 0), 'MIDDLE'),
+                ('TOPPADDING',    (0, 0), (-1, 0), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
+                ('LEFTPADDING',   (0, 0), (-1, 0), 3),
+                ('RIGHTPADDING',  (0, 0), (-1, 0), 3),
+                # ── Datos ──
+                ('VALIGN',        (0, 1), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING',    (0, 1), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 3),
+                ('LEFTPADDING',   (0, 1), (-1, -1), 3),
+                ('RIGHTPADDING',  (0, 1), (-1, -1), 3),
+                # ── Grid y colores alternos ──
+                ('GRID',          (0, 0), (-1, -1), 0.4, colors.HexColor('#AAAAAA')),
+                ('ROWBACKGROUNDS', (0, 1), (NUM_COLS - 1, total_rows_start - 1),
+                                  [colors.white, colors.HexColor('#EEF2FA')]),
+            ]
 
-                # Datos
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 7),
-                ('ALIGN', (0, 1), (12, -1), 'LEFT'),      # Texto a la izquierda hasta Fecha Vencimiento
-                ('ALIGN', (13, 1), (-1, -1), 'RIGHT'),    # Moneda, Cobrar, Pagar, Estado a la derecha
-                ('VALIGN', (0, 1), (-1, -1), 'MIDDLE'),
-                ('TOPPADDING', (0, 1), (-1, -1), 4),
-                ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
-                ('LEFTPADDING', (0, 0), (-1, -1), 4),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            # Estilo especial para las filas de totales
+            for tr in range(total_rows_start, total_rows_end + 1):
+                table_style_cmds += [
+                    ('BACKGROUND',    (0, tr), (-1, tr), colors.HexColor('#FFF3CD')),
+                    ('TOPPADDING',    (0, tr), (-1, tr), 5),
+                    ('BOTTOMPADDING', (0, tr), (-1, tr), 5),
+                    # Borde superior más grueso para separar visualmente del resto
+                    ('LINEABOVE',     (0, tr), (-1, tr), 1.5, colors.HexColor('#4472C4')),
+                    # Fusionar etiqueta "TOTAL" sobre las primeras 12 cols
+                    ('SPAN',          (0, tr), (11, tr)),
+                    ('ALIGN',         (0, tr), (11, tr), 'RIGHT'),
+                ]
 
-                # Bordes y colores alternados
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F2F2F2')]),
-
-                # Resaltar columnas numéricas
-                ('FONTNAME', (14, 1), (15, -1), 'Helvetica-Bold'),
-                ('TEXTCOLOR', (14, 1), (14, -1), colors.HexColor('#0066CC')),  # Cta. Cobrar en azul
-                ('TEXTCOLOR', (15, 1), (15, -1), colors.HexColor('#CC0000')), # Cta. Pagar en rojo
-            ]))
+            t.setStyle(TableStyle(table_style_cmds))
 
             elements.append(t)
 
-            # Agregar fecha de generación al final
-            elements.append(Spacer(1, 10))
+            # ── Footer ───────────────────────────────────────────────────────
+            elements.append(Spacer(1, 5 * mm))
             footer_style = ParagraphStyle(
                 'Footer',
                 parent=styles['Normal'],
@@ -774,8 +1040,7 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
                 alignment=TA_RIGHT
             )
             fecha_generacion = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-            footer = Paragraph(f'Generado: {fecha_generacion}', footer_style)
-            elements.append(footer)
+            elements.append(Paragraph(f'Generado: {fecha_generacion}', footer_style))
 
             doc.build(elements)
             return filepath, filename
