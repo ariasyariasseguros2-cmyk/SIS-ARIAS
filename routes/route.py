@@ -175,7 +175,8 @@ def upload_cuota_archivo():
         print(f"[upload_cuota_archivo] guardado en {save_path}, existe={os.path.exists(save_path)}")
 
         ruta_relativa = f"cuotas/{disk_filename}"
-        usuario = session.get('user', '')
+        usuario_username = session.get('user', '')
+        usuario = usuario_username
         pid = int(poliza_id) if poliza_id and str(poliza_id).strip() not in ('', 'None') else None
 
         # Obtener datos de la póliza para completar ramo, producto, compania
@@ -183,6 +184,17 @@ def upload_cuota_archivo():
         p_poliza = numero_poliza
         cnx = get_connection()
         cur = cnx.cursor()
+        if usuario_username:
+            try:
+                cur.execute(
+                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1",
+                    (usuario_username,),
+                )
+                urow = cur.fetchone()
+                if urow and urow[0]:
+                    usuario = urow[0]
+            except Exception:
+                usuario = usuario_username
         if pid is not None:
             cur.execute("SELECT ramo, ramos_producto, cia, poliza FROM polizas WHERE idPoliza = %s", (pid,))
             prow = cur.fetchone()
@@ -306,12 +318,24 @@ def upload_poliza_archivo():
         file.save(save_path)
 
         ruta_relativa = f"polizas/{disk_filename}"
-        usuario = session.get('user', '')
+        usuario_username = session.get('user', '')
+        usuario = usuario_username
         nombre_final = nombre_documento or original_filename
 
         # Obtener datos de la póliza para guardar ramo, producto, compania
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
+        if usuario_username:
+            try:
+                cur.execute(
+                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s LIMIT 1",
+                    (usuario_username,),
+                )
+                urow = cur.fetchone() or {}
+                if urow.get('nombre'):
+                    usuario = urow['nombre']
+            except Exception:
+                usuario = usuario_username
         cur.execute("SELECT ramo, ramos_producto, cia, poliza FROM polizas WHERE idPoliza = %s", (int(poliza_id),))
         prow = cur.fetchone() or {}
 

@@ -57,23 +57,29 @@ def list_siniestros():
 		if session.get('role_name') == Roles.SUB_AGENTE:
 			user = session.get('user')
 			# Get user's full name for sub_agente match
-			cursor.execute("SELECT nombre FROM usuarios WHERE username = %s", (user,))
+			cursor.execute("SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s", (user,))
 			u_row = cursor.fetchone()
-			nombre_usuario = u_row['nombre'] if u_row else user
+			nombre_usuario = (u_row.get('nombre') if u_row else user) or user
 			
 			# Filter by creator or assigned sub_agente (via polizas join)
 			# Siniestros has poliza (varchar), polizas has poliza (varchar)
 			rls_filter = """
 				AND (
-					s.usuario_registro = %s 
+					s.usuario_registro = %s
+					OR s.usuario_registro = %s
 					OR EXISTS (
 						SELECT 1 FROM polizas p 
 						WHERE p.poliza = s.poliza 
-						AND (p.sub_agente = %s OR p.usuario_registro = %s)
+						AND (
+							p.sub_agente = %s
+							OR p.sub_agente = %s
+							OR p.usuario_registro = %s
+							OR p.usuario_registro = %s
+						)
 					)
 				)
 			"""
-			rls_params = [user, nombre_usuario, user]
+			rls_params = [user, nombre_usuario, user, nombre_usuario, user, nombre_usuario]
 
 		# Use SQL directly instead of SP to support RLS
 		sql = f"""
@@ -676,21 +682,27 @@ def buscar_siniestros():
 		if session.get('role_name') == Roles.SUB_AGENTE:
 			user = session.get('user')
 			# Get user's full name for sub_agente match
-			cursor.execute("SELECT nombre FROM usuarios WHERE username = %s", (user,))
+			cursor.execute("SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s", (user,))
 			u_row = cursor.fetchone()
-			nombre_usuario = u_row['nombre'] if u_row else user
+			nombre_usuario = (u_row.get('nombre') if u_row else user) or user
 			
 			rls_filter = """
 				AND (
-					s.usuario_registro = %s 
+					s.usuario_registro = %s
+					OR s.usuario_registro = %s
 					OR EXISTS (
 						SELECT 1 FROM polizas p 
 						WHERE p.poliza = s.poliza 
-						AND (p.sub_agente = %s OR p.usuario_registro = %s)
+						AND (
+							p.sub_agente = %s
+							OR p.sub_agente = %s
+							OR p.usuario_registro = %s
+							OR p.usuario_registro = %s
+						)
 					)
 				)
 			"""
-			rls_params = [user, nombre_usuario, user]
+			rls_params = [user, nombre_usuario, user, nombre_usuario, user, nombre_usuario]
 
 		# Use SQL directly instead of SP to support RLS and Search
 		term = f"%{texto}%"

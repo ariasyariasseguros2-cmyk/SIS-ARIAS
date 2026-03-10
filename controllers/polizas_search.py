@@ -18,13 +18,13 @@ def search_polizas_global(query: str, search_type: str) -> dict:
 
         if role_name == Roles.SUB_AGENTE and username:
             # Get user's full name for sub_agente match
-            cur.execute("SELECT nombre FROM usuarios WHERE username = %s", (username,))
+            cur.execute("SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s", (username,))
             u_row = cur.fetchone()
-            nombre_usuario = u_row['nombre'] if u_row else username
+            nombre_usuario = (u_row.get('nombre') if u_row else username) or username
             
             # Filter by creator or assigned sub_agente
-            user_filter_sql = " AND (p.usuario_registro = %s OR p.sub_agente = %s)"
-            user_filter_params = [username, nombre_usuario]
+            user_filter_sql = " AND (p.usuario_registro = %s OR p.usuario_registro = %s OR p.sub_agente = %s OR p.sub_agente = %s)"
+            user_filter_params = [username, nombre_usuario, username, nombre_usuario]
 
         # Base query
         sql = """

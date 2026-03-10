@@ -54,8 +54,10 @@ def _build_filters(filters: Dict[str, Any]) -> Tuple[str, List[Any]]:
         params.append(filters["ejecutivo"])
 
     if filters.get("usuario"):
-        sql_filters.append("p.usuario_registro = %s")
-        params.append(filters["usuario"])
+        sql_filters.append(
+            "(p.usuario_registro = %s OR p.usuario_registro = (SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1))"
+        )
+        params.extend([filters["usuario"], filters["usuario"]])
 
     f_reg_desde = filters.get("f_reg_desde")
     f_reg_hasta = filters.get("f_reg_hasta")
@@ -73,8 +75,15 @@ def _build_filters(filters: Dict[str, Any]) -> Tuple[str, List[Any]]:
     user = session.get("user")
 
     if role == Roles.SUB_AGENTE and user:
-        sql_filters.append("(p.sub_agente = %s OR p.usuario_registro = %s)")
-        params.extend([user, user])
+        sql_filters.append(
+            "("
+            "p.sub_agente = %s "
+            "OR p.sub_agente = (SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1) "
+            "OR p.usuario_registro = %s "
+            "OR p.usuario_registro = (SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1)"
+            ")"
+        )
+        params.extend([user, user, user, user])
 
     where_clause = ""
     if sql_filters:

@@ -32,10 +32,10 @@ DELIMITER ;
 DELIMITER $$
 CREATE PROCEDURE sp_listar_usuarios()
 BEGIN
-    SELECT username
+    SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre
     FROM usuarios
     WHERE estado = 1
-    ORDER BY username ASC;
+    ORDER BY COALESCE(NULLIF(TRIM(nombre), ''), username) ASC;
 END$$
 DELIMITER ;
 
@@ -537,8 +537,8 @@ CREATE TABLE IF NOT EXISTS polizas (
     estado VARCHAR(20) DEFAULT 'PENDIENTE',
     anulado TINYINT(1) NOT NULL DEFAULT 0,
     activo TINYINT(1) NOT NULL DEFAULT 1,
-    usuario_registro VARCHAR(50) NULL,
-    usuario_edicion VARCHAR(50) NULL,
+    usuario_registro VARCHAR(100) NULL,
+    usuario_edicion VARCHAR(100) NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (cliente_id) REFERENCES clientes(idCliente)
@@ -554,7 +554,7 @@ CREATE TABLE IF NOT EXISTS poliza_archivos (
     origen VARCHAR(50) DEFAULT 'CARGA_MASIVA',
     ramo VARCHAR(120),
     producto VARCHAR(120),
-    usuario VARCHAR(50),
+    usuario VARCHAR(100),
     compania VARCHAR(100),
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (poliza_id) REFERENCES polizas(idPoliza) ON DELETE CASCADE
@@ -620,7 +620,7 @@ CREATE PROCEDURE sp_insert_poliza_por_numero (
     IN p_ramos_producto VARCHAR(120),
     IN p_estado VARCHAR(20),
     IN p_pdf_path VARCHAR(255),
-    IN p_usuario_registro VARCHAR(50)
+    IN p_usuario_registro VARCHAR(100)
 )
 BEGIN
     DECLARE v_cliente_id INT;
@@ -628,6 +628,7 @@ BEGIN
     DECLARE v_msg VARCHAR(255);
     DECLARE v_key VARCHAR(50); -- clave para duplicados: contrato_nro o recibo
     DECLARE v_poliza_id INT;
+    DECLARE v_usuario_registro_nombre VARCHAR(100);
 
     SELECT idCliente INTO v_cliente_id
     FROM clientes
@@ -661,6 +662,18 @@ BEGIN
         END IF;
     END IF;
 
+    SET v_usuario_registro_nombre = NULL;
+    IF p_usuario_registro IS NOT NULL AND TRIM(p_usuario_registro) <> '' THEN
+        SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
+        INTO v_usuario_registro_nombre
+        FROM usuarios
+        WHERE username = p_usuario_registro
+        LIMIT 1;
+    END IF;
+    IF v_usuario_registro_nombre IS NULL OR v_usuario_registro_nombre = '' THEN
+        SET v_usuario_registro_nombre = p_usuario_registro;
+    END IF;
+
     INSERT INTO polizas (
         cliente_id, asegurado, cia, ramo,
         poliza, recibo, contrato_nro, nro,
@@ -676,14 +689,14 @@ BEGIN
         p_sub_agente, p_ejecutivo, p_tipo_doc,
         p_asegurada, p_motivo, p_prima_comercial, p_prima_neta, p_prima_comercial_igv, p_prima_total,
         p_porc_compania, p_imp_compania, p_porc_subagente, p_imp_subagente,
-        p_ramos_producto, p_estado, p_usuario_registro
+        p_ramos_producto, p_estado, v_usuario_registro_nombre
     );
 
     SET v_poliza_id = LAST_INSERT_ID();
 
     IF p_pdf_path IS NOT NULL AND p_pdf_path <> '' THEN
         INSERT INTO poliza_archivos (poliza_id, numero_poliza, ruta_archivo, nombre_original, ramo, producto, usuario, compania)
-        VALUES (v_poliza_id, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1), p_ramo, p_ramos_producto, p_usuario_registro, p_cia);
+        VALUES (v_poliza_id, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1), p_ramo, p_ramos_producto, v_usuario_registro_nombre, p_cia);
     END IF;
 
 
@@ -708,11 +721,13 @@ BEGIN
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
         p.sub_agente,
         p.asegurada,
-        p.usuario_registro,
-        p.usuario_edicion,
+        COALESCE(NULLIF(TRIM(ur.nombre), ''), p.usuario_registro) AS usuario_registro,
+        COALESCE(NULLIF(TRIM(ue.nombre), ''), p.usuario_edicion) AS usuario_edicion,
     (SELECT ruta_archivo FROM poliza_archivos WHERE poliza_id = p.idPoliza ORDER BY idArchivo DESC LIMIT 1) AS pdf_path
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
+    LEFT JOIN usuarios ur ON ur.username = p.usuario_registro OR ur.nombre = p.usuario_registro
+    LEFT JOIN usuarios ue ON ue.username = p.usuario_edicion OR ue.nombre = p.usuario_edicion
     WHERE p.activo = 1 AND p.anulado = 0
     ORDER BY p.idPoliza ASC;
 END$$
@@ -737,11 +752,13 @@ BEGIN
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
         p.sub_agente,
         p.asegurada,
-        p.usuario_registro,
-        p.usuario_edicion,
+        COALESCE(NULLIF(TRIM(ur.nombre), ''), p.usuario_registro) AS usuario_registro,
+        COALESCE(NULLIF(TRIM(ue.nombre), ''), p.usuario_edicion) AS usuario_edicion,
     (SELECT ruta_archivo FROM poliza_archivos WHERE poliza_id = p.idPoliza ORDER BY idArchivo DESC LIMIT 1) AS pdf_path
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
+    LEFT JOIN usuarios ur ON ur.username = p.usuario_registro OR ur.nombre = p.usuario_registro
+    LEFT JOIN usuarios ue ON ue.username = p.usuario_edicion OR ue.nombre = p.usuario_edicion
     WHERE c.numero_documento = p_numero_documento AND p.activo = 1 AND p.anulado = 0
     ORDER BY p.creado_en DESC;
 END$$
@@ -815,11 +832,13 @@ BEGIN
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
         p.sub_agente,
         p.asegurada,
-        p.usuario_registro,
-        p.usuario_edicion,
+        COALESCE(NULLIF(TRIM(ur.nombre), ''), p.usuario_registro) AS usuario_registro,
+        COALESCE(NULLIF(TRIM(ue.nombre), ''), p.usuario_edicion) AS usuario_edicion,
     (SELECT ruta_archivo FROM poliza_archivos WHERE poliza_id = p.idPoliza ORDER BY idArchivo DESC LIMIT 1) AS pdf_path
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
+    LEFT JOIN usuarios ur ON ur.username = p.usuario_registro OR ur.nombre = p.usuario_registro
+    LEFT JOIN usuarios ue ON ue.username = p.usuario_edicion OR ue.nombre = p.usuario_edicion
     WHERE p.cliente_id = p_cliente_id AND p.activo = 1 AND p.anulado = 0
     ORDER BY p.creado_en DESC;
 END$$
@@ -916,10 +935,12 @@ BEGIN
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
         p.sub_agente,
         p.asegurada,
-        p.usuario_registro,
-        p.usuario_edicion
+        COALESCE(NULLIF(TRIM(ur.nombre), ''), p.usuario_registro) AS usuario_registro,
+        COALESCE(NULLIF(TRIM(ue.nombre), ''), p.usuario_edicion) AS usuario_edicion
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
+    LEFT JOIN usuarios ur ON ur.username = p.usuario_registro OR ur.nombre = p.usuario_registro
+    LEFT JOIN usuarios ue ON ue.username = p.usuario_edicion OR ue.nombre = p.usuario_edicion
     WHERE p.activo = 1 AND p.anulado = 1
     ORDER BY p.creado_en DESC;
 END$$
@@ -928,13 +949,26 @@ DELIMITER ;
 DELIMITER $$
 CREATE PROCEDURE sp_restore_poliza(
     IN p_id INT,
-    IN p_usuario VARCHAR(50)
+    IN p_usuario VARCHAR(100)
 )
 BEGIN
+    DECLARE v_usuario_nombre VARCHAR(100);
+    SET v_usuario_nombre = NULL;
+    IF p_usuario IS NOT NULL AND TRIM(p_usuario) <> '' THEN
+        SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
+        INTO v_usuario_nombre
+        FROM usuarios
+        WHERE username = p_usuario
+        LIMIT 1;
+    END IF;
+    IF v_usuario_nombre IS NULL OR v_usuario_nombre = '' THEN
+        SET v_usuario_nombre = p_usuario;
+    END IF;
+
     UPDATE polizas
     SET anulado = 0,
         estado = 'VIGENTE',
-        usuario_edicion = p_usuario
+        usuario_edicion = v_usuario_nombre
     WHERE idPoliza = p_id AND activo = 1 AND anulado = 1;
     SELECT ROW_COUNT() AS affected_rows;
 END$$
@@ -943,15 +977,28 @@ DELIMITER ;
 DELIMITER $$
 CREATE PROCEDURE sp_anular_poliza(
     IN p_id INT,
-    IN p_usuario VARCHAR(50),
+    IN p_usuario VARCHAR(100),
     IN p_motivo VARCHAR(200)
 )
 BEGIN
+    DECLARE v_usuario_nombre VARCHAR(100);
+    SET v_usuario_nombre = NULL;
+    IF p_usuario IS NOT NULL AND TRIM(p_usuario) <> '' THEN
+        SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
+        INTO v_usuario_nombre
+        FROM usuarios
+        WHERE username = p_usuario
+        LIMIT 1;
+    END IF;
+    IF v_usuario_nombre IS NULL OR v_usuario_nombre = '' THEN
+        SET v_usuario_nombre = p_usuario;
+    END IF;
+
     UPDATE polizas
     SET anulado = 1,
         estado = 'ANULADA',
         motivo = p_motivo,
-        usuario_edicion = p_usuario
+        usuario_edicion = v_usuario_nombre
     WHERE idPoliza = p_id AND activo = 1 AND anulado = 0;
     SELECT ROW_COUNT() AS affected_rows;
 END$$
@@ -960,12 +1007,25 @@ DELIMITER ;
 DELIMITER $$
 CREATE PROCEDURE sp_delete_poliza(
     IN p_id INT,
-    IN p_usuario VARCHAR(50)
+    IN p_usuario VARCHAR(100)
 )
 BEGIN
+    DECLARE v_usuario_nombre VARCHAR(100);
+    SET v_usuario_nombre = NULL;
+    IF p_usuario IS NOT NULL AND TRIM(p_usuario) <> '' THEN
+        SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
+        INTO v_usuario_nombre
+        FROM usuarios
+        WHERE username = p_usuario
+        LIMIT 1;
+    END IF;
+    IF v_usuario_nombre IS NULL OR v_usuario_nombre = '' THEN
+        SET v_usuario_nombre = p_usuario;
+    END IF;
+
     UPDATE polizas
     SET activo = 0,
-        usuario_edicion = p_usuario
+        usuario_edicion = v_usuario_nombre
     WHERE idPoliza = p_id AND activo = 1;
     SELECT ROW_COUNT() AS affected_rows;
 END$$
@@ -982,8 +1042,8 @@ CREATE TABLE IF NOT EXISTS cuotas (
     fecha_pago DATE NULL,
     factura VARCHAR(50) NULL,
     observacion VARCHAR(255) NULL,
-    usuario_registro VARCHAR(50) NULL,
-    usuario_edicion VARCHAR(50) NULL,
+    usuario_registro VARCHAR(100) NULL,
+    usuario_edicion VARCHAR(100) NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     numero_cuota INT NULL,
     activo TINYINT(1) DEFAULT 1
@@ -998,7 +1058,7 @@ CREATE TABLE IF NOT EXISTS cuota_archivos (
     cupon VARCHAR(50),
     ruta_archivo VARCHAR(255) NOT NULL,
     nombre_original VARCHAR(255),
-    usuario VARCHAR(50),
+    usuario VARCHAR(100),
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cuota_id) REFERENCES cuotas(idCuota) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -1013,11 +1073,24 @@ CREATE PROCEDURE sp_insert_cuota_archivo(
     IN p_cupon VARCHAR(50),
     IN p_ruta_archivo VARCHAR(255),
     IN p_nombre_original VARCHAR(255),
-    IN p_usuario VARCHAR(50)
+    IN p_usuario VARCHAR(100)
 )
 BEGIN
+    DECLARE v_usuario_nombre VARCHAR(100);
+    SET v_usuario_nombre = NULL;
+    IF p_usuario IS NOT NULL AND TRIM(p_usuario) <> '' THEN
+        SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
+        INTO v_usuario_nombre
+        FROM usuarios
+        WHERE username = p_usuario
+        LIMIT 1;
+    END IF;
+    IF v_usuario_nombre IS NULL OR v_usuario_nombre = '' THEN
+        SET v_usuario_nombre = p_usuario;
+    END IF;
+
     INSERT INTO cuota_archivos (cuota_id, poliza_id, numero_poliza, cupon, ruta_archivo, nombre_original, usuario)
-    VALUES (p_cuota_id, p_poliza_id, p_numero_poliza, p_cupon, p_ruta_archivo, p_nombre_original, p_usuario);
+    VALUES (p_cuota_id, p_poliza_id, p_numero_poliza, p_cupon, p_ruta_archivo, p_nombre_original, v_usuario_nombre);
     SELECT LAST_INSERT_ID() AS idArchivo;
 END$$
 DELIMITER ;
@@ -1095,7 +1168,7 @@ BEGIN
             pa.creado_en AS fecha_subida,
             p.ramo COLLATE utf8mb4_0900_ai_ci AS ramo,
             p.ramos_producto COLLATE utf8mb4_0900_ai_ci AS producto,
-            p.usuario_registro COLLATE utf8mb4_0900_ai_ci AS usuario,
+            COALESCE(NULLIF(TRIM(ur.nombre), ''), p.usuario_registro) COLLATE utf8mb4_0900_ai_ci AS usuario,
             p.cia COLLATE utf8mb4_0900_ai_ci AS compania,
             NULL AS poliza_padre_id,
             NULL AS cupon,
@@ -1103,6 +1176,7 @@ BEGIN
         FROM poliza_archivos pa
         INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
         INNER JOIN clientes c ON p.cliente_id = c.idCliente
+        LEFT JOIN usuarios ur ON ur.username = p.usuario_registro OR ur.nombre = p.usuario_registro
         WHERE (pa.origen IS NULL OR pa.origen != 'CUOTA')
           AND (p_busqueda IS NULL OR p_busqueda = ''
                OR p.poliza        LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%')
@@ -1181,12 +1255,13 @@ CREATE PROCEDURE sp_insert_cuota(
     IN p_fecha_pago DATE,
     IN p_factura VARCHAR(50),
     IN p_observacion VARCHAR(255),
-    IN p_usuario VARCHAR(50),
+    IN p_usuario VARCHAR(100),
     IN p_numero_cuota INT
 )
 BEGIN
     DECLARE v_msg VARCHAR(255);
     DECLARE v_poliza_id INT;
+    DECLARE v_usuario_nombre VARCHAR(100);
 
     -- Validar factura duplicada
     IF p_factura IS NOT NULL AND TRIM(p_factura) <> '' THEN
@@ -1221,12 +1296,24 @@ BEGIN
     ORDER BY creado_en DESC
     LIMIT 1;
 
+    SET v_usuario_nombre = NULL;
+    IF p_usuario IS NOT NULL AND TRIM(p_usuario) <> '' THEN
+        SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
+        INTO v_usuario_nombre
+        FROM usuarios
+        WHERE username = p_usuario
+        LIMIT 1;
+    END IF;
+    IF v_usuario_nombre IS NULL OR v_usuario_nombre = '' THEN
+        SET v_usuario_nombre = p_usuario;
+    END IF;
+
     INSERT INTO cuotas (
         poliza_id, poliza, cupon, fecha_vencimiento, moneda, importe,
         fecha_pago, factura, observacion, usuario_registro, numero_cuota, activo
     ) VALUES (
         v_poliza_id, p_poliza, p_cupon, p_fecha_vencimiento, p_moneda, p_importe,
-        p_fecha_pago, p_factura, p_observacion, p_usuario, p_numero_cuota, 1
+        p_fecha_pago, p_factura, p_observacion, v_usuario_nombre, p_numero_cuota, 1
     );
 
     IF p_fecha_pago IS NOT NULL THEN
@@ -1294,11 +1381,24 @@ CREATE PROCEDURE sp_update_poliza(
     IN p_tipo_vigencia VARCHAR(50), -- Nuevo
     IN p_endosatario VARCHAR(150), -- Nuevo
     IN p_pdf_path VARCHAR(255), -- Nuevo
-    IN p_usuario_edicion VARCHAR(50)
+    IN p_usuario_edicion VARCHAR(100)
 )
 BEGIN
+    DECLARE v_usuario_edicion_nombre VARCHAR(100);
+    SET v_usuario_edicion_nombre = NULL;
+    IF p_usuario_edicion IS NOT NULL AND TRIM(p_usuario_edicion) <> '' THEN
+        SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
+        INTO v_usuario_edicion_nombre
+        FROM usuarios
+        WHERE username = p_usuario_edicion
+        LIMIT 1;
+    END IF;
+    IF v_usuario_edicion_nombre IS NULL OR v_usuario_edicion_nombre = '' THEN
+        SET v_usuario_edicion_nombre = p_usuario_edicion;
+    END IF;
+
     UPDATE polizas SET
-        usuario_edicion = p_usuario_edicion,
+        usuario_edicion = v_usuario_edicion_nombre,
         asegurado = p_asegurado,
         cia = p_cia,
         ramo = p_ramo,
@@ -1331,7 +1431,7 @@ BEGIN
 
     IF p_pdf_path IS NOT NULL AND p_pdf_path <> '' THEN
         INSERT INTO poliza_archivos (poliza_id, numero_poliza, ruta_archivo, nombre_original, origen, ramo, producto, usuario, compania)
-        VALUES (p_idPoliza, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1), 'EDICION', p_ramo, p_ramos_producto, p_usuario_edicion, p_cia);
+        VALUES (p_idPoliza, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1), 'EDICION', p_ramo, p_ramos_producto, v_usuario_edicion_nombre, p_cia);
     END IF;
 END$$
 DELIMITER ;
@@ -1386,8 +1486,14 @@ BEGIN
         p.estado
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
+    LEFT JOIN usuarios ur ON ur.username = p.usuario_registro OR ur.nombre = p.usuario_registro
     WHERE p.activo = 1 AND p.anulado = 0
-    AND (p_usuarios IS NULL OR p_usuarios = '' OR FIND_IN_SET(p.usuario_registro, p_usuarios))
+    AND (
+        p_usuarios IS NULL
+        OR p_usuarios = ''
+        OR FIND_IN_SET(COALESCE(ur.username, p.usuario_registro), p_usuarios)
+        OR FIND_IN_SET(COALESCE(NULLIF(TRIM(ur.nombre), ''), p.usuario_registro), p_usuarios)
+    )
     AND (p_estado IS NULL OR p_estado = '' OR p.estado = p_estado)
     -- Filtro por fecha de vigencia hasta (vencimiento)
     AND (
@@ -1607,9 +1713,9 @@ CREATE TABLE siniestros (
     datos_tercero JSON,
     gastos_presentados JSON,
 
-    usuario_registro VARCHAR(50),
+    usuario_registro VARCHAR(100),
     fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
-    usuario_modificacion VARCHAR(50),
+    usuario_modificacion VARCHAR(100),
     fecha_modificacion DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     eliminado TINYINT(1) DEFAULT 0,
 
@@ -1646,7 +1752,7 @@ CREATE TABLE siniestro_documentos (
     monto DECIMAL(15,2) DEFAULT 0.00,
     archivo_path VARCHAR(500) COMMENT 'Ruta del archivo si está digitalizado',
     observaciones TEXT,
-    usuario_registro VARCHAR(50),
+    usuario_registro VARCHAR(100),
     fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
     eliminado TINYINT(1) DEFAULT 0,
 
@@ -1670,7 +1776,7 @@ CREATE TABLE siniestro_bitacora (
     descripcion TEXT NOT NULL,
     responsable VARCHAR(100),
     tipo_actividad VARCHAR(50) COMMENT 'LLAMADA, EMAIL, REUNION, VISITA, etc.',
-    usuario_registro VARCHAR(50),
+    usuario_registro VARCHAR(100),
     fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
     eliminado TINYINT(1) DEFAULT 0,
 
@@ -1695,7 +1801,7 @@ CREATE TABLE siniestro_archivos (
     descripcion TEXT,
     ruta_archivo VARCHAR(500) NOT NULL,
     tamano_bytes BIGINT,
-    usuario_subida VARCHAR(50),
+    usuario_subida VARCHAR(100),
     fecha_subida DATETIME DEFAULT CURRENT_TIMESTAMP,
     eliminado TINYINT(1) DEFAULT 0,
 
@@ -1747,9 +1853,22 @@ CREATE PROCEDURE sp_insert_siniestro_otros(
     IN p_fec_vencimiento_factura DATE,
     IN p_fec_pago_factura DATE,
     IN p_gastos_presentados TEXT,
-    IN p_usuario VARCHAR(50)
+    IN p_usuario VARCHAR(100)
 )
 BEGIN
+    DECLARE v_usuario_nombre VARCHAR(100);
+    SET v_usuario_nombre = NULL;
+    IF p_usuario IS NOT NULL AND TRIM(p_usuario) <> '' THEN
+        SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
+        INTO v_usuario_nombre
+        FROM usuarios
+        WHERE username = p_usuario
+        LIMIT 1;
+    END IF;
+    IF v_usuario_nombre IS NULL OR v_usuario_nombre = '' THEN
+        SET v_usuario_nombre = p_usuario;
+    END IF;
+
     INSERT INTO siniestros (
         grupo_ramo, poliza, cia, ramo, contratante, asegurado,
         fec_stro, hora_siniestro, quien_reporta, email, telefonos,
@@ -1765,7 +1884,7 @@ BEGIN
         p_moneda, p_monto_siniestro, p_deducible, p_descripcion_deducible, p_total_indemnizar,
         p_fec_pago, p_forma_pago, p_numero_cheque, p_banco,
         p_numero_factura, p_monto_pagar_factura, p_fec_vencimiento_factura, p_fec_pago_factura,
-        p_gastos_presentados, p_usuario
+        p_gastos_presentados, v_usuario_nombre
     );
     SELECT LAST_INSERT_ID() AS id;
 END $$
@@ -2583,9 +2702,22 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE sp_insert_siniestro(
     IN p_datos_copiloto JSON,
     IN p_datos_tercero JSON,
     IN p_gastos_presentados JSON,
-    IN p_usuario_registro VARCHAR(50)
+    IN p_usuario_registro VARCHAR(100)
 )
 BEGIN
+    DECLARE v_usuario_registro_nombre VARCHAR(100);
+    SET v_usuario_registro_nombre = NULL;
+    IF p_usuario_registro IS NOT NULL AND TRIM(p_usuario_registro) <> '' THEN
+        SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
+        INTO v_usuario_registro_nombre
+        FROM usuarios
+        WHERE username = p_usuario_registro
+        LIMIT 1;
+    END IF;
+    IF v_usuario_registro_nombre IS NULL OR v_usuario_registro_nombre = '' THEN
+        SET v_usuario_registro_nombre = p_usuario_registro;
+    END IF;
+
     INSERT INTO siniestros (
         grupo_ramo, poliza, cia, ramo, contratante, asegurado,
         fec_presentacion_broker, fec_aviso_cia, fec_stro, hora_siniestro,
@@ -2621,7 +2753,7 @@ BEGIN
         p_numero_factura, p_monto_pagar_factura, p_fec_vencimiento_factura, p_fec_pago_factura,
         p_datos_vehiculo, p_datos_denuncia, p_datos_conductor, p_datos_copiloto, p_datos_tercero,
         p_gastos_presentados,
-        p_usuario_registro
+        v_usuario_registro_nombre
     );
 
     SELECT LAST_INSERT_ID() AS id;
@@ -2662,9 +2794,22 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE sp_insert_siniestro_otros(
     IN p_fec_vencimiento_factura DATE,
     IN p_fec_pago_factura DATE,
     IN p_gastos_presentados TEXT,
-    IN p_usuario VARCHAR(50)
+    IN p_usuario VARCHAR(100)
 )
 BEGIN
+    DECLARE v_usuario_nombre VARCHAR(100);
+    SET v_usuario_nombre = NULL;
+    IF p_usuario IS NOT NULL AND TRIM(p_usuario) <> '' THEN
+        SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
+        INTO v_usuario_nombre
+        FROM usuarios
+        WHERE username = p_usuario
+        LIMIT 1;
+    END IF;
+    IF v_usuario_nombre IS NULL OR v_usuario_nombre = '' THEN
+        SET v_usuario_nombre = p_usuario;
+    END IF;
+
     INSERT INTO siniestros (
         grupo_ramo, poliza, cia, ramo, contratante, asegurado,
         fec_stro, hora_siniestro, quien_reporta, email, telefonos,
@@ -2680,7 +2825,7 @@ BEGIN
         p_moneda, p_monto_siniestro, p_deducible, p_descripcion_deducible, p_total_indemnizar,
         p_fec_pago, p_forma_pago, p_numero_cheque, p_banco,
         p_numero_factura, p_monto_pagar_factura, p_fec_vencimiento_factura, p_fec_pago_factura,
-        CAST(p_gastos_presentados AS JSON), p_usuario
+        CAST(p_gastos_presentados AS JSON), v_usuario_nombre
     );
 
     SELECT LAST_INSERT_ID() AS id;
@@ -3193,7 +3338,7 @@ BEGIN
     SELECT u.id, u.username, u.nombre, u.estado, u.id_rol, r.nombre as rol
     FROM usuarios u
     LEFT JOIN roles r ON u.id_rol = r.idRol
-    ORDER BY u.username ASC;
+    ORDER BY COALESCE(NULLIF(TRIM(u.nombre), ''), u.username) ASC;
 END$$
 DELIMITER ;
 
@@ -3258,7 +3403,7 @@ CREATE PROCEDURE sp_insert_poliza_soat_masivo (
     IN p_ramos_producto VARCHAR(120),
     IN p_estado VARCHAR(20),
     IN p_pdf_path VARCHAR(255),
-    IN p_usuario_registro VARCHAR(50),
+    IN p_usuario_registro VARCHAR(100),
     IN p_datos_vehiculo JSON,
     IN p_codigo_agente VARCHAR(50)
 )
@@ -3268,6 +3413,7 @@ BEGIN
     DECLARE v_msg VARCHAR(255);
     DECLARE v_key VARCHAR(50);
     DECLARE v_poliza_id INT;
+    DECLARE v_usuario_registro_nombre VARCHAR(100);
 
     -- Validar que el cliente existe
     SELECT idCliente INTO v_cliente_id
@@ -3299,6 +3445,18 @@ BEGIN
         END IF;
     END IF;
 
+    SET v_usuario_registro_nombre = NULL;
+    IF p_usuario_registro IS NOT NULL AND TRIM(p_usuario_registro) <> '' THEN
+        SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
+        INTO v_usuario_registro_nombre
+        FROM usuarios
+        WHERE username = p_usuario_registro
+        LIMIT 1;
+    END IF;
+    IF v_usuario_registro_nombre IS NULL OR v_usuario_registro_nombre = '' THEN
+        SET v_usuario_registro_nombre = p_usuario_registro;
+    END IF;
+
     -- Insertar póliza
     INSERT INTO polizas (
         cliente_id, asegurado, cia, ramo,
@@ -3317,7 +3475,7 @@ BEGIN
         p_sub_agente, p_ejecutivo, p_tipo_doc,
         p_asegurada, p_motivo, p_prima_comercial, p_prima_neta, p_prima_comercial_igv, p_prima_total,
         p_porc_compania, p_imp_compania, p_porc_subagente, p_imp_subagente,
-        p_ramos_producto, p_estado, p_usuario_registro, p_datos_vehiculo, p_codigo_agente
+        p_ramos_producto, p_estado, v_usuario_registro_nombre, p_datos_vehiculo, p_codigo_agente
     );
 
     SET v_poliza_id = LAST_INSERT_ID();
@@ -3325,7 +3483,7 @@ BEGIN
     -- Insertar archivo si existe
     IF p_pdf_path IS NOT NULL AND p_pdf_path <> '' THEN
         INSERT INTO poliza_archivos (poliza_id, numero_poliza, ruta_archivo, nombre_original, ramo, producto, usuario, compania)
-        VALUES (v_poliza_id, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1), p_ramo, p_ramos_producto, p_usuario_registro, p_cia);
+        VALUES (v_poliza_id, p_poliza, p_pdf_path, SUBSTRING_INDEX(p_pdf_path, '/', -1), p_ramo, p_ramos_producto, v_usuario_registro_nombre, p_cia);
     END IF;
 
     SELECT v_poliza_id AS id;

@@ -86,12 +86,12 @@ def get_reporte_diario_data(filters: Dict[str, Any]) -> List[Dict[str, Any]]:
         if role == Roles.SUB_AGENTE:
             # Filter by sub_agente (assuming sub_agente column stores username or name)
             # We'll use the same logic as in polizas.py
-            cursor.execute("SELECT nombre FROM usuarios WHERE username = %s", (user,))
+            cursor.execute("SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s", (user,))
             u_row = cursor.fetchone()
-            nombre_usuario = u_row['nombre'] if u_row else user
+            nombre_usuario = (u_row.get('nombre') if u_row else user) or user
             
-            sql += " AND (p.usuario_registro = %s OR p.sub_agente = %s)"
-            params.extend([user, nombre_usuario])
+            sql += " AND (p.usuario_registro = %s OR p.usuario_registro = %s OR p.sub_agente = %s OR p.sub_agente = %s)"
+            params.extend([user, nombre_usuario, user, nombre_usuario])
 
         # Apply Filters
         if filters.get('desde'):

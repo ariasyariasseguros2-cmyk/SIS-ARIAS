@@ -106,12 +106,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
             users.forEach(u => {
                 const li = document.createElement('li');
-                const isChecked = currentUser && u.username.toLowerCase() === currentUser;
+                const displayName = (u.nombre || u.username || '').toString();
+                const isChecked = currentUser && (u.username || '').toLowerCase() === currentUser;
                 li.innerHTML = `
                     <div class="dropdown-item">
                         <div class="form-check">
-                            <input class="form-check-input usuario-checkbox" type="checkbox" value="${u.username}" id="user_${u.username}" ${isChecked ? 'checked' : ''}>
-                            <label class="form-check-label w-100" style="cursor: pointer;" for="user_${u.username}">${u.username}</label>
+                            <input class="form-check-input usuario-checkbox" type="checkbox" value="${u.username}" data-display="${displayName}" id="user_${u.username}" ${isChecked ? 'checked' : ''}>
+                            <label class="form-check-label w-100" style="cursor: pointer;" for="user_${u.username}">${displayName}</label>
                         </div>
                     </div>
                 `;
@@ -175,11 +176,15 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateUsuarioDropdownState() {
         const checkboxes = usuarioDropdownMenu.querySelectorAll('.usuario-checkbox:checked');
         const selectedValues = [];
+        const selectedLabels = [];
         let todosChecked = false;
 
         checkboxes.forEach(chk => {
             if (chk.value === "") todosChecked = true;
-            else selectedValues.push(chk.value);
+            else {
+                selectedValues.push(chk.value);
+                selectedLabels.push((chk.dataset.display || chk.value).toString());
+            }
         });
 
         // If nothing selected, revert to "Todos"
@@ -197,7 +202,7 @@ document.addEventListener('DOMContentLoaded', function() {
             usuarioDropdownBtn.classList.remove('text-primary', 'fw-bold');
         } else {
             usuarioDropdownBtn.classList.add('text-primary', 'fw-bold');
-            usuarioDropdownBtn.textContent = selectedValues.length === 1 ? selectedValues[0] : `${selectedValues.length} seleccionados`;
+            usuarioDropdownBtn.textContent = selectedValues.length === 1 ? selectedLabels[0] : `${selectedValues.length} seleccionados`;
         }
     }
 

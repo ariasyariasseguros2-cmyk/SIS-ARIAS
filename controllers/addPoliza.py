@@ -233,6 +233,21 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
         except Exception:
             default_ejecutivo = None
 
+        usuario_display = session.get('user')
+        try:
+            if session.get('user'):
+                c3 = cnx.cursor()
+                c3.execute(
+                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1",
+                    (session.get('user'),),
+                )
+                r3 = c3.fetchone()
+                if r3 and r3[0]:
+                    usuario_display = r3[0]
+                c3.close()
+        except Exception:
+            usuario_display = session.get('user')
+
         def find_client_doc(doc, name, cursor):
             # Prioridad: documento
             if doc:
@@ -354,7 +369,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
                 U(row.get("ramos_producto") or (selected or {}).get("ramos_producto") or ""),
                 U(row.get("estado") or "PENDIENTE"),
                 f"uploads/polizas/{(selected or {}).get('pdf_filename')}" if (selected or {}).get("pdf_filename") else None,
-                session.get('user')
+                usuario_display
             )
 
             try:
@@ -405,7 +420,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
                                     sa['nombre'], 
                                     row.get('ramo') or "", 
                                     row.get('ramos_producto') or "", 
-                                    session.get('user'), 
+                                    usuario_display, 
                                     row.get('cia') or ""
                                 ))
                     except Exception as e_anexos:
@@ -438,7 +453,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
                                 None,   # fecha_pago
                                 None,   # factura
                                 None, # observacion
-                                session.get('user'),
+                                usuario_display,
                                 1       # numero_cuota
                             )
                         )

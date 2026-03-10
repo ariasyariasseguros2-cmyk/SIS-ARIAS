@@ -148,12 +148,12 @@ def get_polizas_all() -> dict:
             # Get user's full name for sub_agente match if needed, or use username
             # Assuming sub_agente column might store username or name. 
             # Consistent with polizas_search.py logic:
-            cur.execute("SELECT nombre FROM usuarios WHERE username = %s", (user,))
+            cur.execute("SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s", (user,))
             u_row = cur.fetchone()
-            nombre_usuario = u_row['nombre'] if u_row else user
+            nombre_usuario = (u_row.get('nombre') if u_row else user) or user
             
-            rls_filter = " AND (p.usuario_registro = %s OR p.sub_agente = %s) "
-            rls_params = [user, nombre_usuario]
+            rls_filter = " AND (p.usuario_registro = %s OR p.usuario_registro = %s OR p.sub_agente = %s OR p.sub_agente = %s) "
+            rls_params = [user, nombre_usuario, user, nombre_usuario]
 
         # Primero intentamos con el SP, si existe
         # Nota: SP sp_list_polizas_all generalmente no acepta params de filtro RLS dinámico.
@@ -276,11 +276,11 @@ def get_polizas_anuladas() -> dict:
         rls_params = []
         if session.get('role_name') == Roles.SUB_AGENTE:
             user = session.get('user')
-            cur.execute("SELECT nombre FROM usuarios WHERE username = %s", (user,))
+            cur.execute("SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s", (user,))
             u_row = cur.fetchone()
-            nombre_usuario = u_row['nombre'] if u_row else user
-            rls_filter = " AND (p.usuario_registro = %s OR p.sub_agente = %s) "
-            rls_params = [user, nombre_usuario]
+            nombre_usuario = (u_row.get('nombre') if u_row else user) or user
+            rls_filter = " AND (p.usuario_registro = %s OR p.usuario_registro = %s OR p.sub_agente = %s OR p.sub_agente = %s) "
+            rls_params = [user, nombre_usuario, user, nombre_usuario]
 
         use_sp = (rls_filter == "")
         if use_sp:
@@ -344,11 +344,11 @@ def get_polizas_anuladas_filtered(q: str | None = None, desde: str | None = None
         rls_params: list = []
         if session.get('role_name') == Roles.SUB_AGENTE:
             user = session.get('user')
-            cur.execute("SELECT nombre FROM usuarios WHERE username = %s", (user,))
+            cur.execute("SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s", (user,))
             u_row = cur.fetchone()
-            nombre_usuario = u_row['nombre'] if u_row else user
-            rls_sql = " AND (p.usuario_registro = %s OR p.sub_agente = %s) "
-            rls_params = [user, nombre_usuario]
+            nombre_usuario = (u_row.get('nombre') if u_row else user) or user
+            rls_sql = " AND (p.usuario_registro = %s OR p.usuario_registro = %s OR p.sub_agente = %s OR p.sub_agente = %s) "
+            rls_params = [user, nombre_usuario, user, nombre_usuario]
         sql = """
             SELECT 
                 p.idPoliza,
