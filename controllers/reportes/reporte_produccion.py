@@ -30,11 +30,11 @@ def _build_filters(filters: Dict[str, Any]) -> Tuple[str, List[Any]]:
     vig_hasta = filters.get("vig_hasta")
 
     if vig_desde:
-        sql_filters.append("p.vig_hasta >= %s")
+        sql_filters.append("p.vig_desde >= %s")
         params.append(vig_desde)
 
     if vig_hasta:
-        sql_filters.append("p.vig_hasta <= %s")
+        sql_filters.append("p.vig_desde <= %s")
         params.append(vig_hasta)
 
     if filters.get("cia"):
