@@ -3575,7 +3575,38 @@ BEGIN
 END$$
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS sp_editar_agente;
+DELIMITER $$
+CREATE PROCEDURE sp_editar_agente(
+    IN p_id            INT,
+    IN p_codigo_agente VARCHAR(50),
+    IN p_nombre_vendedor VARCHAR(255),
+    IN p_tipo_menor    DECIMAL(10,2),
+    IN p_tipo_regular  DECIMAL(10,2),
+    IN p_estado        ENUM('ACTIVO','INACTIVO')
+)
+BEGIN
+    IF TRIM(p_codigo_agente) = '' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El código de agente no puede estar vacío';
+END IF;
 
+    IF TRIM(p_nombre_vendedor) = '' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El nombre del vendedor no puede estar vacío';
+END IF;
+
+UPDATE agentes
+SET codigo_agente   = TRIM(p_codigo_agente),
+    nombre_vendedor = TRIM(p_nombre_vendedor),
+    tipo_menor      = IFNULL(p_tipo_menor, 0),
+    tipo_regular    = IFNULL(p_tipo_regular, 0),
+    estado          = IFNULL(p_estado, 'ACTIVO')
+WHERE id = p_id;
+
+SELECT ROW_COUNT() AS affected_rows;
+END$$
+DELIMITER ;
 -- ========================================
 -- MIGRACIONES Y ALTERACIONES DE TABLAS
 -- ========================================
