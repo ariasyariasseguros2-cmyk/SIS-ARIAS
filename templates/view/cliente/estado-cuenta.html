@@ -167,34 +167,61 @@
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-sm table-bordered table-hover mb-0">
-                        <thead class="table-warning">
-                            <tr>
-                                <th>Compañía</th>
-                                <th>Ramo</th>
-                                <th>Producto</th>
-                                <th>Tipo Doc</th>
-                                <th>N° de Póliza</th>
-                                <th>Proforma</th>
-                                <th>Cupón</th>
-                                <th>Fecha Emisión</th>
-                                <th>Vigencia (Desde - Hasta)</th>
-                                <th>Factura</th>
-                                <th>Fecha de Pago</th>
-                                <th>Fecha Vencimiento</th>
-                                <th>Moneda</th>
-                                <th>Monto</th>
-                                <th>Cta. Por Pagar</th>
-                                <th>Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for p in items %}
-                            <tr>
-                                <td>{{ p.compania or '-' }}</td>
-                                <td>{{ p.ramo or '-' }}</td>
-                                <td>{{ p.producto or '-' }}</td>
-                                <td>
+                    <style>
+                        /* Tipografía y tamaños consistentes para la tabla y subtotales */
+                        .table-custom-font { font-family: inherit; font-size: 15px; }
+                        .table-custom-font th, .table-custom-font td { font-size: 15px; vertical-align: middle; }
+
+                        /* Caja del subtotal — layout horizontal: S/ | US$ en una sola fila */
+                        .subtotal-box {
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            gap: 8px;
+                            box-sizing: border-box;
+                            padding: 4px 8px;
+                            border-radius: 6px;
+                            white-space: nowrap;
+                        }
+                        .subtotal-cobrar { background-color: #d9ecff; color: #0b5ed7; }
+                        .subtotal-cobrar .amount  { font-weight:700; font-size:14px; }
+                        .subtotal-cobrar .currency { font-size:13px; color:#0b5ed7; }
+
+                        /* Caja del subtotal 'Por Pagar' (beige) */
+                        .subtotal-pagar { background-color: #fbf1db; color: #6b3b00; }
+                        .subtotal-pagar .amount  { font-weight:700; font-size:14px; }
+                        .subtotal-pagar .currency { font-size:13px; color:#6b3b00; }
+
+                        /* Label 'Por Pagar' estilo */
+                        .por-pagar-label { color:#c23; font-weight:700; font-size:14px; }
+                    </style>
+                    <table class="table table-sm table-bordered table-hover mb-0 table-custom-font">
+                         <thead class="table-warning">
+                             <tr>
+                                 <th>Compañía</th>
+                                 <th>Ramo</th>
+                                 <th>Producto</th>
+                                 <th>Tipo Doc</th>
+                                 <th>N° de Póliza</th>
+                                 <th>Proforma</th>
+                                 <th>Cupón</th>
+                                 <th>Fecha Emisión</th>
+                                 <th>Vigencia (Desde - Hasta)</th>
+                                 <th>Factura</th>
+                                 <th>Fecha de Pago</th>
+                                 <th>Fecha Vencimiento</th>
+                                 <th>Moneda</th>
+                                 <th>Monto</th>
+                                 <th>Estado</th>
+                             </tr>
+                         </thead>
+                         <tbody>
+                             {% for p in items %}
+                             <tr>
+                                 <td>{{ p.compania or '-' }}</td>
+                                 <td>{{ p.ramo or '-' }}</td>
+                                 <td>{{ p.producto or '-' }}</td>
+                                 <td>
                                     {% if p.tipo_doc %}
                                         {% set tipo_upper = p.tipo_doc.upper() %}
                                         <span class="badge badge-tipo-doc
@@ -230,7 +257,6 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-end">{{ "%.2f"|format(p.monto_cta_cobrar|float) if p.monto_cta_cobrar else '0.00' }}</td>
-                                <td class="text-end">{{ "%.2f"|format(p.monto_cta_pagar|float) if p.monto_cta_pagar else '0.00' }}</td>
                                 <td>
                                     <span class="badge
                                         {% if p.estado and p.estado.upper() == 'CANCELADO' %}bg-danger
@@ -242,14 +268,14 @@
                                     </span>
                                 </td>
                             </tr>
-                            {% endfor %}
-                        </tbody>
-                        <tfoot>
+                             {% endfor %}
+                         </tbody>
+                         <tfoot>
+                            {# Calculamos subtotales aquí y luego los mostramos fuera de la tabla para evitar columnas vacías #}
                             {% set sub_soles_cobrar = namespace(value=0) %}
                             {% set sub_dolares_cobrar = namespace(value=0) %}
                             {% set sub_soles_pagar = namespace(value=0) %}
                             {% set sub_dolares_pagar = namespace(value=0) %}
-                            
                             {% for p in items %}
                                {% set moneda_upper = (p.moneda|upper) if p.moneda else '' %}
                                {% if 'SOLES' in moneda_upper or 'S/' in moneda_upper %}
@@ -260,23 +286,29 @@
                                    {% set sub_dolares_pagar.value = sub_dolares_pagar.value + (p.monto_cta_pagar|float if p.monto_cta_pagar else 0) %}
                                {% endif %}
                             {% endfor %}
-
                            <tr class="table-totales">
                                <td colspan="13" class="text-end fw-bold">SUBTOTAL {{ compania }}:</td>
-                               <td class="text-end fw-bold bg-info-subtle">
-                                   S/: {{ "%.2f"|format(sub_soles_cobrar.value) }}<br>
-                                   US$: {{ "%.2f"|format(sub_dolares_cobrar.value) }}
-                               </td>
-                               <td class="text-end fw-bold bg-warning-subtle">
-                                   S/: {{ "%.2f"|format(sub_soles_pagar.value) }}<br>
-                                   US$: {{ "%.2f"|format(sub_dolares_pagar.value) }}
-                               </td>
-                               <td></td>
-                           </tr>
+                               <td colspan="2" style="vertical-align:middle; padding:4px 6px;">
+                                    <div class="subtotal-box subtotal-cobrar">
+                                        <span class="amount">S/: {{ "%.2f"|format(sub_soles_cobrar.value) }}</span>
+                                        <span class="currency">US$: {{ "%.2f"|format(sub_dolares_cobrar.value) }}</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                               <td colspan="13" class="text-end" style="padding-top:4px; padding-bottom:4px; padding-right:8px;">
+                                    <span class="por-pagar-label">POR PAGAR:</span>
+                                </td>
+                               <td colspan="2" style="vertical-align:middle; padding:4px 6px;">
+                                    <div class="subtotal-box subtotal-pagar">
+                                         <span class="amount">S/: {{ "%.2f"|format(sub_soles_pagar.value) }}</span>
+                                         <span class="currency">US$: {{ "%.2f"|format(sub_dolares_pagar.value) }}</span>
+                                     </div>
+                                 </td>
+                             </tr>
                         </tfoot>
-                    </table>
-                </div>
-            </div>
+                     </table>
+                 </div>
         </div>
         {% endfor %}
 
