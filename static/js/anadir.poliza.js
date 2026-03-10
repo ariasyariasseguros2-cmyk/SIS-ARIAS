@@ -259,6 +259,11 @@
     if (!Number.isFinite(num)) return '';
     return (num * 1.18).toFixed(2);
   }
+  function computePrimaComercialFromTotal(val) {
+    const num = parseNumber(val);
+    if (!Number.isFinite(num)) return '';
+    return (num / 1.18).toFixed(2);
+  }
 
   // Números y comisiones
   function computeCommissionAmount(netaStr, pctStr) {
@@ -463,6 +468,14 @@
 
     tbody.innerHTML = '';
     items.forEach((it, idx) => {
+      const totalVal = it.prima_comercial_igv || it.prima_total || it.monto || '';
+      if ((!it.prima_comercial || it.prima_comercial === '') && totalVal) {
+        const comercial = computePrimaComercialFromTotal(totalVal);
+        if (comercial) {
+          it.prima_comercial = comercial;
+          it.prima_neta = computePrimaNetaFromComercial(comercial);
+        }
+      }
       if (it.moneda) {
         it.moneda = mapCurrencySymbol(it.moneda);
       }
@@ -683,6 +696,11 @@
     if (digits.length <= 4) return `${a}/${b}`;
     return `${a}/${b}/${c}`;
   }
+  function isPositivaSelected() {
+    const val = (issuerEl?.value || '').toLowerCase();
+    const txt = issuerEl?.options?.[issuerEl.selectedIndex]?.text?.toLowerCase?.() || '';
+    return val.includes('positiva') || txt.includes('positiva') || val.includes('lpv');
+  }
   function sanitizeDateInCell(td) {
     const masked = maskDate(td.textContent || '');
     if (td.textContent !== masked) td.textContent = masked;
@@ -754,8 +772,8 @@
     if (!td) return;
     const field = td.dataset.field;
     if (!isDateField(field)) return;
-    e.preventDefault();
     const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+    e.preventDefault();
     const masked = maskDate(text);
     document.execCommand('insertText', false, masked);
   });

@@ -105,19 +105,81 @@
     return m2 ? m2[1].trim() : null;
   }
 
+  function extractPrimas(s) {
+    const txt = (s || '').replace(/\u00A0/g, ' ');
+    const norm = v => {
+      if (!v) return '';
+      const raw = v.replace(/[^\d,.\-]/g, '').trim();
+      if (/,/.test(raw) && /\./.test(raw)) return raw.replace(/,/g, '');
+      if (/,/.test(raw) && !/\./.test(raw)) return raw.replace(/\./g, '').replace(/,/g, '.');
+      return raw;
+    };
+    const block = txt.match(/Prima\s+Comercial[\s\S]{0,120}?([0-9][0-9\.,]*)[\s\S]{0,200}?Prima\s+Comercial\s*\+\s*IGV[\s\S]{0,120}?([0-9][0-9\.,]*)/i);
+    if (block) {
+      return { prima_comercial: norm(block[1]), prima_comercial_igv: norm(block[2]) };
+    }
+    const m1 = txt.match(/Prima\s+Comercial[\s:]*[\r\n]*[A-Z$S\/\.\s]*([0-9][0-9\.,]*)/i);
+    const m2 = txt.match(/Prima\s+Comercial\s*\+\s*IGV[\s:]*[\r\n]*[A-Z$S\/\.\s]*([0-9][0-9\.,]*)/i);
+    return { prima_comercial: norm(m1 && m1[1]), prima_comercial_igv: norm(m2 && m2[1]) };
+  }
+
+  // (Removido) extracción de vigencias por pegado específico
+
   tbody.addEventListener('paste', (e) => {
     const td = e.target.closest('td.editable');
     if (!td) return;
     const field = td.dataset.field;
-    if (!(field === 'colectivo_asegurado' || field === 'asegurado')) return;
     if (!isPositiva()) return;
 
     const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
-    if (!/raz[oó]n\s+social/i.test(text)) return;
 
-    e.preventDefault();
-    const val = extractRazonSocial(text) || text.replace(/raz[oó]n\s+social\s*:\s*/i, '').trim();
-    td.textContent = val;
-    td.dispatchEvent(new Event('input', { bubbles: true }));
+    if (/raz[oó]n\s+social/i.test(text) && (field === 'colectivo_asegurado' || field === 'asegurado')) {
+      e.preventDefault();
+      const val = extractRazonSocial(text) || text.replace(/raz[oó]n\s+social\s*:\s*/i, '').trim();
+      td.textContent = val;
+      td.dispatchEvent(new Event('input', { bubbles: true }));
+      return;
+    }
+
+    // (Removido) manejo especial de pegado de vigencias
+
+    if (/prima\s+comercial/i.test(text)) {
+      e.preventDefault();
+      const vals = extractPrimas(text);
+      const tr = td.closest('tr');
+      const pcCell = tr?.querySelector('td.editable[data-field="prima_comercial"]');
+      const pigvCell = tr?.querySelector('td.editable[data-field="prima_comercial_igv"]');
+      if (vals.prima_comercial && pcCell) {
+        pcCell.textContent = vals.prima_comercial;
+        pcCell.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      if (vals.prima_comercial_igv && pigvCell) {
+        pigvCell.textContent = vals.prima_comercial_igv;
+        pigvCell.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      if (!vals.prima_comercial && !vals.prima_comercial_igv) {
+        document.execCommand('insertText', false, text);
+      }
+      return;
+    }
+
+    if (field === 'prima_comercial' || field === 'prima_comercial_igv') {
+      const vals = extractPrimas(text);
+      if (vals.prima_comercial || vals.prima_comercial_igv) {
+        e.preventDefault();
+        const tr = td.closest('tr');
+        const pcCell = tr?.querySelector('td.editable[data-field="prima_comercial"]');
+        const pigvCell = tr?.querySelector('td.editable[data-field="prima_comercial_igv"]');
+        if (pcCell && vals.prima_comercial) {
+          pcCell.textContent = vals.prima_comercial;
+          pcCell.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (pigvCell && vals.prima_comercial_igv) {
+          pigvCell.textContent = vals.prima_comercial_igv;
+          pigvCell.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        return;
+      }
+    }
   });
 })();

@@ -48,12 +48,46 @@ def extract_razon_social(text: str) -> Optional[str]:
         name = re.sub(r",\s*$", "", name).strip()
         if name:
             return name
-    m3 = re.search(r"Señores?\s*(?:,|:)\s*([A-ZÁÉÍÓÚÑ0-9\.\- &'\/]{2,160})[,;\n]", text, flags=re.IGNORECASE)
-    if m3:
-        name = m3.group(1).strip()
-        if name:
-            return name
-    return None
+
+def _normalize_amount(s: str | None) -> Optional[str]:
+    if not s:
+        return None
+    v = re.sub(r"[^\d,\.]", "", s)
+    if "," in v and "." in v:
+        v = v.replace(",", "")
+    elif "," in v and "." not in v:
+        v = v.replace(".", "").replace(",", ".")
+    try:
+        return f"{float(v):.2f}"
+    except Exception:
+        return v or None
+
+def extract_primas_positiva(text: str) -> dict:
+    out = {}
+    m_block = re.search(
+        r"Prima\s+Comercial[\s\S]{0,120}?([0-9][0-9\.,]*)[\s\S]{0,240}?Prima\s+Comercial\s*\+\s*IGV[\s\S]{0,120}?([0-9][0-9\.,]*)",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if m_block:
+        out['prima_comercial'] = _normalize_amount(m_block.group(1))
+        out['prima_comercial_igv'] = _normalize_amount(m_block.group(2))
+        return {k: v for k, v in out.items() if v}
+    m_pc = re.search(
+        r"Prima\s+Comercial[\s:]*[\r\n]*[A-Z$S\/\.\s]*([0-9][0-9\.,]*)",
+        text,
+        flags=re.IGNORECASE,
+    )
+    m_pigv = re.search(
+        r"Prima\s+Comercial\s*\+\s*IGV[\s:]*[\r\n]*[A-Z$S\/\.\s]*([0-9][0-9\.,]*)",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if m_pc:
+        out['prima_comercial'] = _normalize_amount(m_pc.group(1))
+    if m_pigv:
+        out['prima_comercial_igv'] = _normalize_amount(m_pigv.group(1))
+    return {k: v for k, v in out.items() if v}
 
 def _clean_company_name(raw: str | None) -> Optional[str]:
     if not raw:
@@ -78,6 +112,7 @@ def _clean_company_name(raw: str | None) -> Optional[str]:
     return s or None
 
 def extract_razon_social_strict(text: str) -> Optional[str]:
+    """Versión estricta: busca en una ventana corta después del rótulo para evitar capturar párrafos."""
     """Versión estricta: busca en una ventana corta después del rótulo para evitar capturar párrafos."""
     patterns = [
         r"Raz[oó]n\s+Social\s*:?",
@@ -143,4 +178,3 @@ def extract_razon_social_strict(text: str) -> Optional[str]:
                 name = _clean_company_name(mm.group(1))
         if name:
             return name
-    return None
