@@ -1,13 +1,11 @@
 import os
-import secrets
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from routes.route import bp as main_bp
 
 app = Flask(__name__)
-app.secret_key = 'cambia-esta-secret'  # Cambia esta clave por una segura
+app.secret_key = os.environ.get('SIS_ARIAS_SECRET_KEY') or 'cambia-esta-secret'  # Cambia esta clave por una segura
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-app.config['ACTIVE_SESSIONS'] = {}
 
 app.register_blueprint(main_bp)
 
@@ -19,12 +17,8 @@ def require_login():
     if request.path in ('/login', '/logout'):
         return None
 
-    token = session.get('auth_token')
-    user = session.get('user')
-    if token and user:
-        active = app.config.get('ACTIVE_SESSIONS', {}).get(token)
-        if active and active.get('user') == user:
-            return None
+    if session.get('user'):
+        return None
 
     if request.path.startswith('/api/'):
         session.clear()
@@ -80,6 +74,10 @@ def login():
 
         def verify_password(plain: str, stored: str) -> bool:
             # Acepta hash (Werkzeug) o texto plano
+            if stored is None:
+                return False
+            stored = str(stored).strip()
+            plain = str(plain).strip()
             if stored == plain:
                 return True
             try:
@@ -91,11 +89,8 @@ def login():
                 pass
             return False
 
-        if row and verify_password(password, row['password']):
-            old_token = session.pop('auth_token', None)
-            if old_token:
-                app.config.get('ACTIVE_SESSIONS', {}).pop(old_token, None)
-
+        stored_password = (row or {}).get('password')
+        if row and stored_password and verify_password(password, stored_password):
             session['user'] = row['username']
             session['user_id'] = row['id']
             session['role_id'] = row['id_rol']
@@ -117,12 +112,6 @@ def login():
                 except Exception:
                     session['user_display_name'] = row['username']
 
-            token = secrets.token_urlsafe(32)
-            app.config.get('ACTIVE_SESSIONS', {})[token] = {
-                'user': session.get('user'),
-                'user_id': session.get('user_id'),
-            }
-            session['auth_token'] = token
             return redirect(url_for('main.home'))
         else:
             error = 'Credenciales inválidas. Intenta nuevamente.'
@@ -131,9 +120,6 @@ def login():
 
 @app.route('/logout')
 def logout():
-    token = session.get('auth_token')
-    if token:
-        app.config.get('ACTIVE_SESSIONS', {}).pop(token, None)
     session.clear()
     return redirect(url_for('login'))
 

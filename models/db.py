@@ -42,17 +42,20 @@ def get_connection():
     read_timeout_raw = os.environ.get("SIS_ARIAS_DB_READ_TIMEOUT") or db_cfg.get("read_timeout") or 30
     write_timeout_raw = os.environ.get("SIS_ARIAS_DB_WRITE_TIMEOUT") or db_cfg.get("write_timeout") or 30
 
+    auth_plugin = os.environ.get("SIS_ARIAS_DB_AUTH_PLUGIN") or db_cfg.get("auth_plugin")
+
     connect_kwargs = {
         "host": host,
         "port": int(port_raw),
         "user": user,
         "password": db_password,
         "database": database,
-        "auth_plugin": "mysql_native_password",
         "connection_timeout": int(connect_timeout_raw),
         "read_timeout": int(read_timeout_raw),
         "write_timeout": int(write_timeout_raw),
     }
+    if auth_plugin:
+        connect_kwargs["auth_plugin"] = auth_plugin
 
     try:
         return mysql.connector.connect(**connect_kwargs)
