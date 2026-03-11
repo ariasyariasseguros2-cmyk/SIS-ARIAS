@@ -6,8 +6,11 @@ from utils.crypto import decrypt_password
 
 def load_settings():
     path = os.path.join(os.path.dirname(__file__), '..', 'appsettings.json')
-    with open(path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
 
 
 def get_connection():
@@ -16,10 +19,15 @@ def get_connection():
     key_phrase = cfg.get("key_encrypt_bd")
     salt = cfg.get("salt_encrypt", "SIS-ARIAS")
 
-    db_cfg = cfg["db"]
+    db_cfg = cfg.get("db") or {}
 
-    encrypted = db_cfg.get("password_encrypted_b64")
-    plain = db_cfg.get("password")
+    host = os.environ.get("SIS_ARIAS_DB_HOST") or db_cfg.get("host") or "127.0.0.1"
+    port_raw = os.environ.get("SIS_ARIAS_DB_PORT") or db_cfg.get("port") or 3306
+    database = os.environ.get("SIS_ARIAS_DB_NAME") or db_cfg.get("database")
+    user = os.environ.get("SIS_ARIAS_DB_USER") or db_cfg.get("user")
+
+    encrypted = os.environ.get("SIS_ARIAS_DB_PASSWORD_ENCRYPTED_B64") or db_cfg.get("password_encrypted_b64")
+    plain = os.environ.get("SIS_ARIAS_DB_PASSWORD") or db_cfg.get("password")
 
     # Determinar contraseña final con fallback seguro
     if encrypted:
@@ -30,11 +38,25 @@ def get_connection():
     else:
         db_password = plain
 
-    return mysql.connector.connect(
-        host=db_cfg["host"],
-        port=db_cfg["port"],
-        user=db_cfg["user"],
-        password=db_password,
-        database=db_cfg["database"],
-        auth_plugin="mysql_native_password"
-    )
+    connect_timeout_raw = os.environ.get("SIS_ARIAS_DB_CONNECT_TIMEOUT") or db_cfg.get("connect_timeout") or db_cfg.get("connection_timeout") or 5
+    read_timeout_raw = os.environ.get("SIS_ARIAS_DB_READ_TIMEOUT") or db_cfg.get("read_timeout") or 30
+    write_timeout_raw = os.environ.get("SIS_ARIAS_DB_WRITE_TIMEOUT") or db_cfg.get("write_timeout") or 30
+
+    connect_kwargs = {
+        "host": host,
+        "port": int(port_raw),
+        "user": user,
+        "password": db_password,
+        "database": database,
+        "auth_plugin": "mysql_native_password",
+        "connection_timeout": int(connect_timeout_raw),
+        "read_timeout": int(read_timeout_raw),
+        "write_timeout": int(write_timeout_raw),
+    }
+
+    try:
+        return mysql.connector.connect(**connect_kwargs)
+    except TypeError:
+        connect_kwargs.pop("read_timeout", None)
+        connect_kwargs.pop("write_timeout", None)
+        return mysql.connector.connect(**connect_kwargs)

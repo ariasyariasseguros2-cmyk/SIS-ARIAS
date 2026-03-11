@@ -1,11 +1,17 @@
 $ErrorActionPreference = "Stop"
 
+Set-Location $PSScriptRoot
+
 Write-Host "Starting deployment packaging..."
 
 # Check if python is available
 if (Get-Command "python" -ErrorAction SilentlyContinue) {
     Write-Host "Using Python to create deployment package (Cross-platform compatible)..."
     python deploy.py
+}
+elseif (Get-Command "py" -ErrorAction SilentlyContinue) {
+    Write-Host "Using Python launcher (py) to create deployment package (Cross-platform compatible)..."
+    py deploy.py
 }
 else {
     Write-Warning "Python not found in PATH. Falling back to PowerShell Compress-Archive (Windows paths only)."
@@ -22,7 +28,8 @@ else {
         "routes",
         "static",
         "templates",
-        "utils"
+        "utils",
+        ".htaccess"
     )
 
     # Remove existing zip if it exists

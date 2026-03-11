@@ -2,6 +2,8 @@ import zipfile
 import os
 import sys
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 def zip_files(zip_name, items_to_zip):
     # Remove existing zip if it exists
     if os.path.exists(zip_name):
@@ -17,17 +19,20 @@ def zip_files(zip_name, items_to_zip):
     try:
         with zipfile.ZipFile(zip_name, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for item in items_to_zip:
-                if not os.path.exists(item):
+                item_path = os.path.join(BASE_DIR, item)
+                if not os.path.exists(item_path):
                     print(f"Warning: Item not found: {item}")
                     continue
 
-                if os.path.isfile(item):
+                if os.path.isfile(item_path):
                     print(f"  Adding file: {item}")
                     # Ensure arcname uses forward slashes
-                    zipf.write(item, arcname=item)
-                elif os.path.isdir(item):
+                    rel_path = os.path.relpath(item_path, BASE_DIR)
+                    arcname = rel_path.replace(os.path.sep, '/')
+                    zipf.write(item_path, arcname=arcname)
+                elif os.path.isdir(item_path):
                     print(f"  Adding folder: {item}")
-                    for root, dirs, files in os.walk(item):
+                    for root, dirs, files in os.walk(item_path):
                         # Exclude __pycache__ directories
                         if '__pycache__' in dirs:
                             dirs.remove('__pycache__')
@@ -39,7 +44,7 @@ def zip_files(zip_name, items_to_zip):
                             
                             file_path = os.path.join(root, file)
                             # Create archive name relative to current directory
-                            rel_path = os.path.relpath(file_path, os.getcwd())
+                            rel_path = os.path.relpath(file_path, BASE_DIR)
                             # Force forward slashes for cross-platform compatibility
                             arcname = rel_path.replace(os.path.sep, '/')
                             zipf.write(file_path, arcname=arcname)
