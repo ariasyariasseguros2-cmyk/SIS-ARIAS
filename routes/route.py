@@ -1,4 +1,4 @@
-from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory, jsonify, send_file
+from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory, jsonify, send_file, abort
 from werkzeug.utils import secure_filename
 import os
 from utils.rbac import can_access_maestros, can_delete, can_edit, can_create, Roles, get_role_scope
@@ -1238,10 +1238,7 @@ def menu_page(page):
         filters = get_reporte_produccion_filters()
         return render_template('view/reportes/reporte-produccion.html', page='reporte-produccion', filtros=filters)
 
-    rows = get_dashboard_rows()
-    chart = get_dashboard_data()
-    cards = get_dashboard_cards()
-    return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards, page=page)
+    abort(404)
 
 
 @bp.route('/api/reporte-diario', methods=['POST'])
@@ -1849,14 +1846,21 @@ def clientes_select():
 def api_polizas_search():
     if 'user' not in session:
         return {'ok': False, 'error': 'Unauthorized'}, 401
-        
+
     query = request.args.get('q', '').strip()
     search_type = request.args.get('type', 'general')
-    
+    filter_type = request.args.get('filter', '').strip()
+
+    # Filtros rápidos: vigentes / vencen-mes
+    if filter_type in ('vigentes', 'vencen-mes'):
+        from controllers.polizas_search import filter_polizas_rapido
+        data = filter_polizas_rapido(filter_type)
+        return jsonify({'ok': True, 'rows': data['rows']})
+
     from controllers.polizas_search import search_polizas_global
     data = search_polizas_global(query, search_type)
-    
-    return {'ok': True, 'rows': data['rows']}
+
+    return jsonify({'ok': True, 'rows': data['rows']})
 
 @bp.route('/api/comisiones/default', methods=['GET'])
 def api_comisiones_default():
