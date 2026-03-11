@@ -271,4 +271,66 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
   }
+
+  // === 5. BOTONES DE FILTRO RÁPIDO (Vencen este Mes / Ver Vigentes / Ver Todos) ===
+  const filterBtns = document.querySelectorAll('.btn-filter-rapido');
+
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const filterType = btn.getAttribute('data-filter');
+
+      // "Ver Todos" o click en botón ya activo → volver al estado original
+      if (filterType === 'todos' || btn.classList.contains('active')) {
+        filterBtns.forEach(b => b.classList.remove('active'));
+        window.location.href = baseUrl;
+        return;
+      }
+
+      // Marcar el botón activo y desmarcar los demás
+      filterBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      if (globalSearchInput) globalSearchInput.value = '';
+
+      // esconde paginacion del filtro
+      if (paginationBar) paginationBar.style.display = 'none';
+
+      // mostrar visual
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="13" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="text-muted mt-2">Aplicando filtro...</p>
+          </td>
+        </tr>
+      `;
+
+      try {
+        const response = await fetch(`/api/polizas/search?filter=${encodeURIComponent(filterType)}`);
+        const data = await response.json();
+        const rows = data.rows || [];
+
+        if (rows.length === 0) {
+          const label = filterType === 'vigentes' ? 'pólizas vigentes' : 'pólizas que vencen este mes';
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="13" class="text-center text-muted py-5">
+                <i class="bi-search display-6 d-block mb-3 opacity-25"></i>
+                No se encontraron ${label}
+              </td>
+            </tr>
+          `;
+        } else {
+          renderTable(rows);
+        }
+      } catch (error) {
+        console.error('Error al aplicar filtro:', error);
+        showError('Error de conexión al filtrar');
+      }
+    });
+  });
+
 });

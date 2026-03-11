@@ -25,10 +25,10 @@
             <i class="bi-shield-check text-primary"></i> Pólizas | Listado
         </h1>
         <div class="header-actions d-flex gap-2">
-            <!-- Botones de filtros rápidos (sin lógica específica aún, como en el original) -->
-            <a href="#" class="btn btn-outline-primary"><i class="bi-calendar3 me-1"></i> Vencen este Mes</a>
-            <a href="#" class="btn btn-outline-success"><i class="bi-check-circle me-1"></i> Ver Vigentes</a>
-            <a href="{{ url_for('main.menu_page', page='listado-poliza') }}" class="btn btn-outline-dark"><i class="bi-list-ul me-1"></i> Ver Todos</a>
+            <!-- Botones de filtros rápidos -->
+            <a href="#" class="btn btn-outline-primary btn-filter-rapido" data-filter="vencen-mes"><i class="bi-calendar3 me-1"></i> Vencen este Mes</a>
+            <a href="#" class="btn btn-outline-success btn-filter-rapido" data-filter="vigentes"><i class="bi-check-circle me-1"></i> Ver Vigentes</a>
+            <a href="{{ url_for('main.menu_page', page='listado-poliza') }}" class="btn btn-outline-dark btn-filter-rapido" data-filter="todos"><i class="bi-list-ul me-1"></i> Ver Todos</a>
         </div>
     </div>
 

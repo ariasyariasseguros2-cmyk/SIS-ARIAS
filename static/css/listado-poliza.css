@@ -1,3 +1,40 @@
+/* === Botones filtro rápido — estado activo === */
+.btn-filter-rapido {
+  position: relative;
+  transition: all 0.18s ease;
+}
+
+/* Activo: rellena el botón con su color */
+.btn-outline-primary.btn-filter-rapido.active {
+  background-color: #0d6efd;
+  color: #fff !important;
+  box-shadow: 0 0 0 3px rgba(13,110,253,.18);
+}
+.btn-outline-success.btn-filter-rapido.active {
+  background-color: #198754;
+  color: #fff !important;
+  box-shadow: 0 0 0 3px rgba(25,135,84,.18);
+}
+
+/* Punto indicador pulsante en esquina superior derecha */
+.btn-filter-rapido.active::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ffc107;
+  border: 2px solid #fff;
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.35); opacity: .7; }
+}
+
 /* Barra superior */
 .filters-bar {
   gap: .5rem;
