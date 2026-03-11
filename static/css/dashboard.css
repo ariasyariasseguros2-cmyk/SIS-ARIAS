@@ -332,6 +332,147 @@
   width: 100%;
 }
 
+@media (min-width: 992px) {
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--sidebar-border);
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    overflow: visible;
+  }
+
+  .brand {
+    margin-bottom: 0;
+    margin-right: 0;
+    flex: 0 0 auto;
+  }
+
+  .user-box {
+    margin-bottom: 0;
+    margin-right: 0;
+    flex: 0 0 auto;
+    padding: 6px 10px;
+  }
+
+  .nav-title {
+    display: none;
+  }
+
+  .nav-list {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+  }
+
+  .nav-list > li {
+    flex: 0 0 auto;
+    margin-right: 0;
+    margin-bottom: 0;
+    border-radius: 10px;
+  }
+
+  .nav-list > li[style] {
+    margin-top: 0 !important;
+  }
+
+  .nav-list > li:not(.nav-group) {
+    padding: 8px 10px;
+    border-radius: 10px;
+  }
+
+  .nav-list > li:not(.nav-group).active {
+    border-radius: 10px;
+    margin-right: 0;
+    background: rgba(255, 255, 255, 0.92);
+  }
+
+  .nav-list > li:not(.nav-group).active::before,
+  .nav-list > li:not(.nav-group).active::after {
+    display: none;
+  }
+
+  .nav-group {
+    position: relative;
+  }
+
+  .nav-group.active-group {
+    background: rgba(255, 255, 255, 0.15);
+    margin-right: 0;
+    border-radius: 10px;
+  }
+
+  .nav-group.active-group::before,
+  .nav-group.active-group::after {
+    display: none;
+  }
+
+  .nav-group.active-group .group-toggle {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .nav-group.active-group .group-toggle .caret {
+    color: rgba(255, 255, 255, 0.95);
+  }
+
+  .group-toggle {
+    padding: 8px 10px;
+    border-radius: 10px;
+  }
+
+  .group-toggle span {
+    white-space: nowrap;
+  }
+
+  .submenu {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    margin: 0;
+    padding: 8px;
+    width: 280px;
+    background: var(--layout-bg);
+    color: #333;
+    border-radius: 12px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.14);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    z-index: 2000;
+  }
+
+  .submenu li {
+    padding: 8px 10px;
+    border-radius: 10px;
+    color: #333;
+  }
+
+  .submenu li i {
+    color: #777;
+  }
+
+  .submenu li a {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .submenu li.active,
+  .submenu li a.active {
+    color: var(--sidebar-bg);
+  }
+}
+
 /* ==========================================================================
    Responsive & Mobile Sidebar
    ========================================================================== */

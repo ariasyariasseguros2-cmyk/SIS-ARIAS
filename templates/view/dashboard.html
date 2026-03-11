@@ -2,7 +2,7 @@
 
 {% block html_title %}Dashboard | SISNET{% endblock %}
 {% block page_title %}
-    <h3 class="fw-bold mb-0 text-dark">Bienvenido de nuevo, {{ session.get('user', 'Usuario') }}!</h3>
+    <h3 class="fw-bold mb-0 text-dark">Bienvenido de nuevo, {{ session.get('user_display_name', session.get('user', 'Usuario')) }}!</h3>
 {% endblock %}
 
 {% block extra_css %}

@@ -63,6 +63,22 @@ def login():
             session['user_id'] = row['id']
             session['role_id'] = row['id_rol']
             session['role_name'] = row['rol_nombre']
+            session['user_display_name'] = (row.get('nombre') or row.get('name') or '').strip()
+            if not session['user_display_name']:
+                try:
+                    cnx = get_connection()
+                    cur = cnx.cursor()
+                    cur.execute(
+                        "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1",
+                        (row['username'],),
+                    )
+                    name_row = cur.fetchone()
+                    if name_row and name_row[0]:
+                        session['user_display_name'] = str(name_row[0]).strip()
+                    cur.close()
+                    cnx.close()
+                except Exception:
+                    session['user_display_name'] = row['username']
             return redirect(url_for('main.home'))
         else:
             error = 'Credenciales inválidas. Intenta nuevamente.'
@@ -72,6 +88,10 @@ def login():
 @app.route('/logout')
 def logout():
     session.pop('user', None)
+    session.pop('user_display_name', None)
+    session.pop('user_id', None)
+    session.pop('role_id', None)
+    session.pop('role_name', None)
     return redirect(url_for('login'))
 
 if __name__ == '__main__':

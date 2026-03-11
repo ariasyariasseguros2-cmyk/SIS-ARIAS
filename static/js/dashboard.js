@@ -66,7 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Si está dentro de un submenú, activar el grupo padre
                 const group = link.closest('.nav-group');
                 if (group) {
-                    group.classList.add('open');
                     group.classList.add('active-group');
                 }
             }
@@ -82,6 +81,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
 
                 if (location.href === href) return;
+
+                document.querySelectorAll('.nav-group.open').forEach(g => {
+                    g.classList.remove('open');
+                });
 
                 location.href = href;
             } catch (err) {
