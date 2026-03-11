@@ -297,3 +297,61 @@ def extract_razon_social_strict(text: str) -> Optional[str]:
                 name = _clean_company_name(mm.group(1))
         if name:
             return name
+
+def extract_moneda_positiva(text: str) -> Optional[str]:
+    if not text:
+        return None
+    t = (text or "").replace("\u00A0", " ")
+
+    t_compact = re.sub(r"\s+", "", t).upper()
+    m0 = re.search(r"MONEDA[:：]?(US\$|USD|\$|DOLARES|DÓLARES|DÓLARES|S/\.?|S/|SOLES|PEN)", t_compact)
+    if m0:
+        v0 = (m0.group(1) or "").upper()
+        if "US" in v0 or "USD" in v0 or "DOL" in v0 or v0 == "$":
+            return "US$"
+        return "S/"
+
+    m = re.search(
+        r"\bmoneda\b\s*[:：]?\s*(S\s*\/\s*\.?|S\s*\/|SOLES|PEN|US\s*\$|US\$|USD|DOLARES|DÓLARES|DÓLARES|\$)(?=\s|$)",
+        t,
+        flags=re.IGNORECASE,
+    )
+    if m:
+        v = (m.group(1) or "").upper()
+        v = re.sub(r"\s+", "", v)
+        if "US$" in v or "USD" in v or "DOL" in v or v == "$":
+            return "US$"
+        return "S/"
+
+    m2 = re.search(
+        r"Prima\s+Comercial[\s\S]{0,200}?(US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/|SOLES|PEN)(?=\s|$)",
+        t,
+        flags=re.IGNORECASE,
+    )
+    if m2:
+        v = (m2.group(1) or "").upper()
+        v = re.sub(r"\s+", "", v)
+        if "US$" in v or "USD" in v or "DOL" in v or v == "$":
+            return "US$"
+        return "S/"
+
+    t_up = t.upper()
+    idx_us = t_up.find("US$")
+    idx_usd = re.search(r"\bUSD\b", t_up)
+    idx_dol = re.search(r"\bDOL", t_up)
+    idx_s = re.search(r"S\/\.?|S\/\b|\bSOLES\b|\bPEN\b", t_up)
+
+    dollar_idxs = [i for i in [
+        idx_us if idx_us >= 0 else None,
+        idx_usd.start() if idx_usd else None,
+        idx_dol.start() if idx_dol else None,
+    ] if i is not None]
+    sol_idxs = [idx_s.start()] if idx_s else []
+
+    if not dollar_idxs and not sol_idxs:
+        return None
+    min_dollar = min(dollar_idxs) if dollar_idxs else 10**9
+    min_soles = min(sol_idxs) if sol_idxs else 10**9
+    if min_dollar <= min_soles:
+        return "US$"
+    return "S/"

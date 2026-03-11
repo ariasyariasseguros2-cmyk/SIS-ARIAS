@@ -1341,6 +1341,18 @@ def upload():
             "contratante": it.get("contratante"),
             "razon_social": it.get("razon_social"),
         }
+        try:
+            mv = (res.get("moneda") or "").replace("\u00A0", " ").strip()
+            up = mv.upper()
+            compact = re.sub(r"\s+", "", up)
+            if compact:
+                if compact in {"US$", "USD", "$", "D"} or "DOL" in compact:
+                    res["moneda"] = "US$"
+                elif compact.startswith("S/") or compact.startswith("S/.") or compact in {"S", "PEN"} or "SOL" in compact:
+                    res["moneda"] = "S/"
+        except Exception:
+            pass
+
         def _looks_like_insurer_name(name: str | None) -> bool:
             if not name:
                 return False
@@ -1421,9 +1433,73 @@ def upload():
             LOG(f"[upload] rimac: forzado a un solo ítem")
         try:
             dash = r"(?:-|–|—|‑|−)"
+            is_pos = False
+            try:
+                prov_s = str(detected_provider or '').lower()
+            except Exception:
+                prov_s = ''
+            try:
+                issuer_s = (issuer or '').lower()
+            except Exception:
+                issuer_s = ''
+            if ('positiva' in prov_s) or ('positiva' in issuer_s) or ('lpv' in prov_s) or ('lpv' in issuer_s):
+                is_pos = True
+
+            def _infer_moneda_from_pdf(txt: str | None) -> str | None:
+                if not txt:
+                    return None
+                t = (txt or '').replace('\u00A0', ' ')
+                m = re.search(
+                    r"\bMONEDA\b[\s:：]*([A-Za-zÁÉÍÓÚÑáéíóúñ$\./\s]{1,20})",
+                    t,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if m:
+                    cand = re.sub(r"\s+", "", (m.group(1) or "").upper())
+                    if cand.startswith("US$") or cand.startswith("USD") or cand.startswith("$") or "DOL" in cand:
+                        return "US$"
+                    if cand.startswith("S/") or cand.startswith("S/.") or cand.startswith("PEN") or "SOL" in cand:
+                        return "S/"
+
+                m2 = re.search(
+                    r"Prima\s+Comercial[\s\S]{0,220}?(US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/|SOLES|PEN)(?=\s|$)",
+                    t,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if m2:
+                    tok = re.sub(r"\s+", "", (m2.group(1) or "").upper())
+                    if tok.startswith("US$") or tok.startswith("USD") or tok == "$" or "DOL" in tok:
+                        return "US$"
+                    return "S/"
+
+                up = t.upper()
+                idx_us = up.find("US$")
+                idx_usd = re.search(r"\bUSD\b", up)
+                idx_dol = re.search(r"\bDOL", up)
+                idx_s = re.search(r"S\s*/\s*\.?|S\s*/|\bSOLES\b|\bPEN\b", up)
+                dollar_idxs = [i for i in [
+                    idx_us if idx_us >= 0 else None,
+                    idx_usd.start() if idx_usd else None,
+                    idx_dol.start() if idx_dol else None,
+                ] if i is not None]
+                sol_idxs = [idx_s.start()] if idx_s else []
+                if not dollar_idxs and not sol_idxs:
+                    return None
+                return "US$" if (min(dollar_idxs) if dollar_idxs else 10**9) <= (min(sol_idxs) if sol_idxs else 10**9) else "S/"
+
             pdf_text = _extract_text_pypdf2(save_path)
             if pdf_text:
+                inferred_moneda = _infer_moneda_from_pdf(pdf_text) if is_pos else None
                 for it in items_ui:
+                    if is_pos and inferred_moneda:
+                        mv = (it.get('moneda') or '').replace('\u00A0', ' ').strip()
+                        mv_up = re.sub(r"\s+", "", mv.upper())
+                        if mv_up not in {"US$", "S/"}:
+                            it['moneda'] = inferred_moneda
+                        elif mv_up == "US$":
+                            it['moneda'] = "US$"
+                        elif mv_up == "S/":
+                            it['moneda'] = "S/"
                     np = (it.get('numero_poliza') or it.get('poliza') or '').strip()
                     if not re.search(r"\b\d{2,6}\s*-\s*\d{5,12}\b", np):
                         m = re.search(r"(?:pol[ií]za|p[oó]liza)\s*N[°º]\s*[:：]?\s*([0-9]{2,6})(\s*" + dash + r"\s*)([0-9]{5,12})", pdf_text, re.IGNORECASE | re.DOTALL)
@@ -2440,7 +2516,12 @@ def _parse_positiva(text: str) -> List[Dict[str, str]]:
             or _find(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
             or _find(r"T[ée]rmino\s*[:\n]\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
         )
-        moneda = _find(r"Moneda\s*:\s*([A-Za-z]+)", blk)
+        moneda = None
+        try:
+            from controllers.addPositivaGenerales import extract_moneda_positiva
+            moneda = extract_moneda_positiva(blk)
+        except Exception:
+            moneda = _find(r"Moneda\s*:\s*([A-Za-z]+)", blk)
         emision = _find(r"Emisi[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
         ramo = _find(r"Ramo\s*:\s*(.+)", blk)
         contratante = _find(r"Contratante\s*:\s*(.+)", blk)

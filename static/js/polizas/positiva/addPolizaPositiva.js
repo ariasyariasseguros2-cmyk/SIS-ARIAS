@@ -123,6 +123,37 @@
     return { prima_comercial: norm(m1 && m1[1]), prima_comercial_igv: norm(m2 && m2[1]) };
   }
 
+  function extractMoneda(s) {
+    const txt = (s || '').replace(/\u00A0/g, ' ');
+    const up = txt.toUpperCase();
+
+    const mLabel = txt.match(/\bMONEDA\b[\s:：]*([A-Z$\/\.]{1,6}|SOLES|DOLARES|DÓLARES|USD|PEN)(?=\s|$)/i);
+    if (mLabel) {
+      const v = ((mLabel[1] || '').toUpperCase() || '').replace(/\s+/g, '');
+      if (v.includes('US$') || v.includes('USD') || v.includes('DOL') || v === '$') return 'US$';
+      if (v.includes('SOL') || v.includes('PEN') || v.startsWith('S/')) return 'S/';
+    }
+
+    const mNearPrima = txt.match(/Prima\s+Comercial[\s\S]{0,180}?(US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/|SOLES|PEN)(?=\s|$)/i);
+    if (mNearPrima) {
+      const v = ((mNearPrima[1] || '').toUpperCase() || '').replace(/\s+/g, '');
+      if (v.includes('US$') || v.includes('USD') || v.includes('DOL') || v === '$') return 'US$';
+      return 'S/';
+    }
+
+    const idxUS = up.search(/US\$/);
+    const idxUSD = up.search(/\bUSD\b/);
+    const idxDol = up.search(/\bDOL/);
+    const idxS = up.search(/S\/\.?|S\/\b|\bSOLES\b|\bPEN\b/);
+
+    const minDollar = Math.min(...[idxUS, idxUSD, idxDol].filter(i => i >= 0));
+    const minSoles = idxS >= 0 ? idxS : Infinity;
+
+    if (minDollar !== Infinity && minDollar <= minSoles) return 'US$';
+    if (minSoles !== Infinity) return 'S/';
+    return null;
+  }
+
   function extractProformaNumero(s) {
     const txt = (s || '').replace(/\u00A0/g, ' ');
     const head = txt.match(/cup[oó]n[\s|]+n[uú]mero[\s|]+vencimiento[\s|]+monto/i);
@@ -182,6 +213,16 @@
     const issuerOk = isPositiva();
     const issuerIsAuto = !((issuerEl?.value || '').toString().trim());
 
+    if (field === 'moneda' && (issuerOk || issuerIsAuto)) {
+      const mon = extractMoneda(text);
+      if (mon) {
+        e.preventDefault();
+        td.textContent = mon;
+        td.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+      }
+    }
+
     if ((issuerOk || issuerIsAuto) && (/vigencia/i.test(text) || /\bt(?:e|é)rmino\b/i.test(text))) {
       const vig = extractVigencias(text);
       if (vig && (vig.inicio_vigencia || vig.vencimiento)) {
@@ -226,9 +267,11 @@
     if (/prima\s+comercial/i.test(text)) {
       e.preventDefault();
       const vals = extractPrimas(text);
+      const mon = extractMoneda(text);
       const tr = td.closest('tr');
       const pcCell = tr?.querySelector('td.editable[data-field="prima_comercial"]');
       const pigvCell = tr?.querySelector('td.editable[data-field="prima_comercial_igv"]');
+      const monCell = tr?.querySelector('td.editable[data-field="moneda"]');
       if (vals.prima_comercial && pcCell) {
         pcCell.textContent = vals.prima_comercial;
         pcCell.dispatchEvent(new Event('input', { bubbles: true }));
@@ -236,6 +279,10 @@
       if (vals.prima_comercial_igv && pigvCell) {
         pigvCell.textContent = vals.prima_comercial_igv;
         pigvCell.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      if (mon && monCell && !(monCell.textContent || '').trim()) {
+        monCell.textContent = mon;
+        monCell.dispatchEvent(new Event('input', { bubbles: true }));
       }
       if (!vals.prima_comercial && !vals.prima_comercial_igv) {
         document.execCommand('insertText', false, text);
@@ -247,9 +294,11 @@
       const vals = extractPrimas(text);
       if (vals.prima_comercial || vals.prima_comercial_igv) {
         e.preventDefault();
+        const mon = extractMoneda(text);
         const tr = td.closest('tr');
         const pcCell = tr?.querySelector('td.editable[data-field="prima_comercial"]');
         const pigvCell = tr?.querySelector('td.editable[data-field="prima_comercial_igv"]');
+        const monCell = tr?.querySelector('td.editable[data-field="moneda"]');
         if (pcCell && vals.prima_comercial) {
           pcCell.textContent = vals.prima_comercial;
           pcCell.dispatchEvent(new Event('input', { bubbles: true }));
@@ -257,6 +306,10 @@
         if (pigvCell && vals.prima_comercial_igv) {
           pigvCell.textContent = vals.prima_comercial_igv;
           pigvCell.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (mon && monCell && !(monCell.textContent || '').trim()) {
+          monCell.textContent = mon;
+          monCell.dispatchEvent(new Event('input', { bubbles: true }));
         }
         return;
       }
