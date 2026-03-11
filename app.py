@@ -1,13 +1,46 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, session
+import secrets
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from routes.route import bp as main_bp
 
 app = Flask(__name__)
 app.secret_key = 'cambia-esta-secret'  # Cambia esta clave por una segura
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+app.config['ACTIVE_SESSIONS'] = {}
 
 app.register_blueprint(main_bp)
+
+@app.before_request
+def require_login():
+    if request.path.startswith('/static/'):
+        return None
+
+    if request.path in ('/login', '/logout'):
+        return None
+
+    token = session.get('auth_token')
+    user = session.get('user')
+    if token and user:
+        active = app.config.get('ACTIVE_SESSIONS', {}).get(token)
+        if active and active.get('user') == user:
+            return None
+
+    if request.path.startswith('/api/'):
+        session.clear()
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.after_request
+def disable_cache(response):
+    if request.path.startswith('/static/'):
+        return response
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/')
 def index():
@@ -59,6 +92,10 @@ def login():
             return False
 
         if row and verify_password(password, row['password']):
+            old_token = session.pop('auth_token', None)
+            if old_token:
+                app.config.get('ACTIVE_SESSIONS', {}).pop(old_token, None)
+
             session['user'] = row['username']
             session['user_id'] = row['id']
             session['role_id'] = row['id_rol']
@@ -79,6 +116,13 @@ def login():
                     cnx.close()
                 except Exception:
                     session['user_display_name'] = row['username']
+
+            token = secrets.token_urlsafe(32)
+            app.config.get('ACTIVE_SESSIONS', {})[token] = {
+                'user': session.get('user'),
+                'user_id': session.get('user_id'),
+            }
+            session['auth_token'] = token
             return redirect(url_for('main.home'))
         else:
             error = 'Credenciales inválidas. Intenta nuevamente.'
@@ -87,11 +131,10 @@ def login():
 
 @app.route('/logout')
 def logout():
-    session.pop('user', None)
-    session.pop('user_display_name', None)
-    session.pop('user_id', None)
-    session.pop('role_id', None)
-    session.pop('role_name', None)
+    token = session.get('auth_token')
+    if token:
+        app.config.get('ACTIVE_SESSIONS', {}).pop(token, None)
+    session.clear()
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
