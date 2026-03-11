@@ -444,6 +444,10 @@
     margin: 0;
     padding: 8px;
     width: 280px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
     background: var(--layout-bg);
     color: #333;
     border-radius: 12px;
