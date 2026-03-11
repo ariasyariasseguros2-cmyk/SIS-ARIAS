@@ -1,4 +1,98 @@
 
+def filter_polizas_rapido(filter_type: str) -> dict:
+    """Filtros rápidos del listado:
+    - 'vigentes': vig_desde <= HOY <= vig_hasta
+    - 'vencen-mes': fecha_vencimiento dentro del mes actual
+    """
+    rows = []
+    try:
+        from models.db import get_connection
+        from flask import session
+        from utils.rbac import Roles
+        from datetime import date, timedelta
+        import calendar
+
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+
+        role_name = session.get('role_name')
+        username = session.get('user')
+
+        user_filter_sql = ""
+        user_filter_params = []
+
+        if role_name == Roles.SUB_AGENTE and username:
+            cur.execute(
+                "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s",
+                (username,)
+            )
+            u_row = cur.fetchone()
+            nombre_usuario = (u_row.get('nombre') if u_row else username) or username
+            user_filter_sql = " AND (p.usuario_registro = %s OR p.usuario_registro = %s OR p.sub_agente = %s OR p.sub_agente = %s)"
+            user_filter_params = [username, nombre_usuario, username, nombre_usuario]
+
+        base_select = """
+            SELECT 
+                p.idPoliza,
+                c.razon_social AS contratante,
+                p.asegurado,
+                p.cia,
+                p.ramo,
+                p.ramos_producto AS producto,
+                p.poliza,
+                p.nro,
+                p.moneda,
+                DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
+                DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
+                DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
+                p.sub_agente,
+                p.asegurada,
+                p.usuario_registro,
+                p.usuario_edicion
+            FROM polizas p
+            INNER JOIN clientes c ON c.idCliente = p.cliente_id
+            WHERE p.activo = 1 AND p.anulado = 0
+        """
+
+        today = date.today()
+        params = []
+
+        if filter_type == 'vigentes':
+            # Vigentes: vig_desde <= hoy <= vig_hasta
+            sql = base_select + " AND p.vig_desde <= %s AND p.vig_hasta >= %s"
+            params = [today, today]
+
+        elif filter_type == 'vencen-mes':
+            # Vencen este mes: fecha_vencimiento dentro del mes actual
+            first_day = today.replace(day=1)
+            last_day = today.replace(day=calendar.monthrange(today.year, today.month)[1])
+            sql = base_select + " AND p.fecha_vencimiento BETWEEN %s AND %s"
+            params = [first_day, last_day]
+
+        else:
+            return {'rows': []}
+
+        if user_filter_sql:
+            sql += user_filter_sql
+            params.extend(user_filter_params)
+
+        sql += " ORDER BY p.vig_hasta ASC LIMIT 500"
+
+        cur.execute(sql, tuple(params))
+        rows = cur.fetchall() or []
+
+        for r in rows:
+            r['producto'] = r.get('producto') or r.get('ramos_producto') or ''
+
+        cur.close()
+        cnx.close()
+    except Exception as e:
+        print(f"Error filter_polizas_rapido: {e}")
+        rows = []
+
+    return {'rows': rows}
+
+
 def search_polizas_global(query: str, search_type: str) -> dict:
     rows = []
     try:
