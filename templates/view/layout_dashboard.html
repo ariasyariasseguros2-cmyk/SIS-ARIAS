@@ -73,9 +73,6 @@
                         <li><i class="bi-people"></i> <a data-page="financiamiento-grupal" href="{{ url_for('main.menu_page', page='financiamiento-grupal') }}">Financiamiento Grupal</a></li>
                         <li><i class="bi-calendar3"></i> <a data-page="vencimientos-renovaciones" href="{{ url_for('main.menu_page', page='vencimientos-renovaciones') }}">Vencimientos y Renovaciones</a></li>
                         <li><i class="bi-car-front"></i> <a data-page="vencimiento-autos-soat" href="{{ url_for('main.menu_page', page='vencimiento-autos-soat') }}">Vencimiento Autos y Soat</a></li>
-                        <li><i class="bi-download"></i> <a data-page="reporte-gestion-diaria" href="{{ url_for('main.menu_page', page='reporte-gestion-diaria') }}">Reporte Gestión Diaria</a></li>
-                        <li><i class="bi-toggle-off"></i> <a data-page="polizas-anuladas" href="{{ url_for('main.menu_page', page='polizas-anuladas') }}">Pólizas Anuladas</a></li>
-                        <li><i class="bi-download"></i> <a data-page="reporte-polizas-anuladas" href="{{ url_for('main.menu_page', page='reporte-polizas-anuladas') }}">Reporte Pólizas Anuladas</a></li>
                     </ul>
                 </li>
 
@@ -88,24 +85,29 @@
                         <li><i class="bi-briefcase"></i> <a data-page="cobranzas-gestion" href="{{ url_for('main.gestion') }}">Gestión</a></li>
                         <li><i class="bi-send"></i> <a data-page="cobranzas-mail" href="{{ url_for('main.menu_page', page='cobranzas-mail') }}">Mail Masivo Cuotas Pendientes</a></li>
                         <li><i class="bi-file-text"></i> <a data-page="cobranzas-estado-cuenta" href="{{ url_for('main.menu_page', page='cobranzas-estado-cuenta') }}">Estado de Cuenta de Cupones</a></li>
-                        <li><i class="bi-download"></i> <a data-page="cobranzas-reporte-primas" href="{{ url_for('main.menu_page', page='cobranzas-reporte-primas') }}">Reporte de Primas con sus Cuotas</a></li>
                     </ul>
                 </li>
 
-<!--                <li class="nav-group">-->
-<!--                    <button class="group-toggle">-->
-<!--                        <i class="bi-cash-coin"></i> <span><strong>Comisiones</strong></span>-->
-<!--                        <i class="bi-chevron-right caret"></i>-->
-<!--                    </button>-->
-<!--                    <ul class="submenu">-->
-<!--                        <li><i class="bi-currency-dollar"></i> <a data-page="comisiones" href="{{ url_for('main.menu_page', page='comisiones') }}">Comisiones</a></li>-->
-<!--                        <li><i class="bi-cash-stack"></i> <a data-page="liquidacion-subagentes" href="{{ url_for('main.menu_page', page='liquidacion-subagentes') }}">Liquidación Subagentes</a></li>-->
-<!--                        <li><i class="bi-cash-stack"></i> <a data-page="liquidacion-de-subagentes" href="{{ url_for('main.menu_page', page='liquidacion-de-subagentes') }}">Liquidación de Subagentes</a></li>-->
-<!--                        <li><i class="bi-download"></i> <a data-page="reporte-liquidaciones" href="{{ url_for('main.menu_page', page='reporte-liquidaciones') }}">Reporte Liquidaciones</a></li>-->
-<!--                        <li><i class="bi-download"></i> <a data-page="reporte-comisiones-cobradas" href="{{ url_for('main.menu_page', page='reporte-comisiones-cobradas') }}">Reporte de Comisiones Cobradas</a></li>-->
-<!--                        <li><i class="bi-download"></i> <a data-page="registro-ventas-facturas" href="{{ url_for('main.menu_page', page='registro-ventas-facturas') }}">Registro de Ventas en las Facturas</a></li>-->
-<!--                    </ul>-->
-<!--                </li>-->
+                <!-- NUEVO: Grupo Reportes Generales -->
+                <li class="nav-group{% if _p and (_p.startswith('reporte') or _p in ('reporte-diario','reporte-archivos-poliza','reporte-produccion','reporte-siniestros','reporte-polizas-anuladas','reporte-gestion-diaria','reporte-polizas-anuladas','cobranzas-reporte-primas','reporte-polizas-anuladas')) %} active-group{% endif %}">
+                    <button class="group-toggle" type="button">
+                        <i class="bi-file-earmark-text-fill"></i> <span><strong>Reportes Generales</strong></span>
+                        <i class="bi-chevron-right caret"></i>
+                    </button>
+                    <ul class="submenu">
+                        <li class="{% if _p == 'reporte-gestion-diaria' %}active{% endif %}"><i class="bi-download"></i> <a data-page="reporte-gestion-diaria" href="{{ url_for('main.menu_page', page='reporte-gestion-diaria') }}">Reporte Gestión Diaria</a></li>
+                        <li class="{% if _p == 'reporte-polizas-anuladas' %}active{% endif %}"><i class="bi-download"></i> <a data-page="reporte-polizas-anuladas" href="{{ url_for('main.menu_page', page='reporte-polizas-anuladas') }}">Reporte Pólizas Anuladas</a></li>
+                        <li class="{% if _p == 'cobranzas-reporte-primas' %}active{% endif %}"><i class="bi-download"></i> <a data-page="cobranzas-reporte-primas" href="{{ url_for('main.menu_page', page='cobranzas-reporte-primas') }}">Reporte de Primas con sus Cuotas</a></li>
+                        <li class="{% if _p == 'reporte-siniestros' %}active{% endif %}"><i class="bi-download"></i> <a data-page="reporte-siniestros" href="{{ url_for('main.menu_page', page='reporte-siniestros') }}">Reporte de Siniestros</a></li>
+                        <li class="{% if _p == 'reporte-produccion' %}active{% endif %}"><i class="bi-download"></i> <a data-page="reporte-produccion" href="{{ url_for('main.menu_page', page='reporte-produccion') }}">Reporte de Producción</a></li>
+                        <li class="{% if _p == 'reporte-diario' %}active{% endif %}"><i class="bi-download"></i> <a data-page="reporte-diario" href="{{ url_for('main.menu_page', page='reporte-diario') }}">Reporte Diario</a></li>
+                        <li class="{% if _p == 'reporte-archivos-poliza' %}active{% endif %}"><i class="bi-download"></i> <a data-page="reporte-archivos-poliza" href="{{ url_for('main.menu_page', page='reporte-archivos-poliza') }}">Reporte Archivos Póliza</a></li>
+                        <!-- Comentados mantenidos para posible activación futura -->
+                        {# <li><i class="bi-download"></i> <a data-page="reporte-liquidaciones" href="{{ url_for('main.menu_page', page='reporte-liquidaciones') }}">Reporte Liquidaciones</a></li> #}
+                        {# <li><i class="bi-download"></i> <a data-page="reporte-comisiones-cobradas" href="{{ url_for('main.menu_page', page='reporte-comisiones-cobradas') }}">Reporte de Comisiones Cobradas</a></li> #}
+                    </ul>
+                </li>
+
 
                 <li class="nav-group{% if _p and _p.startswith('siniestros') %} active-group{% endif %}">
                     <button class="group-toggle" type="button">
@@ -116,30 +118,9 @@
                         <li class="{% if _p == 'siniestros' %}active{% endif %}"><i class="bi-exclamation-triangle"></i> <a data-page="siniestros" href="{{ url_for('main.menu_page', page='siniestros') }}">Siniestros</a></li>
                         <li class="{% if _p == 'siniestros-fecha' %}active{% endif %}"><i class="bi-calendar3"></i> <a data-page="siniestros-fecha" href="{{ url_for('main.menu_page', page='siniestros-fecha') }}">Siniestros por Fecha</a></li>
                         <li class="{% if _p == 'siniestros-ocurridos' %}active{% endif %}"><i class="bi-download"></i> <a data-page="siniestros-ocurridos" href="{{ url_for('main.menu_page', page='siniestros-ocurridos') }}">Siniestros Ocurridos</a></li>
-                        <li class="{% if _p == 'reporte-siniestros' %}active{% endif %}"><i class="bi-download"></i> <a data-page="reporte-siniestros" href="{{ url_for('main.menu_page', page='reporte-siniestros') }}">Reporte de Siniestros</a></li>
-                     </ul>
-                 </li>
-
-                <li class="nav-group">
-                    <button class="group-toggle">
-                        <i class="bi-bar-chart"></i> <span><strong>Estadísticas</strong></span>
-                        <i class="bi-chevron-right caret"></i>
-                    </button>
-                    <ul class="submenu">
-                        <li><i class="bi-download"></i> <a data-page="reporte-produccion" href="{{ url_for('main.menu_page', page='reporte-produccion') }}">Reporte de Produccion</a></li>
                     </ul>
                 </li>
 
-                <li class="nav-group">
-                    <button class="group-toggle">
-                        <i class="bi-people"></i> <span><strong>Diario</strong></span>
-                        <i class="bi-chevron-right caret"></i>
-                    </button>
-                    <ul class="submenu">
-                        <li><i class="bi-download"></i> <a data-page="reporte-diario" href="{{ url_for('main.menu_page', page='reporte-diario') }}">Reporte Diario</a></li>
-                        <li><i class="bi-download"></i> <a data-page="reporte-archivos-poliza" href="{{ url_for('main.menu_page', page='reporte-archivos-poliza') }}">Reporte Archivos Poliza</a></li>
-                    </ul>
-                </li>
 
             {% if session.get('role_name') == 'BROKER' %}
             <li class="nav-group{% if page and page.startswith('maestros') %} active-group{% endif %}">
