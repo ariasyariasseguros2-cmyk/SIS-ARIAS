@@ -1,72 +1,165 @@
-function reporteDiario() {
-    const form = document.getElementById('formReporteDiario');
-    const tableBody = document.querySelector('#reporteDiarioTable tbody');
-    if (!form || !tableBody) return;
+(() => {
+  'use strict';
 
-    form.addEventListener('submit', (ev) => {
-        ev.preventDefault();
-        const data = Object.fromEntries(new FormData(form).entries());
-        console.log('[Reporte Diario] Filtros seleccionados:', data);
-        
-        // Show loading state
-        tableBody.innerHTML = '<tr><td colspan="13" class="text-center">Cargando...</td></tr>';
+  const tbody   = document.getElementById('tbodyReporteDiario');
+  const cardTotal = document.getElementById('cardTotal');
+  const cardPEN   = document.getElementById('cardPEN');
+  const cardUSD   = document.getElementById('cardUSD');
+  const cardRamos = document.getElementById('cardRamos');
+  const fechaHoy  = document.getElementById('fechaHoy');
+  const btnRefresh  = document.getElementById('btnRefresh');
+  const btnExcel    = document.getElementById('btnExcelDiario');
+  const btnPdf      = document.getElementById('btnPdfDiario');
 
-        fetch('/api/reporte-diario', { 
-            method: 'POST', 
-            headers: {'Content-Type': 'application/json'}, 
-            body: JSON.stringify(data) 
-        })
-        .then(r => r.json())
-        .then(response => {
-            if (response.ok) {
-                renderTable(response.rows);
-            } else {
-                tableBody.innerHTML = `<tr><td colspan="13" class="text-center text-danger">Error: ${response.error || 'Desconocido'}</td></tr>`;
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            tableBody.innerHTML = `<tr><td colspan="13" class="text-center text-danger">Error de conexión</td></tr>`;
-        });
+  // Mostrar fecha legible
+  const hoy = new Date();
+  if (fechaHoy) {
+    fechaHoy.textContent = hoy.toLocaleDateString('es-PE', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
+  }
 
-    function renderTable(rows) {
-        if (!rows || rows.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="13" class="text-center">No se encontraron resultados</td></tr>';
-            return;
+  function fmtMoney(val) {
+    const n = parseFloat(val) || 0;
+    return n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function fmtFecha(val) {
+    if (!val) return '–';
+    // val puede ser 'YYYY-MM-DD' o 'YYYY-MM-DDTHH:mm:ss'
+    return val.substring(0, 10);
+  }
+
+  function fmtHora(val) {
+    if (!val) return '–';
+    // val: 'YYYY-MM-DDTHH:mm:ss' o 'YYYY-MM-DD HH:mm:ss'
+    const t = val.replace('T', ' ');
+    return t.length >= 19 ? t.substring(11, 19) : t;
+  }
+
+  function estadoBadge(estado) {
+    const map = {
+      'ACTIVO':    'success',
+      'PENDIENTE': 'warning',
+      'RENOVADA':  'info',
+      'VENCIDA':   'secondary',
+      'ANULADA':   'danger',
+    };
+    const color = map[(estado || '').toUpperCase()] || 'secondary';
+    return `<span class="badge bg-${color}">${estado || '–'}</span>`;
+  }
+
+  function renderRows(rows) {
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="13" class="text-center py-5 text-muted">
+        <i class="bi-inbox fs-3 d-block mb-2"></i>No hay pólizas registradas hoy.</td></tr>`;
+      cardTotal.textContent = '0';
+      cardPEN.textContent   = 'S/ 0.00';
+      cardUSD.textContent   = '$ 0.00';
+      cardRamos.textContent = '0';
+      return;
+    }
+
+    let sumPEN = 0, sumUSD = 0;
+    const ramos = new Set();
+
+    const html = rows.map((r, i) => {
+      const moneda = (r.moneda || '').toUpperCase();
+      const prima  = parseFloat(r.prima_total) || 0;
+      const monedaNorm = moneda.replace('.', '').replace('/', '').trim();
+      if (['PEN','S','SOLES','SOL'].includes(monedaNorm)) sumPEN += prima;
+      else if (['USD','US','DOLARES','DOLAR','$'].includes(monedaNorm)) sumUSD += prima;
+
+      if (r.ramo) ramos.add(r.ramo);
+
+      return `<tr>
+        <td class="text-muted small">${i + 1}</td>
+        <td><strong>${r.poliza || r.contrato_nro || r.nro || '–'}</strong></td>
+        <td>${r.cliente || '–'}</td>
+        <td>${r.cia || '–'}</td>
+        <td><span class="badge bg-light text-dark border">${r.ramo || '–'}</span></td>
+        <td>${r.moneda || '–'}</td>
+        <td class="text-end">${r.prima_total != null && r.prima_total !== '' ? fmtMoney(r.prima_total) : '–'}</td>
+        <td>${fmtFecha(r.vig_desde)}</td>
+        <td>${fmtFecha(r.vig_hasta)}</td>
+        <td>${r.ejecutivo || '–'}</td>
+        <td>${estadoBadge(r.estado)}</td>
+        <td class="small">${r.usuario_registro || '–'}</td>
+        <td class="small text-muted">${fmtHora(r.creado_en)}</td>
+      </tr>`;
+    }).join('');
+
+    tbody.innerHTML = html;
+    cardTotal.textContent = rows.length;
+    cardPEN.textContent   = 'S/ ' + fmtMoney(sumPEN);
+    cardUSD.textContent   = '$ '  + fmtMoney(sumUSD);
+    cardRamos.textContent = ramos.size;
+  }
+
+  function cargar() {
+    tbody.innerHTML = `<tr><td colspan="13" class="text-center py-5 text-muted">
+      <div class="spinner-border spinner-border-sm me-2" role="status"></div>Cargando...</td></tr>`;
+
+    fetch('/api/reporte-diario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          renderRows(data.rows);
+        } else {
+          tbody.innerHTML = `<tr><td colspan="13" class="text-center py-4 text-danger">
+            <i class="bi-exclamation-triangle me-1"></i>${data.error || 'Error al cargar datos'}</td></tr>`;
         }
+      })
+      .catch(err => {
+        tbody.innerHTML = `<tr><td colspan="13" class="text-center py-4 text-danger">
+          <i class="bi-exclamation-triangle me-1"></i>Error de conexión</td></tr>`;
+        console.error(err);
+      });
+  }
 
-        tableBody.innerHTML = rows.map(r => `
-            <tr>
-                <td>${formatDate(r.fecha_emision)}</td>
-                <td>${r.poliza || ''}</td>
-                <td>${r.contratante || ''}</td>
-                <td>${r.compania || ''}</td>
-                <td>${r.ramo || ''}</td>
-                <td class="text-end">${formatMoney(r.prima_neta)}</td>
-                <td class="text-end">${formatMoney(r.prima_comercial)}</td>
-                <td class="text-end">${formatMoney(r.comision)}</td>
-                <td class="text-end">${r.porcentaje_comision || ''}%</td>
-                <td>${r.moneda || ''}</td>
-                <td>${formatDate(r.vig_desde)} - ${formatDate(r.vig_hasta)}</td>
-                <td>${r.estado || ''}</td>
-                <td>${r.sub_agente || ''}</td>
-            </tr>
-        `).join('');
-    }
+  function descargar(url, btn, ext) {
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generando...';
 
-    function formatDate(dateStr) {
-        if (!dateStr) return '';
-        // Assuming dateStr is 'YYYY-MM-DD' or ISO
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return dateStr;
-        return d.toLocaleDateString('es-PE');
-    }
+    fetch(url)
+      .then(res => {
+        if (!res.ok) throw new Error('Error al generar el archivo');
+        // Intentar leer nombre desde Content-Disposition
+        const cd = res.headers.get('Content-Disposition') || '';
+        const match = cd.match(/filename[^;=\n]*=["']?([^"';\n]+)["']?/i);
+        const today = new Date().toLocaleDateString('es-PE', {
+          day: '2-digit', month: '2-digit', year: 'numeric'
+        }).replace(/\//g, '-');
+        const defaultName = `Reporte Diario ${today}.${ext}`;
+        const filename = match ? decodeURIComponent(match[1].trim()) : defaultName;
+        return res.blob().then(blob => ({ blob, filename }));
+      })
+      .then(({ blob, filename }) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(a.href);
+      })
+      .catch(err => alert('Error: ' + err.message))
+      .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+      });
+  }
 
-    function formatMoney(amount) {
-        if (amount === null || amount === undefined) return '';
-        return parseFloat(amount).toFixed(2);
-    }
-}
+  if (btnRefresh) btnRefresh.addEventListener('click', cargar);
+  if (btnExcel)   btnExcel.addEventListener('click', () => descargar('/api/reporte-diario/export/excel', btnExcel, 'xlsx'));
+  if (btnPdf)     btnPdf.addEventListener('click',   () => descargar('/api/reporte-diario/export/pdf',   btnPdf,   'pdf'));
 
-reporteDiario();
+  // Carga automática al entrar
+  cargar();
+})();
+

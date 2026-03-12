@@ -1,11 +1,17 @@
-/* Estilos simples para aproximar la visual del ejemplo */
-#formReporteDiario .form-label {
-    font-weight: 600;
+/* reporte-diario.css */
+#tablaReporteDiario thead th {
+    white-space: nowrap;
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
 }
-#formReporteDiario .form-control,
-#formReporteDiario .form-select {
-    min-height: 38px;
+
+#tablaReporteDiario tbody td {
+    font-size: .875rem;
+    vertical-align: middle;
 }
-.card-header {
-    font-weight: 600;
+
+#cardTotal, #cardPEN, #cardUSD, #cardRamos {
+    font-size: 1.6rem;
 }
+

@@ -1,150 +1,295 @@
-from typing import Dict, List, Any
-from flask import session
 from models.db import get_connection
-from utils.rbac import Roles
+from datetime import date
+from decimal import Decimal
+import os
 
-def get_filters() -> Dict[str, List[Dict[str, str]]]:
-    # Datos de ejemplo; cámbialos por consultas a BD si corresponde
-    return {
-        "companias": [
-            {"id": "mapfre", "nombre": "MAPFRE"},
-            {"id": "positiva", "nombre": "La Positiva"},
-            {"id": "pacifico", "nombre": "Pacífico"},
-        ],
-        "ramos": [
-            {"id": "autos", "nombre": "AUTOS"},
-            {"id": "vida", "nombre": "VIDA"},
-            {"id": "eps", "nombre": "EPS"},
-            {"id": "hogar", "nombre": "HOGAR"},
-        ],
-        "usuarios": [
-            {"id": "jramos", "nombre": "Jhordiño Ramos"},
-            {"id": "marias", "nombre": "María Santos"},
-            {"id": "cvaldez", "nombre": "Carlos Valdez"},
-        ],
-        "subagentes": [
-            {"id": "sub01", "nombre": "SUB01"},
-            {"id": "sub02", "nombre": "SUB02"},
-            {"id": "sub03", "nombre": "SUB03"},
-        ],
-        "estados": [
-            {"id": "general", "nombre": "GENERAL"},
-            {"id": "vigente", "nombre": "VIGENTE"},
-            {"id": "vencida", "nombre": "VENCIDA"},
-        ],
-        "grupos_economicos": [
-            {"id": "ge01", "nombre": "Grupo Económico 01"},
-            {"id": "ge02", "nombre": "Grupo Económico 02"},
-        ],
-        "grupos_riesgo": [
-            {"id": "alto", "nombre": "ALTO"},
-            {"id": "medio", "nombre": "MEDIO"},
-            {"id": "bajo", "nombre": "BAJO"},
-        ],
-        "incluye_endosos": [
-            {"id": "NO", "nombre": "NO"},
-            {"id": "SI", "nombre": "SI"},
-        ],
-    }
 
-def get_reporte_diario_data(filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+def get_reporte_diario_data(filters=None):
+    """Retorna las pólizas creadas en el día actual."""
     conn = get_connection()
+    rows = []
     try:
-        cursor = conn.cursor(dictionary=True)
-        
-        # Base query joining polizas and clientes (for contratante name)
-        # Assuming polizas has most fields.
-        # We need to adapt columns to what is needed in the report.
+        cur = conn.cursor(dictionary=True)
+        today = date.today().isoformat()
         sql = """
-            SELECT 
+            SELECT
                 p.idPoliza,
-                p.fecha_emision,
                 p.poliza,
-                c.razon_social as contratante,
-                p.cia as compania,
+                p.contrato_nro,
+                p.nro,
+                COALESCE(c.razon_social, p.asegurado) AS cliente,
+                p.cia,
                 p.ramo,
-                p.prima_neta,
-                p.prima_comercial,
-                p.comision,
-                p.porcentaje_comision,
+                p.ramos_producto,
                 p.moneda,
+                COALESCE(p.prima_total, p.prima_comercial_igv, p.prima_neta, 0) AS prima_total,
                 p.vig_desde,
                 p.vig_hasta,
-                p.estado,
+                p.ejecutivo,
                 p.sub_agente,
-                p.usuario_registro
+                p.estado,
+                p.usuario_registro,
+                p.creado_en
             FROM polizas p
-            LEFT JOIN clientes c ON p.idCliente = c.idCliente
-            WHERE 1=1
+            LEFT JOIN clientes c ON c.idCliente = p.cliente_id
+            WHERE DATE(p.creado_en) = %s
+              AND p.activo = 1
+            ORDER BY p.creado_en DESC
         """
-        params = []
-
-        # RLS Logic
-        role = session.get('role_name')
-        user = session.get('user')
-        
-        if role == Roles.SUB_AGENTE:
-            # Filter by sub_agente (assuming sub_agente column stores username or name)
-            # We'll use the same logic as in polizas.py
-            cursor.execute("SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s", (user,))
-            u_row = cursor.fetchone()
-            nombre_usuario = (u_row.get('nombre') if u_row else user) or user
-            
-            sql += " AND (p.usuario_registro = %s OR p.usuario_registro = %s OR p.sub_agente = %s OR p.sub_agente = %s)"
-            params.extend([user, nombre_usuario, user, nombre_usuario])
-
-        # Apply Filters
-        if filters.get('desde'):
-            sql += " AND p.fecha_emision >= %s"
-            params.append(filters['desde'])
-        
-        if filters.get('hasta'):
-            sql += " AND p.fecha_emision <= %s"
-            params.append(filters['hasta'])
-
-        if filters.get('poliza'):
-            sql += " AND p.poliza LIKE %s"
-            params.append(f"%{filters['poliza']}%")
-
-        if filters.get('contratante'):
-            sql += " AND c.razon_social LIKE %s"
-            params.append(f"%{filters['contratante']}%")
-
-        if filters.get('compania'):
-            sql += " AND p.cia = %s"
-            params.append(filters['compania'])
-            
-        if filters.get('ramo'):
-            sql += " AND p.ramo = %s"
-            params.append(filters['ramo'])
-
-        if filters.get('usuario'):
-             sql += " AND p.usuario_registro = %s"
-             params.append(filters['usuario'])
-
-        if filters.get('subagente'):
-            # If user is SUB_AGENTE, this filter is redundant or must be validated
-            if role != Roles.SUB_AGENTE:
-                 sql += " AND p.sub_agente = %s"
-                 params.append(filters['subagente'])
-
-        if filters.get('estado') and filters['estado'] != 'general':
-            if filters['estado'] == 'vigente':
-                sql += " AND p.estado = 'VIGENTE'"
-            elif filters['estado'] == 'vencida':
-                 sql += " AND p.estado = 'VENCIDA'"
-
-        # Sort by date desc
-        sql += " ORDER BY p.fecha_emision DESC LIMIT 500"
-
-        cursor.execute(sql, tuple(params))
-        rows = cursor.fetchall()
-        
-        # Post-process for currency formatting or extra fields if needed
-        return rows
-
-    except Exception as e:
-        print(f"Error in get_reporte_diario_data: {e}")
-        return []
+        cur.execute(sql, (today,))
+        for row in cur.fetchall():
+            for k, v in row.items():
+                if isinstance(v, Decimal):
+                    row[k] = float(v)
+                elif hasattr(v, 'isoformat'):
+                    row[k] = v.isoformat()
+                elif v is None:
+                    row[k] = None   # dejar None, jsonify lo convierte a null
+            rows.append(row)
+        cur.close()
     finally:
         conn.close()
+    return rows
+
+
+# ─────────────────────────────────────────────
+#  Exportación
+# ─────────────────────────────────────────────
+
+HEADERS = [
+    "N°", "Póliza", "Cliente", "Compañía", "Ramo", "Producto",
+    "Moneda", "Prima Total", "Vig. Desde", "Vig. Hasta",
+    "Ejecutivo", "Sub Agente", "Estado", "Registrado por", "Hora registro",
+]
+
+def _build_table_rows(rows):
+    result = []
+    for i, r in enumerate(rows, 1):
+        result.append([
+            i,
+            r.get("poliza") or r.get("contrato_nro") or r.get("nro") or "",
+            r.get("cliente") or "",
+            r.get("cia") or "",
+            r.get("ramo") or "",
+            r.get("ramos_producto") or "",
+            r.get("moneda") or "",
+            float(r.get("prima_total") or 0),
+            r.get("vig_desde") or "",
+            r.get("vig_hasta") or "",
+            r.get("ejecutivo") or "",
+            r.get("sub_agente") or "",
+            r.get("estado") or "",
+            r.get("usuario_registro") or "",
+            (r.get("creado_en") or "")[11:19] if r.get("creado_en") else "",
+        ])
+    return result
+
+
+def export_excel(upload_folder: str):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from datetime import datetime
+
+    rows = get_reporte_diario_data()
+    table_rows = _build_table_rows(rows)
+    today_str = date.today().strftime("%d/%m/%Y")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Reporte Diario"
+
+    # Título
+    ws.merge_cells("A1:O1")
+    title_cell = ws["A1"]
+    title_cell.value = f"REPORTE DIARIO DE PÓLIZAS — {today_str}"
+    title_cell.font = Font(bold=True, size=13, color="FFFFFF")
+    title_cell.fill = PatternFill("solid", fgColor="1F59A3")
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 28
+
+    # Cabecera
+    header_fill = PatternFill("solid", fgColor="399AD6")
+    header_font = Font(bold=True, color="FFFFFF", size=9)
+    thin = Side(style="thin", color="CCCCCC")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    for col, h in enumerate(HEADERS, 1):
+        cell = ws.cell(row=2, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = border
+    ws.row_dimensions[2].height = 20
+
+    # Datos
+    for ri, row in enumerate(table_rows, 3):
+        fill = PatternFill("solid", fgColor="F4F8FF") if ri % 2 == 0 else PatternFill("solid", fgColor="FFFFFF")
+        for ci, val in enumerate(row, 1):
+            cell = ws.cell(row=ri, column=ci, value=val)
+            cell.border = border
+            cell.fill = fill
+            cell.font = Font(size=9)
+            if ci == 8:
+                cell.number_format = '#,##0.00'
+                cell.alignment = Alignment(horizontal="right")
+            elif ci == 1:
+                cell.alignment = Alignment(horizontal="center")
+
+    # Fila totales
+    total_row = len(table_rows) + 3
+    ws.cell(row=total_row, column=7, value="TOTAL").font = Font(bold=True, size=9)
+    ws.cell(row=total_row, column=8, value=sum(r[7] for r in table_rows)).font = Font(bold=True, size=9)
+    ws.cell(row=total_row, column=8).number_format = '#,##0.00'
+    ws.cell(row=total_row, column=8).alignment = Alignment(horizontal="right")
+
+    # Ancho columnas
+    col_widths = [5, 16, 30, 16, 22, 22, 10, 14, 13, 13, 16, 16, 12, 16, 14]
+    for i, w in enumerate(col_widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    exports_dir = os.path.join(upload_folder, "exports")
+    os.makedirs(exports_dir, exist_ok=True)
+    date_label = date.today().strftime("%d-%m-%Y")
+    filename = f"Reporte Diario {date_label}.xlsx"
+    filepath = os.path.join(exports_dir, filename)
+    wb.save(filepath)
+    return filepath, filename
+
+
+def export_pdf(upload_folder: str):
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from datetime import datetime
+
+    rows = get_reporte_diario_data()
+    table_rows = _build_table_rows(rows)
+    today_str = date.today().strftime("%d/%m/%Y")
+
+    exports_dir = os.path.join(upload_folder, "exports")
+    os.makedirs(exports_dir, exist_ok=True)
+    date_label = date.today().strftime("%d-%m-%Y")
+    filename = f"Reporte Diario {date_label}.pdf"
+    filepath = os.path.join(exports_dir, filename)
+
+    # A4 landscape útil: 29.7cm - 1.6cm márgenes = 28.1 cm
+    PAGE = landscape(A4)
+    LEFT = RIGHT = 0.8 * cm
+    TOP = BOTTOM = 1.2 * cm
+
+    doc = SimpleDocTemplate(
+        filepath,
+        pagesize=PAGE,
+        leftMargin=LEFT, rightMargin=RIGHT,
+        topMargin=TOP, bottomMargin=BOTTOM,
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "title", parent=styles["Heading1"],
+        fontSize=12, textColor=colors.HexColor("#1F59A3"),
+        spaceAfter=3, spaceBefore=0,
+    )
+    sub_style = ParagraphStyle(
+        "sub", parent=styles["Normal"],
+        fontSize=8, textColor=colors.grey, spaceAfter=6,
+    )
+    # Estilo para celdas con texto largo (hace wrap)
+    cell_style = ParagraphStyle(
+        "cell", parent=styles["Normal"],
+        fontSize=6.5, leading=8, wordWrap='LTR',
+    )
+    cell_center = ParagraphStyle(
+        "cell_c", parent=cell_style, alignment=1,
+    )
+    cell_right = ParagraphStyle(
+        "cell_r", parent=cell_style, alignment=2,
+    )
+    header_style = ParagraphStyle(
+        "hdr", parent=styles["Normal"],
+        fontSize=6.5, leading=8, textColor=colors.white,
+        fontName="Helvetica-Bold", alignment=1,
+    )
+
+    # Ancho total útil disponible (cm): 29.7 - 0.8*2 = 28.1 cm
+    # Columnas: N°, Póliza, Cliente, Cia, Ramo, Mon, Prima, Desde, Hasta, Ejec, Estado, RegPor, Hora
+    # Totales:  0.8  2.5    5.5     3.0  3.5   1.6  2.6    2.2    2.2    3.0   2.2     2.5    1.5  = 33.1? reducir
+    # Ajuste fino para que sumen ≤ 28.1 cm:
+    col_w = [
+        0.7*cm,   # N°
+        2.4*cm,   # Póliza
+        5.0*cm,   # Cliente
+        2.8*cm,   # Compañía
+        3.2*cm,   # Ramo
+        1.5*cm,   # Moneda
+        2.4*cm,   # Prima Total
+        2.0*cm,   # Vig Desde
+        2.0*cm,   # Vig Hasta
+        2.7*cm,   # Ejecutivo
+        2.0*cm,   # Estado
+        2.4*cm,   # Reg. por
+        1.4*cm,   # Hora
+    ]
+    # suma = 34.5 → caben en 28.1 → escalar proporcionalmente
+    available = PAGE[0] - LEFT - RIGHT
+    scale = available / sum(col_w)
+    col_w = [w * scale for w in col_w]
+
+    pdf_headers = ["N°", "Póliza", "Cliente", "Compañía", "Ramo", "Moneda",
+                   "Prima Total", "Vig. Desde", "Vig. Hasta", "Ejecutivo",
+                   "Estado", "Reg. por", "Hora"]
+    pdf_col_idx = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14]
+
+    # Cabecera con Paragraph para wrap
+    data = [[Paragraph(h, header_style) for h in pdf_headers]]
+
+    for row in table_rows:
+        def cell(i):
+            if i == 7:
+                return Paragraph(f"{row[i]:,.2f}", cell_right)
+            elif i == 0:
+                return Paragraph(str(row[i]), cell_center)
+            else:
+                return Paragraph(str(row[i]) if row[i] else "", cell_style)
+        data.append([cell(i) for i in pdf_col_idx])
+
+    table = Table(data, colWidths=col_w, repeatRows=1)
+    table.setStyle(TableStyle([
+        # Header
+        ("BACKGROUND",    (0, 0), (-1, 0), colors.HexColor("#1F59A3")),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 4),
+        ("TOPPADDING",    (0, 0), (-1, 0), 4),
+        # Data
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#EEF4FF")]),
+        ("BOTTOMPADDING",  (0, 1), (-1, -1), 2),
+        ("TOPPADDING",     (0, 1), (-1, -1), 2),
+        # Grid
+        ("GRID",           (0, 0), (-1, -1), 0.3, colors.HexColor("#CCCCCC")),
+        ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+
+    total_prima = sum(row[7] for row in table_rows)
+    total_label = Paragraph(
+        f"<b>Total Prima: {total_prima:,.2f}</b> &nbsp;&nbsp; "
+        f"<b>Total pólizas: {len(table_rows)}</b>",
+        ParagraphStyle("tot", parent=styles["Normal"], fontSize=8,
+                       textColor=colors.HexColor("#1F59A3"), spaceBefore=6),
+    )
+
+    story = [
+        Paragraph("REPORTE DIARIO DE PÓLIZAS", title_style),
+        Paragraph(f"Fecha: {today_str} — Generado: {datetime.now().strftime('%H:%M:%S')}", sub_style),
+        table,
+        total_label,
+    ]
+    doc.build(story)
+    return filepath, filename
+
+
+
+
+
+
