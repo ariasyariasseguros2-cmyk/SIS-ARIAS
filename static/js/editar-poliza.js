@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         archivos.forEach((a, idx) => {
             const tipoBadge = tipoLabels[a.origen] || `<span class="badge bg-light text-dark">${a.origen || '-'}</span>`;
-            const url = `/static/uploads/${a.ruta_archivo}`;
+            const url = `/uploads/${a.ruta_archivo}`;
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${idx + 1}</td>

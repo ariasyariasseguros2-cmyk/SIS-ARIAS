@@ -239,11 +239,11 @@ def export_reporte_produccion(filters: Dict[str, Any]) -> Tuple[str, str]:
         upload_folder = current_app.config.get("UPLOAD_FOLDER")
     except Exception:
         base_dir = os.path.dirname(os.path.dirname(__file__))
-        upload_folder = os.path.join(base_dir, "..", "static", "uploads")
+        upload_folder = os.path.join(base_dir, "..", "uploads")
 
     if not upload_folder:
         base_dir = os.path.dirname(os.path.dirname(__file__))
-        upload_folder = os.path.join(base_dir, "..", "static", "uploads")
+        upload_folder = os.path.join(base_dir, "..", "uploads")
 
     exports_dir = os.path.join(upload_folder, "exports")
     os.makedirs(exports_dir, exist_ok=True)

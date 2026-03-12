@@ -902,7 +902,7 @@ def _insert_logo(canvas, doc):
     from reportlab.lib.utils import ImageReader
 
     try:
-        logo_path = os.path.join(current_app.root_path, 'static', 'uploads', 'logo', 'Logo-banner.png')
+        logo_path = os.path.join(current_app.root_path, 'uploads', 'logo', 'Logo-banner.png')
 
         if not (os.path.exists(logo_path) and os.access(logo_path, os.R_OK)):
             return

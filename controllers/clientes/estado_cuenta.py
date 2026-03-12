@@ -596,7 +596,7 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
         ])
 
     # Crear carpeta de export
-    upload_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'static', 'uploads')
+    upload_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'uploads')
     # Prefer current_app if disponible
     try:
         from flask import current_app

@@ -89,7 +89,7 @@ def download_zip():
         with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
             files_added = 0
             upload_folder = current_app.config.get('UPLOAD_FOLDER',
-                                                   os.path.join(current_app.root_path, 'static', 'uploads'))
+                                                   os.path.join(current_app.root_path, 'uploads'))
 
             for row in results:
                 file_path = row.get('ruta_archivo')
@@ -271,7 +271,7 @@ def download_zip_contratante():
         memory_file = io.BytesIO()
         with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
             files_added = 0
-            upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'static', 'uploads'))
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
             for row in rows:
                 file_path = row.get('ruta_archivo')
                 if not file_path:

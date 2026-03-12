@@ -386,7 +386,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         : this.closest('tr');
 
                     archivos.forEach(a => {
-                        const url       = `/static/uploads/${a.ruta_archivo}`;
+                        const url       = `/uploads/${a.ruta_archivo}`;
                         const tipoBadge = tipoMap[a.origen] || `<span class="badge-arch-masiva">${escapeHtml(a.origen||'-')}</span>`;
                         const tr = document.createElement('tr');
                         tr.className = 'arch-extra-row';

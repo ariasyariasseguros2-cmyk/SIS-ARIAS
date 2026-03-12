@@ -139,7 +139,7 @@ def delete_cuota_route():
 
 @bp.route('/api/cuotas/upload-archivo', methods=['POST'])
 def upload_cuota_archivo():
-    """Guarda un PDF de cuota en static/uploads/cuotas/ y registra en poliza_archivos con origen=CUOTA."""
+    """Guarda un PDF de cuota en uploads/cuotas/ y registra en poliza_archivos con origen=CUOTA."""
     if 'user' not in session:
         return jsonify({'ok': False, 'error': 'No autenticado'}), 401
 
@@ -167,7 +167,7 @@ def upload_cuota_archivo():
         ts = int(time.time())
         disk_filename = f"{ts}_cuota{cuota_id}_{safe_name}"
 
-        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'cuotas')
+        upload_folder = os.path.join(current_app.root_path, 'uploads', 'cuotas')
         os.makedirs(upload_folder, exist_ok=True)
 
         save_path = os.path.join(upload_folder, disk_filename)
@@ -268,7 +268,7 @@ def delete_cuota_archivo(archivo_id):
             cnx.close()
             return {'ok': False, 'error': 'Archivo no encontrado'}, 404
 
-        upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'static', 'uploads'))
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
         abs_path = os.path.join(upload_folder, row['ruta_archivo'].lstrip('/\\'))
         if os.path.exists(abs_path):
             os.remove(abs_path)
@@ -311,7 +311,7 @@ def upload_poliza_archivo():
         ts = int(time.time())
         disk_filename = f"{ts}_poliza{poliza_id}_{safe_name}"
 
-        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'polizas')
+        upload_folder = os.path.join(current_app.root_path, 'uploads', 'polizas')
         os.makedirs(upload_folder, exist_ok=True)
 
         save_path = os.path.join(upload_folder, disk_filename)
@@ -408,7 +408,7 @@ def delete_poliza_archivo(archivo_id):
             cnx.close()
             return {'ok': False, 'error': 'Archivo no encontrado'}, 404
 
-        upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'static', 'uploads'))
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
         abs_path = os.path.join(upload_folder, row['ruta_archivo'].lstrip('/\\'))
         if os.path.exists(abs_path):
             os.remove(abs_path)
@@ -1226,12 +1226,9 @@ def menu_page(page):
 
     # NUEVO: Reporte Diario (acepta 'reporte-diaro' por el slug del menú)
     if page in ('reporte-diario', 'reporte-diaro'):
-        from controllers.reporte_diario import get_filters
-        filters = get_filters()
         return render_template(
             'view/reporte-diario.dashboard.html',
             page='reporte-diario',
-            filters=filters
         )
 
     if page == 'reporte-produccion':
@@ -1253,6 +1250,58 @@ def api_reporte_diario():
     rows = get_reporte_diario_data(filters)
     return jsonify({'ok': True, 'rows': rows})
 
+
+@bp.route('/api/reporte-diario/export/excel', methods=['GET'])
+def api_reporte_diario_excel():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    try:
+        from controllers.reporte_diario import export_excel
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
+        filepath, filename = export_excel(upload_folder)
+        return send_file(filepath, as_attachment=True, download_name=filename)
+    except Exception as e:
+        current_app.logger.error(f"Error exportando reporte diario Excel: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/reporte-diario/export/pdf', methods=['GET'])
+def api_reporte_diario_pdf():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    try:
+        from controllers.reporte_diario import export_pdf
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
+        filepath, filename = export_pdf(upload_folder)
+        return send_file(filepath, as_attachment=True, download_name=filename)
+    except Exception as e:
+        current_app.logger.error(f"Error exportando reporte diario PDF: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@bp.route('/upload/temp/delete', methods=['POST'])
+def upload_temp_delete():
+    """Elimina un archivo temporal de uploads/temp/ (se usa al limpiar el formulario)."""
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    data = request.get_json(silent=True) or {}
+    filename = (data.get('filename') or '').strip()
+    if not filename:
+        return {'ok': False, 'error': 'Falta filename'}, 400
+    # Prevenir path traversal: solo nombre de archivo, sin subdirectorios
+    safe_name = os.path.basename(secure_filename(filename))
+    if not safe_name:
+        return {'ok': False, 'error': 'Nombre inválido'}, 400
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
+    temp_path = os.path.join(upload_folder, 'temp', safe_name)
+    if os.path.isfile(temp_path):
+        try:
+            os.remove(temp_path)
+            print(f"[upload_temp_delete] eliminado: {temp_path}")
+        except Exception as e:
+            print(f"[upload_temp_delete] error: {e}")
+    return {'ok': True}
+
+
 @bp.route('/upload', methods=['POST'])
 def upload():
     if 'user' not in session:
@@ -1270,18 +1319,19 @@ def upload():
         return {'error': 'Tipo de archivo no permitido'}, 400
 
     upload_folder = current_app.config.get('UPLOAD_FOLDER')
-    
-    # NUEVO: Guardar en subcarpeta 'polizas'
-    polizas_folder = os.path.join(upload_folder, 'polizas')
-    os.makedirs(polizas_folder, exist_ok=True)
-    
-    filename = secure_filename(file.filename)
-    save_path = os.path.join(polizas_folder, filename)
+
+    # Guardar en subcarpeta 'temp' mientras sólo se extrae.
+    # Se moverá a 'polizas' al confirmar "Guardar Pólizas".
+    temp_folder = os.path.join(upload_folder, 'temp')
+    os.makedirs(temp_folder, exist_ok=True)
+
+    import time as _time_up
+    filename = f"{int(_time_up.time())}_{secure_filename(file.filename)}"
+    save_path = os.path.join(temp_folder, filename)
     file.save(save_path)
-    # NUEVO: log para confirmar escritura del archivo
     try:
         exists = os.path.exists(save_path)
-        print(f"[upload] saved to {save_path} exists={exists}")
+        print(f"[upload] saved to temp {save_path} exists={exists}")
     except Exception as e:
         print(f"[upload] error verifying save path: {e}")
 
@@ -1674,13 +1724,13 @@ def clientes_add():
          ts = int(time.time())
          filename = f"{ts}_{filename}"
          
-         upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'clientes')
+         upload_folder = os.path.join(current_app.root_path, 'uploads', 'clientes')
          os.makedirs(upload_folder, exist_ok=True)
          
          save_path = os.path.join(upload_folder, filename)
          pdf_file.save(save_path)
          
-         data['pdf_path'] = f"static/uploads/clientes/{filename}"
+         data['pdf_path'] = f"clientes/{filename}"
 
     from controllers.clientes.addcliente import save_cliente
     res = save_cliente(data)
@@ -2305,6 +2355,28 @@ def polizas_save():
     prev = session.get('selected_cliente') or {}
     if selected:
         session['selected_cliente'] = {**prev, **selected}
+
+    # Mover el PDF de temp/ a polizas/ ahora que el usuario confirmó guardar
+    pdf_filename = (selected or {}).get('pdf_filename')
+    if pdf_filename:
+        import shutil as _shutil
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
+        temp_path = os.path.join(upload_folder, 'temp', pdf_filename)
+        polizas_folder = os.path.join(upload_folder, 'polizas')
+        os.makedirs(polizas_folder, exist_ok=True)
+        dest_path = os.path.join(polizas_folder, pdf_filename)
+        if os.path.exists(temp_path) and not os.path.exists(dest_path):
+            try:
+                _shutil.move(temp_path, dest_path)
+                print(f"[polizas_save] PDF movido de temp/ a polizas/: {pdf_filename}")
+            except Exception as _e:
+                print(f"[polizas_save] No se pudo mover el PDF: {_e}")
+        elif os.path.exists(temp_path) and os.path.exists(dest_path):
+            # Ya existe en destino, solo eliminar el temp
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
 
     from controllers.addPoliza import save_polizas
     res = save_polizas(items, selected, anexos=anexos)
@@ -3274,34 +3346,42 @@ def dashboard_notes():
 @bp.route('/uploads/<path:filename>', methods=['GET'])
 def serve_upload(filename):
     folder = current_app.config.get('UPLOAD_FOLDER')
-    
-    # 1. Soporte para subcarpetas (ej: polizas/archivo.pdf, cuotas/archivo.pdf)
-    # Evitamos secure_filename en la ruta completa para no romper los slashes
-    if '/' in filename or '\\' in filename:
-        # Extraer subcarpeta y archivo
-        parts = filename.replace('\\', '/').split('/')
-        # Solo permitimos subcarpetas conocidas por seguridad
-        if parts[0] in ['polizas', 'clientes', 'cuotas', 'siniestros', 'soat']:
-             sub = parts[0]
-             name = secure_filename(parts[-1])
-             target_dir = os.path.join(folder, sub)
-             if os.path.isfile(os.path.join(target_dir, name)):
-                 return send_from_directory(target_dir, name, as_attachment=False)
 
-    # 2. Comportamiento estándar (archivo en raíz de uploads)
-    safe = secure_filename(filename)
-    full = os.path.join(folder, safe)
-    
-    if os.path.isfile(full):
-        return send_from_directory(folder, safe, as_attachment=False)
-        
-    # 3. Fallback: buscar en subcarpetas conocidas
-    for sub in ['polizas', 'cuotas', 'clientes', 'siniestros']:
-        full_sub = os.path.join(folder, sub, safe)
-        if os.path.isfile(full_sub):
-            return send_from_directory(os.path.join(folder, sub), safe, as_attachment=False)
+    # Normalizar separadores
+    filename = filename.replace('\\', '/')
 
-    return {'error': 'Archivo no encontrado', 'path': full}, 404
+    # Si la ruta guardada en BD trae el prefijo redundante "uploads/" quitarlo.
+    # Esto ocurre con registros antiguos que almacenaron "uploads/polizas/xxx"
+    # y el blueprint ya añade "/uploads/" en la URL.
+    while filename.startswith('uploads/'):
+        filename = filename[len('uploads/'):]
+
+    # Separar subcarpeta(s) y nombre de archivo
+    parts = filename.split('/')
+    name  = secure_filename(parts[-1])      # solo el nombre final, sin slashes
+    sub   = '/'.join(parts[:-1]) if len(parts) > 1 else ''
+
+    ALLOWED_SUBS = {'polizas', 'clientes', 'cuotas', 'siniestros', 'soat', 'logo', 'exports', 'temp', ''}
+
+    # 1. Ruta directa: subcarpeta + nombre
+    if sub.split('/')[0] in ALLOWED_SUBS or sub == '':
+        target_dir = os.path.join(folder, sub) if sub else folder
+        full_path  = os.path.join(target_dir, name)
+        if os.path.isfile(full_path):
+            return send_from_directory(target_dir, name, as_attachment=False)
+
+    # 2. Fallback: buscar el nombre en todas las subcarpetas conocidas
+    for known_sub in ['polizas', 'temp', 'cuotas', 'clientes', 'siniestros', 'soat']:
+        candidate = os.path.join(folder, known_sub, name)
+        if os.path.isfile(candidate):
+            return send_from_directory(os.path.join(folder, known_sub), name, as_attachment=False)
+
+    # 3. Fallback: raíz de uploads
+    root_path = os.path.join(folder, name)
+    if os.path.isfile(root_path):
+        return send_from_directory(folder, name, as_attachment=False)
+
+    return {'error': 'Archivo no encontrado', 'path': os.path.join(folder, filename)}, 404
 
 
 # dentro de routes/route.py (añadir el nuevo endpoint API)
