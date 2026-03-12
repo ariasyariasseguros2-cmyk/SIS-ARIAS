@@ -228,11 +228,11 @@ def parse_mapfre_equipo_contratistas_2(text: str):
 
     # 10. Producto
     # Si no se encuentra explícito, usar el mismo del ramo o "EQUIPO DE CONTRATISTAS"
-    m_prod = re.search(r'PRODUCTO\s*[:\.]?\s*(.*)', text_norm, re.IGNORECASE)
-    if m_prod:
-        item['producto'] = m_prod.group(1).strip()
-    else:
-        item['producto'] = 'EQUIPO DE CONTRATISTAS'
+    #m_prod = re.search(r'PRODUCTO\s*[:\.]?\s*(.*)', text_norm, re.IGNORECASE)
+    #if m_prod:
+        #item['producto'] = m_prod.group(1).strip()
+    #else:
+        #item['producto'] = 'EQUIPO DE CONTRATISTAS'
 
     # Ramo
     item['ramo'] = 'EQUIPO DE CONTRATISTAS'

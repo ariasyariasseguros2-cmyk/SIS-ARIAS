@@ -245,9 +245,9 @@ def parse_mapfre_equipo_contratistas_3(text: str):
     if m_recibo:
         item["recibo"] = m_recibo.group(1)
 
-    m_prod = re.search(r"PRODUCTO\s*[:\.]?\s*(.*)", text_norm, re.IGNORECASE)
-    if m_prod:
-        item["producto"] = m_prod.group(1).strip()
+    #m_prod = re.search(r"PRODUCTO\s*[:\.]?\s*(.*)", text_norm, re.IGNORECASE)
+    #if m_prod:
+        #item["producto"] = m_prod.group(1).strip()
     else:
         item["producto"] = "EQUIPO DE CONTRATISTAS"
 
