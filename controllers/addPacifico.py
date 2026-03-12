@@ -437,6 +437,7 @@ def parse_pacifico_pension(text: str) -> dict | None:
     prima_comercial = None
     prima_total = None
     igv_val = None
+    total_cobrar = None
 
     debug_notes = []
     debug_notes.append(f"detect_convenio={'sí' if is_convenio else 'no'}")
