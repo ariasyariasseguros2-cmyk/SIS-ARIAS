@@ -410,8 +410,7 @@
     return `
       <div class="d-flex gap-1">
         <button type="button" class="btn btn-sm btn-outline-danger action-remove" data-index="${index}">Eliminar</button>
-        <button type="button" class="btn btn-sm btn-outline-secondary action-duplicate" data-index="${index}">Duplicar</button>
-      </div>
+         </div>
     `;
   }
 
@@ -1686,4 +1685,104 @@
       } catch (e) { console.error('post-render populate products error', e); }
     };
   })();
+
+  // ─── Modal de Comisiones ────────────────────────────────────────────────────
+  (function initComisionesModal() {
+    const btnVer       = document.getElementById('btnVerComisiones');
+    const modalEl      = document.getElementById('modalComisiones');
+    const tbodyEl      = document.getElementById('comModalTbody');
+    const searchEl     = document.getElementById('comModalSearch');
+    const infoEl       = document.getElementById('comModalInfo');
+
+    if (!btnVer || !modalEl) return;
+
+    let bsModal = null;
+    let allRows  = [];   // caché de todas las filas
+    let loaded   = false;
+
+    function fmt(v) {
+      if (v === null || v === undefined || v === '') return '<span class="text-muted">—</span>';
+      const n = parseFloat(v);
+      if (!isNaN(n)) return n.toFixed(2);
+      return v;
+    }
+
+    function renderRows(rows) {
+      if (!rows || rows.length === 0) {
+        tbodyEl.innerHTML = '<tr><td colspan="14" class="text-center text-muted py-3">Sin resultados</td></tr>';
+        if (infoEl) infoEl.textContent = '0 registros';
+        return;
+      }
+      const html = rows.map(c => `
+        <tr>
+          <td>${c.ramo_nombre  || ''}</td>
+          <td>${c.ramo_abreviacion || ''}</td>
+          <td>${c.producto     || ''}</td>
+          <td>${c.producto_abrev || ''}</td>
+          <td>${fmt(c.pos_eps)}</td>
+          <td>${fmt(c.pos_vsr)}</td>
+          <td>${fmt(c.pos_sr)}</td>
+          <td>${fmt(c.pacifico)}</td>
+          <td>${fmt(c.sanitas)}</td>
+          <td>${fmt(c.protecta)}</td>
+          <td>${fmt(c.mapfre)}</td>
+          <td>${fmt(c.crecer)}</td>
+          <td>${fmt(c.ohio_natural)}</td>
+          <td>${fmt(c.factor)}</td>
+        </tr>`).join('');
+      tbodyEl.innerHTML = html;
+      if (infoEl) infoEl.textContent = `${rows.length} registro${rows.length !== 1 ? 's' : ''}`;
+    }
+
+    function filterRows(q) {
+      if (!q) return allRows;
+      const term = q.toLowerCase();
+      return allRows.filter(c =>
+        (c.ramo_nombre       || '').toLowerCase().includes(term) ||
+        (c.ramo_abreviacion  || '').toLowerCase().includes(term) ||
+        (c.producto          || '').toLowerCase().includes(term) ||
+        (c.producto_abrev    || '').toLowerCase().includes(term)
+      );
+    }
+
+    async function loadComisiones() {
+      tbodyEl.innerHTML = '<tr><td colspan="14" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Cargando...</td></tr>';
+      try {
+        const resp = await fetch('/api/comisiones/list');
+        const data = await resp.json();
+        if (data.ok) {
+          allRows = data.rows || [];
+          renderRows(allRows);
+          loaded = true;
+        } else {
+          tbodyEl.innerHTML = `<tr><td colspan="14" class="text-center text-danger py-3">Error: ${data.error || 'Error desconocido'}</td></tr>`;
+        }
+      } catch (e) {
+        tbodyEl.innerHTML = `<tr><td colspan="14" class="text-center text-danger py-3">Error de red: ${e.message}</td></tr>`;
+      }
+    }
+
+    btnVer.addEventListener('click', () => {
+      if (!bsModal) {
+        bsModal = new bootstrap.Modal(modalEl);
+      }
+      bsModal.show();
+      if (!loaded) loadComisiones();
+    });
+
+    // Buscador en tiempo real
+    if (searchEl) {
+      searchEl.addEventListener('input', () => {
+        renderRows(filterRows(searchEl.value.trim()));
+      });
+    }
+
+    // Limpiar búsqueda al cerrar el modal
+    modalEl.addEventListener('hidden.bs.modal', () => {
+      if (searchEl) searchEl.value = '';
+      if (allRows.length > 0) renderRows(allRows);
+    });
+  })();
+  // ─── Fin Modal de Comisiones ────────────────────────────────────────────────
+
 })();

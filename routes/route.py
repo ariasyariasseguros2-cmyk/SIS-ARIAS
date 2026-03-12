@@ -2089,6 +2089,19 @@ def api_comisiones_default():
         return {'ok': False, 'errors': [str(e)]}, 500
 
 
+# Listar todas las comisiones (para modal en añadir póliza)
+@bp.route('/api/comisiones/list', methods=['GET'])
+def api_comisiones_list():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    try:
+        from controllers.maestros.comisiones import get_comisiones
+        rows = get_comisiones() or []
+        return {'ok': True, 'rows': rows}
+    except Exception as e:
+        return {'ok': False, 'error': str(e)}, 500
+
+
 # Refrescar comisiones desde Excel (RamoProducto.xlsx)
 @bp.route('/api/comisiones/refresh', methods=['POST'])
 def api_comisiones_refresh():
