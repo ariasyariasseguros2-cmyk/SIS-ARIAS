@@ -226,20 +226,34 @@ def parse_pacifico_salud(text: str) -> dict | None:
                     return v
         return None
 
-    # Recibo: robusto bajo “FACTURA ELECTRÓNICA” (corrección de sintaxis)
+    def _acob_number(t: str) -> str | None:
+        lines = [l.strip() for l in t.splitlines()]
+        for i, l in enumerate(lines):
+            if re.search(r"\bA\s*/\s*COB\b", l, re.IGNORECASE):
+                chunk = " ".join([l] + lines[i + 1 : i + 1 + 3])
+                m = re.search(r"\b([0-9]{6,12})\b", chunk)
+                return m.group(1) if m else None
+        m2 = re.search(r"\bA\s*/\s*COB\b[\s\S]{0,160}?\b([0-9]{6,12})\b", t, re.IGNORECASE)
+        return m2.group(1) if m2 else None
+
+    acob = _acob_number(text)
+    recibo_doc = (
+        _find(r"Documento\s*:\s*(?:\r?\n\s*)?(?:SCTR\s*)?(R-[0-9]{4,})\b", text)
+        or _find(r"\b(R-[0-9]{4,})\b", _capture_block_after(r"Documento\b", text, ["Póliza/Contrato", "Vigencia", "Producto", "Prima", "Moneda"]) or "")
+    )
     recibo_fact = (
         _find(r"FACTURA\s+ELECTR[ÓO]NICA(?:\s|\r?\n)+([A-Z0-9\-]+)", text)
         or _next_line_value(text, r"FACTURA\s+ELECTR[ÓO]NICA")
     )
-    if recibo_fact:
-        recibo = recibo_fact
-    else:
-        recibo = (
-            _find(r"LIQUIDACI[oó]N\s+DE\s+PRIMA\s*N[°º]\s*(?:\n|\r|\s)*([0-9]{6,12})", text)
-            or _find_after(r"LIQUIDACI[oó]N\s+DE\s+PRIMA\b", flat, r"N[°º]\s*([0-9]{6,12})", window=220)
-            or _find_number_near(r"LIQUIDACI[oó]N\s+DE\s+PRIMA\b", flat, window=320)
-            or _find(r"\bF[0-9]{3}-[0-9]{5,8}\b", flat)
-        )
+    recibo = (
+        acob
+        or recibo_doc
+        or recibo_fact
+        or _find(r"LIQUIDACI[oó]N\s+DE\s+PRIMA\s*N[°º]\s*(?:\n|\r|\s)*([0-9]{6,12})", text)
+        or _find_after(r"LIQUIDACI[oó]N\s+DE\s+PRIMA\b", flat, r"N[°º]\s*([0-9]{6,12})", window=220)
+        or _find_number_near(r"LIQUIDACI[oó]N\s+DE\s+PRIMA\b", flat, window=320)
+        or _find(r"\bF[0-9]{3}-[0-9]{5,8}\b", flat)
+    )
 
     # Póliza: elegir entre candidatos cerca de "POLIZA", descartando el recibo y prefiriendo 8+ dígitos
     poliza_candidates = (
@@ -442,13 +456,8 @@ def parse_pacifico_salud(text: str) -> dict | None:
             prima_comercial = f"{tot_num - igv_num:.2f}"
             print("[pacifico] prima_comercial recalculada como total - igv:", prima_comercial)
 
-    # Ramo: inicializar para evitar NameError
-    ramo = None
-    ramo = (
-        ramo
-        or _find(r"(ACCIDENTES\s+DE\s+TRABAJO\s*\([^)]+\))", flat)
-        or _find(r"Ramo\s*:?\s*([^\n]+)", text)
-    )
+    ramo_main = "SCTR"
+    ramos_producto = "Salud"
 
     # Extraer RUC del cliente
     ruc_candidato = None
@@ -489,7 +498,8 @@ def parse_pacifico_salud(text: str) -> dict | None:
             _clean(prima_comercial) and _clean(igv_val) and
             f"{float(prima_comercial.replace(',', '.')) + float(igv_val.replace(',', '.')):.2f}"
         ) or None,
-        "ramo": _clean(ramo),
+        "ramo": _clean(ramo_main),
+        "ramos_producto": _clean(ramos_producto),
         "numero_documento_extracted": ruc_candidato,
     }
     print("[pacifico salud] numero_poliza:", item.get("numero_poliza"))

@@ -2741,13 +2741,37 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
     if prov == 'pacifico':
         # Heurística por contenido para distinguir producto
         is_vida_ley = re.search(r'\bvida\s+ley\b', low) or re.search(r'\bcondicionado', low)
-        is_sctr_pension = re.search(r'\bsctr\b', low) or re.search(r'\baccidentes\s+de\s+trabajo\b', low)
-        is_sctr_salud = re.search(r'\bsctr\b', low) or re.search(r'\bsalud\b', low)
+        is_factura_eps = (
+            re.search(r"entidad\s+prestadora\s+de\s+salud", low)
+            or re.search(r"factura\s+electr[óo]nica", low)
+        )
+        is_sctr_pension = (
+            (re.search(r"\bsctr\b", low) or re.search(r"\baccidentes\s+de\s+trabajo\b", low))
+            and (re.search(r"\bpensi[oó]n\b", low) or re.search(r"\bpensiones\b", low) or re.search(r"\baccidentes\s+de\s+trabajo\b", low))
+            and not is_factura_eps
+        )
+        is_sctr_salud = (
+            (re.search(r"\bsctr\b", low) and (re.search(r"\bsalud\b", low) or is_factura_eps or re.search(r"\beps\b", low)))
+            or is_factura_eps
+        )
         
         # NUEVO: Detección de Aviso de Cobranza (Pacifico Generales V2 - Multisalud)
         is_multisalud = re.search(r'multisalud', low) or re.search(r'aviso\s+de\s+cobranza', low)
 
+        if is_factura_eps and not is_multisalud:
+            from controllers.addPacificoSalud import parse_pacifico_salud
+            it = parse_pacifico_salud(text)
+            if it:
+                items.append(it)
+            return items
+
         try:
+            if is_factura_eps and not is_multisalud:
+                from controllers.addPacificoSalud import parse_pacifico_salud
+                it = parse_pacifico_salud(text)
+                if it:
+                    items.append(it)
+                return items
             if is_multisalud:
                 from controllers.addPacificoGenerales_V2 import addPacificoGenerales_V2
                 # Pasamos 'path' porque el controlador usa pdfplumber sobre el archivo
