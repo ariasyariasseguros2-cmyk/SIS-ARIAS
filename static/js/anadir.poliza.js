@@ -1475,6 +1475,18 @@
       if (fileEl) fileEl.value = '';
       const pdfFrameEl = document.getElementById('pdfFrame');
       if (pdfFrameEl) pdfFrameEl.src = 'about:blank';
+      // Eliminar archivo temporal del servidor si existe
+      if (lastUploadedFilename) {
+        const tempName = lastUploadedFilename;
+        lastUploadedFilename = null;
+        fetch('/upload/temp/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: tempName })
+        }).catch(() => {});
+      } else {
+        lastUploadedFilename = null;
+      }
       render(extractedItems);
   }
 

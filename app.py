@@ -1,12 +1,37 @@
 import os
+import time
+import glob
+import threading
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from routes.route import bp as main_bp
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SIS_ARIAS_SECRET_KEY') or 'cambia-esta-secret'  # Cambia esta clave por una segura
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
-app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
+app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# ── Limpieza automática de uploads/temp/ ──────────────────────────────────────
+# Elimina archivos con más de 1 hora de antigüedad cada 60 minutos.
+_TEMP_FOLDER = os.path.join(app.config['UPLOAD_FOLDER'], 'temp')
+_TEMP_MAX_AGE_SECS = 3600  # 1 hora
+
+def _cleanup_temp_loop():
+    os.makedirs(_TEMP_FOLDER, exist_ok=True)
+    while True:
+        time.sleep(_TEMP_MAX_AGE_SECS)
+        threshold = time.time() - _TEMP_MAX_AGE_SECS
+        for f in glob.glob(os.path.join(_TEMP_FOLDER, '*')):
+            if os.path.isfile(f) and os.path.getmtime(f) < threshold:
+                try:
+                    os.remove(f)
+                    print(f'[cleanup_temp] eliminado: {f}')
+                except Exception as _e:
+                    print(f'[cleanup_temp] error al eliminar {f}: {_e}')
+
+_cleanup_thread = threading.Thread(target=_cleanup_temp_loop, daemon=True, name='cleanup-temp')
+_cleanup_thread.start()
+# ──────────────────────────────────────────────────────────────────────────────
 
 app.register_blueprint(main_bp)
 

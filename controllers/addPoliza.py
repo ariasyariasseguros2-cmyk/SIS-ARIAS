@@ -124,7 +124,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
     saved_anexos = []
     if anexos:
         try:
-            upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'polizas')
+            upload_folder = os.path.join(current_app.root_path, 'uploads', 'polizas')
             os.makedirs(upload_folder, exist_ok=True)
             for file in anexos:
                 if file and file.filename:
@@ -135,7 +135,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
                     save_path = os.path.join(upload_folder, disk_name)
                     file.save(save_path)
                     saved_anexos.append({
-                        'ruta': f"uploads/polizas/{disk_name}",
+                        'ruta': f"polizas/{disk_name}",
                         'nombre': original_name
                     })
         except Exception as e:
@@ -368,7 +368,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
 
                 U(row.get("ramos_producto") or (selected or {}).get("ramos_producto") or ""),
                 U(row.get("estado") or "PENDIENTE"),
-                f"uploads/polizas/{(selected or {}).get('pdf_filename')}" if (selected or {}).get("pdf_filename") else None,
+                f"polizas/{(selected or {}).get('pdf_filename')}" if (selected or {}).get("pdf_filename") else None,
                 usuario_display
             )
 
