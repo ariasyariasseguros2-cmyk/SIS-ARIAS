@@ -64,6 +64,29 @@ def parse_pacifico_pension(text: str) -> dict | None:
         flat = re.sub(r"[\r\n]+", " ", t)
         return re.sub(r"\s{2,}", " ", flat)
 
+    money_re = re.compile(
+        r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))(?!\d)"
+    )
+
+    def _amount_after_label(label_regex: str, raw_text: str, lookahead_lines: int = 2) -> str | None:
+        lines = [l.strip() for l in raw_text.splitlines()]
+        for i, l in enumerate(lines):
+            m = re.search(label_regex, l, re.IGNORECASE)
+            if not m:
+                continue
+            tail = l[m.end() :]
+            mm = money_re.search(tail)
+            if mm:
+                return mm.group(1)
+            for j in range(1, lookahead_lines + 1):
+                if i + j >= len(lines):
+                    break
+                mm2 = money_re.search(lines[i + j])
+                if mm2:
+                    return mm2.group(1)
+            return None
+        return None
+
     def _find_after(label_regex: str, t: str, value_regex: str, window: int = 160) -> str | None:
         m = re.search(label_regex, t, re.IGNORECASE)
         if not m:
@@ -449,10 +472,20 @@ def parse_pacifico_pension(text: str) -> dict | None:
                 debug_notes.append("total_parse_error")
     else:
         triad_match = re.search(
-            r"PRIMA\s+COMERCIAL[^0-9]{0,60}([0-9]+(?:[.,][0-9]{2}))[^A-Z]{0,160}I\.?G\.?V\.?[^0-9]{0,60}([0-9]+(?:[.,][0-9]{2}))[^A-Z]{0,200}(?:TOTAL\s+A\s+COBRAR|TOTAL\s+A\s+PAGAR)[^0-9]{0,60}([0-9]+(?:[.,][0-9]{2}))",
+            r"PRIMA\s+COMERCIAL[^0-9]{0,60}"
+            r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))(?!\d)"
+            r"[^A-Z]{0,160}I\.?G\.?V\.?[^0-9]{0,60}"
+            r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))(?!\d)"
+            r"[^A-Z]{0,200}(?:TOTAL\s+A\s+COBRAR|TOTAL\s+A\s+PAGAR)[^0-9]{0,60}"
+            r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))(?!\d)",
             text, re.IGNORECASE | re.DOTALL
         ) or re.search(
-            r"PRIMA\s+COMERCIAL[^0-9]{0,60}([0-9]+(?:[.,][0-9]{2}))[^A-Z]{0,160}IGV[^0-9]{0,60}([0-9]+(?:[.,][0-9]{2}))[^A-Z]{0,200}(?:TOTAL\s+A\s+COBRAR|TOTAL\s+A\s+PAGAR)[^0-9]{0,60}([0-9]+(?:[.,][0-9]{2}))",
+            r"PRIMA\s+COMERCIAL[^0-9]{0,60}"
+            r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))(?!\d)"
+            r"[^A-Z]{0,160}IGV[^0-9]{0,60}"
+            r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))(?!\d)"
+            r"[^A-Z]{0,200}(?:TOTAL\s+A\s+COBRAR|TOTAL\s+A\s+PAGAR)[^0-9]{0,60}"
+            r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))(?!\d)",
             text, re.IGNORECASE | re.DOTALL
         )
         if triad_match:
@@ -466,22 +499,26 @@ def parse_pacifico_pension(text: str) -> dict | None:
             or _first_decimal_after(r"\bPRIMA\s+NETA\b", text, lookahead_lines=4, dot_only=False)
         )
         prima_comercial = prima_comercial or (
-            _first_decimal_after(r"\bPRIMA\s+COMERCIAL\b", text, lookahead_lines=4, dot_only=False)
-            or _find_after(r"\bPRIMA\s+COMERCIAL\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
+            _amount_after_label(r"\bPRIMA\s+COMERCIAL\b", text, lookahead_lines=2)
+            or _first_decimal_after(r"\bPRIMA\s+COMERCIAL\b", text, lookahead_lines=4, dot_only=False)
+            or _find_after(r"\bPRIMA\s+COMERCIAL\b", flat, r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))(?!\d)", window=140)
             or _find_last(r"PRIMA\s+COMERCIAL(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
             or _find(r"PRIMA\s+COMERCIAL\b\s*:?\s*([0-9][0-9\.,]*)", text)
         )
         igv_val = igv_val or (
-            _first_decimal_after(r"\bIGV\b", text, lookahead_lines=4, dot_only=False)
-            or _find_after(r"\bIGV\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
+            _amount_after_label(r"\bIGV\b", text, lookahead_lines=2)
+            or _first_decimal_after(r"\bIGV\b", text, lookahead_lines=4, dot_only=False)
+            or _find_after(r"\bIGV\b", flat, r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))(?!\d)", window=140)
             or _find_last(r"\bIGV\b(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
             or _find(r"\bIGV\b\s*:?\s*([0-9][0-9\.,]*)", text)
         )
         total_cobrar = (locals().get("total_cobrar") if "total_cobrar" in locals() else None) or (
-            _first_decimal_after(r"TOTAL\s+A\s+COBRAR\b", text, lookahead_lines=4, dot_only=False)
-            or _find_after(r"TOTAL\s+A\s+COBRAR\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
-            or _find_last(r"TOTAL\s+A\s+COBRAR(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+            _amount_after_label(r"TOTAL\s+A\s+COBRAR\b", text, lookahead_lines=2)
+            or _first_decimal_after(r"TOTAL\s+A\s+COBRAR\b", text, lookahead_lines=4, dot_only=False)
+            or _find_after(r"TOTAL\s+A\s+COBRAR\b", flat, r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))(?!\d)", window=140)
+            or _find_last(r"TOTAL\s+A\s+COBRAR(?:[^A-Z]|$).*?([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))(?!\d)", text)
             or _find(r"PRIMA\s+COMERCIAL\s*\+\s*IGV\s*:?\s*([0-9][0-9\.,]*)", text)
+            or _amount_after_label(r"PRIMA\s+COMERCIAL\s*\+\s*IGV\b", text, lookahead_lines=2)
             or _first_decimal_after(r"PRIMA\s+COMERCIAL\s*\+\s*IGV\b", text, lookahead_lines=4, dot_only=False)
             or _monto_total_pagar(text)
             or _monto_total_pagar(flat)
