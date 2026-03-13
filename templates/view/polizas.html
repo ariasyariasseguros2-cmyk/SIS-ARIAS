@@ -13,9 +13,14 @@
     
     <!-- 1. Header Principal con Título y Botones Principales -->
     <div class="page-header justify-content-start gap-3">
-        <h1 class="page-title mb-0">
-            <i class="bi-shield-check text-primary"></i> Pólizas
-        </h1>
+        <div class="d-flex flex-column">
+            <h1 class="page-title mb-0">
+                <i class="bi-shield-check text-primary"></i> Pólizas
+            </h1>
+            <a href="{{ url_for('main.menu_page', page='clientes') }}" class="text-decoration-none text-primary fw-semibold mt-1">
+                <i class="bi-chevron-left"></i> Volver a clientes
+            </a>
+        </div>
         <div class="header-actions d-flex gap-2">
             {% if session.role_name in ['BROKER', 'OPERADOR', 'SUB AGENTE'] %}
             <a class="btn btn-success text-white btn-sm rounded-pill" href="{{ url_for('main.menu_page', page='anadir-poliza') }}" target="_blank" rel="noopener noreferrer">

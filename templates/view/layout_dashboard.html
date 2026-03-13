@@ -24,7 +24,7 @@
             <div class="nav-title">Navegación</div>
             {% set _p = page if (page is defined and page) else (request.path.split('/')[-1] if request.path else '') %}
             <ul class="nav-list">
-                <li><i class="bi-speedometer2"></i> <a data-page="dashboard" href="{{ url_for('main.dashboard') }}"><span><strong>One page report</strong></span></a></li>
+                <li><i class="bi-speedometer2"></i> <a data-page="dashboard" href="{{ url_for('main.dashboard') }}"><span><strong>Inicio</strong></span></a></li>
 
                 <li class="nav-group">
                     <button class="group-toggle" type="button">
