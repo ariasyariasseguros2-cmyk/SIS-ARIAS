@@ -18,6 +18,17 @@ def zip_files(zip_name, items_to_zip):
     
     try:
         with zipfile.ZipFile(zip_name, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            added_dirs = set()
+
+            def add_dir(arc_dir):
+                arc_dir = arc_dir.replace(os.path.sep, '/').strip('/').rstrip('/') + '/'
+                if arc_dir in added_dirs:
+                    return
+                zi = zipfile.ZipInfo(arc_dir)
+                zi.external_attr = 0o40775 << 16
+                zipf.writestr(zi, '')
+                added_dirs.add(arc_dir)
+
             for item in items_to_zip:
                 item_path = os.path.join(BASE_DIR, item)
                 if not os.path.exists(item_path):
@@ -36,6 +47,12 @@ def zip_files(zip_name, items_to_zip):
                         # Exclude __pycache__ directories
                         if '__pycache__' in dirs:
                             dirs.remove('__pycache__')
+
+                        rel_root = os.path.relpath(root, BASE_DIR)
+                        add_dir(rel_root)
+                        for d in dirs:
+                            rel_dir = os.path.relpath(os.path.join(root, d), BASE_DIR)
+                            add_dir(rel_dir)
                         
                         for file in files:
                             # Exclude .pyc files and .DS_Store
@@ -72,6 +89,7 @@ if __name__ == "__main__":
         "routes",
         "static",
         "templates",
+        "uploads",
         "utils",
         ".htaccess"
     ]

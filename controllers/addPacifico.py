@@ -353,7 +353,19 @@ def parse_pacifico_pension(text: str) -> dict | None:
             or _find(r"\b(20[0-9]{8})\b", text)
         )
 
-    # Contratante (Nuevo)
+    def _sanitize_contratante_value(s: str | None) -> str | None:
+        if not s:
+            return None
+        out = s.strip()
+        out = re.sub(r"\s+[0-9]+$", "", out)
+        out = re.sub(r"\bContratante\b", " ", out, flags=re.IGNORECASE)
+        out = re.sub(r"[:\-\.\s]+", " ", out).strip()
+        if not out:
+            return None
+        if re.fullmatch(r"(contratante|asegurado|direcci[oó]n|plan|agente)", out, flags=re.IGNORECASE):
+            return None
+        return out
+
     contratante_blk = _capture_block_after(
         r"Contratante\b", text,
         ["Asegurado", "Dirección", "Plan", "Agente", "REG. PROD.", "CODIGO", "Moneda", "DOCUMENTO", "LIQUIDACION", "Vigencia", "POLIZA"]
@@ -361,19 +373,27 @@ def parse_pacifico_pension(text: str) -> dict | None:
     print("[pacifico] contratante_blk:", contratante_blk)
     contratante = None
     if contratante_blk:
-        # Intentar limpiar código numérico al final si existe (ej: 12377047)
-        clean_blk = re.sub(r"\s+[0-9]+$", "", contratante_blk.strip())
-        # Buscar patrón de empresa
-        m_name = re.search(r"([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\.\- ]+(?:S\.A\.C\.?|S\.R\.L\.?|E\.I\.R\.L\.?|S\.A\.?|S\.A\.A\.?))", clean_blk, re.IGNORECASE)
-        contratante = m_name.group(1) if m_name else clean_blk
-    else:
+        clean_blk = _sanitize_contratante_value(contratante_blk)
+        if clean_blk:
+            m_name = re.search(
+                r"([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\.\- ]+(?:S\.A\.C\.?|S\.R\.L\.?|E\.I\.R\.L\.?|S\.A\.?|S\.A\.A\.?))",
+                clean_blk,
+                re.IGNORECASE,
+            )
+            contratante = m_name.group(1) if m_name else clean_blk
+    if not contratante:
         contratante = (
             _find_after(r"Contratante\b\s*:?", flat, r"([A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120})", window=200)
             or _find(r"Contratante\s*:?\s*(.+)", text)
         )
-    
+        contratante = _sanitize_contratante_value(contratante)
+
     if contratante:
         contratante = re.sub(r"\bHAW\s+K\b", "HAWK", contratante, flags=re.IGNORECASE)
+        contratante = _sanitize_entity_name(contratante) or contratante
+        contratante = contratante.upper()
+        if contratante in {"CONTRATANTE", "ASEGURADO", "DIRECCION", "DIRECCIÓN", "PLAN", "AGENTE"}:
+            contratante = None
 
     # Asegurado (acotar a razón social vía bloque y patrón de S.A.C.)
     asegurado_blk = _capture_block_after(
@@ -402,6 +422,8 @@ def parse_pacifico_pension(text: str) -> dict | None:
         asegurado = _sanitize_entity_name(asegurado) or asegurado
         asegurado = asegurado.upper()
         asegurado = asegurado.upper()
+    if (not contratante) and asegurado:
+        contratante = asegurado
 
     # Vigencia (tomar ambas fechas y ordenarlas)
     ini_vig, fin_vig = _find_dates_near(r"\bVigencia\b", flat, window=200)
