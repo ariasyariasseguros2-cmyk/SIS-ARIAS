@@ -14,6 +14,25 @@
         </div>
     </div>
 
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-secondary">
+                <div class="card-body py-3">
+                    <div class="row">
+                        <div class="col-md-6 mb-2 mb-md-0">
+                            <div class="text-muted small">Última fecha de emisión cargada</div>
+                            <div class="fw-semibold" id="ultimaFechaEmision">{{ ultima_fecha_emision_bd or 'Sin registros' }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="text-muted small">Sugerido cargar desde</div>
+                            <div class="fw-semibold" id="cargarDesde">{{ cargar_desde_sugerido or '-' }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Instrucciones -->
     <div class="row mb-4">
         <div class="col-12">
@@ -247,6 +266,15 @@ function showResults(result, isPreview = false) {
     resultActions.innerHTML = '';
 
     if (result.ok) {
+        const ultimaEl = document.getElementById('ultimaFechaEmision');
+        const cargarDesdeEl = document.getElementById('cargarDesde');
+        if (ultimaEl && result.ultima_fecha_emision_bd) {
+            ultimaEl.textContent = result.ultima_fecha_emision_bd;
+        }
+        if (cargarDesdeEl && result.cargar_desde_sugerido) {
+            cargarDesdeEl.textContent = result.cargar_desde_sugerido;
+        }
+
         if (isPreview) {
             // Estilo para PREVIEW
             resultCard.className = 'card border-info';
@@ -273,7 +301,14 @@ function showResults(result, isPreview = false) {
             document.getElementById('excelFile').value = '';
         }
 
-        let statsHtml = '<div class="row text-center">';
+        let statsHtml = '';
+        if (result.fecha_emision_excel_min || result.fecha_emision_excel_max) {
+            const desde = result.fecha_emision_excel_min || '-';
+            const hasta = result.fecha_emision_excel_max || '-';
+            statsHtml += `<div class="alert alert-secondary py-2 mb-3"><strong>Fecha de emisión en Excel:</strong> ${desde} a ${hasta}</div>`;
+        }
+
+        statsHtml += '<div class="row text-center">';
         statsHtml += `
             <div class="col-md-4 mb-3">
                 <div class="p-3 bg-light rounded">

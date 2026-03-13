@@ -2,7 +2,7 @@
 Controlador para carga masiva de pólizas SOAT desde Excel
 """
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from models.db import get_connection
 import mysql.connector
 import unicodedata
@@ -661,6 +661,31 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
             errors.extend(load_debug)
             return {'ok': False, 'errors': errors}
 
+        fecha_emision_min = None
+        fecha_emision_max = None
+        for _, r in df.iterrows():
+            emision_iso = None
+            emision_val = r.get('FECHA_EMISION')
+            if pd.notna(emision_val):
+                emision_iso = normalize_date(emision_val)
+            if not emision_iso:
+                vig_val = r.get('VIGENCIA_INICIO')
+                if pd.notna(vig_val):
+                    emision_iso = normalize_date(vig_val)
+            if emision_iso:
+                try:
+                    d = datetime.strptime(emision_iso, '%Y-%m-%d').date()
+                except Exception:
+                    d = None
+                if d:
+                    if fecha_emision_min is None or d < fecha_emision_min:
+                        fecha_emision_min = d
+                    if fecha_emision_max is None or d > fecha_emision_max:
+                        fecha_emision_max = d
+
+        fecha_emision_excel_min = fecha_emision_min.strftime('%d/%m/%Y') if fecha_emision_min else None
+        fecha_emision_excel_max = fecha_emision_max.strftime('%d/%m/%Y') if fecha_emision_max else None
+
         # Contadores
         clientes_nuevos = 0
         clientes_existentes = 0
@@ -951,6 +976,8 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
             'clientes_nuevos': clientes_nuevos,
             'clientes_existentes': clientes_existentes,
             'polizas_insertadas': polizas_insertadas,
+            'fecha_emision_excel_min': fecha_emision_excel_min,
+            'fecha_emision_excel_max': fecha_emision_excel_max,
             'errors': errors_list
         }
 
@@ -958,4 +985,40 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
         return {
             'ok': False,
             'errors': [f"Error al procesar archivo: {str(e)}"]
+        }
+
+
+def get_ultima_fecha_emision_soat() -> dict:
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute("""
+            SELECT MAX(fecha_emision) AS max_fecha
+            FROM polizas
+            WHERE UPPER(TRIM(ramo)) = 'SOAT'
+              AND activo = 1
+              AND (anulado = 0 OR anulado IS NULL)
+        """)
+        row = cur.fetchone()
+        cur.close()
+        cnx.close()
+
+        max_fecha = row.get('max_fecha') if row else None
+        if not max_fecha:
+            return {
+                'ultima_fecha_emision_bd': None,
+                'cargar_desde_sugerido': None
+            }
+
+        if isinstance(max_fecha, datetime):
+            max_fecha = max_fecha.date()
+
+        return {
+            'ultima_fecha_emision_bd': max_fecha.strftime('%d/%m/%Y'),
+            'cargar_desde_sugerido': (max_fecha + timedelta(days=1)).strftime('%d/%m/%Y')
+        }
+    except Exception:
+        return {
+            'ultima_fecha_emision_bd': None,
+            'cargar_desde_sugerido': None
         }

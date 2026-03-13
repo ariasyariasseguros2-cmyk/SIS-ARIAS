@@ -1871,7 +1871,15 @@ def carga_masiva_soat():
     if 'user' not in session:
         return redirect(url_for('login'))
 
-    return render_template('view/carga_masiva_soat.html', page='carga-masiva-soat')
+    from controllers.soat.carga_masiva import get_ultima_fecha_emision_soat
+    fechas = get_ultima_fecha_emision_soat()
+
+    return render_template(
+        'view/carga_masiva_soat.html',
+        page='carga-masiva-soat',
+        ultima_fecha_emision_bd=fechas.get('ultima_fecha_emision_bd'),
+        cargar_desde_sugerido=fechas.get('cargar_desde_sugerido')
+    )
 
 
 @bp.route('/carga-masiva-soat/upload', methods=['POST'])
@@ -1902,7 +1910,7 @@ def carga_masiva_soat_upload():
         file.save(temp_path)
 
         # Procesar Excel
-        from controllers.soat.carga_masiva import process_soat_excel
+        from controllers.soat.carga_masiva import process_soat_excel, get_ultima_fecha_emision_soat
         result = process_soat_excel(temp_path, session.get('user'), preview=preview)
 
         # Eliminar archivo temporal
@@ -1912,11 +1920,16 @@ def carga_masiva_soat_upload():
             pass
 
         if result.get('ok'):
+            fechas = get_ultima_fecha_emision_soat()
             return {
                 'ok': True,
                 'clientes_nuevos': result.get('clientes_nuevos', 0),
                 'clientes_existentes': result.get('clientes_existentes', 0),
                 'polizas_insertadas': result.get('polizas_insertadas', 0),
+                'fecha_emision_excel_min': result.get('fecha_emision_excel_min'),
+                'fecha_emision_excel_max': result.get('fecha_emision_excel_max'),
+                'ultima_fecha_emision_bd': fechas.get('ultima_fecha_emision_bd'),
+                'cargar_desde_sugerido': fechas.get('cargar_desde_sugerido'),
                 'errors': result.get('errors', [])
             }, 200
         else:
