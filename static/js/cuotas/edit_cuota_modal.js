@@ -2,6 +2,8 @@
     window.CuotaEditModal = {
         currentId: null,
         currentPoliza: null,
+        _extractAbortController: null,
+        _localPreviewUrl: null,
 
         init: function() {
             const btnGuardar = document.getElementById('btnGuardarCuota');
@@ -18,13 +20,50 @@
             // File input listener
             const fileInput = document.getElementById('editDocumentoFile');
             if (fileInput) {
-                fileInput.addEventListener('change', () => {
+                fileInput.addEventListener('change', async () => {
                     const file = fileInput.files && fileInput.files[0];
                     const nombreEl = document.getElementById('editDocumentoNombre');
                     if (file && nombreEl) {
                         nombreEl.value = file.name;
                     }
+                    if (file) {
+                        await this.extractAndFillFromFile(file);
+                    }
                 });
+
+                const dropZone = fileInput.closest('label');
+                if (dropZone) {
+                    const prevent = (e) => { e.preventDefault(); e.stopPropagation(); };
+                    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                        dropZone.addEventListener(eventName, prevent, false);
+                    });
+
+                    ['dragenter', 'dragover'].forEach(eventName => {
+                        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+                    });
+
+                    ['dragleave', 'drop'].forEach(eventName => {
+                        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+                    });
+
+                    dropZone.addEventListener('drop', (e) => {
+                        const files = e.dataTransfer && e.dataTransfer.files;
+                        if (!files || !files.length) return;
+
+                        const file = files[0];
+                        const name = (file.name || '').toLowerCase();
+                        const ok = name.endsWith('.pdf') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png');
+                        if (!ok) {
+                            alert('Archivo no permitido. Use PDF, JPG o PNG.');
+                            return;
+                        }
+
+                        const dt = new DataTransfer();
+                        dt.items.add(file);
+                        fileInput.files = dt.files;
+                        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }, false);
+                }
             }
 
             // Delete document listener
@@ -37,6 +76,14 @@
                     if (fileInput) fileInput.value = '';
                     // Limpiar referencia del archivo actual para que Ver no lo muestre
                     this._archivoActual = null;
+                    if (this._localPreviewUrl) {
+                        try { URL.revokeObjectURL(this._localPreviewUrl); } catch (e) {}
+                        this._localPreviewUrl = null;
+                    }
+                    if (this._extractAbortController) {
+                        this._extractAbortController.abort();
+                        this._extractAbortController = null;
+                    }
                 });
             }
             
@@ -44,8 +91,10 @@
             const btnVer = document.getElementById('btnEditDocumentoVer');
             if (btnVer) {
                  btnVer.addEventListener('click', () => {
-                    if (!this.currentId) {
-                        alert('No hay documento para visualizar.');
+                    const fileInput = document.getElementById('editDocumentoFile');
+                    const file = fileInput && fileInput.files && fileInput.files[0];
+                    if (file) {
+                        this.previewLocalFile(file);
                         return;
                     }
                     this.viewDocument(this.currentId);
@@ -53,9 +102,77 @@
             }
         },
 
+        previewLocalFile: function(file) {
+            if (!file) return;
+            if (this._localPreviewUrl) {
+                try { URL.revokeObjectURL(this._localPreviewUrl); } catch (e) {}
+                this._localPreviewUrl = null;
+            }
+            const url = URL.createObjectURL(file);
+            this._localPreviewUrl = url;
+            this._openPdfViewer({ ruta_archivo: url, nombre_original: file.name });
+        },
+
+        extractAndFillFromFile: async function(file) {
+            if (!file) return;
+
+            if (this._extractAbortController) {
+                this._extractAbortController.abort();
+            }
+            this._extractAbortController = new AbortController();
+
+            const toISO = (str) => {
+                if (!str) return '';
+                const s = String(str).trim();
+                if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+                const parts = s.split(/[-/]/);
+                if (parts.length === 3) {
+                    const d = parts[0].padStart(2, '0');
+                    const m = parts[1].padStart(2, '0');
+                    const y = parts[2];
+                    if (/^\d{4}$/.test(y)) return `${y}-${m}-${d}`;
+                }
+                return '';
+            };
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch('/cuotas/extract', {
+                    method: 'POST',
+                    body: formData,
+                    signal: this._extractAbortController.signal
+                });
+
+                const result = await response.json().catch(() => ({}));
+                if (!result || !result.ok) return;
+
+                const data = result.data || {};
+
+                const fechaPagoEl = document.getElementById('editFechaPago');
+                if (fechaPagoEl && data.fecha_pago) {
+                    const iso = toISO(data.fecha_pago);
+                    if (iso) fechaPagoEl.value = iso;
+                }
+
+                const facturaEl = document.getElementById('editFactura');
+                if (facturaEl && data.factura) {
+                    facturaEl.value = String(data.factura).trim();
+                }
+            } catch (e) {
+                if (e && e.name === 'AbortError') return;
+                console.error('[editCuota] Error extrayendo datos del archivo:', e);
+            }
+        },
+
         open: function(data, polizaContext) {
             this.currentId = data.idCuota;
             this.currentPoliza = polizaContext || data.poliza; // fallback
+            if (this._localPreviewUrl) {
+                try { URL.revokeObjectURL(this._localPreviewUrl); } catch (e) {}
+                this._localPreviewUrl = null;
+            }
 
             const setValue = (id, val) => {
                 const el = document.getElementById(id);
@@ -235,13 +352,22 @@
         },
 
         _openPdfViewer: function(archivo) {
-            const url = `/uploads/${archivo.ruta_archivo}`;
-            const displayName = archivo.nombre_original || archivo.ruta_archivo.split('/').pop();
+            const raw = (archivo && archivo.ruta_archivo) ? String(archivo.ruta_archivo) : '';
+            const isDirectUrl = /^(blob:|data:|https?:\/\/|\/uploads\/)/i.test(raw);
+            const url = isDirectUrl ? raw : `/uploads/${raw}`;
+            const displayName = (archivo && archivo.nombre_original) ? archivo.nombre_original : (raw.split('/').pop() || 'documento');
 
             const modalEl = document.getElementById('cuotaPdfModal');
             if (!modalEl) {
                 window.open(url, '_blank');
                 return;
+            }
+
+            const editModalEl = document.getElementById('cuotaEditModal');
+            const shouldRestoreEdit = !!(editModalEl && editModalEl.classList.contains('show'));
+            if (shouldRestoreEdit && window.bootstrap) {
+                const inst = window.bootstrap.Modal.getInstance(editModalEl);
+                if (inst) inst.hide();
             }
 
             const frame       = document.getElementById('pdfViewerFrame');
@@ -254,6 +380,14 @@
 
             const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
             modal.show();
+
+            if (shouldRestoreEdit) {
+                modalEl.addEventListener('hidden.bs.modal', () => {
+                    if (!window.bootstrap || !editModalEl) return;
+                    const inst = window.bootstrap.Modal.getOrCreateInstance(editModalEl);
+                    inst.show();
+                }, { once: true });
+            }
         }
     };
 
