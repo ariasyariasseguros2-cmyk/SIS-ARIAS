@@ -19,14 +19,14 @@
      * Inicializar botones de editar
      */
     function initEditButtons() {
-        const editButtons = document.querySelectorAll('.btn-edit-cliente');
-        editButtons.forEach(btn => {
-            btn.addEventListener('click', function() {
-                const clienteId = this.getAttribute('data-id');
-                if (clienteId) {
-                    loadClienteData(clienteId);
-                }
-            });
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.btn-edit-cliente');
+            if (!btn) return;
+
+            const clienteId = btn.getAttribute('data-id');
+            if (clienteId) {
+                loadClienteData(clienteId);
+            }
         });
     }
 

@@ -5,6 +5,10 @@
         let rows = table ? Array.from(table.querySelectorAll('tbody tr')) : [];
         const initialRows = [...rows]; // Keep a copy of initial rows
         const polizasUrl = table ? table.getAttribute('data-polizas-url') : null;
+        const currentPage = window.currentPage || '';
+        const canEdit = !!document.querySelector('.btn-edit-cliente');
+        const canDelete = !!document.querySelector('.btn-delete-cliente');
+        const canRestore = !!document.querySelector('.btn-restore-cliente');
 
         function debounce(func, wait) {
             let timeout;
@@ -35,6 +39,29 @@
                         data.rows.forEach(r => {
                             const tr = document.createElement('tr');
                             tr.setAttribute('data-idcliente', r.idCliente);
+
+                            let actionCellHtml = '';
+                            if (currentPage === 'clientes-anulados') {
+                                actionCellHtml = `
+                                <td class="text-end">
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        ${canRestore ? `<button type="button" class="btn btn-sm btn-info btn-lift btn-restore-cliente" data-id="${r.idCliente}"><i class="bi-arrow-clockwise"></i> Restaurar</button>` : ''}
+                                    </div>
+                                </td>
+                                `;
+                            } else {
+                                actionCellHtml = `
+                                <td class="text-end">
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        ${canEdit ? `<button type="button" class="btn btn-warning btn-sm btn-lift btn-edit-cliente" data-id="${r.idCliente}"><i class="bi-pencil"></i> Editar</button>` : ''}
+                                        <button type="button" class="btn btn-primary btn-sm btn-lift">Pólizas</button>
+                                        <button type="button" class="btn btn-success btn-sm btn-lift">Contactos</button>
+                                        ${canDelete ? `<button type="button" class="btn btn-danger btn-sm btn-lift btn-delete-cliente" data-id="${r.idCliente}" data-nombre="${r.razon_social}"><i class="bi-trash"></i> Eliminar</button>` : ''}
+                                    </div>
+                                </td>
+                                `;
+                            }
+
                             tr.innerHTML = `
                                 <td>${r.fec_reg || ''}</td>
                                 <td>${r.razon_social || ''}</td>
@@ -44,14 +71,7 @@
                                 <td>${r.subagente || ''}</td>
                                 <td><a href="mailto:${r.email || ''}">${r.email || ''}</a></td>
                                 <td>${r.direccion || ''}</td>
-                                <td class="text-end">
-                                    <div class="d-flex gap-2 justify-content-end">
-                                        <button type="button" class="btn btn-warning btn-sm btn-lift btn-edit-cliente" data-id="${r.idCliente}"><i class="bi-pencil"></i> Editar</button>
-                                        <button type="button" class="btn btn-primary btn-sm btn-lift">Pólizas</button>
-                                        <button type="button" class="btn btn-success btn-sm btn-lift">Contactos</button>
-                                        <button type="button" class="btn btn-danger btn-sm btn-lift btn-delete-cliente" data-id="${r.idCliente}" data-nombre="${r.razon_social}"><i class="bi-trash"></i> Eliminar</button>
-                                    </div>
-                                </td>
+                                ${actionCellHtml}
                             `;
                             tbody.appendChild(tr);
                             newRows.push(tr);
