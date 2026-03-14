@@ -5,6 +5,7 @@ import os
 import zipfile
 import io
 import traceback
+import mysql.connector.errors as mysql_errors
 
 bp = Blueprint('reporte_archivos_poliza', __name__)
 
@@ -15,8 +16,14 @@ def get_reporte_archivos(search='', limit=INITIAL_LIMIT):
     try:
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        # Pedimos limit+1 para saber si hay más registros sin hacer un COUNT(*)
-        cursor.callproc('sp_reporte_archivos_resumen', [search, limit + 1])
+        # Fix para los parámetros opcionales del SP: si el SP no acepta el segundo parámetro, llamar solo con search
+        try:
+            cursor.callproc('sp_reporte_archivos_resumen', [search, limit + 1])
+        except mysql_errors.ProgrammingError as e:
+            if 'Incorrect number of arguments' in str(e) and 'expected 1' in str(e):
+                cursor.callproc('sp_reporte_archivos_resumen', [search])
+            else:
+                raise
         results = []
         for result in cursor.stored_results():
             results = result.fetchall()
