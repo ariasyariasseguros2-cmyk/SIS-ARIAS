@@ -544,7 +544,14 @@ async function guardarSiniestro(event) {
     // Función auxiliar para obtener valor de campo si existe
     const getVal = (id) => {
         const elem = document.getElementById(id);
-        return elem ? elem.value : null;
+        if (!elem) return null;
+        // Obtener el valor y normalizar
+        let val = elem.value;
+        if (typeof val === 'string') {
+            val = val.trim();
+            if (val === '') return null; // Convertir cadenas vacías a null (evita enviar "" para fechas)
+        }
+        return val;
     };
 
 
