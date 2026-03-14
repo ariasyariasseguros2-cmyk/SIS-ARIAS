@@ -303,6 +303,42 @@ def parse_pacifico_pension(text: str) -> dict | None:
         out = re.sub(r"\s{2,}", " ", out)
         return out or None
 
+    def _dedupe_repeated_tokens(s: str | None) -> str | None:
+        if not s:
+            return None
+        toks = re.split(r"\s+", s.strip())
+        if len(toks) < 2:
+            return s.strip()
+        up = [t.upper() for t in toks]
+        for unit_len in range(1, (len(up) // 2) + 1):
+            if len(up) % unit_len != 0:
+                continue
+            unit = up[:unit_len]
+            repeats = len(up) // unit_len
+            if repeats >= 2 and unit * repeats == up:
+                return " ".join(toks[:unit_len]).strip()
+        return " ".join(toks).strip()
+
+    def _extract_razon_social(s: str | None) -> str | None:
+        if not s:
+            return None
+        src = _dedupe_repeated_tokens(s) or s
+        src = re.sub(r"\s{2,}", " ", src).strip()
+        m = re.search(
+            r"\b([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\.\-& ]{3,180}?(?:S\.A\.C\.?|S\.R\.L\.?|E\.I\.R\.L\.?|S\.A\.A\.?|S\.A\.?))\b",
+            src,
+            re.IGNORECASE,
+        )
+        out = m.group(1).strip() if m else src
+        out = _sanitize_entity_name(out) or out
+        out = _dedupe_repeated_tokens(out) or out
+        out = out.strip(" :.-")
+        if not out:
+            return None
+        if re.fullmatch(r"(contratante|asegurado|direcci[oó]n|plan|agente)", out, flags=re.IGNORECASE):
+            return None
+        return out
+
     flat = _canon(text)
     head30 = "\n".join(text.splitlines()[:30]).upper()
     flat_up = flat.upper()
@@ -375,12 +411,7 @@ def parse_pacifico_pension(text: str) -> dict | None:
     if contratante_blk:
         clean_blk = _sanitize_contratante_value(contratante_blk)
         if clean_blk:
-            m_name = re.search(
-                r"([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\.\- ]+(?:S\.A\.C\.?|S\.R\.L\.?|E\.I\.R\.L\.?|S\.A\.?|S\.A\.A\.?))",
-                clean_blk,
-                re.IGNORECASE,
-            )
-            contratante = m_name.group(1) if m_name else clean_blk
+            contratante = _extract_razon_social(clean_blk) or clean_blk
     if not contratante:
         contratante = (
             _find_after(r"Contratante\b\s*:?", flat, r"([A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120})", window=200)
@@ -390,7 +421,7 @@ def parse_pacifico_pension(text: str) -> dict | None:
 
     if contratante:
         contratante = re.sub(r"\bHAW\s+K\b", "HAWK", contratante, flags=re.IGNORECASE)
-        contratante = _sanitize_entity_name(contratante) or contratante
+        contratante = _extract_razon_social(contratante) or contratante
         contratante = contratante.upper()
         if contratante in {"CONTRATANTE", "ASEGURADO", "DIRECCION", "DIRECCIÓN", "PLAN", "AGENTE"}:
             contratante = None
@@ -403,24 +434,23 @@ def parse_pacifico_pension(text: str) -> dict | None:
     print("[pacifico] asegurado_blk:", asegurado_blk)
     asegurado = None
     if asegurado_blk:
-        m_name = re.search(r"([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\.\- ]+S\.A\.C\.?)", asegurado_blk)
-        asegurado = m_name.group(1) if m_name else asegurado_blk
+        asegurado = _extract_razon_social(asegurado_blk) or asegurado_blk
     else:
         asegurado = _find_after(r"Asegurado\b\s*:?", flat, r"([A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120})", window=200) \
                     or _find(r"Asegurado\s*:?\s*(.+)", text) \
                     or _find(r"Asegurado\s*\n\s*(.+)", text)
-    asegurado = (
-        _asegurado_otra_parte(text)
-        or _asegurado_otra_parte(flat)
-        or _find_last(r"Asegurado\s*[:\s]*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120}?S\.A\.C\.?)", text)
-        or _find_last(r"Asegurado\s*[:\s]*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120}?S\.A\.C\.?)", flat)
-        or _find_after(r"Asegurado\b\s*:?", flat, r"([A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120})", window=220)
-        or _capture_block_after(r"Asegurado\b", text, ["Dirección", "Plan", "Agente", "REG. PROD.", "CODIGO", "Moneda", "DOCUMENTO", "LIQUIDACION", "Vigencia", "POLIZA"])
-    )
+    if not asegurado:
+        asegurado = (
+            _asegurado_otra_parte(text)
+            or _asegurado_otra_parte(flat)
+            or _find_last(r"Asegurado\s*[:\s]*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120}?S\.A\.C\.?)", text)
+            or _find_last(r"Asegurado\s*[:\s]*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120}?S\.A\.C\.?)", flat)
+            or _find_after(r"Asegurado\b\s*:?", flat, r"([A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120})", window=220)
+            or _capture_block_after(r"Asegurado\b", text, ["Dirección", "Plan", "Agente", "REG. PROD.", "CODIGO", "Moneda", "DOCUMENTO", "LIQUIDACION", "Vigencia", "POLIZA"])
+        )
     if asegurado:
         asegurado = re.sub(r"\bHAW\s+K\b", "HAWK", asegurado, flags=re.IGNORECASE)
-        asegurado = _sanitize_entity_name(asegurado) or asegurado
-        asegurado = asegurado.upper()
+        asegurado = _extract_razon_social(asegurado) or asegurado
         asegurado = asegurado.upper()
     if (not contratante) and asegurado:
         contratante = asegurado

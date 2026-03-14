@@ -378,6 +378,9 @@ const Cuotas = (() => {
         if (data.idCuota) {
             tr = Array.from(tbody.querySelectorAll('tr')).find(row => row.dataset.idcuota == data.idCuota);
         }
+        if (!tr && editIndex !== null) {
+            tr = getRow(editIndex);
+        }
 
         const isNew = !tr;
         if (isNew) {
@@ -402,7 +405,7 @@ const Cuotas = (() => {
             <td>${data.secuencia || (isNew ? rowCount : tr.cells[0].textContent)}</td>
             <td>${data.cupon || ''}</td>
             <td>${fromISODate(data.fecha_vencimiento) || ''}</td>
-            <td>${data.moneda || 'USD'}</td>
+            <td>${data.moneda || 'S/.'}</td>
             <td>${parseFloat(data.importe || 0).toFixed(2)}</td>
             <td>${fromISODate(data.fecha_pago) || ''}</td>
             <td>${data.factura || ''}</td>
@@ -419,6 +422,7 @@ const Cuotas = (() => {
         `;
         
         recalcTotal();
+        editIndex = null;
     });
 
     // Removed duplicate btnGuardarCuota listener as it is handled by CuotaEditModal

@@ -167,7 +167,8 @@
         },
 
         open: function(data, polizaContext) {
-            this.currentId = data.idCuota;
+            // Acepta distintas claves de id por robustez
+            this.currentId = data.idCuota || data.id_cuota || data.id || null;
             this.currentPoliza = polizaContext || data.poliza; // fallback
             if (this._localPreviewUrl) {
                 try { URL.revokeObjectURL(this._localPreviewUrl); } catch (e) {}
@@ -226,13 +227,23 @@
 
             const modalEl = document.getElementById('cuotaEditModal');
             if (modalEl) {
+                // Persistir id en el propio modal para evitar pérdidas de contexto
+                modalEl.dataset.idcuota = this.currentId || '';
                 const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
                 modal.show();
             }
         },
 
         save: async function() {
-            if (!this.currentId) return;
+            // Robustez: recuperar id desde el modal si no está en memoria
+            if (!this.currentId) {
+                const modalEl = document.getElementById('cuotaEditModal');
+                if (modalEl) {
+                    const modalId = modalEl.dataset.idcuota || modalEl.getAttribute('data-idcuota');
+                    if (modalId) this.currentId = modalId;
+                }
+            }
+            const isUpdate = !!this.currentId;
 
             const getVal = (id) => {
                 const el = document.getElementById(id);
@@ -241,7 +252,7 @@
 
             const payload = {
                 idCuota: this.currentId,
-                poliza: this.currentPoliza,
+                poliza: this.currentPoliza || (window.currentPoliza || ''),
                 cupon: getVal('editCupon'),
                 fecha_vencimiento: getVal('editFechaVenc'),
                 importe: getVal('editImporte'),
@@ -254,14 +265,47 @@
                 const btn = document.getElementById('btnGuardarCuota');
                 if (btn) btn.disabled = true;
 
-                const response = await fetch('/cuotas/update-cupon', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const res = await response.json();
+                let ok = false;
+                let errorMsg = '';
 
-                if (res.ok) {
+                if (isUpdate) {
+                    const response = await fetch('/cuotas/update-cupon', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const res = await response.json();
+                    ok = !!res.ok;
+                    errorMsg = res.error || '';
+                } else {
+                    // Crear nueva cuota si no existe id
+                    const createPayload = {
+                        poliza: payload.poliza,
+                        cupon: payload.cupon,
+                        fecha_vencimiento: payload.fecha_vencimiento,
+                        moneda: 'S/.',
+                        importe: payload.importe,
+                        fecha_pago: payload.fecha_pago,
+                        factura: payload.factura,
+                        observacion: payload.observacion
+                    };
+                    const response = await fetch('/cuotas/save', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(createPayload)
+                    });
+                    const res = await response.json();
+                    ok = !!res.ok;
+                    errorMsg = res.error || '';
+                    if (ok && res.idCuota) {
+                        this.currentId = String(res.idCuota);
+                        payload.idCuota = this.currentId;
+                        const modalEl = document.getElementById('cuotaEditModal');
+                        if (modalEl) modalEl.dataset.idcuota = this.currentId;
+                    }
+                }
+
+                if (ok) {
                     // Handle file upload if present
                     const fileInput = document.getElementById('editDocumentoFile');
                     if (fileInput && fileInput.files && fileInput.files.length > 0) {
@@ -311,7 +355,7 @@
                         modal.hide();
                     }
                 } else {
-                    alert('Error al guardar: ' + (res.error || 'Desconocido'));
+                    alert('Error al guardar: ' + (errorMsg || 'Desconocido'));
                 }
             } catch (e) {
                 console.error(e);
