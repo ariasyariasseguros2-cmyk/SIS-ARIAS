@@ -88,9 +88,24 @@ def list_siniestros():
 				s.causa, s.siniestro_no, s.monto_siniestro, s.estado, s.ejecutivo_cia, s.placa, s.fecha_registro AS creado_en
 			FROM siniestros s
 			WHERE s.eliminado = 0 {rls_filter}
-			ORDER BY s.fecha_registro DESC
 		"""
-		
+
+		# Filtros por fecha (fec_desde, fec_hasta)
+		fec_desde = request.args.get('fec_desde')
+		fec_hasta = request.args.get('fec_hasta')
+
+		if fec_desde and fec_hasta:
+			sql += " AND s.fec_stro BETWEEN %s AND %s"
+			rls_params.extend([fec_desde, fec_hasta])
+		elif fec_desde:
+			sql += " AND s.fec_stro >= %s"
+			rls_params.append(fec_desde)
+		elif fec_hasta:
+			sql += " AND s.fec_stro <= %s"
+			rls_params.append(fec_hasta)
+
+		sql += " ORDER BY s.fecha_registro DESC"
+
 		cursor.execute(sql, tuple(rls_params))
 		siniestros = cursor.fetchall()
 
@@ -456,6 +471,7 @@ def update_siniestro(siniestro_id):
 				data.get('asegurado'),
 				data.get('fec_presentacion_broker'),
 				data.get('fec_aviso_cia'),
+				data.get('fec_presentacion_cia'),
 				data.get('fec_stro'),
 				data.get('hora_siniestro'),
 				data.get('quien_reporta'),
@@ -480,7 +496,6 @@ def update_siniestro(siniestro_id):
 				data.get('moneda', 'US$'),
 				data.get('monto_siniestro', 0.00),
 				data.get('deducible', 0.00),
-				data.get('descripcion_deducible'),
 				data.get('total_indemnizar', 0.00),
 				data.get('fec_pago'),
 				data.get('forma_pago'),
@@ -502,26 +517,25 @@ def update_siniestro(siniestro_id):
 				data.get('ramo'),
 				data.get('contratante'),
 				data.get('asegurado'),
-				data.get('fec_notificacion_broker'),
+				data.get('fec_notificacion_broker') or data.get('fec_presentacion_broker'),
+				data.get('fec_aviso_cia'),
+				data.get('fec_presentacion_cia'),
 				data.get('fec_stro'),
 				data.get('hora_siniestro'),
 				data.get('quien_reporta'),
 				data.get('email'),
 				data.get('telefonos'),
-				data.get('hora_contacto'),
-				data.get('hora_culminacion'),
 				data.get('lugar_siniestro'),
 				data.get('causa'),
 				data.get('tipo_atencion'),
-				data.get('fec_presentacion_cia'),
+				data.get('situacion'),
+				data.get('placa') or ((data.get('vehiculo') or {}).get('placa')),
 				data.get('siniestro_no'),
 				data.get('ejecutivo_cia'),
 				data.get('estado', 'PENDIENTE'),
-				data.get('situacion'),
 				data.get('moneda', 'US$'),
 				data.get('monto_siniestro', 0.00),
 				data.get('deducible', 0.00),
-				data.get('descripcion_deducible'),
 				data.get('total_indemnizar', 0.00),
 				data.get('fec_pago'),
 				data.get('forma_pago'),
@@ -531,11 +545,6 @@ def update_siniestro(siniestro_id):
 				data.get('monto_pagar_factura', 0.00),
 				data.get('fec_vencimiento_factura'),
 				data.get('fec_pago_factura'),
-				json_or_null(data.get('vehiculo')),
-				json_or_null(data.get('denuncia')),
-				json_or_null(data.get('conductor')),
-				json_or_null(data.get('copiloto')),
-				json_or_null(data.get('tercero')),
 				usuario
 			]
 			cursor.callproc('sp_update_siniestro_vehiculos', params)
@@ -549,29 +558,24 @@ def update_siniestro(siniestro_id):
 				data.get('ramo'),
 				data.get('contratante'),
 				data.get('asegurado'),
-				data.get('fec_stro'),
-				data.get('causa'),
 				data.get('fec_presentacion_broker'),
-				data.get('fec_atencion_medica'),
 				data.get('fec_aviso_cia'),
 				data.get('fec_presentacion_cia'),
-				data.get('fec_cia_consentido'),
+				data.get('fec_stro'),
+				data.get('fec_atencion_medica'),
+				data.get('hora_siniestro'),
 				data.get('quien_reporta'),
 				data.get('email'),
 				data.get('telefonos'),
-				data.get('tipo_persona'),
-				data.get('titular'),
-				data.get('paciente'),
-				data.get('diagnostico'),
+				data.get('lugar_siniestro'),
+				data.get('causa'),
+				data.get('descripcion_hechos'),
 				data.get('siniestro_no'),
 				data.get('ejecutivo_cia'),
 				data.get('estado', 'PENDIENTE'),
 				data.get('moneda', 'US$'),
 				data.get('monto_siniestro', 0.00),
 				data.get('deducible', 0.00),
-				data.get('descripcion_deducible'),
-				data.get('coaseguro', 0.00),
-				data.get('no_cubierto', 0.00),
 				data.get('total_indemnizar', 0.00),
 				data.get('fec_pago'),
 				data.get('forma_pago'),
@@ -581,7 +585,6 @@ def update_siniestro(siniestro_id):
 				data.get('monto_pagar_factura', 0.00),
 				data.get('fec_vencimiento_factura'),
 				data.get('fec_pago_factura'),
-				json_or_null(data.get('gastos')),
 				usuario
 			]
 			cursor.callproc('sp_update_siniestro_rrhh', params)
@@ -1405,10 +1408,8 @@ def _generar_pdf_rrgg(buffer, siniestro):
 
     # Footer
     elements.append(Spacer(1, 0.2*inch))
-    elements.append(Paragraph("ARIAS & ARIAS CORREDORES DE SEGUROS SAC.", footer_style))
-    elements.append(Paragraph(f"Código: {siniestro.get('siniestro_no', '')}", footer_style))
-    elements.append(Spacer(1, 0.05*inch))
     elements.append(Paragraph("E-mail: info@ariasyarias.com", footer_style))
+    elements.append(Paragraph("1", footer_style))
 
     doc.build(elements, onFirstPage=_insert_logo, onLaterPages=_insert_logo)
 
