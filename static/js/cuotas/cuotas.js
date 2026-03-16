@@ -67,8 +67,7 @@ const Cuotas = (() => {
       secuencia: tds[0]?.textContent.trim() || (idx + 1),
       cupon: tds[1]?.textContent.trim() || '',
       fecha_vencimiento: tds[2]?.textContent.trim() || '',
-      moneda: tds[3]?.textContent.trim() || '',
-      importe: tds[4]?.textContent.trim() || '',
+      importe: tds[3]?.textContent.trim() || '',
       fecha_pago: tr.dataset.fechaPago || '',
       factura: tr.dataset.factura || '',
       observacion: tr.dataset.observacion || '',
@@ -85,7 +84,7 @@ const Cuotas = (() => {
     
     let total = 0;
     tbody.querySelectorAll('tr').forEach(tr => {
-      const td = tr.querySelector('td:nth-child(5)');
+      const td = tr.querySelector('td:nth-child(4)');
       if (!td) return;
       const raw = td.textContent || '';
       const num = parseFloat(raw.replace('S/.', '').replace(',', '.').trim());
@@ -185,9 +184,9 @@ const Cuotas = (() => {
           return;
         }
         const tds = tr.querySelectorAll('td');
+        if (tds[4]) tds[4].textContent = '';
         if (tds[5]) tds[5].textContent = '';
         if (tds[6]) tds[6].textContent = '';
-        if (tds[7]) tds[7].textContent = '';
         tr.dataset.fechaPago = '';
         tr.dataset.factura = '';
         tr.dataset.observacion = '';
@@ -421,7 +420,6 @@ const Cuotas = (() => {
             <td>${data.secuencia || (isNew ? rowCount : tr.cells[0].textContent)}</td>
             <td>${data.cupon || ''}</td>
             <td>${fromISODate(data.fecha_vencimiento) || ''}</td>
-            <td>${data.moneda || 'S/.'}</td>
             <td>${parseFloat(data.importe || 0).toFixed(2)}</td>
             <td>${fromISODate(data.fecha_pago) || ''}</td>
             <td>${data.factura || ''}</td>

@@ -130,7 +130,6 @@ def get_cuotas_data(
                             c.numero_cuota,
                             c.cupon,
                             DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
-                            c.moneda,
                             FORMAT(c.importe, 2) AS importe,
                             DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
                             c.factura,
@@ -160,7 +159,6 @@ def get_cuotas_data(
                             c.numero_cuota,
                             c.cupon,
                             DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
-                            c.moneda,
                             FORMAT(c.importe, 2) AS importe,
                             DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
                             c.factura,
@@ -205,7 +203,6 @@ def get_cuotas_data(
                                     c.numero_cuota,
                                     c.cupon,
                                     DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
-                                    c.moneda,
                                     FORMAT(c.importe, 2) AS importe,
                                     DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
                                     c.factura,
@@ -240,7 +237,6 @@ def get_cuotas_data(
                             'numero_cuota': c.get('numero_cuota'),
                             'cupon': c.get('cupon') or '',
                             'fecha_vencimiento': format_date_custom(c.get('fecha_vencimiento')),
-                            'moneda': c.get('moneda') or '',
                             'importe': c.get('importe') or '',
                             'fecha_pago': format_date_custom(c.get('fecha_pago')),
                             'factura': c.get('factura') or '',
@@ -715,6 +711,7 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
     # --- Detección de Proveedor ---
     is_crecer = 'CRECER' in text_upper and 'SEGUROS' in text_upper
     is_sanitas = 'SANITAS' in text_upper
+    is_positiva = 'LA POSITIVA' in text_upper
 
     if is_crecer:
         # Lógica específica para Crecer Seguros
@@ -729,10 +726,6 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
 
         # Fecha Vencimiento
         data['fecha_vencimiento'] = find_val(r'(?:VENCIMIENTO|VENCE|VIGENCIA\s*HASTA)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
-
-        # Moneda
-        moneda_val = find_val(r'(?:MONEDA)\s*[:.]?\s*([A-Za-z]+)', text)
-        data['moneda'] = moneda_val if moneda_val else 'S/.'
 
         # Importe Total
         m_imp = re.search(r'IMPORTE\s+TOTAL.*?(?:S/|USD|\$)?\s*([\d,]+\.\d{2})', text, re.IGNORECASE | re.DOTALL)
@@ -767,14 +760,18 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
 
        # Fecha Pago: Usar FECHA DE EMISIÓN
        data['fecha_pago'] = find_val(r'Fecha\s+de\s+Emisi[óo]n\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
-       
-       # Moneda
-       data['moneda'] = 'S/.' # Default for Sanitas or extract if needed
 
        # Observación: Contrato o Referencia de pago
        contrato = find_val(r'Contrato\s*[:.]?\s*(\d+)', text)
        if contrato:
             data['observacion'] = f"Contrato: {contrato}"
+
+    elif is_positiva:
+        m_fac = re.search(r'(?:FACTURA\s+ELECTR[ÓO]NICA[^A-Za-z0-9]*)?([FfEeBb]\d{2,3}\s*-\s*\d{5,8})', text, re.IGNORECASE | re.DOTALL)
+        if m_fac:
+            data['factura'] = m_fac.group(1).replace(' ', '')
+        if not data['fecha_pago']:
+            data['fecha_pago'] = find_val(r'Fecha\s+de\s+Emisi[óo]n\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
 
     # --- FALLBACK / GENERIC LOGIC (Runs if fields are still empty) ---
 
@@ -797,19 +794,14 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
 
     # 4. Factura
     if not data['factura']:
-        data['factura'] = find_val(r'(?:FACTURA|NRO\.?\s*FAC|F0\d+-\d+)\s*[:.]?\s*([FfEeBb]\d{2,3}-\d+)', text)
+        data['factura'] = find_val(r'(?:FACTURA|NRO\.?\s*FAC|F0\d+\s*-\s*\d+)\s*[:.]?\s*([FfEeBb]\d{2,3}\s*-\s*\d+)', text)
         if not data['factura']:
-             m_fac = re.search(r'([FfEeBb]\d{2,3}-\d{5,8})', text)
+             m_fac = re.search(r'([FfEeBb]\d{2,3}\s*-\s*\d{5,8})', text)
              if m_fac:
-                 data['factura'] = m_fac.group(1)
+                 data['factura'] = m_fac.group(1).replace(' ', '')
 
         # 5. Fecha Pago (Default to Emision if not found)
         if not data['fecha_pago']:
             data['fecha_pago'] = find_val(r'(?:PAGADO|FECHA\s*PAGO|EMISI[ÓO]N)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
-
-        # 6. Moneda (Default to S/.)
-        if not data['moneda']:
-            moneda_val = find_val(r'(?:MONEDA)\s*[:.]?\s*([A-Za-z]+)', text)
-            data['moneda'] = moneda_val if moneda_val else 'S/.'
 
     return data
