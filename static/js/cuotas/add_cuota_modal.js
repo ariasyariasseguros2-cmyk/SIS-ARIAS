@@ -129,6 +129,7 @@
         const addFileInput = document.getElementById('addDocumentoFile');
         const btnExtract = document.getElementById('btnExtractData');
         const removeFileBtn = document.getElementById('removeFileBtn');
+        let _selectedFile = null; // mantiene el archivo ya sea por drop o por selector
 
         if (dropZone && addFileInput) {
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -155,6 +156,15 @@
             function handleFiles(files) {
                 if (files.length > 0) {
                     const file = files[0];
+                    _selectedFile = file;
+                    // Reflejar el archivo en el input para unificar la fuente
+                    try {
+                        const dt = new DataTransfer();
+                        dt.items.add(file);
+                        addFileInput.files = dt.files;
+                    } catch (e) {
+                        // Si DataTransfer no está disponible, seguimos usando _selectedFile
+                    }
                     const content = dropZone.querySelector('.upload-content');
                     const prev = dropZone.querySelector('.file-preview');
                     const nameEl = document.getElementById('fileNamePreview');
@@ -182,6 +192,7 @@
             if (prev) prev.classList.add('d-none');
             if (btnExtract) btnExtract.disabled = true;
             if (fileInput) fileInput.value = '';
+            _selectedFile = null;
           });
         }
 
@@ -191,7 +202,8 @@
              const spinner = btn.querySelector('.spinner-border');
              const fileInput = document.getElementById('addDocumentoFile');
              
-             if (!fileInput || !fileInput.files || !fileInput.files.length) {
+             const file = (fileInput && fileInput.files && fileInput.files[0]) || _selectedFile;
+             if (!file) {
                  alert('Por favor seleccione un archivo primero.');
                  return;
              }
@@ -201,7 +213,7 @@
              
              try {
                  const formData = new FormData();
-                 formData.append('file', fileInput.files[0]);
+                 formData.append('file', file);
                  
                  const response = await fetch('/cuotas/extract', {
                      method: 'POST',
@@ -317,18 +329,19 @@
                   if (res.ok) {
                       // --- UPLOAD PDF si hay archivo seleccionado ---
                       const fileInput = document.getElementById('addDocumentoFile');
+                      const file = (fileInput && fileInput.files && fileInput.files[0]) || (_selectedFile || null);
                       const newCuotaId = res.idCuota || res.cuota_id || null;
 
                       console.log('[cuota:save] idCuota recibido:', newCuotaId);
-                      console.log('[cuota:save] archivo seleccionado:', fileInput?.files?.length);
+                      console.log('[cuota:save] archivo seleccionado:', file ? 1 : 0);
 
-                      if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                      if (file) {
                           if (!newCuotaId) {
                               console.warn('[cuota:save] No se recibió idCuota del servidor, no se puede subir el archivo.');
                           } else {
                               try {
                                   const fd = new FormData();
-                                  fd.append('archivo', fileInput.files[0]);
+                                  fd.append('archivo', file);
                                   fd.append('cuota_id', newCuotaId);
                                   fd.append('poliza_id', primaId || '');
                                   fd.append('numero_poliza', poliza);
