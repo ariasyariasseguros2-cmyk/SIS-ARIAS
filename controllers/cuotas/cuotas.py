@@ -727,10 +727,7 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
         # Fecha Vencimiento
         data['fecha_vencimiento'] = find_val(r'(?:VENCIMIENTO|VENCE|VIGENCIA\s*HASTA)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
 
-        # Importe Total
-        m_imp = re.search(r'IMPORTE\s+TOTAL.*?(?:S/|USD|\$)?\s*([\d,]+\.\d{2})', text, re.IGNORECASE | re.DOTALL)
-        if m_imp:
-             data['importe'] = m_imp.group(1).replace(',', '') 
+        # Importe Total: deshabilitado por solicitud
         
         # Fecha Pago
         data['fecha_pago'] = find_val(r'FECHA\s+DE\s+EMISI[ÓO]N\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
@@ -739,6 +736,28 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
         poliza = find_val(r'N[úu]mero\s+de\s+p[óo]liza\s*[:.]?\s*([0-9A-Z\-]+)', text)
         if poliza:
             data['observacion'] = f"Póliza: {poliza}"
+
+    elif is_positiva:
+        # Lógica específica para La Positiva
+        # Factura/Recibo: F038-00422654
+        m_fac = re.search(r'(F\d{3,4}\s*-\s*\d{5,8})', text, re.IGNORECASE)
+        if m_fac:
+            data['factura'] = m_fac.group(1).replace(' ', '')
+        # Cupón / Proforma
+        data['cupon'] = find_val(r'(?:N[°º]?\s*PROFORMA)\s*[:.]?\s*([0-9A-Z\-]+)', text)
+        # Fecha Vencimiento (VENC. DOC.)
+        if not data['fecha_vencimiento']:
+            data['fecha_vencimiento'] = find_val(r'(?:VENC\.?\s*DOC\.?|VENCIMIENTO|VENCE)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+        # Fecha de Pago: Fecha de Emisión
+        if not data['fecha_pago']:
+            data['fecha_pago'] = find_val(r'Fecha\s+de\s+Emisi[óo]n\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+        # Moneda
+        moneda_val = find_val(r'MONEDA\s*[:.]?\s*([A-Za-z]+)', text)
+        if moneda_val:
+            data['moneda'] = 'S/.' if moneda_val.upper().startswith('SOLE') else moneda_val
+        else:
+            data['moneda'] = data.get('moneda') or 'S/.'
+        # Importe total: deshabilitado por solicitud
 
     elif is_sanitas:
        # Lógica específica para Sanitas
@@ -753,10 +772,7 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
        if m_fac:
            data['factura'] = m_fac.group(1).replace(' ', '')
 
-       # Importe Total: Importe Total 164.07
-       m_imp = re.search(r'Importe\s+Total\s*([\d,]+\.\d{2})', text, re.IGNORECASE)
-       if m_imp:
-            data['importe'] = m_imp.group(1).replace(',', '')
+       # Importe Total: deshabilitado por solicitud
 
        # Fecha Pago: Usar FECHA DE EMISIÓN
        data['fecha_pago'] = find_val(r'Fecha\s+de\s+Emisi[óo]n\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
@@ -785,12 +801,7 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
     if not data['fecha_vencimiento']:
         data['fecha_vencimiento'] = find_val(r'(?:VENCIMIENTO|VENCE|VIGENCIA\s*HASTA|HASTA)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
     
-    # 3. Importe
-    if not data['importe']:
-        # Try generic "Total" or "Importe"
-        m_importe = re.search(r'(?:TOTAL|IMPORTE|MONTO|NETO\s*A\s*PAGAR)\s*[:.]?\s*(?:S/\.|USD|\$)?\s*([\d,]+\.?\d{2})', text, re.IGNORECASE)
-        if m_importe:
-            data['importe'] = m_importe.group(1).replace(',', '')
+    # 3. Importe: deshabilitado por solicitud
 
     # 4. Factura
     if not data['factura']:
