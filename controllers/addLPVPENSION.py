@@ -217,8 +217,7 @@ def parse_positiva_Pension(text: str) -> Dict[str, str]:
         except Exception:
             return None
 
-    # NUEVO: Último día de pago = fin de vigencia + 15; si no hay, emisión + 15; luego el campo capturado
-    ultimo_por_vigencia = _add_days(emision, 15) if emision else None
+    ultimo_por_vigencia = _add_days(vig_hasta, 15) if vig_hasta else None
     ultimo_por_emision = _add_days(emision, 15) if emision else None
     pago_venc = ultimo_por_vigencia or ultimo_por_emision or pago_venc
 

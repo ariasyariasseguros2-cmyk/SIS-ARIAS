@@ -1,4 +1,4 @@
-# NUEVO: parser específico para La Positiva – Vida Ley
+o = None  # NUEVO: parser específico para La Positiva – Vida Ley
 import re
 from typing import Optional, Dict
 from datetime import datetime, timedelta
@@ -27,6 +27,9 @@ def _find_last(pattern: str, text: str, flags=re.IGNORECASE):
 
 def parse_positiva_Salud(text: str) -> Dict[str, str]:
     t_low = text.lower()
+    prima_comercial_igv = None
+    prima_total_alt = None
+    igv_val = None
 
     # Encabezados: Proforma / Póliza / Contrato
     numero_proforma = (
@@ -99,15 +102,26 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
         )
         if poliza_last:
             poliza_nro = poliza_last
+        if not prima_comercial_igv:
+            m_sal = re.search(r"SCTR\s+SALUD", text, re.IGNORECASE)
+            if m_sal:
+                start = max(0, m_sal.start() - 600)
+                end = min(len(text), m_sal.end() + 1200)
+                win = text[start:end]
+                m_tot = re.search(r"(?:Prima\s+Comercial\s*\+\s*IGV|Prima\s+Total|Total\s+a\s+Pagar|Total)[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", win, flags=re.IGNORECASE)
+                if m_tot:
+                    prima_comercial_igv = _money(m_tot.group(1))
+        if not prima_total_alt and prima_comercial_igv:
+            prima_total_alt = prima_comercial_igv
 
     # Conceptos: capturas y prioridades (usar última coincidencia del bloque)
     sobrevivencia = _money(_find_last(r"Sobrevivencia[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text, flags=re.IGNORECASE))
     costos_emision = _money(_find_last(r"Costos?\s+de\s+Emisi[oó]n[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text, flags=re.IGNORECASE)) or \
                      _money(_find_last(r"Costos?\s+Emisi[oó]n[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text, flags=re.IGNORECASE))
     prima_comercial_inclusive = _money(_find(r"Prima\s+Comercial[\s\S]*?Incluye[\s\S]*?Emisi[oó]n[\s\S]*?(?:[:=]|\s)?\s*(?:S?\/)?\s*([0-9\., ]+)", text))
-    igv_val = _money(_find(r"(?:Impuesto\s+General\s+a\s+las\s+Ventas|IGV)[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text))
-    prima_comercial_igv = _money(_find(r"Prima\s+Comercial\s*\+\s*IGV[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text))
-    prima_total_alt = _money(_find(r"(?:Importe\s+Total|Total\s+a\s+Pagar|Total|Prima\s+Total)[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text))
+    igv_val = igv_val or _money(_find_last(r"(?:Impuesto\s+General\s+a\s+las\s+Ventas|IGV)[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text))
+    prima_comercial_igv = prima_comercial_igv or _money(_find_last(r"Prima\s+Comercial\s*\+\s*IGV[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text))
+    prima_total_alt = prima_total_alt or _money(_find_last(r"(?:Importe\s+Total|Total\s+a\s+Pagar|Total|Prima\s+Total)[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text))
 
     # NUEVO: capturar la fila “SCTR SALUD” como Prima Comercial
     sctr_salud_val = _money(_find_last(r"SCTR\s+SALUD[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text, flags=re.IGNORECASE))
@@ -139,6 +153,11 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
         except Exception:
             pass
 
+    if has_salud and has_pension:
+        sobrevivencia = None
+        igv_val = None
+        prima_total_alt = None
+
     if not costos_emision and prima_total_alt and sobrevivencia:
         try:
             costos_emision = f"{float(prima_total_alt) - float(sobrevivencia):.2f}"
@@ -146,7 +165,7 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
             pass
 
     # Prima Neta = Sobrevivencia (si aplica a Vida Ley); en Salud puede no existir
-    prima_neta = sobrevivencia
+    prima_neta = None if (has_salud and has_pension) else sobrevivencia
 
     # NUEVO: Prima Comercial prioriza “SCTR SALUD”; luego lógica existente
     if sctr_salud_val:
@@ -165,7 +184,7 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
 
     # Prima Comercial + IGV (capturada o calculada)
     if not prima_comercial_igv:
-        # Preferir “Prima Total / Total a Pagar” como suma con IGV
+        # Preferir “Prima Total / Total a Pagar” (última coincidencia) para SALUD
         if prima_total_alt:
             prima_comercial_igv = prima_total_alt
         else:
@@ -175,6 +194,13 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
                     prima_comercial_igv = f"{float(base) + float(igv_val):.2f}"
                 except Exception:
                     prima_comercial_igv = base
+
+    if has_salud and has_pension and prima_comercial:
+        try:
+            prima_comercial_igv = f"{float(prima_comercial) * 1.18:.2f}"
+            prima_total_alt = prima_comercial_igv
+        except Exception:
+            pass
     # Fallback fechas: si falta último día de pago, calcular emision + 15
     def _add_days(date_str: Optional[str], days: int) -> Optional[str]:
         try:
@@ -184,8 +210,7 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
         except Exception:
             return None
 
-    # NUEVO: Último día de pago = fin de vigencia + 15; si no hay, emisión + 15; luego el campo capturado
-    ultimo_por_vigencia = _add_days(emision, 15) if emision else None
+    ultimo_por_vigencia = _add_days(vig_hasta, 15) if vig_hasta else None
     ultimo_por_emision = _add_days(emision, 15) if emision else None
     pago_venc = ultimo_por_vigencia or ultimo_por_emision or pago_venc
 
