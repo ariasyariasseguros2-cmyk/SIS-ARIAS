@@ -13,6 +13,15 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('formSiniestro').addEventListener('submit', guardarSiniestro);
     document.getElementById('searchInput').addEventListener('input', filtrarSiniestros);
 
+    // Listeners para filtro por fecha
+    const fechaDesdeEl = document.getElementById('fechaDesde');
+    const fechaHastaEl = document.getElementById('fechaHasta');
+    const btnAplicar = document.getElementById('btnAplicarFiltro');
+    const btnLimpiar = document.getElementById('btnLimpiarFiltro');
+
+    if (btnAplicar) btnAplicar.addEventListener('click', () => aplicarFiltroFecha());
+    if (btnLimpiar) btnLimpiar.addEventListener('click', () => limpiarFiltroFecha());
+
     // Limpiar el modal cuando se oculta
     document.getElementById('modalSiniestro').addEventListener('hidden.bs.modal', function() {
         document.getElementById('formSiniestro').reset();
@@ -114,9 +123,16 @@ function parseMaybeJSON(value) {
     return null;
 }
 
-async function cargarSiniestros() {
+async function cargarSiniestros(params = {}) {
     try {
-        const response = await fetch('/api/siniestros');
+        // Construir query string si hay fechas
+        let url = '/api/siniestros';
+        const qs = [];
+        if (params.fec_desde) qs.push('fec_desde=' + encodeURIComponent(params.fec_desde));
+        if (params.fec_hasta) qs.push('fec_hasta=' + encodeURIComponent(params.fec_hasta));
+        if (qs.length > 0) url += '?' + qs.join('&');
+
+        const response = await fetch(url);
         const data = await response.json();
         siniestros = data || [];
         siniestrosFiltrados = siniestros;
@@ -760,7 +776,14 @@ async function eliminarSiniestro(id) {
 
 function filtrarSiniestros() {
     const texto = document.getElementById('searchInput').value.toLowerCase();
-    siniestrosFiltrados = siniestros.filter(s =>
+
+    // Si hay filtros de fecha aplicados, preferimos no sobreescribir la lista que vino del servidor
+    const fechaDesde = document.getElementById('fechaDesde') ? document.getElementById('fechaDesde').value : '';
+    const fechaHasta = document.getElementById('fechaHasta') ? document.getElementById('fechaHasta').value : '';
+
+    const base = (fechaDesde || fechaHasta) ? siniestros : siniestros; // mantenemos la misma variable para claridad
+
+    siniestrosFiltrados = base.filter(s =>
         (s.contratante || '').toLowerCase().includes(texto) ||
         (s.poliza || '').toLowerCase().includes(texto) ||
         (s.siniestro_no || '').toLowerCase().includes(texto) ||
@@ -775,6 +798,31 @@ function actualizarContador() {
     const total = siniestrosFiltrados.length;
     document.getElementById('totalRegistros').textContent =
         `Total de registros: 0 a ${total} de ${total}`;
+}
+
+// Nuevas funciones para aplicar/limpiar filtro por fecha
+function aplicarFiltroFecha() {
+    const desde = document.getElementById('fechaDesde').value;
+    const hasta = document.getElementById('fechaHasta').value;
+
+    // Validar que si ambos existen, desde <= hasta
+    if (desde && hasta && desde > hasta) {
+        mostrarError('La fecha Desde no puede ser mayor que Hasta');
+        return;
+    }
+
+    // Llamar al servidor con parámetros
+    cargarSiniestros({ fec_desde: desde || null, fec_hasta: hasta || null });
+}
+
+function limpiarFiltroFecha() {
+    const desdeEl = document.getElementById('fechaDesde');
+    const hastaEl = document.getElementById('fechaHasta');
+    if (desdeEl) desdeEl.value = '';
+    if (hastaEl) hastaEl.value = '';
+
+    // Recargar sin filtros
+    cargarSiniestros();
 }
 
 function formatDateForInput(dateStr) {
