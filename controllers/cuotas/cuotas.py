@@ -721,8 +721,8 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
         if m_fac:
             data['factura'] = m_fac.group(1).replace(' ', '') 
 
-        # Cupón: Proforma (Prioridad)
-        data['cupon'] = find_val(r'(?:PROFORMA|Proforma|N[úu]mero\s+de\s+Proforma)\s*[:.]?\s*([0-9A-Z\-]+)', text)
+        # Cupón: Proforma (Prioridad) — deshabilitado por solicitud
+        # data['cupon'] = find_val(r'(?:PROFORMA|Proforma|N[úu]mero\s+de\s+Proforma)\s*[:.]?\s*([0-9A-Z\-]+)', text)
 
         # Fecha Vencimiento
         data['fecha_vencimiento'] = find_val(r'(?:VENCIMIENTO|VENCE|VIGENCIA\s*HASTA)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
@@ -775,11 +775,11 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
 
     # --- FALLBACK / GENERIC LOGIC (Runs if fields are still empty) ---
 
-    # 1. Cupón: Proforma > Recibo > Operación
-    if not data['cupon']:
-        data['cupon'] = find_val(r'(?:PROFORMA|Proforma|N[úu]mero\s+de\s+Proforma)\s*[:.]?\s*([0-9A-Z\-]+)', text)
-    if not data['cupon']:
-        data['cupon'] = find_val(r'(?:RECIBO|CUP[ÓO]N|NRO\.?\s*OP|OPERACI[ÓO]N)\s*[:.]?\s*([0-9A-Z\-]+)', text)
+    # 1. Cupón: Proforma > Recibo > Operación — deshabilitado por solicitud
+    # if not data['cupon']:
+    #     data['cupon'] = find_val(r'(?:PROFORMA|Proforma|N[úu]mero\s+de\s+Proforma)\s*[:.]?\s*([0-9A-Z\-]+)', text)
+    # if not data['cupon']:
+    #     data['cupon'] = find_val(r'(?:RECIBO|CUP[ÓO]N|NRO\.?\s*OP|OPERACI[ÓO]N)\s*[:.]?\s*([0-9A-Z\-]+)', text)
     
     # 2. Fecha Vencimiento
     if not data['fecha_vencimiento']:
