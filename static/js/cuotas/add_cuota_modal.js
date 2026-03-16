@@ -32,6 +32,26 @@
             // Set context
             const ctx = document.getElementById('addPolizaContext');
             if (ctx) ctx.value = poliza || '';
+
+            // Prefijar secuencia automáticamente según la tabla actual
+            try {
+                const tbody = document.querySelector('#cuotas-table tbody');
+                let nextSeq = 1;
+                if (tbody) {
+                    let maxSeq = 0;
+                    Array.from(tbody.rows).forEach(r => {
+                        const td = r.cells && r.cells[0];
+                        if (!td) return;
+                        const val = parseInt((td.textContent || '').trim(), 10);
+                        if (!isNaN(val) && val > maxSeq) maxSeq = val;
+                    });
+                    nextSeq = maxSeq + 1;
+                }
+                const seqEl = document.getElementById('addSecuencia');
+                if (seqEl) seqEl.value = String(nextSeq);
+            } catch (e) {
+                // no-op
+            }
             
             // Reset Upload Zone
             const zone = document.getElementById('dropZone');
@@ -103,6 +123,25 @@
                                 setVal('addCupon', nextCupon);
                             }
                             // --- AUTO-INCREMENT LOGIC END ---
+
+                            // Prefijar (o confirmar) secuencia nuevamente con base en la tabla
+                            try {
+                                const tbody = document.querySelector('#cuotas-table tbody');
+                                let nextSeq = 1;
+                                if (tbody) {
+                                    let maxSeq = 0;
+                                    Array.from(tbody.rows).forEach(r => {
+                                        const td = r.cells && r.cells[0];
+                                        if (!td) return;
+                                        const val = parseInt((td.textContent || '').trim(), 10);
+                                        if (!isNaN(val) && val > maxSeq) maxSeq = val;
+                                    });
+                                    nextSeq = maxSeq + 1;
+                                }
+                                setVal('addSecuencia', String(nextSeq));
+                            } catch (e) {
+                                // no-op
+                            }
 
                             if (d.importe) setVal('addImporte', d.importe);
                             if (d.moneda) setVal('addMoneda', d.moneda);
@@ -369,7 +408,8 @@
                       modal.hide();
 
                       // Dispatch event for listeners
-                      const event = new CustomEvent('cuota:saved', { detail: { ...payload, idCuota: newCuotaId } });
+                      const seqEl = document.getElementById('addSecuencia');
+                      const event = new CustomEvent('cuota:saved', { detail: { ...payload, idCuota: newCuotaId, secuencia: (seqEl && seqEl.value) || '' } });
                       document.dispatchEvent(event);
                   } else {
                       alert('Error al guardar: ' + (res.error || 'Error desconocido'));
