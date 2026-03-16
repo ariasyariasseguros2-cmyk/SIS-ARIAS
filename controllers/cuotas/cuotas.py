@@ -112,15 +112,7 @@ def get_cuotas_data(
                 resumen['concepto'] = pr.get('motivo') or resumen['concepto']
                 resumen['prima_id'] = pr.get('idPoliza') or None
 
-                rows = [{
-                    'cupon': pr.get('cupon') or pr.get('recibo') or '',
-                    'fecha_vencimiento': format_date_custom(pr.get('fecha_vencimiento') or pr.get('vig_fin')),
-                    'moneda': pr.get('moneda') or '',
-                    'importe': pr.get('importe') or pr.get('prima_comercial_igv') or pr.get('prima_total') or pr.get('prima_neta') or '',
-                    'fecha_pago': '',
-                    'factura': '',
-                    'observacion': '',
-                }]
+                # No pre-filled demo row; tabla queda vacía si no hay cuotas reales
 
             try:
                 cuota_rows: List[Dict[str, str]] = []
@@ -279,16 +271,7 @@ def get_cuotas_data(
             'tipo_doc': resumen['tipo_doc'] or 'Emisión',
             'concepto': resumen['concepto'] or 'EMISION'
         })
-    if not rows:
-        rows = [{
-            'cupon': '806822909',
-            'fecha_vencimiento': '16-12-2025',
-            'moneda': 'S/.',
-            'importe': '96.29',
-            'fecha_pago': '02-12-2025',
-            'factura': 'F05-01070444',
-            'observacion': ''
-        }]
+    # No fallback demo rows; when there are no cuotas, keep the table empty
 
     def _to_float(s: str) -> float:
         try:

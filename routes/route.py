@@ -226,10 +226,83 @@ def upload_cuota_archivo():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+@bp.route('/cuotas/revert', methods=['POST'])
+def revert_cuota_route():
+    """Revierte una cuota: limpia fecha_pago, factura y observacion; elimina PDF(s) origen=CUOTA de esa póliza."""
+    if 'user' not in session:
+        return {'ok': False, 'error': 'Unauthorized'}, 401
+    data = request.get_json(force=True) or {}
+    cuota_id = data.get('idCuota') or data.get('id_cuota') or data.get('id')
+    if not cuota_id:
+        return {'ok': False, 'error': 'Falta idCuota'}, 400
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        # Obtener poliza_id y datos de la cuota
+        cur.execute(
+            "SELECT idCuota, poliza_id FROM cuotas WHERE idCuota = %s AND activo = 1",
+            (int(cuota_id),)
+        )
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            cnx.close()
+            return {'ok': False, 'error': 'Cuota no encontrada'}, 404
+        poliza_id = row.get('poliza_id')
+        # Limpiar campos de la cuota
+        cur.execute(
+            "UPDATE cuotas SET fecha_pago = NULL, factura = NULL, observacion = NULL WHERE idCuota = %s",
+            (int(cuota_id),)
+        )
+        # Eliminar archivos asociados a la póliza con origen=CUOTA
+        if poliza_id is not None:
+            cur.execute(
+                "SELECT idArchivo, ruta_archivo FROM poliza_archivos WHERE poliza_id = %s AND origen = 'CUOTA'",
+                (int(poliza_id),)
+            )
+            archivos = cur.fetchall() or []
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
+            for a in archivos:
+                ruta = a.get('ruta_archivo') or ''
+                abs_path = os.path.join(upload_folder, ruta.lstrip('/\\'))
+                try:
+                    if os.path.exists(abs_path):
+                        os.remove(abs_path)
+                except Exception:
+                    pass
+                cur.execute("DELETE FROM poliza_archivos WHERE idArchivo = %s", (a['idArchivo'],))
+            # Recalcular estado de póliza
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM cuotas
+                WHERE poliza_id = %s
+                  AND (fecha_pago IS NULL OR factura IS NULL OR factura = '')
+                  AND activo = 1
+                """,
+                (int(poliza_id),)
+            )
+            r = cur.fetchone()
+            pendientes = (r and list(r.values())[0]) if r else 0
+            nuevo_estado = 'PENDIENTE' if pendientes and int(pendientes) > 0 else 'CANCELADO'
+            cur.execute("UPDATE polizas SET estado = %s WHERE idPoliza = %s", (nuevo_estado, int(poliza_id)))
+        cnx.commit()
+        cur.close()
+        cnx.close()
+        return {'ok': True}
+    except Exception as e:
+        try:
+            cur.close()
+            cnx.close()
+        except Exception:
+            pass
+        return {'ok': False, 'error': str(e)}, 500
+
 @bp.route('/api/cuotas/archivos/<int:cuota_id>', methods=['GET'])
 def get_cuota_archivos(cuota_id):
     """Lista los archivos de una cuota buscando en poliza_archivos por poliza_id y origen=CUOTA."""
     if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
         return {'ok': False, 'error': 'No autenticado'}, 401
     # cuota_id aquí es en realidad el poliza_id (prima_id) pasado desde el frontend
     try:

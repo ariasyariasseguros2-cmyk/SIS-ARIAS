@@ -167,25 +167,41 @@ const Cuotas = (() => {
   function onRevert(idx) {
     const tr = getRow(idx);
     if (!tr) return;
-    openConfirm('¿Está seguro de revertir esta cuota? Se borrarán los datos definivamente.', () => {
-      const tds = tr.querySelectorAll('td');
-
-      // Limpiar campos visuales: Importe(4), Fecha Pago(5), Factura(6), Observación(7)
-      if (tds[4]) tds[4].textContent = '';
-      if (tds[5]) tds[5].textContent = '';
-      if (tds[6]) tds[6].textContent = '';
-      if (tds[7]) tds[7].textContent = '';
-
-      // Limpiar datos persistentes (dataset)
-      tr.dataset.fechaPago = '';
-      tr.dataset.factura = '';
-      tr.dataset.observacion = '';
-      tr.dataset.documento = '';
-
-      const btnRevert = tr.querySelector('.btn-revert');
-      if (btnRevert) btnRevert.style.display = 'none';
-      
-      recalcTotal();
+    openConfirm('¿Está seguro de revertir esta cuota? Se borrarán los datos definitivamente.', () => {
+      const idCuota = tr.dataset.idcuota || '';
+      if (!idCuota) {
+        alert('No se pudo identificar la cuota.');
+        return;
+      }
+      fetch('/cuotas/revert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idCuota })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (!res.ok) {
+          alert('Error al revertir: ' + (res.error || 'Desconocido'));
+          return;
+        }
+        const tds = tr.querySelectorAll('td');
+        if (tds[5]) tds[5].textContent = '';
+        if (tds[6]) tds[6].textContent = '';
+        if (tds[7]) tds[7].textContent = '';
+        tr.dataset.fechaPago = '';
+        tr.dataset.factura = '';
+        tr.dataset.observacion = '';
+        tr.dataset.documento = '';
+        const btnRevert = tr.querySelector('.btn-revert');
+        if (btnRevert) btnRevert.style.display = 'none';
+        const btnPdf = tr.querySelector('.btn-pdf');
+        if (btnPdf) btnPdf.style.display = 'none';
+        recalcTotal();
+      })
+      .catch(e => {
+        console.error(e);
+        alert('Error de red al revertir.');
+      });
     }, 'revert');
   }
 
@@ -413,13 +429,22 @@ const Cuotas = (() => {
             <td class="text-end actions">
                 <div class="action-buttons justify-content-end">
                   <button class="btn-action btn-secondary btn-pdf" onclick="Cuotas.onPDF(${rowCount - 1})">PDF</button>
-                  <button class="btn-action btn-warning btn-revert" onclick="Cuotas.onRevert(${rowCount - 1})" style="${(data.importe || data.fecha_pago || data.factura) ? '' : 'display:none'}">Revertir</button>
+                  <button class="btn-action btn-warning btn-revert" onclick="Cuotas.onRevert(${rowCount - 1})" style="${(data.fecha_pago && data.factura) ? '' : 'display:none'}">Revertir</button>
                   <button class="btn-action btn-info btn-details" onclick="Cuotas.onDetails(${rowCount - 1})">Detalles</button>
                   <button class="btn-action btn-success btn-edit" onclick="Cuotas.onEdit(${rowCount - 1})">Editar</button>
                   <button class="btn-action btn-danger btn-delete" onclick="Cuotas.onDelete(${rowCount - 1})">Eliminar</button>
                 </div>
             </td>
         `;
+        
+        // Ocultar botón PDF si no hay archivo asociado tras el guardado (cuando no se subió archivo)
+        if (!data.idArchivo && !(data.documento && data.documento.length > 0)) {
+            const pdfBtn = tr.querySelector('.btn-pdf');
+            if (pdfBtn && !(data.fecha_pago && data.factura)) {
+                // conservador: ocultar si no está completo; el viewer validará de todas formas
+                pdfBtn.style.display = 'none';
+            }
+        }
         
         recalcTotal();
         editIndex = null;
