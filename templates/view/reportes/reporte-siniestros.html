@@ -1,0 +1,164 @@
+{% extends 'view/layout_dashboard.html' %}
+
+{% block page_title %}Reporte de Siniestros{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Reporte de Siniestros</h4>
+        <div>
+            <a id="exportPdfBtn" class="btn btn-primary btn-sm" href="#">Exportar PDF</a>
+        </div>
+    </div>
+
+    <form id="filtersForm" class="row g-2 mb-3">
+        <div class="col-auto">
+            <input type="date" name="fec_desde" class="form-control form-control-sm" placeholder="Desde">
+        </div>
+        <div class="col-auto">
+            <input type="date" name="fec_hasta" class="form-control form-control-sm" placeholder="Hasta">
+        </div>
+        <div class="col-auto">
+            <input type="text" name="texto" class="form-control form-control-sm" placeholder="Texto (póliza, placa, cliente)">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-secondary btn-sm">Filtrar</button>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-striped" id="siniestrosTable">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Póliza</th>
+                    <th>Contratante / Asegurado</th>
+                    <th>Compañía</th>
+                    <th>Ramo</th>
+                    <th>Fecha</th>
+                    <th>Monto</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in rows %}
+                <tr>
+                    <td>{{ r.id }}</td>
+                    <td>{{ r.poliza }}</td>
+                    <td>{{ r.contratante or r.asegurado }}</td>
+                    <td>{{ r.cia }}</td>
+                    <td>{{ r.ramo }}</td>
+                    <td>{{ r.fec_stro }}</td>
+                    <td>{{ '%.2f' % (r.monto_siniestro or 0) }}</td>
+                    <td>{{ r.estado }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js_bottom %}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const form = document.getElementById('filtersForm');
+    const tableBody = document.querySelector('#siniestrosTable tbody');
+    const exportBtn = document.getElementById('exportPdfBtn');
+
+    // Al cargar la vista, asegurarnos de que no quede ningún overlay o sidebar abierto
+    try {
+        const overlay = document.querySelector('.sidebar-overlay');
+        if (overlay) {
+            overlay.classList.remove('show');
+            overlay.style.display = 'none';
+            overlay.style.pointerEvents = 'none';
+        }
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) {
+            sidebar.classList.remove('show');
+            sidebar.style.transform = '';
+        }
+        // Asegurar que el topbar reciba eventos
+        const topbar = document.querySelector('.topbar');
+        if (topbar) topbar.style.pointerEvents = 'auto';
+        document.body.style.overflow = '';
+    } catch (err) {
+        console.warn('Error limpiando overlays:', err);
+    }
+
+    function fetchRows(params){
+        const url = new URL('/api/reportes/siniestros', window.location.origin);
+        Object.keys(params).forEach(k => { if (params[k]) url.searchParams.set(k, params[k]); });
+        fetch(url)
+            .then(r => {
+                // Verificar status
+                if (!r.ok) {
+                    r.text().then(txt => {
+                        console.error('API responded with non-OK status', r.status, r.statusText, txt);
+                        alert('Error obteniendo datos (status ' + r.status + ')');
+                    }).catch(() => {
+                        alert('Error obteniendo datos (status ' + r.status + ')');
+                    });
+                    return null;
+                }
+                const ct = (r.headers.get('content-type') || '').toLowerCase();
+                if (!ct.includes('application/json')) {
+                    r.text().then(txt => {
+                        console.error('API returned non-JSON response', ct, txt);
+                        alert('Error obteniendo datos: respuesta inesperada');
+                    }).catch(() => {
+                        alert('Error obteniendo datos: respuesta inesperada');
+                    });
+                    return null;
+                }
+                return r.json();
+            })
+            .then(data => {
+                if (!data) return;
+                if (!data.ok) { alert(data.error || 'Error'); return; }
+                const rows = data.rows || [];
+                tableBody.innerHTML = '';
+                for (const r of rows){
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${r.id || ''}</td>
+                        <td>${r.poliza || ''}</td>
+                        <td>${r.contratante || r.asegurado || ''}</td>
+                        <td>${r.cia || ''}</td>
+                        <td>${r.ramo || ''}</td>
+                        <td>${r.fec_stro || ''}</td>
+                        <td style="text-align:right">${parseFloat(r.monto_siniestro||0).toFixed(2)}</td>
+                        <td>${r.estado || ''}</td>
+                    `;
+                    tableBody.appendChild(tr);
+                }
+            })
+            .catch(e => { console.error('Fetch error', e); alert('Error obteniendo datos'); });
+    }
+
+    form.addEventListener('submit', function(e){
+        e.preventDefault();
+        const fd = new FormData(form);
+        const params = {};
+        fd.forEach((v,k) => { params[k] = v; });
+        fetchRows(params);
+    });
+
+    exportBtn.addEventListener('click', function(e){
+        e.preventDefault();
+        // Usar filtros actuales
+        const fd = new FormData(form);
+        const url = new URL('/api/reportes/siniestros/export', window.location.origin);
+        fd.forEach((v,k) => { if (v) url.searchParams.set(k,v); });
+        // Forzar descarga
+        window.open(url.toString(), '_blank');
+    });
+
+    // Cargar al inicio
+    fetchRows({});
+});
+</script>
+{{ super() }}
+{% endblock %}
