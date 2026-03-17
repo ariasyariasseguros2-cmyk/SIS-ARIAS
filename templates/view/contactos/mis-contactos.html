@@ -1,0 +1,70 @@
+{% extends "view/layout_dashboard.html" %}
+
+{% block content %}
+<!-- Estilos específicos de esta vista -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/contactos/mis-contactos.css') }}">
+
+<div class="container-fluid p-4">
+
+    <!-- Header -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Mis Contactos</h1>
+    </div>
+
+    <!-- Search Card -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Buscar Contacto</h6>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('main.list_mis_contactos') }}" method="GET" class="form-inline mb-3">
+                <div class="input-group">
+                    <input id="search-q" type="text" class="form-control" name="q" placeholder="Buscar por nombre..." value="{{ search_query }}" aria-label="Search" aria-describedby="button-addon2">
+                    <button class="btn btn-outline-primary" type="submit" id="button-addon2">
+                        <i class="bi bi-search"></i> Buscar
+                    </button>
+                    {% if search_query %}
+                        <a href="{{ url_for('main.list_mis_contactos') }}" class="btn btn-secondary ms-2">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Nombre / Razón Social</th>
+                            <th>Teléfono</th>
+                            <th>Email</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mis-contactos-tbody">
+                        {% for cliente in clientes %}
+                            <tr>
+                                <td>{{ cliente.razon_social }}</td>
+                                <td>{{ cliente.telefono }}</td>
+                                <td>{{ cliente.email }}</td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center">No se encontraron contactos.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if clientes|length >= 50 and not search_query %}
+            <div class="alert alert-info mt-3 mb-0">
+                <i class="bi bi-info-circle"></i> Mostrando los primeros 50 resultados. Utilice el buscador para encontrar contactos específicos.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<!-- Script externo -->
+<script src="{{ url_for('static', filename='js/contactos/mis-contactos.js') }}"></script>
+
+{% endblock %}
