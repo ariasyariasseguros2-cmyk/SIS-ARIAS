@@ -807,9 +807,13 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
     if not data['factura']:
         data['factura'] = find_val(r'(?:FACTURA|NRO\.?\s*FAC|F0\d+\s*-\s*\d+)\s*[:.]?\s*([FfEeBb]\d{2,3}\s*-\s*\d+)', text)
         if not data['factura']:
-             m_fac = re.search(r'([FfEeBb]\d{2,3}\s*-\s*\d{5,8})', text)
-             if m_fac:
-                 data['factura'] = m_fac.group(1).replace(' ', '')
+            m_fac = re.search(r'([FfEeBb]\d{2,3}\s*(?:-\s*|N[°º]\s*)\d{5,8})', text, re.IGNORECASE)
+            if not m_fac:
+                m_fac = re.search(r'FACTURA\s+ELECTR[ÓO]NICA[^A-Za-z0-9]*([FfEeBb]\d{2,3}\s*(?:-\s*|N[°º]\s*)\d{5,8})', text, re.IGNORECASE | re.DOTALL)
+            if m_fac:
+                fac_val = m_fac.group(1)
+                fac_val = re.sub(r'\s*N[°º]\s*', '-', fac_val, flags=re.IGNORECASE)
+                data['factura'] = fac_val.replace(' ', '')
 
         # 5. Fecha Pago (Default to Emision if not found)
         if not data['fecha_pago']:
