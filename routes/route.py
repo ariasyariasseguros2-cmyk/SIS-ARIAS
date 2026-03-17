@@ -494,6 +494,60 @@ def delete_poliza_archivo(archivo_id):
     except Exception as e:
         return {'ok': False, 'error': str(e)}, 500
 
+@bp.route('/api/reportes/siniestros', methods=['GET'])
+def api_reporte_siniestros_list():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'Unauthorized'}, 401
+
+    try:
+        from controllers.reportes.reporte_siniestros import get_reporte_siniestros
+        # Pasar filtros simples desde query params
+        filters = {
+            'fec_desde': request.args.get('fec_desde') or None,
+            'fec_hasta': request.args.get('fec_hasta') or None,
+            'texto': request.args.get('texto') or None,
+            'poliza': request.args.get('poliza') or None,
+        }
+        data = get_reporte_siniestros(filters)
+        if not data.get('ok'):
+            return {'ok': False, 'error': data.get('error')}, 500
+        return {'ok': True, 'rows': data.get('rows')}
+    except Exception as e:
+        current_app.logger.error(f"Error listando reporte siniestros: {e}")
+        return {'ok': False, 'error': str(e)}, 500
+
+
+@bp.route('/api/reportes/siniestros/export', methods=['GET'])
+def api_reporte_siniestros_export():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'Unauthorized'}, 401
+
+    try:
+        from controllers.reportes.reporte_siniestros import export_reporte_siniestros_pdf
+        # Aceptar ids como lista separada por comas
+        ids = request.args.get('ids')
+        siniestro_ids = None
+        if ids:
+            try:
+                siniestro_ids = [int(x) for x in ids.split(',') if x.strip()]
+            except Exception:
+                siniestro_ids = None
+
+        inline = str(request.args.get('inline', '')).lower() in ('1', 'true', 'yes')
+
+        result = export_reporte_siniestros_pdf(siniestro_ids=siniestro_ids, inline=inline)
+        # Si result es (filepath, filename) devolver send_file
+        if isinstance(result, tuple):
+            filepath, filename = result
+            return send_file(filepath, as_attachment=True, download_name=filename)
+        # Si result es un Response, retornarlo directamente
+        return result
+    except Exception as e:
+        current_app.logger.error(f"Error exportando reporte siniestros: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+
 @bp.route('/api/comisiones/lookup', methods=['GET'])
 def lookup_comision_route():
     if 'user' not in session:
@@ -687,6 +741,9 @@ def menu_page(page):
             pagination=pagination,
             subagentes_abbrs=subagentes_data
         )
+    # NUEVO: Reporte de Siniestros
+    if page == 'reporte-siniestros':
+        return render_template('view/reportes/reporte-siniestros.html', page='reporte-siniestros')
 
     # Clientes Anulados -> reutiliza la vista de clientes pero con datos anulados
     if page == 'clientes-anulados':
