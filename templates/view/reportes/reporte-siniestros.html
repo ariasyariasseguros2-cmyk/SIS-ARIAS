@@ -4,58 +4,93 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4>Reporte de Siniestros</h4>
-        <div>
-            <a id="exportPdfBtn" class="btn btn-primary btn-sm" href="#">Exportar PDF</a>
+
+    <style>
+
+    .report-card { background: #ffffff; border: 1px solid #e6e9ee; border-radius: 8px; padding: 16px; box-shadow: 0 1px 2px rgba(16,24,40,0.03);}
+    .report-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px;}
+    .filters-row .form-control { min-width:180px; }
+    .table thead th { border-bottom: 2px solid #eef2f6; background: #fbfdff; color: #222; }
+    .table tbody tr td { vertical-align: middle; }
+    .badge { font-size: 0.75rem; padding: 0.45em 0.6em; }
+    .amount { font-family: 'Segoe UI', Roboto, Arial, sans-serif; font-variant-numeric: tabular-nums; }
+    @media (max-width: 575px) {
+        .filters-row .form-control { min-width: 120px; }
+    }
+    </style>
+
+    <div class="report-card">
+        <div class="report-header">
+            <div>
+                <h4 class="mb-0">Reporte de Siniestros</h4>
+                <small class="text-muted">Últimos registros y filtros rápidos</small>
+            </div>
+            <div>
+                <a id="exportPdfBtn" class="btn btn-outline-primary btn-sm" href="#">Exportar PDF</a>
+            </div>
+        </div>
+
+        <form id="filtersForm" class="row g-2 mb-3 filters-row">
+            <div class="col-sm-auto">
+                <label class="visually-hidden">Desde</label>
+                <input type="date" name="fec_desde" class="form-control form-control-sm" placeholder="Desde">
+            </div>
+            <div class="col-sm-auto">
+                <label class="visually-hidden">Hasta</label>
+                <input type="date" name="fec_hasta" class="form-control form-control-sm" placeholder="Hasta">
+            </div>
+            <div class="col-sm">
+                <label class="visually-hidden">Texto</label>
+                <input type="text" name="texto" class="form-control form-control-sm" placeholder="Texto (póliza, placa, cliente)">
+            </div>
+            <div class="col-sm-auto">
+                <button type="submit" class="btn btn-secondary btn-sm">Filtrar</button>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle" id="siniestrosTable">
+                <thead>
+                    <tr>
+                        <th style="width:48px">ID</th>
+                        <th>Póliza</th>
+                        <th>Contratante / Asegurado</th>
+                        <th>Compañía</th>
+                        <th>Ramo</th>
+                        <th>Fecha</th>
+                        <th class="text-end">Monto</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows %}
+                    <tr>
+                        <td>{{ r.id }}</td>
+                        <td>{{ r.poliza }}</td>
+                        <td>{{ r.contratante or r.asegurado }}</td>
+                        <td>{{ r.cia }}</td>
+                        <td>{{ r.ramo }}</td>
+                        <td>{{ r.fec_stro }}</td>
+                        <td class="text-end amount">{{ '%.2f' % (r.monto_siniestro or 0) }}</td>
+                        <td>
+                            {% set estado = (r.estado or '') %}
+                            {% if estado.upper().startswith('PEND') %}
+                                <span class="badge bg-warning text-dark">{{ estado }}</span>
+                            {% elif estado.upper().startswith('LIQ') %}
+                                <span class="badge bg-success">{{ estado }}</span>
+                            {% elif estado.upper().startswith('ANU') or estado.upper().startswith('RECH') %}
+                                <span class="badge bg-danger">{{ estado }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ estado }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <form id="filtersForm" class="row g-2 mb-3">
-        <div class="col-auto">
-            <input type="date" name="fec_desde" class="form-control form-control-sm" placeholder="Desde">
-        </div>
-        <div class="col-auto">
-            <input type="date" name="fec_hasta" class="form-control form-control-sm" placeholder="Hasta">
-        </div>
-        <div class="col-auto">
-            <input type="text" name="texto" class="form-control form-control-sm" placeholder="Texto (póliza, placa, cliente)">
-        </div>
-        <div class="col-auto">
-            <button type="submit" class="btn btn-secondary btn-sm">Filtrar</button>
-        </div>
-    </form>
-
-    <div class="table-responsive">
-        <table class="table table-sm table-striped" id="siniestrosTable">
-            <thead class="table-dark">
-                <tr>
-                    <th>ID</th>
-                    <th>Póliza</th>
-                    <th>Contratante / Asegurado</th>
-                    <th>Compañía</th>
-                    <th>Ramo</th>
-                    <th>Fecha</th>
-                    <th>Monto</th>
-                    <th>Estado</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in rows %}
-                <tr>
-                    <td>{{ r.id }}</td>
-                    <td>{{ r.poliza }}</td>
-                    <td>{{ r.contratante or r.asegurado }}</td>
-                    <td>{{ r.cia }}</td>
-                    <td>{{ r.ramo }}</td>
-                    <td>{{ r.fec_stro }}</td>
-                    <td>{{ '%.2f' % (r.monto_siniestro or 0) }}</td>
-                    <td>{{ r.estado }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
 </div>
 
 {% endblock %}
@@ -66,6 +101,28 @@ document.addEventListener('DOMContentLoaded', function(){
     const form = document.getElementById('filtersForm');
     const tableBody = document.querySelector('#siniestrosTable tbody');
     const exportBtn = document.getElementById('exportPdfBtn');
+
+    // Helpers
+    function getFormParams(){
+        const fd = new FormData(form);
+        const params = {};
+        fd.forEach((v,k) => { params[k] = (typeof v === 'string') ? v.trim() : v; });
+        // Normalizar texto: si es cadena vacía convertir a undefined para que fetchRows lo ignore
+        if (params.texto === '') delete params.texto;
+        return params;
+    }
+
+    // Debounce helper
+    function debounce(fn, delay){
+        let timer = null;
+        return function(...args){
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => { timer = null; fn.apply(this, args); }, delay);
+        };
+    }
+
+    // Estado del debounce para la búsqueda en vivo
+    const debouncedFetch = debounce((params) => fetchRows(params), 350);
 
     // Al cargar la vista, asegurarnos de que no quede ningún overlay o sidebar abierto
     try {
@@ -88,12 +145,22 @@ document.addEventListener('DOMContentLoaded', function(){
         console.warn('Error limpiando overlays:', err);
     }
 
+    function statusBadgeHtml(status){
+        if (!status) return '<span class="badge bg-secondary">-</span>';
+        const s = (status||'').toString();
+        const sl = s.toLowerCase();
+        let cls = 'bg-secondary';
+        if (sl.includes('pend')) cls = 'bg-warning text-dark';
+        else if (sl.includes('liq')) cls = 'bg-success';
+        else if (sl.includes('anu') || sl.includes('rech')) cls = 'bg-danger';
+        return `<span class="badge ${cls}">${s}</span>`;
+    }
+
     function fetchRows(params){
         const url = new URL('/api/reportes/siniestros', window.location.origin);
         Object.keys(params).forEach(k => { if (params[k]) url.searchParams.set(k, params[k]); });
         fetch(url)
             .then(r => {
-                // Verificar status
                 if (!r.ok) {
                     r.text().then(txt => {
                         console.error('API responded with non-OK status', r.status, r.statusText, txt);
@@ -122,6 +189,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 tableBody.innerHTML = '';
                 for (const r of rows){
                     const tr = document.createElement('tr');
+                    const monto = parseFloat(r.monto_siniestro||0).toFixed(2);
                     tr.innerHTML = `
                         <td>${r.id || ''}</td>
                         <td>${r.poliza || ''}</td>
@@ -129,8 +197,8 @@ document.addEventListener('DOMContentLoaded', function(){
                         <td>${r.cia || ''}</td>
                         <td>${r.ramo || ''}</td>
                         <td>${r.fec_stro || ''}</td>
-                        <td style="text-align:right">${parseFloat(r.monto_siniestro||0).toFixed(2)}</td>
-                        <td>${r.estado || ''}</td>
+                        <td class="text-end amount">${monto}</td>
+                        <td>${statusBadgeHtml(r.estado)}</td>
                     `;
                     tableBody.appendChild(tr);
                 }
@@ -138,13 +206,22 @@ document.addEventListener('DOMContentLoaded', function(){
             .catch(e => { console.error('Fetch error', e); alert('Error obteniendo datos'); });
     }
 
+    // submit con enter por si acaso
     form.addEventListener('submit', function(e){
         e.preventDefault();
-        const fd = new FormData(form);
-        const params = {};
-        fd.forEach((v,k) => { params[k] = v; });
+        const params = getFormParams();
         fetchRows(params);
     });
+
+    // Búsqueda en vivo
+    const textoInput = form.querySelector('input[name="texto"]');
+    if (textoInput){
+        textoInput.addEventListener('input', function(e){
+            const params = getFormParams();
+// reset al vacio o algo asi
+            debouncedFetch(params);
+        });
+    }
 
     exportBtn.addEventListener('click', function(e){
         e.preventDefault();
@@ -156,8 +233,8 @@ document.addEventListener('DOMContentLoaded', function(){
         window.open(url.toString(), '_blank');
     });
 
-    // Cargar al inicio
-    fetchRows({});
+    // Cargar al inicio con los filtros actuales (vacío por defecto)
+    fetchRows(getFormParams());
 });
 </script>
 {{ super() }}
