@@ -2104,6 +2104,7 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE sp_update_siniestro_rrgg(
     IN p_moneda VARCHAR(10),
     IN p_monto_siniestro DECIMAL(15,2),
     IN p_deducible DECIMAL(15,2),
+    IN p_descripcion_deducible TEXT,
     IN p_total_indemnizar DECIMAL(15,2),
     IN p_fec_pago DATE,
     IN p_forma_pago VARCHAR(50),
@@ -2149,6 +2150,7 @@ BEGIN
         moneda = p_moneda,
         monto_siniestro = p_monto_siniestro,
         deducible = p_deducible,
+        descripcion_deducible = p_descripcion_deducible,
         total_indemnizar = p_total_indemnizar,
         fec_pago = p_fec_pago,
         forma_pago = p_forma_pago,
@@ -2276,6 +2278,9 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE sp_update_siniestro_rrhh(
     IN p_moneda VARCHAR(10),
     IN p_monto_siniestro DECIMAL(15,2),
     IN p_deducible DECIMAL(15,2),
+    IN p_descripcion_deducible TEXT,
+    IN p_coaseguro DECIMAL(15,2),
+    IN p_no_cubierto DECIMAL(15,2),
     IN p_total_indemnizar DECIMAL(15,2),
     IN p_fec_pago DATE,
     IN p_forma_pago VARCHAR(50),
@@ -2285,6 +2290,7 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE sp_update_siniestro_rrhh(
     IN p_monto_pagar_factura DECIMAL(15,2),
     IN p_fec_vencimiento_factura DATE,
     IN p_fec_pago_factura DATE,
+    IN p_gastos_presentados JSON,
     IN p_usuario_modificacion VARCHAR(50)
 )
 BEGIN
@@ -2312,6 +2318,9 @@ BEGIN
         moneda = p_moneda,
         monto_siniestro = p_monto_siniestro,
         deducible = p_deducible,
+        descripcion_deducible = p_descripcion_deducible,
+        coaseguro = p_coaseguro,
+        no_cubierto = p_no_cubierto,
         total_indemnizar = p_total_indemnizar,
         fec_pago = p_fec_pago,
         forma_pago = p_forma_pago,
@@ -2321,6 +2330,7 @@ BEGIN
         monto_pagar_factura = p_monto_pagar_factura,
         fec_vencimiento_factura = p_fec_vencimiento_factura,
         fec_pago_factura = p_fec_pago_factura,
+        gastos_presentados = p_gastos_presentados,
         usuario_modificacion = p_usuario_modificacion,
         fecha_modificacion = NOW()
     WHERE id = p_id;
