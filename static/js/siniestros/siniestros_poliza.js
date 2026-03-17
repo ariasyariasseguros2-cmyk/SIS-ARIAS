@@ -802,8 +802,21 @@ async function guardarSiniestro(event) {
         data.situacion = getVal('situacion');
         data.placa = getVal('vehiculoPlaca');
 
+        // Helper para limpiar objetos vacíos o con solo null/vacío
+        const cleanObject = (obj) => {
+            if (!obj) return null;
+            let hasValue = false;
+            for (const key in obj) {
+                if (obj[key] !== null && obj[key] !== '') {
+                    hasValue = true;
+                    break;
+                }
+            }
+            return hasValue ? obj : null;
+        };
+
         // Datos del vehículo
-        data.vehiculo = {
+        data.vehiculo = cleanObject({
             placa: getVal('vehiculoPlaca'),
             marca: getVal('vehiculoMarca'),
             modelo: getVal('vehiculoModelo'),
@@ -813,10 +826,10 @@ async function guardarSiniestro(event) {
             propietario: getVal('vehiculoPropietario'),
             situacion_evento: getVal('vehiculoSituacionEvento'),
             taller: getVal('vehiculoTaller')
-        };
+        });
 
         // Datos de la denuncia
-        data.denuncia = {
+        data.denuncia = cleanObject({
             comisaria: getVal('denunciaComisaria'),
             numero_denuncia: getVal('denunciaNumeroDenuncia'),
             dosaje_etilico: getVal('denunciaDosajeEtilico'),
@@ -824,10 +837,10 @@ async function guardarSiniestro(event) {
             departamento: getVal('denunciaDepartamento'),
             provincia: getVal('denunciaProvincia'),
             distrito: getVal('denunciaDistrito')
-        };
+        });
 
         // Datos del conductor
-        data.conductor = {
+        data.conductor = cleanObject({
             nombre: getVal('conductorNombre'),
             documento_identidad: getVal('conductorDocumento'),
             fec_nacimiento: getVal('conductorFecNacimiento'),
@@ -835,20 +848,20 @@ async function guardarSiniestro(event) {
             categoria_licencia: getVal('conductorCategoriaLicencia'),
             email: getVal('conductorEmail'),
             telefonos: getVal('conductorTelefonos')
-        };
+        });
 
         // Datos del copiloto
-        data.copiloto = {
+        data.copiloto = cleanObject({
             nombre: getVal('copilotoNombre'),
             fec_nacimiento: getVal('copilotoFecNacimiento'),
             licencia_conducir: getVal('copilotoLicencia'),
             categoria_licencia: getVal('copilotoCategoriaLicencia'),
             email: getVal('copilotoEmail'),
             telefonos: getVal('copilotoTelefonos')
-        };
+        });
 
         // Datos de terceros
-        data.tercero = {
+        data.tercero = cleanObject({
             conductor: getVal('terceroConductor'),
             placa: getVal('terceroPlaca'),
             domicilio: getVal('terceroDomicilio'),
@@ -857,7 +870,7 @@ async function guardarSiniestro(event) {
             direccion_propietario: getVal('terceroDireccionPropietario'),
             email: getVal('terceroEmail'),
             telefonos: getVal('terceroTelefonos')
-        };
+        });
     }
 
     // Campos específicos de RRHH
