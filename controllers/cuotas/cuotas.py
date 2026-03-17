@@ -691,8 +691,21 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
         print(f"Error extracting text: {e}")
         return {}
 
-    # Normalizar texto
+    def _normalize_pdf_text(t: str) -> str:
+        t = t.replace('\ufeff', '')
+        t = t.replace('\u200b', '').replace('\u200c', '').replace('\u200d', '')
+        t = t.replace('\xa0', ' ').replace('\u00ad', '')
+        t = t.replace('：', ':')
+        return t
+    text = _normalize_pdf_text(text)
     text_upper = text.upper()
+    try:
+        import unicodedata
+        def _fold(s: str) -> str:
+            return ''.join(c for c in unicodedata.normalize('NFKD', s) if not unicodedata.combining(c))
+        text_fold_upper = _fold(text).upper()
+    except Exception:
+        text_fold_upper = text_upper
     
     data = {
         'cupon': '',
@@ -707,6 +720,29 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
     def find_val(pattern, txt):
         m = re.search(pattern, txt, re.IGNORECASE)
         return m.group(1).strip() if m else ''
+    def normalize_date_token(s: str) -> str:
+        if not s:
+            return ''
+        # Colapsar espacios y normalizar separadores en fechas tipo dd/mm/yyyy
+        t = re.sub(r'\s*/\s*', '/', s)
+        t = re.sub(r'\s*-\s*', '-', t)
+        t = re.sub(r'\s+', ' ', t).strip()
+        # Aceptar variante con guiones
+        m = re.search(r'(\d{1,2})[/-](\d{1,2})[/-](\d{4})', t)
+        if m:
+            dd = m.group(1).zfill(2)
+            mm = m.group(2).zfill(2)
+            yyyy = m.group(3)
+            return f"{dd}/{mm}/{yyyy}"
+        return t
+    def find_date_after(label_regex: str, txt: str) -> str:
+        # Busca el label y captura hasta 120 caracteres siguientes, tolerando saltos y celdas
+        m = re.search(label_regex + r'[:：]?\s*(?:\r?\n|\s{0,10})?([\s\S]{0,120})', txt, re.IGNORECASE | re.DOTALL)
+        if not m:
+            return ''
+        tail = m.group(1) or ''
+        m2 = re.search(r'(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})', tail)
+        return normalize_date_token(m2.group(1)) if m2 else ''
 
     # --- Detección de Proveedor ---
     is_crecer = 'CRECER' in text_upper and 'SEGUROS' in text_upper
@@ -774,8 +810,49 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
 
        # Importe Total: deshabilitado por solicitud
 
-       # Fecha Pago: Usar FECHA DE EMISIÓN
-       data['fecha_pago'] = find_val(r'Fecha\s+de\s+Emisi[óo]n\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+       raw_fp = find_val(r'Fecha\s+de\s+Emisi[óo]n\s*[:.]?\s*(?:\r?\n|\s{0,20})?(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})', text)
+       if not raw_fp:
+           # Tolerar acentos corruptos o caracteres especiales: EMISI\S*N
+           raw_fp = find_date_after(r'Fecha\s+de\s+Emisi\S*n', text)
+       if not raw_fp:
+           # Intento final con todo mayúsculas en el label
+           raw_fp = find_date_after(r'FECHA\s+DE\s+EMISI\S*N', text)
+       if not raw_fp:
+           label_re = re.compile(r'FECHA\s+DE\s+EMISI\S*N', re.IGNORECASE)
+           lines = text.splitlines()
+           for i, line in enumerate(lines):
+               if label_re.search(line):
+                   m = re.search(r'(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})', line)
+                   if not m and i + 1 < len(lines):
+                       m = re.search(r'(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})', lines[i+1])
+                   if not m and i + 2 < len(lines):
+                       m = re.search(r'(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})', lines[i+2])
+                   if m:
+                       raw_fp = m.group(1)
+                       break
+       if not raw_fp:
+           # Fallback por texto plegado (sin tildes) y ventana global posterior al label
+           mlabel = re.search(r'FECHA\s+DE\s+EMISION', text_fold_upper)
+           if mlabel:
+               start = mlabel.end()
+               tail = text_fold_upper[start:start+600]
+               mdate = re.search(r'(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})', tail)
+               if mdate:
+                   raw_fp = mdate.group(1)
+       if not raw_fp:
+           # Último recurso: elegir la fecha mínima del documento (SANITAS típico: Emisión es la primera fecha en el bloque)
+           all_dates = re.findall(r'(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})', text)
+           def _to_tuple(ds: str):
+               n = normalize_date_token(ds)
+               try:
+                   dd, mm, yyyy = n.split('/')
+                   return (int(yyyy), int(mm), int(dd)), n
+               except Exception:
+                   return (9999, 12, 31), n
+           if all_dates:
+               ordered = sorted((_to_tuple(d) for d in all_dates), key=lambda x: x[0])
+               raw_fp = ordered[0][1]
+       data['fecha_pago'] = normalize_date_token(raw_fp)
 
        # Observación: Contrato o Referencia de pago
        contrato = find_val(r'Contrato\s*[:.]?\s*(\d+)', text)
@@ -817,6 +894,9 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
 
         # 5. Fecha Pago (Default to Emision if not found)
         if not data['fecha_pago']:
-            data['fecha_pago'] = find_val(r'(?:PAGADO|FECHA\s*PAGO|EMISI[ÓO]N)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+            raw = find_val(r'(?:PAGADO|FECHA\s*PAGO|EMISI[ÓO]N)\s*[:.]?\s*(?:\r?\n\s*)?(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})', text)
+            if not raw:
+                raw = find_date_after(r'(?:PAGADO|FECHA\s*PAGO|EMISI[ÓO]N)', text)
+            data['fecha_pago'] = normalize_date_token(raw)
 
     return data
