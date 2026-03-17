@@ -1,0 +1,18 @@
+/* Estilos para Mis Contactos */
+#search-q {
+  max-width: 420px;
+}
+
+#mis-contactos-tbody td a {
+  color: #1a73e8;
+  text-decoration: none;
+}
+#mis-contactos-tbody td a:hover {
+  text-decoration: underline;
+}
+
+/* Ajustes responsivos mínimos */
+@media (max-width: 576px) {
+  #search-q { width: 100%; }
+}
+
