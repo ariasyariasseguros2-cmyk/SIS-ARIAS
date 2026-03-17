@@ -496,6 +496,7 @@ def update_siniestro(siniestro_id):
 				data.get('moneda', 'US$'),
 				data.get('monto_siniestro', 0.00),
 				data.get('deducible', 0.00),
+				data.get('descripcion_deducible'),
 				data.get('total_indemnizar', 0.00),
 				data.get('fec_pago'),
 				data.get('forma_pago'),
@@ -525,6 +526,8 @@ def update_siniestro(siniestro_id):
 				data.get('quien_reporta'),
 				data.get('email'),
 				data.get('telefonos'),
+				data.get('hora_contacto'),
+				data.get('hora_culminacion'),
 				data.get('lugar_siniestro'),
 				data.get('causa'),
 				data.get('tipo_atencion'),
@@ -536,6 +539,7 @@ def update_siniestro(siniestro_id):
 				data.get('moneda', 'US$'),
 				data.get('monto_siniestro', 0.00),
 				data.get('deducible', 0.00),
+				data.get('descripcion_deducible'),
 				data.get('total_indemnizar', 0.00),
 				data.get('fec_pago'),
 				data.get('forma_pago'),
@@ -545,6 +549,11 @@ def update_siniestro(siniestro_id):
 				data.get('monto_pagar_factura', 0.00),
 				data.get('fec_vencimiento_factura'),
 				data.get('fec_pago_factura'),
+				json_or_null(data.get('vehiculo')),
+				json_or_null(data.get('denuncia')),
+				json_or_null(data.get('conductor')),
+				json_or_null(data.get('copiloto')),
+				json_or_null(data.get('tercero')),
 				usuario
 			]
 			cursor.callproc('sp_update_siniestro_vehiculos', params)
@@ -567,6 +576,10 @@ def update_siniestro(siniestro_id):
 				data.get('quien_reporta'),
 				data.get('email'),
 				data.get('telefonos'),
+				data.get('tipo_persona'),
+				data.get('titular'),
+				data.get('paciente'),
+				data.get('diagnostico'),
 				data.get('lugar_siniestro'),
 				data.get('causa'),
 				data.get('descripcion_hechos'),
@@ -576,6 +589,9 @@ def update_siniestro(siniestro_id):
 				data.get('moneda', 'US$'),
 				data.get('monto_siniestro', 0.00),
 				data.get('deducible', 0.00),
+				data.get('descripcion_deducible'),
+				data.get('coaseguro', 0.00),
+				data.get('no_cubierto', 0.00),
 				data.get('total_indemnizar', 0.00),
 				data.get('fec_pago'),
 				data.get('forma_pago'),
@@ -585,6 +601,7 @@ def update_siniestro(siniestro_id):
 				data.get('monto_pagar_factura', 0.00),
 				data.get('fec_vencimiento_factura'),
 				data.get('fec_pago_factura'),
+				json_or_null(data.get('gastos')),
 				usuario
 			]
 			cursor.callproc('sp_update_siniestro_rrhh', params)
