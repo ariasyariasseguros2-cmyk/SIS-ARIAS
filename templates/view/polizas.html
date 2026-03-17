@@ -23,7 +23,7 @@
         </div>
         <div class="header-actions d-flex gap-2">
             {% if session.role_name in ['BROKER', 'OPERADOR', 'SUB AGENTE'] %}
-            <a class="btn btn-success text-white btn-sm rounded-pill" href="{{ url_for('main.menu_page', page='anadir-poliza') }}" target="_blank" rel="noopener noreferrer">
+            <a class="btn btn-success text-white btn-sm rounded-pill" href="{{ url_for('main.menu_page', page='anadir-poliza') }}" rel="noopener noreferrer">
                 <i class="bi-plus-lg me-1"></i> Añadir
             </a>
             {% endif %}

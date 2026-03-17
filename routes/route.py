@@ -1555,6 +1555,15 @@ def upload():
         if aseg and _looks_like_insurer_name(aseg) and cont:
             res["colectivo_asegurado"] = cont
 
+            # Limpieza defensiva: quitar DNI/RUC pegado en la misma línea del nombre
+            try:
+                nombre = (res.get("colectivo_asegurado") or "").strip()
+                if nombre:
+                    nombre = re.sub(r"\s*(?:DNI\s*/?\s*RUC|DNI|RUC)\s*[:\-]?\s*\d{8,11}.*$", "", nombre, flags=re.IGNORECASE).strip(" -:·.")
+                    res["colectivo_asegurado"] = nombre
+            except Exception:
+                pass
+
         # Si hay Prima Comercial, derive Prima Neta; o viceversa
         try:
             if res["prima_comercial"]:

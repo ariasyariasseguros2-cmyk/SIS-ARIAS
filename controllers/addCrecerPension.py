@@ -36,6 +36,7 @@ def parse_crecer_pension(text: str) -> Dict[str, str]:
     colectivo = _find(r"Contratante\s*:\s*(.+)", text) or _find(r"CONTRATANTE\s*:\s*(.+)", text)
     if colectivo:
         colectivo = colectivo.split("\n")[0].strip()
+        colectivo = re.sub(r"\s*(?:DNI\s*/?\s*RUC|DNI|RUC)\s*[:\-]?\s*\d{8,11}.*$", "", colectivo, flags=re.IGNORECASE).strip(" -:·.")
 
     # Rubro / ramo
     ramo = _find(r"Rubro\s*:\s*(.+)", text)
