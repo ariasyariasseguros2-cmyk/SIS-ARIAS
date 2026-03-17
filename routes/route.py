@@ -2196,7 +2196,7 @@ def api_comisiones_default():
                 continue
             cur.execute(
                 """
-                SELECT 
+                SELECT
                   pos_eps, pos_vsr, pos_sr, pacifico, sanitas, protecta, mapfre, crecer, ohio_natural, factor
                 FROM comisiones_temp
                 WHERE UPPER(producto_abrev) = %s
@@ -2570,7 +2570,7 @@ def primas_update():
     # La UI envía idPrima, pero el controlador espera idPoliza
     if 'idPrima' in data:
         data['idPoliza'] = data.pop('idPrima')
-    
+
     # Reutilizamos el controlador de pólizas ya que comparten tabla
     from controllers.editar_poliza import update_poliza
     res = update_poliza(data)
@@ -2581,12 +2581,12 @@ def primas_update():
 def polizas_renovar():
     if 'user' not in session:
         return {'ok': False, 'errors': ['No autenticado']}, 401
-    
+
     if not can_create(session.get('role_name')):
         return {'ok': False, 'errors': ['No autorizado para renovar (crear)']}, 403
-    
+
     data = request.get_json(silent=True) or {}
-    
+
     # Construir payload para update_poliza
     # Se mantienen los datos financieros existentes (no se resetean a 0)
     update_payload = {
@@ -2599,7 +2599,7 @@ def polizas_renovar():
         'motivo': data.get('tipo_vigencia'), # mapeado a 'motivo'
         'vig_desde': data.get('vig_inicio'),
         'fecha_emision': data.get('fecha_emision'),
-        
+
         # Al no enviar claves de primas, el controlador usará los valores actuales de la BD
     }
 
@@ -2860,7 +2860,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
             re.search(r"hidrocarburos", t)
         ):
             prov = "mapfre-equipo-contratistas"
-        
+
         # NUEVO: Mapfre Vehicular (Detection relaxed)
         elif ("mapfre" in t or "20418896915" in t) and (
             re.search(r"seguro\s+vehicular", t) or
@@ -2874,7 +2874,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
             prov = "positiva"
         elif "mapfre-vida-ley" in t:
             prov = "mapfre-vida-ley"
-        
+
         elif "mapfre" in t or re.search(r"vencimiento\s+de\s+aplicaci[oó]n", t) or re.search(r"inicio\s+de\s+vigencia\s+aplicaci[oó]n", t):
             prov = "mapfre"
         elif "lpv-vida-ley" in t:
@@ -2932,13 +2932,13 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
     # NUEVO: si vino 'pacifico' o 'positiva' desde UI pero el contenido dice 'sanitas', fuerza Sanitas
     # Se añade guardia para NO cambiar a Sanitas si realmente es Protecta (que puede tener links a sanitasperu.com)
     is_protecta_likely = (
-        "protecta" in t or 
-        "protecta security" in t or 
-        re.search(r"p\s*r\s*o\s*t\s*e\s*c\s*t\s*a", t) or 
-        "20517207331" in t or 
+        "protecta" in t or
+        "protecta security" in t or
+        re.search(r"p\s*r\s*o\s*t\s*e\s*c\s*t\s*a", t) or
+        "20517207331" in t or
         "vi2097700027" in t
     )
-    
+
     if prov in ('pacifico', 'positiva', 'protecta') and 'sanitas' in low and not is_protecta_likely:
         prov = 'sanitas'
 
@@ -2950,8 +2950,8 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
     # (corrige falsos positivos donde 'la positiva' aparece en textos legales de Mapfre)
     # IMPORTANTE: No entrar si ya se detectó mapfre-equipo-contratistas, mapfre-vehicular o mapfre-vida-ley para evitar downgrades
     if prov not in {"mapfre", "mapfre-equipo-contratistas", "mapfre-vehicular", "mapfre-vida-ley", "pacifico"} and (
-        "mapfre" in t or 
-        re.search(r"vencimiento\s+de\s+aplicaci[oó]n", t) or 
+        "mapfre" in t or
+        re.search(r"vencimiento\s+de\s+aplicaci[oó]n", t) or
         re.search(r"inicio\s+de\s+vigencia\s+aplicaci[oó]n", t)
     ):
         # Asegurarse que no sea Vida Ley si tiene indicadores específicos
@@ -2982,7 +2982,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
             (re.search(r"\bsctr\b", low) and (re.search(r"\bsalud\b", low) or is_factura_eps or re.search(r"\beps\b", low)))
             or is_factura_eps
         )
-        
+
         # NUEVO: Detección de Aviso de Cobranza (Pacifico Generales V2 - Multisalud)
         is_multisalud = re.search(r'multisalud', low) or re.search(r'aviso\s+de\s+cobranza', low)
 
@@ -3004,7 +3004,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
                 from controllers.addPacificoGenerales_V2 import addPacificoGenerales_V2
                 # Pasamos 'path' porque el controlador usa pdfplumber sobre el archivo
                 data = addPacificoGenerales_V2(path)
-                
+
                 if data and not data.get('error') and data.get('poliza'):
                     it = {
                         'numero_poliza': data.get('poliza'),
@@ -3019,10 +3019,10 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
                         'prima_comercial_igv': str(data.get('total', '')),
                         'prima_comercial': str(data.get('total', '')), # Duplicamos en prima comercial para asegurar visualizacion
                         'moneda': data.get('moneda'),
-                        'ramo': 'SALUD', 
+                        'ramo': 'SALUD',
                         'ramos_producto': data.get('producto')
                     }
-                    
+
                     # Ensure prima comercial is set correctly if total exists
                     if data.get('total'):
                         it['prima_comercial'] = str(data.get('total', ''))
@@ -3091,7 +3091,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
             print("[provider] mapfre equipo contratistas item:", item)
             return [item] if item else []
 
-            
+
         from controllers.addMapfre import parse_mapfre
         item = parse_mapfre(text)
         print("[provider] mapfre item pension:", item)
@@ -3293,8 +3293,8 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         item = parse_sanitas_salud(text)
         print("[provider] sanitas salud item:", item)
         return [item] if item else []
-        
-    if prov == "rimac": 
+
+    if prov == "rimac":
         hint_v3 = re.search(r"fecha\s+(?:de\s+)?emisi[oó]n\s*[:：]?\s*\d{4}-\d{2}-\d{2}", text, re.IGNORECASE)
         hint_v2 = re.search(r"\bNro\.?\s*[:：]?\s*\d{3,6}\s*[-–—]\s*\d{5,12}\b", text, re.IGNORECASE) or re.search(r"pol[ií]za\s*nro", text, re.IGNORECASE) or re.search(r"poliza\s+anual\s+de\s+transportes", text, re.IGNORECASE)
         if hint_v3:
@@ -3362,12 +3362,12 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         item = parse_pacifico_salud(text)
         print("[provider] pacifico_salud item:", item)
         return [item] if item else []
-    
+
     if prov == "vida-ley-crecer":
         from controllers.addCrecerVidaLey import parse_crecer_vidaley
         # NUEVO: Variante pocos datos
         from controllers.addCrecer_vida_ley_pocos_datos import parse_crecer_vidaley_pocos_datos
-        
+
         if "DATOS DE LA POLIZA DE SEGURO" in text or "Prima Comercial + IGV" in text:
             item = parse_crecer_vidaley_pocos_datos(text)
             print("[provider] vida-ley-crecer (pocos datos) item:", item)
@@ -3376,7 +3376,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None):
         item = parse_crecer_vidaley(text)
         print("[provider] vida-ley-crecer item:", item)
         return [item] if item else []
-    
+
     # NUEVO: LPV Vida Ley
     if prov == "lpv-vida-ley":
         from controllers.addLPVLEY import parse_positiva_vidaley
@@ -3750,6 +3750,34 @@ def menu_siniestros():
     if 'user' not in session:
         return redirect(url_for('login'))
     return render_template('view/siniestros/siniestros_lista.html')
+
+@bp.route('/menu/mis-contactos', methods=['GET'])
+def list_mis_contactos():
+    if 'user' not in session:
+        return redirect(url_for('main.home'))
+    # Importar el controlador que obtiene los datos (alias para evitar choque de nombres)
+    from controllers.contactos.mis_contactos import list_mis_contactos as _ctrl_list
+    data = _ctrl_list() or {}
+    clientes = data.get('clientes', [])
+    search_query = data.get('search_query', '')
+    return render_template('view/contactos/mis-contactos.html', page='mis-contactos', clientes=clientes, search_query=search_query)
+
+
+@bp.route('/menu/mis-contactos/search', methods=['GET'])
+def api_mis_contactos_search():
+    """Endpoint JSON para búsqueda en tiempo real de mis contactos.
+    Retorna lista de objetos { razon_social, telefono, email } (hasta 50).
+    """
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+    try:
+        from controllers.contactos.mis_contactos import list_mis_contactos as ctrl
+        data = ctrl() or {}
+        clientes = data.get('clientes', [])
+        return jsonify(clientes)
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
 
 # ==========================
 # de preferencia toda la seccion de maestros quevaya aqui debajo
