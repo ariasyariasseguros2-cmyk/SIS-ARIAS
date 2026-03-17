@@ -77,6 +77,16 @@ def get_reporte_siniestros(filters=None):
             sql += " AND s.poliza LIKE %s"
             rls_params.append(f"{filters.get('poliza')}%")
 
+        # Filtro de búsqueda por texto: buscar en poliza, contratante, asegurado, siniestro_no y placa
+        if filters.get('texto'):
+            texto = filters.get('texto').strip()
+            if texto:
+                sql += " AND ("
+                sql += " s.poliza LIKE %s OR s.contratante LIKE %s OR COALESCE(s.asegurado, '') LIKE %s OR s.siniestro_no LIKE %s OR COALESCE(s.placa, '') LIKE %s"
+                sql += " )"
+                like_param = f"%{texto}%"
+                rls_params.extend([like_param, like_param, like_param, like_param, like_param])
+
         sql += " ORDER BY s.fec_stro DESC"
 
         cursor.execute(sql, tuple(rls_params))
