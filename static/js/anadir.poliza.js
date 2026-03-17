@@ -729,6 +729,38 @@
     return masked;
   }
 
+  // Campos numéricos contenteditable
+  function isNumericField(field) {
+    return field === 'prima_neta' ||
+           field === 'prima_comercial' ||
+           field === 'prima_comercial_igv';
+  }
+  function sanitizeNumericText(text) {
+    const s = (text || '').toString();
+    let out = '';
+    let hasSep = false;
+    let hasSign = false;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (ch >= '0' && ch <= '9') { out += ch; continue; }
+      if ((ch === '.' || ch === ',') && !hasSep) { out += ch; hasSep = true; continue; }
+      if (ch === '-' && !hasSign && out.length === 0) { out += ch; hasSign = true; continue; }
+      // ignorar todo lo demás
+    }
+    return out;
+  }
+  function insertTextAtCursor(text) {
+    try {
+      document.execCommand('insertText', false, text);
+    } catch {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(document.createTextNode(text));
+    }
+  }
+
   // Filtro de teclado: fechas solo números y '/'
   tbody.addEventListener('keydown', (e) => {
     const td = e.target.closest('td.editable');
@@ -777,6 +809,41 @@
     document.execCommand('insertText', false, masked);
   });
 
+  // Filtro de teclado: numéricos solo dígitos, separador decimal y signo inicial
+  tbody.addEventListener('keydown', (e) => {
+    const td = e.target.closest('td.editable');
+    if (!td) return;
+    const field = td.dataset.field;
+    if (!isNumericField(field)) return;
+    const nav = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End'];
+    if (nav.includes(e.key) || e.ctrlKey || e.metaKey) return;
+    if (e.key === 'Enter') { e.preventDefault(); td.blur(); return; }
+    if (e.key === 'Backspace' || e.key === 'Delete') return;
+    if (/\d/.test(e.key)) return;
+    if (e.key === '.' || e.key === ',') {
+      const cur = td.textContent || '';
+      if (cur.includes('.') || cur.includes(',')) { e.preventDefault(); return; }
+      return;
+    }
+    if (e.key === '-') {
+      const cur = td.textContent || '';
+      if (cur.length === 0 && !cur.startsWith('-')) return;
+    }
+    e.preventDefault();
+  });
+
+  // Filtro de pegado: numéricos
+  tbody.addEventListener('paste', (e) => {
+    const td = e.target.closest('td.editable');
+    if (!td) return;
+    const field = td.dataset.field;
+    if (!isNumericField(field)) return;
+    const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+    e.preventDefault();
+    const cleaned = sanitizeNumericText(text);
+    insertTextAtCursor(cleaned);
+  });
+
   tbody.addEventListener('input', (e) => {
     const td = e.target.closest('td.editable');
     if (!td) return;
@@ -787,6 +854,11 @@
     if (isDateField(field)) {
       const masked = sanitizeDateInCell(td);
       extractedItems[idx][field] = masked;
+    } else if (isNumericField(field)) {
+      const cur = td.textContent || '';
+      const cleaned = sanitizeNumericText(cur);
+      if (cur !== cleaned) td.textContent = cleaned;
+      extractedItems[idx][field] = cleaned;
     } else {
       extractedItems[idx][field] = (td.textContent || '').trim();
     }

@@ -5,6 +5,7 @@ from flask import session, current_app
 from werkzeug.utils import secure_filename
 import os
 import time
+from datetime import datetime
 
 def cia_to_col(cia_txt: str | None) -> str | None:
     if not cia_txt:
@@ -152,24 +153,51 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
         def parse_date(s: str | None) -> str | None:
             if not s:
                 return None
-            t = str(s).strip().replace('-', '/')
-            parts = t.split('/')
-            if len(parts) == 3:
-                # dd/mm/yyyy → yyyy-mm-dd
-                d, m, y = parts
-                return f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
-            # yyyy-mm-dd o yyyy/mm/dd → normalize
-            parts = t.split('/')
-            if len(parts) == 3:
-                y, m, d = parts
-                return f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
+            t = str(s).strip()
+            if not t:
+                return None
+            t = t.replace('-', '/')
+            # dd/mm/yyyy
+            try:
+                parts = t.split('/')
+                if len(parts) == 3:
+                    d, m, y = parts
+                    d = int(str(d).strip())
+                    m = int(str(m).strip())
+                    y = int(str(y).strip())
+                    dt = datetime(y, m, d)
+                    return dt.strftime('%Y-%m-%d')
+            except Exception:
+                pass
+            # yyyy/mm/dd
+            try:
+                parts = t.split('/')
+                if len(parts) == 3:
+                    y, m, d = parts
+                    y = int(str(y).strip())
+                    m = int(str(m).strip())
+                    d = int(str(d).strip())
+                    dt = datetime(y, m, d)
+                    return dt.strftime('%Y-%m-%d')
+            except Exception:
+                pass
             return None
 
         def parse_decimal(s: str | float | int | None) -> float | None:
             if s is None or s == '':
                 return None
             try:
-                return float(str(s).replace(',', '.').replace(' ', ''))
+                txt = str(s)
+                # Eliminar caracteres no numéricos salvo . , y -
+                allowed = ''.join(ch for ch in txt if (ch.isdigit() or ch in '.,-'))
+                if not allowed:
+                    return None
+                # Permitir solo un separador decimal
+                if allowed.count('.') > 1 and allowed.count(',') == 0:
+                    return None
+                # Normalizar coma a punto
+                allowed = allowed.replace(',', '.')
+                return float(allowed)
             except Exception:
                 return None
 
@@ -272,6 +300,29 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
         numero_documento = found_doc
 
         inserted = 0
+
+        errors: list[str] = []
+        for idx, row in enumerate(normalized, start=1):
+            # Validaciones de fecha: si hay valor y no parsea, es error
+            for f in ("fecha_emision", "inicio_vigencia", "vencimiento", "ultimo_dia_pago", "fecha_vencimiento"):
+                val = row.get(f)
+                if val:
+                    if parse_date(val) is None:
+                        errors.append(f"Fila {idx}: '{f}' inválida. Formato esperado DD/MM/AAAA.")
+            # Validaciones numéricas: si hay valor y no parsea, es error
+            for f in ("prima_comercial", "prima_neta", "prima_comercial_igv", "prima_total",
+                      "comision_compania_pct", "comision_compania_importe",
+                      "comision_subagente_pct", "comision_subagente_importe"):
+                val = row.get(f)
+                if val not in (None, '') and parse_decimal(val) is None:
+                    errors.append(f"Fila {idx}: '{f}' debe ser numérico.")
+        if errors:
+            try:
+                cur.close()
+                cnx.close()
+            except Exception:
+                pass
+            return {"ok": False, "errors": errors}
 
         for row in normalized:
             # NUEVO: Validar cliente de la fila (por documento o nombre)

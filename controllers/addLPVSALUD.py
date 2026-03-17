@@ -25,6 +25,25 @@ def _find_last(pattern: str, text: str, flags=re.IGNORECASE):
     ms = list(re.finditer(pattern, text, flags))
     return ms[-1].group(1).strip() if ms else None
 
+def _extract_ruc(text: str) -> Optional[str]:
+    pivots = [m.start() for m in re.finditer(r"(Contratante|Asegurado|N[úu]mero\s+de\s+Proforma|Proforma|P[óo]liza|Contrato|Datos\s+del\s+Recibo|Proforma\s+de\s+Pago)", text, re.IGNORECASE)]
+    rucs_matches = list(re.finditer(r"R\.?U\.?C\.?[\s:\.]*(\d{11})", text, re.IGNORECASE))
+    if rucs_matches:
+        if pivots:
+            best = min(rucs_matches, key=lambda m: min((d for d in [(m.start() - p) for p in pivots] if d >= 0), default=abs(m.start() - pivots[0])))
+            return best.group(1)
+        if len(rucs_matches) > 1:
+            return rucs_matches[1].group(1)
+        return rucs_matches[0].group(1)
+    generic = list(re.finditer(r"\b(10\d{9}|20\d{9})\b", text))
+    if generic:
+        if pivots:
+            best = min(generic, key=lambda m: min((d for d in [(m.start() - p) for p in pivots] if d >= 0), default=abs(m.start() - pivots[0])))
+            return best.group(1)
+        if len(generic) > 1:
+            return generic[1].group(1)
+        return generic[0].group(1)
+    return None
 def parse_positiva_Salud(text: str) -> Dict[str, str]:
     t_low = text.lower()
     prima_comercial_igv = None
@@ -217,77 +236,7 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
     # Preferir el último día de pago como 'fecha_vencimiento'; si no, usar fin de vigencia
     fecha_venc = pago_venc or vig_hasta
 
-    # Extraer RUC (11 dígitos) o DNI (8 dígitos) asociado al contratante o asegurado
-    # Lógica de proximidad: Buscar RUC más cercano a campos clave (Contratante, Proforma, etc.)
-    # para evitar capturar el RUC de la aseguradora (cabecera) de forma automática.
-    
-    ruc_candidato = None
-    
-    # Encontrar pivotes que indican el inicio de los datos del cliente/póliza
-    # El RUC del cliente suele estar cerca o después de estos campos
-    pivots_iter = re.finditer(r"(?:Contratante|Asegurado|Proforma|P[oó]liza|Contrato)\s*[:]", text, re.IGNORECASE)
-    pivots = [m.start() for m in pivots_iter]
-    
-    # Prioridad 1: Buscar explícitamente RUC (11 dígitos) con etiqueta "R.U.C."
-    rucs_matches = list(re.finditer(r"R\.?U\.?C\.?[\s:\.]*(\d{11})", text, re.IGNORECASE))
-    
-    if rucs_matches:
-        if pivots:
-            # Estrategia: Elegir el RUC que está después del primer pivote (inicio del cuerpo)
-            # El primer pivote suele ser "Póliza" o "Proforma" en el encabezado del cuerpo.
-            # El RUC de la aseguradora suele estar antes (en el membrete).
-            first_pivot = pivots[0]
-            rucs_after = [m for m in rucs_matches if m.start() >= first_pivot]
-            
-            if rucs_after:
-                # Tomar el primero que aparezca en el cuerpo del documento
-                ruc_candidato = rucs_after[0].group(1)
-            else:
-                # Si no hay RUCs después del pivote (raro), buscar el más cercano al pivote
-                # Esto maneja casos donde el layout sea atípico
-                best_match = min(rucs_matches, key=lambda m: min(abs(m.start() - p) for p in pivots))
-                ruc_candidato = best_match.group(1)
-        else:
-            # Sin pivotes, usar heurística: si hay varios, evitar el primero si parece cabecera
-            if len(rucs_matches) > 1:
-                # Asumimos que el primero es la aseguradora (header) y el segundo el cliente
-                ruc_candidato = rucs_matches[1].group(1)
-            else:
-                ruc_candidato = rucs_matches[0].group(1)
-    
-    # Prioridad 2: Buscar explícitamente DNI (8 dígitos) si no hay RUC
-    if not ruc_candidato:
-        dnis_matches = list(re.finditer(r"D\.?N\.?I\.?[\s:\.]*(\d{8})", text, re.IGNORECASE))
-        if dnis_matches:
-            if pivots:
-                first_pivot = pivots[0]
-                dnis_after = [m for m in dnis_matches if m.start() >= first_pivot]
-                if dnis_after:
-                    ruc_candidato = dnis_after[0].group(1)
-                else:
-                    best_match = min(dnis_matches, key=lambda m: min(abs(m.start() - p) for p in pivots))
-                    ruc_candidato = best_match.group(1)
-            else:
-                ruc_candidato = dnis_matches[0].group(1)
-
-    # Prioridad 3: Fallback a búsqueda genérica de RUC (empieza con 10 o 20)
-    if not ruc_candidato:
-        generic_matches = list(re.finditer(r"\b(10\d{9}|20\d{9})\b", text))
-        if generic_matches:
-            if pivots:
-                first_pivot = pivots[0]
-                gen_after = [m for m in generic_matches if m.start() >= first_pivot]
-                if gen_after:
-                    ruc_candidato = gen_after[0].group(1)
-                else:
-                     best_match = min(generic_matches, key=lambda m: min(abs(m.start() - p) for p in pivots))
-                     ruc_candidato = best_match.group(1)
-            else:
-                # Si hay varios, preferir el segundo (evitar header)
-                if len(generic_matches) > 1:
-                    ruc_candidato = generic_matches[1].group(1)
-                else:
-                    ruc_candidato = generic_matches[0].group(1)
+    ruc_candidato = _extract_ruc(text)
 
     ramo_main = None
     ramos_producto = None
