@@ -89,7 +89,6 @@ if __name__ == "__main__":
         "routes",
         "static",
         "templates",
-        "uploads",
         "utils",
         ".htaccess"
     ]
