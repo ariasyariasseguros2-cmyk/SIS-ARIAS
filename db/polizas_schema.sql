@@ -730,7 +730,7 @@ BEGIN
     LEFT JOIN usuarios ur ON ur.username = p.usuario_registro OR ur.nombre = p.usuario_registro
     LEFT JOIN usuarios ue ON ue.username = p.usuario_edicion OR ue.nombre = p.usuario_edicion
     WHERE p.activo = 1 AND p.anulado = 0
-    ORDER BY p.idPoliza ASC;
+    ORDER BY p.idPoliza DESC;
 END$$
 DELIMITER ;
 
