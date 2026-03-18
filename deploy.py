@@ -89,8 +89,8 @@ if __name__ == "__main__":
         "routes",
         "static",
         "templates",
-        "utils",
-        ".htaccess"
+        "utils"
+        
     ]
     
     zip_files(zip_file, items_to_zip)
