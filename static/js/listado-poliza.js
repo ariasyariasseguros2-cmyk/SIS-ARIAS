@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Mostrar estado de carga
     tbody.innerHTML = `
       <tr>
-        <td colspan="13" class="text-center py-5">
+        <td colspan="11" class="text-center py-5">
           <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Cargando...</span>
           </div>
@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!rows || rows.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="13" class="text-center text-muted py-5">
+          <td colspan="11" class="text-center text-muted py-5">
             <i class="bi-search display-6 d-block mb-3 opacity-25"></i>
             No se encontraron resultados para "${globalSearchInput.value}"
           </td>
@@ -136,8 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${v(r.vig_hasta)}</td>
         <td>${v(r.sub_agente)}</td>
         <td>${v(r.asegurada)}</td>
-        <td>${v(r.usuario_registro)}</td>
-        <td>${v(r.usuario_edicion)}</td>
         <td class="text-end">
           <div class="action-buttons justify-content-end">
               <!-- Botones Visibles Prioritarios -->
@@ -299,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // mostrar visual
       tbody.innerHTML = `
         <tr>
-          <td colspan="13" class="text-center py-5">
+          <td colspan="11" class="text-center py-5">
             <div class="spinner-border text-primary" role="status">
               <span class="visually-hidden">Cargando...</span>
             </div>
@@ -317,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const label = filterType === 'vigentes' ? 'pólizas vigentes' : 'pólizas que vencen este mes';
           tbody.innerHTML = `
             <tr>
-              <td colspan="13" class="text-center text-muted py-5">
+              <td colspan="11" class="text-center text-muted py-5">
                 <i class="bi-search display-6 d-block mb-3 opacity-25"></i>
                 No se encontraron ${label}
               </td>

@@ -187,17 +187,42 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
             if s is None or s == '':
                 return None
             try:
-                txt = str(s)
-                # Eliminar caracteres no numéricos salvo . , y -
-                allowed = ''.join(ch for ch in txt if (ch.isdigit() or ch in '.,-'))
-                if not allowed:
+                txt = str(s).strip()
+                # Conservar solo dígitos, separadores y signo
+                raw = ''.join(ch for ch in txt if (ch.isdigit() or ch in '.,-'))
+                if not raw or raw in {'-', '.', ',', '-.', '-,'}:
                     return None
-                # Permitir solo un separador decimal
-                if allowed.count('.') > 1 and allowed.count(',') == 0:
-                    return None
-                # Normalizar coma a punto
-                allowed = allowed.replace(',', '.')
-                return float(allowed)
+                # Determinar separador decimal por la última aparición de '.' o ','
+                last_dot = raw.rfind('.')
+                last_comma = raw.rfind(',')
+                if last_dot == -1 and last_comma == -1:
+                    # Solo dígitos (posible signo)
+                    return float(raw)
+                # Elegir el separador decimal como el que aparece más a la derecha
+                if last_dot > last_comma:
+                    # '.' es decimal; eliminar comas (miles)
+                    cleaned = raw.replace(',', '')
+                elif last_comma > last_dot:
+                    # ',' es decimal; eliminar puntos (miles) y cambiar ',' por '.'
+                    cleaned = raw.replace('.', '').replace(',', '.')
+                else:
+                    # Empate extraño; fallback: eliminar todos los separadores menos el último y usar '.'
+                    sep_idx = max(last_dot, last_comma)
+                    int_part = ''.join(ch for ch in raw[:sep_idx] if (ch.isdigit() or ch == '-'))
+                    dec_part = ''.join(ch for ch in raw[sep_idx+1:] if ch.isdigit())
+                    cleaned = f"{int_part}.{dec_part}" if dec_part else int_part
+                # Si por algún motivo quedaron múltiples puntos, conservar el último como decimal
+                if cleaned.count('.') > 1:
+                    # Tomar signo si existe
+                    sign = ''
+                    if cleaned.startswith('-'):
+                        sign = '-'
+                        cleaned = cleaned[1:]
+                    parts = cleaned.split('.')
+                    int_part = ''.join(parts[:-1]).replace('.', '').replace(',', '')
+                    dec_part = parts[-1]
+                    cleaned = f"{sign}{int_part}.{dec_part}" if dec_part else f"{sign}{int_part}"
+                return float(cleaned)
             except Exception:
                 return None
 
