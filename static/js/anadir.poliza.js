@@ -374,23 +374,24 @@
     const headers = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase()); 
     const hasRamo = headers.includes('ramo');
     const hasProducto = headers.includes('producto');
+    const hasCia = headers.includes('cía') || headers.includes('cia') || headers.includes('aseguradora');
     const hasPrimaNeta = headers.includes('prima neta');
     const hasAcciones = headers.includes('acciones');
-    const expectedCount = 19; // actualizado: 18 + 1 (Producto)
-    if (!hasRamo || !hasProducto || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
+    const expectedCount = 19; // Se añade columna "Cía" (total 19)
+    if (!hasRamo || !hasProducto || !hasCia || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
       thead.innerHTML = `
         <tr>
           <th>Póliza</th>
           <th>Proforma/Recibo</th>
+          <th>Fecha Emisión</th>
+          <th>Fecha Vencimiento</th>
           <th>Colectivo Asegurado</th>
+          <th>Cía</th>
           <th class="ramo-col">Ramo</th>
           <th>Producto</th>
+          <th>Moneda</th>
           <th>Inicio Vigencia</th>
           <th>Fin Vigencia</th>
-          <th>Moneda</th>
-          <th>Fecha Emisión</th>
-          <th>Último Día Pago</th>
-          <th>Fecha Vencimiento</th>
           <th>Prima Neta</th>
           <th>Prima Comercial</th>
           <th>Prima + IGV</th>
@@ -404,6 +405,139 @@
     }
   }
   ensureHeader();
+
+  // Cachear aseguradoras cuando no exista el select global
+  let issuerOptionsCache = null;
+  async function ensureIssuerOptionsLoaded() {
+    if (issuerOptionsCache && issuerOptionsCache.length) return issuerOptionsCache;
+    if (issuerEl && issuerEl.options && issuerEl.options.length) {
+      const opts = [];
+      for (let i = 0; i < issuerEl.options.length; i++) {
+        const o = issuerEl.options[i];
+        const val = (o.value || '').trim();
+        const txt = (o.text || '').trim();
+        const isAutoDetect = (!val) && txt.toLowerCase().includes('auto') && txt.toLowerCase().includes('detectar');
+        if (isAutoDetect || !txt) continue;
+        const useVal = val || txt.toLowerCase();
+        opts.push({ value: useVal, text: txt });
+      }
+      issuerOptionsCache = opts;
+      return issuerOptionsCache;
+    }
+    try {
+      const res = await fetch('/api/aseguradoras', { credentials: 'same-origin' });
+      const body = await res.json();
+      const rows = body?.rows || [];
+      issuerOptionsCache = rows
+        .map(a => {
+          const text = (a.nombre_corto || a.nombre || '').trim();
+          const val = (a.slug || '').trim() || text.toLowerCase();
+          return { value: val, text };
+        })
+        .filter(x => !!x.text);
+    } catch (err) {
+      console.warn('Error cargando aseguradoras:', err);
+      issuerOptionsCache = [];
+    }
+    return issuerOptionsCache;
+  }
+
+  // Opciones de aseguradora desde el select global
+  function getIssuerOptions() {
+    if (issuerOptionsCache && issuerOptionsCache.length) return issuerOptionsCache.slice();
+    if (!issuerEl) return [];
+    const opts = [];
+    for (let i = 0; i < issuerEl.options.length; i++) {
+      const o = issuerEl.options[i];
+      const val = (o.value || '').trim();
+      const txt = (o.text || '').trim();
+      const isAutoDetect = (!val) && txt.toLowerCase().includes('auto') && txt.toLowerCase().includes('detectar');
+      if (isAutoDetect) continue; // omitir "Auto (Detectar)"
+      const useVal = val || txt.toLowerCase();
+      if (!txt) continue;
+      opts.push({ value: useVal, text: txt });
+    }
+    issuerOptionsCache = opts.slice();
+    return issuerOptionsCache.slice();
+  }
+
+  function buildIssuerSelect(selectedVal) {
+    const opts = getIssuerOptions();
+    const optionsHtml = ['<option value="">Selecciona...</option>'].concat(
+      opts.map(o => `<option value="${o.value}" ${o.value === (selectedVal || '').trim() ? 'selected' : ''}>${o.text}</option>`)
+    ).join('');
+    return `<select class="form-select form-select-sm issuer-row">${optionsHtml}</select>`;
+  }
+
+  function findIssuerValueByText(label) {
+    const opts = getIssuerOptions();
+    const t = (label || '').toString().trim().toLowerCase();
+    if (!t) return '';
+    const eq = opts.find(o => (o.text || '').toString().trim().toLowerCase() === t);
+    if (eq) return eq.value;
+    const inc = opts.find(o => {
+      const tt = (o.text || '').toString().trim().toLowerCase();
+      return tt.includes(t) || t.includes(tt);
+    });
+    if (inc) return inc.value;
+    return t;
+  }
+
+  function __pickLPVVariant(txt) {
+    const t = (txt || '').toString().toLowerCase();
+    if (t.includes('eps') || t.includes('entidad prestadora') || t.includes('salud') || t.includes('lpeps')) return 'lpv-eps';
+    if (t.includes('vida') && t.includes('ley')) return 'lpv-vida-ley';
+    if (t.includes('vida')) return 'lpv-vida';
+    if (t.includes('pension') || t.includes('pensión')) return 'lpv-pension';
+    return 'positiva';
+  }
+  function __pickCrecerVariant(txt) {
+    const t = (txt || '').toString().toLowerCase();
+    if (t.includes('vida') && t.includes('ley')) return 'vida-ley-crecer';
+    return 'crecer';
+  }
+  function __preferIssuer(val, label) {
+    const opts = getIssuerOptions();
+    const v = (val || '').trim();
+    if (v && opts.some(o => o.value === v)) return v;
+    const l = (label || '').trim();
+    if (l) {
+      const byText = opts.find(o => (o.text || '').toLowerCase() === l.toLowerCase());
+      if (byText) return byText.value;
+      const inc = opts.find(o => (o.text || '').toLowerCase().includes(l.toLowerCase()));
+      if (inc) return inc.value;
+    }
+    return v || '';
+  }
+  function __detectIssuerSlug(text) {
+    const t = (text || '').toString().toLowerCase();
+    if (!t) return '';
+    if (t.includes('rimac') || t.includes('rímac')) return 'rimac';
+    if (t.includes('hdi')) return 'hdi';
+    if (t.includes('ohio')) return 'ohio';
+    if (t.includes('qualitas') || t.includes('quálitas')) return 'qualitas';
+    if (t.includes('avla')) return 'avla';
+    if (t.includes('grandia') && t.includes('eps')) return 'grandia-eps';
+    if (t.includes('crecer')) return __pickCrecerVariant(t);
+    if (t.includes('positiva') || t.includes('lpv') || t.includes('vida ley') || t.includes('vida') || t.includes('pension') || t.includes('pensión') || t.includes('eps') || t.includes('entidad prestadora') || t.includes('salud') || t.includes('lpeps')) return __pickLPVVariant(t);
+    if (t.includes('mapfre')) return 'mapfre';
+    if (t.includes('sanitas')) return 'sanitas';
+    if (t.includes('pacifico') || t.includes('pacífico')) return 'pacifico';
+    if (t.includes('protecta') || t.includes('proctecta')) return 'proctecta';
+    return '';
+  }
+  function __inferIssuerForItem(item) {
+    const hay = [
+      item.cia, item.aseguradora, item.asegurado, item.asegurada, item.colectivo_asegurado,
+      item.producto, item.ramos_producto, item.ramo
+    ].filter(Boolean).join(' | ');
+    const slug = __detectIssuerSlug(hay);
+    if (slug) return __preferIssuer(slug, slug);
+    const t = hay.toLowerCase();
+    const opts = getIssuerOptions();
+    const inc = opts.find(o => (o.text || '').toLowerCase() && t.includes((o.text || '').toLowerCase()));
+    return inc ? inc.value : '';
+  }
 
   // NUEVO: helper para generar botones de acción por fila
   function buildActions(index) {
@@ -428,7 +562,7 @@
     const aseguradaTop = (aseguradaTopEl?.value || '').trim();
     const motivoTop = ''; // (motivoTopEl?.value || '').trim();
     const nroOpTop = (nroOperacionTopEl?.value || '').trim(); // NUEVO: Nro Operación
-    const issuerText = issuerEl?.options[issuerEl.selectedIndex]?.text || (issuerEl?.value || '');
+    const issuerText = issuerEl?.options?.[issuerEl.selectedIndex]?.text || (issuerEl?.value || '');
 
     // NUEVO: asegurar que 'ramo' sea vacío si no coincide con las abreviaciones disponibles
     const abbrs = (window.ramosAbbrs || []).map(s => (s || '').trim());
@@ -454,7 +588,7 @@
       if (nroOpTop && (!it.nro || it.nro.trim() === '')) {
         it.nro = nroOpTop;
       }
-      if (issuerText && !it.cia) it.cia = issuerText;
+      // no forzamos cia desde un select global eliminado
 
       // NUEVO: asegurar 'asegurado' desde 'colectivo_asegurado'
       if (it.colectivo_asegurado && !it.asegurado) {
@@ -479,12 +613,25 @@
         it.moneda = mapCurrencySymbol(it.moneda);
       }
       const tr = document.createElement('tr');
+      let inferredVal = it.cia_value || findIssuerValueByText(it.cia || '');
+      if (!inferredVal) {
+        const guessed = __inferIssuerForItem(it);
+        if (guessed) {
+          it.cia_value = guessed;
+          const optG = getIssuerOptions().find(o => o.value === guessed);
+          it.cia = optG ? optG.text : (it.cia || '');
+          inferredVal = guessed;
+        }
+      }
+      const issuerDefaultVal = inferredVal || '';
+      const issuerSelHtml = buildIssuerSelect(issuerDefaultVal);
       tr.innerHTML = `
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="numero_poliza">${it.numero_poliza || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="recibo">${it.recibo || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="colectivo_asegurado">${it.colectivo_asegurado || ''}</td>
+        <td data-index="${idx}" data-field="cia">${issuerSelHtml}</td>
         <td class="ramo-col" data-index="${idx}" data-field="ramo">${buildRamoSelect(it.ramo || '')}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="ramos_producto">${it.ramos_producto || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
@@ -509,7 +656,30 @@
           ${buildActions(idx)}
         </td>
       `;
+      // Persist default Cía en el modelo si no está
+      if (!it.cia_value && issuerDefaultVal) {
+        it.cia_value = issuerDefaultVal;
+        const opt = getIssuerOptions().find(o => o.value === issuerDefaultVal);
+        it.cia = opt ? opt.text : (it.cia || '');
+      }
       tbody.appendChild(tr);
+    });
+
+    // Vincular cambio de Cía por fila
+    Array.from(tbody.querySelectorAll('tr')).forEach((tr, idx) => {
+      const sel = tr.querySelector('.issuer-row');
+      if (!sel) return;
+      sel.addEventListener('change', async (e) => {
+        const val = (e.target.value || '').trim();
+        const opts = getIssuerOptions();
+        const found = opts.find(o => o.value === val);
+        const label = found ? found.text : '';
+        if (extractedItems[idx]) {
+          extractedItems[idx].cia_value = val;
+          extractedItems[idx].cia = label || val;
+          try { await fetchCommissionPct(idx); } catch (e) {}
+        }
+      });
     });
 
     if (btnSave) {
@@ -527,11 +697,8 @@
     const item = extractedItems[index];
     if (!item) return;
 
-    // Prioridad: Cía del select global, o fallback a item.cia (si existe)
-    // Pero el endpoint espera 'cia' como parámetro principal.
-    // Usaremos el valor del select global 'issuerEl' ya que es el que manda en la UI actual
-    // salvo que sea una carga masiva con distintas cias (que no parece ser el caso común aquí).
-    const cia = issuerEl?.value || '';
+    // Determinar Cía por fila (ya no dependemos de un select global)
+    const cia = (item.cia_value || '').trim() || findIssuerValueByText(item.cia || '');
     const ramo = item.ramo || '';
     const producto = item.ramos_producto || '';
 
@@ -607,6 +774,19 @@
     // Si el option value es un id numeric y se quiere mostrar nombre, preferimos mostrar texto
     const text = prodSel.options[prodSel.selectedIndex]?.text || val;
     extractedItems[idx].ramos_producto = text;
+    if (!extractedItems[idx].cia_value) {
+      const g = __inferIssuerForItem(extractedItems[idx]);
+      if (g) {
+        extractedItems[idx].cia_value = g;
+        const optG = getIssuerOptions().find(o => o.value === g);
+        extractedItems[idx].cia = optG ? optG.text : (extractedItems[idx].cia || '');
+        const tr = tbody.children[idx];
+        if (tr) {
+          const ciaSel = tr.querySelector('.issuer-row');
+          if (ciaSel) ciaSel.value = g;
+        }
+      }
+    }
     scheduleAutoSave();
   });
 
@@ -716,7 +896,7 @@
       range.collapse(false);
       sel.removeAllRanges();
       sel.addRange(range);
-    } catch {}
+    } catch (e) {}
   }
   function setDateByDigits(td, digits) {
     const limited = digits.slice(0, 8);
@@ -752,7 +932,7 @@
   function insertTextAtCursor(text) {
     try {
       document.execCommand('insertText', false, text);
-    } catch {
+    } catch (e) {
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0) return;
       const range = sel.getRangeAt(0);
@@ -1072,13 +1252,15 @@
     openLoadingSwal('Procesando PDF…');
     const startTs = performance.now();
     btnUpload.disabled = true;
-    issuerEl.disabled = true;
+    if (issuerEl) issuerEl.disabled = true;
     fileEl.disabled = true;
     btnUpload.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Extrayendo…`;
 
     const fd = new FormData();
     fd.append('file', file);
-    fd.append('issuer', issuerEl?.value || '');
+    if (issuerEl && issuerEl.value) {
+      fd.append('issuer', issuerEl.value);
+    }
     fd.append('debug', '1');
 
     fetch('/upload', { method: 'POST', body: fd })
@@ -1090,7 +1272,7 @@
           if (ct.includes('application/json')) {
             payload = JSON.parse(rawText);
           } else {
-            try { payload = JSON.parse(rawText); } catch { payload = rawText; }
+            try { payload = JSON.parse(rawText); } catch (e) { payload = rawText; }
           }
 
           console.log('[upload] status:', r.status, 'payload:', payload);
@@ -1147,6 +1329,72 @@
             };
           });
 
+          await ensureIssuerOptionsLoaded();
+          const issuerOpts = getIssuerOptions();
+          function pickLPVVariantByText(txt) {
+            const t = (txt || '').toString().toLowerCase();
+            if (t.includes('eps') || t.includes('entidad prestadora') || t.includes('salud') || t.includes('lpeps')) return 'lpv-eps';
+            if (t.includes('vida') && t.includes('ley')) return 'lpv-vida-ley';
+            if (t.includes('vida')) return 'lpv-vida';
+            if (t.includes('pension') || t.includes('pensión')) return 'lpv-pension';
+            return 'positiva';
+          }
+          function pickCrecerVariantByText(txt) {
+            const t = (txt || '').toString().toLowerCase();
+            if (t.includes('vida') && t.includes('ley')) return 'vida-ley-crecer';
+            return 'crecer';
+          }
+          function preferOption(val, label) {
+            const v = (val || '').trim();
+            if (v && issuerOpts.some(o => o.value === v)) return v;
+            const l = (label || '').trim();
+            if (l) {
+              const byText = issuerOpts.find(o => (o.text || '').toLowerCase() === l.toLowerCase());
+              if (byText) return byText.value;
+              const inc = issuerOpts.find(o => (o.text || '').toLowerCase().includes(l.toLowerCase()));
+              if (inc) return inc.value;
+            }
+            return v || '';
+          }
+          function detectSlugFromText(text) {
+            const t = (text || '').toString().toLowerCase();
+            if (!t) return '';
+            if (t.includes('rimac') || t.includes('rímac')) return 'rimac';
+            if (t.includes('hdi')) return 'hdi';
+            if (t.includes('ohio')) return 'ohio';
+            if (t.includes('qualitas') || t.includes('quálitas')) return 'qualitas';
+            if (t.includes('avla')) return 'avla';
+            if (t.includes('grandia') && t.includes('eps')) return 'grandia-eps';
+            if (t.includes('crecer')) return pickCrecerVariantByText(t);
+            if (t.includes('positiva') || t.includes('lpv') || t.includes('vida ley') || t.includes('eps') || t.includes('entidad prestadora') || t.includes('salud') || t.includes('lpeps')) return pickLPVVariantByText(t);
+            if (t.includes('mapfre')) return 'mapfre';
+            if (t.includes('sanitas')) return 'sanitas';
+            if (t.includes('pacifico') || t.includes('pacífico')) return 'pacifico';
+            if (t.includes('protecta') || t.includes('proctecta')) return 'proctecta';
+            return '';
+          }
+          function inferIssuerForItem(it, provider) {
+            const p = (provider || '').toString();
+            const haystack = [
+              it.cia, it.aseguradora, it.asegurado, it.asegurada, it.colectivo_asegurado,
+              it.producto, it.ramos_producto, it.ramo, p
+            ].filter(Boolean).join(' | ');
+            const slug = detectSlugFromText(haystack);
+            if (slug) return preferOption(slug, slug);
+            // Fallback: buscar por coincidencia de texto en opciones
+            const t = haystack.toLowerCase();
+            const inc = issuerOpts.find(o => (o.text || '').toLowerCase() && t.includes((o.text || '').toLowerCase()));
+            return inc ? inc.value : '';
+          }
+          items = items.map(it => {
+            const already = ((it.cia_value || '').trim() || (it.cia || '').trim());
+            if (already) return it;
+            const val = inferIssuerForItem(it, (payload && payload.provider) ? String(payload.provider) : '');
+            if (!val) return it;
+            const opt = issuerOpts.find(o => o.value === val);
+            return { ...it, cia_value: val, cia: (opt ? opt.text : (it.cia || '')) || it.cia };
+          });
+
           extractedItems = items;
           render(extractedItems);
 
@@ -1181,7 +1429,7 @@
       .finally(() => {
         closeLoadingSwal();
         btnUpload.disabled = false;
-        issuerEl.disabled = false;
+        if (issuerEl) issuerEl.disabled = false;
         fileEl.disabled = false;
         btnUpload.textContent = 'Extraer datos';
       });
@@ -1248,7 +1496,7 @@
   });
 
   pdfModalEl?.addEventListener('hidden.bs.modal', () => {
-    try { if (pdfFrameEl) pdfFrameEl.src = 'about:blank'; } catch {}
+    try { if (pdfFrameEl) pdfFrameEl.src = 'about:blank'; } catch (e) {}
   });
 
   // Guardado manual (btnSave) - UN SOLO HANDLER + GUARD CLAUSE
@@ -1338,7 +1586,7 @@
       const ct = (r.headers.get('content-type') || '').toLowerCase();
       const raw = await r.text();
       let payload;
-      try { payload = JSON.parse(raw); } catch { payload = { rawText: raw }; }
+      try { payload = JSON.parse(raw); } catch (e) { payload = { rawText: raw }; }
 
       console.log('[save:manual] status:', r.status, 'payload:', payload);
 
@@ -1367,7 +1615,7 @@
 
   // Sincronizar cambios del bloque superior
   issuerEl?.addEventListener('change', () => {
-    const text = issuerEl?.options[issuerEl.selectedIndex]?.text || (issuerEl?.value || '');
+    const text = issuerEl?.options?.[issuerEl.selectedIndex]?.text || (issuerEl?.value || '');
     extractedItems = (extractedItems || []).map(it => ({ ...it, cia: text }));
     render(extractedItems);
   });
@@ -1436,8 +1684,6 @@
   });
   */
 
-
-
   // NUEVO: Anexos (acumulativo)
   function renderAnexosList() {
     if (!anexosListEl) return;
@@ -1472,6 +1718,21 @@
       });
     });
   }
+
+  // Cargar aseguradoras si no existe select global y refrescar selects por fila
+  (async () => {
+    await ensureIssuerOptionsLoaded();
+    const opts = getIssuerOptions();
+    if (opts && opts.length) {
+      Array.from(document.querySelectorAll('.issuer-row')).forEach(sel => {
+        const current = (sel.value || '').trim();
+        const html = ['<option value="">Selecciona...</option>'].concat(
+          opts.map(o => `<option value="${o.value}" ${o.value === current ? 'selected' : ''}>${o.text}</option>`)
+        ).join('');
+        sel.innerHTML = html;
+      });
+    }
+  })();
 
   anexosFilesEl?.addEventListener('change', () => {
     if (!anexosFilesEl.files || anexosFilesEl.files.length === 0) return;
@@ -1596,7 +1857,7 @@
         const ct = (r.headers.get('content-type') || '').toLowerCase();
         const raw = await r.text();
         let payload;
-        try { payload = JSON.parse(raw); } catch { payload = { rawText: raw }; }
+        try { payload = JSON.parse(raw); } catch (e) { payload = { rawText: raw }; }
 
         console.log('[save] status:', r.status, 'payload:', payload);
 
@@ -1754,7 +2015,7 @@
           const r = (it.ramo || '').toString().trim();
           if (r) populateProductsForRamo(idx, r).then(()=>{}).catch(()=>{});
         });
-      } catch (e) { console.error('post-render populate products error', e); }
+          } catch (e) { console.error('post-render populate products error', e); }
     };
   })();
 

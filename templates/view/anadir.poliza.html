@@ -77,16 +77,6 @@
                     <div class="section-title"><i class="bi bi-building"></i> Entidades</div>
                     
                     <div class="mb-3">
-                        <label class="form-label">Aseguradora</label>
-                        <select id="issuer" class="form-select">
-                            <option value="">Auto (Detectar)</option>
-                            {% for a in (aseguradoras_rows or []) %}
-                            <option value="{{ a.slug }}">{{ a.nombre_corto }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
                         <label class="form-label">Sub Agente</label>
                         <select id="subAgenteTop" class="form-select">
                             <option value="">Selecciona...</option>
@@ -260,6 +250,7 @@
                             <th>Fecha Emisión</th>
                             <th>Fecha Vencimiento</th>
                             <th>Asegurado</th>
+                            <th>Cía</th>
                             <th class="ramo-col">Ramo</th>
                             <th>Producto</th>
                             <th>Moneda</th>

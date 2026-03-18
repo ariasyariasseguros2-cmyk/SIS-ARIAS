@@ -16,7 +16,9 @@ def _money(s: Optional[str]) -> Optional[str]:
 
 def parse_crecer_pension(text: str) -> Dict[str, str]:
     # Contrato / Póliza
-    contrato = _find(r"Contrato\s*:\s*([0-9A-Z\-]+)", text) or _find(r"CONTRATO\s*:\s*([0-9A-Z\-]+)", text)
+    contrato = _find(r"Contrato\s*:\s*([0-9\-\s]+)", text) or _find(r"CONTRATO\s*:\s*([0-9\-\s]+)", text)
+    if contrato:
+        contrato = re.sub(r"\s+", "", contrato)
 
     # Proforma / Recibo: Proforma explícita, PF-SCTR y NUEVO: CS-SCTR-***
     recibo = _find(r"(?:PROFORMA|Proforma)\s*:\s*([A-Z0-9\-]+)", text) \
