@@ -1,0 +1,104 @@
+/* Estilos para el reporte de cumpleaños */
+#tabla-cumpleanos thead th {
+  background: #f8fafc; /* encabezado suave */
+  color: #1f2937;
+  font-weight: 700;
+  border-bottom: 2px solid #e6eef8;
+}
+
+/* Resaltar columnas Día (5) y Mes (6) */
+#tabla-cumpleanos tbody td:nth-child(5),
+#tabla-cumpleanos thead th:nth-child(5) {
+  text-align: center;
+}
+#tabla-cumpleanos tbody td:nth-child(5) .day-badge {
+  display: inline-block;
+  padding: 6px 10px;
+  background: linear-gradient(180deg,#fff7cc,#fff1a8);
+  color: #8a6d00;
+  border-radius: 8px;
+  font-weight: 700;
+  min-width: 38px;
+}
+
+#tabla-cumpleanos tbody td:nth-child(6),
+#tabla-cumpleanos thead th:nth-child(6) {
+  text-align: center;
+}
+#tabla-cumpleanos tbody td:nth-child(6) .month-badge {
+  display: inline-block;
+  padding: 6px 10px;
+  background: linear-gradient(180deg,#e8f6ff,#d6eeff);
+  color: #0b5fa5;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+/* Centrar y mejorar filas */
+#tabla-cumpleanos tbody tr td {
+  vertical-align: middle;
+}
+#tabla-cumpleanos tbody tr:nth-child(odd) {
+  background: rgba(15, 23, 42, 0.02);
+}
+#tabla-cumpleanos tbody tr:hover {
+  background: rgba(59,130,246,0.06) !important;
+}
+
+/* Edad en color distintivo */
+#tabla-cumpleanos tbody td:nth-child(7) {
+  text-align: center;
+  color: #065f46;
+  font-weight: 600;
+}
+
+/* Mensajes de estado centrados */
+#tabla-cumpleanos tbody td.text-center {
+  padding: 30px 0;
+  color: #6b7280;
+}
+
+/* Responsive: ajustar badges en pantallas pequeñas */
+@media (max-width: 576px) {
+  #tabla-cumpleanos tbody td:nth-child(5) .day-badge,
+  #tabla-cumpleanos tbody td:nth-child(6) .month-badge {
+	padding: 4px 8px;
+	font-size: 0.86rem;
+  }
+}
+
+/* Badges adicionales */
+.day-badge {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  background: linear-gradient(180deg,#fff7cc,#fff1a8);
+  color: #8a6d00;
+}
+.month-badge {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  background: linear-gradient(180deg,#e8f6ff,#d6eeff);
+  color: #0b5fa5;
+}
+.age-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: linear-gradient(180deg,#e6fffa,#d1fae5);
+  color: #065f46;
+  font-weight: 700;
+}
+
+/* Fila resaltada para cumpleaños hoy */
+.today-row {
+  background: linear-gradient(90deg, rgba(255,246,205,0.5), rgba(221,255,239,0.4));
+  box-shadow: inset 0 0 0 1px rgba(250,204,21,0.06);
+}
+
+
+
+
