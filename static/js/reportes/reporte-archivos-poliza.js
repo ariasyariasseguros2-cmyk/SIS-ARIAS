@@ -209,7 +209,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function formatFecha(val) {
         if (!val) return '-';
-        const dstr = typeof val === 'string' ? (val.includes('T') ? val : val.replace(' ', 'T')) : val;
+        let dstr = typeof val === 'string' ? (val.includes('T') ? val : val.replace(' ', 'T')) : val;
+        if (typeof dstr === 'string' && dstr.includes('T') && !/[zZ]$/.test(dstr)) {
+            dstr += 'Z';
+        }
         const date = new Date(dstr);
         if (isNaN(date.getTime())) return val;
         const parts = new Intl.DateTimeFormat('es-PE', {

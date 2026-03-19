@@ -37,7 +37,7 @@ def get_reporte_archivos(search='', limit=INITIAL_LIMIT):
 
         for r in results:
             if r.get('ultima_fecha') and hasattr(r['ultima_fecha'], 'strftime'):
-                r['ultima_fecha'] = r['ultima_fecha'].strftime('%Y-%m-%dT%H:%M:%S')
+                r['ultima_fecha'] = r['ultima_fecha'].strftime('%Y-%m-%dT%H:%M:%SZ')
         return results, has_more
     except Exception as e:
         print(f"Error fetching reporte archivos: {e}")

@@ -53,7 +53,7 @@
     } else if (prov === 'mapfre' || prov === 'mapfre-vida-ley' || prov === 'mapfre-vehicular' || prov === 'mapfre-equipo-contratistas') {
       candidates = ['mapfre-vida-ley', 'mapfre'];
     } else if (prov === 'crecer' || prov === 'vida-ley-crecer') {
-      candidates = ['vida-ley-crecer', 'crecer'];
+      candidates = ['crecer'];
     }
 
     for (const slug of candidates) {
@@ -493,7 +493,6 @@
   }
   function __pickCrecerVariant(txt) {
     const t = (txt || '').toString().toLowerCase();
-    if (t.includes('vida') && t.includes('ley')) return 'vida-ley-crecer';
     return 'crecer';
   }
   function __preferIssuer(val, label) {
@@ -1341,7 +1340,6 @@
           }
           function pickCrecerVariantByText(txt) {
             const t = (txt || '').toString().toLowerCase();
-            if (t.includes('vida') && t.includes('ley')) return 'vida-ley-crecer';
             return 'crecer';
           }
           function preferOption(val, label) {

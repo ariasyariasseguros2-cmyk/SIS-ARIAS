@@ -10,7 +10,7 @@ document.getElementById("pdfFile")?.addEventListener("change", () => {
   if (isVidaLey || name.includes("vida-ley-crecer")) {
     const opt = [...(issuerSel?.options || [])].find(o => {
       const v = (o.value || "").toLowerCase();
-      return v === "vida-ley-crecer" || v === "crecer-vida-ley";
+      return v === "crecer";
     });
     if (opt && issuerSel) issuerSel.value = opt.value;
     // Prellenar ramo producto si aplica (id correcto en la UI)
