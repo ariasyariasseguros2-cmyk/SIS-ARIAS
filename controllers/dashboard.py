@@ -19,6 +19,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
         'total_production': '$0.00',
         'prod_diff': 0,
         'active_policies': 0,
+        'total_policies': 0,
         'total_clients': 0,
         'pending_renewals': 0,
         # New cards
@@ -72,6 +73,14 @@ def get_dashboard_cards() -> Dict[str, Any]:
             cur.execute(sql, user_filter_args)
             res = cur.fetchone()
             if res: cards['active_policies'] = res[0]
+        except Exception: pass
+        
+        # 2b. Pólizas Registradas (total no anuladas)
+        try:
+            sql = f"SELECT COUNT(*) FROM polizas WHERE anulado = 0 {user_filter}"
+            cur.execute(sql, user_filter_args)
+            res = cur.fetchone()
+            if res: cards['total_policies'] = res[0]
         except Exception: pass
         
         # 3. Renovaciones Pendientes (próximo mes)

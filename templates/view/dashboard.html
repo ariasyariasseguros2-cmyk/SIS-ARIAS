@@ -99,8 +99,26 @@
             </div>
         </div>
 
+        <!-- Card 2: Pólizas Registradas -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="text-muted mb-0">Pólizas Registradas</h6>
+                        <div class="icon-shape bg-light text-secondary rounded-circle p-2">
+                            <i class="bi-journal-check fs-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-1 fw-bold">{{ cards.total_policies | default('0') }}</h3>
+                    <div class="small">
+                        <span class="text-muted">Total registradas</span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        <!-- Card 2: Pólizas Activas -->
+
+        <!-- Card 3: Pólizas Activas -->
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
@@ -118,7 +136,7 @@
             </div>
         </div>
 
-        <!-- Card 3: Clientes -->
+        <!-- Card 4: Clientes -->
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
@@ -136,7 +154,7 @@
             </div>
         </div>
         
-         <!-- Card 4: Renovaciones Pendientes -->
+         <!-- Card 5: Renovaciones Pendientes -->
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
