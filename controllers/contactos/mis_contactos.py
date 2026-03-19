@@ -20,7 +20,7 @@ def list_mis_contactos():
             q_like = f"%{q}%"
             # Búsqueda case-insensitive usando LOWER
             sql = (
-                "SELECT razon_social, telefono, email "
+                "SELECT razon_social,numero_documento,telefono, email "
                 "FROM clientes "
                 "WHERE activo = 1 AND LOWER(razon_social) LIKE LOWER(%s) "
                 "ORDER BY razon_social ASC "
@@ -29,7 +29,7 @@ def list_mis_contactos():
             cur.execute(sql, (q_like,))
         else:
             cur.execute(
-                "SELECT razon_social, telefono, email "
+                "SELECT razon_social,numero_documento, telefono, email "
                 "FROM clientes "
                 "WHERE activo = 1 "
                 "ORDER BY razon_social ASC "
@@ -43,6 +43,7 @@ def list_mis_contactos():
         for r in rows:
             clientes.append({
                 'razon_social': r.get('razon_social') or '',
+                'numero_documento': r.get('numero_documento') or '',
                 'telefono': r.get('telefono') or '',
                 'email': r.get('email') or ''
             })
