@@ -14,9 +14,7 @@ def get_aseguradoras() -> list[dict]:
         cur.close()
         cnx.close()
 
-        # Flags para inyectar opción “Crecer Vida Ley” si falta
         has_crecer = False
-        has_crecer_vidaley = False
 
         for dr in db_rows:
             nombre_corto = (dr.get('nombre_corto') or '').strip()
@@ -61,8 +59,8 @@ def get_aseguradoras() -> list[dict]:
             elif 'grandia' in low and 'eps' in low:
                 slug = 'grandia-eps'
             elif 'crecer' in low and ('vida' in low and 'ley' in low):
-                slug = 'vida-ley-crecer'
-                has_crecer_vidaley = True
+                slug = 'crecer'
+                has_crecer = True
             elif 'crecer' in low:
                 slug = 'crecer'
                 has_crecer = True
@@ -74,9 +72,7 @@ def get_aseguradoras() -> list[dict]:
                 slug = ''
             rows.append({'nombre_corto': nombre, 'slug': slug})
 
-        # Inyectar opción “Crecer Vida Ley” si solo existe “Crecer”
-        if has_crecer and not has_crecer_vidaley:
-            rows.append({'nombre_corto': 'Crecer Vida Ley', 'slug': 'vida-ley-crecer'})
+        # No inyectar variante “Crecer Vida Ley”; mantener solo “Crecer”
     except Exception:
         rows = []
     return rows
