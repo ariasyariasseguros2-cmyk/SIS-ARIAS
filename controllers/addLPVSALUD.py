@@ -254,6 +254,9 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
             ramos_producto = "Salud"
         elif "pension" in t_low or "pensi\u00f3n" in t_low:
             ramos_producto = "Pensión"
+    if has_salud and has_pension:
+        ramo_main = "SCTR"
+        ramos_producto = "Salud"
 
     item = {
         "numero_poliza": (contrato_nro if (ramo and ramo.upper().startswith("SCTR SALUD") and contrato_nro) else (poliza_nro or contrato_nro)),

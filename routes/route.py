@@ -1748,7 +1748,7 @@ def upload():
         unique = []
         seen = set()
         for it in items_ui:
-            key = f"{it.get('numero_poliza') or ''}|{it.get('ramo') or ''}"
+            key = f"{it.get('numero_poliza') or ''}|{it.get('ramo') or ''}|{(it.get('ramos_producto') or it.get('producto') or '').strip()}"
             is_meaningful = any(it.get(k) for k in ['numero_poliza', 'colectivo_asegurado', 'moneda', 'prima_comercial_igv'])
             if not is_meaningful:
                 LOG(f"[upload] descartado item vacío: {it}")
