@@ -25,6 +25,14 @@ def _find_after(label_pat: str, text: str, value_pat: str, window: int = 2000, f
             return vm.group(1).strip()
     return None
 
+def _date_if_numeric(s: Optional[str]) -> Optional[str]:
+    if not s:
+        return None
+    s = s.strip()
+    if re.fullmatch(r"(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/[0-9]{4}", s):
+        return s
+    return None
+
 def parse_crecer_vidaley(text: str) -> Dict[str, str]:
     item: Dict[str, str] = {}
     flat = _canon(text)
@@ -266,7 +274,8 @@ def parse_crecer_vidaley(text: str) -> Dict[str, str]:
                 break
     
     item["numero_documento_extracted"] = ruc_candidato
-
+    for k in ("inicio_vigencia","vencimiento","fecha_emision","ultimo_dia_pago","fecha_vencimiento"):
+        item[k] = _date_if_numeric(item.get(k))
     print("item vida ley", item)
     return {k: _clean(v) for k, v in item.items() if v}
     

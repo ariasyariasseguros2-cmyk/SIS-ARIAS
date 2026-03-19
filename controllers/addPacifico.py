@@ -13,6 +13,11 @@ def _money(s: str | None) -> str | None:
     m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+)", s)
     return m.group(1) if m else s
 
+def _valid_date(s: str | None) -> str | None:
+    if not s:
+        return None
+    return s if re.fullmatch(r"\d{2}/\d{2}/\d{4}", s) else None
+
 def _to_float(num_str: str) -> float:
     s = (num_str or "").strip().replace(" ", "")
     if not s:
@@ -628,6 +633,11 @@ def parse_pacifico_pension(text: str) -> dict | None:
     elif "salud" in t_low or "eps" in t_low:
         ramo_main = "SCTR"
         ramos_producto = "Salud"
+
+    inicio_vigencia = _valid_date(inicio_vigencia)
+    vencimiento = _valid_date(vencimiento)
+    fecha_emision = _valid_date(fecha_emision)
+    ultimo_dia_pago = _valid_date(ultimo_dia_pago)
 
     item = {
         "numero_poliza": _clean(numero_poliza),

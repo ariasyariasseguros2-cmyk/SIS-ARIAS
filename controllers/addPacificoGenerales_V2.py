@@ -2,6 +2,9 @@ import re
 import pdfplumber
 
 def addPacificoGenerales_V2(filepath):
+    def _valid_date(s: str | None) -> str:
+        return s if s and re.fullmatch(r"\d{2}/\d{2}/\d{4}", s) else ""
+
     data = {
         "aseguradora": "PACIFICO",
         "producto": "MULTISALUD",
@@ -220,6 +223,11 @@ def addPacificoGenerales_V2(filepath):
              # Back-calculate net
              data["prima_neta"] = round(data["total"] / 1.18, 2)
              data["igv"] = round(data["total"] - data["prima_neta"], 2)
+
+    data["inicio"] = _valid_date(data.get("inicio"))
+    data["fin"] = _valid_date(data.get("fin"))
+    data["fecha_pago"] = _valid_date(data.get("fecha_pago"))
+    data["emision"] = _valid_date(data.get("emision"))
 
     print(f"[PacificoGeneralesV2] Extracted: {data}")
     return data

@@ -13,6 +13,11 @@ def _money(s: str | None) -> str | None:
     m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+)", s)
     return m.group(1) if m else s
 
+def _valid_date(s: str | None) -> str | None:
+    if not s:
+        return None
+    return s if re.fullmatch(r"\d{2}/\d{2}/\d{4}", s) else None
+
 def _capture_block_after(label: str, text: str, end_labels: list[str]) -> str | None:
     m = re.search(label, text, re.IGNORECASE)
     if not m:
@@ -482,6 +487,12 @@ def parse_pacifico_salud(text: str) -> dict | None:
         candidates_dni = re.findall(r"(?:D\.?N\.?I\.?)\s*[:]?\s*(\d{8})", text, re.IGNORECASE)
         if candidates_dni:
             ruc_candidato = candidates_dni[0]
+
+    inicio_vigencia = _valid_date(inicio_vigencia)
+    vencimiento = _valid_date(vencimiento)
+    fecha_emision = _valid_date(fecha_emision)
+    ultimo_dia_pago = _valid_date(ultimo_dia_pago)
+    fecha_vencimiento = _valid_date(fecha_vencimiento)
 
     item = {
         "numero_poliza": _clean(numero_poliza),

@@ -14,6 +14,14 @@ def _money(s: Optional[str]) -> Optional[str]:
     m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+)", s)
     return m.group(1) if m else s
 
+def _date_if_numeric(s: Optional[str]) -> Optional[str]:
+    if not s:
+        return None
+    s = s.strip()
+    if re.fullmatch(r"(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/[0-9]{4}", s):
+        return s
+    return None
+
 def parse_crecer_pension(text: str) -> Dict[str, str]:
     # Contrato / Póliza
     contrato = _find(r"Contrato\s*:\s*([0-9\-\s]+)", text) or _find(r"CONTRATO\s*:\s*([0-9\-\s]+)", text)
@@ -33,6 +41,10 @@ def parse_crecer_pension(text: str) -> Dict[str, str]:
     # Fecha emisión y último día de pago (superior derecho)
     fecha_emision = _find(r"FECHA\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
     ultimo_dia_pago = _find(r"Vencimiento\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    inicio_vigencia = _date_if_numeric(inicio_vigencia)
+    vencimiento = _date_if_numeric(vencimiento)
+    fecha_emision = _date_if_numeric(fecha_emision)
+    ultimo_dia_pago = _date_if_numeric(ultimo_dia_pago)
 
     # Contratante / Colectivo
     colectivo = _find(r"Contratante\s*:\s*(.+)", text) or _find(r"CONTRATANTE\s*:\s*(.+)", text)

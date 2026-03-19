@@ -18,6 +18,11 @@ def _money(s: str | None) -> str | None:
     m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+)", s)
     return m.group(1) if m else s
 
+def _valid_date(s: str | None) -> str | None:
+    if not s:
+        return None
+    return s if re.fullmatch(r"\d{2}/\d{2}/\d{4}", s) else None
+
 def _capture_block_after(label: str, text: str, end_labels: list[str]) -> str | None:
     m = re.search(label, text, re.IGNORECASE)
     if not m:
@@ -357,6 +362,11 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
         ramo_main = "VIDA - LEY"
         if "empleados" in t_low:
             ramos_producto = "EMPLEADOS"
+
+    inicio_vigencia = _valid_date(inicio_vigencia)
+    vencimiento = _valid_date(vencimiento)
+    fecha_emision = _valid_date(fecha_emision)
+    ultimo_dia_pago = _valid_date(ultimo_dia_pago)
 
     item = {
         "numero_poliza": _clean(numero_poliza),

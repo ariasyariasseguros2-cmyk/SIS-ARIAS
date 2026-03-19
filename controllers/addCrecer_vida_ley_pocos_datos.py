@@ -14,6 +14,14 @@ def _money(s: Optional[str]) -> Optional[str]:
     m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+)", s)
     return m.group(1) if m else s
 
+def _date_if_numeric(s: Optional[str]) -> Optional[str]:
+    if not s:
+        return None
+    s = s.strip()
+    if re.fullmatch(r"(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/[0-9]{4}", s):
+        return s
+    return None
+
 def parse_crecer_vidaley_pocos_datos(text: str) -> Dict[str, str]:
     item: Dict[str, str] = {}
     
@@ -80,6 +88,11 @@ def parse_crecer_vidaley_pocos_datos(text: str) -> Dict[str, str]:
     # A veces es igual al vencimiento o se calcula
     if item.get('vencimiento') and not item.get('ultimo_dia_pago'):
         item['ultimo_dia_pago'] = item['vencimiento']
+
+    item['inicio_vigencia'] = _date_if_numeric(item.get('inicio_vigencia'))
+    item['vencimiento'] = _date_if_numeric(item.get('vencimiento'))
+    item['fecha_emision'] = _date_if_numeric(item.get('fecha_emision'))
+    item['ultimo_dia_pago'] = _date_if_numeric(item.get('ultimo_dia_pago'))
     
     print("item vida ley pocos datos", item)
     return {k: _clean(v) for k, v in item.items() if v}
