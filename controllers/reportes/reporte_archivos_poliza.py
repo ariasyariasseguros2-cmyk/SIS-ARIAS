@@ -17,11 +17,12 @@ def get_reporte_archivos(search='', limit=INITIAL_LIMIT):
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         # Fix para los parámetros opcionales del SP: si el SP no acepta el segundo parámetro, llamar solo con search
+        effective_search = search if (search and search.strip()) else '%'
         try:
-            cursor.callproc('sp_reporte_archivos_resumen', [search, limit + 1])
+            cursor.callproc('sp_reporte_archivos_resumen', [effective_search, limit + 1])
         except mysql_errors.ProgrammingError as e:
             if 'Incorrect number of arguments' in str(e) and 'expected 1' in str(e):
-                cursor.callproc('sp_reporte_archivos_resumen', [search])
+                cursor.callproc('sp_reporte_archivos_resumen', [effective_search])
             else:
                 raise
         results = []

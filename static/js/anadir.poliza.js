@@ -1698,9 +1698,14 @@
           <span class="text-truncate me-2" style="max-width: 200px;" title="${file.name}">
             <i class="bi bi-paperclip me-1"></i>${file.name}
           </span>
+          <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary p-0 px-2 btn-view-anexo" data-index="${idx}" title="Ver">
+              <i class="bi bi-eye"></i>
+            </button>
           <button type="button" class="btn btn-sm btn-link text-danger p-0 border-0 btn-remove-anexo" data-index="${idx}">
             <i class="bi bi-x-circle"></i>
           </button>
+          </div>
         </li>
       `;
     });
@@ -1714,6 +1719,28 @@
         if (Number.isFinite(idx)) {
           allAnexos.splice(idx, 1);
           renderAnexosList();
+        }
+      });
+    });
+    // Listener para ver
+    anexosListEl.querySelectorAll('.btn-view-anexo').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = Number(e.currentTarget.dataset.index);
+        const file = Number.isFinite(idx) ? allAnexos[idx] : null;
+        if (!file) return;
+        try {
+          const url = URL.createObjectURL(file);
+          const titleEl = document.getElementById('pdfModalLabel');
+          if (titleEl) titleEl.textContent = `Anexo: ${file.name}`;
+          if (typeof window.openPdfInModal === 'function') {
+            window.openPdfInModal(url);
+          } else {
+            window.open(url, '_blank', 'noopener');
+          }
+          setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_) {} }, 10000);
+        } catch (err) {
+          console.error('preview anexo error', err);
+          alert('No se pudo abrir el anexo para vista previa.');
         }
       });
     });

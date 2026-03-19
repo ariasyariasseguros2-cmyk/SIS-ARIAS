@@ -209,14 +209,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function formatFecha(val) {
         if (!val) return '-';
-        const date = new Date(val);
+        const dstr = typeof val === 'string' ? (val.includes('T') ? val : val.replace(' ', 'T')) : val;
+        const date = new Date(dstr);
         if (isNaN(date.getTime())) return val;
-        const d  = String(date.getUTCDate()).padStart(2,'0');
-        const m  = String(date.getUTCMonth()+1).padStart(2,'0');
-        const y  = date.getUTCFullYear();
-        const hh = String(date.getUTCHours()).padStart(2,'0');
-        const mm = String(date.getUTCMinutes()).padStart(2,'0');
-        return `${d}/${m}/${y} ${hh}:${mm}`;
+        const parts = new Intl.DateTimeFormat('es-PE', {
+            timeZone: 'America/Lima',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        }).formatToParts(date);
+        const get = t => (parts.find(p => p.type === t) || { value: '' }).value;
+        return `${get('day')}/${get('month')}/${get('year')} ${get('hour')}:${get('minute')}`;
     }
 
     // ── Render tabla ─────────────────────────────────────────────────────────
