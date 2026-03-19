@@ -1,0 +1,105 @@
+﻿{% extends "view/layout_dashboard.html" %}
+{% block html_title %}Reporte de Cumpleaños{% endblock %}
+{% block page_title %}Clientes | Reporte de Cumpleaños{% endblock %}
+{% block content %}
+<div class="row mb-3">
+    <div class="col-12">
+        <h2>Reporte de Cumpleaños</h2>
+        <p class="text-muted">Listado de clientes con fecha de nacimiento registrada.</p>
+    </div>
+</div>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form id="form-filtros" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="filtro-mes" class="form-label">Filtrar por Mes</label>
+                <select id="filtro-mes" class="form-select">
+                    <option value="">Todos los meses</option>
+                    <option value="1">Enero</option>
+                    <option value="2">Febrero</option>
+                    <option value="3">Marzo</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Mayo</option>
+                    <option value="6">Junio</option>
+                    <option value="7">Julio</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Septiembre</option>
+                    <option value="10">Octubre</option>
+                    <option value="11">Noviembre</option>
+                    <option value="12">Diciembre</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="button" id="btn-buscar" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i> Buscar
+                </button>
+            </div>
+            <div class="col-md-2">
+                 <button type="button" id="btn-exportar" class="btn btn-success w-100" onclick="exportTableToExcel('tabla-cumpleanos', 'reporte_cumpleanos')">
+                    <i class="fas fa-file-excel"></i> Exportar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0" id="tabla-cumpleanos">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50px;">ID</th>
+                        <th>Razón Social / Nombre</th>
+                        <th>Documento</th>
+                        <th>Fecha Nac.</th>
+                        <th>Día</th>
+                        <th>Mes</th>
+                        <th>Edad</th>
+                        <th>Email</th>
+                        <th>Teléfono</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-resultados">
+                    <!-- JS populate -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<script>
+function exportTableToExcel(tableID, filename = ''){
+    var downloadLink;
+    var dataType = 'application/vnd.ms-excel';
+    var tableSelect = document.getElementById(tableID);
+    var tableHTML = tableSelect.outerHTML.replace(/ /g, '%20');
+    // Specify file name
+    filename = filename?filename+'.xls':'excel_data.xls';
+    // Create download link element
+    downloadLink = document.createElement("a");
+    document.body.appendChild(downloadLink);
+    if(navigator.msSaveOrOpenBlob){
+        var blob = new Blob(['\ufeff', tableHTML], {
+            type: dataType
+        });
+        navigator.msSaveOrOpenBlob( blob, filename);
+    }else{
+        // Create a link to the file
+        downloadLink.href = 'data:' + dataType + ', ' + tableHTML;
+        // Setting the file name
+        downloadLink.download = filename;
+        //triggering the function
+        downloadLink.click();
+    }
+}
+</script>
+{% endblock %}
+{% block extra_js_bottom %}
+<script>
+window.CUMPLEANOS_API_URL = "{{ url_for('main.api_reporte_cumpleanos') }}";
+</script>
+<script src="{{ url_for('static', filename='js/cliente/reportecumpleanios.js') }}"></script>
+{{ super() }}
+{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cliente/reporte-cumpleanios.css') }}">
+{% endblock %}
