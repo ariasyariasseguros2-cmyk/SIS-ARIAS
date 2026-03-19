@@ -88,6 +88,151 @@
             input.addEventListener('input', (e) => debouncedFilter(e.target.value));
         }
 
+        const voiceBtn = document.getElementById('voiceSearchBtn');
+        const voiceModalEl = document.getElementById('voiceSearchModal');
+        const voiceStopBtn = document.getElementById('voiceStopBtn');
+        const voiceStatus = document.getElementById('voiceStatus');
+        const voiceText = document.getElementById('voiceText');
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let listening = false;
+
+        if (voiceBtn) {
+            voiceBtn.addEventListener('click', (e) => {
+                if (!SR) {
+                    alert('Tu navegador no soporta búsqueda por voz.');
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            });
+        }
+
+        if (SR && voiceModalEl) {
+            recognition = new SR();
+            recognition.lang = 'es-ES';
+            recognition.interimResults = true;
+            recognition.maxAlternatives = 1;
+            recognition.continuous = true;
+
+            voiceModalEl.addEventListener('shown.bs.modal', () => {
+                if (!recognition) return;
+                voiceStatus.textContent = 'Escuchando...';
+                voiceText.textContent = '';
+                try { recognition.start(); listening = true; } catch (_) {}
+            });
+
+            voiceModalEl.addEventListener('hidden.bs.modal', () => {
+                if (!recognition) return;
+                if (listening) {
+                    try { recognition.stop(); } catch (_) {}
+                    listening = false;
+                }
+            });
+
+            if (voiceStopBtn) {
+                voiceStopBtn.addEventListener('click', () => {
+                    if (!recognition) return;
+                    if (listening) {
+                        try { recognition.stop(); } catch (_) {}
+                        listening = false;
+                        voiceStatus.textContent = 'Detenido';
+                    }
+                });
+            }
+
+            recognition.addEventListener('result', (event) => {
+                let finalText = '';
+                let interim = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) finalText += transcript;
+                    else interim += transcript;
+                }
+                const shown = finalText || interim;
+                voiceText.textContent = shown;
+                if (finalText) {
+                    const normalized = normalizeSpoken(finalText);
+                    if (input) input.value = normalized;
+                    debouncedFilter(normalized);
+                    const m = (window.bootstrap && window.bootstrap.Modal.getInstance(voiceModalEl)) || (window.bootstrap && new window.bootstrap.Modal(voiceModalEl));
+                    if (m) m.hide();
+                }
+            });
+
+            recognition.addEventListener('error', () => {
+                voiceStatus.textContent = 'Error de reconocimiento';
+            });
+
+            recognition.addEventListener('end', () => {
+                listening = false;
+                voiceStatus.textContent = 'Finalizado';
+            });
+        }
+
+        function normalizeSpoken(text) {
+            let t = (text || '').toLowerCase();
+            t = t.replace(/\./g, ' ');
+            t = t.replace(/\b(punto)\b/g, ' ');
+            t = t.replace(/\b(punto\s+y\s+coma)\b/g, ';');
+            t = t.replace(/\b(dos\s+puntos)\b/g, ':');
+            t = t.replace(/\b(arroba)\b/g, '@');
+            t = t.replace(/\b(guion\s+bajo|guión\s+bajo)\b/g, '_');
+            t = t.replace(/\b(guion|guión)\b/g, '-');
+            t = t.replace(/\b(numeral|hashtag|almohadilla)\b/g, '#');
+            t = t.replace(/\b(coma)\b/g, ',');
+            t = t.replace(/\b(porcentaje)\b/g, '%');
+            t = t.replace(/\b(ampersand|y\s+comercial)\b/g, '&');
+            t = t.replace(/\b(slash|barra|diagonal)\b/g, '/');
+            t = t.replace(/\b(backslash|barra\s+invertida)\b/g, '\\\\');
+            t = t.replace(/\b(mas|más|signo\s+mas|signo\s+de\s+mas)\b/g, '+');
+            t = t.replace(/\b(menos|signo\s+menos)\b/g, '-');
+            t = t.replace(/\b(igual|signo\s+igual)\b/g, '=');
+            t = t.replace(/\b(asterisco)\b/g, '*');
+            t = t.replace(/\b(interrogacion|interrogación|signo\s+de\s+interrogacion|signo\s+de\s+interrogación)\b/g, '?');
+            t = t.replace(/\b(exclamacion|exclamación|signo\s+de\s+exclamacion|signo\s+de\s+exclamación)\b/g, '!');
+            t = t.replace(/\b(parentesis\s+abre|paréntesis\s+abre)\b/g, '(');
+            t = t.replace(/\b(parentesis\s+cierra|paréntesis\s+cierra)\b/g, ')');
+            t = t.replace(/\b(corchete\s+abre)\b/g, '[');
+            t = t.replace(/\b(corchete\s+cierra)\b/g, ']');
+            t = t.replace(/\b(llave\s+abre)\b/g, '{');
+            t = t.replace(/\b(llave\s+cierra)\b/g, '}');
+            t = t.replace(/\b(comilla\s+simple)\b/g, "'");
+            t = t.replace(/\b(comilla\s+doble)\b/g, '"');
+            t = t.replace(/\b(be\s+larga)\b/g, 'b');
+            t = t.replace(/\b(ve\s+larga)\b/g, 'v');
+            t = t.replace(/\b(ve\s+corta)\b/g, 'v');
+            t = t.replace(/\b(a)\b/g, 'a');
+            t = t.replace(/\b(be)\b/g, 'b');
+            t = t.replace(/\b(ce)\b/g, 'c');
+            t = t.replace(/\b(de)\b/g, 'd');
+            t = t.replace(/\b(e)\b/g, 'e');
+            t = t.replace(/\b(efe)\b/g, 'f');
+            t = t.replace(/\b(ge)\b/g, 'g');
+            t = t.replace(/\b(hache)\b/g, 'h');
+            t = t.replace(/\b(i)\b/g, 'i');
+            t = t.replace(/\b(jota)\b/g, 'j');
+            t = t.replace(/\b(ka)\b/g, 'k');
+            t = t.replace(/\b(ele)\b/g, 'l');
+            t = t.replace(/\b(elle)\b/g, 'll');
+            t = t.replace(/\b(eme)\b/g, 'm');
+            t = t.replace(/\b(ene)\b/g, 'n');
+            t = t.replace(/\b(eñe)\b/g, 'ñ');
+            t = t.replace(/\b(o)\b/g, 'o');
+            t = t.replace(/\b(pe)\b/g, 'p');
+            t = t.replace(/\b(cu)\b/g, 'q');
+            t = t.replace(/\b(erre)\b/g, 'r');
+            t = t.replace(/\b(ese)\b/g, 's');
+            t = t.replace(/\b(te)\b/g, 't');
+            t = t.replace(/\b(u)\b/g, 'u');
+            t = t.replace(/\b(uve|ve)\b/g, 'v');
+            t = t.replace(/\b(uve\s+doble|doble\s+ve|doble\s+u)\b/g, 'w');
+            t = t.replace(/\b(equis)\b/g, 'x');
+            t = t.replace(/\b(ye|i\s+griega)\b/g, 'y');
+            t = t.replace(/\b(zeta)\b/g, 'z');
+            t = t.replace(/\s{2,}/g, ' ').trim();
+            return t;
+        }
+
         // filtros y ordenamiento
         let currentSort = { column: null, ascending: true };
         const orderLinks = document.querySelectorAll('[data-order]');

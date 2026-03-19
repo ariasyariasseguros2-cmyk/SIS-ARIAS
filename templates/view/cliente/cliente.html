@@ -41,6 +41,9 @@
             <span class="input-group-text bg-white border-end-0"><i class="bi-search"></i></span>
             <input id="searchInput" type="text" class="form-control border-start-0 ps-0" placeholder="Buscar">
         </div>
+        <button id="voiceSearchBtn" class="btn btn-outline-secondary btn-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#voiceSearchModal" title="Buscar por voz">
+            <i class="bi-mic-fill"></i>
+        </button>
     </div>
 </div>
 
@@ -140,6 +143,32 @@
         {% endif %}
     </div>
 </div>
+
+<div class="modal fade" id="voiceSearchModal" tabindex="-1" aria-labelledby="voiceSearchLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="voiceSearchLabel"><i class="bi-mic"></i> Buscar por voz</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex align-items-center gap-2">
+          <div class="spinner-grow text-danger spinner-grow-sm" role="status" aria-hidden="true"></div>
+          <div id="voiceStatus" class="fw-semibold">Preparando...</div>
+        </div>
+        <div class="mt-3">
+          <div class="form-control" style="min-height: 80px;">
+            <span id="voiceText" class="text-muted"></span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="voiceStopBtn" class="btn btn-outline-danger btn-sm"><i class="bi-stop-fill"></i> Detener</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+  </div>
 
 {# No incluir ventanas de añadir/editar cuando estemos en clientes anulados #}
 {% if page != 'clientes-anulados' %}
