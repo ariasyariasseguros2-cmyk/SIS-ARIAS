@@ -9,8 +9,8 @@ import mysql.connector.errors as mysql_errors
 
 bp = Blueprint('reporte_archivos_poliza', __name__)
 
-INITIAL_LIMIT = 20   # filas en la carga inicial (sin búsqueda)
-SEARCH_LIMIT  = 500  # filas cuando el usuario busca un contratante específico
+INITIAL_LIMIT = 1000000
+SEARCH_LIMIT  = 1000000
 
 def get_reporte_archivos(search='', limit=INITIAL_LIMIT):
     try:
