@@ -17,8 +17,10 @@ document.addEventListener('DOMContentLoaded', function () {
       var tel = escapeHtml(r.telefono || '');
       var email = escapeHtml(r.email || '');
       var mailto = '<a href="mailto:' + encodeURIComponent(r.email || '') + '">' + email + '</a>';
+      var numero_documento = escapeHtml(r.numero_documento || '');
       return '<tr>' +
                '<td>' + nombre + '</td>' +
+               '<td>' + numero_documento + '</td>' +
                '<td>' + tel + '</td>' +
                '<td>' + mailto + '</td>' +
              '</tr>';
