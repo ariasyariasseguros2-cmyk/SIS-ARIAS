@@ -34,6 +34,7 @@
                     <thead>
                         <tr>
                             <th>Nombre / Razón Social</th>
+                            <th>Número de Documento</th>
                             <th>Teléfono</th>
                             <th>Email</th>
                         </tr>
@@ -42,6 +43,7 @@
                         {% for cliente in clientes %}
                             <tr>
                                 <td>{{ cliente.razon_social }}</td>
+                                <td>{{ cliente.numero_documento}}</td>
                                 <td>{{ cliente.telefono }}</td>
                                 <td>{{ cliente.email }}</td>
                             </tr>
