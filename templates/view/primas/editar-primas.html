@@ -121,11 +121,11 @@
                         <label for="tipoPago" class="form-label">Tipo de Pago</label>
                         <select class="form-select" id="tipoPago">
                             <option value="CONTADO" {% if prima and prima.forma_pago == 'CONTADO' %}selected{% endif %}>CONTADO</option>
-                            <option value="CREDITO" {% if prima and prima.forma_pago == 'CREDITO' %}selected{% endif %}>PAGO EFECTIVO</option>
+                            <option value="PAGO EFECTIVO" {% if prima and prima.forma_pago == 'PAGO EFECTIVO' %}selected{% endif %}>PAGO EFECTIVO</option>
                             <option value="OTRO" {% if prima and prima.forma_pago == 'OTRO' %}selected{% endif %}>SIN PRIMA</option>
-                            <option value="PAGO EFECTIVO" {% if prima and prima.forma_pago == 'PAGO EFECTIVO' %}selected{% endif %}>CARGO EN CUENTA</option>
-                            <option value="OTRO" {% if prima and prima.forma_pago == 'OTRO' %}selected{% endif %}>SFETY PAY</option>
-                            <option value="CARGO EN CUENTA" {% if prima and prima.forma_pago == 'CARGO EN CUENTA' %}selected{% endif %}>SIN PRIMA</option>
+                            <option value="CARGO EN CUENTA" {% if prima and prima.forma_pago == 'CARGO EN CUENTA' %}selected{% endif %}>CARGO EN CUENTA</option>
+                            <option value="SFETY PAY" {% if prima and prima.forma_pago == 'SFETY PAY' %}selected{% endif %}>SFETY PAY</option>
+                            <option value="SIN PRIMA" {% if prima and prima.forma_pago == 'SIN PRIMA' %}selected{% endif %}>SIN PRIMA</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -214,13 +214,15 @@
                 <!-- SECCIÓN 4: DETALLES ADICIONALES -->
                 <h6 class="text-uppercase text-muted fw-bold fs-7 mb-3 mt-4 ls-1 border-top pt-4"><i class="bi-info-circle me-2"></i>Detalles Adicionales</h6>
                 <div class="row g-3 mb-4">
+                    <!-- Motivo (comentado por solicitud)
                     <div class="col-md-4">
                         <label for="motivo" class="form-label">Motivo <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="motivo" value="{{ prima.motivo if prima else '' }}">
                     </div>
+                    -->
                     <div class="col-md-4">
                         <label for="nroOperacion" class="form-label">Número de Operación</label>
-                        <input type="text" class="form-control" id="nroOperacion" value="{{ prima.nro if prima else '' }}">
+                        <input type="text" class="form-control" id="nroOperacion" value="{{ prima.nro if prima and prima.nro else '' }}">
                     </div>
                     <div class="col-md-4">
                         <label for="numPrimeraCuota" class="form-label">Num. de la primera cuota</label>

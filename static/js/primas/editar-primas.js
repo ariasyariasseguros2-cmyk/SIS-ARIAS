@@ -153,7 +153,7 @@ window.initEditarPrimasLogic = function(isModal = false) {
                 prima_comercial: document.getElementById('primaComercial').value,
                 prima_neta: document.getElementById('primaNeta').value,
                 prima_comercial_igv: document.getElementById('primaTotal').value,
-                motivo: document.getElementById('motivo').value,
+                // motivo: document.getElementById('motivo').value, // comentado por solicitud
                 nro_operacion: document.getElementById('nroOperacion').value,
                 porc_compania: document.getElementById('comisionCompania').value,
                 imp_compania: document.getElementById('importeComisionCompania').value,

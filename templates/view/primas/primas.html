@@ -88,7 +88,7 @@
                     <th>Vig Inicio</th>
                     <th>Vig Fin</th>
                     <th>Nro.Operación</th>
-                    <th>Motivo</th>
+                    <!-- Motivo (comentado por solicitud) -->
                     <th class="text-end">Acción</th>
                 </tr>
             </thead>
@@ -106,8 +106,8 @@
                     <td>{{ r.prima_total }}</td>
                     <td>{{ r.vig_inicio }}</td>
                     <td>{{ r.vig_fin }}</td>
-                    <td>{{ r.nro_operacion }}</td>
-                    <td>{{ r.motivo }}</td>
+                    <td>{{ r.nro_operacion or '' }}</td>
+                    <!-- Motivo (comentado por solicitud): {{ r.motivo }} -->
                     <td class="text-end">
                         <div class="action-buttons justify-content-end">
                             <button class="btn-action btn-primary btn-cuotas"
@@ -128,7 +128,7 @@
                 {% endfor %}
                 {% if not rows %}
                 <tr>
-                    <td colspan="14" class="text-center text-muted py-4">Sin datos</td>
+                    <td colspan="13" class="text-center text-muted py-4">Sin datos</td>
                 </tr>
                 {% endif %}
             </tbody>
