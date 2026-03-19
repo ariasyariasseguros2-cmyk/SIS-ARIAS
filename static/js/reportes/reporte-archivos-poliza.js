@@ -8,12 +8,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const contratanteList = document.getElementById('contratanteList');
     const suggestionsEl = document.getElementById('contratanteSuggestions');
     const selectedClienteIdInput = document.getElementById('selectedClienteId');
+    const pageSizeSelect = document.getElementById('pageSizeSelect');
+    const paginationEl = document.getElementById('pagination');
+    const pageInfoEl = document.getElementById('pageInfo');
 
     let debounceTimer;
     let suggestions = [];
     let activeSuggestion = -1;
     let lastSelectedName = '';
     let suggestTimer = null;
+    let allData = [];
+    let groups = [];
+    let currentPage = 1;
+    let pageSize = pageSizeSelect ? parseInt(pageSizeSelect.value, 10) : 10;
 
     // ── Carga inicial ────────────────────────────────────────────────────────
     fetchFiles();
@@ -170,7 +177,10 @@ document.addEventListener('DOMContentLoaded', function() {
             // El API devuelve { data: [...], has_more: bool }
             const data     = json.data     ?? json;   // fallback por si acaso
             const has_more = json.has_more ?? false;
-            renderTable(data);
+            allData = Array.isArray(data) ? data : [];
+            buildGroupsFromData(allData);
+            currentPage = 1;
+            renderPage();
             if (has_more && !query) {
                 showBanner();
             }
@@ -422,6 +432,106 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.addEventListener('click', function() {
                 window.location.href = `/api/reportes/download-zip?identificador=${encodeURIComponent(this.dataset.id)}&tipo=${encodeURIComponent(this.dataset.type)}`;
             });
+        });
+    }
+
+    function buildGroupsFromData(data) {
+        const polizas = data.filter(r => r.tipo_origen === 'POLIZA');
+        const cuotas  = data.filter(r => r.tipo_origen === 'CUOTA');
+        const cuotasByPoliza = {};
+        cuotas.forEach(c => {
+            const padre = c.poliza_padre_id || '__sin_padre__';
+            if (!cuotasByPoliza[padre]) cuotasByPoliza[padre] = [];
+            cuotasByPoliza[padre].push(c);
+        });
+        const gs = [];
+        polizas.forEach(p => {
+            gs.push({ type: 'POLIZA', id: p.identificador });
+        });
+        (cuotasByPoliza['__sin_padre__'] || []).forEach(c => {
+            gs.push({ type: 'CUOTA_ORPHAN', id: c.cuota_id });
+        });
+        groups = gs;
+    }
+
+    function getPageData() {
+        const totalGroups = groups.length;
+        const start = Math.max(0, (currentPage - 1) * pageSize);
+        const end = Math.min(start + pageSize, totalGroups);
+        const slice = groups.slice(start, end);
+        const polizaMap = {};
+        const cuotasByPoliza = {};
+        allData.forEach(r => {
+            if (r.tipo_origen === 'POLIZA') {
+                polizaMap[r.identificador] = r;
+            } else if (r.tipo_origen === 'CUOTA') {
+                const padre = r.poliza_padre_id || '__sin_padre__';
+                if (!cuotasByPoliza[padre]) cuotasByPoliza[padre] = [];
+                cuotasByPoliza[padre].push(r);
+            }
+        });
+        const pageRaw = [];
+        slice.forEach(g => {
+            if (g.type === 'POLIZA') {
+                const p = polizaMap[g.id];
+                if (p) {
+                    pageRaw.push(p);
+                    (cuotasByPoliza[g.id] || []).forEach(c => pageRaw.push(c));
+                }
+            } else {
+                const orphan = (cuotasByPoliza['__sin_padre__'] || []).find(x => String(x.cuota_id) === String(g.id));
+                if (orphan) pageRaw.push(orphan);
+            }
+        });
+        return { pageRaw, totalGroups, start, end };
+    }
+
+    function renderPage() {
+        const { pageRaw, totalGroups, start, end } = getPageData();
+        renderTable(pageRaw);
+        renderPagination(totalGroups);
+        if (pageInfoEl) {
+            pageInfoEl.textContent = `Mostrando ${start + 1}–${end} de ${totalGroups}`;
+        }
+    }
+
+    function renderPagination(totalGroups) {
+        if (!paginationEl) return;
+        const pages = Math.max(1, Math.ceil(totalGroups / pageSize));
+        let html = '';
+        const prevDisabled = currentPage <= 1 ? ' disabled' : '';
+        const nextDisabled = currentPage >= pages ? ' disabled' : '';
+        html += `<li class="page-item${prevDisabled}"><a class="page-link" href="#" data-action="prev">&laquo;</a></li>`;
+        for (let i = 1; i <= pages; i++) {
+            const active = i === currentPage ? ' active' : '';
+            html += `<li class="page-item${active}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+        }
+        html += `<li class="page-item${nextDisabled}"><a class="page-link" href="#" data-action="next">&raquo;</a></li>`;
+        paginationEl.innerHTML = html;
+        paginationEl.querySelectorAll('a.page-link').forEach(a => {
+            a.addEventListener('click', function(e) {
+                e.preventDefault();
+                const act = this.dataset.action;
+                const num = parseInt(this.dataset.page || '0', 10);
+                const pages = Math.max(1, Math.ceil(groups.length / pageSize));
+                if (act === 'prev') {
+                    currentPage = Math.max(1, currentPage - 1);
+                } else if (act === 'next') {
+                    currentPage = Math.min(pages, currentPage + 1);
+                } else if (num) {
+                    currentPage = num;
+                }
+                renderPage();
+            });
+        });
+    }
+
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', function() {
+            const val = parseInt(this.value, 10);
+            pageSize = isNaN(val) ? 10 : val;
+            currentPage = 1;
+            renderPage();
         });
     }
 
