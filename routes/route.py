@@ -555,7 +555,7 @@ def lookup_comision_route():
 
     cia = request.args.get('cia')
     ramo = request.args.get('ramo')
-    producto = request.args.get('producto') 
+    producto = request.args.get('producto')
 
     # Candidates for lookup: try producto first, then ramo
     candidates = []
@@ -587,17 +587,17 @@ def home():
 def gestion():
     if 'user' not in session:
         return redirect(url_for('login'))
-        
+
     fecha_desde = request.args.get('fecha_desde') or request.form.get('fecha_desde')
     fecha_hasta = request.args.get('fecha_hasta') or request.form.get('fecha_hasta')
     orden_fechas = request.args.get('orden_fechas') or request.form.get('orden_fechas') or 'ASC'
-    
+
     from controllers.gestion import get_gestion_rows
     rows = get_gestion_rows(fecha_desde, fecha_hasta, orden_fechas)
-    
+
     from datetime import date
     today = date.today().isoformat()
-    
+
     return render_template('view/gestion.html', rows=rows, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas=orden_fechas, today=today)
 from controllers.reportes.reporte_archivos_poliza import bp as reporte_archivos_bp
 bp.register_blueprint(reporte_archivos_bp)
@@ -1365,10 +1365,24 @@ def menu_page(page):
         filters = get_reporte_produccion_filters()
         return render_template('view/reportes/reporte-produccion.html', page='reporte-produccion', filtros=filters)
 
+    if page == 'clientes-cumpleanos':
+        return render_template('view/cliente/reporte-cumpleaños.html')
+
     abort(404)
 
 
-@bp.route('/api/reporte-diario', methods=['POST'])
+@bp.route('/api/reportes/cumpleanos', methods=['GET'])
+def api_reporte_cumpleanos():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    mes = request.args.get('mes')
+    try:
+        from controllers.clientes.reporte_cumpleanios import get_cumpleanos_data
+        rows = get_cumpleanos_data(mes)
+        return jsonify({'ok': True, 'rows': rows})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
 def api_reporte_diario():
     if 'user' not in session:
         return {'ok': False, 'error': 'No autenticado'}, 401
@@ -3949,7 +3963,7 @@ def api_produccion_soat():
 def api_produccion_soat_export():
     if 'user' not in session:
         return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
-    
+
     search      = request.args.get('search', '').strip()
     fecha_desde = request.args.get('fecha_desde', None)
     fecha_hasta = request.args.get('fecha_hasta', None)
@@ -4454,5 +4468,7 @@ def delete_vendedor(id):
     from controllers.maestros.vendedores import eliminar_vendedor
     eliminar_vendedor(id)
     return redirect(url_for('main.menu_page', page='maestros-vendedores'))
+
+
 
 
