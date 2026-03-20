@@ -1,18 +1,167 @@
 /* Estilos para Mis Contactos */
-#search-q {
-  max-width: 420px;
+
+/* Header mejorado */
+.card-header.bg-gradient {
+  background: linear-gradient(135deg, #4A90E2 0%, #2E5C8A 100%) !important;
+  border-radius: 0.25rem 0.25rem 0 0;
 }
 
-#mis-contactos-tbody td a {
-  color: #1a73e8;
-  text-decoration: none;
+.card-header.bg-gradient h6 {
+  letter-spacing: 0.5px;
+  font-size: 0.95rem;
 }
-#mis-contactos-tbody td a:hover {
+
+/* Estilos de la tabla */
+.table-hover tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.table-hover tbody tr:hover {
+  background-color: #f8f9ff;
+}
+
+#mis-contactos-tbody td {
+  vertical-align: middle;
+  padding: 0.5rem 0.5rem;
+}
+
+#mis-contactos-tbody td.fw-500 {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+/* WhatsApp Chip */
+a.whatsapp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  background-color: transparent;
+  color: #25d366;
+  border-radius: 20px;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  border: 1.5px solid #25d366;
+}
+
+a.whatsapp-chip:hover {
+  background-color: #f0f8f4;
+  border-color: #1fa952;
+  color: #1fa952;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(37, 211, 102, 0.2);
+}
+
+a.whatsapp-chip i {
+  font-size: 0.9rem;
+}
+
+/* Links de teléfono y email */
+a.link-phone,
+a.link-email {
+  color: #0066cc;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+a.link-phone:hover,
+a.link-email:hover {
+  color: #0052a3;
   text-decoration: underline;
 }
 
-/* Ajustes responsivos mínimos */
+/* Input de búsqueda */
+#search-q {
+  max-width: 420px;
+  border-color: #ccc !important;
+}
+
+#search-q:focus {
+  border-color: #666 !important;
+  box-shadow: 0 0 0 0.2rem rgba(102, 102, 102, 0.1);
+}
+
+#search-q::placeholder {
+  color: #adb5bd;
+}
+
+/* Alerta informativa */
+.alert-info {
+  background-color: #e7f3ff;
+  border-color: #b3d9ff;
+  color: #004085;
+  margin: 0;
+}
+
+/* Icono de inbox vacío */
+.bi-inbox {
+  opacity: 0.5;
+}
+
+/* Thead */
+.table thead.table-light {
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.table thead th {
+  font-weight: 600;
+  color: #495057;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.7rem 0.5rem;
+}
+
+/* Ajustes responsivos */
+@media (max-width: 768px) {
+  #search-q {
+    max-width: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  .table thead th {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.25rem;
+  }
+
+  a.whatsapp-chip {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  #mis-contactos-tbody td {
+    padding: 0.4rem 0.25rem;
+  }
+}
+
 @media (max-width: 576px) {
-  #search-q { width: 100%; }
+  #search-q {
+    width: 100%;
+  }
+
+  .table {
+    font-size: 0.85rem;
+  }
+
+  .table thead th:nth-child(2),
+  .table thead th:nth-child(3),
+  .table thead th:nth-child(4) {
+    display: none;
+  }
+
+  .table tbody td:nth-child(2),
+  .table tbody td:nth-child(3),
+  .table tbody td:nth-child(4) {
+    display: none;
+  }
+
+  .table tbody td:nth-child(5) {
+    text-align: left;
+    padding-left: 0.25rem;
+  }
 }
 
