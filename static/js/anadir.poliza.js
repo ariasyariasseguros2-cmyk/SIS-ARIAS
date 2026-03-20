@@ -377,7 +377,7 @@
     const hasCia = headers.includes('cía') || headers.includes('cia') || headers.includes('aseguradora');
     const hasPrimaNeta = headers.includes('prima neta');
     const hasAcciones = headers.includes('acciones');
-    const expectedCount = 19; // Se añade columna "Cía" (total 19)
+    const expectedCount = 20; // Se añade columna "Documento" (total 20)
     if (!hasRamo || !hasProducto || !hasCia || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
       thead.innerHTML = `
         <tr>
@@ -385,6 +385,7 @@
           <th>Proforma/Recibo</th>
           <th>Fecha Emisión</th>
           <th>Fecha Vencimiento</th>
+          <th>Documento</th>
           <th>Colectivo Asegurado</th>
           <th>Cía</th>
           <th class="ramo-col">Ramo</th>
@@ -629,6 +630,7 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="recibo">${it.recibo || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vencimiento || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="numero_documento_extracted">${it.numero_documento_extracted || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="colectivo_asegurado">${it.colectivo_asegurado || ''}</td>
         <td data-index="${idx}" data-field="cia">${issuerSelHtml}</td>
         <td class="ramo-col" data-index="${idx}" data-field="ramo">${buildRamoSelect(it.ramo || '')}</td>
