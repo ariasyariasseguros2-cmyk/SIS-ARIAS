@@ -6,32 +6,15 @@
   border-bottom: 2px solid #e6eef8;
 }
 
-/* Resaltar columnas Día (5) y Mes (6) */
+/* Centrar columnas Día (5) y Mes (6) */
 #tabla-cumpleanos tbody td:nth-child(5),
 #tabla-cumpleanos thead th:nth-child(5) {
   text-align: center;
-}
-#tabla-cumpleanos tbody td:nth-child(5) .day-badge {
-  display: inline-block;
-  padding: 6px 10px;
-  background: linear-gradient(180deg,#fff7cc,#fff1a8);
-  color: #8a6d00;
-  border-radius: 8px;
-  font-weight: 700;
-  min-width: 38px;
 }
 
 #tabla-cumpleanos tbody td:nth-child(6),
 #tabla-cumpleanos thead th:nth-child(6) {
   text-align: center;
-}
-#tabla-cumpleanos tbody td:nth-child(6) .month-badge {
-  display: inline-block;
-  padding: 6px 10px;
-  background: linear-gradient(180deg,#e8f6ff,#d6eeff);
-  color: #0b5fa5;
-  border-radius: 8px;
-  font-weight: 600;
 }
 
 /* Centrar y mejorar filas */
@@ -60,43 +43,137 @@
 
 /* Responsive: ajustar badges en pantallas pequeñas */
 @media (max-width: 576px) {
-  #tabla-cumpleanos tbody td:nth-child(5) .day-badge,
-  #tabla-cumpleanos tbody td:nth-child(6) .month-badge {
+	#tabla-cumpleanos .metric-pill,
+	#tabla-cumpleanos .estado-badge,
+  #tabla-cumpleanos tbody td:nth-child(5) .day-value,
+  #tabla-cumpleanos tbody td:nth-child(6) .month-value {
 	padding: 4px 8px;
-	font-size: 0.86rem;
+	font-size: 0.82rem;
   }
 }
 
-/* Badges adicionales */
-.day-badge {
-  display: inline-block;
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-weight: 700;
-  background: linear-gradient(180deg,#fff7cc,#fff1a8);
-  color: #8a6d00;
-}
+/* Base comun para todos los indicadores visuales de la tabla */
+.metric-pill,
+.estado-badge,
+.day-badge,
 .month-badge {
-  display: inline-block;
-  padding: 6px 10px;
-  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 5px 10px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  line-height: 1;
   font-weight: 600;
-  background: linear-gradient(180deg,#e8f6ff,#d6eeff);
-  color: #0b5fa5;
+  border: 1px solid #d1d5db;
+}
+
+/* Valores de día/mes sin color fuerte */
+.day-value {
+  min-width: 34px;
+  font-weight: 700;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.month-value {
+  background: #f3f4f6;
+  color: #374151;
 }
 .age-badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: linear-gradient(180deg,#e6fffa,#d1fae5);
+  min-width: 34px;
+  background: #ecfdf5;
   color: #065f46;
-  font-weight: 700;
+  border-color: #a7f3d0;
 }
 
 /* Fila resaltada para cumpleaños hoy */
 .today-row {
-  background: linear-gradient(90deg, rgba(255,246,205,0.5), rgba(221,255,239,0.4));
-  box-shadow: inset 0 0 0 1px rgba(250,204,21,0.06);
+  background: rgba(245, 158, 11, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.18);
+}
+
+.faltan-badge {
+  min-width: 70px;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.estado-badge {
+  min-width: 76px;
+  font-size: 0.9rem;
+  letter-spacing: 0;
+}
+
+.estado-hoy {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.estado-proximo {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.estado-mes {
+  background: #e0f2fe;
+  color: #0c4a6e;
+}
+
+.estado-futuro {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.estado-row-hoy {
+  box-shadow: inset 3px 0 0 #d97706;
+}
+
+.estado-row-proximo {
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+
+#filtros-estado .estado-chip.active {
+  color: #111827;
+  background: #e5e7eb;
+  border-color: #d1d5db;
+}
+
+#filtros-estado .estado-chip {
+  background: #ffffff;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+}
+
+#tabla-cumpleanos td .btn.btn-sm {
+  border-radius: 8px;
+  padding: 0.28rem 0.55rem;
+}
+
+.contacto-actions {
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+}
+
+.contacto-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.contacto-btn i {
+  font-size: 0.85rem;
+}
+
+.resumen-item {
+  border-width: 1px;
 }
 
 
