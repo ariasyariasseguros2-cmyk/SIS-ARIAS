@@ -1,5 +1,4 @@
 {% extends 'view/layout_dashboard.html' %}
-{% block page_title %}Maestros - Sub Agentes{% endblock %}
 {% block content %}
 <div class="container">
   <div class="d-flex justify-content-between align-items-center mb-3">
@@ -7,32 +6,24 @@
   </div>
   <div class="table-responsive">
     <table class="table table-striped align-middle">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Nombre</th>
-          <th>Abreviación</th>
-          <th>Cód. Subagente</th>
-          <th>Email</th>
-          <th>Teléfono</th>
-          <th>Celular</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for s in rows or [] %}
-        <tr>
-          <td>{{ s.id }}</td>
-          <td>{{ s.nombre }}</td>
-          <td>{{ s.abreviacion }}</td>
-          <td>{{ s.codigo_subagente }}</td>
-          <td>{{ s.email }}</td>
-          <td>{{ s.telefono }}</td>
-          <td>{{ s.celular }}</td>
-        </tr>
-        {% endfor %}
-        {% if not rows or rows|length == 0 %}
-        <tr><td colspan="7" class="text-center text-muted">Sin datos</td></tr>
-        {% endif %}
+       <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Abreviación</th>
+          </tr>
+       </thead>
+       <tbody>
+         {% for s in rows or [] %}
+          <tr>
+            <td>{{ s.id }}</td>
+            <td>{{ s.nombre }}</td>
+            <td>{{ s.abreviacion }}</td>
+          </tr>
+         {% endfor %}
+         {% if not rows or rows|length == 0 %}
+          <tr><td colspan="3" class="text-center text-muted">Sin datos</td></tr>
+         {% endif %}
       </tbody>
     </table>
   </div>
