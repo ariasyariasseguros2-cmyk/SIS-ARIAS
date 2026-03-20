@@ -1377,12 +1377,18 @@ def api_reporte_cumpleanos():
         return jsonify({'ok': False, 'error': 'No autenticado'}), 401
 
     mes = request.args.get('mes')
+    estado = request.args.get('estado')
+    dias = request.args.get('dias')
+    orden = request.args.get('orden')
     try:
         from controllers.clientes.reporte_cumpleanios import get_cumpleanos_data
-        rows = get_cumpleanos_data(mes)
+        rows = get_cumpleanos_data(mes=mes, estado=estado, dias=dias, orden=orden)
         return jsonify({'ok': True, 'rows': rows})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/reporte-diario', methods=['POST'])
 def api_reporte_diario():
     if 'user' not in session:
         return {'ok': False, 'error': 'No autenticado'}, 401
