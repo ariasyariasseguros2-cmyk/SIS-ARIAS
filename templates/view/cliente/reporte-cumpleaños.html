@@ -30,6 +30,17 @@
                 </select>
             </div>
             <div class="col-md-2">
+                <label for="filtro-dias" class="form-label">Próximos días</label>
+                <input id="filtro-dias" type="number" min="1" max="60" class="form-control" value="7">
+            </div>
+            <div class="col-md-3">
+                <label for="filtro-orden" class="form-label">Orden</label>
+                <select id="filtro-orden" class="form-select">
+                    <option value="cercania" selected>Más cercanos primero</option>
+                    <option value="calendario">Calendario (mes y día)</option>
+                </select>
+            </div>
+            <div class="col-md-2">
                 <button type="button" id="btn-buscar" class="btn btn-primary w-100">
                     <i class="fas fa-search"></i> Buscar
                 </button>
@@ -39,9 +50,54 @@
                     <i class="fas fa-file-excel"></i> Exportar
                 </button>
             </div>
+
+            <div class="col-12">
+                <div class="d-flex flex-wrap gap-2" id="filtros-estado">
+                    <button type="button" class="btn btn-sm estado-chip active" data-estado="todos">Todos</button>
+                    <button type="button" class="btn btn-sm estado-chip" data-estado="hoy">Hoy</button>
+                    <button type="button" class="btn btn-sm estado-chip" data-estado="proximos">Próximos</button>
+                    <button type="button" class="btn btn-sm estado-chip" data-estado="mes_actual">Este mes</button>
+                </div>
+            </div>
         </form>
     </div>
 </div>
+
+<div class="row mb-3" id="resumen-cumpleanos">
+    <div class="col-md-3">
+        <div class="card resumen-item border-warning-subtle">
+            <div class="card-body py-2">
+                <div class="text-muted small">Cumplen hoy</div>
+                <div class="h4 mb-0" id="count-hoy">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card resumen-item border-primary-subtle">
+            <div class="card-body py-2">
+                <div class="text-muted small">Próximos días</div>
+                <div class="h4 mb-0" id="count-proximos">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card resumen-item border-info-subtle">
+            <div class="card-body py-2">
+                <div class="text-muted small">Este mes</div>
+                <div class="h4 mb-0" id="count-mes-actual">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card resumen-item border-secondary-subtle">
+            <div class="card-body py-2">
+                <div class="text-muted small">Total listado</div>
+                <div class="h4 mb-0" id="count-total">0</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -55,8 +111,11 @@
                         <th>Día</th>
                         <th>Mes</th>
                         <th>Edad</th>
+                        <th>Faltan</th>
+                        <th>Estado</th>
                         <th>Email</th>
                         <th>Teléfono</th>
+                        <th>Contacto</th>
                     </tr>
                 </thead>
                 <tbody id="tbody-resultados">
