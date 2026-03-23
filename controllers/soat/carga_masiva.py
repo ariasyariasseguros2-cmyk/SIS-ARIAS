@@ -913,7 +913,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     normalize_string(row.get('TIPO_PAGO', 'CONTADO')),
                     normalize_string(row.get('SUBAGENTE_ABREVIACION', '')),
                     normalize_string(row.get('EJECUTIVO_ABREVIACION', '')),
-                    normalize_string(row.get('AVISO_COB', '')),  # asegurada
+                    None, # asegurada
                     normalize_string(row.get('MOTIVO', 'CARGA MASIVA SOAT')),
                     prima_neta,
                     prima_neta,
