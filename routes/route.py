@@ -1,4 +1,4 @@
-from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory, jsonify, send_file, abort
+from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory, jsonify, send_file, abort, Response
 from werkzeug.utils import secure_filename
 import os
 from utils.rbac import can_access_maestros, can_delete, can_edit, can_create, Roles, get_role_scope
@@ -15,6 +15,20 @@ from models.db import get_connection
 
 bp = Blueprint('main', __name__)
 
+@bp.route('/img/<path:filename>')
+def serve_img(filename):
+    img_dir = os.path.join(current_app.root_path, 'img')
+    return send_from_directory(img_dir, filename)
+
+@bp.route('/favicon.svg')
+def favicon_svg():
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+        '<rect width="64" height="64" rx="12" fill="#1F59A3"/>'
+        '<text x="32" y="44" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="40" font-weight="700" fill="#ffffff">A</text>'
+        '</svg>'
+    )
+    return Response(svg, mimetype='image/svg+xml')
 @bp.route('/cuotas/extract', methods=['POST'])
 def extract_cuota():
     if 'file' not in request.files:

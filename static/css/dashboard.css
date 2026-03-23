@@ -2,8 +2,9 @@
   --sidebar-bg: #1F59A3; /* Solid Blue for text elements */
   --sidebar-fg: #ffffff;
   --sidebar-border: #1F59A3;
-  --brand-bg: rgba(255, 255, 255, 0.1);
+  --brand-bg: transparent;
   --brand-fg: #fff;
+  --brand-logo-size: 90px;
   --online: #28a745;
   --layout-bg: #fff;
 }
@@ -30,12 +31,21 @@
 .brand {
   background: var(--brand-bg);
   color: var(--brand-fg);
-  border-radius: 8px;
-  padding: 10px 14px;
+  border-radius: 0;
+  padding: 0;
   font-weight: 600;
   letter-spacing: .5px;
   margin-bottom: 12px;
   margin-right: 12px;
+  display: flex;
+  align-items: center;
+}
+.brand-logo {
+  height: var(--brand-logo-size);
+  max-height: var(--brand-logo-size);
+  width: auto;
+  display: block;
+  object-fit: contain;
 }
 
 .user-box {
@@ -356,6 +366,10 @@
     margin-bottom: 0;
     margin-right: 0;
     flex: 0 0 auto;
+  }
+  .brand-logo {
+    height: 120px;
+    max-height: 120px;
   }
 
   .user-box {

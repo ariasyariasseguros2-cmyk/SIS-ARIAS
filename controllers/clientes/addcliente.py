@@ -229,14 +229,6 @@ def save_cliente(data: dict) -> dict:
             cnx.close()
             return {'ok': False, 'errors': [f'Ya existe un cliente con el número de documento {numero}']}
 
-        # Verificar existencia por email (opcional pero recomendado)
-        cur.execute("SELECT COUNT(*) FROM clientes WHERE email = %s", (email,))
-        email_count = cur.fetchone()
-        if email_count and email_count[0] > 0:
-            cur.close()
-            cnx.close()
-            return {'ok': False, 'errors': [f'Ya existe un cliente con el email {email}']}
-
         # Si idProductor no se obtuvo, buscar por abreviacion
         if not idProductor and subagente_nombre:
             cur.execute("SELECT idProductor, abreviacion FROM subagente WHERE abreviacion = %s LIMIT 1", (subagente_nombre,))
