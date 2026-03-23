@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timedelta
 from typing import Dict, Optional
 
 def _clean(s: Optional[str]) -> str:
@@ -254,6 +255,13 @@ def parse_mapfre(text: str) -> Dict[str, str]:
     if v and va and (not ud or ud >= v or ud == v) and va < v:
         item["ultimo_dia_pago"] = item.get("vencimiento_aplicacion")
         print("ultimo_dia_pago", item["vencimiento_aplicacion"])
+    if item.get("fecha_emision"):
+        try:
+            d = datetime.strptime(item["fecha_emision"], "%d/%m/%Y").date()
+            d2 = d + timedelta(days=15)
+            item["vencimiento"] = d2.strftime("%d/%m/%Y")
+        except Exception:
+            pass
     # NUEVO: duplicar 'vencimiento' como 'fecha_vecimiento' para la UI
     item["fecha_vecimiento"] = item.get("vencimiento")
 
@@ -265,7 +273,7 @@ def parse_mapfre(text: str) -> Dict[str, str]:
     if not ruc_candidato:
         candidates_ruc = re.findall(r"\b(10\d{9}|20\d{9})\b", text)
         if candidates_ruc:
-            # Mapfre suele poner su propio RUC (20202380621) en el pie de página o encabezado, filtrarlo
+            # Mapfre suele poner su propio RUC en el pie de página o encabezado, filtrarlo
             for cand in candidates_ruc: 
                     ruc_candidato = cand
                     break

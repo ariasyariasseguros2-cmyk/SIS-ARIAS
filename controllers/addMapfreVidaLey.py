@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timedelta
 from typing import Dict, Optional
 
 def _clean(s: Optional[str]) -> str:
@@ -167,6 +168,14 @@ def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
                     break
     
     item["numero_documento_extracted"] = ruc_candidato
+    if item.get("fecha_emision"):
+        try:
+            d = datetime.strptime(item["fecha_emision"], "%d/%m/%Y").date()
+            d2 = d + timedelta(days=15)
+            item["vencimiento"] = d2.strftime("%d/%m/%Y")
+            item["fecha_vecimiento"] = item["vencimiento"]
+        except Exception:
+            pass
     
     print("item", item)
     return {k: _clean(v) for k, v in item.items() if v}
