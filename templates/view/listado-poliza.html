@@ -50,6 +50,7 @@
                 <i class="bi-search"></i>
             </span>
             <input id="polizasSearch" type="text" class="form-control border-start-0" placeholder="Búsqueda General (Contratante, asegurado, póliza, placa...)">
+            <button class="btn btn-outline-secondary" type="button" id="btnVoiceSearch" title="Buscar por voz"><i class="bi-mic-fill"></i></button>
             <button class="btn btn-success btn-search text-white" type="button" id="btnGlobalSearch">Buscar</button>
         </div>
     </div>
@@ -198,6 +199,23 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- Modal Resultados de Búsqueda -->
+<div class="modal fade" id="searchResultsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Resultados de búsqueda</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body" id="searchResultsBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-success" id="applyResultsToTable">Ver en la tabla</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Modal Renovar Póliza -->

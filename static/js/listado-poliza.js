@@ -6,6 +6,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const table = document.getElementById('polizasListTable');
   const tbody = document.getElementById('polizasTableBody');
   const paginationBar = document.getElementById('paginationBar');
+  const voiceSearchBtn = document.getElementById('btnVoiceSearch');
+  const searchModalEl = document.getElementById('searchResultsModal');
+  const searchModalBody = document.getElementById('searchResultsBody');
+  const applyResultsToTableBtn = document.getElementById('applyResultsToTable');
   
   // URLs base desde atributos data
   // Corrección: Selector actualizado a .table-card
@@ -93,6 +97,83 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       console.error('Error search:', error);
       showError('Error de conexión al buscar');
+    }
+  }
+
+  async function performModalSearch(q) {
+    if (!searchModalEl || !searchModalBody) return;
+    const query = (q ?? '').trim();
+    const type = currentSearchType;
+    if (!query) return;
+    searchModalBody.innerHTML = `
+      <div class="d-flex flex-column align-items-center justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>
+        <p class="text-muted mt-2">Buscando en todo el sistema...</p>
+      </div>
+    `;
+    const modal = bootstrap.Modal.getOrCreateInstance(searchModalEl);
+    modal.show();
+    try {
+      const response = await fetch(`/api/polizas/search?q=${encodeURIComponent(query)}&type=${encodeURIComponent(type)}`);
+      const data = await response.json();
+      const rows = data.rows || [];
+      if (!rows.length) {
+        searchModalBody.innerHTML = `
+          <div class="text-center text-muted py-5">
+            <i class="bi-search display-6 d-block mb-3 opacity-25"></i>
+            No se encontraron resultados para "${query}"
+          </div>
+        `;
+        return;
+      }
+      let html = `
+        <div class="mb-2 text-muted small">Se encontraron ${rows.length} resultado${rows.length !== 1 ? 's' : ''}</div>
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Contratante</th>
+                <th>Asegurado</th>
+                <th>Cía</th>
+                <th>Prod</th>
+                <th>Póliza</th>
+                <th>Vigencia</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+      rows.forEach(r => {
+        const vig = `${r.vig_desde || ''} - ${r.vig_hasta || ''}`;
+        html += `
+          <tr>
+            <td>${r.contratante || ''}</td>
+            <td>${r.asegurado || ''}</td>
+            <td>${r.cia || ''}</td>
+            <td>${r.producto || r.ramos_producto || ''}</td>
+            <td>${r.poliza || ''}</td>
+            <td>${vig}</td>
+            <td class="text-end">
+              <a href="${primasUrlBase}?poliza=${encodeURIComponent(r.poliza || '')}" class="btn btn-sm btn-primary me-1">Primas</a>
+              <a href="${cuotasUrlBase}?poliza=${encodeURIComponent(r.poliza || '')}" class="btn btn-sm btn-outline-secondary me-1">Extracto</a>
+              <a href="/menu/detalles-poliza?id=${r.idPoliza}" class="btn btn-sm btn-outline-dark">Detalles</a>
+            </td>
+          </tr>
+        `;
+      });
+      html += `
+            </tbody>
+          </table>
+        </div>
+      `;
+      searchModalBody.innerHTML = html;
+    } catch (error) {
+      searchModalBody.innerHTML = `
+        <div class="text-center text-danger py-5">
+          <i class="bi-exclamation-circle display-6 d-block mb-3"></i>
+          Error de conexión al buscar
+        </div>
+      `;
     }
   }
 
@@ -193,6 +274,81 @@ document.addEventListener('DOMContentLoaded', () => {
   if (globalSearchInput) {
     globalSearchInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') performGlobalSearch();
+    });
+  }
+  if (voiceSearchBtn) {
+    voiceSearchBtn.addEventListener('click', () => {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        alert('Tu navegador no soporta búsqueda por voz');
+        return;
+      }
+      const recognition = new SR();
+      recognition.lang = 'es-ES';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      const modal = searchModalEl ? bootstrap.Modal.getOrCreateInstance(searchModalEl) : null;
+      const originalIcon = voiceSearchBtn.innerHTML;
+      const setListeningUI = () => {
+        voiceSearchBtn.disabled = true;
+        voiceSearchBtn.classList.add('active');
+        voiceSearchBtn.innerHTML = '<i class="bi-mic-mute-fill"></i>';
+        if (searchModalBody && modal) {
+          searchModalBody.innerHTML = `
+            <div class="text-center py-5">
+              <i class="bi-mic-fill display-6 text-danger d-block mb-3"></i>
+              <div>Escuchando...</div>
+              <div class="text-muted small mt-1">Hable ahora cerca del micrófono</div>
+            </div>
+          `;
+          modal.show();
+        }
+      };
+      const resetUI = () => {
+        voiceSearchBtn.disabled = false;
+        voiceSearchBtn.classList.remove('active');
+        voiceSearchBtn.innerHTML = originalIcon;
+      };
+      recognition.onstart = setListeningUI;
+      recognition.onresult = (event) => {
+        const raw = (event.results?.[0]?.[0]?.transcript || '');
+        const transcript = raw.replace(/[.。]+$/,'').trim();
+        if (transcript) {
+          if (globalSearchInput) globalSearchInput.value = transcript;
+          if (searchModalBody) {
+            searchModalBody.innerHTML = `
+              <div class="text-center py-3">
+                <div class="mb-2">Texto reconocido:</div>
+                <div class="fs-5">${transcript}</div>
+              </div>
+            `;
+          }
+          performModalSearch(transcript);
+        }
+      };
+      recognition.onerror = () => {
+        if (searchModalBody) {
+          searchModalBody.innerHTML = `
+            <div class="text-center text-danger py-5">
+              <i class="bi-exclamation-circle display-6 d-block mb-3"></i>
+              No se pudo capturar audio
+            </div>
+          `;
+        }
+        resetUI();
+      };
+      recognition.onend = resetUI;
+      recognition.start();
+    });
+  }
+  if (applyResultsToTableBtn) {
+    applyResultsToTableBtn.addEventListener('click', () => {
+      if (!globalSearchInput.value.trim()) return;
+      if (searchModalEl) {
+        const modal = bootstrap.Modal.getOrCreateInstance(searchModalEl);
+        modal.hide();
+      }
+      performGlobalSearch();
     });
   }
 
