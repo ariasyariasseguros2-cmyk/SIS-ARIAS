@@ -233,8 +233,8 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
     ultimo_por_emision = _add_days(emision, 15) if emision else None
     pago_venc = ultimo_por_vigencia or ultimo_por_emision or pago_venc
 
-    # Preferir el último día de pago como 'fecha_vencimiento'; si no, usar fin de vigencia
-    fecha_venc = pago_venc or vig_hasta
+    # Preferir la fecha de emisión + 15 días como 'fecha_vencimiento'; si falta, usar último día de pago o fin de vigencia
+    fecha_venc = _add_days(emision, 15) or pago_venc or vig_hasta
 
     ruc_candidato = _extract_ruc(text)
 
