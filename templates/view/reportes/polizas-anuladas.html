@@ -59,9 +59,9 @@
             <td>{{ r.sub_agente }}</td>
             <td>{{ r.asegurada }}</td>
             <td class="text-end">
-              {% if session.role_name in ['BROKER', 'OPERADOR'] %}
-              <button type="button" class="btn-action btn-success" data-action="restaurar">Restaurar</button>
-              {% endif %}
+                  {% if can_restore(session.role_name) %}
+                  <button type="button" class="btn-action btn-success" data-action="restaurar">Restaurar</button>
+                  {% endif %}
             </td>
           </tr>
           {% else %}
