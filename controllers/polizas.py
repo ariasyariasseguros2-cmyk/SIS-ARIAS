@@ -128,6 +128,27 @@ def get_polizas_data(selected: dict | None = None) -> dict:
         'details': details,
     }
 
+
+def get_poliza_owner_by_id(idPoliza):
+    """Devuelve el owner (usuario_registro o sub_agente) de la póliza indicada."""
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute("SELECT usuario_registro, sub_agente FROM polizas WHERE idPoliza=%s LIMIT 1", (idPoliza,))
+        row = cur.fetchone() or {}
+        try:
+            while cur.nextset():
+                pass
+        except Exception:
+            pass
+        cur.close()
+        cnx.close()
+        owner = row.get('usuario_registro') or row.get('sub_agente')
+        return owner
+    except Exception:
+        return None
+
 # NUEVO: listar TODAS las pólizas (ignora cliente seleccionado)
 def get_polizas_all() -> dict:
     rows = []
