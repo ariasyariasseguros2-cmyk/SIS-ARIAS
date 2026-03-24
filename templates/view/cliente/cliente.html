@@ -14,7 +14,7 @@
     <div class="d-flex align-items-center gap-2">
         <h1 class="h5 m-0"><i class="bi-people"></i> {{ title }}</h1>
         {# Ocultar botón Añadir cuando estemos en Clientes Anulados #}
-        {% if page != 'clientes-anulados' and session.role_name in ['BROKER', 'OPERADOR', 'SUB AGENTE'] %}
+        {% if page != 'clientes-anulados' and can_create(session.role_name) %}
         <button class="btn btn-success btn-sm btn-lift btn-add btn-icon" data-bs-toggle="modal" data-bs-target="#addClienteModal" title="Añadir">
             <i class="bi-plus-lg" aria-hidden="true"></i>
             <span class="visually-hidden">Añadir</span>
@@ -82,12 +82,12 @@
                     {% if page != 'clientes-anulados' %}
                     <td class="text-end">
                         <div class="d-flex gap-2 justify-content-end">
-                            {% if session.role_name in ['BROKER', 'OPERADOR'] %}
+                            {% if can_edit(session.role_name) %}
                             <button type="button" class="btn btn-warning btn-sm btn-lift btn-edit-cliente" data-id="{{ r.idCliente }}"><i class="bi-pencil"></i> Editar</button>
                             {% endif %}
                             <button type="button" class="btn btn-primary btn-sm btn-lift">Pólizas</button>
                             <button type="button" class="btn btn-success btn-sm btn-lift">Contactos</button>
-                            {% if session.role_name in ['BROKER', 'EJECUTIVO DE CUENTAS'] %}
+                            {% if can_delete(session.role_name) %}
                             <button type="button" class="btn btn-danger btn-sm btn-lift btn-delete-cliente" data-id="{{ r.idCliente }}" data-nombre="{{ r.razon_social }}"><i class="bi-trash"></i> Eliminar</button>
                             {% endif %}
                         </div>
@@ -95,7 +95,7 @@
                     {% else %}
                     <td class="text-end">
                         <div class="d-flex gap-2 justify-content-end">
-                            {% if session.role_name in ['BROKER', 'EJECUTIVO DE CUENTAS'] %}
+                            {% if can_edit(session.role_name) %}
                             <button type="button" class="btn btn-sm btn-info btn-lift btn-restore-cliente" data-id="{{ r.idCliente }}"><i class="bi-arrow-clockwise"></i> Restaurar</button>
                             {% endif %}
                         </div>
