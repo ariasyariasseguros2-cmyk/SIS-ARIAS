@@ -125,7 +125,7 @@
                 </li>
 
 
-            {% if session.get('role_name') == 'BROKER' %}
+            {% if can_access_maestros(session.role_name) %}
             <li class="nav-group{% if page and page.startswith('maestros') %} active-group{% endif %}">
                 <button class="group-toggle" type="button">
                     <i class="bi-journal-bookmark"></i> <span><strong>Maestros</strong></span>
