@@ -112,13 +112,13 @@
                         <td class="text-end">
                             <div class="action-buttons justify-content-end">
                                 <!-- Botones Visibles Prioritarios -->
-                                {% if session.role_name in ['BROKER', 'OPERADOR'] %} <!-- Anular es un tipo de edición de estado -->
+                                {% if can_delete(session.role_name) %} <!-- Anular es un tipo de edición de estado -->
                                 <button type="button" class="btn-action btn-danger" data-action="anular">
                                     Anular
                                 </button>
                                 {% endif %}
                                 
-                                {% if session.role_name in ['BROKER', 'OPERADOR', 'SUB AGENTE'] %}
+                                {% if can_create(session.role_name) %}
                                 <button type="button" class="btn-action btn-success" data-action="renovar">
                                     Renovar
                                 </button>
@@ -140,15 +140,13 @@
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='detalles-poliza', id=r.idPoliza) }}"><i class="bi-info-circle"></i> Detalles</a></li>
                                         
-                                        {% if session.role_name in ['BROKER', 'OPERADOR', 'SUB AGENTE'] %}
+                                        {% if can_edit(session.role_name) %}
                                         <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='editar-poliza') }}?id={{ r.idPoliza }}"><i class="bi-pencil-square"></i> Editar</a></li>
                                         {% endif %}
                                         
                                         <li><a class="dropdown-item" href="/menu/detalles-poliza?id={{ r.idPoliza }}&print=true" target="_blank"><i class="bi-printer"></i> Imprimir</a></li>
                                         
-                                        <!-- {% if session.role_name in ['BROKER', 'EJECUTIVO DE CUENTAS'] %}
-                                       <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash"></i> Eliminar</a></li> 
-                                        {% endif %}-->
+                                        <!-- Acción eliminar deshabilitada en UI; autorización backend permanece aplicada -->
                                     </ul>
                                 </div>
                             </div>
