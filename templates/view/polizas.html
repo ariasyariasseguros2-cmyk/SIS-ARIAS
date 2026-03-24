@@ -22,7 +22,7 @@
             </a>
         </div>
         <div class="header-actions d-flex gap-2">
-            {% if session.role_name in ['BROKER', 'OPERADOR', 'SUB AGENTE'] %}
+            {% if can_create(session.role_name) %}
             <a class="btn btn-success text-white btn-sm rounded-pill" href="{{ url_for('main.menu_page', page='anadir-poliza') }}" rel="noopener noreferrer">
                 <i class="bi-plus-lg me-1"></i> Añadir
             </a>
@@ -139,13 +139,13 @@
                         <td class="text-end">
                             <div class="action-buttons">
                                 <!-- Botones Visibles Prioritarios -->
-                                {% if session.role_name in ['BROKER', 'OPERADOR'] %}
+                                {% if can_delete(session.role_name) %}
                                 <button type="button" class="btn-action btn-danger" data-action="anular">
                                     Anular
                                 </button>
                                 {% endif %}
                                 
-                                {% if session.role_name in ['BROKER', 'OPERADOR', 'SUB AGENTE'] %}
+                                {% if can_create(session.role_name) %}
                                 <button type="button" class="btn-action btn-success" data-action="renovar">
                                     Renovar
                                 </button>
@@ -166,10 +166,10 @@
                                         <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi-briefcase"></i> Solicitudes</a></li>
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='detalles-poliza', id=r.idPoliza) }}" data-action="detalles"><i class="bi-info-circle"></i> Detalles</a></li>
-                                        {% if session.role_name in ['BROKER', 'OPERADOR'] %}
+                                        {% if can_edit(session.role_name) %}
                                         <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='editar-poliza') }}?id={{ r.idPoliza }}" data-action="editar"><i class="bi-pencil-square"></i> Editar</a></li>
                                         {% endif %}
-                                        {% if session.role_name in ['BROKER', 'EJECUTIVO DE CUENTAS'] %}
+                                        {% if can_delete(session.role_name) %}
                                         <!--<li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash"></i> Eliminar</a></li> -->
                                         {% endif %}
                                     </ul>
