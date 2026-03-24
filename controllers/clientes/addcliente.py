@@ -231,18 +231,38 @@ def save_cliente(data: dict) -> dict:
 
         # Si idProductor no se obtuvo, buscar por abreviacion
         if not idProductor and subagente_nombre:
-            cur.execute("SELECT idProductor, abreviacion FROM subagente WHERE abreviacion = %s LIMIT 1", (subagente_nombre,))
-            subagente_row = cur.fetchone()
-            if subagente_row:
-                idProductor = subagente_row[0]
-                subagente_nombre = subagente_row[1]
-            else:
-                # Fallback: buscar por nombre si no se encuentra por abreviacion
-                cur.execute("SELECT idProductor, abreviacion FROM subagente WHERE nombre = %s LIMIT 1", (subagente_nombre,))
-                subagente_row = cur.fetchone()
+            # Intentar por SP (usa tabla SubAgente en mayúsculas)
+            try:
+                cur.execute("CALL sp_get_idProductor_por_abreviacion(%s)", (subagente_nombre,))
+                sp_row = cur.fetchone()
+                while cur.nextset():
+                    pass
+                if sp_row:
+                    idProductor = sp_row[0]
+            except Exception:
+                pass
+            # Si no se obtuvo por SP, probar con nombre de tabla en mayúsculas y minúsculas
+            if not idProductor:
+                try:
+                    cur.execute("SELECT idProductor, abreviacion FROM SubAgente WHERE abreviacion = %s LIMIT 1", (subagente_nombre,))
+                    subagente_row = cur.fetchone()
+                except Exception:
+                    cur.execute("SELECT idProductor, abreviacion FROM subagente WHERE abreviacion = %s LIMIT 1", (subagente_nombre,))
+                    subagente_row = cur.fetchone()
                 if subagente_row:
                     idProductor = subagente_row[0]
                     subagente_nombre = subagente_row[1]
+                else:
+                    # Fallback: buscar por nombre si no se encuentra por abreviacion
+                    try:
+                        cur.execute("SELECT idProductor, abreviacion FROM SubAgente WHERE nombre = %s LIMIT 1", (subagente_nombre,))
+                        subagente_row = cur.fetchone()
+                    except Exception:
+                        cur.execute("SELECT idProductor, abreviacion FROM subagente WHERE nombre = %s LIMIT 1", (subagente_nombre,))
+                        subagente_row = cur.fetchone()
+                    if subagente_row:
+                        idProductor = subagente_row[0]
+                        subagente_nombre = subagente_row[1]
 
         current_app.logger.info(f"[addcliente] Insertando: {razon}, {numero}, subagente={subagente_nombre}, idProductor={idProductor}")
 
