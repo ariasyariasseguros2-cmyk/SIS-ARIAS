@@ -920,13 +920,15 @@ def menu_page(page):
         from controllers.primas.primas import get_primas_data
         selected = session.get('selected_cliente') or {}
         numero_poliza = request.args.get('poliza') or None
+        return_to = request.args.get('return') or request.args.get('return_to')
         data = get_primas_data(selected, numero_poliza)
         return render_template(
             'view/primas/primas.html',
             page='primas',
             title=data['title'],
             rows=data['rows'],
-            details=data.get('details', {})
+            details=data.get('details', {}),
+            return_to=return_to
         )
 
     # NUEVO: Detalles de Póliza
@@ -2601,7 +2603,7 @@ def polizas_save():
 def poliza_owner_from_request(*args, **kwargs):
     try:
         data_tmp = request.get_json(silent=True) or request.form.to_dict()
-        pid = data_tmp.get('idPoliza') or data_tmp.get('id')
+        pid = data_tmp.get('idPoliza') or data_tmp.get('idPrima') or data_tmp.get('id')
         if not pid:
             return None
         from controllers.polizas import get_poliza_owner_by_id
@@ -2683,6 +2685,14 @@ def primas_update():
     res = update_poliza(data)
     status = 200 if res.get('ok') else 400
     return res, status
+
+@bp.route('/primas/delete', methods=['POST'])
+@require_permission(can_delete, response_mode='json', ownership_check_fn=poliza_owner_from_request)
+def primas_delete():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+    from controllers.primas.primas import delete_prima_route
+    return delete_prima_route()
 
 @bp.route('/api/polizas/renovar', methods=['POST'])
 @require_permission(can_create, response_mode='json', ownership_check_fn=poliza_owner_from_request)

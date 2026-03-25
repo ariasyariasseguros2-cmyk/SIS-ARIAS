@@ -136,8 +136,53 @@
             }
         }
         if (t.classList.contains('btn-eliminar')) {
-            openConfirm('¿Eliminar este registro?', () => {
-                alert('Eliminado (demo).');
+            const tr = t.closest('tr');
+            const id = t.getAttribute('data-id') || tr?.querySelector('.btn-detalles')?.getAttribute('data-id') || '';
+            if (!id) {
+                alert('No se pudo obtener el ID del registro.');
+                return;
+            }
+            openConfirm('¿Eliminar este registro?', async () => {
+                try {
+                    t.disabled = true;
+                    const res = await fetch('/primas/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ idPrima: id, idPoliza: id })
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (res.ok && data && data.ok) {
+                        if (tr) {
+                            tr.remove();
+                        }
+                        const totalEl = document.querySelector('.card-footer small.text-muted');
+                        if (totalEl) {
+                            const m = totalEl.textContent.match(/(\d+)/);
+                            if (m) {
+                                const n = Math.max(0, (parseInt(m[1], 10) || 1) - 1);
+                                totalEl.textContent = `Total de registros: ${n}`;
+                            }
+                        }
+                        const tbody = table?.querySelector('tbody');
+                        if (tbody && tbody.querySelectorAll('tr').length === 0) {
+                            const row = document.createElement('tr');
+                            const td = document.createElement('td');
+                            td.colSpan = 13;
+                            td.className = 'text-center text-muted py-4';
+                            td.textContent = 'Sin datos';
+                            row.appendChild(td);
+                            tbody.appendChild(row);
+                        }
+                    } else {
+                        const msg = (data && (data.error || (data.errors && data.errors.join(', ')))) || 'No se pudo eliminar';
+                        alert(msg);
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Error al eliminar');
+                } finally {
+                    t.disabled = false;
+                }
             });
         }
     });

@@ -89,3 +89,44 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
         'rows': normalized,
         'details': details,
     }
+
+def delete_prima_route():
+    from flask import request, session
+    try:
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form.to_dict()
+        if not data:
+            data = {}
+        pid = data.get('idPrima') or data.get('idPoliza') or data.get('id')
+        if not pid:
+            return {'ok': False, 'errors': ['ID requerido']}, 400
+
+        user_session = session.get('user', {})
+        if isinstance(user_session, dict):
+            usuario = user_session.get('username', 'sistema')
+        elif isinstance(user_session, str):
+            usuario = user_session
+        else:
+            usuario = 'sistema'
+
+        from models.db import get_connection
+        cnx = get_connection()
+        if not cnx:
+            return {'ok': False, 'errors': ['Error de conexión a BD']}, 500
+        cur = cnx.cursor()
+        cur.callproc('sp_delete_poliza', [pid, usuario])
+        affected_rows = 0
+        for result in cur.stored_results():
+            row = result.fetchone()
+            if row:
+                affected_rows = row[0]
+        cnx.commit()
+        cur.close()
+        cnx.close()
+        if affected_rows > 0:
+            return {'ok': True}
+        return {'ok': False, 'errors': ['No encontrado o ya eliminado']}, 404
+    except Exception as e:
+        return {'ok': False, 'errors': [str(e)]}, 500

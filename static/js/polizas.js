@@ -137,7 +137,7 @@
                       Renovar
                   </button>
                   
-                  <a href="${primasUrlBase}?poliza=${encodeURIComponent(r.poliza)}" class="btn-action btn-primary text-decoration-none" data-action="primas">
+                  <a href="${primasUrlBase}?poliza=${encodeURIComponent(r.poliza)}&return=polizas" class="btn-action btn-primary text-decoration-none" data-action="primas">
                       Primas
                   </a>
 
@@ -250,7 +250,7 @@
         case 'primas':
           const primasUrl = table.getAttribute('data-primas-url');
           if (primasUrl && data.poliza) {
-            window.location.href = `${primasUrl}?poliza=${encodeURIComponent(data.poliza)}`;
+            window.location.href = `${primasUrl}?poliza=${encodeURIComponent(data.poliza)}&return=polizas`;
           }
           break;
 

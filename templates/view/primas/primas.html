@@ -23,7 +23,11 @@
         {% endif %}
     </div>
     <div>
-        <a href="{{ url_for('main.menu_page', page='listado-poliza') }}" class="text-secondary text-decoration-none small fw-bold">
+        {% set back_page = 'polizas' %}
+        {% if return_to in ['polizas', 'listado-poliza'] %}
+            {% set back_page = return_to %}
+        {% endif %}
+        <a href="{{ url_for('main.menu_page', page=back_page) }}" class="text-secondary text-decoration-none small fw-bold">
             <i class="bi bi-arrow-left"></i> Volver al listado de Pólizas
         </a>
     </div>
@@ -120,7 +124,7 @@
                             <button class="btn-action btn-success btn-editar" data-id="{{ r.idPrima }}">Editar</button>
                             {% endif %}
                             {% if can_delete(session.role_name) %}
-                            <button class="btn-action btn-danger btn-eliminar">Eliminar</button>
+                            <button class="btn-action btn-danger btn-eliminar" data-id="{{ r.idPrima }}">Eliminar</button>
                             {% endif %}
                         </div>
                     </td>
