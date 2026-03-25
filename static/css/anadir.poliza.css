@@ -525,10 +525,7 @@ body {
 .table-custom td:nth-child(21) {
     display: none;
 }
-/* También ocultamos Fecha Vencimiento del cuerpo para agruparla con factura en el panel derecho */
-.table-custom td:nth-child(4) {
-    display: none;
-}
+/* Fecha Vencimiento vuelve a la grilla principal (no se oculta) */
 
 /* Responsive: en pantallas pequeñas, el panel derecho pasa abajo */
 @media (max-width: 992px) {

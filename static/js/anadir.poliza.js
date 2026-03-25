@@ -354,15 +354,8 @@
       }
     }
 
-    // Unificar factura/recibo y fecha_pago/ultimo_dia_pago
-    if (!it.factura && it.recibo) {
-      it.factura = it.recibo;
-    }
-    if (!it.fecha_pago && it.ultimo_dia_pago) {
-      it.fecha_pago = it.ultimo_dia_pago;
-    } else if (!it.ultimo_dia_pago && it.fecha_pago) {
-      it.ultimo_dia_pago = it.fecha_pago;
-    }
+    // No rellenar factura ni fecha_pago automáticamente desde el PDF de póliza
+    // Mantener ambos vacíos hasta que el usuario adjunte una cuota o los edite manualmente.
 
     // Regla de fechas (fallback):
     // - Si NO viene ultimo_dia_pago, usar Emisión + 15
@@ -573,10 +566,6 @@
             <label class="form-label small mb-1">Fecha Pago</label>
             <input type="text" class="form-control form-control-sm pane-fecha" data-index="${index}" placeholder="dd/mm/aaaa">
           </div>
-          <div class="field field-span-2">
-            <label class="form-label small mb-1">Fecha Venc.</label>
-            <input type="text" class="form-control form-control-sm pane-fecha-venc" data-index="${index}" placeholder="dd/mm/aaaa">
-          </div>
         </div>
         <input type="file" class="d-none input-facturas" data-index="${index}" accept=".pdf" multiple>
         <div class="drop-facturas" data-index="${index}">Suelta aquí PDFs o haz clic en Adjuntar</div>
@@ -690,8 +679,8 @@
         <td data-index="${idx}" data-field="comision_subagente_importe">
           <input type="number" step="0.01" class="form-control form-control-sm imp-sub" value="${it.comision_subagente_importe || ''}" readonly>
         </td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="factura">${it.factura || it.recibo || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_pago">${it.fecha_pago || it.ultimo_dia_pago || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="factura">${it.factura || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_pago">${it.fecha_pago || ''}</td>
         <td class="actions-col">
           ${buildActions(idx)}
         </td>
@@ -723,11 +712,10 @@
         }).join('') + '</ul>') : '<span class="text-muted small">Sin archivos de cuota.</span>';
       }
       const pf = tr.querySelector('.pane-factura');
-      if (pf) pf.value = it.factura || it.recibo || '';
+      if (pf) pf.value = it.factura || '';
       const pfp = tr.querySelector('.pane-fecha');
-      if (pfp) pfp.value = it.fecha_pago || it.ultimo_dia_pago || '';
-      const pfv = tr.querySelector('.pane-fecha-venc');
-      if (pfv) pfv.value = it.fecha_vencimiento || it.vencimiento || '';
+      if (pfp) pfp.value = it.fecha_pago || '';
+      // Campo de fecha vencimiento se gestiona desde la tabla (no en el panel de cuota)
     });
 
     // Vincular cambio de Cía por fila
@@ -1293,11 +1281,10 @@
     }
     const item = extractedItems[index] || {};
     const pf = tr.querySelector('.pane-factura');
-    if (pf) pf.value = item.factura || item.recibo || '';
+    if (pf) pf.value = item.factura || '';
     const pfp = tr.querySelector('.pane-fecha');
-    if (pfp) pfp.value = item.fecha_pago || item.ultimo_dia_pago || '';
-    const pfv = tr.querySelector('.pane-fecha-venc');
-    if (pfv) pfv.value = item.fecha_vencimiento || item.vencimiento || '';
+    if (pfp) pfp.value = item.fecha_pago || '';
+    // Campo de fecha vencimiento se gestiona desde la tabla (no en el panel de cuota)
   }
 
   tbody.addEventListener('change', async (e) => {
@@ -1315,7 +1302,6 @@
           facturaMetaMap.set(keyForFile(f), meta);
           if (meta && meta.factura) setCellValue(idx, 'factura', meta.factura);
           if (meta && meta.fecha_pago) setCellValue(idx, 'fecha_pago', meta.fecha_pago);
-          if (meta && meta.fecha_vencimiento) setCellValue(idx, 'fecha_vencimiento', meta.fecha_vencimiento);
         }
       }
       rowFacturasMap.set(idx, arr);
@@ -1352,7 +1338,6 @@
         facturaMetaMap.set(keyForFile(f), meta);
         if (meta && meta.factura) setCellValue(idx, 'factura', meta.factura);
         if (meta && meta.fecha_pago) setCellValue(idx, 'fecha_pago', meta.fecha_pago);
-        if (meta && meta.fecha_vencimiento) setCellValue(idx, 'fecha_vencimiento', meta.fecha_vencimiento);
       }
     }
     rowFacturasMap.set(idx, arr);
@@ -1393,9 +1378,9 @@
   tbody.addEventListener('input', (e) => {
     const pf = e.target.closest('.pane-factura');
     const pfp = e.target.closest('.pane-fecha');
-    const pfv = e.target.closest('.pane-fecha-venc');
-    if (!pf && !pfp && !pfv) return;
-    const idx = Number((pf || pfp || pfv).dataset.index);
+    const pfv = null;
+    if (!pf && !pfp) return;
+    const idx = Number((pf || pfp).dataset.index);
     if (!Number.isFinite(idx)) return;
     if (!extractedItems[idx]) return;
     if (pf) {
@@ -1407,11 +1392,6 @@
       extractedItems[idx].fecha_pago = pfp.value;
       const td = getTd(idx, 'fecha_pago');
       if (td) td.textContent = pfp.value || '';
-    }
-    if (pfv) {
-      extractedItems[idx].fecha_vencimiento = pfv.value;
-      const td = getTd(idx, 'fecha_vencimiento') || getTd(idx, 'vencimiento');
-      if (td) td.textContent = pfv.value || '';
     }
     scheduleAutoSave();
   });
@@ -2127,10 +2107,7 @@
     if (!extractedItems || extractedItems.length === 0) return;
     if (extractedItems.length === 1) {
       setCellValue(0, 'factura', meta.factura || extractedItems[0].recibo || '');
-      if (meta.fecha_pago) {
-        setCellValue(0, 'fecha_pago', meta.fecha_pago);
-        setCellValue(0, 'fecha_vencimiento', extractedItems[0].fecha_vencimiento || meta.fecha_pago);
-      }
+      if (meta.fecha_pago) setCellValue(0, 'fecha_pago', meta.fecha_pago);
       render(extractedItems);
       return;
     }

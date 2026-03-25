@@ -396,6 +396,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
             return {"ok": False, "errors": errors}
 
         for i, row in enumerate(normalized):
+            real_poliza_id = None
             # NUEVO: Validar cliente de la fila (por documento o nombre)
             row_doc = row.get("numero_documento_extracted")
             row_name = row.get("contratante") or row.get("razon_social")
@@ -510,25 +511,23 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                 while cur.nextset():
                     pass
                 inserted += 1
+                try:
+                    cur.execute("SELECT LAST_INSERT_ID()")
+                    lid_row_any = cur.fetchone()
+                    lid_any = lid_row_any[0] if lid_row_any else 0
+                    if args[32]:
+                        cur.execute("SELECT poliza_id FROM poliza_archivos WHERE idArchivo = %s", (lid_any,))
+                        pid_row_any = cur.fetchone()
+                        if pid_row_any:
+                            real_poliza_id = pid_row_any[0]
+                    else:
+                        real_poliza_id = lid_any
+                except Exception:
+                    real_poliza_id = None
 
                 # NUEVO: Vincular Anexos
                 if saved_anexos:
                     try:
-                        cur.execute("SELECT LAST_INSERT_ID()")
-                        lid_row = cur.fetchone()
-                        lid = lid_row[0] if lid_row else 0
-                        
-                        real_poliza_id = None
-                        # args[32] es pdf_path. Si existe, el último insert fue en poliza_archivos
-                        if args[32]:
-                            cur.execute("SELECT poliza_id FROM poliza_archivos WHERE idArchivo = %s", (lid,))
-                            pid_row = cur.fetchone()
-                            if pid_row:
-                                real_poliza_id = pid_row[0]
-                        else:
-                            # Si no hubo PDF, el último insert fue en polizas
-                            real_poliza_id = lid
-                        
                         if real_poliza_id:
                             for sa in saved_anexos:
                                 cur.execute("""
@@ -559,8 +558,8 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                     c_importe = parse_decimal(row.get("prima_comercial_igv"))
                     if c_importe is None:
                          c_importe = parse_decimal(row.get("prima_total"))
-                    c_fecha_pago = parse_date(row.get("fecha_pago") or row.get("ultimo_dia_pago"))
-                    c_factura = U(row.get("factura") or row.get("recibo") or "")
+                    c_fecha_pago = parse_date(row.get("fecha_pago"))
+                    c_factura = U(row.get("factura") or "")
                     if c_poliza and c_fec_venc and c_importe is not None:
                         cur.execute(
                             "CALL sp_insert_cuota(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
@@ -586,22 +585,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                 try:
                     files_for_row = saved_facturas_by_index.get(i, saved_facturas)
                     if files_for_row:
-                        if not 'real_poliza_id' in locals():
-                            pass
-                        pid_for_files = None
-                        try:
-                            cur.execute("SELECT LAST_INSERT_ID()")
-                            lid_row2 = cur.fetchone()
-                            lid2 = lid_row2[0] if lid_row2 else 0
-                            if args[32]:
-                                cur.execute("SELECT poliza_id FROM poliza_archivos WHERE idArchivo = %s", (lid2,))
-                                pid_row2 = cur.fetchone()
-                                if pid_row2:
-                                    pid_for_files = pid_row2[0]
-                            else:
-                                pid_for_files = lid2
-                        except Exception:
-                            pid_for_files = None
+                        pid_for_files = real_poliza_id
                         if not pid_for_files:
                             try:
                                 cur.execute(
