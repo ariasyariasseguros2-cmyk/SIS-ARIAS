@@ -18,6 +18,8 @@
   // const motivoTopEl = document.getElementById('motivoTop'); // Campo superior de motivo (texto)
   const anexosFilesEl = document.getElementById('anexosFiles'); // NUEVO: Input de anexos
   const anexosListEl = document.getElementById('anexosList'); // NUEVO: Lista de anexos
+  const facturasFilesEl = document.getElementById('facturasFiles');
+  const facturasListEl = document.getElementById('facturasList');
   // Campos de comisiones (superior)
   const pctComCompaniaEl   = document.getElementById('pctComCompania');
   const impComCompaniaEl   = document.getElementById('impComCompania');
@@ -30,6 +32,8 @@
   let subAgenteEl = subAgenteTopEl || document.getElementById('subAgente');
   let extractedItems = [];
   let allAnexos = []; // NUEVO: Acumulador de archivos anexos
+  let allFacturas = [];
+  let rowFacturasMap = new Map();
   let autoSaveTimer = null;
   const AUTO_SAVE_ENABLED = false;
   let isSaving = false;
@@ -350,6 +354,16 @@
       }
     }
 
+    // Unificar factura/recibo y fecha_pago/ultimo_dia_pago
+    if (!it.factura && it.recibo) {
+      it.factura = it.recibo;
+    }
+    if (!it.fecha_pago && it.ultimo_dia_pago) {
+      it.fecha_pago = it.ultimo_dia_pago;
+    } else if (!it.ultimo_dia_pago && it.fecha_pago) {
+      it.ultimo_dia_pago = it.fecha_pago;
+    }
+
     // Regla de fechas (fallback):
     // - Si NO viene ultimo_dia_pago, usar Emisión + 15
     // - Si NO viene fecha_vencimiento, usar ultimo_dia_pago o Emisión + 15
@@ -377,7 +391,7 @@
     const hasCia = headers.includes('cía') || headers.includes('cia') || headers.includes('aseguradora');
     const hasPrimaNeta = headers.includes('prima neta');
     const hasAcciones = headers.includes('acciones');
-    const expectedCount = 20; // Se añade columna "Documento" (total 20)
+    const expectedCount = 22; // + Factura y Fecha Pago
     if (!hasRamo || !hasProducto || !hasCia || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
       thead.innerHTML = `
         <tr>
@@ -400,6 +414,8 @@
           <th>Imp. Comisión Cía</th>
           <th>% Comisión Sub Agente</th>
           <th>Imp. Comisión Sub Agente</th>
+          <th>Factura</th>
+          <th>Fecha Pago</th>
           <th class="actions-col">Acciones</th>
         </tr>
       `;
@@ -542,9 +558,30 @@
   // NUEVO: helper para generar botones de acción por fila
   function buildActions(index) {
     return `
-      <div class="d-flex gap-1">
-        <button type="button" class="btn btn-sm btn-outline-danger action-remove" data-index="${index}">Eliminar</button>
-         </div>
+      <div class="actions-pane" data-index="${index}">
+        <div class="top-row">
+          <button type="button" class="btn btn-sm btn-outline-primary action-attach-factura" data-index="${index}">Adjuntar cuota</button>
+          <span class="badge bg-secondary facturas-count" data-index="${index}">0</span>
+          <button type="button" class="btn btn-sm btn-outline-danger action-remove ms-auto" data-index="${index}">Eliminar</button>
+        </div>
+        <div class="pane-fields">
+          <div class="field">
+            <label class="form-label small mb-1">Factura</label>
+            <input type="text" class="form-control form-control-sm pane-factura" data-index="${index}" placeholder="F123-00000000">
+          </div>
+          <div class="field">
+            <label class="form-label small mb-1">Fecha Pago</label>
+            <input type="text" class="form-control form-control-sm pane-fecha" data-index="${index}" placeholder="dd/mm/aaaa">
+          </div>
+          <div class="field field-span-2">
+            <label class="form-label small mb-1">Fecha Venc.</label>
+            <input type="text" class="form-control form-control-sm pane-fecha-venc" data-index="${index}" placeholder="dd/mm/aaaa">
+          </div>
+        </div>
+        <input type="file" class="d-none input-facturas" data-index="${index}" accept=".pdf" multiple>
+        <div class="drop-facturas" data-index="${index}">Suelta aquí PDFs o haz clic en Adjuntar</div>
+        <div class="list-facturas" data-index="${index}"></div>
+      </div>
     `;
   }
 
@@ -653,6 +690,8 @@
         <td data-index="${idx}" data-field="comision_subagente_importe">
           <input type="number" step="0.01" class="form-control form-control-sm imp-sub" value="${it.comision_subagente_importe || ''}" readonly>
         </td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="factura">${it.factura || it.recibo || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_pago">${it.fecha_pago || it.ultimo_dia_pago || ''}</td>
         <td class="actions-col">
           ${buildActions(idx)}
         </td>
@@ -664,6 +703,31 @@
         it.cia = opt ? opt.text : (it.cia || '');
       }
       tbody.appendChild(tr);
+      const badge = tr.querySelector('.facturas-count');
+      if (badge) {
+        const cnt = (rowFacturasMap.get(idx) || []).length;
+        badge.textContent = String(cnt);
+      }
+      const listEl = tr.querySelector('.list-facturas');
+      if (listEl) {
+        const arr = rowFacturasMap.get(idx) || [];
+        listEl.innerHTML = arr.length ? ('<ul class="list-unstyled mb-0">' + arr.map((f, i) => {
+          const name = f.name || 'archivo.pdf';
+          return `<li class="d-flex align-items-center justify-content-between mb-1">
+            <span class="text-truncate" style="max-width:220px;" title="${name}">${name}</span>
+            <span class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary p-0 px-2 act-view-file" data-index="${idx}" data-file="${i}"><i class="bi bi-eye"></i></button>
+              <button type="button" class="btn btn-sm btn-link text-danger p-0 border-0 act-remove-file" data-index="${idx}" data-file="${i}"><i class="bi bi-x-circle"></i></button>
+            </span>
+          </li>`;
+        }).join('') + '</ul>') : '<span class="text-muted small">Sin archivos de cuota.</span>';
+      }
+      const pf = tr.querySelector('.pane-factura');
+      if (pf) pf.value = it.factura || it.recibo || '';
+      const pfp = tr.querySelector('.pane-fecha');
+      if (pfp) pfp.value = it.fecha_pago || it.ultimo_dia_pago || '';
+      const pfv = tr.querySelector('.pane-fecha-venc');
+      if (pfv) pfv.value = it.fecha_vencimiento || it.vencimiento || '';
     });
 
     // Vincular cambio de Cía por fila
@@ -860,7 +924,8 @@
     return field === 'inicio_vigencia' ||
            field === 'vencimiento' ||
            field === 'fecha_emision' ||
-           field === 'fecha_vencimiento';
+           field === 'fecha_vencimiento' ||
+           field === 'fecha_pago';
   }
   function isRimacSelected() {
     const val = (issuerEl?.value || '').toLowerCase();
@@ -1151,13 +1216,27 @@
   tbody.addEventListener('click', (e) => {
     const btnRemove = e.target.closest('.action-remove');
     const btnDup = e.target.closest('.action-duplicate');
-    if (!btnRemove && !btnDup) return;
+    const btnAttach = e.target.closest('.action-attach-factura');
+    if (!btnRemove && !btnDup && !btnAttach) return;
 
-    const idx = Number((btnRemove || btnDup)?.dataset?.index);
+    const idx = Number((btnRemove || btnDup || btnAttach)?.dataset?.index);
     if (!Number.isFinite(idx)) return;
+
+    if (btnAttach) {
+      const tr = tbody.querySelectorAll('tr')[idx];
+      const input = tr?.querySelector('.input-facturas');
+      input?.click();
+      return;
+    }
 
     if (btnRemove) {
       extractedItems.splice(idx, 1);
+      const newMap = new Map();
+      Array.from(rowFacturasMap.entries()).forEach(([k, v]) => {
+        if (k < idx) newMap.set(k, v);
+        else if (k > idx) newMap.set(k - 1, v);
+      });
+      rowFacturasMap = newMap;
       render(extractedItems);
       if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
       const newIndex = Math.max(0, Math.min(idx, extractedItems.length - 1));
@@ -1172,6 +1251,16 @@
     if (btnDup) {
       const copy = { ...(extractedItems[idx] || {}) };
       extractedItems.splice(idx + 1, 0, copy);
+      const files = rowFacturasMap.get(idx);
+      if (files && files.length) {
+        const shifted = new Map();
+        Array.from(rowFacturasMap.entries()).forEach(([k, v]) => {
+          if (k <= idx) shifted.set(k, v);
+          else shifted.set(k + 1, v);
+        });
+        rowFacturasMap = shifted;
+        rowFacturasMap.set(idx + 1, files.slice());
+      }
       render(extractedItems);
       if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
       setTimeout(() => {
@@ -1181,6 +1270,150 @@
       scheduleAutoSave();
       return;
     }
+  });
+
+  function updateRowFilesUI(index) {
+    const tr = tbody.querySelectorAll('tr')[index];
+    if (!tr) return;
+    const badge = tr.querySelector('.facturas-count');
+    const listEl = tr.querySelector('.list-facturas');
+    const arr = rowFacturasMap.get(index) || [];
+    if (badge) badge.textContent = String(arr.length);
+    if (listEl) {
+      listEl.innerHTML = arr.length ? ('<ul class="list-unstyled mb-0">' + arr.map((f, i) => {
+        const name = f.name || 'archivo.pdf';
+        return `<li class="d-flex align-items-center justify-content-between mb-1">
+          <span class="text-truncate" style="max-width:220px;" title="${name}">${name}</span>
+          <span class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary p-0 px-2 act-view-file" data-index="${index}" data-file="${i}"><i class="bi bi-eye"></i></button>
+            <button type="button" class="btn btn-sm btn-link text-danger p-0 border-0 act-remove-file" data-index="${index}" data-file="${i}"><i class="bi bi-x-circle"></i></button>
+          </span>
+        </li>`;
+      }).join('') + '</ul>') : '<span class="text-muted small">Sin archivos de cuota.</span>';
+    }
+    const item = extractedItems[index] || {};
+    const pf = tr.querySelector('.pane-factura');
+    if (pf) pf.value = item.factura || item.recibo || '';
+    const pfp = tr.querySelector('.pane-fecha');
+    if (pfp) pfp.value = item.fecha_pago || item.ultimo_dia_pago || '';
+    const pfv = tr.querySelector('.pane-fecha-venc');
+    if (pfv) pfv.value = item.fecha_vencimiento || item.vencimiento || '';
+  }
+
+  tbody.addEventListener('change', async (e) => {
+    const input = e.target.closest('.input-facturas');
+    if (!input) return;
+    const idx = Number(input.dataset.index);
+    if (!Number.isFinite(idx)) return;
+    const files = Array.from(input.files || []);
+    if (files.length) {
+      const arr = rowFacturasMap.get(idx) || [];
+      for (const f of files) {
+        if (!arr.some(x => x.name === f.name && x.size === f.size)) {
+          arr.push(f);
+          const meta = await extractFacturaMetaFromFile(f);
+          facturaMetaMap.set(keyForFile(f), meta);
+          if (meta && meta.factura) setCellValue(idx, 'factura', meta.factura);
+          if (meta && meta.fecha_pago) setCellValue(idx, 'fecha_pago', meta.fecha_pago);
+          if (meta && meta.fecha_vencimiento) setCellValue(idx, 'fecha_vencimiento', meta.fecha_vencimiento);
+        }
+      }
+      rowFacturasMap.set(idx, arr);
+      updateRowFilesUI(idx);
+      input.value = '';
+    }
+  });
+
+  tbody.addEventListener('dragover', (e) => {
+    const dz = e.target.closest('.drop-facturas');
+    if (!dz) return;
+    e.preventDefault();
+    dz.classList.add('dragover');
+  });
+  tbody.addEventListener('dragleave', (e) => {
+    const dz = e.target.closest('.drop-facturas');
+    if (!dz) return;
+    dz.classList.remove('dragover');
+  });
+  tbody.addEventListener('drop', async (e) => {
+    const dz = e.target.closest('.drop-facturas');
+    if (!dz) return;
+    e.preventDefault();
+    dz.classList.remove('dragover');
+    const idx = Number(dz.dataset.index);
+    if (!Number.isFinite(idx)) return;
+    const files = Array.from(e.dataTransfer?.files || []).filter(f => /\.pdf$/i.test(f.name));
+    if (!files.length) return;
+    const arr = rowFacturasMap.get(idx) || [];
+    for (const f of files) {
+      if (!arr.some(x => x.name === f.name && x.size === f.size)) {
+        arr.push(f);
+        const meta = await extractFacturaMetaFromFile(f);
+        facturaMetaMap.set(keyForFile(f), meta);
+        if (meta && meta.factura) setCellValue(idx, 'factura', meta.factura);
+        if (meta && meta.fecha_pago) setCellValue(idx, 'fecha_pago', meta.fecha_pago);
+        if (meta && meta.fecha_vencimiento) setCellValue(idx, 'fecha_vencimiento', meta.fecha_vencimiento);
+      }
+    }
+    rowFacturasMap.set(idx, arr);
+    updateRowFilesUI(idx);
+  });
+
+  tbody.addEventListener('click', (e) => {
+    const btnView = e.target.closest('.act-view-file');
+    const btnRem = e.target.closest('.act-remove-file');
+    if (!btnView && !btnRem) return;
+    const idx = Number((btnView || btnRem).dataset.index);
+    const i = Number((btnView || btnRem).dataset.file);
+    const arr = rowFacturasMap.get(idx) || [];
+    const file = arr[i];
+    if (!file) return;
+    if (btnView) {
+      try {
+        const url = URL.createObjectURL(file);
+        const titleEl = document.getElementById('pdfModalLabel');
+        if (titleEl) titleEl.textContent = `Factura: ${file.name}`;
+        if (typeof window.openPdfInModal === 'function') {
+          window.openPdfInModal(url);
+        } else {
+          window.open(url, '_blank', 'noopener');
+        }
+        setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_) {} }, 10000);
+      } catch (_) {}
+      return;
+    }
+    if (btnRem) {
+      arr.splice(i, 1);
+      rowFacturasMap.set(idx, arr);
+      updateRowFilesUI(idx);
+      return;
+    }
+  });
+
+  tbody.addEventListener('input', (e) => {
+    const pf = e.target.closest('.pane-factura');
+    const pfp = e.target.closest('.pane-fecha');
+    const pfv = e.target.closest('.pane-fecha-venc');
+    if (!pf && !pfp && !pfv) return;
+    const idx = Number((pf || pfp || pfv).dataset.index);
+    if (!Number.isFinite(idx)) return;
+    if (!extractedItems[idx]) return;
+    if (pf) {
+      extractedItems[idx].factura = pf.value;
+      const td = getTd(idx, 'factura');
+      if (td) td.textContent = pf.value || '';
+    }
+    if (pfp) {
+      extractedItems[idx].fecha_pago = pfp.value;
+      const td = getTd(idx, 'fecha_pago');
+      if (td) td.textContent = pfp.value || '';
+    }
+    if (pfv) {
+      extractedItems[idx].fecha_vencimiento = pfv.value;
+      const td = getTd(idx, 'fecha_vencimiento') || getTd(idx, 'vencimiento');
+      if (td) td.textContent = pfv.value || '';
+    }
+    scheduleAutoSave();
   });
 
   // Limpiar tabla
@@ -1209,6 +1442,8 @@
       fecha_emision: '',
       //ultimo_dia_pago: '',
       fecha_vencimiento: '',   // agregado: permite editar/ver la columna
+      factura: '',
+      fecha_pago: '',
       prima_neta: '',
       prima_comercial: '',
       prima_comercial_igv: '',
@@ -1549,6 +1784,14 @@
         if (copy.colectivo_asegurado && !copy.asegurado) {
           copy.asegurado = copy.colectivo_asegurado;
         }
+        // Alinear fecha de pago con ultimo_dia_pago para el backend
+        if (!copy.ultimo_dia_pago && copy.fecha_pago) {
+          copy.ultimo_dia_pago = copy.fecha_pago;
+        }
+        // Alinear factura con recibo si procede
+        if (!copy.recibo && copy.factura) {
+          copy.recibo = copy.factura;
+        }
         const r = (copy.ramo || '').trim();
         if (r && !abbrs.includes(r)) {
           copy.ramo = '';
@@ -1576,6 +1819,20 @@
         allAnexos.forEach(file => {
           formData.append('anexos', file);
         });
+      }
+      const hasRowFacturas = rowFacturasMap && rowFacturasMap.size > 0;
+      if (hasRowFacturas) {
+        Array.from(rowFacturasMap.entries()).forEach(([i, files]) => {
+          (files || []).forEach(file => {
+            formData.append(`facturas_${i}`, file);
+          });
+        });
+      } else {
+        if (allFacturas && allFacturas.length > 0) {
+          allFacturas.forEach(file => {
+            formData.append('facturas', file);
+          });
+        }
       }
 
       const r = await fetch('/polizas/save', {
@@ -1746,6 +2003,66 @@
     });
   }
 
+  function renderFacturasList() {
+    if (!facturasListEl) return;
+    if (allFacturas.length === 0) {
+      facturasListEl.innerHTML = '<span class="text-muted">Sin facturas seleccionadas.</span>';
+      return;
+    }
+    let html = '<ul class="list-unstyled mb-0">';
+    allFacturas.forEach((file, idx) => {
+      const meta = facturaMetaMap.get(keyForFile(file));
+      const metaText = meta ? `<small class="text-muted ms-2">(Factura: ${meta.factura || '—'}; Pago: ${meta.fecha_pago || '—'})</small>` : '';
+      html += `
+        <li class="d-flex justify-content-between align-items-center mb-1">
+          <span class="text-truncate me-2" style="max-width: 200px;" title="${file.name}">
+            <i class="bi bi-receipt me-1"></i>${file.name}${metaText}
+          </span>
+          <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary p-0 px-2 btn-view-factura" data-index="${idx}" title="Ver">
+              <i class="bi bi-eye"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-link text-danger p-0 border-0 btn-remove-factura" data-index="${idx}">
+              <i class="bi bi-x-circle"></i>
+            </button>
+          </div>
+        </li>
+      `;
+    });
+    html += '</ul>';
+    facturasListEl.innerHTML = html;
+    facturasListEl.querySelectorAll('.btn-remove-factura').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = Number(e.currentTarget.dataset.index);
+        if (Number.isFinite(idx)) {
+          allFacturas.splice(idx, 1);
+          renderFacturasList();
+        }
+      });
+    });
+    facturasListEl.querySelectorAll('.btn-view-factura').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = Number(e.currentTarget.dataset.index);
+        const file = Number.isFinite(idx) ? allFacturas[idx] : null;
+        if (!file) return;
+        try {
+          const url = URL.createObjectURL(file);
+          const titleEl = document.getElementById('pdfModalLabel');
+          if (titleEl) titleEl.textContent = `Factura: ${file.name}`;
+          if (typeof window.openPdfInModal === 'function') {
+            window.openPdfInModal(url);
+          } else {
+            window.open(url, '_blank', 'noopener');
+          }
+          setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_) {} }, 10000);
+        } catch (err) {
+          console.error('preview factura error', err);
+          alert('No se pudo abrir la factura para vista previa.');
+        }
+      });
+    });
+  }
+
   // Cargar aseguradoras si no existe select global y refrescar selects por fila
   (async () => {
     await ensureIssuerOptionsLoaded();
@@ -1778,6 +2095,80 @@
     renderAnexosList();
   });
 
+  // Aux: almacenar metadatos extraídos por archivo
+  const facturaMetaMap = new Map(); // key(file) -> { factura, fecha_pago, provider }
+  function keyForFile(f) { return `${f.name}:${f.size}:${f.lastModified}`; }
+  function setCellValue(index, field, value) {
+    if (!Number.isFinite(index) || !field) return;
+    if (!extractedItems[index]) return;
+    extractedItems[index][field] = value;
+    const td = getTd(index, field);
+    if (td) td.textContent = value || '';
+  }
+  async function extractFacturaMetaFromFile(file) {
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await fetch('/cuotas/extract', { method: 'POST', body: fd, credentials: 'same-origin' });
+      if (!r.ok) return { factura: '', fecha_pago: '' };
+      const payload = await r.json().catch(() => ({}));
+      const d = (payload && payload.data) ? payload.data : {};
+      return {
+        factura: d.factura || d.cupon || '',
+        fecha_pago: d.fecha_pago || d.fecha_vencimiento || '',
+        fecha_vencimiento: d.fecha_vencimiento || ''
+      };
+    } catch (_) {
+      return { factura: '', fecha_pago: '' };
+    }
+  }
+  function applyFacturaMeta(meta) {
+    if (!meta) return;
+    if (!extractedItems || extractedItems.length === 0) return;
+    if (extractedItems.length === 1) {
+      setCellValue(0, 'factura', meta.factura || extractedItems[0].recibo || '');
+      if (meta.fecha_pago) {
+        setCellValue(0, 'fecha_pago', meta.fecha_pago);
+        setCellValue(0, 'fecha_vencimiento', extractedItems[0].fecha_vencimiento || meta.fecha_pago);
+      }
+      render(extractedItems);
+      return;
+    }
+    // Si hay varias filas: intentar por coincidencia de recibo/factura; si no, aplicar al primer hueco libre
+    const byMatchIdx = extractedItems.findIndex(it => {
+      const rec = (it.recibo || '').toString().trim();
+      const fac = (it.factura || '').toString().trim();
+      return (meta.factura && (rec === meta.factura || fac === meta.factura));
+    });
+    if (byMatchIdx >= 0) {
+      setCellValue(byMatchIdx, 'factura', meta.factura);
+      if (meta.fecha_pago) setCellValue(byMatchIdx, 'fecha_pago', meta.fecha_pago);
+      render(extractedItems);
+      return;
+    }
+    const emptyIdx = extractedItems.findIndex(it => !it.factura && !it.fecha_pago);
+    const idx = emptyIdx >= 0 ? emptyIdx : 0;
+    if (meta.factura) setCellValue(idx, 'factura', meta.factura);
+    if (meta.fecha_pago) setCellValue(idx, 'fecha_pago', meta.fecha_pago);
+    render(extractedItems);
+  }
+  facturasFilesEl?.addEventListener('change', async () => {
+    if (!facturasFilesEl.files || facturasFilesEl.files.length === 0) return;
+    const files = Array.from(facturasFilesEl.files);
+    for (const file of files) {
+      const exists = allFacturas.some(f => f.name === file.name && f.size === file.size);
+      if (!exists) {
+        allFacturas.push(file);
+        // Intentar extraer factura y fecha de pago de cada archivo
+        const meta = await extractFacturaMetaFromFile(file);
+        facturaMetaMap.set(keyForFile(file), meta);
+        applyFacturaMeta(meta);
+      }
+    }
+    facturasFilesEl.value = '';
+    renderFacturasList();
+  });
+
   // NUEVO: función para resetear tabla y campos superiores
   function resetAddPolizaView(keepTipoDoc = false) {
       extractedItems = [];
@@ -1798,6 +2189,13 @@
         renderAnexosList();
       } else if (anexosListEl) {
         anexosListEl.innerHTML = '';
+      }
+      if (facturasFilesEl) facturasFilesEl.value = '';
+      allFacturas = [];
+      if (typeof renderFacturasList === 'function') {
+        renderFacturasList();
+      } else if (facturasListEl) {
+        facturasListEl.innerHTML = '';
       }
       // Mantener subagente y ejecutivo desde window.selectedCliente si existen
       if (subAgenteTopEl) {

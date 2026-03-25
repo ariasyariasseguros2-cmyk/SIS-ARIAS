@@ -120,9 +120,11 @@ def get_rows():
         {"label": "Se soporta La Positiva, MAPFRE; EPS/Vida/Seguros"},
     ]
 
-def save_polizas(items: list, selected: dict | None = None, anexos: list = None) -> dict:
+def save_polizas(items: list, selected: dict | None = None, anexos: list = None, facturas: list = None, facturas_by_index: dict | None = None) -> dict:
     # Insertar en BD usando SP
     saved_anexos = []
+    saved_facturas = []
+    saved_facturas_by_index = {}
     if anexos:
         try:
             upload_folder = os.path.join(current_app.root_path, 'uploads', 'polizas')
@@ -141,6 +143,50 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
                     })
         except Exception as e:
             print(f"[save_polizas] Error saving anexos: {e}")
+    if facturas:
+        try:
+            upload_folder = os.path.join(current_app.root_path, 'uploads', 'cuotas')
+            os.makedirs(upload_folder, exist_ok=True)
+            for file in facturas:
+                if file and file.filename:
+                    original_name = file.filename
+                    safe_name = secure_filename(original_name)
+                    ts = int(time.time())
+                    disk_name = f"{ts}_{safe_name}"
+                    save_path = os.path.join(upload_folder, disk_name)
+                    file.save(save_path)
+                    saved_facturas.append({
+                        'ruta': f"cuotas/{disk_name}",
+                        'nombre': original_name
+                    })
+        except Exception as e:
+            print(f"[save_polizas] Error saving facturas: {e}")
+    if facturas_by_index:
+        try:
+            upload_folder = os.path.join(current_app.root_path, 'uploads', 'cuotas')
+            os.makedirs(upload_folder, exist_ok=True)
+            for k, files in facturas_by_index.items():
+                arr = []
+                for file in (files or []):
+                    if file and file.filename:
+                        original_name = file.filename
+                        safe_name = secure_filename(original_name)
+                        ts = int(time.time())
+                        disk_name = f"{ts}_{safe_name}"
+                        save_path = os.path.join(upload_folder, disk_name)
+                        file.save(save_path)
+                        arr.append({
+                            'ruta': f"cuotas/{disk_name}",
+                            'nombre': original_name
+                        })
+                if arr:
+                    try:
+                        idx_int = int(k)
+                        saved_facturas_by_index[idx_int] = arr
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"[save_polizas] Error saving facturas_by_index: {e}")
 
     try:
         if items:
@@ -349,7 +395,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
                 pass
             return {"ok": False, "errors": errors}
 
-        for row in normalized:
+        for i, row in enumerate(normalized):
             # NUEVO: Validar cliente de la fila (por documento o nombre)
             row_doc = row.get("numero_documento_extracted")
             row_name = row.get("contratante") or row.get("razon_social")
@@ -506,17 +552,15 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
                 try:
                     c_poliza = U(row.get("numero_poliza") or "")
                     c_cupon = U(row.get("recibo") or "")
-                    # Prioridad: fecha_vencimiento (pago) > vencimiento (vigencia fin) > inicio_vigencia
                     c_fec_venc = parse_date(row.get("fecha_vencimiento"))
                     if not c_fec_venc:
                         c_fec_venc = parse_date(row.get("vencimiento"))
-                    
                     c_moneda = U(row.get("moneda") or "SOLES")
                     c_importe = parse_decimal(row.get("prima_comercial_igv"))
                     if c_importe is None:
                          c_importe = parse_decimal(row.get("prima_total"))
-
-                    # Solo insertar si tenemos los datos mínimos requeridos por la tabla cuotas (NOT NULL)
+                    c_fecha_pago = parse_date(row.get("fecha_pago") or row.get("ultimo_dia_pago"))
+                    c_factura = U(row.get("factura") or row.get("recibo") or "")
                     if c_poliza and c_fec_venc and c_importe is not None:
                         cur.execute(
                             "CALL sp_insert_cuota(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
@@ -526,11 +570,11 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
                                 c_fec_venc,
                                 c_moneda,
                                 c_importe,
-                                None,   # fecha_pago
-                                None,   # factura
-                                None, # observacion
+                                c_fecha_pago,
+                                c_factura,
+                                None,
                                 usuario_display,
-                                1       # numero_cuota
+                                1
                             )
                         )
                         while cur.nextset():
@@ -539,6 +583,59 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None)
                     print(f"[WARNING] No se pudo crear cuota automática: {ex_cuota}")
                     # No bloqueamos el flujo principal, pero lo logueamos
                     pass
+                try:
+                    files_for_row = saved_facturas_by_index.get(i, saved_facturas)
+                    if files_for_row:
+                        if not 'real_poliza_id' in locals():
+                            pass
+                        pid_for_files = None
+                        try:
+                            cur.execute("SELECT LAST_INSERT_ID()")
+                            lid_row2 = cur.fetchone()
+                            lid2 = lid_row2[0] if lid_row2 else 0
+                            if args[32]:
+                                cur.execute("SELECT poliza_id FROM poliza_archivos WHERE idArchivo = %s", (lid2,))
+                                pid_row2 = cur.fetchone()
+                                if pid_row2:
+                                    pid_for_files = pid_row2[0]
+                            else:
+                                pid_for_files = lid2
+                        except Exception:
+                            pid_for_files = None
+                        if not pid_for_files:
+                            try:
+                                cur.execute(
+                                    "SELECT idPoliza FROM polizas WHERE TRIM(poliza)=TRIM(%s) ORDER BY creado_en DESC LIMIT 1",
+                                    ((row.get('numero_poliza') or row.get('poliza') or ''),)
+                                )
+                                rpid = cur.fetchone()
+                                if rpid:
+                                    pid_for_files = rpid[0]
+                            except Exception:
+                                pid_for_files = None
+                        if pid_for_files:
+                            for sf in files_for_row:
+                                nombre_doc = f"[CUOTA {U(row.get('recibo') or '')}] {sf['nombre']}".strip()
+                                try:
+                                    cur.execute(
+                                        """INSERT INTO poliza_archivos
+                                           (poliza_id, numero_poliza, ruta_archivo, nombre_original, origen, ramo, producto, usuario, compania)
+                                           VALUES (%s,%s,%s,%s,'CUOTA',%s,%s,%s,%s)""",
+                                        (
+                                            pid_for_files,
+                                            U(row.get('numero_poliza') or ''),
+                                            sf['ruta'],
+                                            nombre_doc or sf['nombre'],
+                                            U(row.get('ramo') or ''),
+                                            U(row.get('ramos_producto') or ''),
+                                            usuario_display,
+                                            U(row.get('cia') or '')
+                                        )
+                                    )
+                                except Exception as ex_f:
+                                    print(f"[save_polizas] Error linking factura archivo: {ex_f}")
+                except Exception as _ex:
+                    print(f"[save_polizas] Facturas vinculo error: {_ex}")
 
             except mysql.connector.Error as err:
                 # Detecta SIGNAL SQLSTATE '45000' del SP (duplicado / cliente no existe)

@@ -2542,9 +2542,23 @@ def polizas_save():
         except:
             payload = {}
         anexos = request.files.getlist('anexos')
+        facturas = request.files.getlist('facturas')
+        facturas_by_index = {}
+        try:
+            for key in request.files.keys():
+                if key.startswith('facturas_'):
+                    try:
+                        idx = int(key.split('_', 1)[1])
+                        facturas_by_index[idx] = request.files.getlist(key)
+                    except Exception:
+                        pass
+        except Exception:
+            facturas_by_index = {}
     else:
         payload = request.get_json(silent=True) or {}
         anexos = []
+        facturas = []
+        facturas_by_index = {}
 
     items = payload.get('items') or []
     selected = payload.get('selected') or session.get('selected_cliente') or {}
@@ -2577,7 +2591,7 @@ def polizas_save():
                 pass
 
     from controllers.addPoliza import save_polizas
-    res = save_polizas(items, selected, anexos=anexos)
+    res = save_polizas(items, selected, anexos=anexos, facturas=facturas, facturas_by_index=facturas_by_index)
     if not res.get('ok'):
         current_app.logger.error('polizas_save error: %s', res.get('errors'))
     status = 200 if res.get('ok') else 400

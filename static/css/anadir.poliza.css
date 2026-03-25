@@ -264,12 +264,16 @@ body {
 
 .table-custom tr {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); /* Increased min-width for better fit */
-    gap: 1rem 1.5rem;
+    /* 5 columnas de datos + 1 panel derecho compacto */
+    grid-template-columns: repeat(5, minmax(160px, 1fr)) minmax(220px, 260px);
+    grid-template-rows: repeat(4, 1fr);
+    grid-auto-flow: row dense;
+    align-content: start;
+    gap: 0.5rem 1rem;
     background: #fff;
     border: 1px solid var(--card-border);
     border-radius: var(--radius);
-    padding: 1.5rem;
+    padding: 1rem 1.25rem;
     margin-bottom: 1.5rem;
     box-shadow: var(--shadow-sm);
     transition: transform 0.2s, box-shadow 0.2s;
@@ -287,18 +291,18 @@ body {
     border: none;
     background: transparent;
     font-size: 0.95rem;
-    min-height: 3.5rem; /* Ensure consistent height for alignment */
+    min-height: 2.2rem;
 }
 
 /* Headers via CSS */
 .table-custom td::before {
     content: attr(data-label); /* Fallback */
     display: block;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 700;
     text-transform: uppercase;
     color: var(--text-muted);
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.2rem;
     letter-spacing: 0.03em;
 }
 
@@ -322,7 +326,9 @@ body {
 .table-custom td:nth-child(17)::before { content: "Imp. Com. Cía"; }
 .table-custom td:nth-child(18)::before { content: "% Com. Sub"; }
 .table-custom td:nth-child(19)::before { content: "Imp. Com. Sub"; }
-.table-custom td:nth-child(20)::before { content: "Acciones"; }
+.table-custom td:nth-child(20)::before { content: "Factura"; }
+.table-custom td:nth-child(21)::before { content: "Fecha Pago"; }
+.table-custom td:nth-child(22)::before { content: "Acciones"; }
 
 /* Highlight Important Fields */
 .table-custom td:nth-child(1) { /* Poliza */
@@ -337,17 +343,14 @@ body {
 }
 
 /* Full width rows within the card */
-.table-custom td:nth-child(6) { /* Asegurado en posición 6 */
-    grid-column: 1 / -1;
-    border-bottom: 1px dashed var(--card-border);
-    padding-bottom: 1rem;
-    margin-bottom: 0.5rem;
+.table-custom td:nth-child(6) { /* Asegurado */
+    grid-column: span 3;
 }
 
 /* Double width fields for long text */
-.table-custom td:nth-child(8), /* Ramo */
-.table-custom td:nth-child(9) { /* Producto */
-    grid-column: span 2;
+.table-custom td:nth-child(8),
+.table-custom td:nth-child(9) {
+    grid-column: span 1;
 }
 /* On small screens, force them to auto span to avoid breaking */
 @media (max-width: 600px) {
@@ -367,25 +370,123 @@ body {
     grid-column: 1;
 }
 
-.table-custom td:nth-child(20) { /* Acciones en posición 20 */
-    grid-column: 1 / -1;
-    border-top: 1px dashed var(--card-border);
-    padding-top: 1rem;
-    margin-top: 0.5rem;
-    flex-direction: row;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 0.5rem;
-    min-height: auto;
+.table-custom td:nth-child(22) { /* Panel derecho fijo */
+    grid-column: 6;
+    grid-row: 1 / -1;
+    align-self: stretch;
+    border-left: 2px solid #e5e7eb; /* línea divisoria */
+    padding-left: 1rem;
+    margin-left: 0.5rem;
+    min-height: 100%;
 }
-.table-custom td:nth-child(20)::before {
-    display: none; /* Hide label for actions */
-}
+.table-custom td:nth-child(22)::before { display: none; }
 
 /* Inputs styling in cards */
 .table-custom input.form-control {
     padding: 0.4rem 0.6rem;
     font-size: 0.9rem;
+}
+
+.table-custom td:nth-child(6) { /* Asegurado */
+    grid-column: 1 / span 2; /* ocupa dos columnas a la izquierda, al lado de Cía/Ramo/Producto */
+    grid-row: 2;
+}
+.table-custom td:nth-child(7) { /* Cía */
+    grid-column: 3; 
+    grid-row: 2;
+}
+.table-custom td:nth-child(8) { /* Ramo */
+    grid-column: 4; 
+    grid-row: 2;
+}
+.table-custom td:nth-child(9) { /* Producto */
+    grid-column: 5; 
+    grid-row: 2;
+}
+
+/* Reordenar fila superior: Documento y Inicio Vigencia */
+.table-custom td:nth-child(5) { /* Documento */
+    grid-column: 4;
+    grid-row: 1;
+}
+.table-custom td:nth-child(11) { /* Inicio Vigencia */
+    grid-column: 5;
+    grid-row: 1;
+}
+
+/* Fila 3: Moneda y Primas + Fin Vigencia */
+.table-custom td:nth-child(10) { /* Moneda */
+    grid-column: 1;
+    grid-row: 3;
+}
+.table-custom td:nth-child(13) { /* Prima Neta */
+    grid-column: 2;
+    grid-row: 3;
+}
+.table-custom td:nth-child(14) { /* Prima Comercial */
+    grid-column: 3;
+    grid-row: 3;
+}
+.table-custom td:nth-child(15) { /* Prima + IGV */
+    grid-column: 4;
+    grid-row: 3;
+}
+.table-custom td:nth-child(12) { /* Fin Vigencia */
+    grid-column: 5;
+    grid-row: 3;
+}
+
+/* Fila 4: Comisiones */
+.table-custom td:nth-child(16) { /* % Com. Cía */
+    grid-column: 1;
+    grid-row: 4;
+}
+.table-custom td:nth-child(17) { /* Imp. Com. Cía */
+    grid-column: 2;
+    grid-row: 4;
+}
+.table-custom td:nth-child(18) { /* % Com. Sub */
+    grid-column: 3;
+    grid-row: 4;
+}
+.table-custom td:nth-child(19) { /* Imp. Com. Sub */
+    grid-column: 4;
+    grid-row: 4;
+}
+
+.actions-pane .pane-fields .form-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+    letter-spacing: .03em;
+}
+.actions-pane .pane-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr; /* Factura | Fecha Pago | Fecha Venc. juntos */
+    column-gap: .5rem;
+    row-gap: .5rem;
+    margin-bottom: .5rem;
+}
+.actions-pane .pane-fields .form-control {
+    font-size: 0.85rem;
+    padding: 0.35rem 0.5rem;
+}
+.actions-pane .pane-fields .field { margin: 0; }
+.actions-pane .pane-fields .field.field-span-2 { grid-column: 1 / -1; }
+.actions-pane .top-row {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .5rem;
+}
+.actions-pane .top-row .facturas-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    font-size: .75rem;
 }
 
 /* Hide Ramo Col styling from table view */
@@ -398,6 +499,55 @@ body {
 .table-custom .btn-sm {
     padding: 0.5rem 1rem;
     font-size: 0.85rem;
+}
+
+.drop-facturas {
+    margin-top: 0.5rem;
+    padding: 0.6rem;
+    border: 2px dashed #cbd5e1;
+    border-radius: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    text-align: center;
+}
+.drop-facturas.dragover {
+    border-color: var(--accent);
+    background: #f8fbff;
+    color: var(--primary);
+}
+.list-facturas {
+    margin-top: 0.25rem;
+    font-size: 0.85rem;
+}
+
+/* Ocultar columnas nativas de Factura y Fecha Pago (20, 21) ya que estarán en el panel derecho */
+.table-custom td:nth-child(20),
+.table-custom td:nth-child(21) {
+    display: none;
+}
+/* También ocultamos Fecha Vencimiento del cuerpo para agruparla con factura en el panel derecho */
+.table-custom td:nth-child(4) {
+    display: none;
+}
+
+/* Responsive: en pantallas pequeñas, el panel derecho pasa abajo */
+@media (max-width: 992px) {
+    .table-custom tr {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+    .table-custom td:nth-child(22) {
+        grid-column: 1 / -1;
+        grid-row: auto;
+        border-left: none;
+        border-top: 1px dashed var(--card-border);
+        padding-left: 0;
+        margin-left: 0;
+        margin-top: .75rem;
+        padding-top: 1rem;
+    }
+    .actions-pane .pane-fields {
+        grid-template-columns: 1fr 1fr; /* 2 columnas en móvil */
+    }
 }
 
 /* Loading */
