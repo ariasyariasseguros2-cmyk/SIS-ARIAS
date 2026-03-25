@@ -264,8 +264,8 @@ body {
 
 .table-custom tr {
     display: grid;
-    /* 5 columnas de datos + 1 panel derecho compacto */
-    grid-template-columns: repeat(5, minmax(160px, 1fr)) minmax(220px, 260px);
+    /* 6 columnas de datos; panel de acciones pasa abajo */
+    grid-template-columns: repeat(6, minmax(140px, 1fr));
     grid-template-rows: repeat(4, 1fr);
     grid-auto-flow: row dense;
     align-content: start;
@@ -370,14 +370,15 @@ body {
     grid-column: 1;
 }
 
-.table-custom td:nth-child(22) { /* Panel derecho fijo */
-    grid-column: 6;
-    grid-row: 1 / -1;
-    align-self: stretch;
-    border-left: 2px solid #e5e7eb; /* línea divisoria */
-    padding-left: 1rem;
-    margin-left: 0.5rem;
-    min-height: 100%;
+.table-custom td:nth-child(22) { /* Panel de acciones abajo */
+    grid-column: 1 / -1;
+    grid-row: auto;
+    border-left: none;
+    border-top: 1px dashed var(--card-border);
+    padding-left: 0;
+    margin-left: 0;
+    margin-top: .75rem;
+    padding-top: 1rem;
 }
 .table-custom td:nth-child(22)::before { display: none; }
 
@@ -406,33 +407,34 @@ body {
 
 /* Reordenar fila superior: Documento y Inicio Vigencia */
 .table-custom td:nth-child(5) { /* Documento */
-    grid-column: 4;
-    grid-row: 1;
-}
-.table-custom td:nth-child(11) { /* Inicio Vigencia */
     grid-column: 5;
     grid-row: 1;
 }
+/* Inicio Vigencia se coloca junto a MONEDA/PRIMAS por flujo automático de la grilla */
 
 /* Fila 3: Moneda y Primas + Fin Vigencia */
 .table-custom td:nth-child(10) { /* Moneda */
     grid-column: 1;
     grid-row: 3;
 }
-.table-custom td:nth-child(13) { /* Prima Neta */
+.table-custom td:nth-child(11) { /* Inicio Vigencia */
     grid-column: 2;
     grid-row: 3;
 }
-.table-custom td:nth-child(14) { /* Prima Comercial */
+.table-custom td:nth-child(12) { /* Fin Vigencia */
     grid-column: 3;
     grid-row: 3;
 }
-.table-custom td:nth-child(15) { /* Prima + IGV */
+.table-custom td:nth-child(13) { /* Prima Neta */
     grid-column: 4;
     grid-row: 3;
 }
-.table-custom td:nth-child(12) { /* Fin Vigencia */
+.table-custom td:nth-child(14) { /* Prima Comercial */
     grid-column: 5;
+    grid-row: 3;
+}
+.table-custom td:nth-child(15) { /* Prima + IGV */
+    grid-column: 6;
     grid-row: 3;
 }
 
@@ -477,8 +479,9 @@ body {
 .actions-pane .top-row {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: .5rem;
-    margin-bottom: .5rem;
+    margin-top: .75rem;
 }
 .actions-pane .top-row .facturas-count {
     display: inline-flex;
@@ -504,14 +507,14 @@ body {
 .drop-facturas {
     margin-top: 0.5rem;
     padding: 0.6rem;
-    border: 2px dashed #cbd5e1;
+    border: 2px dashed var(--primary);
     border-radius: 0.5rem;
     color: var(--text-muted);
     font-size: 0.85rem;
     text-align: center;
 }
 .drop-facturas.dragover {
-    border-color: var(--accent);
+    border-color: var(--primary);
     background: #f8fbff;
     color: var(--primary);
 }
@@ -531,16 +534,6 @@ body {
 @media (max-width: 992px) {
     .table-custom tr {
         grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    }
-    .table-custom td:nth-child(22) {
-        grid-column: 1 / -1;
-        grid-row: auto;
-        border-left: none;
-        border-top: 1px dashed var(--card-border);
-        padding-left: 0;
-        margin-left: 0;
-        margin-top: .75rem;
-        padding-top: 1rem;
     }
     .actions-pane .pane-fields {
         grid-template-columns: 1fr 1fr; /* 2 columnas en móvil */

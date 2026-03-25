@@ -552,11 +552,8 @@
   function buildActions(index) {
     return `
       <div class="actions-pane" data-index="${index}">
-        <div class="top-row">
-          <button type="button" class="btn btn-sm btn-outline-primary action-attach-factura" data-index="${index}">Adjuntar cuota</button>
-          <span class="badge bg-secondary facturas-count" data-index="${index}">0</span>
-          <button type="button" class="btn btn-sm btn-outline-danger action-remove ms-auto" data-index="${index}">Eliminar</button>
-        </div>
+        <div class="drop-facturas" data-index="${index}">Haz clic para seleccionar o arrastra la factura aquí</div>
+        <input type="file" class="d-none input-facturas" data-index="${index}" accept=".pdf,image/*" multiple>
         <div class="pane-fields">
           <div class="field">
             <label class="form-label small mb-1">Factura</label>
@@ -567,9 +564,10 @@
             <input type="text" class="form-control form-control-sm pane-fecha" data-index="${index}" placeholder="dd/mm/aaaa">
           </div>
         </div>
-        <input type="file" class="d-none input-facturas" data-index="${index}" accept=".pdf" multiple>
-        <div class="drop-facturas" data-index="${index}">Suelta aquí PDFs o haz clic en Adjuntar</div>
         <div class="list-facturas" data-index="${index}"></div>
+        <div class="top-row">
+          <button type="button" class="btn btn-sm btn-outline-danger action-remove" data-index="${index}">Eliminar</button>
+        </div>
       </div>
     `;
   }
@@ -1298,10 +1296,12 @@
       for (const f of files) {
         if (!arr.some(x => x.name === f.name && x.size === f.size)) {
           arr.push(f);
-          const meta = await extractFacturaMetaFromFile(f);
-          facturaMetaMap.set(keyForFile(f), meta);
-          if (meta && meta.factura) setCellValue(idx, 'factura', meta.factura);
-          if (meta && meta.fecha_pago) setCellValue(idx, 'fecha_pago', meta.fecha_pago);
+          if (/\.pdf$/i.test(f.name)) {
+            const meta = await extractFacturaMetaFromFile(f);
+            facturaMetaMap.set(keyForFile(f), meta);
+            if (meta && meta.factura) setCellValue(idx, 'factura', meta.factura);
+            if (meta && meta.fecha_pago) setCellValue(idx, 'fecha_pago', meta.fecha_pago);
+          }
         }
       }
       rowFacturasMap.set(idx, arr);
@@ -1328,20 +1328,33 @@
     dz.classList.remove('dragover');
     const idx = Number(dz.dataset.index);
     if (!Number.isFinite(idx)) return;
-    const files = Array.from(e.dataTransfer?.files || []).filter(f => /\.pdf$/i.test(f.name));
+    const files = Array.from(e.dataTransfer?.files || []).filter(f => /\.pdf$/i.test(f.name) || /^image\//i.test(f.type));
     if (!files.length) return;
     const arr = rowFacturasMap.get(idx) || [];
     for (const f of files) {
       if (!arr.some(x => x.name === f.name && x.size === f.size)) {
         arr.push(f);
-        const meta = await extractFacturaMetaFromFile(f);
-        facturaMetaMap.set(keyForFile(f), meta);
-        if (meta && meta.factura) setCellValue(idx, 'factura', meta.factura);
-        if (meta && meta.fecha_pago) setCellValue(idx, 'fecha_pago', meta.fecha_pago);
+        if (/\.pdf$/i.test(f.name)) {
+          const meta = await extractFacturaMetaFromFile(f);
+          facturaMetaMap.set(keyForFile(f), meta);
+          if (meta && meta.factura) setCellValue(idx, 'factura', meta.factura);
+          if (meta && meta.fecha_pago) setCellValue(idx, 'fecha_pago', meta.fecha_pago);
+        }
       }
     }
     rowFacturasMap.set(idx, arr);
     updateRowFilesUI(idx);
+  });
+
+  // Click en la zona de drop abre el selector de archivos
+  tbody.addEventListener('click', (e) => {
+    const dz = e.target.closest('.drop-facturas');
+    if (!dz) return;
+    const idx = Number(dz.dataset.index);
+    if (!Number.isFinite(idx)) return;
+    const tr = tbody.querySelectorAll('tr')[idx];
+    const input = tr?.querySelector('.input-facturas');
+    input?.click();
   });
 
   tbody.addEventListener('click', (e) => {
@@ -1370,7 +1383,26 @@
     if (btnRem) {
       arr.splice(i, 1);
       rowFacturasMap.set(idx, arr);
+      // Si ya no quedan archivos de cuota, resetear Factura y Fecha de Pago
+      if (arr.length === 0) {
+        if (extractedItems[idx]) {
+          extractedItems[idx].factura = '';
+          extractedItems[idx].fecha_pago = '';
+        }
+        const tr = tbody.querySelectorAll('tr')[idx];
+        if (tr) {
+          const pf = tr.querySelector('.pane-factura');
+          if (pf) pf.value = '';
+          const pfp = tr.querySelector('.pane-fecha');
+          if (pfp) pfp.value = '';
+        }
+        const tdFac = getTd(idx, 'factura');
+        if (tdFac) tdFac.textContent = '';
+        const tdFec = getTd(idx, 'fecha_pago');
+        if (tdFec) tdFec.textContent = '';
+      }
       updateRowFilesUI(idx);
+      scheduleAutoSave();
       return;
     }
   });
