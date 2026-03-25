@@ -14,6 +14,27 @@ def _money(s: Optional[str]) -> Optional[str]:
     m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+)", s)
     return m.group(1) if m else s
 
+def _normalize_name(s: Optional[str]) -> Optional[str]:
+    if not s:
+        return s
+    # Remover DNI/RUC incluso si los dígitos vienen con espacios internos
+    out = re.sub(r"(?:DNI\s*/\s*RUC|DNI|RUC)\s*[:\-]?\s*(?:\d[\d\s]{7,20})", "", s, flags=re.IGNORECASE)
+    out = re.sub(r"\bMALP\s+ARTIDA\b", "MALPARTIDA", out, flags=re.IGNORECASE)
+    out = re.sub(r"\s{2,}", " ", out).strip(" :,-")
+    for _ in range(3):
+        prev = out
+        out = re.sub(r"\b([A-ZÁÉÍÓÚÑ])\s+([A-ZÁÉÍÓÚÑ]{2,})\b", r"\1\2", out)
+        out = re.sub(r"\b([A-ZÁÉÍÓÚÑ]{3,})\s+([A-ZÁÉÍÓÚÑ])\b", r"\1\2", out)
+        # Unir prefijos de 1–2 letras con palabra larga (p.ej., "V ALENTINA" -> "VALENTINA", "NA THALY" -> "NATHALY")
+        out = re.sub(r"\b([A-ZÁÉÍÓÚÑ]{1,2})\s+([A-ZÁÉÍÓÚÑ]{3,12})\b", lambda m: m.group(1)+m.group(2) if len(m.group(1)+m.group(2))<=12 else m.group(0), out)
+        out = re.sub(r"\b(?:([A-ZÁÉÍÓÚÑ])\s+){2,}([A-ZÁÉÍÓÚÑ])\b", lambda m: re.sub(r"\s+", "", m.group(0)), out)
+        if out == prev:
+            break
+    # Unificación genérica de palabras cortas + largas (evita listas específicas)
+    out = re.sub(r"\bS\s*\.?\s*A\s*\.?\s*C\b", "S.A.C.", out, flags=re.IGNORECASE)
+    out = re.sub(r"(?<!\s)(S\.A\.C\.)", r" \1", out)
+    out = re.sub(r"\s{2,}", " ", out).strip(" :,-")
+    return out
 def parse_sanitas_salud(text: str) -> Dict[str, str]:
     # Contrato / Póliza
     contrato = _find(r"Contrato\s*:\s*([0-9A-Z\-]+)", text) or _find(r"CONTRATO\s*:\s*([0-9A-Z\-]+)", text)
@@ -38,6 +59,7 @@ def parse_sanitas_salud(text: str) -> Dict[str, str]:
     colectivo = _find(r"Contratante\s*:\s*(.+)", text) or _find(r"CONTRATANTE\s*:\s*(.+)", text)
     if colectivo:
         colectivo = colectivo.split("\n")[0].strip()
+        colectivo = _normalize_name(colectivo)
 
     # Rubro / ramo y producto (cascada: Ramo SCTR -> Producto Salud/Pensión)
     ramo = _find(r"Rubro\s*:\s*(.+)", text)

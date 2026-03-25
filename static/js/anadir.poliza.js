@@ -528,9 +528,11 @@
     if (t.includes('avla')) return 'avla';
     if (t.includes('grandia') && t.includes('eps')) return 'grandia-eps';
     if (t.includes('crecer')) return __pickCrecerVariant(t);
+    // Priorizar sanitas por encima del caso genérico "EPS"
+    if (t.includes('sanitas')) return 'sanitas';
+    // Positiva/LPV (incluye EPS genérico solo si no se detectó "sanitas")
     if (t.includes('positiva') || t.includes('lpv') || t.includes('vida ley') || t.includes('vida') || t.includes('pension') || t.includes('pensión') || t.includes('eps') || t.includes('entidad prestadora') || t.includes('salud') || t.includes('lpeps')) return __pickLPVVariant(t);
     if (t.includes('mapfre')) return 'mapfre';
-    if (t.includes('sanitas')) return 'sanitas';
     if (t.includes('pacifico') || t.includes('pacífico')) return 'pacifico';
     if (t.includes('protecta') || t.includes('proctecta')) return 'proctecta';
     return '';
@@ -1076,6 +1078,19 @@
     insertTextAtCursor(cleaned);
   });
 
+  // Filtro de pegado: texto plano para el resto de campos (evita estilos blancos pegados desde el header)
+  tbody.addEventListener('paste', (e) => {
+    const td = e.target.closest('td.editable');
+    if (!td) return;
+    const field = td.dataset.field;
+    if (isDateField(field) || isNumericField(field)) return;
+    const text = (e.clipboardData || window.clipboardData)?.getData('text/plain') || '';
+    e.preventDefault();
+    insertTextAtCursor(text);
+    // Asegurar que no queden spans/formatos
+    setTimeout(() => { td.textContent = (td.textContent || '').trim(); }, 0);
+  });
+
   tbody.addEventListener('input', (e) => {
     const td = e.target.closest('td.editable');
     if (!td) return;
@@ -1613,9 +1628,11 @@
             if (t.includes('avla')) return 'avla';
             if (t.includes('grandia') && t.includes('eps')) return 'grandia-eps';
             if (t.includes('crecer')) return pickCrecerVariantByText(t);
+            // Priorizar sanitas por encima del caso genérico "EPS"
+            if (t.includes('sanitas')) return 'sanitas';
+            // Positiva/LPV (incluye EPS genérico solo si no se detectó "sanitas")
             if (t.includes('positiva') || t.includes('lpv') || t.includes('vida ley') || t.includes('eps') || t.includes('entidad prestadora') || t.includes('salud') || t.includes('lpeps')) return pickLPVVariantByText(t);
             if (t.includes('mapfre')) return 'mapfre';
-            if (t.includes('sanitas')) return 'sanitas';
             if (t.includes('pacifico') || t.includes('pacífico')) return 'pacifico';
             if (t.includes('protecta') || t.includes('proctecta')) return 'proctecta';
             return '';
@@ -2258,9 +2275,10 @@
 
   // NUEVO: ejecutar el reset al cargar la página y al mostrar (bfcache)
   let __resetInvoked = false;
-  function __resetOnce() {
+  async function __resetOnce() {
     if (__resetInvoked) return;
     __resetInvoked = true;
+    try { await ensureIssuerOptionsLoaded(); } catch (e) {}
     resetAddPolizaView();
   }
   document.addEventListener('DOMContentLoaded', __resetOnce);

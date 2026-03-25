@@ -294,6 +294,13 @@ body {
     min-height: 2.2rem;
 }
 
+/* Asegurar texto negro en celdas editables, sin arrastrar estilos del portapapeles */
+.table-custom td.editable,
+.table-custom td.editable * {
+    color: var(--text-main) !important;
+    background: transparent !important;
+}
+
 /* Headers via CSS */
 .table-custom td::before {
     content: attr(data-label); /* Fallback */
