@@ -322,7 +322,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                     SELECT e.nombre
                     FROM usuarios u
                     LEFT JOIN ejecutivos e ON e.idEjecutivo = u.id_ejecutivo
-                    WHERE u.username = %s
+                    WHERE u.username COLLATE utf8mb4_0900_ai_ci = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_0900_ai_ci
                     LIMIT 1
                 """, (session.get('user'),))
                 r2 = c2.fetchone()
@@ -337,7 +337,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
             if session.get('user'):
                 c3 = cnx.cursor()
                 c3.execute(
-                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1",
+                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username COLLATE utf8mb4_0900_ai_ci = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_0900_ai_ci LIMIT 1",
                     (session.get('user'),),
                 )
                 r3 = c3.fetchone()
@@ -350,12 +350,12 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
         def find_client_doc(doc, name, cursor):
             # Prioridad: documento
             if doc:
-                cursor.execute("SELECT numero_documento FROM clientes WHERE numero_documento = %s LIMIT 1", (doc,))
+                cursor.execute("SELECT numero_documento FROM clientes WHERE numero_documento COLLATE utf8mb4_0900_ai_ci = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_0900_ai_ci LIMIT 1", (doc,))
                 res = cursor.fetchone()
                 if res: return res[0]
             # Fallback: nombre (razon_social)
             if name:
-                cursor.execute("SELECT numero_documento FROM clientes WHERE razon_social = %s LIMIT 1", (name,))
+                cursor.execute("SELECT numero_documento FROM clientes WHERE razon_social COLLATE utf8mb4_0900_ai_ci = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_0900_ai_ci LIMIT 1", (name,))
                 res = cursor.fetchone()
                 if res: return res[0]
             return None
@@ -554,16 +554,90 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                     c_fec_venc = parse_date(row.get("fecha_vencimiento"))
                     if not c_fec_venc:
                         c_fec_venc = parse_date(row.get("vencimiento"))
-                    c_moneda = U(row.get("moneda") or "SOLES")
+                    c_moneda = U(row.get("moneda") or "S/.")
                     c_importe = parse_decimal(row.get("prima_comercial_igv"))
                     if c_importe is None:
                          c_importe = parse_decimal(row.get("prima_total"))
                     c_fecha_pago = parse_date(row.get("fecha_pago"))
                     c_factura = U(row.get("factura") or "")
                     if c_poliza and c_fec_venc and c_importe is not None:
+                        target_poliza_id = real_poliza_id
+                        if not target_poliza_id:
+                            try:
+                                if c_cupon:
+                                    cur.execute(
+                                        """
+                                        SELECT idPoliza
+                                        FROM polizas
+                                        WHERE TRIM(poliza) = TRIM(%s) AND TRIM(recibo) = TRIM(%s)
+                                        ORDER BY creado_en DESC
+                                        LIMIT 1
+                                        """,
+                                        (c_poliza, c_cupon),
+                                    )
+                                else:
+                                    cur.execute(
+                                        """
+                                        SELECT idPoliza
+                                        FROM polizas
+                                        WHERE TRIM(poliza) = TRIM(%s)
+                                        ORDER BY creado_en DESC
+                                        LIMIT 1
+                                        """,
+                                        (c_poliza,),
+                                    )
+                                rpid = cur.fetchone()
+                                if rpid:
+                                    target_poliza_id = rpid[0]
+                            except Exception:
+                                target_poliza_id = None
+
+                        if target_poliza_id:
+                            cur.execute(
+                                "SELECT IFNULL(MAX(numero_cuota), 0) + 1 FROM cuotas WHERE poliza_id = %s",
+                                (target_poliza_id,),
+                            )
+                        else:
+                            cur.execute(
+                                "SELECT IFNULL(MAX(numero_cuota), 0) + 1 FROM cuotas WHERE poliza = %s",
+                                (c_poliza,),
+                            )
+                        rnc = cur.fetchone()
+                        numero_cuota = rnc[0] if rnc and rnc[0] is not None else 1
+
+                        if c_factura:
+                            cur.execute("SELECT 1 FROM cuotas WHERE factura = %s AND activo = 1 LIMIT 1", (c_factura,))
+                            if cur.fetchone():
+                                raise Exception("El número de factura ya existe.")
+                        if c_cupon:
+                            cur.execute(
+                                "SELECT 1 FROM cuotas WHERE TRIM(poliza)=TRIM(%s) AND TRIM(cupon)=TRIM(%s) AND activo=1 LIMIT 1",
+                                (c_poliza, c_cupon),
+                            )
+                            if cur.fetchone():
+                                pass
+
                         cur.execute(
-                            "CALL sp_insert_cuota(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                            """
+                            INSERT INTO cuotas (
+                                poliza_id,
+                                poliza,
+                                cupon,
+                                fecha_vencimiento,
+                                moneda,
+                                importe,
+                                fecha_pago,
+                                factura,
+                                observacion,
+                                usuario_registro,
+                                numero_cuota,
+                                activo
+                            ) VALUES (
+                                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, 1
+                            )
+                            """,
                             (
+                                target_poliza_id,
                                 c_poliza,
                                 c_cupon,
                                 c_fec_venc,
@@ -573,11 +647,29 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                                 c_factura,
                                 None,
                                 usuario_display,
-                                1
-                            )
+                                numero_cuota,
+                            ),
                         )
-                        while cur.nextset():
-                            pass
+
+                        final_poliza_id = target_poliza_id
+                        if final_poliza_id is not None:
+                            cur.execute(
+                                """
+                                SELECT COUNT(*)
+                                FROM cuotas
+                                WHERE poliza_id = %s
+                                  AND (
+                                    fecha_pago IS NULL
+                                    OR factura IS NULL OR factura = ''
+                                  )
+                                  AND activo = 1
+                                """,
+                                (final_poliza_id,),
+                            )
+                            row_p = cur.fetchone()
+                            pendientes = row_p[0] if row_p and row_p[0] is not None else 0
+                            nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'CANCELADO'
+                            cur.execute("UPDATE polizas SET estado = %s WHERE idPoliza = %s", (nuevo_estado, final_poliza_id))
                 except Exception as ex_cuota:
                     print(f"[WARNING] No se pudo crear cuota automática: {ex_cuota}")
                     # No bloqueamos el flujo principal, pero lo logueamos
@@ -589,7 +681,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                         if not pid_for_files:
                             try:
                                 cur.execute(
-                                    "SELECT idPoliza FROM polizas WHERE TRIM(poliza)=TRIM(%s) ORDER BY creado_en DESC LIMIT 1",
+                                    "SELECT idPoliza FROM polizas WHERE TRIM(poliza) COLLATE utf8mb4_0900_ai_ci = TRIM(CAST(%s AS CHAR CHARACTER SET utf8mb4)) COLLATE utf8mb4_0900_ai_ci ORDER BY creado_en DESC LIMIT 1",
                                     ((row.get('numero_poliza') or row.get('poliza') or ''),)
                                 )
                                 rpid = cur.fetchone()

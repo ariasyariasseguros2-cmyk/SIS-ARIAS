@@ -540,7 +540,7 @@ CREATE TABLE IF NOT EXISTS polizas (
     activo TINYINT(1) NOT NULL DEFAULT 1,
     usuario_registro VARCHAR(100) NULL,
     usuario_edicion VARCHAR(100) NULL,
-    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (cliente_id) REFERENCES clientes(idCliente)
 );
@@ -633,7 +633,7 @@ BEGIN
 
     SELECT idCliente INTO v_cliente_id
     FROM clientes
-    WHERE numero_documento = p_numero_documento
+    WHERE numero_documento COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
     LIMIT 1;
 
     IF v_cliente_id IS NULL THEN
@@ -651,10 +651,10 @@ BEGIN
         SELECT COUNT(*) INTO v_exists
         FROM polizas
         WHERE cliente_id = v_cliente_id
-          AND poliza = p_poliza
+          AND poliza COLLATE utf8mb4_0900_ai_ci = p_poliza COLLATE utf8mb4_0900_ai_ci
           AND (
-               contrato_nro = v_key
-            OR recibo = v_key
+               contrato_nro COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci
+            OR recibo COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci
           );
 
         IF v_exists > 0 THEN
@@ -668,7 +668,7 @@ BEGIN
         SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
         INTO v_usuario_registro_nombre
         FROM usuarios
-        WHERE username = p_usuario_registro
+        WHERE username COLLATE utf8mb4_0900_ai_ci = p_usuario_registro COLLATE utf8mb4_0900_ai_ci
         LIMIT 1;
     END IF;
     IF v_usuario_registro_nombre IS NULL OR v_usuario_registro_nombre = '' THEN
@@ -682,7 +682,7 @@ BEGIN
         sub_agente, ejecutivo, tipo_doc,
         asegurada, motivo, prima_comercial, prima_neta, prima_comercial_igv, prima_total,
         porc_compania, imp_compania, porc_subagente, imp_subagente,
-        ramos_producto, estado, usuario_registro
+        ramos_producto, estado, usuario_registro, creado_en
     ) VALUES (
         v_cliente_id, p_asegurado, p_cia, p_ramo,
         p_poliza, p_recibo, p_contrato_nro, p_nro,
@@ -690,7 +690,7 @@ BEGIN
         p_sub_agente, p_ejecutivo, p_tipo_doc,
         p_asegurada, p_motivo, p_prima_comercial, p_prima_neta, p_prima_comercial_igv, p_prima_total,
         p_porc_compania, p_imp_compania, p_porc_subagente, p_imp_subagente,
-        p_ramos_producto, p_estado, v_usuario_registro_nombre
+        p_ramos_producto, p_estado, v_usuario_registro_nombre, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')
     );
 
     SET v_poliza_id = LAST_INSERT_ID();
@@ -1045,7 +1045,7 @@ CREATE TABLE IF NOT EXISTS cuotas (
     observacion VARCHAR(255) NULL,
     usuario_registro VARCHAR(100) NULL,
     usuario_edicion VARCHAR(100) NULL,
-    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
     numero_cuota INT NULL,
     activo TINYINT(1) DEFAULT 1
 );
@@ -1060,7 +1060,7 @@ CREATE TABLE IF NOT EXISTS cuota_archivos (
     ruta_archivo VARCHAR(255) NOT NULL,
     nombre_original VARCHAR(255),
     usuario VARCHAR(100),
-    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cuota_id) REFERENCES cuotas(idCuota) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -1090,8 +1090,8 @@ BEGIN
         SET v_usuario_nombre = p_usuario;
     END IF;
 
-    INSERT INTO cuota_archivos (cuota_id, poliza_id, numero_poliza, cupon, ruta_archivo, nombre_original, usuario)
-    VALUES (p_cuota_id, p_poliza_id, p_numero_poliza, p_cupon, p_ruta_archivo, p_nombre_original, v_usuario_nombre);
+    INSERT INTO cuota_archivos (cuota_id, poliza_id, numero_poliza, cupon, ruta_archivo, nombre_original, usuario, creado_en)
+    VALUES (p_cuota_id, p_poliza_id, p_numero_poliza, p_cupon, p_ruta_archivo, p_nombre_original, v_usuario_nombre, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00'));
     SELECT LAST_INSERT_ID() AS idArchivo;
 END$$
 DELIMITER ;
@@ -1288,14 +1288,24 @@ BEGIN
         END IF;
     END IF;
 
-    -- Buscar idPoliza correspondiente a esta póliza + proforma (recibo)
-    SELECT idPoliza
-    INTO v_poliza_id
-    FROM polizas
-    WHERE TRIM(poliza) = TRIM(p_poliza)
-      AND TRIM(recibo) = TRIM(p_cupon)
-    ORDER BY creado_en DESC
-    LIMIT 1;
+    -- Buscar idPoliza correspondiente
+    -- Si hay cupón/proforma, buscar por póliza + recibo; de lo contrario, usar solo póliza
+    IF p_cupon IS NOT NULL AND TRIM(p_cupon) <> '' THEN
+        SELECT idPoliza
+        INTO v_poliza_id
+        FROM polizas
+        WHERE TRIM(poliza) = TRIM(p_poliza)
+          AND TRIM(recibo) = TRIM(p_cupon)
+        ORDER BY creado_en DESC
+        LIMIT 1;
+    ELSE
+        SELECT idPoliza
+        INTO v_poliza_id
+        FROM polizas
+        WHERE TRIM(poliza) = TRIM(p_poliza)
+        ORDER BY creado_en DESC
+        LIMIT 1;
+    END IF;
 
     SET v_usuario_nombre = NULL;
     IF p_usuario IS NOT NULL AND TRIM(p_usuario) <> '' THEN
@@ -1311,10 +1321,10 @@ BEGIN
 
     INSERT INTO cuotas (
         poliza_id, poliza, cupon, fecha_vencimiento, moneda, importe,
-        fecha_pago, factura, observacion, usuario_registro, numero_cuota, activo
+        fecha_pago, factura, observacion, usuario_registro, creado_en, numero_cuota, activo
     ) VALUES (
         v_poliza_id, p_poliza, p_cupon, p_fecha_vencimiento, p_moneda, p_importe,
-        p_fecha_pago, p_factura, p_observacion, v_usuario_nombre, p_numero_cuota, 1
+        p_fecha_pago, p_factura, p_observacion, v_usuario_nombre, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00'), p_numero_cuota, 1
     );
 
     IF p_fecha_pago IS NOT NULL THEN
@@ -3429,7 +3439,7 @@ BEGIN
     -- Validar que el cliente existe
     SELECT idCliente INTO v_cliente_id
     FROM clientes
-    WHERE numero_documento = p_numero_documento
+    WHERE numero_documento COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
     LIMIT 1;
 
     IF v_cliente_id IS NULL THEN
@@ -3447,8 +3457,8 @@ BEGIN
         SELECT COUNT(*) INTO v_exists
         FROM polizas
         WHERE cliente_id = v_cliente_id
-          AND poliza = p_poliza
-          AND (contrato_nro = v_key OR recibo = v_key);
+          AND poliza COLLATE utf8mb4_0900_ai_ci = p_poliza COLLATE utf8mb4_0900_ai_ci
+          AND (contrato_nro COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci OR recibo COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci);
 
         IF v_exists > 0 THEN
             SET v_msg = CONCAT('Póliza ya existe: ', p_poliza);
@@ -3461,7 +3471,7 @@ BEGIN
         SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
         INTO v_usuario_registro_nombre
         FROM usuarios
-        WHERE username = p_usuario_registro
+        WHERE username COLLATE utf8mb4_0900_ai_ci = p_usuario_registro COLLATE utf8mb4_0900_ai_ci
         LIMIT 1;
     END IF;
     IF v_usuario_registro_nombre IS NULL OR v_usuario_registro_nombre = '' THEN

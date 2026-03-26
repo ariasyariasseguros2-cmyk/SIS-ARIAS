@@ -64,11 +64,29 @@ def get_connection():
         connect_kwargs.pop("write_timeout", None)
         cnx = mysql.connector.connect(**connect_kwargs)
 
-    tz = os.environ.get("SIS_ARIAS_DB_TIMEZONE") or (db_cfg.get("timezone") if isinstance(db_cfg, dict) else None) or "-05:00"
+    tz_raw = os.environ.get("SIS_ARIAS_DB_TIMEZONE") or (db_cfg.get("timezone") if isinstance(db_cfg, dict) else None) or "-05:00"
+    tz = tz_raw or "-05:00"
+    if str(tz).upper() in {"UTC", "+00:00", "Z"}:
+        tz = "-05:00"
+    if str(tz).upper() == "AMERICA/LIMA":
+        tz = "-05:00"
     try:
         cur_tz = cnx.cursor()
         cur_tz.execute("SET time_zone = %s", (tz,))
         cur_tz.close()
+    except Exception:
+        try:
+            cur_tz = cnx.cursor()
+            cur_tz.execute("SET time_zone = %s", ("-05:00",))
+            cur_tz.close()
+        except Exception:
+            pass
+
+    try:
+        cur_cs = cnx.cursor()
+        cur_cs.execute("SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci")
+        cur_cs.execute("SET collation_connection = 'utf8mb4_0900_ai_ci'")
+        cur_cs.close()
     except Exception:
         pass
 
