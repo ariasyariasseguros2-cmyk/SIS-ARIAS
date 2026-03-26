@@ -39,6 +39,7 @@
   let isSaving = false;
   let lastUploadedFilename = null;
   let productsCache = null;
+  try { if (btnSave) btnSave.setAttribute('type', 'button'); } catch (e) {}
 
   function setIssuerFromProvider(provider) {
     if (!issuerEl || !provider) return;
@@ -1764,7 +1765,9 @@
   });
 
   // Guardado manual (btnSave) - UN SOLO HANDLER + GUARD CLAUSE
-  btnSave?.addEventListener('click', async () => {
+  btnSave?.addEventListener('click', async (e) => {
+    try { e.preventDefault(); } catch (_) {}
+    try { e.stopPropagation(); } catch (_) {}
     if (isSaving) return; // evita clics repetidos
     isSaving = true;
     try {
@@ -2271,6 +2274,39 @@
         lastUploadedFilename = null;
       }
       render(extractedItems);
+  }
+
+  function resetFieldsAfterSave() {
+    const rows = Array.from(tbody?.querySelectorAll('tr') || []);
+    rows.forEach((tr, idx) => {
+      if (extractedItems[idx]) {
+        extractedItems[idx].factura = '';
+        extractedItems[idx].fecha_pago = '';
+        extractedItems[idx].numero_documento_extracted = '';
+      }
+      const pf = tr.querySelector('.pane-factura');
+      if (pf) pf.value = '';
+      const pfp = tr.querySelector('.pane-fecha');
+      if (pfp) pfp.value = '';
+      const tdDoc = getTd(idx, 'numero_documento_extracted');
+      if (tdDoc) tdDoc.textContent = '';
+      const tdFac = getTd(idx, 'factura');
+      if (tdFac) tdFac.textContent = '';
+      const tdFec = getTd(idx, 'fecha_pago');
+      if (tdFec) tdFec.textContent = '';
+      rowFacturasMap.set(idx, []);
+      updateRowFilesUI(idx);
+    });
+    allFacturas = [];
+    if (facturasFilesEl) facturasFilesEl.value = '';
+    if (typeof renderFacturasList === 'function') {
+      renderFacturasList();
+    } else if (facturasListEl) {
+      facturasListEl.innerHTML = '';
+    }
+    const hasTipoDoc = ((tipoDocTopEl?.value || '').toString().trim() !== '');
+    const hasTipoPago = ((tipoPagoTopEl?.value || '').toString().trim() !== '');
+    if (btnSave) btnSave.disabled = extractedItems.length === 0 || !hasTipoDoc || !hasTipoPago;
   }
 
   // NUEVO: ejecutar el reset al cargar la página y al mostrar (bfcache)
