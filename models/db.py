@@ -58,8 +58,18 @@ def get_connection():
         connect_kwargs["auth_plugin"] = auth_plugin
 
     try:
-        return mysql.connector.connect(**connect_kwargs)
+        cnx = mysql.connector.connect(**connect_kwargs)
     except TypeError:
         connect_kwargs.pop("read_timeout", None)
         connect_kwargs.pop("write_timeout", None)
-        return mysql.connector.connect(**connect_kwargs)
+        cnx = mysql.connector.connect(**connect_kwargs)
+
+    tz = os.environ.get("SIS_ARIAS_DB_TIMEZONE") or (db_cfg.get("timezone") if isinstance(db_cfg, dict) else None) or "-05:00"
+    try:
+        cur_tz = cnx.cursor()
+        cur_tz.execute("SET time_zone = %s", (tz,))
+        cur_tz.close()
+    except Exception:
+        pass
+
+    return cnx
