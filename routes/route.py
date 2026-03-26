@@ -1595,7 +1595,7 @@ def upload():
             "prima_total": it.get("prima_total") or it.get("monto"),
             "prima_comercial_igv": it.get("prima_comercial_igv") or it.get("prima_total") or it.get("monto"),
             "ramo": it.get("ramo") or it.get("doc_tipo"),
-            "fecha_vencimiento": it.get("fecha_vencimiento") or it.get("vencimiento") or it.get("vigencia_hasta") or it.get("hasta") or it.get("expiracion"),
+            "fecha_vencimiento": it.get("fecha_vecimiento") or it.get("fecha_vencimiento") or it.get("vencimiento") or it.get("vigencia_hasta") or it.get("hasta") or it.get("expiracion"),
             "ramos_producto": it.get("ramos_producto") or it.get("producto"),
             "fecha_vecimiento": it.get("fecha_vecimiento"),
             "numero_documento_extracted": it.get("numero_documento_extracted"),

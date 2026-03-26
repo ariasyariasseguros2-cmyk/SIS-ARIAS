@@ -255,15 +255,18 @@ def parse_mapfre(text: str) -> Dict[str, str]:
     if v and va and (not ud or ud >= v or ud == v) and va < v:
         item["ultimo_dia_pago"] = item.get("vencimiento_aplicacion")
         print("ultimo_dia_pago", item["vencimiento_aplicacion"])
+    if item.get("vencimiento_aplicacion"):
+        item["vencimiento"] = item["vencimiento_aplicacion"]
+    item["fecha_vecimiento"] = None
     if item.get("fecha_emision"):
         try:
             d = datetime.strptime(item["fecha_emision"], "%d/%m/%Y").date()
             d2 = d + timedelta(days=15)
-            item["vencimiento"] = d2.strftime("%d/%m/%Y")
+            item["fecha_vecimiento"] = d2.strftime("%d/%m/%Y")
         except Exception:
             pass
-    # NUEVO: duplicar 'vencimiento' como 'fecha_vecimiento' para la UI
-    item["fecha_vecimiento"] = item.get("vencimiento")
+    if not item.get("fecha_vecimiento"):
+        item["fecha_vecimiento"] = item.get("vencimiento")
 
     # Extraer RUC del cliente
     # Prioridad 1: Etiqueta explícita "RUC" seguida de un número

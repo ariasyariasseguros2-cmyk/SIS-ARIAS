@@ -172,8 +172,7 @@ def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
         try:
             d = datetime.strptime(item["fecha_emision"], "%d/%m/%Y").date()
             d2 = d + timedelta(days=15)
-            item["vencimiento"] = d2.strftime("%d/%m/%Y")
-            item["fecha_vecimiento"] = item["vencimiento"]
+            item["fecha_vecimiento"] = d2.strftime("%d/%m/%Y")
         except Exception:
             pass
     
