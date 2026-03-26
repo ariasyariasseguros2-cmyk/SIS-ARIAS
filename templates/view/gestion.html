@@ -105,11 +105,12 @@
             <button class="btn btn-custom btn-icon-only"><i class="bi-chevron-left"></i></button>
             <form action="{{ url_for('main.gestion') }}" method="POST" style="display:inline;">
                 <input type="hidden" name="fecha_hasta" value="{{ today }}">
+                <input type="hidden" name="limit" value="{{ limit or '20' }}">
                 <button type="submit" class="btn btn-custom text-decoration-none" title="Ver cuotas vencidas hasta hoy"><i class="bi-calendar-event"></i> Vencen Hoy</button>
             </form>
             <button class="btn btn-custom btn-icon-only"><i class="bi-chevron-right"></i></button>
             <button class="btn btn-custom"><i class="bi-ticket-detailed"></i> Cupones Comisionables</button>
-            <a href="{{ url_for('main.gestion') }}" class="btn btn-custom text-decoration-none"><i class="bi-list-ul"></i> Ver Todos</a>
+            <a href="{{ url_for('main.gestion', limit='todos') }}" class="btn btn-custom text-decoration-none"><i class="bi-list-ul"></i> Ver Todos</a>
         </div>
     </div>
 
@@ -142,10 +143,12 @@
                 <input type="text" class="form-control" placeholder="Buscar">
                 <button class="btn btn-outline-secondary" type="button"><i class="bi-search"></i></button>
             </div>
-            <select class="form-select" style="width: auto;">
-                <option value="20" selected>20</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
+            <input type="hidden" name="page" value="{{ pagination.page if pagination else 1 }}">
+            <select class="form-select" name="limit" style="width: auto;">
+                <option value="todos" {{ 'selected' if limit == 'todos' else '' }}>Todos</option>
+                <option value="20" {{ 'selected' if (limit or '20') == '20' else '' }}>20</option>
+                <option value="50" {{ 'selected' if limit == '50' else '' }}>50</option>
+                <option value="100" {{ 'selected' if limit == '100' else '' }}>100</option>
             </select>
         </form>
 
@@ -156,7 +159,7 @@
                     <tr>
                         <th>Cupón <i class="bi-arrow-down-up small"></i></th>
                         <th>
-                            <a href="{{ url_for('main.gestion', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas='DESC' if orden_fechas == 'ASC' else 'ASC') }}" 
+                            <a href="{{ url_for('main.gestion', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas='DESC' if orden_fechas == 'ASC' else 'ASC', limit=limit) }}" 
                                class="text-decoration-none d-flex align-items-center gap-1" 
                                style="color: inherit;"
                                title="Click para ordenar por fecha de vencimiento ({{ 'Descendente' if orden_fechas == 'ASC' else 'Ascendente' }})">
@@ -215,6 +218,29 @@
                 </tbody>
             </table>
         </div>
+
+        {% if limit != 'todos' and pagination %}
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <div class="text-muted small">
+                Mostrando {{ pagination.start_index }}–{{ pagination.end_index }} de {{ pagination.total }}
+            </div>
+            <nav aria-label="Gestión pagination">
+                <ul class="pagination mb-0">
+                    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('main.gestion', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas=orden_fechas, limit=limit, page=pagination.page - 1) }}" tabindex="-1">«</a>
+                    </li>
+                    {% for p in page_numbers %}
+                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('main.gestion', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas=orden_fechas, limit=limit, page=p) }}">{{ p }}</a>
+                    </li>
+                    {% endfor %}
+                    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('main.gestion', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas=orden_fechas, limit=limit, page=pagination.page + 1) }}">»</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
     </div>
 </div>
 

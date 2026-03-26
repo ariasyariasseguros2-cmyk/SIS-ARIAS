@@ -34,7 +34,7 @@ def get_reporte_diario_data(filters=None):
             LEFT JOIN clientes c ON c.idCliente = p.cliente_id
             WHERE DATE(p.creado_en) = %s
               AND p.activo = 1
-            ORDER BY p.creado_en DESC
+            ORDER BY p.idPoliza DESC
         """
         cur.execute(sql, (today,))
         for row in cur.fetchall():

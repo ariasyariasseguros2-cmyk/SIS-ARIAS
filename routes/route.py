@@ -605,14 +605,58 @@ def gestion():
     fecha_desde = request.args.get('fecha_desde') or request.form.get('fecha_desde')
     fecha_hasta = request.args.get('fecha_hasta') or request.form.get('fecha_hasta')
     orden_fechas = request.args.get('orden_fechas') or request.form.get('orden_fechas') or 'ASC'
+    limit_raw = request.args.get('limit') or request.form.get('limit') or '20'
+    try:
+        limit = int(limit_raw) if limit_raw and limit_raw.lower() != 'todos' else None
+    except Exception:
+        limit = 20
+    try:
+        page_num = int(request.args.get('page') or request.form.get('page') or 1)
+    except Exception:
+        page_num = 1
+    page_num = max(1, page_num)
 
     from controllers.gestion import get_gestion_rows
-    rows = get_gestion_rows(fecha_desde, fecha_hasta, orden_fechas)
+    data = get_gestion_rows(fecha_desde, fecha_hasta, orden_fechas, limit, page_num)
+    rows = data.get('rows', [])
+    total = data.get('total', 0)
+
+    # Paginación
+    if limit:
+        pages = max(1, (total + limit - 1) // limit)
+    else:
+        pages = 1
+    if pages > 0:
+        page_num = max(1, min(page_num, pages))
+    start_index = ((page_num - 1) * (limit or total)) + 1 if total > 0 else 0
+    end_index = min(page_num * (limit or total), total) if total > 0 else 0
+    pagination = {
+        'page': page_num,
+        'per_page': limit or total,
+        'total': total,
+        'pages': pages,
+        'has_prev': page_num > 1,
+        'has_next': page_num < pages,
+        'start_index': start_index,
+        'end_index': end_index
+    }
+    # Lista de páginas para los botones numerados
+    page_numbers = list(range(1, pages + 1))
 
     from datetime import date
     today = date.today().isoformat()
 
-    return render_template('view/gestion.html', rows=rows, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas=orden_fechas, today=today)
+    return render_template(
+        'view/gestion.html',
+        rows=rows,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        orden_fechas=orden_fechas,
+        limit=limit_raw,
+        pagination=pagination,
+        page_numbers=page_numbers,
+        today=today
+    )
 from controllers.reportes.reporte_archivos_poliza import bp as reporte_archivos_bp
 bp.register_blueprint(reporte_archivos_bp)
 

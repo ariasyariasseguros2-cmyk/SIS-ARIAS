@@ -1,6 +1,6 @@
 from models.db import get_connection
 
-def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC'):
+def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC', limit=None, page=1):
     try:
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
@@ -54,10 +54,24 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC'):
             # Para fechas iguales, mostrar los registros más recientes primero
             query += " ORDER BY (c.fecha_vencimiento IS NULL), c.fecha_vencimiento ASC, c.idCuota DESC"
             
-        # Límite
-        query += " LIMIT 500"
+        # Total para paginación
+        count_query = f"SELECT COUNT(*) AS total FROM ({query}) AS T"
+        cursor.execute(count_query, params)
+        total = cursor.fetchone()['total'] if cursor.rowcount is not None else 0
+
+        # Paginación
+        rows_params = list(params)
+        if isinstance(limit, int) and limit > 0:
+            try:
+                page = int(page) if page else 1
+            except Exception:
+                page = 1
+            page = max(1, page)
+            offset = (page - 1) * limit
+            query += " LIMIT %s OFFSET %s"
+            rows_params += [limit, offset]
         
-        cursor.execute(query, params)
+        cursor.execute(query, rows_params)
         rows = cursor.fetchall()
         
         # Formatear fechas y moneda para la vista
@@ -76,7 +90,7 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC'):
         cursor.close()  
         conn.close()
         
-        return rows
+        return {'rows': rows, 'total': total}
     except Exception as e:
         print(f"Error getting gestion rows: {e}")
-        return []
+        return {'rows': [], 'total': 0}

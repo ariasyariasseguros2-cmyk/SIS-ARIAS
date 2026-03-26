@@ -63,7 +63,16 @@
     let sumPEN = 0, sumUSD = 0;
     const ramos = new Set();
 
-    const html = rows.map((r, i) => {
+    const sorted = [...rows].sort((a, b) => {
+      const ia = parseFloat(a.idPoliza) || parseFloat(a.poliza || a.contrato_nro || a.nro) || 0;
+      const ib = parseFloat(b.idPoliza) || parseFloat(b.poliza || b.contrato_nro || b.nro) || 0;
+      if (ib !== ia) return ib - ia;
+      const ta = ((a.creado_en || '') + '').replace('T', ' ');
+      const tb = ((b.creado_en || '') + '').replace('T', ' ');
+      return tb.localeCompare(ta);
+    });
+
+    const html = sorted.map((r, i) => {
       const moneda = (r.moneda || '').toUpperCase();
       const prima  = parseFloat(r.prima_total) || 0;
       const monedaNorm = moneda.replace('.', '').replace('/', '').trim();
