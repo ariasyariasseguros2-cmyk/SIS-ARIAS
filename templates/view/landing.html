@@ -21,9 +21,17 @@
             <a class="text-slate-600 hover:text-cyan-500 transition-colors duration-200 font-medium" href="#contacto" style="">Contacto</a>
             <a class="bg-primary text-on-primary px-6 py-2.5 rounded-xl font-bold transition-transform active:scale-90 hover:opacity-90" href="{{ url_for('login') }}" style="">Login</a>
         </div>
-        <button class="md:hidden text-primary" style="">
+        <button aria-controls="mobile-menu" aria-expanded="false" aria-label="Abrir menú" class="md:hidden text-primary" id="mobile-menu-toggle" type="button" style="">
             <span class="material-symbols-outlined" style="">menu</span>
         </button>
+    </div>
+    <div class="md:hidden hidden border-t border-slate-200/60 px-6 pb-4 pt-3" id="mobile-menu">
+        <div class="flex flex-col gap-3">
+            <a class="text-slate-700 hover:text-cyan-500 transition-colors duration-200 font-medium" href="#servicios">Servicios</a>
+            <a class="text-slate-700 hover:text-cyan-500 transition-colors duration-200 font-medium" href="#beneficios">Beneficios</a>
+            <a class="text-slate-700 hover:text-cyan-500 transition-colors duration-200 font-medium" href="#contacto">Contacto</a>
+            <a class="bg-primary text-on-primary px-4 py-2.5 rounded-xl font-bold text-center" href="{{ url_for('login') }}">Login</a>
+        </div>
     </div>
 </nav>
 <!-- Hero Section -->
