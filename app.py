@@ -37,13 +37,23 @@ app.register_blueprint(main_bp)
 
 # Exponer helpers de RBAC al contexto de Jinja para plantillas
 try:
-    from utils.rbac import Roles, can_create, can_edit, can_delete, can_access_maestros, can_restore, get_role_scope
+    from utils.rbac import (
+        Roles,
+        can_create,
+        can_create_poliza,
+        can_edit,
+        can_delete,
+        can_access_maestros,
+        can_restore,
+        get_role_scope,
+    )
 
     @app.context_processor
     def inject_rbac():
         return {
             'Roles': Roles,
             'can_create': can_create,
+            'can_create_poliza': can_create_poliza,
             'can_edit': can_edit,
             'can_delete': can_delete,
             'can_access_maestros': can_access_maestros,
