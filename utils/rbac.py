@@ -1,4 +1,3 @@
-
 class Roles:
     BROKER = 'BROKER'
     EJECUTIVO = 'EJECUTIVO DE CUENTAS'
@@ -27,6 +26,11 @@ def can_edit(role_name):
 
 def can_create(role_name):
     return role_name in [Roles.BROKER, Roles.OPERADOR, Roles.SUB_AGENTE]
+
+
+def can_create_poliza(role_name):
+    # Crear/renovar pólizas habilitado para EJECUTIVO sin ampliar create global.
+    return role_name in [Roles.BROKER, Roles.OPERADOR, Roles.SUB_AGENTE, Roles.EJECUTIVO]
 
 def get_role_scope(role_name):
     if role_name == Roles.SUB_AGENTE:
