@@ -22,7 +22,7 @@
             </a>
         </div>
         <div class="header-actions d-flex gap-2">
-            {% if can_create(session.role_name) %}
+            {% if can_create_poliza(session.role_name) %}
             <a class="btn btn-success text-white btn-sm rounded-pill" href="{{ url_for('main.menu_page', page='anadir-poliza') }}" rel="noopener noreferrer">
                 <i class="bi-plus-lg me-1"></i> Añadir
             </a>
@@ -145,7 +145,7 @@
                                 </button>
                                 {% endif %}
                                 
-                                {% if can_create(session.role_name) %}
+                                {% if can_create_poliza(session.role_name) %}
                                 <button type="button" class="btn-action btn-success" data-action="renovar">
                                     Renovar
                                 </button>
