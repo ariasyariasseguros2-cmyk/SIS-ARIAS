@@ -59,7 +59,7 @@ def require_login():
     if request.path.startswith('/static/'):
         return None
 
-    if request.path in ('/login', '/logout'):
+    if request.path in ('/', '/login', '/logout'):
         return None
 
     if session.get('user'):
@@ -83,7 +83,7 @@ def disable_cache(response):
 
 @app.route('/')
 def index():
-    return redirect(url_for('login'))
+    return render_template('view/landing.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
