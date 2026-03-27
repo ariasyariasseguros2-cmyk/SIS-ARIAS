@@ -66,3 +66,27 @@ tailwind.config = {
         }
     }
 };
+
+document.addEventListener("DOMContentLoaded", function () {
+    var menuToggle = document.getElementById("mobile-menu-toggle");
+    var mobileMenu = document.getElementById("mobile-menu");
+
+    if (!menuToggle || !mobileMenu) {
+        return;
+    }
+
+    menuToggle.addEventListener("click", function () {
+        var isOpen = !mobileMenu.classList.contains("hidden");
+        mobileMenu.classList.toggle("hidden", isOpen);
+        menuToggle.setAttribute("aria-expanded", String(!isOpen));
+    });
+
+    var menuLinks = mobileMenu.querySelectorAll("a");
+    menuLinks.forEach(function (link) {
+        link.addEventListener("click", function () {
+            mobileMenu.classList.add("hidden");
+            menuToggle.setAttribute("aria-expanded", "false");
+        });
+    });
+});
+
