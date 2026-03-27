@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="es"><head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>AAS-NET</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="{{ url_for('static', filename='js/landing.js') }}"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <link href="{{ url_for('static', filename='css/landing.css') }}" rel="stylesheet"/>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-secondary-container selection:text-on-secondary-container">
+<!-- Top Navigation Bar -->
+<nav class="fixed top-0 w-full z-50 glass-nav shadow-sm">
+    <div class="flex justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto">
+        <div class="flex items-center gap-2 landing-brand"><img alt="Logo AAS-NET" class="landing-logo h-12 md:h-14 w-auto object-contain" src="{{ url_for('static', filename='img/logo-aasnet-cropped.png') }}"/></div>
+        <div class="hidden md:flex gap-8 items-center">
+            <a class="text-slate-600 hover:text-cyan-500 transition-colors duration-200 font-medium" href="#servicios" style="">Servicios</a>
+            <a class="text-slate-600 hover:text-cyan-500 transition-colors duration-200 font-medium" href="#beneficios" style="">Beneficios</a>
+            <a class="text-slate-600 hover:text-cyan-500 transition-colors duration-200 font-medium" href="#contacto" style="">Contacto</a>
+            <a class="bg-primary text-on-primary px-6 py-2.5 rounded-xl font-bold transition-transform active:scale-90 hover:opacity-90" href="{{ url_for('login') }}" style="">Login</a>
+        </div>
+        <button class="md:hidden text-primary" style="">
+            <span class="material-symbols-outlined" style="">menu</span>
+        </button>
+    </div>
+</nav>
+<!-- Hero Section -->
+<header class="relative pt-32 pb-24 md:pt-56 md:pb-48 overflow-hidden text-center">
+    <div class="absolute inset-0 bg-gradient-to-br from-primary via-primary-container to-primary -z-10"></div>
+    <div class="absolute inset-0 opacity-20 pointer-events-none -z-10">
+        <img alt="Abstract geometry" class="w-full h-full object-cover" data-alt="Subtle abstract geometric patterns of interlocking glass planes with blue and cyan lighting effects" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxMkrJ8VQl0gO3ybWj4Wyx2gIH3NSiwZiuVTizdzsdYka_tt8nOCVkhvsvPipUBeR8_CO9OSHKGLKLdJt4Lm3g9kEYYc-edAEU70_A-261WjLMG9lV6_Z0a3MmMW5sBmF0RcNRUxn7PBHzsIwAXF-VscMfLzJfc5yZvupTgEXUiNdwFlhmKKG6zq3A14yYF9IR-oxkklnlldb3EjTKUGWo1uJ2XaKbYS037J7kdx1Q3XGdr9M9le4REufASYsIhepnz5DezMaUzq3A" style=""/>
+    </div>
+    <div class="max-w-4xl mx-auto px-6">
+        <h1 class="font-headline text-5xl md:text-7xl font-extrabold text-white editorial-text leading-tight mb-8" style="">
+            Centraliza la gestión de pólizas en un solo lugar
+        </h1>
+        <p class="text-xl md:text-2xl text-primary-fixed leading-relaxed mb-12 max-w-2xl mx-auto" style="">
+            Optimiza la operativa de tu broker o agencia con la plataforma más avanzada para el sector asegurador. El control total es ahora digital.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-6 justify-center">
+            <a class="bg-secondary-container text-on-secondary-container px-10 py-5 rounded-xl font-bold text-center text-xl hover:brightness-105 transition-all shadow-xl" href="#contacto" style="">Solicitar demo</a>
+            <a class="flex items-center justify-center gap-2 border-2 border-white/40 text-white px-10 py-5 rounded-xl font-bold text-xl hover:bg-white/10 transition-all" href="https://wa.me/yourlink" style="">
+                <span class="material-symbols-outlined" data-icon="chat" style="">chat</span>
+                Hablar por WhatsApp
+            </a>
+        </div>
+    </div>
+</header>
+<!-- Problema vs Solución -->
+<section class="py-24 bg-surface" id="problema">
+    <div class="max-w-7xl mx-auto px-6">
+        <div class="grid md:grid-cols-2 gap-1 bg-surface-container-high rounded-3xl overflow-hidden">
+            <!-- Pain Points -->
+            <div class="bg-surface-container-low p-12 md:p-16">
+                <span class="inline-block px-3 py-1 bg-error-container text-on-error-container text-xs font-bold rounded-full mb-6" style="">EL DESAFÍO</span>
+                <h2 class="font-headline text-3xl font-bold text-on-surface mb-8" style="">Gestión tradicional fragmentada</h2>
+                <ul class="space-y-6">
+                    <li class="flex items-start gap-4" style="">
+                        <span class="material-symbols-outlined text-error mt-1" data-icon="cancel" style="">cancel</span>
+                        <p class="text-on-surface-variant" style="">Procesos manuales lentos que generan cuellos de botella operativos.</p>
+                    </li>
+                    <li class="flex items-start gap-4" style="">
+                        <span class="material-symbols-outlined text-error mt-1" data-icon="cancel" style="">cancel</span>
+                        <p class="text-on-surface-variant" style="">Archivos dispersos en carpetas físicas o nubes no estructuradas.</p>
+                    </li>
+                    <li class="flex items-start gap-4" style="">
+                        <span class="material-symbols-outlined text-error mt-1" data-icon="cancel" style="">cancel</span>
+                        <p class="text-on-surface-variant" style="">Falta de visibilidad sobre vencimientos y cobranzas pendientes.</p>
+                    </li>
+                </ul>
+            </div>
+            <!-- Solution -->
+            <div class="bg-surface-container-lowest p-12 md:p-16">
+                <span class="inline-block px-3 py-1 bg-primary-fixed text-on-primary-fixed-variant text-xs font-bold rounded-full mb-6" style="">LA SOLUCIÓN AAS-NET</span>
+                <h2 class="font-headline text-3xl font-bold text-on-surface mb-8" style="">Ecosistema Fiduciario Digital</h2>
+                <ul class="space-y-6">
+                    <li class="flex items-start gap-4" style="">
+                        <span class="material-symbols-outlined text-primary mt-1" data-icon="check_circle" style="">check_circle</span>
+                        <p class="text-on-surface-variant font-medium" style="">Control total de pólizas, cuotas y siniestros en una sola pantalla.</p>
+                    </li>
+                    <li class="flex items-start gap-4" style="">
+                        <span class="material-symbols-outlined text-primary mt-1" data-icon="check_circle" style="">check_circle</span>
+                        <p class="text-on-surface-variant font-medium" style="">Reportes automáticos y exportables para una toma de decisiones informada.</p>
+                    </li>
+                    <li class="flex items-start gap-4" style="">
+                        <span class="material-symbols-outlined text-primary mt-1" data-icon="check_circle" style="">check_circle</span>
+                        <p class="text-on-surface-variant font-medium" style="">Trazabilidad completa de cada trámite desde su inicio hasta el cierre.</p>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+<!-- Funcionalidades (Bento Grid) -->
+<section class="py-24 bg-surface" id="servicios">
+    <div class="max-w-7xl mx-auto px-6">
+        <div class="text-center mb-16">
+            <h2 class="font-headline text-4xl font-bold mb-4" style="">Potencia tu eficiencia</h2>
+            <p class="text-on-surface-variant max-w-2xl mx-auto" style="">Diseñado para cubrir todas las necesidades del broker moderno.</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Card 1 -->
+            <div class="md:col-span-2 bg-surface-container-lowest p-8 rounded-xl ghost-border flex flex-col justify-between">
+                <div>
+                    <span class="material-symbols-outlined text-primary text-4xl mb-4" data-icon="description" style="">description</span>
+                    <h3 class="font-headline text-2xl font-bold mb-3" style="">Gestión de Pólizas</h3>
+                    <p class="text-on-surface-variant" style="">Administración integral del ciclo de vida de la póliza con alertas de renovación automáticas.</p>
+                </div>
+                <div class="mt-8 overflow-hidden rounded-lg">
+                    <img alt="Policy view" class="w-full h-48 object-cover" data-alt="Close up of a professional software interface showing a detailed insurance policy view" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUvVPMCb_Z5m-D3PSAV6XjqJmRcCAeQi2ILASqlwWtCQPN6--Oh6OgdwwcmwBO2Gsc8zFaYYrZCkDpi3klnxoZQ8YZWZbQ2CcSPZrN6LawtdUnMx9xnh8rMwiRGKSTLMzDSq7i4IIiQUbruO_roydDyCPA8z8NBuyNyjim3Ak5T5VaEuoGXJZMFDDht9uRoKK2rQw9gDQkCAY6bYw-fKkcdYwP2VhfBFIwJla9rcIP_Ci-NL_pQv7YLzbJfBxa7MUnK0EX5n922WgO" style=""/>
+                </div>
+            </div>
+            <!-- Card 2 -->
+            <div class="bg-primary p-8 rounded-xl text-white">
+                <span class="material-symbols-outlined text-secondary-container text-4xl mb-4" data-icon="group" style="">group</span>
+                <h3 class="font-headline text-2xl font-bold mb-3" style="">Clientes y Subagentes</h3>
+                <p class="opacity-80" style="">Portal multi-usuario para gestionar carteras compartidas y redes de subagentes.</p>
+            </div>
+            <!-- Card 3 -->
+            <div class="bg-surface-container-low p-8 rounded-xl ghost-border">
+                <span class="material-symbols-outlined text-primary text-4xl mb-4" data-icon="payments" style="">payments</span>
+                <h3 class="font-headline text-2xl font-bold mb-3" style="">Cuotas y Vencimientos</h3>
+                <p class="text-on-surface-variant" style="">Seguimiento riguroso de pagos y alertas para evitar caídas de cobertura.</p>
+            </div>
+            <!-- Card 4 -->
+            <div class="bg-surface-container-lowest p-8 rounded-xl ghost-border">
+                <span class="material-symbols-outlined text-primary text-4xl mb-4" data-icon="report_problem" style="">report_problem</span>
+                <h3 class="font-headline text-2xl font-bold mb-3" style="">Siniestros</h3>
+                <p class="text-on-surface-variant" style="">Control centralizado de denuncias y liquidación de siniestros en tiempo real.</p>
+            </div>
+            <!-- Card 5 -->
+            <div class="bg-surface-container-low p-8 rounded-xl ghost-border">
+                <span class="material-symbols-outlined text-primary text-4xl mb-4" data-icon="bar_chart" style="">bar_chart</span>
+                <h3 class="font-headline text-2xl font-bold mb-3" style="">Reportes y Exportables</h3>
+                <p class="text-on-surface-variant" style="">Exporta datos a Excel o genera PDFs personalizados para tus clientes.</p>
+            </div>
+            <!-- Card 6 -->
+            <div class="md:col-span-3 bg-secondary-container/10 p-10 rounded-xl border border-secondary-container/30 flex flex-col md:flex-row gap-8 items-center">
+                <div class="flex-1">
+                    <h3 class="font-headline text-3xl font-bold text-on-secondary-container mb-4" style="">Extracción Automática AI</h3>
+                    <p class="text-on-secondary-container opacity-90 text-lg" style="">Carga tus pólizas en PDF y nuestro sistema extraerá automáticamente todos los datos clave (vigencia, suma, premio) usando OCR avanzado.</p>
+                </div>
+                <div class="flex-shrink-0">
+                    <div class="bg-white p-4 rounded-xl shadow-md flex items-center gap-4">
+                        <span class="material-symbols-outlined text-4xl text-primary" data-icon="picture_as_pdf" style="">picture_as_pdf</span>
+                        <div class="h-2 w-32 bg-slate-200 rounded-full overflow-hidden">
+                            <div class="h-full bg-cyan-500 w-3/4"></div>
+                        </div>
+                        <span class="text-xs font-bold text-primary" style="">75%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<!-- Beneficios -->
+<section class="py-24 bg-surface-container-low" id="beneficios">
+    <div class="max-w-7xl mx-auto px-6">
+        <div class="flex flex-col md:flex-row gap-16 items-center">
+            <div class="flex-1">
+                <h2 class="font-headline text-4xl font-bold mb-8" style="">Por qué elegir AAS-NET</h2>
+                <div class="grid gap-8">
+                    <div class="flex gap-6">
+                        <div class="bg-primary-fixed p-3 rounded-lg h-fit">
+                            <span class="material-symbols-outlined text-primary" data-icon="timer" style="">timer</span>
+                        </div>
+                        <div>
+                            <h4 class="font-headline font-bold text-lg mb-1" style="">Ahorro de Tiempo</h4>
+                            <p class="text-on-surface-variant" style="">Reduce en un 60% la carga administrativa mediante automatización.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-6">
+                        <div class="bg-primary-fixed p-3 rounded-lg h-fit">
+                            <span class="material-symbols-outlined text-primary" data-icon="verified" style="">verified</span>
+                        </div>
+                        <div>
+                            <h4 class="font-headline font-bold text-lg mb-1" style="">Menos Errores</h4>
+                            <p class="text-on-surface-variant" style="">Minimiza el error humano en la transcripción de datos de pólizas.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-6">
+                        <div class="bg-primary-fixed p-3 rounded-lg h-fit">
+                            <span class="material-symbols-outlined text-primary" data-icon="history" style="">history</span>
+                        </div>
+                        <div>
+                            <h4 class="font-headline font-bold text-lg mb-1" style="">Mayor Trazabilidad</h4>
+                            <p class="text-on-surface-variant" style="">Historial completo de acciones por usuario para auditorías.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-6">
+                        <div class="bg-primary-fixed p-3 rounded-lg h-fit">
+                            <span class="material-symbols-outlined text-primary" data-icon="trending_up" style="">trending_up</span>
+                        </div>
+                        <div>
+                            <h4 class="font-headline font-bold text-lg mb-1" style="">Control Comercial</h4>
+                            <p class="text-on-surface-variant" style="">Visualiza el crecimiento de tu cartera con dashboards predictivos.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex-1 relative">
+                <img alt="Abstract digital data background" class="rounded-3xl shadow-2xl w-full aspect-video object-cover" data-alt="Modern and professional abstract digital background representing data, security, and insurance" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBv3lChrNogsDEQfhZ57bLx040PVP3-uNnLN3k5sqQoE-SrT9oYVANP9ZBhP5QjMAKBJI_TE5MYTzerqzyDALc81T8Qs4cAc9rdJsgYbTDqPyAkfAyrG7Wbxp8PfyvLnFmuvwLcDiq_-riCaM-ZeR2b1xViYm9QSaQ7pCZt3sYjUQZp5Q6WR2EF4_IUy8VjZKabcBxmn68A7ueEYXCk_r7aBXIfgsh5DfOnAvNhl2DERdl81nRGc-Tp6Kt2z4FZjCaKupOTWUxpn8uU" style=""/>
+                <div class="absolute -bottom-6 -left-6 bg-white p-6 rounded-2xl shadow-xl border border-slate-100 hidden md:block">
+                    <p class="text-primary font-bold text-4xl" style="">+45%</p>
+                    <p class="text-xs text-on-surface-variant uppercase tracking-widest font-bold" style="">Aumento en Productividad</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<!-- Cómo funciona -->
+<section class="py-24 bg-surface">
+    <div class="max-w-7xl mx-auto px-6">
+        <h2 class="font-headline text-4xl font-bold text-center mb-20" style="">Tu flujo de trabajo simplificado</h2>
+        <div class="grid md:grid-cols-3 gap-12 relative">
+            <!-- Step 1 -->
+            <div class="relative text-center">
+                <div class="w-20 h-20 bg-primary text-white rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-6 shadow-xl" style="">1</div>
+                <h3 class="font-headline text-xl font-bold mb-3" style="">Carga documentos</h3>
+                <p class="text-on-surface-variant" style="">Sube tus PDFs de pólizas de cualquier compañía aseguradora.</p>
+            </div>
+            <!-- Step 2 -->
+            <div class="relative text-center">
+                <div class="w-20 h-20 bg-primary text-white rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-6 shadow-xl" style="">2</div>
+                <h3 class="font-headline text-xl font-bold mb-3" style="">Organización automática</h3>
+                <p class="text-on-surface-variant" style="">El sistema extrae los datos y los clasifica sin intervención manual.</p>
+            </div>
+            <!-- Step 3 -->
+            <div class="relative text-center">
+                <div class="w-20 h-20 bg-primary text-white rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-6 shadow-xl" style="">3</div>
+                <h3 class="font-headline text-xl font-bold mb-3" style="">Toma decisiones</h3>
+                <p class="text-on-surface-variant" style="">Visualiza reportes en tiempo real y gestiona vencimientos.</p>
+            </div>
+        </div>
+    </div>
+</section>
+<!-- Testimonios & Logos -->
+<!-- FAQ -->
+<section class="py-24 bg-surface">
+    <div class="max-w-3xl mx-auto px-6">
+        <h2 class="font-headline text-4xl font-bold text-center mb-16" style="">Preguntas Frecuentes</h2>
+        <div class="space-y-4">
+            <details class="group bg-surface-container-low rounded-xl p-6 transition-all duration-300" style="">
+                <summary class="flex justify-between items-center font-bold cursor-pointer list-none" style="">
+                    ¿Es compatible con todas las aseguradoras?
+                    <span class="material-symbols-outlined group-open:rotate-180 transition-transform" data-icon="expand_more" style="">expand_more</span>
+                </summary>
+                <p class="mt-4 text-on-surface-variant" style="">Sí, nuestro motor de extracción automática está entrenado para procesar pólizas de las principales compañías del mercado.</p>
+            </details>
+            <details class="group bg-surface-container-low rounded-xl p-6 transition-all duration-300" style="">
+                <summary class="flex justify-between items-center font-bold cursor-pointer list-none" style="">
+                    ¿Cómo es el proceso de implementación?
+                    <span class="material-symbols-outlined group-open:rotate-180 transition-transform" data-icon="expand_more" style="">expand_more</span>
+                </summary>
+                <p class="mt-4 text-on-surface-variant" style="">Es inmediato. AAS-NET es una plataforma SaaS, por lo que puedes comenzar a usarla minutos después de activar tu cuenta.</p>
+            </details>
+            <details class="group bg-surface-container-low rounded-xl p-6 transition-all duration-300" style="">
+                <summary class="flex justify-between items-center font-bold cursor-pointer list-none" style="">
+                    ¿Mis datos están seguros?
+                    <span class="material-symbols-outlined group-open:rotate-180 transition-transform" data-icon="expand_more" style="">expand_more</span>
+                </summary>
+                <p class="mt-4 text-on-surface-variant" style="">Utilizamos encriptación de grado bancario (AES-256) y servidores redundantes para garantizar que tu información fiduciaria esté siempre protegida.</p>
+            </details>
+            <details class="group bg-surface-container-low rounded-xl p-6 transition-all duration-300" style="">
+                <summary class="flex justify-between items-center font-bold cursor-pointer list-none" style="">
+                    ¿Tiene soporte multi-usuario?
+                    <span class="material-symbols-outlined group-open:rotate-180 transition-transform" data-icon="expand_more" style="">expand_more</span>
+                </summary>
+                <p class="mt-4 text-on-surface-variant" style="">Absolutamente. Puedes definir roles y permisos para subagentes, administrativos y gerentes.</p>
+            </details>
+            <details class="group bg-surface-container-low rounded-xl p-6 transition-all duration-300" style="">
+                <summary class="flex justify-between items-center font-bold cursor-pointer list-none" style="">
+                    ¿Puedo exportar mi base de datos?
+                    <span class="material-symbols-outlined group-open:rotate-180 transition-transform" data-icon="expand_more" style="">expand_more</span>
+                </summary>
+                <p class="mt-4 text-on-surface-variant" style="">Sí, todos tus datos son tuyos. Puedes exportar la información a Excel o formatos compatibles en cualquier momento.</p>
+            </details>
+        </div>
+    </div>
+</section>
+<!-- Final CTA Section (Simplified) -->
+<section class="py-24 bg-primary text-white text-center relative overflow-hidden" id="contacto">
+    <div class="absolute inset-0 bg-primary-container opacity-50 -z-10"></div>
+    <div class="max-w-4xl mx-auto px-6">
+        <h2 class="font-headline text-4xl md:text-5xl font-extrabold mb-6 leading-tight" style="">¿Listo para modernizar tu gestión?</h2>
+        <p class="text-xl text-primary-fixed mb-12 max-w-2xl mx-auto" style="">Únete a cientos de brokers que ya optimizan su día a día con AAS-NET. Comienza hoy mismo tu transformación digital.</p>
+        <div class="flex flex-col sm:flex-row gap-6 justify-center items-center">
+            <a class="bg-secondary-container text-on-secondary-container px-10 py-5 rounded-xl font-extrabold text-xl hover:brightness-105 transition-all shadow-xl w-full sm:w-auto" href="{{ url_for('login') }}" style="">Acceso Clientes</a>
+            <a class="flex items-center justify-center gap-2 border-2 border-white/40 text-white px-10 py-5 rounded-xl font-bold text-xl hover:bg-white/10 transition-all w-full sm:w-auto" href="https://wa.me/-modificarconelapidewsp" style="">
+                <span class="material-symbols-outlined" data-icon="chat" style="">chat</span>
+                Hablar por WhatsApp
+            </a>
+        </div>
+        <div class="mt-12 flex flex-wrap justify-center gap-8 opacity-80">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-secondary-container" data-icon="done_all" style="">done_all</span>
+                <span class="font-medium" style="">Demo gratuita de 15 min</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-secondary-container" data-icon="done_all" style="">done_all</span>
+                <span class="font-medium" style="">Soporte 24/7</span>
+            </div>
+        </div>
+    </div>
+</section>
+<!-- Footer -->
+<footer class="bg-slate-50 border-t-0">
+    <div class="flex flex-col md:flex-row justify-between items-center w-full px-8 py-12 max-w-7xl mx-auto gap-8">
+        <div class="flex flex-col gap-4">
+            <div class="flex items-center gap-2"><img alt="Logo AAS-NET" class="h-8 w-auto" src="https://lh3.googleusercontent.com/aida/ADBb0uh1j4LdDvwQ0Z98ZPheW5ZrhIOu1CUjhCKI7JDb4SGKLHQB4f0DgCT0Gg18So9Aw9wmvIY0KD7wxvglqJIYZlLQjaNxxaHYCupL57L09F79Cu_XiNujcLK25ZacKcI5DQXeTFn6oRYNzkbxCp9_WSnGTVLAdbGCaOlo_U1-JmNmWhDfltjs6wBG3mDPPwVM7vVbodNxxe-jAhR45-nTIol5yKM_1kgJ2zDkKELJ3DfJzKCmRZhFSIKNS5yd7LeGWatzaXbn4AObVQ"/></div>
+            <p class="text-slate-500 text-sm max-w-xs" style="">La plataforma definitiva para la gestión fiduciaria de carteras de seguros.</p>
+        </div>
+        <div class="flex flex-wrap justify-center gap-8">
+            <a class="text-slate-500 hover:text-blue-700 underline text-sm transition-opacity font-semibold" href="#" style="">Privacidad</a>
+            <a class="text-slate-500 hover:text-blue-700 underline text-sm transition-opacity font-semibold" href="#" style="">Términos de Uso</a>
+            <a class="text-slate-500 hover:text-blue-700 underline text-sm transition-opacity font-semibold" href="#" style="">Cookies</a>
+            <a class="text-slate-500 hover:text-blue-700 underline text-sm transition-opacity font-semibold" href="#" style="">Contacto Support</a>
+        </div>
+        <div class="text-slate-500 text-sm font-medium" style="">
+            © 2026 AAS-NET.
+        </div>
+    </div>
+</footer>
+</body></html>
