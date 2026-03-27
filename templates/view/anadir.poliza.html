@@ -91,7 +91,7 @@
                         <select id="ejecutivoTop" class="form-select">
                             <option value="">Selecciona...</option>
                             {% for e in (ejecutivos_rows or []) %}
-                            <option value="{{ (e.abreviacion or e.nombre) }}"
+                            <option value="{{ e.nombre }}"
                               {% if ((selected.ejecutivo or '')|lower|trim) == ((e.nombre or '')|lower|trim) or ((selected.ejecutivo or '')|lower|trim) == ((e.abreviacion or '')|lower|trim) %}selected{% endif %}>{{ e.nombre }}</option>
                             {% endfor %}
                         </select>

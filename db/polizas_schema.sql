@@ -343,7 +343,7 @@ CREATE TABLE IF NOT EXISTS clientes (
     distrito VARCHAR(100),
 
     -- Relación con subagente
-    subagente VARCHAR(100),
+    subagente VARCHAR(250),
     idProductor INT NULL,
 
     -- Estado y tipo
@@ -399,7 +399,7 @@ CREATE PROCEDURE sp_insert_cliente (
     IN p_telefono VARCHAR(20),
     IN p_celular VARCHAR(20),
     IN p_telefono_sec VARCHAR(20),
-    IN p_subagente VARCHAR(100),
+    IN p_subagente VARCHAR(250),
     IN p_idProductor INT,
     IN p_email VARCHAR(150),
     IN p_direccion VARCHAR(200),
@@ -515,8 +515,8 @@ CREATE TABLE IF NOT EXISTS polizas (
     endosatario VARCHAR(150) NULL,    -- NUEVO
     forma_pago VARCHAR(30) NULL,
 
-    sub_agente VARCHAR(100) NULL,
-    ejecutivo VARCHAR(100) NULL,
+    sub_agente VARCHAR(250) NULL,
+    ejecutivo VARCHAR(250) NULL,
     tipo_doc VARCHAR(10) NULL,
     asegurada VARCHAR(150) NULL,
     motivo VARCHAR(200) NULL,
@@ -602,8 +602,8 @@ CREATE PROCEDURE sp_insert_poliza_por_numero (
     IN p_endosatario VARCHAR(150),    -- NUEVO
     IN p_forma_pago VARCHAR(30),
 
-    IN p_sub_agente VARCHAR(100),
-    IN p_ejecutivo VARCHAR(100),
+    IN p_sub_agente VARCHAR(150),
+    IN p_ejecutivo VARCHAR(250),
 
     IN p_asegurada VARCHAR(150),
     IN p_motivo VARCHAR(200),
@@ -1371,8 +1371,8 @@ CREATE PROCEDURE sp_update_poliza(
     IN p_fecha_emision DATE,
     IN p_vig_desde DATE,
     IN p_vig_hasta DATE,
-    IN p_sub_agente VARCHAR(100),
-    IN p_ejecutivo VARCHAR(100),
+    IN p_sub_agente VARCHAR(250),
+    IN p_ejecutivo VARCHAR(250),
     IN p_asegurada VARCHAR(150),
     IN p_motivo VARCHAR(200),
     IN p_prima_comercial DECIMAL(15,2),
@@ -3409,8 +3409,8 @@ CREATE PROCEDURE sp_insert_poliza_soat_masivo (
     IN p_tipo_vigencia VARCHAR(50),
     IN p_endosatario VARCHAR(150),
     IN p_forma_pago VARCHAR(30),
-    IN p_sub_agente VARCHAR(100),
-    IN p_ejecutivo VARCHAR(100),
+    IN p_sub_agente VARCHAR(250),
+    IN p_ejecutivo VARCHAR(250),
     IN p_asegurada VARCHAR(150),
     IN p_motivo VARCHAR(200),
     IN p_prima_comercial DECIMAL(15,2),

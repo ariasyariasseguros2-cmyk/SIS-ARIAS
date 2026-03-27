@@ -170,15 +170,48 @@
 
   // Preseleccionar si viene del servidor
   if (subAgenteEl && window.selectedCliente) {
-    const val = window.selectedCliente.subagente || '';
-    if (val && !Array.from(subAgenteEl.options).some(o => o.value === val)) {
-      const opt = document.createElement('option');
-      opt.value = val;
-      opt.textContent = val;
-      subAgenteEl.appendChild(opt);
+    const nombreSubagente = (window.selectedCliente.subagente || '').trim();
+    const normalize = (s) => (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+    if (nombreSubagente) {
+      const opts = Array.from(subAgenteEl.options || []);
+      let opt = opts.find(o => {
+        const txt = (o.textContent || '').trim();
+        const val = (o.value || '').trim();
+        return txt === nombreSubagente || val === nombreSubagente ||
+               normalize(txt) === normalize(nombreSubagente) ||
+               normalize(val) === normalize(nombreSubagente);
+      });
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.value = nombreSubagente;
+        opt.textContent = nombreSubagente;
+        subAgenteEl.appendChild(opt);
+      }
+      subAgenteEl.value = opt.value;
     }
-    subAgenteEl.value = val;
   }
+
+  // Fallback: establecer Sub Agente por defecto
+  (function () {
+    const el = subAgenteTopEl || document.getElementById('subAgente');
+    if (!el) return;
+    if (el.value && el.selectedIndex > 0) return;
+    const def = 'ARIAS Y ARIAS';
+    const normalize = (s) => (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+    const opts = Array.from(el.options || []);
+    let opt = opts.find(o => {
+      const txt = (o.textContent || '').trim();
+      const val = (o.value || '').trim();
+      return normalize(txt) === normalize(def) || normalize(val) === normalize(def);
+    });
+    if (!opt) {
+      opt = document.createElement('option');
+      opt.value = def;
+      opt.textContent = def;
+      el.appendChild(opt);
+    }
+    el.value = opt.value;
+  })();
 
   // Preseleccionar Ejecutivo si viene del servidor
   if (ejecutivoTopEl && window.selectedCliente) {
@@ -2221,46 +2254,35 @@
       }
       if (facturasFilesEl) facturasFilesEl.value = '';
       allFacturas = [];
+      rowFacturasMap = new Map();
+      if (typeof facturaMetaMap?.clear === 'function') facturaMetaMap.clear();
       if (typeof renderFacturasList === 'function') {
         renderFacturasList();
       } else if (facturasListEl) {
         facturasListEl.innerHTML = '';
       }
-      // Mantener subagente y ejecutivo desde window.selectedCliente si existen
-      if (subAgenteTopEl) {
-        // Por defecto 'ARIAS Y ARIAS' (ID 3) siempre, ignorando el del cliente por solicitud
-        subAgenteTopEl.value = 'ARIAS Y ARIAS';
-      }
-      if (ejecutivoTopEl) {
-        const nombreEjecutivo = ((window.selectedCliente && window.selectedCliente.ejecutivo) || '').trim();
-        const normalize = (s) => (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
-        if (nombreEjecutivo) {
-          const opts = Array.from(ejecutivoTopEl.options || []);
-          let opt = opts.find(o => {
-            const txt = (o.textContent || '').trim();
-            const val = (o.value || '').trim();
-            return txt === nombreEjecutivo || val === nombreEjecutivo ||
-                   normalize(txt) === normalize(nombreEjecutivo) ||
-                   normalize(val) === normalize(nombreEjecutivo);
-          });
-          if (!opt) {
-            opt = document.createElement('option');
-            opt.value = nombreEjecutivo;
-            opt.textContent = nombreEjecutivo;
-            ejecutivoTopEl.appendChild(opt);
-          }
-          ejecutivoTopEl.value = opt.value;
-        } else {
-          ejecutivoTopEl.value = '';
-        }
-      }
+      if (aseguradaTopEl) aseguradaTopEl.value = '';
+      if (nroOperacionTopEl) nroOperacionTopEl.value = '';
       if (endosatarioTopEl) endosatarioTopEl.value = '';
-      if (tipoVigenciaTopEl) tipoVigenciaTopEl.value = 'DECLARACION MENSUAL';
-      if (tipoPagoTopEl) tipoPagoTopEl.value = '';
-      if (estadoTopEl) estadoTopEl.value = '';
+      if (tipoVigenciaTopEl) {
+        tipoVigenciaTopEl.value = '';
+        if (tipoVigenciaTopEl.selectedIndex !== 0) tipoVigenciaTopEl.selectedIndex = 0;
+      }
+      if (tipoPagoTopEl) {
+        tipoPagoTopEl.value = '';
+        if (tipoPagoTopEl.selectedIndex !== 0) tipoPagoTopEl.selectedIndex = 0;
+        tipoPagoTopEl.dispatchEvent(new Event('change'));
+      }
+      if (estadoTopEl) {
+        estadoTopEl.value = '';
+        if (estadoTopEl.selectedIndex !== 0) estadoTopEl.selectedIndex = 0;
+        estadoTopEl.dispatchEvent(new Event('change'));
+      }
       if (fileEl) fileEl.value = '';
       const pdfFrameEl = document.getElementById('pdfFrame');
       if (pdfFrameEl) pdfFrameEl.src = 'about:blank';
+      if (typeof pdfModalInstance?.hide === 'function') pdfModalInstance.hide();
+      if (pdfOpenNewTabEl) pdfOpenNewTabEl.href = 'about:blank';
       // Eliminar archivo temporal del servidor si existe
       if (lastUploadedFilename) {
         const tempName = lastUploadedFilename;
