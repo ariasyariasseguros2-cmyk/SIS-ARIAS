@@ -278,7 +278,7 @@
     const raw = (val || '').toString().trim();
     if (!raw) return '';
     const up = raw.toUpperCase();
-    if (up.includes('SOL') || up === 'PEN' || up.startsWith('S/')) return 'S/.';
+    if (up.includes('SOL') || up === 'PEN' || up.startsWith('S/')) return 'S/';
     if (up.includes('DOLAR') || up.includes('DÓLAR') || up.includes('DÓLARES') || up.includes('USD') || up.includes('US$') || up === '$') return 'US$';
     return raw;
   }
@@ -671,6 +671,8 @@
       }
       if (it.moneda) {
         it.moneda = mapCurrencySymbol(it.moneda);
+      } else {
+        it.moneda = 'S/';
       }
       const tr = document.createElement('tr');
       let inferredVal = it.cia_value || findIssuerValueByText(it.cia || '');
@@ -685,6 +687,13 @@
       }
       const issuerDefaultVal = inferredVal || '';
       const issuerSelHtml = buildIssuerSelect(issuerDefaultVal);
+      const monedaVal = (it.moneda || 'S/').trim();
+      const monedaSelHtml = `
+        <select class="form-select form-select-sm moneda-select" data-index="${idx}">
+          <option value="S/" ${monedaVal === 'S/' ? 'selected' : ''}>S/</option>
+          <option value="US$" ${monedaVal === 'US$' ? 'selected' : ''}>US$</option>
+        </select>
+      `;
       tr.innerHTML = `
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="numero_poliza">
           ${it.numero_poliza || ''}
@@ -700,7 +709,7 @@
         <td data-index="${idx}" data-field="cia">${issuerSelHtml}</td>
         <td class="ramo-col" data-index="${idx}" data-field="ramo">${buildRamoSelect(it.ramo || '')}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="ramos_producto">${it.ramos_producto || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="moneda">${it.moneda || ''}</td>
+        <td data-index="${idx}" data-field="moneda">${monedaSelHtml}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="inicio_vigencia">${it.inicio_vigencia || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="vencimiento">${it.vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${formatMoney(it.prima_neta || '')}</td>
@@ -771,6 +780,18 @@
           extractedItems[idx].cia = label || val;
           try { await fetchCommissionPct(idx); } catch (e) {}
         }
+      });
+    });
+    // Vincular cambio de Moneda por fila
+    Array.from(tbody.querySelectorAll('tr')).forEach((tr, idx) => {
+      const selMon = tr.querySelector('.moneda-select');
+      if (!selMon) return;
+      selMon.addEventListener('change', (e) => {
+        const val = (e.target.value || '').trim();
+        if (extractedItems[idx]) {
+          extractedItems[idx].moneda = val;
+        }
+        scheduleAutoSave();
       });
     });
 
