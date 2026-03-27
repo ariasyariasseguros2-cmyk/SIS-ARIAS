@@ -914,7 +914,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     normalize_string(row.get('SUBAGENTE_ABREVIACION', '')),
                     normalize_string(row.get('EJECUTIVO_ABREVIACION', '')),
                     '', # asegurada
-                    normalize_string(row.get('MOTIVO', 'CARGA MASIVA SOAT')),
+                    (normalize_string(row.get('APLICACION', '')) or normalize_string(row.get('MOTIVO', ''))),
                     prima_neta,
                     prima_neta,
                     prima_mas_igv,

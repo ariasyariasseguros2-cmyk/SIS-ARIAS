@@ -146,10 +146,7 @@
                             <i class="bi-people fs-5"></i>
                         </div>
                     </div>
-                    <h3 class="mb-1 fw-bold">{{ cards.total_clients | default('0') }}</h3>
-                     <div class="small">
-                        <span class="text-muted">Registrados</span>
-                    </div>
+                    <h3 class="mb-1 fw-bold">{{ cards.last_client_id | default('0') }}</h3>
                 </div>
             </div>
         </div>

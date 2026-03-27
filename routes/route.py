@@ -3699,6 +3699,80 @@ def serve_upload(filename):
     return {'error': 'Archivo no encontrado', 'path': os.path.join(folder, filename)}, 404
 
 
+# Búsqueda rápida en PDF por texto, devolviendo la primera página donde aparece
+@bp.route('/api/pdf/search', methods=['GET'])
+def api_pdf_search():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+    filename = (request.args.get('filename') or '').strip()
+    query = (request.args.get('q') or '').strip()
+    if not filename or not query:
+        return jsonify({'ok': False, 'error': 'Parámetros inválidos'}), 400
+    folder = current_app.config.get('UPLOAD_FOLDER')
+    filename = filename.replace('\\', '/')
+    while filename.startswith('uploads/'):
+        filename = filename[len('uploads/'):]
+    name = secure_filename(os.path.basename(filename))
+    candidates = [
+        os.path.join(folder, 'temp', name),
+        os.path.join(folder, 'polizas', name),
+        os.path.join(folder, name),
+    ]
+    path = next((p for p in candidates if os.path.isfile(p)), None)
+    if not path:
+        return jsonify({'ok': False, 'error': 'Archivo no encontrado'}), 404
+    page_num = None
+    try:
+        try:
+            import fitz
+            doc = fitz.open(path)
+            q_raw = query
+            q_norm = re.sub(r'\s+', '', q_raw)
+            pat = None
+            if '-' in q_raw:
+                parts = [s.strip() for s in q_raw.split('-', 1)]
+                pat = re.compile(r'\b' + re.escape(parts[0]) + r'\s*[-–—‑−]?\s*' + re.escape(parts[1]) + r'\b', re.IGNORECASE)
+            for i in range(doc.page_count):
+                txt = doc.load_page(i).get_text() or ''
+                up = txt
+                if q_raw and q_raw in up:
+                    page_num = i + 1
+                    break
+                if pat and pat.search(up):
+                    page_num = i + 1
+                    break
+                if q_norm and re.sub(r'\s+', '', up).lower().find(q_norm.lower()) != -1:
+                    page_num = i + 1
+                    break
+            doc.close()
+        except Exception:
+            from PyPDF2 import PdfReader
+            reader = PdfReader(path)
+            q_raw = query
+            q_norm = re.sub(r'\s+', '', q_raw)
+            pat = None
+            if '-' in q_raw:
+                parts = [s.strip() for s in q_raw.split('-', 1)]
+                pat = re.compile(r'\b' + re.escape(parts[0]) + r'\s*[-–—‑−]?\s*' + re.escape(parts[1]) + r'\b', re.IGNORECASE)
+            for i, page in enumerate(reader.pages):
+                txt = page.extract_text() or ''
+                up = txt
+                if q_raw and q_raw in up:
+                    page_num = i + 1
+                    break
+                if pat and pat.search(up):
+                    page_num = i + 1
+                    break
+                if q_norm and re.sub(r'\s+', '', up).lower().find(q_norm.lower()) != -1:
+                    page_num = i + 1
+                    break
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    if not page_num:
+        return jsonify({'ok': True, 'page': None}), 200
+    return jsonify({'ok': True, 'page': page_num}), 200
+
+
 # dentro de routes/route.py (añadir el nuevo endpoint API)
 @bp.route('/api/aseguradoras', methods=['GET'])
 def api_aseguradoras():

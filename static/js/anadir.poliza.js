@@ -686,8 +686,13 @@
       const issuerDefaultVal = inferredVal || '';
       const issuerSelHtml = buildIssuerSelect(issuerDefaultVal);
       tr.innerHTML = `
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="numero_poliza">${it.numero_poliza || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="recibo">${it.recibo || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="numero_poliza">
+          ${it.numero_poliza || ''}
+        </td>
+        <td contenteditable="true" class="editable d-flex align-items-center gap-2" data-index="${idx}" data-field="recibo">
+          <span class="flex-grow-1">${it.recibo || ''}</span>
+          <button type="button" class="btn btn-sm btn-outline-secondary act-find-pdf" data-index="${idx}" title="Buscar en PDF"><i class="bi bi-search"></i></button>
+        </td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="numero_documento_extracted">${it.numero_documento_extracted || ''}</td>
@@ -1276,7 +1281,7 @@
       if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
       const newIndex = Math.max(0, Math.min(idx, extractedItems.length - 1));
       setTimeout(() => {
-        const firstCell = tbody.querySelector(`td[data-index="${newIndex}"][data-field="numero_poliza"]`);
+        const firstCell = tbody.querySelector(`td[data-index="${newIndex}"][data-field="recibo"]`);
         firstCell?.focus();
       }, 0);
       scheduleAutoSave();
@@ -1299,7 +1304,7 @@
       render(extractedItems);
       if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
       setTimeout(() => {
-        const firstCell = tbody.querySelector(`td[data-index="${idx + 1}"][data-field="numero_poliza"]`);
+        const firstCell = tbody.querySelector(`td[data-index="${idx + 1}"][data-field="recibo"]`);
         firstCell?.focus();
       }, 0);
       scheduleAutoSave();
@@ -1483,6 +1488,44 @@
     resetAddPolizaView();
   });
 
+  tbody.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.act-find-pdf');
+    if (!btn) return;
+    const idx = Number(btn.dataset.index);
+    if (!Number.isFinite(idx)) return;
+    const td = tbody.querySelector(`td[data-index="${idx}"][data-field="recibo"]`);
+    const query = (td?.textContent || '').trim();
+    if (!query) return;
+    let url = '';
+    let label = 'PDF';
+    if (lastUploadedFilename) {
+      const safe = encodeURIComponent(lastUploadedFilename);
+      let page = '';
+      try {
+        const qs = new URLSearchParams({ filename: lastUploadedFilename, q: query }).toString();
+        const r = await fetch(`/api/pdf/search?${qs}`);
+        const j = await r.json().catch(() => ({}));
+        if (j && j.ok && j.page) page = String(j.page);
+      } catch (_) {}
+      url = `/uploads/${safe}${page ? `#page=${page}&search=${encodeURIComponent(query)}` : `#search=${encodeURIComponent(query)}`}`;
+      label = `PDF: ${lastUploadedFilename}`;
+    } else if (fileEl?.files?.[0]) {
+      const blobUrl = URL.createObjectURL(fileEl.files[0]);
+      url = `${blobUrl}#search=${encodeURIComponent(query)}`;
+      label = `PDF local: ${fileEl.files[0].name}`;
+    } else {
+      alert('Aún no hay PDF para buscar. Sube uno primero.');
+      return;
+    }
+    const titleEl = document.getElementById('pdfModalLabel');
+    if (titleEl) titleEl.textContent = label;
+    if (typeof window.openPdfInModal === 'function') {
+      window.openPdfInModal(url);
+    } else {
+      window.open(url, '_blank', 'noopener');
+    }
+  });
+
   // Agregar póliza
   btnAgregarPoliza?.addEventListener('click', () => {
     const formaPago = tipoPagoTopEl?.value || '';
@@ -1534,7 +1577,7 @@
 
     const newIndex = extractedItems.length - 1;
     setTimeout(() => {
-      const firstCell = tbody.querySelector(`td[data-index="${newIndex}"][data-field="numero_poliza"]`);
+      const firstCell = tbody.querySelector(`td[data-index="${newIndex}"][data-field="recibo"]`);
       firstCell?.focus();
     }, 0);
 
@@ -1844,6 +1887,7 @@
       const abbrs = (window.ramosAbbrs || []).map(s => (s || '').trim());
       const nroOpTopSave = (nroOperacionTopEl?.value || '').trim(); // NUEVO: leer valor al guardar
 
+      const isNETEO = ((tipoDocSel || '').toString().trim().toUpperCase() === 'NETEO');
       const itemsForAuto = (extractedItems || []).map(it => {
         const copy = { ...it };
         if (copy.colectivo_asegurado && !copy.asegurado) {
@@ -1868,6 +1912,10 @@
         // NUEVO: aplicar nro operación global si existe (sobrescribe o rellena)
         if (nroOpTopSave) {
           copy.nro = nroOpTopSave;
+        }
+        if (isNETEO) {
+          copy.estado = 'SIN PRIMA';
+          copy.forma_pago = 'SIN PRIMA';
         }
         return copy;
       });
@@ -1970,6 +2018,10 @@
       if (estadoTopEl) {
         estadoTopEl.value = 'SIN PRIMA';
         estadoTopEl.dispatchEvent(new Event('change'));
+      } else {
+        // Forzar estado en el modelo aunque no exista el campo en UI
+        extractedItems = (extractedItems || []).map(it => ({ ...it, estado: 'SIN PRIMA' }));
+        render(extractedItems);
       }
     } else {
       if (tipoPagoTopEl) {
@@ -1982,6 +2034,14 @@
           estadoTopEl.selectedIndex = 0;
         }
         estadoTopEl.dispatchEvent(new Event('change'));
+      } else {
+        // Limpiar estado en el modelo si no hay campo de UI
+        extractedItems = (extractedItems || []).map(it => {
+          const copy = { ...it };
+          delete copy.estado;
+          return copy;
+        });
+        render(extractedItems);
       }
     }
     if (btnSave) {

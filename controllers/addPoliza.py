@@ -669,6 +669,14 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                             row_p = cur.fetchone()
                             pendientes = row_p[0] if row_p and row_p[0] is not None else 0
                             nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'CANCELADO'
+                            try:
+                                tdoc_sel = (((selected or {}).get("tipo_doc") or (selected or {}).get("tipo_documento") or "")).strip().upper()
+                            except Exception:
+                                tdoc_sel = ""
+                            est_row = (U(row.get("estado") or "") or "")
+                            forma_pago_row = (U(row.get("forma_pago") or "") or "")
+                            if tdoc_sel == 'NETEO' or est_row == 'SIN PRIMA' or forma_pago_row == 'SIN PRIMA':
+                                nuevo_estado = 'SIN PRIMA'
                             cur.execute("UPDATE polizas SET estado = %s WHERE idPoliza = %s", (nuevo_estado, final_poliza_id))
                 except Exception as ex_cuota:
                     print(f"[WARNING] No se pudo crear cuota automática: {ex_cuota}")

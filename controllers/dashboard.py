@@ -21,6 +21,8 @@ def get_dashboard_cards() -> Dict[str, Any]:
         'active_policies': 0,
         'total_policies': 0,
         'total_clients': 0,
+        'active_clients': 0,
+        'last_client_id': 0,
         'pending_renewals': 0,
         # New cards
         'prima_neta_soles': '0.00',
@@ -36,7 +38,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
         user_filter = ""
         user_filter_args = []
 
-        client_where = "WHERE activo = 1"
+        client_where = "WHERE 1=1"
         client_where_args = []
 
         if session.get('role_name') == Roles.SUB_AGENTE:
@@ -64,6 +66,20 @@ def get_dashboard_cards() -> Dict[str, Any]:
             cur.execute(f"SELECT COUNT(*) FROM clientes {client_where}", client_where_args)
             res = cur.fetchone()
             if res: cards['total_clients'] = res[0]
+        except Exception: pass
+
+        # 1b. Clientes Activos
+        try:
+            cur.execute(f"SELECT COUNT(*) FROM clientes WHERE activo = 1" + (client_where.replace("WHERE 1=1", " AND (1=1)") if "1=1" in client_where else ""), client_where_args)
+            res = cur.fetchone()
+            if res: cards['active_clients'] = res[0]
+        except Exception: pass
+
+        # 1c. Último ID Cliente
+        try:
+            cur.execute("SELECT MAX(idCliente) FROM clientes")
+            res = cur.fetchone()
+            if res and res[0] is not None: cards['last_client_id'] = int(res[0])
         except Exception: pass
         
         # 2. Pólizas Activas (vigencia_hasta >= hoy)
