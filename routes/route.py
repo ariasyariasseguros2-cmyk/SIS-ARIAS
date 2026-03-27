@@ -1,7 +1,7 @@
 from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory, jsonify, send_file, abort, Response
 from werkzeug.utils import secure_filename
 import os
-from utils.rbac import can_access_maestros, can_delete, can_edit, can_create, can_restore, Roles, get_role_scope, require_permission
+from utils.rbac import can_access_maestros, can_delete, can_edit, can_create, can_create_poliza, can_restore, Roles, get_role_scope, require_permission
 from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards
 from datetime import datetime, timedelta
 from controllers.reportes.vencimientos_renovaciones import bp as vencimientos_bp
@@ -2575,7 +2575,7 @@ def api_maestros_comisiones_save():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 @bp.route('/polizas/save', methods=['POST'])
-@require_permission(can_create, response_mode='json')
+@require_permission(can_create_poliza, response_mode='json')
 def polizas_save():
     if 'user' not in session:
         return {'ok': False, 'errors': ['No autenticado']}, 401
@@ -2739,7 +2739,7 @@ def primas_delete():
     return delete_prima_route()
 
 @bp.route('/api/polizas/renovar', methods=['POST'])
-@require_permission(can_create, response_mode='json', ownership_check_fn=poliza_owner_from_request)
+@require_permission(can_create_poliza, response_mode='json', ownership_check_fn=poliza_owner_from_request)
 def polizas_renovar():
     if 'user' not in session:
         return {'ok': False, 'errors': ['No autenticado']}, 401
