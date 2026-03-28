@@ -1645,27 +1645,43 @@
           // Manejo de PDF protegido con contraseña
           if (!r.ok && payload && payload.need_password) {
             try {
-              const result = await (window.Swal ? Swal.fire({
+              const choice = await (window.Swal ? Swal.fire({
                 title: 'PDF protegido',
-                text: 'Este documento requiere contraseña para extraer los datos.',
+                text: 'Este documento requiere contraseña para extraer los datos. ¿Deseas anexarlo sin extraer o ingresar contraseña para extraer?',
+                showDenyButton: true,
+                showCancelButton: true,
+                confirmButtonText: 'Ingresar contraseña',
+                denyButtonText: 'Anexar sin extraer',
+                cancelButtonText: 'Cancelar',
+                allowOutsideClick: false
+              }) : Promise.resolve({ isConfirmed: false, isDenied: true }));
+              if (choice.isDenied) {
+                allAnexos.push(file);
+                if (typeof renderAnexosList === 'function') renderAnexosList();
+                else if (anexosListEl) anexosListEl.innerHTML = '';
+                return;
+              }
+              if (!choice.isConfirmed) {
+                alert('Extracción cancelada.');
+                return;
+              }
+              const pw = await (window.Swal ? Swal.fire({
+                title: 'Ingresar contraseña',
                 input: 'password',
                 inputLabel: 'Contraseña',
                 inputAttributes: { autocapitalize: 'off', autocomplete: 'current-password' },
                 showCancelButton: true,
                 confirmButtonText: 'Continuar',
                 cancelButtonText: 'Cancelar',
-                allowOutsideClick: false,
+                allowOutsideClick: false
               }) : Promise.resolve({ isConfirmed: false, value: '' }));
-              if (!result.isConfirmed || !result.value) {
-                alert('Extracción cancelada: se requiere contraseña.');
-                return;
-              }
+              if (!pw.isConfirmed || !pw.value) { alert('Extracción cancelada.'); return; }
               const fd2 = new FormData();
               fd2.append('file', file);
               if (issuerEl && issuerEl.value) {
                 fd2.append('issuer', issuerEl.value);
               }
-              fd2.append('pdf_password', result.value);
+              fd2.append('pdf_password', pw.value);
               fd2.append('debug', '1');
               const r2 = await fetch('/upload', { method: 'POST', body: fd2 });
               const ct2 = (r2.headers.get('content-type') || '').toLowerCase();
