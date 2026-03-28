@@ -2828,6 +2828,17 @@ def _extract_text_fitz(path: str, password: str | None = None) -> str:
 
 def _extract_text_pypdf2(path: str, password: str | None = None) -> str:
     try:
+        try:
+            import pdfplumber
+            with pdfplumber.open(path) as pdf:
+                parts = []
+                for page in pdf.pages:
+                    txt = page.extract_text() or ""
+                    parts.append(txt)
+                if parts:
+                    return "\n".join(parts)
+        except Exception:
+            pass
         from PyPDF2 import PdfReader
         reader = PdfReader(path)
         try:
