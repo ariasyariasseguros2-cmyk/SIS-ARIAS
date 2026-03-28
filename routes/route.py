@@ -1548,6 +1548,7 @@ def upload():
         print(f"[upload] error verifying save path: {e}")
 
     issuer = (request.form.get('issuer') or '').strip() or None
+    pdf_password = (request.form.get('pdf_password') or '').strip() or None
     # Modo debug: si llega desde el cliente
     debug_enabled = (request.form.get('debug') == '1') or (request.args.get('debug') == '1')
     debug_logs = []
@@ -1558,10 +1559,40 @@ def upload():
 
     LOG(f'[upload] issuer={issuer} file={filename}')
 
+    # Detectar PDF protegido con contraseña y solicitarla si no fue enviada
+    def _pdf_is_encrypted(path: str) -> bool:
+        try:
+            import fitz
+            with fitz.open(path) as doc:
+                if getattr(doc, "is_encrypted", False):
+                    return True
+        except Exception:
+            pass
+        try:
+            from PyPDF2 import PdfReader
+            reader = PdfReader(path)
+            if getattr(reader, "is_encrypted", False):
+                return True
+        except Exception:
+            pass
+        return False
+
+    try:
+        if _pdf_is_encrypted(save_path) and not pdf_password:
+            return jsonify({
+                'ok': False,
+                'need_password': True,
+                'filename': filename,
+                'error': 'El PDF está protegido con contraseña',
+                'debug': debug_logs,
+            }), 423
+    except Exception as _enc_e:
+        LOG(f'[upload] encryption check error: {_enc_e}')
+
     items = []
     if filename.lower().endswith('.pdf'):
         try:
-            items = parse_pdf_items_provider(save_path, issuer)
+            items = parse_pdf_items_provider(save_path, issuer, pdf_password=pdf_password)
             detected_provider = getattr(parse_pdf_items_provider, "_last_provider", None)
             LOG(f'[upload] provider items count={len(items)}')
         except Exception as e:
@@ -1758,7 +1789,7 @@ def upload():
                     return None
                 return "US$" if (min(dollar_idxs) if dollar_idxs else 10**9) <= (min(sol_idxs) if sol_idxs else 10**9) else "S/"
 
-            pdf_text = _extract_text_pypdf2(save_path)
+            pdf_text = _extract_text_pypdf2(save_path, password=pdf_password)
             if pdf_text:
                 inferred_moneda = _infer_moneda_from_pdf(pdf_text) if is_pos else None
                 for it in items_ui:
@@ -2774,21 +2805,42 @@ def allowed_file(filename: str) -> bool:
     return ext in {'pdf', 'jpg', 'jpeg', 'png'}
 
 # -------- Extracción de texto (PyMuPDF y fallback) --------
-def _extract_text_fitz(path: str) -> str:
+def _extract_text_fitz(path: str, password: str | None = None) -> str:
     try:
         import fitz  # PyMuPDF
         text_chunks = []
         with fitz.open(path) as doc:
+            try:
+                if getattr(doc, "is_encrypted", False):
+                    if password:
+                        ok = doc.authenticate(password)
+                        if not ok:
+                            return ""
+                    else:
+                        return ""
+            except Exception:
+                pass
             for page in doc:
                 text_chunks.append(page.get_text())
         return "\n".join(text_chunks)
     except Exception:
-        return _extract_text_pypdf2(path)
+        return _extract_text_pypdf2(path, password)
 
-def _extract_text_pypdf2(path: str) -> str:
+def _extract_text_pypdf2(path: str, password: str | None = None) -> str:
     try:
         from PyPDF2 import PdfReader
         reader = PdfReader(path)
+        try:
+            if getattr(reader, "is_encrypted", False):
+                if password:
+                    try:
+                        reader.decrypt(password)
+                    except Exception:
+                        return ""
+                else:
+                    return ""
+        except Exception:
+            pass
         return "\n".join([page.extract_text() or "" for page in reader.pages])
     except Exception:
         return ""
@@ -2954,10 +3006,10 @@ def _parse_positiva(text: str) -> List[Dict[str, str]]:
 
     return items
 
-def parse_pdf_items_provider(path: str, issuer: str | None = None):
-    text = _extract_text_fitz(path)
+def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password: str | None = None):
+    text = _extract_text_fitz(path, password=pdf_password)
     if not text or not text.strip():
-        text = _extract_text_pypdf2(path)
+        text = _extract_text_pypdf2(path, password=pdf_password)
         print(f"[DEBUG TEXT HEAD PYPDF2] {text[:600]!r}")
     else:
         print(f"[DEBUG TEXT HEAD] {text[:600]!r}")

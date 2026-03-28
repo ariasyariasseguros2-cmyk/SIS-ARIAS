@@ -1642,6 +1642,53 @@
             payload.debug.forEach((line) => console.log('[server]', line));
           }
 
+          // Manejo de PDF protegido con contraseña
+          if (!r.ok && payload && payload.need_password) {
+            try {
+              const result = await (window.Swal ? Swal.fire({
+                title: 'PDF protegido',
+                text: 'Este documento requiere contraseña para extraer los datos.',
+                input: 'password',
+                inputLabel: 'Contraseña',
+                inputAttributes: { autocapitalize: 'off', autocomplete: 'current-password' },
+                showCancelButton: true,
+                confirmButtonText: 'Continuar',
+                cancelButtonText: 'Cancelar',
+                allowOutsideClick: false,
+              }) : Promise.resolve({ isConfirmed: false, value: '' }));
+              if (!result.isConfirmed || !result.value) {
+                alert('Extracción cancelada: se requiere contraseña.');
+                return;
+              }
+              const fd2 = new FormData();
+              fd2.append('file', file);
+              if (issuerEl && issuerEl.value) {
+                fd2.append('issuer', issuerEl.value);
+              }
+              fd2.append('pdf_password', result.value);
+              fd2.append('debug', '1');
+              const r2 = await fetch('/upload', { method: 'POST', body: fd2 });
+              const ct2 = (r2.headers.get('content-type') || '').toLowerCase();
+              const raw2 = await r2.text();
+              let payload2;
+              if (ct2.includes('application/json')) {
+                payload2 = JSON.parse(raw2);
+              } else {
+                try { payload2 = JSON.parse(raw2); } catch (e) { payload2 = raw2; }
+              }
+              if (!r2.ok) {
+                alert(typeof payload2 === 'string' ? payload2 : (payload2.error || 'Error al extraer datos con contraseña.'));
+                return;
+              }
+              payload = payload2;
+              r = r2;
+            } catch (pwErr) {
+              console.error('password flow error', pwErr);
+              alert('No se pudo procesar el PDF protegido.');
+              return;
+            }
+          }
+
           if (!r.ok) {
             alert(typeof payload === 'string' ? payload : (payload.error || 'Error al extraer datos.'));
             return;
