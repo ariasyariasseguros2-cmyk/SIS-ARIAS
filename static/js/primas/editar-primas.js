@@ -142,6 +142,7 @@ window.initEditarPrimasLogic = function(isModal = false) {
             // Collect form data
             const data = {
                 idPrima: document.getElementById('idPrima').value,
+                poliza: document.getElementById('polizaNumero')?.value || '',
                 tipo_doc: document.getElementById('tipoDoc').value,
                 contratante: document.getElementById('contratante').value,
                 cia: document.getElementById('compania').value,

@@ -1401,7 +1401,7 @@ BEGIN
         SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
         INTO v_usuario_edicion_nombre
         FROM usuarios
-        WHERE username = p_usuario_edicion
+        WHERE username COLLATE utf8mb4_0900_ai_ci = p_usuario_edicion COLLATE utf8mb4_0900_ai_ci
         LIMIT 1;
     END IF;
     IF v_usuario_edicion_nombre IS NULL OR v_usuario_edicion_nombre = '' THEN

@@ -55,10 +55,10 @@ def get_dashboard_cards() -> Dict[str, Any]:
             except Exception:
                 nombre_usuario = user
 
-            user_filter = " AND (sub_agente = %s OR sub_agente = %s) "
+            user_filter = " AND (LOWER(TRIM(sub_agente)) = LOWER(TRIM(%s)) OR LOWER(TRIM(sub_agente)) = LOWER(TRIM(%s))) "
             user_filter_args = [user, nombre_usuario]
 
-            client_where += " AND (subagente = %s OR subagente = %s) "
+            client_where += " AND (LOWER(TRIM(subagente)) = LOWER(TRIM(%s)) OR LOWER(TRIM(subagente)) = LOWER(TRIM(%s))) "
             client_where_args = [user, nombre_usuario]
         
         # 1. Total Clientes
@@ -110,32 +110,26 @@ def get_dashboard_cards() -> Dict[str, Any]:
         except Exception: pass
         
         # 4. Producción (Mes Actual vs Mes Anterior)
-        # Asumiendo prima_total como campo de monto y fecha_emision como fecha
-        # Si no existe prima_total, usar prima_neta
         try:
             # Mes Actual
             sql = f"""
-                SELECT SUM(COALESCE(prima_total, prima_comercial_igv, prima_neta, 0)) FROM polizas 
-                WHERE activo = 1 AND anulado = 0
-                  AND fecha_emision IS NOT NULL
-                  AND MONTH(fecha_emision) = MONTH(CURDATE()) 
-                  AND YEAR(fecha_emision) = YEAR(CURDATE())
-                  {user_filter}
+                SELECT SUM(COALESCE(CAST(REPLACE(imp_compania, ',', '.') AS DECIMAL(15,2)), 0)) FROM polizas 
+                WHERE vig_desde IS NOT NULL
+                  AND MONTH(vig_desde) = MONTH(CURDATE()) 
+                  AND YEAR(vig_desde) = YEAR(CURDATE())
             """
-            cur.execute(sql, user_filter_args)
+            cur.execute(sql)
             curr_res = cur.fetchone()
             curr_prod = float(curr_res[0] or 0)
             
             # Mes Anterior
             sql = f"""
-                SELECT SUM(COALESCE(prima_total, prima_comercial_igv, prima_neta, 0)) FROM polizas 
-                WHERE activo = 1 AND anulado = 0
-                  AND fecha_emision IS NOT NULL
-                  AND MONTH(fecha_emision) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) 
-                  AND YEAR(fecha_emision) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
-                  {user_filter}
+                SELECT SUM(COALESCE(CAST(REPLACE(imp_compania, ',', '.') AS DECIMAL(15,2)), 0)) FROM polizas 
+                WHERE vig_desde IS NOT NULL
+                  AND MONTH(vig_desde) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) 
+                  AND YEAR(vig_desde) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
             """
-            cur.execute(sql, user_filter_args)
+            cur.execute(sql)
             prev_res = cur.fetchone()
             prev_prod = float(prev_res[0] or 0)
             
@@ -151,58 +145,52 @@ def get_dashboard_cards() -> Dict[str, Any]:
             print(f"[Dashboard] Error calculating production: {e}")
             pass
 
-        # 5. Primas Netas y Comisiones (Soles y Dólares) - Pólizas Vigentes
-        # Se asume moneda: 'PEN'/'Soles' y 'USD'/'Dólares'
-        # Se asume campos: prima_neta, imp_subagente (comision)
+        # 5. Primas Netas y Comisiones (Soles y Dólares)
         try:
-            # Prima Neta Soles
             sql = f"""
-                SELECT SUM(COALESCE(prima_neta, 0)) FROM polizas 
-                WHERE activo = 1 AND anulado = 0
-                  AND vig_hasta >= CURDATE()
+                SELECT SUM(COALESCE(CAST(REPLACE(imp_compania, ',', '.') AS DECIMAL(15,2)), 0)) FROM polizas 
+                WHERE vig_desde IS NOT NULL
+                  AND MONTH(vig_desde) = MONTH(CURDATE())
+                  AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND (moneda LIKE 'S%%' OR moneda = 'PEN')
-                  {user_filter}
             """
-            cur.execute(sql, user_filter_args)
+            cur.execute(sql)
             res = cur.fetchone()
             val = float(res[0] or 0)
             cards['prima_neta_soles'] = f"{val:,.2f}"
 
-            # Prima Neta Dólares
             sql = f"""
-                SELECT SUM(COALESCE(prima_neta, 0)) FROM polizas 
-                WHERE activo = 1 AND anulado = 0
-                  AND vig_hasta >= CURDATE()
+                SELECT SUM(COALESCE(CAST(REPLACE(imp_compania, ',', '.') AS DECIMAL(15,2)), 0)) FROM polizas 
+                WHERE vig_desde IS NOT NULL
+                  AND MONTH(vig_desde) = MONTH(CURDATE())
+                  AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND (moneda LIKE 'D%%' OR moneda LIKE 'U%%' OR moneda = 'USD')
-                  {user_filter}
             """
-            cur.execute(sql, user_filter_args)
+            cur.execute(sql)
             res = cur.fetchone()
             val = float(res[0] or 0)
             cards['prima_neta_dolares'] = f"{val:,.2f}"
 
-            # Comisión Soles (imp_subagente)
             sql = f"""
-                SELECT SUM(COALESCE(imp_subagente, 0)) FROM polizas 
-                WHERE activo = 1 AND anulado = 0
-                  AND vig_hasta >= CURDATE()
+                SELECT SUM(COALESCE(CAST(REPLACE(imp_compania, ',', '.') AS DECIMAL(15,2)), 0)) FROM polizas 
+                WHERE vig_desde IS NOT NULL
+                  AND MONTH(vig_desde) = MONTH(CURDATE())
+                  AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND (moneda LIKE 'S%%' OR moneda = 'PEN')
-                  {user_filter}
             """
-            cur.execute(sql, user_filter_args)
+            cur.execute(sql)
             res = cur.fetchone()
             val = float(res[0] or 0)
             cards['comision_soles'] = f"{val:,.2f}"
 
-            # Comisión Dólares (imp_subagente)
             sql = f"""
-                SELECT SUM(COALESCE(imp_subagente, 0)) FROM polizas 
-                WHERE activo = 1 AND anulado = 0
-                  AND vig_hasta >= CURDATE()
+                SELECT SUM(COALESCE(CAST(REPLACE(imp_compania, ',', '.') AS DECIMAL(15,2)), 0)) FROM polizas 
+                WHERE vig_desde IS NOT NULL
+                  AND MONTH(vig_desde) = MONTH(CURDATE())
+                  AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND (moneda LIKE 'D%%' OR moneda LIKE 'U%%' OR moneda = 'USD')
-                  {user_filter}
             """
-            cur.execute(sql, user_filter_args)
+            cur.execute(sql)
             res = cur.fetchone()
             val = float(res[0] or 0)
             cards['comision_dolares'] = f"{val:,.2f}"
@@ -230,62 +218,49 @@ def get_dashboard_data() -> Dict[str, Any]:
         user_filter_args = []
 
         if session.get('role_name') == Roles.SUB_AGENTE:
-            user = session.get('user')
-            nombre_usuario = user
-            try:
-                cur.execute(
-                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1",
-                    (user,),
-                )
-                u_row = cur.fetchone()
-                if u_row and u_row[0]:
-                    nombre_usuario = u_row[0]
-            except Exception:
-                nombre_usuario = user
-
-            user_filter = " AND (sub_agente = %s OR sub_agente = %s) "
-            user_filter_args = [user, nombre_usuario]
+            pass
         
-        # Obtener producción de los últimos 12 meses
+        # Obtener producción de los últimos 12 meses usando imp_compania y vig_desde
         # Query puede variar según versión de MySQL, usaremos un loop simple en python para llenar huecos
         # O query agrupada
         sql = f"""
             SELECT 
-                DATE_FORMAT(fecha_emision, '%%Y-%%m') as m, 
-                SUM(COALESCE(prima_total, prima_comercial_igv, prima_neta, 0)) as total
+                vig_desde, 
+                imp_compania
             FROM polizas
-            WHERE activo = 1 AND anulado = 0
-              AND fecha_emision IS NOT NULL
-              AND fecha_emision >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)
-            {user_filter}
-            GROUP BY DATE_FORMAT(fecha_emision, '%%Y-%%m')
-            ORDER BY m ASC
+            WHERE vig_desde IS NOT NULL
+              AND vig_desde BETWEEN DATE('2025-12-01') AND DATE('2026-12-31')
+            ORDER BY vig_desde ASC
         """
-        cur.execute(sql, user_filter_args)
+        cur.execute(sql)
         rows = cur.fetchall() or []
         
-        data_map = {r[0]: float(r[1] or 0) for r in rows}
+        data_map = {}
+        for r in rows:
+            d = r[0]
+            val_raw = r[1]
+            try:
+                val = float(str(val_raw).replace(',', '.')) if val_raw is not None else 0.0
+            except Exception:
+                val = 0.0
+            key = f"{d.year}-{d.month:02d}"
+            data_map[key] = data_map.get(key, 0.0) + val
         
-        # Generar últimos 12 meses labels
-        curr = datetime.now()
-        for i in range(11, -1, -1):
-            d = curr.replace(day=1) # Aproximación, mejor usar relativedelta si estuviera disponible
-            # Hack simple para restar meses
-            year = curr.year
-            month = curr.month - i
-            while month <= 0:
-                month += 12
-                year -= 1
-            
-            key = f"{year}-{month:02d}"
-            # Label legible: "Ene 2025"
-            label_obj = datetime(year, month, 1)
-            # Spanish months hardcoded to avoid locale issues
-            meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
-            label = f"{meses[month-1]} {year}"
-            
-            months_labels.append(label)
+        # Generar etiquetas y totales para 2025-12 a 2026-12
+        start_year, start_month = 2025, 12
+        end_year, end_month = 2026, 12
+        y, m = start_year, start_month
+        meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
+        while True:
+            key = f"{y}-{m:02d}"
+            months_labels.append(f"{meses[m-1]} {y}")
             totals_data.append(data_map.get(key, 0.0))
+            if y == end_year and m == end_month:
+                break
+            m += 1
+            if m > 12:
+                m = 1
+                y += 1
             
         cur.close()
         cnx.close()

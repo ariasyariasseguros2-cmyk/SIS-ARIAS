@@ -85,9 +85,41 @@ def download_zip():
 
     search      = request.args.get('search', '')
     identificador = request.args.get('identificador', '')
-    tipo_origen = request.args.get('tipo', '')   # POLIZA or CUOTA
+    tipo_origen = request.args.get('tipo', '')
+    poliza_num  = request.args.get('poliza', '')
 
-    results = get_archivos_detalle(search, identificador, tipo_origen)
+    results = []
+    if tipo_origen == 'CUOTA' and identificador:
+        try:
+            conn = get_connection()
+            cursor = conn.cursor(dictionary=True)
+            if poliza_num:
+                cursor.execute(
+                    """SELECT pa.idArchivo, pa.ruta_archivo, pa.nombre_original
+                       FROM poliza_archivos pa
+                       INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
+                       WHERE pa.origen = 'CUOTA'
+                         AND p.poliza = %s
+                         AND pa.nombre_original LIKE %s
+                       ORDER BY pa.creado_en DESC""",
+                    (poliza_num, f'[CUOTA {identificador}] %',)
+                )
+            else:
+                cursor.execute(
+                    """SELECT idArchivo, ruta_archivo, nombre_original
+                       FROM poliza_archivos
+                       WHERE origen = 'CUOTA'
+                         AND nombre_original LIKE %s
+                       ORDER BY creado_en DESC""",
+                    (f'[CUOTA {identificador}] %',)
+                )
+            results = cursor.fetchall()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            results = []
+    else:
+        results = get_archivos_detalle(search, identificador, tipo_origen)
 
     if not results:
         return jsonify({'error': 'No se encontraron archivos'}), 404

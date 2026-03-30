@@ -39,6 +39,7 @@
 
             <form id="editPrimasForm" class="needs-validation" novalidate>
                 <input type="hidden" id="idPrima" value="{{ prima.idPrima if prima else '' }}">
+                <input type="hidden" id="polizaNumero" value="{{ prima.poliza if prima else '' }}">
 
                 <!-- SECCIÓN 1: INFORMACIÓN GENERAL -->
                 <h6 class="text-uppercase text-muted fw-bold fs-7 mb-3 ls-1"><i class="bi-file-earmark-text me-2"></i>Información General</h6>

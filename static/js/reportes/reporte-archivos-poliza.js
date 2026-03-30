@@ -255,6 +255,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // hay hijos si tiene cuotas O tiene polizaId (puede tener archivos extra)
             const hasToggle = hasHijos || !!polizaId;
 
+            const countChildren = hijos.reduce((a, c) => a + (c.cantidad_archivos || 0), 0);
+            const countDisplay = countChildren > 0 ? countChildren : (row.cantidad_archivos || 0);
             html += `
             <tr class="poliza-row">
                 <td class="text-center">
@@ -282,7 +284,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td class="small text-muted">${row.producto||'-'}</td>
                 <td class="small text-muted">${row.compania||'-'}</td>
                 <td class="small text-muted">${row.usuario||'-'}</td>
-                <td class="text-center"><span class="badge bg-secondary">${row.cantidad_archivos||0}</span></td>
+                <td class="text-center"><span class="badge bg-secondary">${countDisplay}</span></td>
                 <td class="small text-muted">${formatFecha(row.ultima_fecha)}</td>
             </tr>`;
 
@@ -294,7 +296,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="d-flex align-items-center justify-content-center gap-1 ps-3">
                             <i class="bi bi-arrow-return-right text-muted me-1"></i>
                             <button class="btn btn-outline-success btn-sm btn-zip-group"
-                                    data-id="${c.cuota_id}"
+                                    data-id="${c.cupon || ''}"
+                                    data-policy="${c.poliza_padre_id || ''}"
                                     data-type="CUOTA"
                                     title="Descargar archivos ZIP de cuota">
                                 <i class="bi-file-zip"></i>
@@ -439,7 +442,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Botón ZIP — descarga directa
         document.querySelectorAll('.btn-zip-group').forEach(btn => {
             btn.addEventListener('click', function() {
-                window.location.href = `/api/reportes/download-zip?identificador=${encodeURIComponent(this.dataset.id)}&tipo=${encodeURIComponent(this.dataset.type)}`;
+                const id = this.dataset.id || '';
+                const type = this.dataset.type || '';
+                const poliza = this.dataset.policy || '';
+                const extra = type === 'CUOTA' && poliza ? `&poliza=${encodeURIComponent(poliza)}` : '';
+                window.location.href = `/api/reportes/download-zip?identificador=${encodeURIComponent(id)}&tipo=${encodeURIComponent(type)}${extra}`;
             });
         });
     }
