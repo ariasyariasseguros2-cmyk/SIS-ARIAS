@@ -128,7 +128,7 @@ def get_reporte_produccion_rows(filters: Dict[str, Any], limit: int = 1000) -> L
                 p.ejecutivo,
                 NULL AS breve_descripcion,
                 p.usuario_registro AS usuario,
-                p.creado_en AS f_reg
+                DATE(p.creado_en) AS f_reg
             FROM polizas p
             INNER JOIN clientes c ON c.idCliente = p.cliente_id
         """
