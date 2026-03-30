@@ -107,10 +107,12 @@ def addPacificoGenerales_V2(filepath):
         s = s.strip()
         
         if len(s) < 4: return False
-        # Filter out generic descriptions often found in "Asegurado" field for collectives
         invalid_terms = ['afiliados', 'todos los', 'trabajadores', 'resumen', 'multisalud', 
-                         'condiciones', 'clausula', 's, afiliados', 'estimado(a)']
+                         'condiciones', 'clausula', 's, afiliados', 'estimado(a)',
+                         'pág', 'pag', 'fecha', 'representante legal', 'artículo', 'articulo', 'convenio de pago']
         if any(term in s.lower() for term in invalid_terms):
+            return False
+        if s.lower().startswith('ruc'):
             return False
         # Must start with Uppercase or Digit (reject "s, afiliados...")
         if s and not s[0].isupper() and not s[0].isdigit():
@@ -146,13 +148,31 @@ def addPacificoGenerales_V2(filepath):
              candidates.append(raw)
 
     # Decision Logic
-    if candidates:
-        # Prefer uppercase candidates if available
+    selected = ""
+    for m in matches_aseg:
+        raw = re.sub(r'\s+\d+$', '', m).strip()
+        if is_valid_name(raw):
+            selected = raw
+            break
+    if not selected:
+        for m in matches_cliente:
+            raw = re.sub(r'\s+\d+$', '', m).strip()
+            if is_valid_name(raw):
+                selected = raw
+                break
+    if not selected and m_senor:
+        raw = m_senor.group(1).strip()
+        if is_valid_name(raw):
+            selected = raw
+    if not selected and m_ruc_before:
+        raw = m_ruc_before.group(1).strip()
+        if is_valid_name(raw):
+            selected = raw
+    if selected:
+        data["asegurado"] = selected
+    elif candidates:
         upper_candidates = [c for c in candidates if c.isupper()]
-        if upper_candidates:
-            data["asegurado"] = upper_candidates[0]
-        else:
-            data["asegurado"] = candidates[0]
+        data["asegurado"] = upper_candidates[0] if upper_candidates else candidates[0]
             
     print(f"[PacificoGeneralesV2] Candidates found: {candidates}")
     print(f"[PacificoGeneralesV2] Selected Asegurado: {data['asegurado']}")
