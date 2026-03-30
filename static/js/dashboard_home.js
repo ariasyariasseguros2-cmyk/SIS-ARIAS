@@ -1,23 +1,38 @@
 document.addEventListener('DOMContentLoaded', () => {
     const data = window.dashboardData || {};
 
-    // Line Chart: Producción
     const ctxProduction = document.getElementById('productionChart');
     if (ctxProduction && data.months && data.totals) {
+        const valueLabelPlugin = {
+            id: 'valueLabel',
+            afterDatasetsDraw(chart) {
+                const {ctx} = chart;
+                const dataset = chart.data.datasets[0];
+                const meta = chart.getDatasetMeta(0);
+                ctx.save();
+                ctx.fillStyle = '#333';
+                ctx.textAlign = 'center';
+                ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto';
+                meta.data.forEach((bar, i) => {
+                    const val = dataset.data[i] || 0;
+                    const text = new Intl.NumberFormat('es-PE', {maximumFractionDigits: 0}).format(val);
+                    ctx.fillText(text, bar.x, bar.y - 6);
+                });
+                ctx.restore();
+            }
+        };
+
         new Chart(ctxProduction.getContext('2d'), {
-            type: 'line',
+            type: 'bar',
             data: {
                 labels: data.months,
                 datasets: [{
-                    label: 'Producción ($)',
+                    label: 'Producción',
                     data: data.totals,
-                    borderColor: '#399AD6',
-                    backgroundColor: 'rgba(57, 154, 214, 0.1)',
-                    tension: 0.4,
-                    fill: true,
-                    pointBackgroundColor: '#FFFFFF',
-                    pointBorderColor: '#399AD6',
-                    pointBorderWidth: 2
+                    backgroundColor: (function(){ const n = data.totals.length || 0; return Array.from({length:n}, (_,i)=>`hsl(${(i*360)/Math.max(n,1)},70%,65%)`); })(),
+                    borderColor: (function(){ const n = data.totals.length || 0; return Array.from({length:n}, (_,i)=>`hsl(${(i*360)/Math.max(n,1)},70%,45%)`); })(),
+                    borderWidth: 1,
+                    borderRadius: 6
                 }]
             },
             options: {
@@ -28,14 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
-                                }
-                                return label;
+                                return new Intl.NumberFormat('es-PE', { style: 'decimal', maximumFractionDigits: 2 }).format(context.parsed.y);
                             }
                         }
                     }
@@ -44,14 +52,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     y: { 
                         beginAtZero: true, 
                         grid: { borderDash: [2, 4], color: '#f0f0f0' },
-                        ticks: { font: { size: 11 } }
+                        ticks: { font: { size: 11 }, callback: (val) => new Intl.NumberFormat('es-PE', {maximumFractionDigits: 0}).format(val) }
                     },
                     x: { 
                         grid: { display: false },
                         ticks: { font: { size: 11 } }
                     }
                 }
-            }
+            },
+            plugins: [valueLabelPlugin]
         });
     }
 
