@@ -35,6 +35,58 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
             except Exception:
                 rows = rows
 
+        if not rows and pol:
+            try:
+                cur.execute(
+                    """
+                    SELECT
+                        p.idPoliza,
+                        p.recibo,
+                        p.recibo AS cupon,
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                            CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                            p.poliza
+                        ) AS poliza,
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                            CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                            c.razon_social
+                        ) AS contratante,
+                        p.cia AS compania,
+                        p.ramo,
+                        p.tipo_doc AS tipo,
+                        p.prima_comercial,
+                        p.prima_neta,
+                        p.prima_comercial_igv,
+                        p.moneda,
+                        DATE_FORMAT(p.fecha_vencimiento, '%d/%m/%Y') AS fecha_vencimiento,
+                        DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
+                        DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+                            CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+                            p.nro
+                        ) AS nro_operacion,
+                        p.motivo AS motivo
+                    FROM polizas p
+                    INNER JOIN clientes c ON c.idCliente = p.cliente_id
+                    WHERE (
+                            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR) COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                         OR CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR)            COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                         OR p.poliza COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                    )
+                      AND p.activo = 1 AND (p.anulado = 0 OR p.anulado IS NULL)
+                    ORDER BY p.creado_en DESC
+                    """,
+                    (pol, pol, pol),
+                )
+                rows = cur.fetchall() or []
+                while cur.nextset():
+                    pass
+            except Exception:
+                rows = rows
+
         # Si no hay poliza definida pero hay resultados, tomamos la poliza del primer resultado
         if not pol and rows:
             pol = rows[0].get('poliza') or rows[0].get('numero_poliza')

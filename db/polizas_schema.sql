@@ -997,14 +997,18 @@ BEGIN
         DATE_FORMAT(p.fecha_vencimiento, '%d/%m/%Y') AS fecha_vencimiento,
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
-        p.nro AS nro_operacion,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+            p.nro
+        ) AS nro_operacion,
         p.motivo AS motivo
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
     WHERE (
-            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR) = p_poliza
-         OR CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR) = p_poliza
-         OR p.poliza = p_poliza
+            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR) COLLATE utf8mb4_0900_ai_ci = p_poliza COLLATE utf8mb4_0900_ai_ci
+         OR CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR)            COLLATE utf8mb4_0900_ai_ci = p_poliza COLLATE utf8mb4_0900_ai_ci
+         OR p.poliza COLLATE utf8mb4_0900_ai_ci = p_poliza COLLATE utf8mb4_0900_ai_ci
     )
       AND p.activo = 1 AND p.anulado = 0
     ORDER BY p.creado_en DESC;
@@ -1042,7 +1046,11 @@ BEGIN
         p.prima_comercial_igv,
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
-        p.nro AS nro_operacion,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+            p.nro
+        ) AS nro_operacion,
         p.motivo AS motivo
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
@@ -1066,9 +1074,9 @@ BEGIN
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
     WHERE (
-            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR) = p_poliza
-         OR CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR) = p_poliza
-         OR p.poliza = p_poliza
+            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR) COLLATE utf8mb4_0900_ai_ci = p_poliza COLLATE utf8mb4_0900_ai_ci
+         OR CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR)            COLLATE utf8mb4_0900_ai_ci = p_poliza COLLATE utf8mb4_0900_ai_ci
+         OR p.poliza COLLATE utf8mb4_0900_ai_ci = p_poliza COLLATE utf8mb4_0900_ai_ci
     )
     LIMIT 1;
 END$$
