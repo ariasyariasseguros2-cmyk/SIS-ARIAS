@@ -553,6 +553,36 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                 except Exception:
                     real_poliza_id = None
 
+                # Encriptar campos sensibles de la póliza recién creada (asegurado, poliza, recibo, contrato_nro, nro)
+                try:
+                    if real_poliza_id:
+                        enc_asegurado = U(row.get("colectivo_asegurado") or row.get("asegurado") or "")
+                        enc_poliza = U(row.get("numero_poliza") or "")
+                        enc_recibo = U(row.get("recibo") or "")
+                        enc_contrato_nro = U(row.get("contrato_nro") or row.get("recibo") or "")
+                        enc_nro = U(row.get("nro") or "")
+                        k_enc = get_encrypt_key()
+                        c_enc = cnx.cursor()
+                        c_enc.execute("""
+                            UPDATE polizas SET
+                              asegurado = CASE WHEN %s IS NULL THEN asegurado ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
+                              poliza = CASE WHEN %s IS NULL THEN poliza ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
+                              recibo = CASE WHEN %s IS NULL THEN recibo ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
+                              contrato_nro = CASE WHEN %s IS NULL THEN contrato_nro ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
+                              nro = CASE WHEN %s IS NULL THEN nro ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END
+                            WHERE idPoliza = %s
+                        """, (
+                            enc_asegurado, enc_asegurado, k_enc,
+                            enc_poliza, enc_poliza, k_enc,
+                            enc_recibo, enc_recibo, k_enc,
+                            enc_contrato_nro, enc_contrato_nro, k_enc,
+                            enc_nro, enc_nro, k_enc,
+                            real_poliza_id,
+                        ))
+                        c_enc.close()
+                except Exception as _e_enc:
+                    print(f"[save_polizas] Error encrypting new poliza {real_poliza_id}: {_e_enc}")
+
                 # NUEVO: Vincular Anexos
                 if saved_anexos:
                     try:

@@ -682,7 +682,12 @@ BEGIN
 
     SELECT idCliente INTO v_cliente_id
     FROM clientes
-    WHERE numero_documento COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
+    WHERE (
+            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR) COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
+         OR CAST(AES_DECRYPT(numero_documento, @SIS_KEY) AS CHAR)            COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
+         OR numero_documento COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
+    )
+      AND activo = 1
     LIMIT 1;
 
     IF v_cliente_id IS NULL THEN
@@ -789,13 +794,29 @@ CREATE PROCEDURE sp_list_polizas_por_numero(IN p_numero_documento VARCHAR(20))
 BEGIN
     SELECT
         p.idPoliza,
-        c.razon_social AS contratante,
-        p.asegurado,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+            c.razon_social
+        ) AS contratante,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+            p.asegurado
+        ) AS asegurado,
         p.cia,
         p.ramo,
         p.ramos_producto AS producto,
-        p.poliza,
-        p.nro,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+            p.poliza
+        ) AS poliza,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+            p.nro
+        ) AS nro,
         p.moneda,
         DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
@@ -804,12 +825,17 @@ BEGIN
         p.asegurada,
         COALESCE(NULLIF(TRIM(ur.nombre), ''), p.usuario_registro) AS usuario_registro,
         COALESCE(NULLIF(TRIM(ue.nombre), ''), p.usuario_edicion) AS usuario_edicion,
-    (SELECT ruta_archivo FROM poliza_archivos WHERE poliza_id = p.idPoliza ORDER BY idArchivo DESC LIMIT 1) AS pdf_path
+        (SELECT ruta_archivo FROM poliza_archivos WHERE poliza_id = p.idPoliza ORDER BY idArchivo DESC LIMIT 1) AS pdf_path
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
     LEFT JOIN usuarios ur ON ur.username = p.usuario_registro OR ur.nombre = p.usuario_registro
     LEFT JOIN usuarios ue ON ue.username = p.usuario_edicion OR ue.nombre = p.usuario_edicion
-    WHERE c.numero_documento = p_numero_documento AND p.activo = 1 AND p.anulado = 0
+    WHERE (
+            CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR) = p_numero_documento
+         OR CAST(AES_DECRYPT(c.numero_documento, @SIS_KEY) AS CHAR) = p_numero_documento
+         OR c.numero_documento = p_numero_documento
+    )
+      AND p.activo = 1 AND p.anulado = 0
     ORDER BY p.creado_en DESC;
 END$$
 DELIMITER ;
@@ -3516,7 +3542,12 @@ BEGIN
     -- Validar que el cliente existe
     SELECT idCliente INTO v_cliente_id
     FROM clientes
-    WHERE numero_documento COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
+    WHERE (
+            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR) COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
+         OR CAST(AES_DECRYPT(numero_documento, @SIS_KEY) AS CHAR)            COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
+         OR numero_documento COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
+    )
+      AND activo = 1
     LIMIT 1;
 
     IF v_cliente_id IS NULL THEN
