@@ -13,6 +13,11 @@ def load_settings():
         return {}
 
 
+def get_encrypt_key():
+    cfg = load_settings()
+    return cfg.get("key_encrypt_bd")
+
+
 def get_connection():
     cfg = load_settings()
 
@@ -87,6 +92,13 @@ def get_connection():
         cur_cs.execute("SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci")
         cur_cs.execute("SET collation_connection = 'utf8mb4_0900_ai_ci'")
         cur_cs.close()
+    except Exception:
+        pass
+
+    try:
+        cur_key = cnx.cursor()
+        cur_key.execute("SET @SIS_KEY = %s", (key_phrase or "",))
+        cur_key.close()
     except Exception:
         pass
 

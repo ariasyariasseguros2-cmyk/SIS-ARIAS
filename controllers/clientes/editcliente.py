@@ -1,5 +1,5 @@
 from flask import request, jsonify, session
-from models.db import get_connection
+from models.db import get_connection, get_encrypt_key
 from datetime import datetime, date
 import traceback
 
@@ -146,6 +146,57 @@ def editar_cliente_route():
             raise
 
         conn.commit()
+
+        try:
+            k = get_encrypt_key()
+            cur2 = conn.cursor()
+            cur2.execute("""
+                UPDATE clientes
+                SET
+                  razon_social = TO_BASE64(AES_ENCRYPT(
+                      CASE
+                        WHEN AES_DECRYPT(FROM_BASE64(razon_social), %s) IS NOT NULL THEN AES_DECRYPT(FROM_BASE64(razon_social), %s)
+                        WHEN AES_DECRYPT(razon_social, %s) IS NOT NULL THEN AES_DECRYPT(razon_social, %s)
+                        ELSE razon_social
+                      END,
+                      %s
+                  )),
+                  numero_documento = TO_BASE64(AES_ENCRYPT(
+                      CASE
+                        WHEN AES_DECRYPT(FROM_BASE64(numero_documento), %s) IS NOT NULL THEN AES_DECRYPT(FROM_BASE64(numero_documento), %s)
+                        WHEN AES_DECRYPT(numero_documento, %s) IS NOT NULL THEN AES_DECRYPT(numero_documento, %s)
+                        ELSE numero_documento
+                      END,
+                      %s
+                  )),
+                  telefono = TO_BASE64(AES_ENCRYPT(
+                      CASE
+                        WHEN AES_DECRYPT(FROM_BASE64(telefono), %s) IS NOT NULL THEN AES_DECRYPT(FROM_BASE64(telefono), %s)
+                        WHEN AES_DECRYPT(telefono, %s) IS NOT NULL THEN AES_DECRYPT(telefono, %s)
+                        ELSE telefono
+                      END,
+                      %s
+                  )),
+                  email = TO_BASE64(AES_ENCRYPT(
+                      CASE
+                        WHEN AES_DECRYPT(FROM_BASE64(email), %s) IS NOT NULL THEN AES_DECRYPT(FROM_BASE64(email), %s)
+                        WHEN AES_DECRYPT(email, %s) IS NOT NULL THEN AES_DECRYPT(email, %s)
+                        ELSE email
+                      END,
+                      %s
+                  ))
+                WHERE idCliente = %s
+            """, (
+                k, k, k, k, k,
+                k, k, k, k, k,
+                k, k, k, k, k,
+                k, k, k, k, k,
+                id_cliente
+            ))
+            conn.commit()
+            cur2.close()
+        except Exception:
+            pass
         cursor.close()
         conn.close()
 

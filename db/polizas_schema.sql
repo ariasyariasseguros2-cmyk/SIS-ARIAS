@@ -328,15 +328,15 @@ DELIMITER ;
 -- Tabla clientes (ajustada del ejemplo del usuario)
 CREATE TABLE IF NOT EXISTS clientes (
     idCliente INT AUTO_INCREMENT PRIMARY KEY,
-    razon_social VARCHAR(150) NOT NULL,
+    razon_social VARCHAR(255) NOT NULL,
     tipo_documento ENUM('DNI', 'RUC', 'CE', 'PAS', 'CEX', 'DNI/CEDULA') NOT NULL,
-    numero_documento VARCHAR(20) NOT NULL UNIQUE,
+    numero_documento VARCHAR(100) NOT NULL UNIQUE,
 
     -- Contacto y ubicación
-    telefono VARCHAR(20),
+    telefono VARCHAR(100),
     celular VARCHAR(20),
     telefono_sec VARCHAR(20),
-    email VARCHAR(150),
+    email VARCHAR(255),
     direccion VARCHAR(200),
     departamento VARCHAR(100),
     provincia VARCHAR(100),
@@ -438,10 +438,10 @@ BEGIN
         recibir_notificaciones, contacto_nombre, contacto_email, contacto_telefono,
         usuario_creacion
     ) VALUES (
-        p_razon_social, p_tipo_documento, p_numero_documento,
-        p_telefono, p_celular, p_telefono_sec,
+        TO_BASE64(AES_ENCRYPT(p_razon_social, @SIS_KEY)), p_tipo_documento, TO_BASE64(AES_ENCRYPT(p_numero_documento, @SIS_KEY)),
+        TO_BASE64(AES_ENCRYPT(p_telefono, @SIS_KEY)), p_celular, p_telefono_sec,
         p_subagente, p_idProductor,
-        p_email, p_direccion, p_departamento, p_provincia, p_distrito,
+        TO_BASE64(AES_ENCRYPT(p_email, @SIS_KEY)), p_direccion, p_departamento, p_provincia, p_distrito,
         p_estado, p_tipo_persona,
         p_profesion, p_fecha_ingreso, p_fecha_nacimiento,
         p_licencia_num, p_licencia_venc,
@@ -478,13 +478,46 @@ DELIMITER ;
 DELIMITER $$
 CREATE PROCEDURE sp_buscar_cliente (IN p_texto VARCHAR(150))
 BEGIN
-    SELECT *
+    SELECT
+        idCliente,
+        fecha_registro,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(razon_social, @SIS_KEY) AS CHAR),
+            razon_social
+        ) AS razon_social,
+        tipo_documento,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(numero_documento, @SIS_KEY) AS CHAR),
+            numero_documento
+        ) AS numero_documento,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(telefono), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(telefono, @SIS_KEY) AS CHAR),
+            telefono
+        ) AS telefono,
+        subagente,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(email), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(email, @SIS_KEY) AS CHAR),
+            email
+        ) AS email,
+        direccion
     FROM clientes
     WHERE activo = 1
       AND (
-            razon_social LIKE CONCAT('%', p_texto, '%')
+            CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR) LIKE CONCAT('%', p_texto, '%')
+         OR CAST(AES_DECRYPT(razon_social, @SIS_KEY) AS CHAR) LIKE CONCAT('%', p_texto, '%')
+         OR razon_social LIKE CONCAT('%', p_texto, '%')
+         OR CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR) LIKE CONCAT('%', p_texto, '%')
+         OR CAST(AES_DECRYPT(numero_documento, @SIS_KEY) AS CHAR) LIKE CONCAT('%', p_texto, '%')
          OR numero_documento LIKE CONCAT('%', p_texto, '%')
+         OR CAST(AES_DECRYPT(FROM_BASE64(email), @SIS_KEY) AS CHAR) LIKE CONCAT('%', p_texto, '%')
+         OR CAST(AES_DECRYPT(email, @SIS_KEY) AS CHAR) LIKE CONCAT('%', p_texto, '%')
          OR email LIKE CONCAT('%', p_texto, '%')
+         OR CAST(AES_DECRYPT(FROM_BASE64(telefono), @SIS_KEY) AS CHAR) LIKE CONCAT('%', p_texto, '%')
+         OR CAST(AES_DECRYPT(telefono, @SIS_KEY) AS CHAR) LIKE CONCAT('%', p_texto, '%')
          OR telefono LIKE CONCAT('%', p_texto, '%')
       )
     ORDER BY fecha_registro DESC;
@@ -566,12 +599,28 @@ DELIMITER $$
 CREATE PROCEDURE sp_get_cliente_por_numero(IN p_numero_documento VARCHAR(20))
 BEGIN
     SELECT
-        razon_social,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(razon_social, @SIS_KEY) AS CHAR),
+            razon_social
+        ) AS razon_social,
         tipo_documento,
-        numero_documento,
-        telefono
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(numero_documento, @SIS_KEY) AS CHAR),
+            numero_documento
+        ) AS numero_documento,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(telefono), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(telefono, @SIS_KEY) AS CHAR),
+            telefono
+        ) AS telefono
     FROM clientes
-    WHERE numero_documento = p_numero_documento
+    WHERE (
+            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR) = p_numero_documento
+         OR CAST(AES_DECRYPT(numero_documento, @SIS_KEY) AS CHAR) = p_numero_documento
+         OR numero_documento = p_numero_documento
+    )
       AND activo = 1
     LIMIT 1;
 END$$
@@ -772,13 +821,29 @@ CREATE PROCEDURE sp_get_cliente_por_id(IN p_id INT)
 BEGIN
 SELECT
     idCliente,
-    razon_social,
+    COALESCE(
+        CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR),
+        CAST(AES_DECRYPT(razon_social, @SIS_KEY) AS CHAR),
+        razon_social
+    ) AS razon_social,
     tipo_documento,
-    numero_documento,
-    telefono,
+    COALESCE(
+        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR),
+        CAST(AES_DECRYPT(numero_documento, @SIS_KEY) AS CHAR),
+        numero_documento
+    ) AS numero_documento,
+    COALESCE(
+        CAST(AES_DECRYPT(FROM_BASE64(telefono), @SIS_KEY) AS CHAR),
+        CAST(AES_DECRYPT(telefono, @SIS_KEY) AS CHAR),
+        telefono
+    ) AS telefono,
     celular,
     telefono_sec,
-    email,
+    COALESCE(
+        CAST(AES_DECRYPT(FROM_BASE64(email), @SIS_KEY) AS CHAR),
+        CAST(AES_DECRYPT(email, @SIS_KEY) AS CHAR),
+        email
+    ) AS email,
     direccion,
     departamento,
     provincia,
@@ -1563,15 +1628,27 @@ CREATE PROCEDURE sp_update_cliente (
 )
 BEGIN
 UPDATE clientes
-SET razon_social = p_razon_social,
+SET razon_social = CASE 
+                      WHEN p_razon_social IS NULL OR TRIM(p_razon_social) = '' THEN razon_social
+                      ELSE TO_BASE64(AES_ENCRYPT(p_razon_social, @SIS_KEY))
+                   END,
     tipo_documento = p_tipo_documento,
-    numero_documento = p_numero_documento,
-    telefono = p_telefono,
+    numero_documento = CASE 
+                          WHEN p_numero_documento IS NULL OR TRIM(p_numero_documento) = '' THEN numero_documento
+                          ELSE TO_BASE64(AES_ENCRYPT(p_numero_documento, @SIS_KEY))
+                       END,
+    telefono = CASE 
+                  WHEN p_telefono IS NULL OR TRIM(p_telefono) = '' THEN telefono
+                  ELSE TO_BASE64(AES_ENCRYPT(p_telefono, @SIS_KEY))
+               END,
     celular = p_celular,
     telefono_sec = p_telefono_sec,
     subagente = p_subagente,
     idProductor = p_idProductor,
-    email = p_email,
+    email = CASE 
+               WHEN p_email IS NULL OR TRIM(p_email) = '' THEN email
+               ELSE TO_BASE64(AES_ENCRYPT(p_email, @SIS_KEY))
+            END,
     direccion = p_direccion,
     departamento = p_departamento,
     provincia = p_provincia,

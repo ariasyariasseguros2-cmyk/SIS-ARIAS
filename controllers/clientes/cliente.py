@@ -3,33 +3,81 @@ from flask import session
 from utils.rbac import Roles
 
 def get_clientes_data():
-    from models.db import get_connection
+    from models.db import get_connection, get_encrypt_key
 
     rows = []
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
+        key = get_encrypt_key()
         
         role = session.get('role_name')
         if role == Roles.SUB_AGENTE:
-            # RLS: Filtrar por subagente (username)
             user = session.get('user')
             query = """
-                SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, 
-                       telefono, subagente, email, direccion 
+                SELECT 
+                    idCliente, 
+                    fecha_registro, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR),
+                        CAST(AES_DECRYPT(razon_social, %s) AS CHAR),
+                        razon_social
+                    ) AS razon_social,
+                    tipo_documento, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
+                        CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
+                        numero_documento
+                    ) AS numero_documento, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR),
+                        CAST(AES_DECRYPT(telefono, %s) AS CHAR),
+                        telefono
+                    ) AS telefono, 
+                    subagente, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR),
+                        CAST(AES_DECRYPT(email, %s) AS CHAR),
+                        email
+                    ) AS email, 
+                    direccion 
                 FROM clientes 
                 WHERE activo = 1 AND subagente = %s
                 ORDER BY idCliente DESC
             """
-            cur.execute(query, (user,))
+            cur.execute(query, (key, key, key, key, key, key, key, key, user))
         else:
             cur.execute("""
-                SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, 
-                       telefono, subagente, email, direccion 
+                SELECT 
+                    idCliente, 
+                    fecha_registro, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR),
+                        CAST(AES_DECRYPT(razon_social, %s) AS CHAR),
+                        razon_social
+                    ) AS razon_social,
+                    tipo_documento, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
+                        CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
+                        numero_documento
+                    ) AS numero_documento, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR),
+                        CAST(AES_DECRYPT(telefono, %s) AS CHAR),
+                        telefono
+                    ) AS telefono, 
+                    subagente, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR),
+                        CAST(AES_DECRYPT(email, %s) AS CHAR),
+                        email
+                    ) AS email, 
+                    direccion 
                 FROM clientes 
                 WHERE activo = 1
                 ORDER BY idCliente DESC
-            """)
+            """, (key, key, key, key, key, key, key, key))
             
         db_rows = cur.fetchall()
         try:
@@ -64,31 +112,126 @@ def get_clientes_data():
 
 
 def search_clientes_data(query):
-    from models.db import get_connection
+    from models.db import get_connection, get_encrypt_key
 
     rows = []
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
+        key = get_encrypt_key()
         
         role = session.get('role_name')
         if role == Roles.SUB_AGENTE:
-            # RLS: Buscar solo en sus clientes
             user = session.get('user')
             q_like = f"%{query}%"
             sql = """
-                SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, 
-                       telefono, subagente, email, direccion 
+                SELECT 
+                    idCliente, 
+                    fecha_registro, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR),
+                        CAST(AES_DECRYPT(razon_social, %s) AS CHAR),
+                        razon_social
+                    ) AS razon_social,
+                    tipo_documento, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
+                        CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
+                        numero_documento
+                    ) AS numero_documento, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR),
+                        CAST(AES_DECRYPT(telefono, %s) AS CHAR),
+                        telefono
+                    ) AS telefono, 
+                    subagente, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR),
+                        CAST(AES_DECRYPT(email, %s) AS CHAR),
+                        email
+                    ) AS email, 
+                    direccion 
                 FROM clientes 
                 WHERE activo = 1 
                   AND subagente = %s 
-                  AND (razon_social LIKE %s OR numero_documento LIKE %s)
+                  AND (
+                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR) LIKE %s
+                        OR CAST(AES_DECRYPT(razon_social, %s) AS CHAR) LIKE %s
+                        OR razon_social LIKE %s
+                        OR CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) LIKE %s
+                        OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) LIKE %s
+                        OR numero_documento LIKE %s
+                  )
                 ORDER BY idCliente DESC
                 LIMIT 50
             """
-            cur.execute(sql, (user, q_like, q_like))
+            cur.execute(sql, (
+                key, key,          # razon_social proj
+                key, key,          # numero_documento proj
+                key, key,          # telefono proj
+                key, key,          # email proj
+                user,              # subagente
+                key, q_like,       # WHERE: dec b64 razon_social LIKE
+                key, q_like,       # WHERE: dec bin razon_social LIKE
+                q_like,            # WHERE: plain razon_social LIKE
+                key, q_like,       # WHERE: dec b64 numero_documento LIKE
+                key, q_like,       # WHERE: dec bin numero_documento LIKE
+                q_like             # WHERE: plain numero_documento LIKE
+            ))
         else:
-            cur.execute("CALL sp_buscar_cliente(%s)", (query,))
+            q_like = f"%{query}%"
+            sql = """
+                SELECT 
+                    idCliente, 
+                    fecha_registro, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR),
+                        CAST(AES_DECRYPT(razon_social, %s) AS CHAR),
+                        razon_social
+                    ) AS razon_social,
+                    tipo_documento, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
+                        CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
+                        numero_documento
+                    ) AS numero_documento, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR),
+                        CAST(AES_DECRYPT(telefono, %s) AS CHAR),
+                        telefono
+                    ) AS telefono, 
+                    subagente,
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR),
+                        CAST(AES_DECRYPT(email, %s) AS CHAR),
+                        email
+                    ) AS email,
+                    direccion
+                FROM clientes 
+                WHERE activo = 1 
+                  AND (
+                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR) LIKE %s
+                        OR CAST(AES_DECRYPT(razon_social, %s) AS CHAR) LIKE %s
+                        OR razon_social LIKE %s
+                        OR CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) LIKE %s
+                        OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) LIKE %s
+                        OR numero_documento LIKE %s
+                  )
+                ORDER BY idCliente DESC
+                LIMIT 50
+            """
+            cur.execute(sql, (
+                key, key,            # razon_social proj
+                key, key,            # numero_documento proj
+                key, key,            # telefono proj
+                key, key,            # email proj
+                key, q_like,         # WHERE: dec b64 razon_social LIKE
+                key, q_like,         # WHERE: dec bin razon_social LIKE
+                q_like,              # WHERE: plain razon_social LIKE
+                key, q_like,         # WHERE: dec b64 numero_documento LIKE
+                key, q_like,         # WHERE: dec bin numero_documento LIKE
+                q_like               # WHERE: plain numero_documento LIKE
+            ))
             
         db_rows = cur.fetchall()
         try:
@@ -127,21 +270,82 @@ def search_clientes_data(query):
 
 # Nueva función: listar clientes anulados (activo = 0)
 def get_clientes_anulados_data():
-    from models.db import get_connection
+    from models.db import get_connection, get_encrypt_key
 
     rows = []
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
+        key = get_encrypt_key()
         
         role = session.get('role_name')
         if role == Roles.SUB_AGENTE:
-            # RLS: Filtrar anulados por subagente
             user = session.get('user')
-            cur.execute("SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, telefono, subagente, email, direccion, tipo_persona FROM clientes WHERE activo = 0 AND subagente = %s ORDER BY idCliente DESC", (user,))
+            cur.execute("""
+                SELECT 
+                    idCliente, 
+                    fecha_registro, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR),
+                        CAST(AES_DECRYPT(razon_social, %s) AS CHAR),
+                        razon_social
+                    ) AS razon_social,
+                    tipo_documento, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
+                        CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
+                        numero_documento
+                    ) AS numero_documento, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR),
+                        CAST(AES_DECRYPT(telefono, %s) AS CHAR),
+                        telefono
+                    ) AS telefono, 
+                    subagente, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR),
+                        CAST(AES_DECRYPT(email, %s) AS CHAR),
+                        email
+                    ) AS email, 
+                    direccion, 
+                    tipo_persona
+                FROM clientes 
+                WHERE activo = 0 AND subagente = %s
+                ORDER BY idCliente DESC
+            """, (key, key, key, key, key, key, user))
         else:
-            # No hay SP específico en el schema para anulados, hacemos SELECT directo
-            cur.execute("SELECT idCliente, fecha_registro, razon_social, tipo_documento, numero_documento, telefono, subagente, email, direccion, tipo_persona FROM clientes WHERE activo = 0 ORDER BY idCliente DESC")
+            cur.execute("""
+                SELECT 
+                    idCliente, 
+                    fecha_registro, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR),
+                        CAST(AES_DECRYPT(razon_social, %s) AS CHAR),
+                        razon_social
+                    ) AS razon_social,
+                    tipo_documento, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
+                        CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
+                        numero_documento
+                    ) AS numero_documento, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR),
+                        CAST(AES_DECRYPT(telefono, %s) AS CHAR),
+                        telefono
+                    ) AS telefono, 
+                    subagente, 
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR),
+                        CAST(AES_DECRYPT(email, %s) AS CHAR),
+                        email
+                    ) AS email, 
+                    direccion, 
+                    tipo_persona
+                FROM clientes 
+                WHERE activo = 0
+                ORDER BY idCliente DESC
+            """, (key, key, key, key, key, key))
             
         db_rows = cur.fetchall()
         cur.close()

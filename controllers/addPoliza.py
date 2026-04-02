@@ -1,5 +1,5 @@
 
-from models.db import get_connection
+from models.db import get_connection, get_encrypt_key
 import mysql.connector
 from flask import session, current_app
 from werkzeug.utils import secure_filename
@@ -350,12 +350,40 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
         def find_client_doc(doc, name, cursor):
             # Prioridad: documento
             if doc:
-                cursor.execute("SELECT numero_documento FROM clientes WHERE numero_documento COLLATE utf8mb4_0900_ai_ci = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_0900_ai_ci LIMIT 1", (doc,))
+                k = get_encrypt_key()
+                cursor.execute("""
+                    SELECT 
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
+                            CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
+                            numero_documento
+                        ) AS n
+                    FROM clientes 
+                    WHERE 
+                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) = %s
+                        OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) = %s
+                        OR numero_documento = %s
+                    LIMIT 1
+                """, (k, k, k, doc, k, doc, doc))
                 res = cursor.fetchone()
                 if res: return res[0]
             # Fallback: nombre (razon_social)
             if name:
-                cursor.execute("SELECT numero_documento FROM clientes WHERE razon_social COLLATE utf8mb4_0900_ai_ci = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_0900_ai_ci LIMIT 1", (name,))
+                k = get_encrypt_key()
+                cursor.execute("""
+                    SELECT 
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
+                            CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
+                            numero_documento
+                        ) AS n
+                    FROM clientes 
+                    WHERE 
+                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR) = %s
+                        OR CAST(AES_DECRYPT(razon_social, %s) AS CHAR) = %s
+                        OR razon_social = %s
+                    LIMIT 1
+                """, (k, k, k, name, k, name, name))
                 res = cursor.fetchone()
                 if res: return res[0]
             return None

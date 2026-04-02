@@ -1,4 +1,4 @@
-from models.db import get_connection
+from models.db import get_connection, get_encrypt_key
 from datetime import datetime
 from flask import session
 
@@ -15,32 +15,70 @@ def get_poliza_data(poliza_id):
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
-        
-        row = None
-        # Try SP first
-        try:
-            cur.execute("CALL sp_get_poliza_by_id(%s)", (poliza_id,))
-            row = cur.fetchone()
-            try:
-                while cur.nextset(): pass
-            except: pass
-        except Exception:
-            pass
-            
-        # Fallback if SP missing or failed
-        if not row:
-             cur.execute("""
-                SELECT 
-                    p.*,
-                    c.razon_social AS cliente_razon_social,
-                    c.tipo_documento AS cliente_tipo_documento,
-                    c.numero_documento AS cliente_numero_documento,
-                    c.telefono AS cliente_telefono
-                FROM polizas p
-                INNER JOIN clientes c ON c.idCliente = p.cliente_id
-                WHERE p.idPoliza = %s
-             """, (poliza_id,))
-             row = cur.fetchone()
+        k = get_encrypt_key()
+        cur.execute("""
+            SELECT
+                p.idPoliza,
+                p.cliente_id,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), %s) AS CHAR),
+                         CAST(AES_DECRYPT(p.asegurado, %s) AS CHAR),
+                         p.asegurado) AS asegurado,
+                p.cia,
+                p.ramo,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), %s) AS CHAR),
+                         CAST(AES_DECRYPT(p.poliza, %s) AS CHAR),
+                         p.poliza) AS poliza,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), %s) AS CHAR),
+                         CAST(AES_DECRYPT(p.recibo, %s) AS CHAR),
+                         p.recibo) AS recibo,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.contrato_nro), %s) AS CHAR),
+                         CAST(AES_DECRYPT(p.contrato_nro, %s) AS CHAR),
+                         p.contrato_nro) AS contrato_nro,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.nro), %s) AS CHAR),
+                         CAST(AES_DECRYPT(p.nro, %s) AS CHAR),
+                         p.nro) AS nro,
+                p.moneda,
+                p.fecha_emision,
+                p.vig_desde,
+                p.vig_hasta,
+                p.ultimo_dia_pago,
+                p.fecha_vencimiento,
+                p.tipo_vigencia,
+                p.endosatario,
+                p.forma_pago,
+                p.sub_agente,
+                p.ejecutivo,
+                p.tipo_doc,
+                p.asegurada,
+                p.motivo,
+                p.prima_comercial,
+                p.prima_neta,
+                p.prima_comercial_igv,
+                p.prima_total,
+                p.porc_compania,
+                p.imp_compania,
+                p.porc_subagente,
+                p.imp_subagente,
+                p.ramos_producto,
+                p.estado,
+                p.usuario_registro,
+                p.usuario_edicion,
+                p.creado_en,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), %s) AS CHAR),
+                         CAST(AES_DECRYPT(c.razon_social, %s) AS CHAR),
+                         c.razon_social) AS cliente_razon_social,
+                c.tipo_documento AS cliente_tipo_documento,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), %s) AS CHAR),
+                         CAST(AES_DECRYPT(c.numero_documento, %s) AS CHAR),
+                         c.numero_documento) AS cliente_numero_documento,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.telefono), %s) AS CHAR),
+                         CAST(AES_DECRYPT(c.telefono, %s) AS CHAR),
+                         c.telefono) AS cliente_telefono
+            FROM polizas p
+            INNER JOIN clientes c ON c.idCliente = p.cliente_id
+            WHERE p.idPoliza = %s
+        """, (k, k, k, k, k, k, k, k, k, k, k, k, k, k, k, k, poliza_id))
+        row = cur.fetchone()
 
         cur.close()
         cnx.close()
@@ -132,6 +170,37 @@ def update_poliza(data):
         )""", params)
         
         cnx.commit()
+
+        try:
+            enc_vals = {
+                'asegurado': val('asegurado'),
+                'poliza': val('poliza'),
+                'recibo': val('recibo'),
+                'contrato_nro': val('contrato_nro') if 'contrato_nro' in data else current.get('contrato_nro'),
+                'nro': val('nro_operacion', 'nro')
+            }
+            keys = get_encrypt_key()
+            cu2 = cnx.cursor()
+            cu2.execute("""
+                UPDATE polizas SET
+                  asegurado = CASE WHEN %s IS NULL THEN asegurado ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
+                  poliza = CASE WHEN %s IS NULL THEN poliza ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
+                  recibo = CASE WHEN %s IS NULL THEN recibo ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
+                  contrato_nro = CASE WHEN %s IS NULL THEN contrato_nro ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
+                  nro = CASE WHEN %s IS NULL THEN nro ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END
+                WHERE idPoliza = %s
+            """, (
+                enc_vals['asegurado'], enc_vals['asegurado'], keys,
+                enc_vals['poliza'], enc_vals['poliza'], keys,
+                enc_vals['recibo'], enc_vals['recibo'], keys,
+                enc_vals['contrato_nro'], enc_vals['contrato_nro'], keys,
+                enc_vals['nro'], enc_vals['nro'], keys,
+                pid
+            ))
+            cnx.commit()
+            cu2.close()
+        except Exception:
+            pass
         cur.close()
         cnx.close()
         return {'ok': True}
