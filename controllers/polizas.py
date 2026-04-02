@@ -196,13 +196,29 @@ def get_polizas_all() -> dict:
             sql = """
                 SELECT 
                     p.idPoliza,
-                    c.razon_social AS contratante,
-                    p.asegurado,
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                        c.razon_social
+                    ) AS contratante,
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+                        p.asegurado
+                    ) AS asegurado,
                     p.cia,
                     p.ramo,
                     p.ramos_producto AS producto,
-                    p.poliza,
-                    p.nro,
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                        p.poliza
+                    ) AS poliza,
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+                        p.nro
+                    ) AS nro,
                     p.moneda,
                     DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
                     DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
@@ -318,13 +334,29 @@ def get_polizas_anuladas() -> dict:
             sql = """
                 SELECT 
                     p.idPoliza,
-                    c.razon_social AS contratante,
-                    p.asegurado,
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                        c.razon_social
+                    ) AS contratante,
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+                        p.asegurado
+                    ) AS asegurado,
                     p.cia,
                     p.ramo,
                     p.ramos_producto AS producto,
-                    p.poliza,
-                    p.nro,
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                        p.poliza
+                    ) AS poliza,
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+                        p.nro
+                    ) AS nro,
                     p.moneda,
                     DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
                     DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
@@ -373,13 +405,29 @@ def get_polizas_anuladas_filtered(q: str | None = None, desde: str | None = None
         sql = """
             SELECT 
                 p.idPoliza,
-                c.razon_social AS contratante,
-                p.asegurado,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                    c.razon_social
+                ) AS contratante,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+                    p.asegurado
+                ) AS asegurado,
                 p.cia,
                 p.ramo,
                 p.ramos_producto AS producto,
-                p.poliza,
-                p.nro,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza
+                ) AS poliza,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+                    p.nro
+                ) AS nro,
                 p.moneda,
                 DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
                 DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,

@@ -763,13 +763,29 @@ CREATE PROCEDURE sp_list_polizas_all()
 BEGIN
     SELECT
         p.idPoliza,
-        c.razon_social AS contratante,
-        p.asegurado,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+            c.razon_social
+        ) AS contratante,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+            p.asegurado
+        ) AS asegurado,
         p.cia,
         p.ramo,
         p.ramos_producto AS producto,
-        p.poliza,
-        p.nro,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+            p.poliza
+        ) AS poliza,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+            p.nro
+        ) AS nro,
         p.moneda,
         DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
@@ -911,13 +927,29 @@ CREATE PROCEDURE sp_list_polizas_por_cliente_id(IN p_cliente_id INT)
 BEGIN
     SELECT
         p.idPoliza,
-        c.razon_social AS contratante,
-        p.asegurado,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+            c.razon_social
+        ) AS contratante,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+            p.asegurado
+        ) AS asegurado,
         p.cia,
         p.ramo,
         p.ramos_producto AS producto,
-        p.poliza,
-        p.nro,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+            p.poliza
+        ) AS poliza,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+            p.nro
+        ) AS nro,
         p.moneda,
         DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
@@ -943,8 +975,16 @@ BEGIN
         p.idPoliza,  -- Added ID
         p.recibo,
         p.recibo AS cupon, -- Alias for consistency
-        p.poliza,
-        c.razon_social AS contratante,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+            p.poliza
+        ) AS poliza,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+            c.razon_social
+        ) AS contratante,
         p.cia AS compania,
         p.ramo,
         -- aquí antes estaba: 'Emision' AS tipo,
@@ -961,7 +1001,12 @@ BEGIN
         p.motivo AS motivo
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
-    WHERE p.poliza = p_poliza AND p.activo = 1 AND p.anulado = 0
+    WHERE (
+            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR) = p_poliza
+         OR CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR) = p_poliza
+         OR p.poliza = p_poliza
+    )
+      AND p.activo = 1 AND p.anulado = 0
     ORDER BY p.creado_en DESC;
 END$$
 DELIMITER ;
@@ -974,9 +1019,21 @@ BEGIN
         p.idPoliza,  -- Added ID
         p.recibo,
         p.ejecutivo AS Ejecutivo,          -- corregido: antes p.ejecutivos
-        p.poliza,
-        c.razon_social AS contratante,
-        p.asegurado AS Asegurado,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+            p.poliza
+        ) AS poliza,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+            c.razon_social
+        ) AS contratante,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+            p.asegurado
+        ) AS Asegurado,
         p.cia AS compania,
         p.ramo,
         p.tipo_doc AS tipo,
@@ -998,13 +1055,21 @@ DELIMITER $$
 CREATE PROCEDURE sp_get_poliza_detalle_por_numero(IN p_poliza VARCHAR(50))
 BEGIN
     SELECT
-        p.asegurado AS asegurado,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+            p.asegurado
+        ) AS asegurado,
         p.ejecutivo AS Ejecutivo,
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
         DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
-    WHERE p.poliza = p_poliza
+    WHERE (
+            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR) = p_poliza
+         OR CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR) = p_poliza
+         OR p.poliza = p_poliza
+    )
     LIMIT 1;
 END$$
 DELIMITER ;
@@ -1014,13 +1079,29 @@ CREATE PROCEDURE sp_list_polizas_anuladas()
 BEGIN
     SELECT
         p.idPoliza,
-        c.razon_social AS contratante,
-        p.asegurado,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+            c.razon_social
+        ) AS contratante,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+            p.asegurado
+        ) AS asegurado,
         p.cia,
         p.ramo,
         p.ramos_producto AS producto,
-        p.poliza,
-        p.nro,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+            p.poliza
+        ) AS poliza,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+            p.nro
+        ) AS nro,
         p.moneda,
         DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
