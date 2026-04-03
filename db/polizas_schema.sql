@@ -973,8 +973,16 @@ CREATE PROCEDURE sp_list_primas_por_poliza(IN p_poliza VARCHAR(50))
 BEGIN
     SELECT
         p.idPoliza,  -- Added ID
-        p.recibo,
-        p.recibo AS cupon, -- Alias for consistency
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+            p.recibo
+        ) AS recibo,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+            p.recibo
+        ) AS cupon, -- Alias for consistency
         COALESCE(
             CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
             CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
@@ -1021,7 +1029,11 @@ CREATE PROCEDURE sp_list_primas_por_cliente_id(IN p_cliente_id INT)
 BEGIN
     SELECT
         p.idPoliza,  -- Added ID
-        p.recibo,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+            CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+            p.recibo
+        ) AS recibo,
         p.ejecutivo AS Ejecutivo,          -- corregido: antes p.ejecutivos
         COALESCE(
             CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
