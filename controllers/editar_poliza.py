@@ -172,6 +172,19 @@ def update_poliza(data):
         cnx.commit()
 
         try:
+            nuevo_cliente_id = val('cliente_id', current.get('cliente_id'))
+            if nuevo_cliente_id:
+                cu_cli = cnx.cursor()
+                cu_cli.execute(
+                    "UPDATE polizas SET cliente_id = %s WHERE idPoliza = %s",
+                    (nuevo_cliente_id, pid)
+                )
+                cnx.commit()
+                cu_cli.close()
+        except Exception:
+            pass
+
+        try:
             enc_vals = {
                 'asegurado': val('asegurado'),
                 'poliza': val('poliza'),

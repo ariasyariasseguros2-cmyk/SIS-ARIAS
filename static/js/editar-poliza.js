@@ -9,26 +9,27 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             console.log('Button Guardar clicked');
             
-            const data = {
-                idPoliza: document.getElementById('idPoliza').value,
-                poliza: document.getElementById('poliza').value,
-                asegurado: document.getElementById('asegurado').value,
-                sub_agente: document.getElementById('subAgente').value,
-                cia: document.getElementById('compania').value,
-                ramo: document.getElementById('ramo').value,
-                ramos_producto: document.getElementById('producto').value,
-                porc_compania: document.getElementById('comisionCompania').value,
-                porc_subagente: document.getElementById('comisionSubAgente').value,
-                motivo: document.getElementById('tipoVigencia').value,
-                tipo_vigencia: document.getElementById('tipoVigencia').value,
-                endosatario: document.getElementById('endosatario').value,
-                vig_desde: document.getElementById('vigenciaInicio').value,
-                vig_hasta: document.getElementById('vigenciaFin').value,
-                moneda: document.getElementById('moneda').value,
-                asegurada: document.getElementById('descripcion').value,
-                ejecutivo: document.getElementById('ejecutivoCuenta').value,
-                observacion: document.getElementById('masInformacion').value
-            };
+                const data = {
+                    idPoliza: document.getElementById('idPoliza').value,
+                    cliente_id: document.getElementById('contratante').value,
+                    poliza: document.getElementById('poliza').value,
+                    asegurado: document.getElementById('asegurado').value,
+                    sub_agente: document.getElementById('subAgente').value,
+                    cia: document.getElementById('compania').value,
+                    ramo: document.getElementById('ramo').value,
+                    ramos_producto: document.getElementById('producto').value,
+                    porc_compania: document.getElementById('comisionCompania').value,
+                    porc_subagente: document.getElementById('comisionSubAgente').value,
+                    motivo: document.getElementById('tipoVigencia').value,
+                    tipo_vigencia: document.getElementById('tipoVigencia').value,
+                    endosatario: document.getElementById('endosatario').value,
+                    vig_desde: document.getElementById('vigenciaInicio').value,
+                    vig_hasta: document.getElementById('vigenciaFin').value,
+                    moneda: document.getElementById('moneda').value,
+                    asegurada: document.getElementById('descripcion').value,
+                    ejecutivo: document.getElementById('ejecutivoCuenta').value,
+                    observacion: document.getElementById('masInformacion').value
+                };
 
             if (!data.poliza || !data.cia || !data.ramo) {
                 Swal.fire('Atención', 'Por favor complete los campos obligatorios (Póliza, Compañía, Ramo)', 'warning');

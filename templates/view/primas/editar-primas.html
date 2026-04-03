@@ -66,10 +66,10 @@
                             {% if clientes_data and clientes_data.rows %}
                             <option value="">Selecciona...</option>
                             {% for c in clientes_data.rows %}
-                            <option value="{{ c.razon_social }}" {% if prima and c.razon_social == prima.cliente_razon_social %}selected{% endif %}>{{ c.razon_social }}</option>
+                            <option value="{{ c.idCliente }}" {% if prima and c.idCliente == prima.cliente_id %}selected{% endif %}>{{ c.razon_social }}</option>
                             {% endfor %}
                             {% else %}
-                            <option value="{{ prima.cliente_razon_social if prima else '' }}" selected>{{ prima.cliente_razon_social if prima else '' }}</option>
+                            <option value="{{ prima.cliente_id if prima else '' }}" selected>{{ prima.cliente_razon_social if prima else '' }}</option>
                             {% endif %}
                         </select>
                     </div>

@@ -34,13 +34,29 @@ def filter_polizas_rapido(filter_type: str) -> dict:
         base_select = """
             SELECT 
                 p.idPoliza,
-                c.razon_social AS contratante,
-                p.asegurado,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                    c.razon_social
+                ) AS contratante,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+                    p.asegurado
+                ) AS asegurado,
                 p.cia,
                 p.ramo,
                 p.ramos_producto AS producto,
-                p.poliza,
-                p.nro,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza
+                ) AS poliza,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+                    p.nro
+                ) AS nro,
                 p.moneda,
                 DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
                 DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
@@ -120,17 +136,33 @@ def search_polizas_global(query: str, search_type: str) -> dict:
             user_filter_sql = " AND (p.usuario_registro = %s OR p.usuario_registro = %s OR p.sub_agente = %s OR p.sub_agente = %s)"
             user_filter_params = [username, nombre_usuario, username, nombre_usuario]
 
-        # Base query
+        # Base query (con campos desencriptados para visualización y búsqueda)
         sql = """
             SELECT 
                 p.idPoliza,
-                c.razon_social AS contratante,
-                p.asegurado,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                    c.razon_social
+                ) AS contratante,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+                    p.asegurado
+                ) AS asegurado,
                 p.cia,
                 p.ramo,
                 p.ramos_producto AS producto,
-                p.poliza,
-                p.nro,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza
+                ) AS poliza,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+                    p.nro
+                ) AS nro,
                 p.moneda,
                 DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
                 DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
@@ -146,25 +178,52 @@ def search_polizas_global(query: str, search_type: str) -> dict:
         params = []
         q = f"%{query}%"
         
+        # Expresiones desencriptadas para filtros textuales
+        poliza_expr = """COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                p.poliza
+            )"""
+        asegurado_expr = """COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+                CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+                p.asegurado
+            )"""
+        razon_expr = """COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                c.razon_social
+            )"""
+        nro_expr = """COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+                CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+                p.nro
+            )"""
+        contrato_expr = """COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(p.contrato_nro), @SIS_KEY) AS CHAR),
+                CAST(AES_DECRYPT(p.contrato_nro, @SIS_KEY) AS CHAR),
+                p.contrato_nro
+            )"""
+
         if search_type == 'historica':
-            sql += " AND (p.poliza LIKE %s)"
+            sql += f" AND ({poliza_expr} LIKE %s)"
             params.append(q)
         elif search_type == 'aviso':
-            sql += " AND (p.nro LIKE %s OR p.contrato_nro LIKE %s)"
+            sql += f" AND ({nro_expr} LIKE %s OR {contrato_expr} LIKE %s)"
             params.extend([q, q])
         elif search_type == 'placa':
             sql += " AND (p.asegurada LIKE %s)"
             params.append(q)
         elif search_type == 'titular':
-            sql += " AND (c.razon_social LIKE %s OR p.asegurado LIKE %s)"
+            sql += f" AND ({razon_expr} LIKE %s OR {asegurado_expr} LIKE %s)"
             params.extend([q, q])
-        else: # General
-            sql += """ AND (
-                p.poliza LIKE %s OR 
-                c.razon_social LIKE %s OR 
-                p.asegurado LIKE %s OR 
+        else:  # General
+            sql += f""" AND (
+                {poliza_expr} LIKE %s OR 
+                {razon_expr} LIKE %s OR 
+                {asegurado_expr} LIKE %s OR 
                 p.asegurada LIKE %s OR
-                p.nro LIKE %s
+                {nro_expr} LIKE %s
             )"""
             params.extend([q, q, q, q, q])
             
