@@ -128,13 +128,13 @@ def get_cuotas_data(
                         SELECT
                             c.idCuota,
                             c.numero_cuota,
-                            c.cupon,
+                            COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR), c.cupon) AS cupon,
                             DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
                             FORMAT(c.importe, 2) AS importe,
                             DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
                             c.factura,
                             c.observacion,
-                            p.recibo AS aviso_cobranza,
+                            COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cobranza,
                             p.tipo_doc
                         FROM cuotas c
                         LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
@@ -157,20 +157,23 @@ def get_cuotas_data(
                         SELECT
                             c.idCuota,
                             c.numero_cuota,
-                            c.cupon,
+                            COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR), c.cupon) AS cupon,
                             DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
                             FORMAT(c.importe, 2) AS importe,
                             DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
                             c.factura,
                             c.observacion,
-                            p.recibo AS aviso_cobranza,
+                            COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cobranza,
                             p.tipo_doc
                         FROM cuotas c
                         LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
-                        WHERE c.poliza = %s
+                        WHERE (
+                          CAST(AES_DECRYPT(FROM_BASE64(c.poliza), @SIS_KEY) AS CHAR) = %s
+                          OR c.poliza = %s
+                        )
                           AND c.activo = 1
                     """
-                    params = [poliza]
+                    params = [poliza, poliza]
 
                     if fecha_desde or fecha_hasta:
                           f_desde = parse_date_input(fecha_desde)
@@ -201,19 +204,19 @@ def get_cuotas_data(
                                 SELECT
                                     c.idCuota,
                                     c.numero_cuota,
-                                    c.cupon,
+                                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR), c.cupon) AS cupon,
                                     DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
                                     FORMAT(c.importe, 2) AS importe,
                                     DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
                                     c.factura,
                                     c.observacion,
-                                    p.recibo AS aviso_cobranza,
+                                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cobranza,
                                     p.tipo_doc
                                 FROM cuotas c
                                 LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
                                 WHERE c.activo = 1
                                   AND (
-                                        TRIM(c.cupon) = TRIM(%s)
+                                        TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR), c.cupon)) = TRIM(%s)
                                         OR TRIM(c.factura) = TRIM(%s)
                                       )
                                 ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
@@ -305,8 +308,8 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                 """
                 SELECT 1
                 FROM cuotas
-                WHERE TRIM(poliza) = TRIM(%s)
-                  AND TRIM(cupon) = TRIM(%s)
+                WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                  AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) USING utf8mb4), cupon) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
                   AND activo = 1
                 LIMIT 1
                 """,
@@ -338,8 +341,8 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                 """
                 SELECT idPoliza
                 FROM polizas
-                WHERE TRIM(poliza) = TRIM(%s)
-                  AND TRIM(recibo) = TRIM(%s)
+                WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                  AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) USING utf8mb4), recibo) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
                 ORDER BY creado_en DESC
                 LIMIT 1
                 """,
@@ -357,7 +360,11 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
             )
         else:
             cur.execute(
-                "SELECT IFNULL(MAX(numero_cuota), 0) + 1 FROM cuotas WHERE poliza = %s",
+                """
+                SELECT IFNULL(MAX(numero_cuota), 0) + 1 
+                FROM cuotas 
+                WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                """,
                 (poliza,)
             )
         row = cur.fetchone()
@@ -386,7 +393,7 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                 poliza_id,
                 poliza,
                 cupon,
-                data.get('fecha_vencimiento'),
+                (data.get('fecha_vencimiento') or date.today().strftime('%Y-%m-%d')),
                 data.get('moneda', 'S/.'),
                 data.get('importe'),
                 val_or_none(data.get('fecha_pago')),
@@ -398,6 +405,13 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
         )
         # Capturar AQUÍ antes de cualquier otro execute que lo pise
         new_id = cur.lastrowid
+        try:
+            cur.execute(
+                "UPDATE cuotas SET poliza = TO_BASE64(AES_ENCRYPT(%s, @SIS_KEY)), cupon = TO_BASE64(AES_ENCRYPT(%s, @SIS_KEY)) WHERE idCuota = %s",
+                (poliza, cupon, new_id)
+            )
+        except Exception:
+            pass
 
         target_poliza_id = poliza_id
         if target_poliza_id is None:
@@ -406,8 +420,8 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                     """
                     SELECT idPoliza
                     FROM polizas
-                    WHERE TRIM(poliza) = TRIM(%s)
-                      AND TRIM(recibo) = TRIM(%s)
+                    WHERE TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza)) = TRIM(%s)
+                      AND TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR), recibo)) = TRIM(%s)
                     ORDER BY creado_en DESC
                     LIMIT 1
                     """,
@@ -480,8 +494,8 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
 
         cur.execute(
             """
-            SELECT poliza,
-                   cupon,
+            SELECT COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza) AS poliza,
+                   COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon) AS cupon,
                    poliza_id,
                    fecha_vencimiento,
                    importe,
@@ -525,8 +539,8 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
                 """
                 SELECT 1
                 FROM cuotas
-                WHERE TRIM(poliza) = TRIM(%s)
-                  AND TRIM(cupon) = TRIM(%s)
+                WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                  AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) USING utf8mb4), cupon) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
                   AND idCuota <> %s
                   AND activo = 1
                 LIMIT 1
@@ -553,7 +567,7 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
         cur.execute(
             """
             UPDATE cuotas
-            SET cupon = %s,
+            SET cupon = COALESCE(TO_BASE64(AES_ENCRYPT(%s, @SIS_KEY)), %s),
                 fecha_vencimiento = %s,
                 importe = %s,
                 fecha_pago = %s,
@@ -563,6 +577,7 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
             WHERE idCuota = %s
             """,
             (
+                cupon_nuevo,
                 cupon_nuevo,
                 fecha_venc_nueva,
                 importe_nuevo,
@@ -581,8 +596,8 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
                     """
                     SELECT idPoliza
                     FROM polizas
-                    WHERE TRIM(poliza) = TRIM(%s)
-                      AND TRIM(recibo) = TRIM(%s)
+                    WHERE TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza)) = TRIM(%s)
+                      AND TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR), recibo)) = TRIM(%s)
                     ORDER BY creado_en DESC
                     LIMIT 1
                     """,

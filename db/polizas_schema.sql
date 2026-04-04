@@ -1421,7 +1421,7 @@ CREATE PROCEDURE sp_list_cuotas_por_poliza(IN p_poliza VARCHAR(50))
 BEGIN
     SELECT
         idCuota,
-        cupon,
+        COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon) AS cupon,
         DATE_FORMAT(fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
         moneda,
         FORMAT(importe, 2) AS importe,
@@ -1429,7 +1429,10 @@ BEGIN
         factura,
         observacion
     FROM cuotas
-    WHERE poliza = p_poliza
+    WHERE (
+        CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR) = p_poliza
+        OR poliza = p_poliza
+    )
       AND activo = 1
     ORDER BY fecha_vencimiento ASC, idCuota ASC;
 END$$
@@ -1466,7 +1469,13 @@ BEGIN
 
     -- Validar cupón duplicado por póliza
     IF p_cupon IS NOT NULL AND TRIM(p_cupon) <> '' THEN
-        IF EXISTS (SELECT 1 FROM cuotas WHERE TRIM(poliza) = TRIM(p_poliza) AND TRIM(cupon) = TRIM(p_cupon) AND activo = 1) THEN
+        IF EXISTS (
+            SELECT 1 
+            FROM cuotas 
+            WHERE TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza)) = TRIM(p_poliza) 
+              AND TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon)) = TRIM(p_cupon) 
+              AND activo = 1
+        ) THEN
             SET v_msg = CONCAT('El cupón ya existe para esta póliza: ', TRIM(p_cupon));
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
         END IF;
@@ -1486,15 +1495,15 @@ BEGIN
         SELECT idPoliza
         INTO v_poliza_id
         FROM polizas
-        WHERE TRIM(poliza) = TRIM(p_poliza)
-          AND TRIM(recibo) = TRIM(p_cupon)
+        WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(p_poliza COLLATE utf8mb4_0900_ai_ci)
+          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) USING utf8mb4), recibo) COLLATE utf8mb4_0900_ai_ci) = TRIM(p_cupon COLLATE utf8mb4_0900_ai_ci)
         ORDER BY creado_en DESC
         LIMIT 1;
     ELSE
         SELECT idPoliza
         INTO v_poliza_id
         FROM polizas
-        WHERE TRIM(poliza) = TRIM(p_poliza)
+        WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(p_poliza COLLATE utf8mb4_0900_ai_ci)
         ORDER BY creado_en DESC
         LIMIT 1;
     END IF;
@@ -1515,7 +1524,7 @@ BEGIN
         poliza_id, poliza, cupon, fecha_vencimiento, moneda, importe,
         fecha_pago, factura, observacion, usuario_registro, creado_en, numero_cuota, activo
     ) VALUES (
-        v_poliza_id, p_poliza, p_cupon, p_fecha_vencimiento, p_moneda, p_importe,
+        v_poliza_id, COALESCE(TO_BASE64(AES_ENCRYPT(p_poliza, @SIS_KEY)), p_poliza), COALESCE(TO_BASE64(AES_ENCRYPT(p_cupon, @SIS_KEY)), p_cupon), p_fecha_vencimiento, p_moneda, COALESCE(p_importe, 0.0),
         p_fecha_pago, p_factura, p_observacion, v_usuario_nombre, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00'), p_numero_cuota, 1
     );
 
@@ -1523,12 +1532,12 @@ BEGIN
         IF p_cupon IS NOT NULL AND TRIM(p_cupon) <> '' THEN
             UPDATE polizas
             SET estado = 'CANCELADO'
-            WHERE TRIM(poliza) = TRIM(p_poliza)
-            AND TRIM(recibo) = TRIM(p_cupon);
+            WHERE TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza)) = TRIM(p_poliza)
+              AND TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR), recibo)) = TRIM(p_cupon);
         ELSE
             UPDATE polizas
             SET estado = 'CANCELADO'
-            WHERE TRIM(poliza) = TRIM(p_poliza);
+            WHERE TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza)) = TRIM(p_poliza);
         END IF;
     END IF;
 END$$
