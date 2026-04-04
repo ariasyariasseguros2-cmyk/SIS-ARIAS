@@ -26,12 +26,107 @@
     --shadow-hover: 0 4px 12px rgba(0,0,0,0.08);
 }
 
-body {
+[data-theme='dark'] {
+    /* Carbon Matte Theme - High Contrast / Low Glow */
+    --bg-app: #0d0d0d;      /* Deep Carbon Black */
+    --bg-panel: #1a1a1a;    /* Matte Grey/Black Card */
+    --border: rgba(255, 255, 255, 0.04);
+    --text-primary: #e6e6e6;   /* Crisp Off-White */
+    --text-secondary: #8a8a8a; /* Neutral Grey */
+    --primary: #f97316;     /* Orange accent from reference image */
+    --primary-light: rgba(249, 115, 22, 0.1);
+}
+
+[data-theme='dark'] body {
     background-color: var(--bg-app);
     color: var(--text-primary);
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    font-size: 0.9rem;
-    line-height: 1.6;
+}
+
+[data-theme='dark'] .client-info-card,
+[data-theme='dark'] .table-card,
+[data-theme='dark'] .total-card,
+[data-theme='dark'] .table-toolbar {
+    background: var(--bg-panel) !important;
+    border-color: var(--border) !important;
+}
+
+[data-theme='dark'] .client-info-header {
+    color: #ffffff;
+    border-bottom-color: var(--border);
+}
+
+[data-theme='dark'] .info-item label {
+    color: var(--text-secondary);
+}
+
+[data-theme='dark'] .info-item div {
+    color: #ffffff;
+}
+
+[data-theme='dark'] .total-card-label {
+    color: var(--text-secondary);
+}
+
+[data-theme='dark'] .total-card-amount {
+    color: #3b82f6; /* Azul brillante para el importe total en modo oscuro */
+}
+
+[data-theme='dark'] .modern-table thead th {
+    background: #141414;
+    color: #ffffff !important; /* Texto blanco puro */
+    border-bottom-color: var(--border);
+}
+
+[data-theme='dark'] .modern-table tbody td {
+    color: #ffffff !important; /* Texto blanco puro */
+    border-bottom-color: var(--border);
+}
+
+[data-theme='dark'] .search-box .form-control::placeholder {
+    color: rgba(255, 255, 255, 0.4) !important;
+}
+
+[data-theme='dark'] .modern-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.01);
+}
+
+[data-theme='dark'] .search-box .form-control {
+    background: #0d0d0d !important;
+    border-color: var(--border) !important;
+    color: #ffffff !important;
+}
+
+[data-theme='dark'] .search-box .form-control:focus {
+    border-color: var(--primary) !important;
+}
+
+[data-theme='dark'] .page-title {
+    color: #ffffff !important;
+}
+
+[data-theme='dark'] .text-secondary {
+    color: var(--text-secondary) !important;
+}
+
+[data-theme='dark'] .btn-close-custom {
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+}
+
+[data-theme='dark'] .btn-close-custom:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+}
+
+[data-theme='dark'] .form-select {
+    background-color: #0d0d0d !important;
+    border-color: var(--border) !important;
+    color: #ffffff !important;
+}
+
+[data-theme='dark'] .form-select option {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
 }
 
 /* 1. Page Header - Minimalista */

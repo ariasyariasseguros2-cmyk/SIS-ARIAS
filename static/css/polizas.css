@@ -15,17 +15,14 @@
     --danger: #dc2626;
     --danger-bg: #fef2f2;
     
-    /* Neutrals - Escala de grises fría */
-    --bg-app: #f8f9fa;        /* Fondo general muy claro */
-    --bg-panel: #ffffff;      /* Paneles blancos */
-    --border: #e9ecef;        /* Bordes sutiles */
-    --text-primary: #212529;  /* Texto principal casi negro */
-    --text-secondary: #6c757d;/* Texto secundario gris medio */
-    --text-tertiary: #adb5bd; /* Texto terciario gris claro */
+    /* Neutrals - Usar variables globales de dashboard.css */
+    --bg-app: var(--layout-bg);        
+    --bg-panel: var(--card-bg);      
+    --border: var(--card-border);        
     
     /* UI Variables */
     --radius: 6px;            /* Bordes ligeramente redondeados */
-    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-sm: var(--card-shadow, 0 1px 2px rgba(0,0,0,0.05));
     --shadow-hover: 0 4px 12px rgba(0,0,0,0.08);
 }
 
@@ -283,7 +280,7 @@ body {
 .modern-table tbody td {
     padding: 1rem 1.5rem;
     border-bottom: 1px solid var(--border);
-    color: var(--text-primary);
+    color: var(--text-primary) !important;
     font-size: 0.9rem;
 }
 
@@ -403,4 +400,63 @@ body {
     padding: 0.75rem 1.5rem;
     background: var(--bg-panel);
     border-top: 1px solid var(--border);
+}
+
+/* Dark Mode Overrides for visibility */
+[data-theme='dark'] .sub-nav-link {
+    color: #cbd5e1; /* Slate 300 */
+}
+
+[data-theme='dark'] .sub-nav-link:hover {
+    color: #ffffff;
+}
+
+[data-theme='dark'] .sub-nav-link.active {
+    color: #ffffff;
+    border-bottom-color: #3b82f6;
+}
+
+[data-theme='dark'] .info-item label {
+    color: #94a3b8; /* Slate 400 */
+}
+
+[data-theme='dark'] .info-item div {
+    color: #ffffff;
+}
+
+[data-theme='dark'] .client-info-header {
+    color: #ffffff;
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .client-info-header i {
+    color: #3b82f6;
+}
+
+[data-theme='dark'] .modern-table thead th {
+    color: #ffffff;
+    background: #0f172a; /* Deep slate */
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .modern-table tbody td {
+    color: #e2e8f0 !important;
+}
+
+[data-theme='dark'] .search-input-group .form-control::placeholder,
+[data-theme='dark'] .search-box .form-control::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme='dark'] .search-input-group .input-group-text {
+    color: #94a3b8;
+}
+
+[data-theme='dark'] .btn-group .btn {
+    color: #e2e8f0;
+}
+
+[data-theme='dark'] .btn-group .btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
 }

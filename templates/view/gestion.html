@@ -20,7 +20,7 @@
         gap: 0.5rem;
         font-size: 1.75rem;
         font-weight: 600;
-        color: #333;
+        color: var(--text-primary);
     }
     .gestion-actions {
         display: flex;
@@ -28,7 +28,7 @@
         gap: 0.5rem;
     }
     .btn-custom {
-        background-color: #2c7be5;
+        background: linear-gradient(to right, #399AD6, #1F59A3);
         color: white;
         border: none;
         display: flex;
@@ -36,9 +36,12 @@
         gap: 0.5rem;
         font-weight: 500;
         padding: 0.5rem 1rem;
+        border-radius: 8px;
+        transition: all 0.2s ease;
     }
     .btn-custom:hover {
-        background-color: #1a68d1;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(31, 89, 163, 0.3);
         color: white;
     }
     .btn-icon-only {
@@ -50,9 +53,8 @@
         justify-content: center;
     }
     .table-container {
-        background: white;
+        background: transparent;
         border-radius: 0.5rem;
-        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
         padding: 1rem;
     }
     .search-row {
@@ -65,19 +67,31 @@
     .search-input {
         max-width: 300px;
     }
+    .table {
+        color: var(--text-primary);
+    }
     .table th {
-        color: #2c7be5; /* Blue headers */
-        font-weight: 600;
-        border-bottom: 1px solid #dee2e6;
+        color: var(--accent-blue); /* Blue headers using theme variable */
+        font-weight: 700;
+        border-bottom: 2px solid var(--accent-blue);
         vertical-align: middle;
         white-space: nowrap;
+        background: transparent !important;
+        text-transform: uppercase;
+        font-size: 0.85rem;
     }
     .table td {
         vertical-align: middle;
         white-space: nowrap;
+        background: transparent !important;
+        color: var(--text-primary) !important;
+        border-bottom: 1px solid var(--card-border);
+    }
+    .table tr:hover td {
+        background-color: var(--nav-active-bg) !important;
     }
     .btn-action {
-        background-color: #00d97e; /* Green color from image */
+        background: linear-gradient(135deg, #00d97e, #00b368);
         color: white;
         border: none;
         width: 32px;
@@ -85,11 +99,37 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 4px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
     }
     .btn-action:hover {
-        background-color: #00b368;
+        transform: scale(1.1);
+        box-shadow: 0 0 10px rgba(0, 217, 126, 0.4);
         color: white;
+    }
+
+    /* Theme specific inputs */
+    .form-control, .form-select, .input-group-text {
+        background-color: var(--card-bg) !important;
+        border: 1px solid var(--card-border) !important;
+        color: var(--text-primary) !important;
+    }
+
+    [data-theme='dark'] .form-control::placeholder {
+        color: var(--text-secondary);
+    }
+
+    /* Dark theme specific fixes */
+    [data-theme='dark'] .table-container {
+        background-color: transparent;
+    }
+    
+    [data-theme='dark'] .table td {
+        color: #f8fafc !important;
+    }
+
+    [data-theme='dark'] .text-muted {
+        color: var(--text-secondary) !important;
     }
 </style>
 {% endblock %}
@@ -126,11 +166,11 @@
         <form action="{{ url_for('main.gestion') }}" method="POST" class="search-row">
             <div class="d-flex gap-2 align-items-center">
                 <div class="input-group" title="Filtrar por fecha de vencimiento inicial">
-                    <span class="input-group-text bg-light">Venc. Desde</span>
+                    <span class="input-group-text">Venc. Desde</span>
                     <input type="date" class="form-control" name="fecha_desde" value="{{ fecha_desde or '' }}">
                 </div>
                 <div class="input-group" title="Filtrar por fecha de vencimiento final">
-                    <span class="input-group-text bg-light">Venc. Hasta</span>
+                    <span class="input-group-text">Venc. Hasta</span>
                     <input type="date" class="form-control" name="fecha_hasta" value="{{ fecha_hasta or '' }}">
                 </div>
                 <button type="submit" class="btn btn-primary"><i class="bi-filter"></i> Filtrar</button>

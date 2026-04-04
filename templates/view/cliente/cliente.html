@@ -38,7 +38,7 @@
             </ul>
         </div>
         <div class="input-group input-group-sm search-round" style="width: 280px;">
-            <span class="input-group-text bg-white border-end-0"><i class="bi-search"></i></span>
+            <span class="input-group-text border-end-0"><i class="bi-search"></i></span>
             <input id="searchInput" type="text" class="form-control border-start-0 ps-0" placeholder="Buscar">
         </div>
         <button id="voiceSearchBtn" class="btn btn-outline-secondary btn-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#voiceSearchModal" title="Buscar por voz">
@@ -47,8 +47,8 @@
     </div>
 </div>
 
-<div class="card border-0 shadow-none bg-white">
-    <div class="card-body p-0 bg-white">
+<div class="card border-0 shadow-none">
+    <div class="card-body p-0">
         <table id="clientesTable" class="table m-0 align-middle saas-table"
                data-polizas-url="{{ url_for('main.menu_page', page='polizas') }}">
             <thead>

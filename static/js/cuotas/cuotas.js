@@ -121,10 +121,28 @@ const Cuotas = (() => {
     const data = getCellsData(tr, idx);
     if (!data) return;
 
+    // Detectar tema actual
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const swalConfig = {
+      confirmButtonText: 'Aceptar',
+      confirmButtonColor: '#3b82f6',
+      background: isDark ? '#1a1a1a' : '#ffffff',
+      color: isDark ? '#ffffff' : '#333333',
+      customClass: {
+        popup: 'rounded-4', // Bordes redondeados del modal
+        confirmButton: 'rounded-pill px-4' // Botón redondeado tipo píldora
+      }
+    };
+
     // Buscar archivos por poliza_id con origen=CUOTA en poliza_archivos
     const polizaId = window.currentPolizaId || window.currentPrimaId || '';
     if (!polizaId) {
-      alert('No hay documento asociado a esta póliza.');
+      Swal.fire({
+        ...swalConfig,
+        icon: 'info',
+        title: 'Aviso',
+        text: 'No hay documento asociado a esta póliza.'
+      });
       return;
     }
 
@@ -132,7 +150,12 @@ const Cuotas = (() => {
       .then(r => r.json())
       .then(res => {
         if (!res.ok || !res.archivos || res.archivos.length === 0) {
-          alert('No hay archivos PDF guardados para esta póliza.');
+          Swal.fire({
+            ...swalConfig,
+            icon: 'info',
+            title: 'Aviso',
+            text: 'No hay archivos PDF guardados para esta póliza.'
+          });
           return;
         }
 
@@ -159,7 +182,12 @@ const Cuotas = (() => {
       })
       .catch(err => {
         console.error('Error cargando archivos de cuota:', err);
-        alert('Error al intentar cargar el documento.');
+        Swal.fire({
+          ...swalConfig,
+          icon: 'error',
+          title: 'Error',
+          text: 'Error al intentar cargar el documento.'
+        });
       });
   }
 

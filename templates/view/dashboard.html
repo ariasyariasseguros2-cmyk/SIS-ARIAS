@@ -19,8 +19,8 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <h6 class="text-muted mb-0">Prima Neta S/.</h6>
-                        <div class="icon-shape bg-light text-info rounded-circle p-2">
-                            <i class="bi-graph-up-arrow fs-5"></i>
+                        <div class="icon-shape text-info">
+                            <i class="bi-graph-up-arrow"></i>
                         </div>
                     </div>
                     <h3 class="mb-1 fw-bold">{{ cards.prima_neta_soles }}</h3>
@@ -34,8 +34,8 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <h6 class="text-muted mb-0">Prima Neta US$</h6>
-                        <div class="icon-shape bg-light text-danger rounded-circle p-2">
-                            <i class="bi-bar-chart-fill fs-5"></i>
+                        <div class="icon-shape text-danger">
+                            <i class="bi-bar-chart-fill"></i>
                         </div>
                     </div>
                     <h3 class="mb-1 fw-bold">{{ cards.prima_neta_dolares }}</h3>
@@ -49,8 +49,8 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <h6 class="text-muted mb-0">Comisiones S/.</h6>
-                        <div class="icon-shape bg-light text-success rounded-circle p-2">
-                            <i class="bi-pie-chart-fill fs-5"></i>
+                        <div class="icon-shape text-success">
+                            <i class="bi-pie-chart-fill"></i>
                         </div>
                     </div>
                     <h3 class="mb-1 fw-bold">{{ cards.comision_soles }}</h3>
@@ -64,8 +64,8 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <h6 class="text-muted mb-0">Comisiones US$</h6>
-                        <div class="icon-shape bg-light text-warning rounded-circle p-2">
-                            <i class="bi-cash-coin fs-5"></i>
+                        <div class="icon-shape text-warning">
+                            <i class="bi-cash-coin"></i>
                         </div>
                     </div>
                     <h3 class="mb-1 fw-bold">{{ cards.comision_dolares }}</h3>
@@ -82,8 +82,8 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <h6 class="text-muted mb-0">Producción Total (Mes)</h6>
-                        <div class="icon-shape bg-light text-primary rounded-circle p-2">
-                            <i class="bi-currency-dollar fs-5"></i>
+                        <div class="icon-shape text-primary">
+                            <i class="bi-currency-dollar"></i>
                         </div>
                     </div>
                     <h3 class="mb-1 fw-bold">{{ cards.total_production | default('$0') }}</h3>
@@ -105,8 +105,8 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <h6 class="text-muted mb-0">Pólizas Registradas</h6>
-                        <div class="icon-shape bg-light text-secondary rounded-circle p-2">
-                            <i class="bi-journal-check fs-5"></i>
+                        <div class="icon-shape text-secondary">
+                            <i class="bi-journal-check"></i>
                         </div>
                     </div>
                     <h3 class="mb-1 fw-bold">{{ cards.total_policies | default('0') }}</h3>
@@ -124,8 +124,8 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <h6 class="text-muted mb-0">Pólizas Activas</h6>
-                        <div class="icon-shape bg-light text-success rounded-circle p-2">
-                            <i class="bi-file-earmark-text fs-5"></i>
+                        <div class="icon-shape text-success">
+                            <i class="bi-file-earmark-text"></i>
                         </div>
                     </div>
                     <h3 class="mb-1 fw-bold">{{ cards.active_policies | default('0') }}</h3>
@@ -142,8 +142,8 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <h6 class="text-muted mb-0">Clientes</h6>
-                        <div class="icon-shape bg-light text-info rounded-circle p-2">
-                            <i class="bi-people fs-5"></i>
+                        <div class="icon-shape text-info">
+                            <i class="bi-people"></i>
                         </div>
                     </div>
                     <h3 class="mb-1 fw-bold">{{ cards.last_client_id | default('0') }}</h3>
@@ -157,8 +157,8 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <h6 class="text-muted mb-0">Renovaciones</h6>
-                        <div class="icon-shape bg-light text-warning rounded-circle p-2">
-                            <i class="bi-clock-history fs-5"></i>
+                        <div class="icon-shape text-warning">
+                            <i class="bi-clock-history"></i>
                         </div>
                     </div>
                     <h3 class="mb-1 fw-bold">{{ cards.pending_renewals | default('0') }}</h3>
@@ -172,10 +172,39 @@
 
     <!-- Charts Section -->
     <div class="row g-4">
+        <!-- NEW: Income per Day (Wave/Soundtrack Style) -->
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 pt-4 ps-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0">Movimiento de Ingresos por Día</h5>
+                        <p class="text-muted small mb-0">Tendencia de ingresos diarios (últimos 30 días)</p>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="currency-toggle-group p-1 rounded-pill bg-dark-soft d-flex border border-white-10">
+                            <button class="btn btn-sm rounded-pill px-3 active currency-btn" data-currency="soles" type="button">S/.</button>
+                            <button class="btn btn-sm rounded-pill px-3 currency-btn text-muted" data-currency="dolares" type="button">US$</button>
+                        </div>
+                        <div class="income-total-badge px-3 py-2 rounded-pill bg-primary-soft">
+                            <span class="fw-bold text-primary" id="dailyTotalLabel">{{ cards.prima_neta_soles | default('S/ 0.00') }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-income-day" style="height: 350px;">
+                        <canvas id="incomeDayChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="col-12 col-xl-8">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 pt-4 ps-4">
+                <div class="card-header bg-transparent border-0 pt-4 ps-4 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Resumen de Producción (Últimos 12 meses)</h5>
+                    <div class="currency-toggle-group p-1 rounded-pill bg-dark-soft d-flex border border-white-10 me-4">
+                        <button class="btn btn-sm rounded-pill px-3 active prod-currency-btn" data-currency="soles" type="button">S/.</button>
+                        <button class="btn btn-sm rounded-pill px-3 prod-currency-btn text-muted" data-currency="dolares" type="button">US$</button>
+                    </div>
                 </div>
                 <div class="card-body">
                      <div class="chart-production">
@@ -186,7 +215,7 @@
         </div>
         <div class="col-12 col-xl-4">
              <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 pt-4 ps-4">
+                <div class="card-header bg-transparent border-0 pt-4 ps-4">
                     <h5 class="mb-0">Distribución de Pólizas</h5>
                 </div>
                 <div class="card-body d-flex flex-column align-items-center justify-content-center">
@@ -209,8 +238,10 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     window.dashboardData = {
-        months: {{ chart.months | tojson }},
-        totals: {{ chart.totals | tojson }},
+        months: {{ chart.months | tojson if chart.months is defined else '[]' }},
+        totals: {{ chart.totals | tojson if chart.totals is defined else '[]' }},
+        dailyLabels: {{ chart.daily_labels | tojson if chart.daily_labels is defined else '[]' }},
+        dailyIncome: {{ chart.daily_income | tojson if chart.daily_income is defined else '[]' }},
         activePolicies: {{ cards.active_policies | default(0) }},
         pendingRenewals: {{ cards.pending_renewals | default(0) }}
     };

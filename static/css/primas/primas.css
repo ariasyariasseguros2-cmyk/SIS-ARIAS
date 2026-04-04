@@ -104,6 +104,121 @@
     border-color: #399AD6;
 }
 
+/* Dark Mode Support */
+[data-theme='dark'] {
+    --bg-app: #0d0d0d;
+    --bg-panel: #1a1a1a;
+    --border: rgba(255, 255, 255, 0.04);
+    --text-primary: #e6e6e6;
+    --text-secondary: #8a8a8a;
+    --text-tertiary: #555555;
+    --primary-light: rgba(249, 115, 22, 0.05);
+}
+
+[data-theme='dark'] .card {
+    background: var(--bg-panel) !important;
+    border-color: var(--border) !important;
+}
+
+[data-theme='dark'] .table-card,
+[data-theme='dark'] .table-toolbar,
+[data-theme='dark'] .client-info-card {
+    background: var(--bg-panel);
+    border-color: var(--border);
+}
+
+[data-theme='dark'] .modern-table thead th {
+    background: #141414;
+    color: #8a8a8a;
+    border-bottom-color: var(--border);
+}
+
+[data-theme='dark'] .modern-table tbody td {
+    color: #e6e6e6 !important;
+    border-bottom-color: var(--border);
+}
+
+[data-theme='dark'] .modern-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.01);
+}
+
+[data-theme='dark'] .search-box .form-control {
+    background: #0d0d0d;
+    border-color: var(--border);
+    color: #ffffff;
+}
+
+[data-theme='dark'] .search-box .form-control:focus {
+    background: #0a0f1c;
+    border-color: var(--primary);
+}
+
+[data-theme='dark'] .input-group-text {
+    background-color: #0a0f1c !important;
+    border-color: var(--border) !important;
+    color: var(--text-secondary) !important;
+}
+
+[data-theme='dark'] .client-info-header {
+    color: #ffffff;
+    border-bottom-color: var(--border);
+}
+
+[data-theme='dark'] .client-info-header i {
+    color: #3b82f6;
+}
+
+[data-theme='dark'] .info-item label {
+    color: #94a3b8;
+}
+
+[data-theme='dark'] .info-item div {
+    color: #ffffff;
+}
+
+[data-theme='dark'] .page-title {
+    color: #ffffff;
+}
+
+[data-theme='dark'] .text-secondary {
+    color: #94a3b8 !important;
+}
+
+[data-theme='dark'] .card-footer {
+    background-color: var(--bg-panel) !important;
+    color: var(--text-secondary) !important;
+}
+
+[data-theme='dark'] .modal-content {
+    background-color: #05080f;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+[data-theme='dark'] .modal-header,
+[data-theme='dark'] .modal-footer {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .bg-light {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme='dark'] .form-select {
+    background-color: #0a0f1c !important;
+    border-color: var(--border) !important;
+    color: #ffffff !important;
+}
+
+[data-theme='dark'] .form-select option {
+    background-color: #0a0f1c !important;
+    color: #ffffff !important;
+}
+
+[data-theme='dark'] .selector-label {
+    color: #ffffff !important;
+}
+
 /* Table Clean Styles - SAAS Look */
 .card {
     border: none !important;

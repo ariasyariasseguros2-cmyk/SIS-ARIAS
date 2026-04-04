@@ -28,6 +28,50 @@ renovar-poliza.css
   color: #333;
 }
 
+[data-theme='dark'] .modal-renovar .modal-content {
+  background-color: #05080f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .modal-renovar .modal-header,
+[data-theme='dark'] .modal-renovar .modal-footer {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .modal-renovar .modal-title,
+[data-theme='dark'] .modal-renovar .form-label {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .modal-renovar .form-control,
+[data-theme='dark'] .modal-renovar .form-select {
+  background-color: #0a0f1c;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+[data-theme='dark'] .modal-renovar .form-control:focus,
+[data-theme='dark'] .modal-renovar .form-select:focus {
+  background-color: #0a0f1c;
+  border-color: #3b82f6;
+  color: #ffffff;
+}
+
+[data-theme='dark'] .modal-renovar .input-group-text {
+  background-color: #1e293b;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .modal-renovar .form-control[readonly] {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
 .modal-renovar .form-select,
 .modal-renovar .form-control {
   height: 38px;

@@ -1,7 +1,7 @@
 /* --- TITULOS --- */
 .section-title {
   font-weight: 700;
-  color: #334155;
+  color: var(--text-primary);
   font-size: 1rem;
   display: flex;
   align-items: center;
@@ -13,45 +13,47 @@
 }
 
 .section-box {
-  background: #ffffff;
-  border: 1px solid #f1f5f9; /* Borde muy sutil */
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 16px;
   padding: 1.5rem;
   box-shadow: none; /* Quitamos sombra para ser más plano/limpio */
 }
 /* Utilities Fallback */
 .bg-light-subtle {
-  background-color: #f8fafc !important;
+  background-color: var(--layout-bg) !important;
 }
 /* --- ANCHO Y ALTURA DEL MODAL --- */
 #addClienteModal .modal-content {
   border-radius: 24px; /* Más redondeado */
-  border: none;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-  background-color: #ffffff;
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  background-color: var(--card-bg);
+  color: var(--text-primary);
 }
 
 /* --- HEADER --- */
 #addClienteModal .modal-header {
-  background: #ffffff;
+  background: var(--card-bg);
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--card-border);
   border-radius: 24px 24px 0 0;
 }
 #addClienteModal .modal-title {
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
   font-size: 1.25rem;
 }
 #addClienteModal .modal-body {
   padding: 2rem;
-  background-color: #ffffff;
+  background-color: var(--card-bg);
+  color: var(--text-primary);
 }
 
 
 #addClienteModal .modal-footer {
-  background: #f8fafc;
-  border-top: 1px solid #e5e7eb;
+  background: var(--layout-bg);
+  border-top: 1px solid var(--card-border);
   padding: .75rem 1.5rem;
   position: sticky;
   bottom: 0;
@@ -60,8 +62,8 @@
 
 /* --- CAJAS DE SECCIÓN --- */
 #addClienteModal .section-box {
-  background: #ffffff;
-  border: 1px solid #dbe4f3;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 10px;
   padding: 1.25rem;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
@@ -71,9 +73,6 @@
 #addClienteModal .modal-content {
   display: flex;
   flex-direction: column;
-  /* quita altura fija para que funcione el scroll de Bootstrap */
-  /* height: calc(100vh - 2rem); */
-  /* max-height: calc(100vh - 2rem); */
 }
 
 /* El cuerpo del modal desplazable */
@@ -86,25 +85,23 @@
 
 /* Ajuste explícito de alturas para asegurar el scroll con Bootstrap */
 #addClienteModal .modal-dialog.modal-dialog-scrollable {
-  /* limita la altura del contenedor del diálogo al viewport */
   max-height: calc(100vh - 2rem);
 }
 
 #addClienteModal .modal-dialog.modal-dialog-scrollable .modal-body {
-  /* resta header (~4rem) + footer (~3rem) y márgenes del modal */
   max-height: calc(100vh - 9rem);
   overflow-y: auto;
 }
 
 #addClienteModal .modal-body .form-label {
   font-weight: 600;
-  color: #374151;
+  color: var(--text-primary);
 }
 /* Scrollbar fina y discreta */
 #addClienteModal .modal-body::-webkit-scrollbar { width: 6px; }
 #addClienteModal .modal-body::-webkit-scrollbar-track { background: transparent; }
-#addClienteModal .modal-body::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-#addClienteModal .modal-body::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+#addClienteModal .modal-body::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 10px; }
+#addClienteModal .modal-body::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
 
 /* --- AGRUPACIÓN DE RADIO BUTTONS --- */
 .radio-group {
@@ -112,15 +109,16 @@
   flex-wrap: wrap;
   gap: 1.5rem;
   padding: .7rem 1rem;
-  background: #f8fafc;
+  background: var(--layout-bg);
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--card-border);
 }
 
 /* --- INPUT GROUP --- */
 #addClienteModal .input-group-text {
-  background-color: #fff;
-  border-color: #e5e7eb;
+  background-color: var(--card-bg);
+  border-color: var(--card-border);
+  color: var(--text-secondary);
 }
 
 /* --- ESPACIADO ENTRE SECCIONES --- */
@@ -130,8 +128,8 @@
 
 /* --- SCROLLBAR BONITA --- */
 #addClienteModal .modal-body::-webkit-scrollbar { width: 8px; }
-#addClienteModal .modal-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-#addClienteModal .modal-body::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+#addClienteModal .modal-body::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 4px; }
+#addClienteModal .modal-body::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
 
 /* --- OVERRIDES que ROMPÍAN el scroll: ELIMINADOS --- */
 #addClienteModal .modal-dialog {

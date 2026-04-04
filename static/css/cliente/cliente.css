@@ -1,7 +1,7 @@
 /* Estilos específicos de la vista de Clientes */
-/* Force pure white background for the whole page area */
+/* Use theme variable for background */
 .page {
-    background-color: #FFFFFF !important;
+    background-color: var(--layout-bg);
 }
 
 /* Ensure no gray background on containers */
@@ -16,10 +16,12 @@
 #clientesTable thead th {
     font-weight: 600;
     font-size: 13px;
+    color: var(--text-secondary);
 }
 
 #clientesTable tbody td {
     font-size: 13px;
+    color: var(--text-primary);
 }
 
 #clientesTable .btn-group .btn {
@@ -34,15 +36,17 @@
 
 .input-group .form-control {
     min-width: 0;
-    background-color: #FFFFFF !important;
-    border: 1px solid #ced4da;
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
 }
 
 
 .dropdown-menu {
     border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    border: 1px solid #e0e0e0;
+    box-shadow: var(--card-shadow);
+    background-color: var(--submenu-bg);
+    border: 1px solid var(--card-border);
     padding: 8px 0;
     min-width: 220px;
     opacity: 0;
@@ -56,7 +60,7 @@
 .dropdown-menu .dropdown-item {
     font-size: 15px;
     padding: 12px 20px;
-    color: #333;
+    color: var(--text-primary);
     transition: all 0.2s ease;
     font-weight: 500;
     display: flex;
@@ -67,27 +71,27 @@
 
 .dropdown-menu .dropdown-item i {
     font-size: 16px;
-    color: #1976d2;
+    color: var(--accent-blue);
     width: 20px;
     text-align: center;
 }
 
 .dropdown-menu .dropdown-item:hover {
-    background: linear-gradient(to right, #e3f2fd, #bbdefb);
-    color: #1976d2;
+    background-color: var(--submenu-hover-bg);
+    color: var(--accent-blue);
     padding-left: 24px;
     transform: translateX(2px);
-    border-left-color: #1976d2;
+    border-left-color: var(--accent-blue);
 }
 
 .dropdown-menu .dropdown-item:hover i {
-    color: #0d47a1;
+    color: var(--accent-cyan);
     transform: scale(1.1);
 }
 
 .dropdown-menu .dropdown-item:active {
-    background: linear-gradient(to right, #bbdefb, #90caf9);
-    color: #1565c0;
+    background-color: var(--nav-active-bg);
+    color: var(--accent-blue);
 }
 
 /* Botón del dropdown más grande y atractivo */
@@ -96,11 +100,11 @@
     font-size: 15px !important;
     font-weight: 500 !important;
     border-radius: 24px !important;
-    border: 2px solid #1976d2 !important;
-    color: #1976d2 !important;
-    background-color: #fff !important;
+    border: 2px solid var(--accent-blue) !important;
+    color: var(--accent-blue) !important;
+    background-color: transparent !important;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.1);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
 }
 
 .dropdown-toggle i {
@@ -108,15 +112,15 @@
 }
 
 .dropdown-toggle:hover {
-    background: linear-gradient(to right, #1976d2, #1565c0) !important;
+    background: linear-gradient(to right, var(--accent-blue), var(--accent-cyan)) !important;
     color: #fff !important;
-    border-color: #1565c0 !important;
-    box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+    border-color: transparent !important;
+    box-shadow: 0 4px 12px var(--accent-glow);
     transform: translateY(-2px);
 }
 
 .dropdown-toggle:focus {
-    box-shadow: 0 0 0 0.2rem rgba(25, 118, 210, 0.25) !important;
+    box-shadow: 0 0 0 0.2rem var(--accent-glow) !important;
 }
 
 /* Icono del dropdown */
@@ -187,37 +191,37 @@
 
 /* SAAS Table Redesign */
 .saas-table {
-    background-color: #FFFFFF;
+    background-color: transparent;
     border-collapse: separate;
     border-spacing: 0;
 }
 
 .saas-table thead th {
-    background-color: #FFFFFF;
-    color: #555; /* Neutral dark grey for headers */
+    background-color: transparent;
+    color: var(--text-secondary);
     font-weight: 600;
     font-size: 13px;
-    border-bottom: 2px solid #1E88E5; /* Blue header line */
+    border-bottom: 2px solid var(--accent-blue);
     padding: 16px 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .saas-table tbody tr {
-    background-color: #FFFFFF !important; /* Force white background */
+    background-color: transparent !important;
 }
 
 .saas-table tbody td {
-    background-color: #FFFFFF;
-    border-bottom: 1px solid #e3f2fd; /* Very subtle blue divider */
+    background-color: transparent;
+    border-bottom: 1px solid var(--card-border);
     padding: 14px 12px;
-    color: #333;
+    color: var(--text-primary);
     font-size: 14px;
 }
 
 /* Hover effect only on the text/row, keeping background white but maybe a subtle indicator */
 .saas-table tbody tr:hover td {
-    background-color: #fafafa; /* Extremely subtle hover if needed, or keep white */
+    background-color: var(--nav-active-bg);
 }
 
 /* Remove Bootstrap striped/hover defaults if they persist */
@@ -234,44 +238,78 @@
 .search-round .input-group-text {
     border-top-left-radius: 50px !important;
     border-bottom-left-radius: 50px !important;
+    background-color: var(--card-bg);
+    border-color: var(--card-border);
+    color: var(--text-secondary);
 }
 
 .search-round .form-control {
     border-top-right-radius: 50px !important;
     border-bottom-right-radius: 50px !important;
+    background-color: var(--card-bg);
+    border-color: var(--card-border);
+    color: var(--text-primary);
 }
 
 /* Remove default focus glow to keep it clean, or style it */
 .search-round .form-control:focus {
     box-shadow: none;
-    border-color: #ced4da;
+    border-color: var(--accent-blue);
 }
 
 /* Pagination Styling */
 .pagination .page-link {
-    color: #555;
-    border: 1px solid #dee2e6;
+    color: var(--text-secondary);
+    border: 1px solid var(--card-border);
     margin: 0 2px;
     border-radius: 4px;
-    background-color: #fff;
+    background-color: var(--card-bg);
 }
 
 .pagination .page-item.active .page-link {
-    background-color: #399AD6; /* Blue matching buttons */
-    border-color: #399AD6;
+    background-color: var(--accent-blue);
+    border-color: var(--accent-blue);
     color: white;
 }
 
 .pagination .page-link:hover {
-    background-color: #e9ecef;
-    color: #333;
+    background-color: var(--nav-active-bg);
+    color: var(--text-primary);
 }
 
 .pagination .page-item.active .page-link:hover {
-    background-color: #1F59A3;
-    border-color: #1F59A3;
+    background-color: var(--accent-cyan);
+    border-color: var(--accent-cyan);
     color: white;
 }
+
+/* Dark mode specific overrides for "Clientes" */
+[data-theme='dark'] .saas-table thead th {
+    background-color: rgba(255, 255, 255, 0.02);
+    border-bottom-color: var(--accent-blue);
+    color: var(--accent-blue);
+}
+
+[data-theme='dark'] .saas-table tbody tr:hover td {
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme='dark'] .search-round .input-group-text,
+[data-theme='dark'] .search-round .form-control {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .btn-outline-secondary {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: #94a3b8 !important;
+}
+
+[data-theme='dark'] .btn-outline-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+}
+
 
 .btn-delete {
     background-color: #ef9a9a;

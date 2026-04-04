@@ -1,0 +1,86 @@
+/* Estilos específicos para el Modal de Edición de Cuotas */
+
+/* Soporte para Tema Oscuro Carbon Matte */
+[data-theme='dark'] #cuotaEditModal .master-panel {
+    background-color: #1a1a1a;
+    border-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme='dark'] #cuotaEditModal .panel-header {
+    background-color: #141414;
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme='dark'] #cuotaEditModal .panel-header h1,
+[data-theme='dark'] #cuotaEditModal .panel-header h1 i {
+    color: #ffffff !important;
+}
+
+[data-theme='dark'] #cuotaEditModal .header-subtitle {
+    color: #ffffff !important;
+}
+
+[data-theme='dark'] #cuotaEditModal .section-heading {
+    color: #ffffff !important;
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme='dark'] #cuotaEditModal .label {
+    color: #ffffff !important;
+}
+
+[data-theme='dark'] #cuotaEditModal .form-control {
+    background-color: #0d0d0d !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    color: #ffffff !important;
+}
+
+[data-theme='dark'] #cuotaEditModal .form-control[readonly] {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+    color: #ffffff !important; /* Cambiado de #8a8a8a a blanco puro */
+}
+
+[data-theme='dark'] #cuotaEditModal .form-control::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important; /* Placeholder más visible */
+}
+
+/* Tarjeta de Documento Adjunto */
+[data-theme='dark'] #cuotaEditModal .sub-card.bg-light {
+    background-color: #141414 !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme='dark'] #cuotaEditModal .text-custom-blue {
+    color: #ffffff !important;
+}
+
+[data-theme='dark'] #cuotaEditModal .dashed-border {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
+    background-color: transparent !important;
+}
+
+[data-theme='dark'] #cuotaEditModal .dashed-border small {
+    color: rgba(255, 255, 255, 0.7) !important; /* Texto pequeño del selector de archivos */
+}
+
+[data-theme='dark'] #cuotaEditModal .dashed-border:hover {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+    border-color: var(--primary) !important;
+}
+
+/* Footer del Modal */
+[data-theme='dark'] #cuotaEditModal .panel-footer-info {
+    background-color: #141414 !important;
+    border-top-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme='dark'] #cuotaEditModal .btn-close-custom {
+    color: #8a8a8a;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] #cuotaEditModal .btn-close-custom:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+}

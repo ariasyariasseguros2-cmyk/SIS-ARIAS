@@ -1,19 +1,36 @@
 /* === Botones filtro rápido — estado activo === */
+[data-theme='dark'] .layout,
+[data-theme='dark'] .content,
+[data-theme='dark'] .page,
+[data-theme='dark'] table,
+[data-theme='dark'] tr,
+[data-theme='dark'] td,
+[data-theme='dark'] th,
+[data-theme='dark'] div,
+[data-theme='dark'] span {
+    color: #f8fafc !important;
+}
+
 .btn-filter-rapido {
   position: relative;
   transition: all 0.18s ease;
+  background-color: transparent;
+  color: var(--text-secondary);
+  border-color: var(--card-border);
 }
 
 /* Activo: rellena el botón con su color */
 .btn-outline-primary.btn-filter-rapido.active {
-  background-color: #0d6efd;
+  background-color: var(--accent-blue);
   color: #fff !important;
-  box-shadow: 0 0 0 3px rgba(13,110,253,.18);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  border-color: transparent;
 }
 .btn-outline-success.btn-filter-rapido.active {
   background-color: #198754;
   color: #fff !important;
   box-shadow: 0 0 0 3px rgba(25,135,84,.18);
+  border-color: transparent;
 }
 
 /* Punto indicador pulsante en esquina superior derecha */
@@ -26,7 +43,7 @@
   height: 9px;
   border-radius: 50%;
   background: #ffc107;
-  border: 2px solid #fff;
+  border: 2px solid var(--card-bg);
   animation: pulse-dot 1.4s ease-in-out infinite;
 }
 
@@ -110,19 +127,24 @@
 .search-round .input-group-text {
     border-top-left-radius: 50px !important;
     border-bottom-left-radius: 50px !important;
-    background-color: #fff;
+    background-color: var(--card-bg);
+    border-color: var(--card-border);
+    color: var(--text-secondary);
     border-right: none;
 }
 
 .search-round .form-control {
     border-top-right-radius: 50px !important;
     border-bottom-right-radius: 50px !important;
+    background-color: var(--card-bg);
+    border-color: var(--card-border);
+    color: var(--text-primary);
     border-left: none;
 }
 
 .search-round .form-control:focus {
     box-shadow: none;
-    border-color: #ced4da;
+    border-color: var(--accent-blue);
 }
 
 /* Links rápidos (texto limpio con separadores) */  
@@ -131,9 +153,9 @@
   align-items: center;
   gap: 0;
   flex-wrap: wrap;
-  background-color: #fff;
+  background-color: transparent;
   padding: 8px 0;
-  border-bottom: 1px solid #e3f2fd; /* Division al terminar las opciones */
+  border-bottom: 1px solid var(--card-border); /* Division al terminar las opciones */
   margin-bottom: 1rem;
 }
 
@@ -142,9 +164,9 @@
   padding: 0 15px;
   border-radius: 0;
   border: none;
-  border-right: 2px solid #1E88E5; /* Division de azul */
+  border-right: 2px solid var(--accent-blue); /* Division de azul */
   background: transparent;
-  color: #555;
+  color: var(--text-secondary);
   font-size: .85rem;
   text-decoration: none;
   font-weight: 600;
@@ -157,14 +179,14 @@
 
 .quick-links .qlink:hover {
   background: transparent;
-  color: #1E88E5;
+  color: var(--accent-blue);
 }
 
 /* Eliminar bordes de la tarjeta contenedora y sombras */
-.card, .card-body {
+.card, .card-body, .table-card {
     border: none !important;
     box-shadow: none !important;
-    background-color: #ffffff !important;
+    background-color: transparent !important;
     border-radius: 0 !important;
 }
 
@@ -172,7 +194,7 @@
 .table td, .table th { vertical-align: middle; }
 #polizasListTable { 
     width: 100%;
-    background-color: #FFFFFF;
+    background-color: transparent !important;
     border-collapse: collapse; /* Cambiado a collapse para línea continua perfecta */
     border-spacing: 0;
     border: none !important;
@@ -183,14 +205,41 @@
     border: none !important;
     box-shadow: none !important;
     overflow-x: auto;
+    background-color: transparent !important;
 }
 
+/* Forzar color de texto en toda la tabla y sus elementos */
+.modern-table,
+.modern-table thead th,
+.modern-table tbody td,
+.modern-table tbody tr,
+#polizasListTable, 
+#polizasListTable th, 
+#polizasListTable td,
+#polizasListTable span,
+#polizasListTable div,
+#polizasListTable a:not(.btn-action):not(.dropdown-item),
+.card-header,
+.quick-links .qlink,
+.pagination-bar,
+.btn-pagination:not(.active) {
+    color: var(--text-primary) !important;
+}
+
+[data-theme='dark'] .modern-table,
+[data-theme='dark'] .modern-table thead th,
+[data-theme='dark'] .modern-table tbody td,
+[data-theme='dark'] .modern-table tbody tr {
+    color: #f8fafc !important;
+}
+
+
 #polizasListTable thead th {
-    background-color: #FFFFFF;
-    color: #555;
-    font-weight: 600;
+    background-color: transparent !important;
+    color: var(--text-secondary) !important;
+    font-weight: 700 !important;
     font-size: 13px;
-    border-bottom: 2px solid #1E88E5 !important; /* Borde inferior azul grueso */
+    border-bottom: 2px solid var(--accent-blue) !important; /* Borde inferior azul grueso */
     padding: 16px 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -200,21 +249,60 @@
 }
 
 #polizasListTable tbody td {
-    background-color: #FFFFFF;
+    background-color: transparent !important;
     border: none !important; /* Elimina todos los bordes de celdas */
     padding: 14px 12px;
-    color: #333;
+    color: var(--text-primary) !important;
     font-size: 14px;
+    font-weight: 500 !important;
 }
+
+#polizasListTable tbody tr {
+    background-color: transparent !important;
+}
+
+/* Específico para el texto dentro de las filas que puede estar en spans o divs */
+#polizasListTable tbody tr td,
+#polizasListTable tbody tr td span,
+#polizasListTable tbody tr td div {
+    color: var(--text-primary) !important;
+}
+
+[data-theme='dark'] #polizasListTable tbody tr td,
+[data-theme='dark'] #polizasListTable tbody tr td span,
+[data-theme='dark'] #polizasListTable tbody tr td div {
+    color: #f8fafc !important; /* Hardcode white for dark mode to be 100% sure */
+}
+
+[data-theme='dark'] #polizasListTable thead th {
+    color: #94a3b8 !important; /* Hardcode secondary text for dark mode */
+}
+
+.quick-links .qlink {
+    color: var(--text-secondary) !important;
+}
+
+.quick-links .qlink:hover {
+    color: var(--accent-blue) !important;
+}
+
+/* Links rápidos y etiquetas superiores */
+.filters-bar label, 
+.filters-bar span,
+.quick-links .qlink {
+    color: var(--text-secondary) !important;
+}
+
 
 /* Eliminar bordes por defecto de Bootstrap en la tabla */
 .table>:not(caption)>*>* {
     border-bottom-width: 0;
     box-shadow: none;
     border-color: transparent;
+    background-color: transparent !important;
 }
 
-.card-header { background: transparent; border-bottom: none; font-weight: bold; text-transform: uppercase; }
+.card-header { background: transparent !important; border-bottom: none; font-weight: bold; text-transform: uppercase; color: var(--text-primary); }
 
 /* Chips de acción */
 .chips-row { display: flex; justify-content: flex-end; gap: .25rem; margin-bottom: .25rem; }
@@ -228,21 +316,22 @@
   line-height: 1.2;
   cursor: pointer;
   transition: opacity 0.2s;
+  background-color: transparent;
 }
 .chip:hover {
   opacity: 0.85;
 }
-.chip-danger   { background: #dc3545; border-color: #c02f3d; color: #fff; }
-.chip-success  { background: #28a745; border-color: #23923e; color: #fff; }
-.chip-primary  { background: #0d6efd; border-color: #0b5ed7; color: #fff; }
-.chip-info     { background: #17a2b8; border-color: #148ea1; color: #fff; }
-.chip-warning  { background: #fd7e14; border-color: #ec6f07; color: #fff; }
-.chip-teal     { background: #20c997; border-color: #1bb387; color: #fff; }
-.chip-muted    { background: #e9ecef; border-color: #dee2e6; color: #333; }
+.chip-danger   { background: #dc3545 !important; border-color: #c02f3d !important; color: #fff !important; }
+.chip-success  { background: #28a745 !important; border-color: #23923e !important; color: #fff !important; }
+.chip-primary  { background: #0d6efd !important; border-color: #0b5ed7 !important; color: #fff !important; }
+.chip-info     { background: #17a2b8 !important; border-color: #148ea1 !important; color: #fff !important; }
+.chip-warning  { background: #fd7e14 !important; border-color: #ec6f07 !important; color: #fff !important; }
+.chip-teal     { background: #20c997 !important; border-color: #1bb387 !important; color: #fff !important; }
+.chip-muted    { background: var(--nav-active-bg) !important; border-color: var(--card-border) !important; color: var(--text-primary) !important; }
 
 /* Ajustes generales */
-.content { overflow-x: hidden; }
-.table-responsive { overflow-x: auto; }
+.content { overflow-x: hidden; background-color: transparent !important; }
+.table-responsive { overflow-x: auto; background-color: transparent !important; }
 
 /* Mayúsculas opcionales */
 .filters-bar,
@@ -254,7 +343,7 @@
 /* Paginación */
 .pagination-bar {
   border-top: none;
-  background: #FFFFFF;
+  background: transparent !important;
   padding: .4rem .6rem;
 }
 .btn.disabled {
@@ -269,13 +358,18 @@
   gap: .5rem;
   font-size: .9rem;
   padding: .4rem .75rem;
+  color: var(--text-primary);
+  background-color: transparent !important;
 }
 .action-menu .dropdown-item i {
   font-size: 1rem;
-  color: #6c757d;
+  color: var(--text-secondary);
+}
+.action-menu .dropdown-item:hover {
+  background-color: var(--submenu-hover-bg) !important;
 }
 .action-menu .dropdown-item:hover i {
-  color: #0d6efd;
+  color: var(--accent-blue);
 }
 
 /* Ocultamos estilos previos de chips si ya no se usan */
@@ -289,12 +383,12 @@
   border: 1px solid transparent;
   line-height: 1.2;
 }
-.chip-danger   { background: #dc3545; border-color: #c02f3d; color: #fff; }
-.chip-success  { background: #28a745; border-color: #23923e; color: #fff; }
-.chip-primary  { background: #0d6efd; border-color: #0b5ed7; color: #fff; }
-.chip-info     { background: #17a2b8; border-color: #148ea1; color: #fff; }
-.chip-warning  { background: #fd7e14; border-color: #ec6f07; color: #fff; }
-.chip-teal     { background: #20c997; border-color: #1bb387; color: #fff; }
+.chip-danger   { background: #dc3545 !important; border-color: #c02f3d !important; color: #fff !important; }
+.chip-success  { background: #28a745 !important; border-color: #23923e !important; color: #fff !important; }
+.chip-primary  { background: #0d6efd !important; border-color: #0b5ed7 !important; color: #fff !important; }
+.chip-info     { background: #17a2b8 !important; border-color: #148ea1 !important; color: #fff !important; }
+.chip-warning  { background: #fd7e14 !important; border-color: #ec6f07 !important; color: #fff !important; }
+.chip-teal     { background: #20c997 !important; border-color: #1bb387 !important; color: #fff !important; }
 
 /* Estilos para botones de acción en la tabla */
 .btn-action {
@@ -320,7 +414,7 @@
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     filter: brightness(105%);
-    color: white;
+    color: white !important;
 }
 
 .btn-action:active {
@@ -329,18 +423,18 @@
 }
 
 /* Colores específicos para botones de acción */
-.btn-action.btn-danger { background: linear-gradient(135deg, #ff6b6b, #e03131); color: white; }
-.btn-action.btn-success { background: linear-gradient(135deg, #51cf66, #2f9e44); color: white; }
-.btn-action.btn-primary { background: linear-gradient(135deg, #4dabf7, #1971c2); color: white; }
+.btn-action.btn-danger { background: linear-gradient(135deg, #ff6b6b, #e03131) !important; color: white !important; }
+.btn-action.btn-success { background: linear-gradient(135deg, #51cf66, #2f9e44) !important; color: white !important; }
+.btn-action.btn-primary { background: linear-gradient(135deg, #4dabf7, #1971c2) !important; color: white !important; }
 
 /* Botón Dropdown de Acción */
 .btn-dropdown {
     padding: 0.35rem 0.7rem;
     font-size: 0.75rem;
     border-radius: 6px;
-    border: 1px solid #e9ecef;
-    background: white;
-    color: #495057;
+    border: 1px solid var(--card-border);
+    background: var(--card-bg) !important;
+    color: var(--text-primary);
     font-weight: 600;
     text-transform: uppercase;
     cursor: pointer;
@@ -353,9 +447,9 @@
 }
 
 .btn-dropdown:hover {
-    background-color: #f8f9fa;
-    border-color: #adb5bd;
-    color: #212529;
+    background-color: var(--nav-active-bg) !important;
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
 }
 
 .btn-dropdown::after {
@@ -398,6 +492,7 @@
     .table-responsive {
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        background-color: transparent !important;
     }
     
     /* Ajustar tamaño de fuente en móvil */
@@ -424,12 +519,14 @@
     .search-container .input-group-text {
         width: 100%;
         border-radius: 6px 6px 0 0 !important;
-        border-right: 1px solid #ced4da;
+        border-color: var(--card-border);
+        background-color: var(--card-bg) !important;
     }
     .search-container .form-control {
         width: 100%;
         border-radius: 0 !important;
-        border-left: 1px solid #ced4da;
+        border-color: var(--card-border);
+        background-color: var(--card-bg) !important;
     }
     .search-container .btn-search {
         width: 100%;
@@ -447,15 +544,15 @@
 
 /* Pagination Styling - Clean & Minimalist */
 .pagination-bar {
-  border-top: 1px solid #f1f1f1;
-  background: #FFFFFF;
+  border-top: 1px solid var(--card-border);
+  background: transparent !important;
   padding: 0.75rem 1rem;
 }
 
 .btn-pagination {
     border: none;
-    background-color: transparent;
-    color: #666;
+    background-color: transparent !important;
+    color: var(--text-secondary);
     min-width: 32px;
     height: 32px;
     padding: 0;
@@ -471,25 +568,26 @@
 }
 
 .btn-pagination:hover:not(.disabled):not(.active) {
-    background-color: #f0f4f8;
-    color: #0d6efd;
+    background-color: var(--nav-active-bg) !important;
+    color: var(--accent-blue);
 }
 
 .btn-pagination.active {
-    background-color: #0d6efd;
-    color: #fff;
+    background-color: var(--accent-blue) !important;
+    color: #fff !important;
     font-weight: 600;
-    box-shadow: 0 2px 4px rgba(13, 110, 253, 0.2);
+    box-shadow: 0 2px 4px var(--accent-glow);
 }
 
 .btn-pagination.disabled {
-    color: #d1d5db;
+    color: var(--text-secondary);
+    opacity: 0.4;
     pointer-events: none;
-    background: transparent;
+    background: transparent !important;
 }
 
 .btn-pagination.dots {
-    color: #999;
+    color: var(--text-secondary);
     min-width: auto;
     padding: 0 4px;
 }
@@ -498,3 +596,44 @@
     font-size: 0.8rem;
     line-height: 1;
 }
+
+/* Dark mode specific overrides for "Listado Pólizas" */
+[data-theme='dark'] #polizasListTable thead th {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+}
+
+[data-theme='dark'] #polizasListTable tbody tr:hover td {
+    background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+[data-theme='dark'] .search-round .input-group-text,
+[data-theme='dark'] .search-round .form-control {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme='dark'] .btn-dropdown {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme='dark'] .quick-links .qlink {
+    border-right-color: var(--accent-blue);
+    opacity: 0.8;
+}
+
+[data-theme='dark'] .quick-links .qlink:hover {
+    opacity: 1;
+}
+
+/* Toolbar adjustments */
+.table-toolbar {
+    background-color: transparent !important;
+    border-bottom: 1px solid var(--card-border) !important;
+}
+
+.form-select-sm {
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+

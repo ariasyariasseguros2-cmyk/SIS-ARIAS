@@ -5,6 +5,7 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cuotas/cuotas.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/primas/Mostrar-detalles-primas.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cuotas/modal_edit_cuota.css') }}">
 {% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
@@ -342,6 +343,7 @@
 
 {% block extra_js_bottom %}
 {{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="{{ url_for('static', filename='js/cuotas/cuotas.js') }}"></script>
 <script src="{{ url_for('static', filename='js/cuotas/add_cuota_modal.js') }}"></script>
 <script src="{{ url_for('static', filename='js/cuotas/edit_cuota_modal.js') }}"></script>
