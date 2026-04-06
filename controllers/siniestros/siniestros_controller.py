@@ -20,13 +20,13 @@ def list_siniestros_por_poliza():
 
 		cursor.execute("""
 			SELECT
-				id, grupo_ramo, contratante, poliza, cia, ramo, fec_stro,
+				id, grupo_ramo, contratante, COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza) AS poliza, cia, ramo, fec_stro,
 				causa, siniestro_no, monto_siniestro, estado, ejecutivo_cia, placa,
 				fecha_registro AS creado_en
 			FROM siniestros
-			WHERE poliza = %s AND eliminado = 0
+			WHERE (AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) = %s OR poliza = %s) AND eliminado = 0
 			ORDER BY fec_stro DESC
-		""", (poliza,))
+		""", (poliza, poliza))
 		siniestros = cursor.fetchall()
 
 		# Serializar fechas a string ISO
@@ -783,7 +783,7 @@ def get_grupo_ramo_poliza():
         # Consulta para obtener el grupo del ramo de la póliza
         query = """
                 SELECT
-                    p.poliza,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), p.poliza) AS poliza,
                     p.ramo AS nombre_ramo,
                     r.idRamo,
                     r.nombre,
@@ -792,12 +792,11 @@ def get_grupo_ramo_poliza():
                     r.codigo
                 FROM polizas p
                          LEFT JOIN ramos r ON p.ramo = r.nombre
-                WHERE p.poliza = %s
+                WHERE AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) = %s OR p.poliza = %s
                     LIMIT 1 \
                 """
-
+        cursor.execute(query, (poliza, poliza))
         cursor.execute(query, (poliza,))
-        resultado = cursor.fetchone()
 
         cursor.close()
         connection.close()

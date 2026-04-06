@@ -4063,17 +4063,17 @@ def menu_siniestros_poliza():
 
             query = """
                 SELECT 
-                    c.razon_social AS contratante,
-                    p.asegurado,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR), c.razon_social) AS contratante,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR), p.asegurado) AS asegurado,
                     p.cia,
                     p.ramo,
                     p.asegurada
                 FROM polizas p
                 INNER JOIN clientes c ON c.idCliente = p.cliente_id
-                WHERE p.poliza = %s
+                WHERE AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) = %s OR p.poliza = %s
                 LIMIT 1
             """
-            cursor.execute(query, (poliza,))
+            cursor.execute(query, (poliza, poliza))
             poliza_data = cursor.fetchone()
 
             if poliza_data:
