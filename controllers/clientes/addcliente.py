@@ -219,8 +219,20 @@ def save_cliente(data: dict) -> dict:
         cnx = get_connection()
         cur = cnx.cursor()
 
-        # Verificar existencia por numero_documento
-        cur.execute("CALL sp_get_cliente_por_numero(%s)", (numero,))
+        # Verificar existencia por numero_documento con COLLATE consistente
+        cur.execute("""
+            SELECT 1
+            FROM clientes
+            WHERE activo = 1
+              AND TRIM(
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(numero_documento, @SIS_KEY) AS CHAR),
+                        numero_documento
+                    )
+              ) COLLATE utf8mb4_unicode_ci = TRIM(CAST(%s AS CHAR CHARACTER SET utf8mb4)) COLLATE utf8mb4_unicode_ci
+            LIMIT 1
+        """, (numero,))
         row = cur.fetchone()
         while cur.nextset():
             pass
@@ -244,10 +256,16 @@ def save_cliente(data: dict) -> dict:
             # Si no se obtuvo por SP, probar con nombre de tabla en mayúsculas y minúsculas
             if not idProductor:
                 try:
-                    cur.execute("SELECT idProductor, abreviacion FROM SubAgente WHERE abreviacion = %s LIMIT 1", (subagente_nombre,))
+                    cur.execute(
+                        "SELECT idProductor, abreviacion FROM SubAgente WHERE abreviacion COLLATE utf8mb4_unicode_ci = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci LIMIT 1",
+                        (subagente_nombre,)
+                    )
                     subagente_row = cur.fetchone()
                 except Exception:
-                    cur.execute("SELECT idProductor, abreviacion FROM subagente WHERE abreviacion = %s LIMIT 1", (subagente_nombre,))
+                    cur.execute(
+                        "SELECT idProductor, abreviacion FROM subagente WHERE abreviacion COLLATE utf8mb4_unicode_ci = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci LIMIT 1",
+                        (subagente_nombre,)
+                    )
                     subagente_row = cur.fetchone()
                 if subagente_row:
                     idProductor = subagente_row[0]
@@ -255,10 +273,16 @@ def save_cliente(data: dict) -> dict:
                 else:
                     # Fallback: buscar por nombre si no se encuentra por abreviacion
                     try:
-                        cur.execute("SELECT idProductor, abreviacion FROM SubAgente WHERE nombre = %s LIMIT 1", (subagente_nombre,))
+                        cur.execute(
+                            "SELECT idProductor, abreviacion FROM SubAgente WHERE nombre COLLATE utf8mb4_unicode_ci = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci LIMIT 1",
+                            (subagente_nombre,)
+                        )
                         subagente_row = cur.fetchone()
                     except Exception:
-                        cur.execute("SELECT idProductor, abreviacion FROM subagente WHERE nombre = %s LIMIT 1", (subagente_nombre,))
+                        cur.execute(
+                            "SELECT idProductor, abreviacion FROM subagente WHERE nombre COLLATE utf8mb4_unicode_ci = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci LIMIT 1",
+                            (subagente_nombre,)
+                        )
                         subagente_row = cur.fetchone()
                     if subagente_row:
                         idProductor = subagente_row[0]
