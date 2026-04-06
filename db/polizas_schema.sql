@@ -2851,7 +2851,33 @@ DROP PROCEDURE IF EXISTS sp_get_siniestro_by_id;
 DELIMITER $$
 CREATE DEFINER=`root`@`localhost` PROCEDURE sp_get_siniestro_by_id(IN p_id INT)
 BEGIN
-    SELECT *
+    SELECT
+        id, grupo_ramo,
+        COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza) AS poliza,
+        cia, ramo, contratante, asegurado,
+        fec_presentacion_broker, fec_aviso_cia, fec_presentacion_cia,
+        fec_stro, hora_siniestro,
+        quien_reporta,
+        COALESCE(CAST(AES_DECRYPT(FROM_BASE64(email), @SIS_KEY) AS CHAR), email) AS email,
+        COALESCE(CAST(AES_DECRYPT(FROM_BASE64(telefonos), @SIS_KEY) AS CHAR), telefonos) AS telefonos,
+        lugar_siniestro, causa, descripcion_hechos,
+        siniestro_no, ejecutivo_cia, estado,
+        liquidador_ajustador, conductor, tercero, comisaria, numero_denuncia,
+        fec_denuncia_policial, fec_entrega_doc_ajustador, fec_entrega_doc_cia, fec_cia_consentido,
+        numero_ajuste,
+        fec_notificacion_broker, hora_contacto, hora_culminacion, tipo_atencion,
+        situacion, placa,
+        fec_atencion_medica, tipo_persona, titular, paciente, diagnostico,
+        coaseguro, no_cubierto,
+        moneda, monto_siniestro, deducible, descripcion_deducible, total_indemnizar,
+        fec_pago, forma_pago, numero_cheque,
+        COALESCE(CAST(AES_DECRYPT(FROM_BASE64(banco), @SIS_KEY) AS CHAR), banco) AS banco,
+        numero_factura, monto_pagar_factura, fec_vencimiento_factura, fec_pago_factura,
+        datos_vehiculo, datos_denuncia, datos_conductor, datos_copiloto, datos_tercero,
+        gastos_presentados,
+        usuario_registro, usuario_modificacion,
+        fecha_registro, fecha_modificacion,
+        eliminado, poliza_id
     FROM siniestros
     WHERE id = p_id
     LIMIT 1;
@@ -2971,9 +2997,9 @@ BEGIN
         gastos_presentados,
         usuario_registro
     ) VALUES (
-        p_grupo_ramo, p_poliza, p_cia, p_ramo, p_contratante, p_asegurado,
+        p_grupo_ramo, TO_BASE64(AES_ENCRYPT(p_poliza, @SIS_KEY)), p_cia, p_ramo, p_contratante, p_asegurado,
         p_fec_presentacion_broker, p_fec_aviso_cia, p_fec_stro, p_hora_siniestro,
-        p_quien_reporta, p_email, p_telefonos, p_lugar_siniestro, p_causa, p_descripcion_hechos,
+        p_quien_reporta, TO_BASE64(AES_ENCRYPT(p_email, @SIS_KEY)), TO_BASE64(AES_ENCRYPT(p_telefonos, @SIS_KEY)), p_lugar_siniestro, p_causa, p_descripcion_hechos,
         p_siniestro_no, p_ejecutivo_cia, p_estado,
         p_liquidador_ajustador, p_conductor, p_tercero, p_comisaria, p_numero_denuncia,
         p_fec_denuncia_policial, p_fec_entrega_doc_ajustador, p_fec_entrega_doc_cia,
@@ -2983,7 +3009,7 @@ BEGIN
         p_fec_atencion_medica, p_tipo_persona, p_titular, p_paciente, p_diagnostico,
         p_coaseguro, p_no_cubierto,
         p_moneda, p_monto_siniestro, p_deducible, p_descripcion_deducible, p_total_indemnizar,
-        p_fec_pago, p_forma_pago, p_numero_cheque, p_banco,
+        p_fec_pago, p_forma_pago, p_numero_cheque, TO_BASE64(AES_ENCRYPT(p_banco, @SIS_KEY)),
         p_numero_factura, p_monto_pagar_factura, p_fec_vencimiento_factura, p_fec_pago_factura,
         p_datos_vehiculo, p_datos_denuncia, p_datos_conductor, p_datos_copiloto, p_datos_tercero,
         p_gastos_presentados,
@@ -3053,11 +3079,11 @@ BEGIN
         numero_factura, monto_pagar_factura, fec_vencimiento_factura, fec_pago_factura,
         gastos_presentados, usuario_registro
     ) VALUES (
-        'OTROS', p_poliza, p_cia, p_ramo, p_contratante, p_asegurado,
-        p_fec_stro, p_hora_siniestro, p_quien_reporta, p_email, p_telefonos,
+        'OTROS', TO_BASE64(AES_ENCRYPT(p_poliza, @SIS_KEY)), p_cia, p_ramo, p_contratante, p_asegurado,
+        p_fec_stro, p_hora_siniestro, p_quien_reporta, TO_BASE64(AES_ENCRYPT(p_email, @SIS_KEY)), TO_BASE64(AES_ENCRYPT(p_telefonos, @SIS_KEY)),
         p_lugar_siniestro, p_causa, p_descripcion_hechos, p_siniestro_no, p_ejecutivo_cia, p_estado,
         p_moneda, p_monto_siniestro, p_deducible, p_descripcion_deducible, p_total_indemnizar,
-        p_fec_pago, p_forma_pago, p_numero_cheque, p_banco,
+        p_fec_pago, p_forma_pago, p_numero_cheque, TO_BASE64(AES_ENCRYPT(p_banco, @SIS_KEY)),
         p_numero_factura, p_monto_pagar_factura, p_fec_vencimiento_factura, p_fec_pago_factura,
         CAST(p_gastos_presentados AS JSON), v_usuario_nombre
     );
@@ -3127,15 +3153,15 @@ BEGIN
         numero_factura, monto_pagar_factura, fec_vencimiento_factura, fec_pago_factura,
         usuario_registro
     ) VALUES (
-        'RRGG', p_poliza, p_cia, p_ramo, p_contratante, p_asegurado,
+        'RRGG', TO_BASE64(AES_ENCRYPT(p_poliza, @SIS_KEY)), p_cia, p_ramo, p_contratante, p_asegurado,
         p_fec_presentacion_broker, p_fec_aviso_cia, p_fec_stro, p_hora_siniestro,
-        p_quien_reporta, p_email, p_telefonos, p_lugar_siniestro, p_causa, p_descripcion_hechos,
+        p_quien_reporta, TO_BASE64(AES_ENCRYPT(p_email, @SIS_KEY)), TO_BASE64(AES_ENCRYPT(p_telefonos, @SIS_KEY)), p_lugar_siniestro, p_causa, p_descripcion_hechos,
         p_siniestro_no, p_ejecutivo_cia, p_estado,
         p_liquidador_ajustador, p_conductor, p_tercero, p_comisaria, p_numero_denuncia,
         p_fec_denuncia_policial, p_fec_entrega_doc_ajustador, p_fec_entrega_doc_cia,
         p_fec_cia_consentido, p_numero_ajuste,
         p_moneda, p_monto_siniestro, p_deducible, p_descripcion_deducible, p_total_indemnizar,
-        p_fec_pago, p_forma_pago, p_numero_cheque, p_banco,
+        p_fec_pago, p_forma_pago, p_numero_cheque, TO_BASE64(AES_ENCRYPT(p_banco, @SIS_KEY)),
         p_numero_factura, p_monto_pagar_factura, p_fec_vencimiento_factura, p_fec_pago_factura,
         p_usuario_registro
     );
@@ -3197,12 +3223,12 @@ BEGIN
         numero_factura, monto_pagar_factura, fec_vencimiento_factura, fec_pago_factura,
         gastos_presentados, usuario_registro
     ) VALUES (
-        'RRHH', p_poliza, p_cia, p_ramo, p_contratante, p_asegurado,
+        'RRHH', TO_BASE64(AES_ENCRYPT(p_poliza, @SIS_KEY)), p_cia, p_ramo, p_contratante, p_asegurado,
         p_fec_presentacion_broker, p_fec_atencion_medica, p_fec_aviso_cia, p_fec_presentacion_cia, p_fec_cia_consentido,
-        p_quien_reporta, p_email, p_telefonos, p_tipo_persona, p_titular, p_paciente, p_diagnostico,
+        p_quien_reporta, TO_BASE64(AES_ENCRYPT(p_email, @SIS_KEY)), TO_BASE64(AES_ENCRYPT(p_telefonos, @SIS_KEY)), p_tipo_persona, p_titular, p_paciente, p_diagnostico,
         p_siniestro_no, p_ejecutivo_cia, p_estado,
         p_moneda, p_monto_siniestro, p_deducible, p_descripcion_deducible, p_coaseguro, p_no_cubierto, p_total_indemnizar,
-        p_fec_pago, p_forma_pago, p_numero_cheque, p_banco,
+        p_fec_pago, p_forma_pago, p_numero_cheque, TO_BASE64(AES_ENCRYPT(p_banco, @SIS_KEY)),
         p_numero_factura, p_monto_pagar_factura, p_fec_vencimiento_factura, p_fec_pago_factura,
         p_gastos_presentados, p_usuario_registro
     );
@@ -3269,13 +3295,13 @@ BEGIN
         datos_vehiculo, datos_denuncia, datos_conductor, datos_copiloto, datos_tercero,
         usuario_registro
     ) VALUES (
-        'VEHICULOS', p_poliza, p_cia, p_ramo, p_contratante, p_asegurado,
+        'VEHICULOS', TO_BASE64(AES_ENCRYPT(p_poliza, @SIS_KEY)), p_cia, p_ramo, p_contratante, p_asegurado,
         p_fec_notificacion_broker, p_fec_stro, p_hora_siniestro,
-        p_quien_reporta, p_email, p_telefonos, p_hora_contacto, p_hora_culminacion,
+        p_quien_reporta, TO_BASE64(AES_ENCRYPT(p_email, @SIS_KEY)), TO_BASE64(AES_ENCRYPT(p_telefonos, @SIS_KEY)), p_hora_contacto, p_hora_culminacion,
         p_lugar_siniestro, p_causa, p_tipo_atencion, p_fec_presentacion_cia,
         p_siniestro_no, p_ejecutivo_cia, p_estado, p_situacion,
         p_moneda, p_monto_siniestro, p_deducible, p_descripcion_deducible, p_total_indemnizar,
-        p_fec_pago, p_forma_pago, p_numero_cheque, p_banco,
+        p_fec_pago, p_forma_pago, p_numero_cheque, TO_BASE64(AES_ENCRYPT(p_banco, @SIS_KEY)),
         p_numero_factura, p_monto_pagar_factura, p_fec_vencimiento_factura, p_fec_pago_factura,
         p_datos_vehiculo, p_datos_denuncia, p_datos_conductor, p_datos_copiloto, p_datos_tercero,
         p_usuario_registro
@@ -3388,7 +3414,7 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE sp_update_siniestro(
 BEGIN
     UPDATE siniestros SET
         grupo_ramo = p_grupo_ramo,
-        poliza = p_poliza,
+        poliza = TO_BASE64(AES_ENCRYPT(p_poliza, @SIS_KEY)),
         cia = p_cia,
         ramo = p_ramo,
         contratante = p_contratante,
@@ -3398,8 +3424,8 @@ BEGIN
         fec_stro = p_fec_stro,
         hora_siniestro = p_hora_siniestro,
         quien_reporta = p_quien_reporta,
-        email = p_email,
-        telefonos = p_telefonos,
+        email = TO_BASE64(AES_ENCRYPT(p_email, @SIS_KEY)),
+        telefonos = TO_BASE64(AES_ENCRYPT(p_telefonos, @SIS_KEY)),
         lugar_siniestro = p_lugar_siniestro,
         causa = p_causa,
         descripcion_hechos = p_descripcion_hechos,
@@ -3438,7 +3464,7 @@ BEGIN
         fec_pago = p_fec_pago,
         forma_pago = p_forma_pago,
         numero_cheque = p_numero_cheque,
-        banco = p_banco,
+        banco = TO_BASE64(AES_ENCRYPT(p_banco, @SIS_KEY)),
         numero_factura = p_numero_factura,
         monto_pagar_factura = p_monto_pagar_factura,
         fec_vencimiento_factura = p_fec_vencimiento_factura,
