@@ -53,13 +53,45 @@ PREPARE addFK FROM @preparedStatementFK;
 EXECUTE addFK;
 DEALLOCATE PREPARE addFK;
 
+-- 3.1. Add foto_perfil and color_avatar if they don't exist
+SET @columnname_foto = 'foto_perfil';
+SET @preparedStatementFoto = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname_foto)
+  ) > 0,
+  'SELECT 1',
+  'ALTER TABLE usuarios ADD COLUMN foto_perfil VARCHAR(255) NULL AFTER nombre;'
+));
+PREPARE addFoto FROM @preparedStatementFoto;
+EXECUTE addFoto;
+DEALLOCATE PREPARE addFoto;
+
+SET @columnname_color = 'color_avatar';
+SET @preparedStatementColor = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname_color)
+  ) > 0,
+  'SELECT 1',
+  'ALTER TABLE usuarios ADD COLUMN color_avatar VARCHAR(20) DEFAULT "#3b82f6" AFTER foto_perfil;'
+));
+PREPARE addColor FROM @preparedStatementColor;
+EXECUTE addColor;
+DEALLOCATE PREPARE addColor;
 
 -- 4. Update sp_login_usuario to return role info
 DROP PROCEDURE IF EXISTS sp_login_usuario;
 DELIMITER $$
 CREATE PROCEDURE sp_login_usuario(IN p_username VARCHAR(50))
 BEGIN
-    SELECT u.id, u.username, u.password, u.id_rol, r.nombre as rol_nombre
+    SELECT u.id, u.username, u.password, u.id_rol, u.nombre, u.foto_perfil, u.color_avatar, r.nombre as rol_nombre
     FROM usuarios u
     LEFT JOIN roles r ON u.id_rol = r.idRol
     WHERE u.username = p_username

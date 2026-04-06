@@ -118,15 +118,22 @@ def login():
         try:
             cnx = get_connection()
             cur = cnx.cursor(dictionary=True)
-            # Usar el SP para obtener el usuario
-            cur.execute("CALL sp_login_usuario(%s)", (username,))
-            row = cur.fetchone()
-            # Consumir cualquier conjunto de resultados adicional del SP
             try:
-                while cur.nextset():
-                    pass
-            except Exception:
-                pass
+                # Intentar usar el SP (que puede fallar si no se ha actualizado la tabla)
+                cur.execute("CALL sp_login_usuario(%s)", (username,))
+                row = cur.fetchone()
+                while cur.nextset(): pass
+            except Exception as sp_err:
+                print(f"[login] SP falló, intentando SELECT directo: {sp_err}")
+                # Fallback a SELECT directo si el SP falla (ej. por columnas faltantes)
+                cur.execute("""
+                    SELECT u.id, u.username, u.password, u.id_rol, u.nombre, 
+                           r.nombre as rol_nombre
+                    FROM usuarios u
+                    LEFT JOIN roles r ON u.id_rol = r.idRol
+                    WHERE u.username = %s LIMIT 1
+                """, (username,))
+                row = cur.fetchone()
             cur.close()
             cnx.close()
         except Exception as e:
@@ -164,25 +171,36 @@ def login():
             session['foto_perfil'] = row.get('foto_perfil')
             session['color_avatar'] = row.get('color_avatar') or '#3b82f6'
             
-            if not session['user_display_name'] or session['foto_perfil'] is None or 'color_avatar' not in session:
+            if not session.get('user_display_name') or session.get('foto_perfil') is None or 'color_avatar' not in session:
                 try:
                     cnx = get_connection()
                     cur = cnx.cursor(dictionary=True)
+                    # Intentar obtener solo las columnas que existan para no romper
+                    cur.execute("SHOW COLUMNS FROM usuarios LIKE 'foto_perfil'")
+                    has_foto = cur.fetchone()
+                    cur.execute("SHOW COLUMNS FROM usuarios LIKE 'color_avatar'")
+                    has_color = cur.fetchone()
+                    
+                    cols = ["nombre"]
+                    if has_foto: cols.append("foto_perfil")
+                    if has_color: cols.append("color_avatar")
+                    
                     cur.execute(
-                        "SELECT nombre, foto_perfil, color_avatar FROM usuarios WHERE id = %s LIMIT 1",
-                        (row['id'],),
+                        f"SELECT {', '.join(cols)} FROM usuarios WHERE id = %s LIMIT 1",
+                        (row['id'],)
                     )
                     u_row = cur.fetchone()
                     if u_row:
-                        if not session['user_display_name']:
-                            session['user_display_name'] = (u_row.get('nombre') or row['username']).strip()
-                        session['foto_perfil'] = u_row.get('foto_perfil')
-                        session['color_avatar'] = u_row.get('color_avatar') or '#3b82f6'
+                        nombre_final = (u_row.get('nombre') or row.get('username') or '').strip()
+                        session['user_display_name'] = nombre_final if nombre_final else row.get('username')
+                        session['foto_perfil'] = u_row.get('foto_perfil') if has_foto else None
+                        session['color_avatar'] = u_row.get('color_avatar') if has_color else '#3b82f6'
                     cur.close()
                     cnx.close()
-                except Exception:
-                    if not session['user_display_name']:
-                        session['user_display_name'] = row['username']
+                except Exception as e:
+                    print(f"Error fetching extra user data: {e}")
+                    if not session.get('user_display_name'):
+                        session['user_display_name'] = row.get('username')
 
             return redirect(url_for('main.home'))
         else:
