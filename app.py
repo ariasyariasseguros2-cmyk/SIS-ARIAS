@@ -50,6 +50,13 @@ try:
 
     @app.context_processor
     def inject_rbac():
+        def get_initials(name):
+            if not name: return "?"
+            parts = name.strip().split()
+            if len(parts) >= 2:
+                return (parts[0][0] + parts[1][0]).upper()
+            return parts[0][0].upper()
+
         return {
             'Roles': Roles,
             'can_create': can_create,
@@ -59,6 +66,7 @@ try:
             'can_access_maestros': can_access_maestros,
             'can_restore': can_restore,
             'get_role_scope': get_role_scope,
+            'get_initials': get_initials,
         }
 except Exception:
     # Si falla la importación, seguimos sin inyectar (evita romper arranque)
@@ -151,21 +159,30 @@ def login():
             session['role_id'] = row['id_rol']
             session['role_name'] = row['rol_nombre']
             session['user_display_name'] = (row.get('nombre') or row.get('name') or '').strip()
-            if not session['user_display_name']:
+            
+            # Fetch foto_perfil separately if not in row
+            session['foto_perfil'] = row.get('foto_perfil')
+            session['color_avatar'] = row.get('color_avatar') or '#3b82f6'
+            
+            if not session['user_display_name'] or session['foto_perfil'] is None or 'color_avatar' not in session:
                 try:
                     cnx = get_connection()
-                    cur = cnx.cursor()
+                    cur = cnx.cursor(dictionary=True)
                     cur.execute(
-                        "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1",
-                        (row['username'],),
+                        "SELECT nombre, foto_perfil, color_avatar FROM usuarios WHERE id = %s LIMIT 1",
+                        (row['id'],),
                     )
-                    name_row = cur.fetchone()
-                    if name_row and name_row[0]:
-                        session['user_display_name'] = str(name_row[0]).strip()
+                    u_row = cur.fetchone()
+                    if u_row:
+                        if not session['user_display_name']:
+                            session['user_display_name'] = (u_row.get('nombre') or row['username']).strip()
+                        session['foto_perfil'] = u_row.get('foto_perfil')
+                        session['color_avatar'] = u_row.get('color_avatar') or '#3b82f6'
                     cur.close()
                     cnx.close()
                 except Exception:
-                    session['user_display_name'] = row['username']
+                    if not session['user_display_name']:
+                        session['user_display_name'] = row['username']
 
             return redirect(url_for('main.home'))
         else:

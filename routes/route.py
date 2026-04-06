@@ -733,6 +733,110 @@ def api_reporte_produccion_export():
         current_app.logger.error(f"Error exportando reporte produccion: {e}")
         return jsonify({'ok': False, 'error': f"Error generando Excel: {str(e)}"}), 500
 
+@bp.route('/perfil')
+def perfil_page():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('view/perfil.html')
+
+@bp.route('/api/perfil/upload', methods=['POST'])
+def perfil_upload():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    if 'foto' not in request.files:
+        return jsonify({'ok': False, 'error': 'No se encontró el archivo'}), 400
+
+    file = request.files['foto']
+    if file.filename == '':
+        return jsonify({'ok': False, 'error': 'Archivo sin nombre'}), 400
+
+    if file:
+        filename = secure_filename(file.filename)
+        # Añadir timestamp para evitar caché y colisiones
+        ext = os.path.splitext(filename)[1]
+        new_filename = f"user_{session['user_id']}_{int(datetime.now().timestamp())}{ext}"
+        
+        # Guardar en static/uploads/perfiles/
+        perfiles_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'perfiles')
+        os.makedirs(perfiles_dir, exist_ok=True)
+        save_path = os.path.join(perfiles_dir, new_filename)
+        
+        try:
+            # Eliminar foto anterior si existe
+            old_foto = session.get('foto_perfil')
+            if old_foto:
+                old_path = os.path.join(perfiles_dir, old_foto)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+            
+            file.save(save_path)
+            
+            # Actualizar en BD
+            cnx = get_connection()
+            cur = cnx.cursor()
+            cur.execute("UPDATE usuarios SET foto_perfil = %s WHERE id = %s", (new_filename, session['user_id']))
+            cnx.commit()
+            cur.close()
+            cnx.close()
+            
+            # Actualizar en sesión
+            session['foto_perfil'] = new_filename
+            
+            return jsonify({'ok': True, 'foto_perfil': new_filename})
+        except Exception as e:
+            return jsonify({'ok': False, 'error': str(e)}), 500
+
+    return jsonify({'ok': False, 'error': 'Error desconocido'}), 500
+
+@bp.route('/api/perfil/remove-photo', methods=['POST'])
+def perfil_remove_photo():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+    
+    try:
+        old_foto = session.get('foto_perfil')
+        if old_foto:
+            perfiles_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'perfiles')
+            old_path = os.path.join(perfiles_dir, old_foto)
+            if os.path.exists(old_path):
+                os.remove(old_path)
+        
+        cnx = get_connection()
+        cur = cnx.cursor()
+        cur.execute("UPDATE usuarios SET foto_perfil = NULL WHERE id = %s", (session['user_id'],))
+        cnx.commit()
+        cur.close()
+        cnx.close()
+        
+        session['foto_perfil'] = None
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@bp.route('/api/perfil/update-color', methods=['POST'])
+def perfil_update_color():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+    
+    data = request.get_json()
+    color = data.get('color')
+    if not color:
+        return jsonify({'ok': False, 'error': 'Color no proporcionado'}), 400
+    
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor()
+        cur.execute("UPDATE usuarios SET color_avatar = %s WHERE id = %s", (color, session['user_id'],))
+        cnx.commit()
+        cur.close()
+        cnx.close()
+        
+        session['color_avatar'] = color
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
 @bp.route('/api/clientes/search', methods=['GET'])
 def search_clientes_route():
     if 'user' not in session:
@@ -4063,17 +4167,17 @@ def menu_siniestros_poliza():
 
             query = """
                 SELECT 
-                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR), c.razon_social) AS contratante,
-                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR), p.asegurado) AS asegurado,
+                    c.razon_social AS contratante,
+                    p.asegurado,
                     p.cia,
                     p.ramo,
                     p.asegurada
                 FROM polizas p
                 INNER JOIN clientes c ON c.idCliente = p.cliente_id
-                WHERE AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) = %s OR p.poliza = %s
+                WHERE p.poliza = %s
                 LIMIT 1
             """
-            cursor.execute(query, (poliza, poliza))
+            cursor.execute(query, (poliza,))
             poliza_data = cursor.fetchone()
 
             if poliza_data:

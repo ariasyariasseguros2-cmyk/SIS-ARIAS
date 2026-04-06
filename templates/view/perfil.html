@@ -1,0 +1,312 @@
+{% extends 'view/layout_dashboard.html' %}
+
+{% block html_title %}Perfil de Usuario | SISNET{% endblock %}
+
+{% block page_title %}
+    <h3 class="fw-bold mb-0">Mi Perfil</h3>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-card {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    .profile-avatar-container {
+        position: relative;
+        width: 150px;
+        height: 150px;
+        margin: 0 auto 2rem;
+    }
+    .profile-avatar {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 4px solid var(--accent-orange);
+        background: var(--card-bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    .upload-overlay {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        background: #f97316; /* Fallback direct color */
+        background: var(--accent-orange);
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 3px solid var(--card-bg);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        z-index: 10;
+    }
+    .upload-overlay:hover {
+        transform: scale(1.1);
+        background: #fb923c;
+    }
+    .upload-overlay i {
+        color: white;
+        font-size: 1.2rem;
+    }
+    #photoInput {
+        display: none;
+    }
+    .profile-info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 1rem 0;
+        border-bottom: 1px solid var(--card-border);
+    }
+    .profile-info-label {
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+    .profile-info-value {
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+    .avatar-controls {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: -1rem;
+        margin-bottom: 2rem;
+    }
+    .color-picker-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        justify-content: center;
+        margin-bottom: 2rem;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 50px;
+    }
+    .color-dot {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: all 0.2s;
+    }
+    .color-dot:hover {
+        transform: scale(1.2);
+    }
+    .color-dot.active {
+        border-color: white;
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    <div class="card profile-card shadow-lg">
+        <div class="card-body p-5">
+            <div class="profile-avatar-container">
+                <div class="profile-avatar" id="avatarPreview" style="{% if not session.get('foto_perfil') %}background-color: {{ session.get('color_avatar', '#3b82f6') }}; color: white; font-size: 60px; font-weight: bold; border: none;{% endif %}">
+                    {% if session.get('foto_perfil') %}
+                        <img src="{{ url_for('static', filename='uploads/perfiles/' + session.get('foto_perfil')) }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+                    {% else %}
+                        <span>{{ get_initials(session.get('user_display_name')) }}</span>
+                    {% endif %}
+                </div>
+                <label for="photoInput" class="upload-overlay" title="Cambiar foto">
+                    <i class="bi bi-camera-fill"></i>
+                </label>
+                <input type="file" id="photoInput" accept="image/*">
+            </div>
+
+            <div class="avatar-controls">
+                {% if session.get('foto_perfil') %}
+                <button class="btn btn-sm btn-danger rounded-pill px-3" id="btnRemovePhoto">
+                    <i class="bi bi-trash me-1"></i> Quitar foto
+                </button>
+                {% endif %}
+            </div>
+
+            <div class="color-picker-container" id="colorPicker" style="{% if session.get('foto_perfil') %}display: none;{% endif %}">
+                <span class="small text-muted me-2">Color de fondo:</span>
+                <div class="color-dot" style="background-color: #3b82f6;" data-color="#3b82f6"></div>
+                <div class="color-dot" style="background-color: #ef4444;" data-color="#ef4444"></div>
+                <div class="color-dot" style="background-color: #10b981;" data-color="#10b981"></div>
+                <div class="color-dot" style="background-color: #f59e0b;" data-color="#f59e0b"></div>
+                <div class="color-dot" style="background-color: #8b5cf6;" data-color="#8b5cf6"></div>
+                <div class="color-dot" style="background-color: #ec4899;" data-color="#ec4899"></div>
+                <div class="color-dot" style="background-color: #64748b;" data-color="#64748b"></div>
+            </div>
+
+            <div class="text-center mb-5">
+                <h4 class="fw-bold mb-1">{{ session.get('user_display_name') }}</h4>
+                <span class="badge bg-primary-soft text-primary px-3 py-2 rounded-pill">{{ session.get('role_name') }}</span>
+            </div>
+
+            <div class="profile-info-list">
+                <div class="profile-info-row">
+                    <span class="profile-info-label">Nombre de usuario</span>
+                    <span class="profile-info-value">{{ session.get('user') }}</span>
+                </div>
+                <div class="profile-info-row">
+                    <span class="profile-info-label">Rol de sistema</span>
+                    <span class="profile-info-value">{{ session.get('role_name') }}</span>
+                </div>
+                <div class="profile-info-row">
+                    <span class="profile-info-label">Estado</span>
+                    <span class="profile-info-value text-success"><span class="dot online"></span> Activo</span>
+                </div>
+            </div>
+
+            <div class="mt-5 d-grid">
+                <button class="btn btn-outline-secondary rounded-pill" onclick="history.back()">
+                    <i class="bi bi-arrow-left me-2"></i> Volver
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js_bottom %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    document.getElementById('photoInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validar tipo de archivo
+        if (!file.type.startsWith('image/')) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Archivo no válido',
+                text: 'Por favor selecciona una imagen.'
+            });
+            return;
+        }
+
+        // Mostrar preview
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const preview = document.getElementById('avatarPreview');
+            if (preview.tagName === 'IMG') {
+                preview.src = event.target.result;
+            } else {
+                const img = document.createElement('img');
+                img.src = event.target.result;
+                img.className = 'profile-avatar';
+                img.id = 'avatarPreview';
+                preview.parentNode.replaceChild(img, preview);
+            }
+        };
+        reader.readAsDataURL(file);
+
+        // Subir al servidor
+        const formData = new FormData();
+        formData.append('foto', file);
+
+        Swal.fire({
+            title: 'Subiendo...',
+            text: 'Por favor espera mientras actualizamos tu foto.',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        fetch('/api/perfil/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Éxito!',
+                    text: 'Tu foto de perfil ha sido actualizada.',
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    location.reload(); // Recargar para actualizar en todos lados
+                });
+            } else {
+                throw new Error(data.error || 'Error desconocido');
+            }
+        })
+        .catch(error => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message
+            });
+        });
+    });
+
+    // Quitar foto
+    const btnRemove = document.getElementById('btnRemovePhoto');
+    if (btnRemove) {
+        btnRemove.addEventListener('click', function() {
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: "Se eliminará tu foto de perfil actual.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, quitar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch('/api/perfil/remove-photo', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.ok) location.reload();
+                    });
+                }
+            });
+        });
+    }
+
+    // Cambiar color
+    document.querySelectorAll('.color-dot').forEach(dot => {
+        dot.addEventListener('click', function() {
+            const color = this.dataset.color;
+            
+            // Actualizar UI
+            document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+            this.classList.add('active');
+            
+            const preview = document.getElementById('avatarPreview');
+            preview.style.backgroundColor = color;
+
+            // Guardar en servidor
+            fetch('/api/perfil/update-color', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ color: color })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.ok) {
+                    // Actualizar dashboard avatar si es posible sin recargar (opcional)
+                    const dashAvatar = window.parent.document.getElementById('dashboardAvatar');
+                    if (dashAvatar) dashAvatar.style.backgroundColor = color;
+                }
+            });
+        });
+        
+        // Marcar el color actual como activo
+        if (dot.dataset.color === "{{ session.get('color_avatar', '#3b82f6') }}") {
+            dot.classList.add('active');
+        }
+    });
+</script>
+{% endblock %}

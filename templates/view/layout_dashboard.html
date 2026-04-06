@@ -19,7 +19,7 @@
             <div class="sidebar-top">
                 <div class="brand d-flex align-items-center gap-2">
                     <img src="{{ url_for('main.serve_img', filename='logo-aasnet.png') }}" alt="AAS NET" class="brand-logo">
-                    <span class="brand-name fw-bold d-none d-xl-inline">SISNET</span>
+                    <span class="brand-name fw-bold d-none d-xl-inline">AAS NET</span>
                 </div>
 
                 <div class="sidebar-actions">
@@ -70,7 +70,13 @@
 
                     <div class="user-box dropdown">
                         <button class="user-toggle btn border-0 p-0 d-flex align-items-center gap-2 text-white" type="button" data-bs-toggle="dropdown">
-                            <div class="avatar bg-light text-dark"><i class="bi-person-circle fs-5"></i></div>
+                            <div class="avatar bg-light text-dark overflow-hidden" id="dashboardAvatar" style="{% if not session.get('foto_perfil') %}background-color: {{ session.get('color_avatar', '#3b82f6') }} !important; color: white !important;{% endif %}">
+                                {% if session.get('foto_perfil') %}
+                                    <img src="{{ url_for('static', filename='uploads/perfiles/' + session.get('foto_perfil')) }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+                                {% else %}
+                                    <span class="fw-bold">{{ get_initials(session.get('user_display_name')) }}</span>
+                                {% endif %}
+                            </div>
                             <div class="user-info d-none d-md-block text-start">
                                 <div class="name small fw-bold">{{ session.get('user_display_name', session.get('user', 'Invitado')) }}</div>
                                 <div class="status smaller opacity-75" style="font-size: 10px;"><span class="dot online"></span> En línea</div>
@@ -79,6 +85,7 @@
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
                             <li><a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('main.home') }}"><i class="bi-house"></i> Inicio</a></li>
+                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('main.perfil_page') }}"><i class="bi-person-badge"></i> Mi Perfil</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item d-flex align-items-center gap-2 text-danger" href="{{ url_for('logout') }}"><i class="bi-box-arrow-right"></i> Cerrar sesión</a></li>
                         </ul>
@@ -197,21 +204,21 @@
                     <li class="{% if page == 'maestros-companias' %}active{% endif %}"><a data-page="maestros-companias" href="{{ url_for('main.menu_page', page='maestros-companias') }}"><i class="bi-building"></i> Compañías</a></li>
                     <li class="{% if page == 'maestros-clases' %}active{% endif %}"><a data-page="maestros-clases" href="{{ url_for('main.menu_maestros_clases') }}"><i class="bi-tags"></i> Clases</a></li>
                     <li class="{% if page == 'maestros-ejecutivos' %}active{% endif %}"><a data-page="maestros-ejecutivos" href="{{ url_for('main.menu_page', page='maestros-ejecutivos') }}"><i class="bi-people"></i> Ejecutivos del Broker</a></li>
-                    <li class="{% if page == 'maestros-endosatarios' %}active{% endif %}"><i class="bi-person-bounding-box"></i> <a data-page="maestros-endosatarios" href="{{ url_for('main.menu_page', page='maestros-endosatarios') }}">Endosatarios</a></li>
-                    <li class="{% if page == 'maestros-grupos' %}active{% endif %}"><i class="bi-people-fill"></i> <a data-page="maestros-grupos" href="{{ url_for('main.menu_page', page='maestros-grupos') }}">Grupos Economicos</a></li>
-                    <li class="{% if page == 'maestros-giro' %}active{% endif %}"><i class="bi-arrow-repeat"></i> <a data-page="maestros-giro" href="{{ url_for('main.menu_page', page='maestros-giro') }}">Giro de Negocio</a></li>
-                    <li class="{% if page == 'maestros-marcas' %}active{% endif %}"><i class="bi bi-tags-fill"></i> <a data-page="maestros-marcas" href="{{ url_for('main.menu_maestros_marcas') }}">Marcas</a></li>
-                    <li class="{% if page == 'maestros-modelos' %}active{% endif %}"><i class="bi-bounding-box"></i> <a data-page="maestros-modelos" href="{{ url_for('main.menu_maestros_modelos') }}">Modelos</a></li>
-                    <li class="{% if page == 'maestros-oficinas' %}active{% endif %}"><i class="bi-building-up"></i> <a data-page="maestros-oficinas" href="{{ url_for('main.menu_page', page='maestros-oficinas') }}">Oficinas</a></li>
-                    <li class="{% if page == 'maestros-ramos' %}active{% endif %}"><i class="bi-list"></i> <a data-page="maestros-ramos" href="{{ url_for('main.menu_maestros_ramos') }}">Ramos</a></li>
-                    <li class="{% if page in ('maestros-productos','maestros-prodcutos') %}active{% endif %}"><i class="bi bi-box-seam"></i> <a data-page="maestros-productos" href="{{ url_for('main.menu_maestros_productos') }}">Productos</a></li>
-                    <li class="{% if page == 'maestros-comisiones' %}active{% endif %}"><i class="bi-cash-coin"></i> <a data-page="maestros-comisiones" href="{{ url_for('main.menu_page', page='maestros-comisiones') }}">Comisiones</a></li>
-                    <li class="{% if page == 'maestros-soat' %}active{% endif %}"><i class="bi-file-spreadsheet"></i> <a data-page="maestros-soat" href="{{ url_for('main.menu_maestros_soat') }}">Config. SOAT</a></li>
-                    <li class="{% if page == 'maestros-produccion-soat' %}active{% endif %}"><i class="bi-graph-up-arrow"></i> <a data-page="maestros-produccion-soat" href="{{ url_for('main.menu_produccion_soat') }}">Cálculos Producción SOAT</a></li>
-                    <li class="{% if page == 'maestros-subagentes' %}active{% endif %}"><i class="bi-person-plus"></i> <a data-page="maestros-subagentes" href="{{ url_for('main.menu_page', page='maestros-subagentes') }}">Sub Agentes</a></li>
-                    <li class="{% if page == 'maestros-usuarios' %}active{% endif %}"><i class="bi-person-circle"></i> <a data-page="maestros-usuarios" href="{{ url_for('main.menu_page', page='maestros-usuarios') }}">Usuarios</a></li>
-                    <li class="{% if page == 'maestros-usos' %}active{% endif %}"><i class="bi-card-list"></i> <a data-page="maestros-usos" href="{{ url_for('main.menu_maestros_usos') }}">Usos</a></li>
-                    <li class="{% if page == 'maestros-vendedores' %}active{% endif %}"><i class="bi-person-lines-fill"></i> <a data-page="maestros-vendedores" href="{{ url_for('main.menu_page', page='maestros-vendedores') }}">Vendedores</a></li>
+                    <li class="{% if page == 'maestros-endosatarios' %}active{% endif %}"><a data-page="maestros-endosatarios" href="{{ url_for('main.menu_page', page='maestros-endosatarios') }}"><i class="bi-person-bounding-box"></i> Endosatarios</a></li>
+                    <li class="{% if page == 'maestros-grupos' %}active{% endif %}"><a data-page="maestros-grupos" href="{{ url_for('main.menu_page', page='maestros-grupos') }}"><i class="bi-people-fill"></i> Grupos Economicos</a></li>
+                    <li class="{% if page == 'maestros-giro' %}active{% endif %}"><a data-page="maestros-giro" href="{{ url_for('main.menu_page', page='maestros-giro') }}"><i class="bi-arrow-repeat"></i> Giro de Negocio</a></li>
+                    <li class="{% if page == 'maestros-marcas' %}active{% endif %}"><a data-page="maestros-marcas" href="{{ url_for('main.menu_maestros_marcas') }}"><i class="bi bi-tags-fill"></i> Marcas</a></li>
+                    <li class="{% if page == 'maestros-modelos' %}active{% endif %}"><a data-page="maestros-modelos" href="{{ url_for('main.menu_maestros_modelos') }}"><i class="bi-bounding-box"></i> Modelos</a></li>
+                    <li class="{% if page == 'maestros-oficinas' %}active{% endif %}"><a data-page="maestros-oficinas" href="{{ url_for('main.menu_page', page='maestros-oficinas') }}"><i class="bi-building-up"></i> Oficinas</a></li>
+                    <li class="{% if page == 'maestros-ramos' %}active{% endif %}"><a data-page="maestros-ramos" href="{{ url_for('main.menu_maestros_ramos') }}"><i class="bi-list"></i> Ramos</a></li>
+                    <li class="{% if page in ('maestros-productos','maestros-prodcutos') %}active{% endif %}"><a data-page="maestros-productos" href="{{ url_for('main.menu_maestros_productos') }}"><i class="bi bi-box-seam"></i> Productos</a></li>
+                    <li class="{% if page == 'maestros-comisiones' %}active{% endif %}"><a data-page="maestros-comisiones" href="{{ url_for('main.menu_page', page='maestros-comisiones') }}"><i class="bi-cash-coin"></i> Comisiones</a></li>
+                    <li class="{% if page == 'maestros-soat' %}active{% endif %}"><a data-page="maestros-soat" href="{{ url_for('main.menu_maestros_soat') }}"><i class="bi-file-spreadsheet"></i> Config. SOAT</a></li>
+                    <li class="{% if page == 'maestros-produccion-soat' %}active{% endif %}"><a data-page="maestros-produccion-soat" href="{{ url_for('main.menu_produccion_soat') }}"><i class="bi-graph-up-arrow"></i> Cálculos Producción SOAT</a></li>
+                    <li class="{% if page == 'maestros-subagentes' %}active{% endif %}"><a data-page="maestros-subagentes" href="{{ url_for('main.menu_page', page='maestros-subagentes') }}"><i class="bi-person-plus"></i> Sub Agentes</a></li>
+                    <li class="{% if page == 'maestros-usuarios' %}active{% endif %}"><a data-page="maestros-usuarios" href="{{ url_for('main.menu_page', page='maestros-usuarios') }}"><i class="bi-person-circle"></i> Usuarios</a></li>
+                    <li class="{% if page == 'maestros-usos' %}active{% endif %}"><a data-page="maestros-usos" href="{{ url_for('main.menu_maestros_usos') }}"><i class="bi-card-list"></i> Usos</a></li>
+                    <li class="{% if page == 'maestros-vendedores' %}active{% endif %}"><a data-page="maestros-vendedores" href="{{ url_for('main.menu_page', page='maestros-vendedores') }}"><i class="bi-person-lines-fill"></i> Vendedores</a></li>
                 </ul>
             </li>
             {% endif %}

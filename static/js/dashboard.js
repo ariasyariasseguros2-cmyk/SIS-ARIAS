@@ -36,19 +36,31 @@ document.addEventListener('DOMContentLoaded', () => {
         // Toggle de submenús en sidebar
         document.querySelectorAll('.group-toggle').forEach(btn => {
             const li = btn.closest('.nav-group');
-            // Si el grupo ya viene marcado como open en el DOM, no lo cerramos
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevenir que el click se propague al documento
                 const isOpen = li.classList.contains('open');
+                
+                // Cerrar otros grupos
+                document.querySelectorAll('.nav-group.open').forEach(g => {
+                    if (g !== li) g.classList.remove('open', 'active-group');
+                });
+
                 if (isOpen) {
                     li.classList.remove('open', 'active-group');
                 } else {
-                    // cerrar otros grupos (si se desea comportamiento acordeón)
-                    document.querySelectorAll('.nav-group.open').forEach(g => {
-                        g.classList.remove('open', 'active-group');
-                    });
                     li.classList.add('open', 'active-group');
                 }
             });
+        });
+
+        // Cerrar menús al hacer click fuera
+        document.addEventListener('click', (e) => {
+            // Si el click no es dentro de un nav-group ni es un group-toggle
+            if (!e.target.closest('.nav-group') && !e.target.closest('.group-toggle')) {
+                document.querySelectorAll('.nav-group.open').forEach(g => {
+                    g.classList.remove('open', 'active-group');
+                });
+            }
         });
 
         // Marcar activo y abrir grupo según currentPage

@@ -24,6 +24,12 @@
   --submenu-hover-bg: #f1f5f9;
   --border-muted: rgba(0, 0, 0, 0.05);
   --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+
+  /* Accent Colors for Light Theme */
+  --accent-blue: #3b82f6;
+  --accent-cyan: #06b6d4;
+  --accent-orange: #f97316;
+  --accent-green: #22c55e;
 }
 
 [data-theme='dark'] {
@@ -31,10 +37,11 @@
   --layout-bg: #0d0d0d;      /* Deep Carbon Black */
   --topbar-bg: #141414;      /* Slightly Lighter Matte Black */
   --nav-bg: #0d0d0d;
+  --nav-text: #ffffff;
   --card-bg: #1a1a1a;        /* Matte Grey/Black Card */
   --card-border: rgba(255, 255, 255, 0.04);
-  --text-primary: #e6e6e6;   /* Crisp Off-White */
-  --text-secondary: #8a8a8a; /* Neutral Grey */
+  --text-primary: #ffffff;   /* Pure White as requested */
+  --text-secondary: #b0b0b0; /* Lighter Grey for better visibility */
   
   /* Vibrant Accent Colors - Based on the reference image */
   --accent-blue: #3b82f6;    
@@ -46,9 +53,14 @@
   --nav-active-bg: rgba(255, 255, 255, 0.05); 
   --nav-active-text: #ffffff;
   --submenu-bg: #141414;
+  --submenu-text: #ffffff; /* White submenu text as requested */
   --submenu-hover-bg: rgba(255, 255, 255, 0.03);
   --border-muted: rgba(255, 255, 255, 0.02);
   --card-shadow: none;
+}
+
+[data-theme='dark'] .submenu li {
+    opacity: 1 !important; /* Ensure full visibility in dark mode */
 }
 
 body {
@@ -59,11 +71,22 @@ body {
 
 * { box-sizing: border-box; }
 
+body {
+    background-color: var(--layout-bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+}
+
+[data-theme='dark'] body {
+    background-color: var(--layout-bg) !important;
+}
+
 .layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 240px 1fr;
   min-height: 100vh;
   background: var(--layout-bg);
+
   transition: all 0.3s ease;
 }
 
@@ -256,15 +279,15 @@ body {
     background-color: rgba(255, 255, 255, 0.03) !important;
 }
 
-.table {
+.table, .table th, .table td {
     color: var(--text-primary) !important;
     border-color: var(--card-border) !important;
 }
 
 .table thead th {
-    background-color: var(--nav-active-bg) !important;
+    background-color: var(--topbar-bg) !important;
     color: var(--text-primary) !important;
-    border-color: var(--card-border) !important;
+    border-bottom: 2px solid var(--accent-orange) !important;
 }
 
 .table td {
@@ -366,7 +389,7 @@ h1, h2, h3, h4, h5, h6 {
   /* Upper Row: Blue Gradient */
   .sidebar-top {
     height: 60px;
-    background: #0a0f1c !important; /* Fixed dark background to match reference */
+    background: var(--topbar-bg) !important; /* Responsive to theme variables */
     padding: 0 24px;
     display: flex;
     align-items: center;
@@ -437,11 +460,16 @@ h1, h2, h3, h4, h5, h6 {
       width: 24px;
       height: 24px;
       background: #fff;
-      color: #1e4b8a;
+      color: var(--sidebar-bg); /* Use theme variable */
       border-radius: 50%;
       display: grid;
       place-items: center;
       font-size: 0.75rem;
+  }
+
+  [data-theme='dark'] .user-box .avatar {
+      background: var(--accent-orange) !important;
+      color: #ffffff !important;
   }
   .user-box .name {
       color: #ffffff !important;
@@ -462,7 +490,7 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   [data-theme='dark'] .sidebar-nav {
-      background: #070b14 !important; /* Matches main background to look integrated */
+      background: #0d0d0d !important; /* Pure carbon black to match background */
       border-bottom: 1px solid rgba(255, 255, 255, 0.03);
       box-shadow: none;
   }
@@ -565,7 +593,7 @@ h1, h2, h3, h4, h5, h6 {
 
   [data-theme='dark'] .nav-list > li:not(.nav-group) a,
   [data-theme='dark'] .group-toggle {
-      color: rgba(255, 255, 255, 0.5) !important;
+      color: var(--nav-text) !important;
       opacity: 1;
   }
 
@@ -637,8 +665,9 @@ h1, h2, h3, h4, h5, h6 {
       margin-bottom: 2px;
   }
   .submenu li a {
-    display: flex;
-    align-items: center;
+    display: flex !important;
+    flex-direction: row !important; /* Force icons next to text */
+    align-items: center !important;
     gap: 10px;
     padding: 8px 12px;
     border-radius: 8px;
@@ -647,6 +676,7 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 0.85rem;
     font-weight: 500;
     transition: all 0.2s;
+    white-space: normal; /* Allow long text to wrap but keep flex row */
   }
   .submenu li a:hover {
       background: var(--submenu-hover-bg);
@@ -659,10 +689,17 @@ h1, h2, h3, h4, h5, h6 {
       font-weight: 700;
   }
   .submenu li a i {
-      font-size: 0.9rem;
+      font-size: 0.95rem; /* Slightly larger */
       color: var(--text-secondary);
-      opacity: 0.6;
-      width: 16px;
+      opacity: 0.8; /* More visible */
+      width: 20px; /* Fixed width for alignment */
+      min-width: 20px;
+      display: flex;
+      justify-content: center;
+  }
+  [data-theme='dark'] .submenu li a i {
+      color: #ffffff !important;
+      opacity: 1 !important;
   }
   .submenu li a:hover i,
   .submenu li.active a i {

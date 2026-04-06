@@ -1,15 +1,116 @@
+/* Ajustadores Page Styles - Theme Aware */
+
+/* Contenedor principal */
+.container {
+    padding-top: 2rem;
+    color: var(--text-primary);
+}
+
+/* Títulos */
+h4 {
+    color: var(--text-primary) !important;
+    font-weight: 700;
+    margin-bottom: 0;
+}
+
+/* Tabla */
+#ajustadoresTable {
+    margin-top: 1rem;
+    background-color: var(--card-bg);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--card-border);
+}
+
+#ajustadoresTable thead th {
+    background-color: var(--topbar-bg) !important;
+    color: var(--text-primary) !important;
+    border-bottom: 2px solid var(--accent-orange);
+    padding: 12px 15px;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+}
+
 #ajustadoresTable tbody td {
+    color: var(--text-primary) !important;
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--card-border);
     vertical-align: middle;
 }
 
-#ajustadorForm {
-    margin-top: 12px;
-    background: #fff;
-    padding: 12px;
-    border-radius: 6px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+/* Striped effect for dark theme */
+[data-theme='dark'] .table-striped>tbody>tr:nth-of-type(odd)>* {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+    color: var(--text-primary) !important;
 }
 
-.page-header h2 {
-    margin-bottom: 12px;
+[data-theme='dark'] .table-striped>tbody>tr:nth-of-type(even)>* {
+    background-color: transparent !important;
+    color: var(--text-primary) !important;
+}
+
+/* Hover effect */
+.table-hover tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Modal specific overrides */
+#modalAjustador .modal-content {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+}
+
+#modalAjustador .modal-header {
+    border-bottom: 1px solid var(--card-border);
+    padding: 1.5rem;
+}
+
+#modalAjustador .modal-footer {
+    border-top: 1px solid var(--card-border);
+    padding: 1.25rem 1.5rem;
+}
+
+#modalAjustador .form-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+#modalAjustador .form-control {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid var(--card-border);
+    color: var(--text-primary) !important;
+    border-radius: 8px;
+    padding: 10px 15px;
+}
+
+#modalAjustador .form-control:focus {
+    border-color: var(--accent-orange);
+    box-shadow: 0 0 0 0.25rem rgba(249, 115, 22, 0.1);
+}
+
+/* Pagination */
+.pagination .page-link {
+    background-color: var(--card-bg);
+    border-color: var(--card-border);
+    color: var(--text-primary);
+}
+
+.pagination .page-item.active .page-link {
+    background-color: var(--accent-orange);
+    border-color: var(--accent-orange);
+    color: white;
+}
+
+.pagination .page-item.disabled .page-link {
+    background-color: var(--card-bg);
+    opacity: 0.5;
+}
+
+/* Info text */
+#maestros-info {
+    font-size: 0.9rem;
+    color: var(--text-secondary) !important;
 }
