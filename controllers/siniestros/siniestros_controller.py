@@ -213,7 +213,13 @@ def insert_siniestro():
 		numero_poliza = data.get('poliza')
 		poliza_id = None
 		if numero_poliza:
-			cursor.execute("SELECT idPoliza FROM polizas WHERE poliza = %s AND activo = 1 LIMIT 1", (numero_poliza,))
+			cursor.execute("""
+                SELECT idPoliza 
+                FROM polizas 
+                WHERE (AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) = %s OR poliza = %s) 
+                  AND activo = 1 
+                LIMIT 1
+            """, (numero_poliza, numero_poliza))
 			row_poliza = cursor.fetchone()
 			if row_poliza:
 				poliza_id = row_poliza['idPoliza']
@@ -796,7 +802,7 @@ def get_grupo_ramo_poliza():
                     LIMIT 1 \
                 """
         cursor.execute(query, (poliza, poliza))
-        cursor.execute(query, (poliza,))
+        resultado = cursor.fetchone()
 
         cursor.close()
         connection.close()
