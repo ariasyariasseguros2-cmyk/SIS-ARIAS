@@ -3487,8 +3487,15 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
         print("[provider] mapfre item pension:", item)
         return [item] if item else []
     if prov == "mapfre-vida-ley":
-        from controllers.addMapfreVidaLey import parse_mapfre_vidaley
-        item = parse_mapfre_vidaley(text)
+        try:
+            from controllers.addMapfreVidaLeyv2 import parse_mapfre_vidaley_v2
+            item = parse_mapfre_vidaley_v2(text)
+        except Exception as _e_v2:
+            item = None
+        # Aceptar ítem de v2 si al menos trae número de póliza; si no, fallback a v1
+        if not item or not item.get('numero_poliza'):
+            from controllers.addMapfreVidaLey import parse_mapfre_vidaley
+            item = parse_mapfre_vidaley(text)
         print("[provider] mapfre-vida-ley item:", item)
         return [item] if item else []
 
@@ -4167,17 +4174,17 @@ def menu_siniestros_poliza():
 
             query = """
                 SELECT 
-                    c.razon_social AS contratante,
-                    p.asegurado,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR), c.razon_social) AS contratante,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR), p.asegurado) AS asegurado,
                     p.cia,
                     p.ramo,
                     p.asegurada
                 FROM polizas p
                 INNER JOIN clientes c ON c.idCliente = p.cliente_id
-                WHERE p.poliza = %s
+                WHERE AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) = %s OR p.poliza = %s
                 LIMIT 1
             """
-            cursor.execute(query, (poliza,))
+            cursor.execute(query, (poliza, poliza))
             poliza_data = cursor.fetchone()
 
             if poliza_data:
