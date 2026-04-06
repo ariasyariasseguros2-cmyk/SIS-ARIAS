@@ -312,7 +312,7 @@ def get_clientes_anulados_data():
                 FROM clientes 
                 WHERE activo = 0 AND subagente = %s
                 ORDER BY idCliente DESC
-            """, (key, key, key, key, key, key, user))
+            """, (key, key, key, key, key, key, key, key, user))
         else:
             cur.execute("""
                 SELECT 
@@ -345,7 +345,7 @@ def get_clientes_anulados_data():
                 FROM clientes 
                 WHERE activo = 0
                 ORDER BY idCliente DESC
-            """, (key, key, key, key, key, key))
+            """, (key, key, key, key, key, key, key, key))
             
         db_rows = cur.fetchall()
         cur.close()
