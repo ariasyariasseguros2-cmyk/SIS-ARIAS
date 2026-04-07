@@ -1,5 +1,5 @@
 from flask import request, session
-from models.db import get_connection
+from models.db import get_connection, get_encrypt_key
 from datetime import datetime
 from utils.rbac import Roles
 
@@ -45,6 +45,7 @@ def get_estado_cuenta_data(filtros_input=None):
 
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
+        key = get_encrypt_key()
 
         # Datos del cliente
         cliente = None
@@ -58,12 +59,18 @@ def get_estado_cuenta_data(filtros_input=None):
         # Buscar cliente
         if filters['cliente_id']:
             query = """
-                SELECT idCliente, razon_social, tipo_documento, numero_documento,
-                       direccion, telefono, email, subagente
+                SELECT idCliente, 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR), CAST(AES_DECRYPT(razon_social, %s) AS CHAR), razon_social) AS razon_social,
+                       tipo_documento, 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR), CAST(AES_DECRYPT(numero_documento, %s) AS CHAR), numero_documento) AS numero_documento,
+                       direccion, 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR), CAST(AES_DECRYPT(telefono, %s) AS CHAR), telefono) AS telefono,
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR), CAST(AES_DECRYPT(email, %s) AS CHAR), email) AS email,
+                       subagente
                 FROM clientes 
                 WHERE idCliente = %s
             """
-            params = [filters['cliente_id']]
+            params = [key, key, key, key, key, key, key, key, filters['cliente_id']]
             
             if es_subagente:
                 query += " AND subagente = %s"
@@ -76,13 +83,23 @@ def get_estado_cuenta_data(filtros_input=None):
         elif filters['tipo_documento'] and filters['numero_documento']:
             # Búsqueda por tipo y número de documento (sin necesidad de cliente_search)
             query = """
-                SELECT idCliente, razon_social, tipo_documento, numero_documento,
-                       direccion, telefono, email, subagente
+                SELECT idCliente, 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR), CAST(AES_DECRYPT(razon_social, %s) AS CHAR), razon_social) AS razon_social,
+                       tipo_documento, 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR), CAST(AES_DECRYPT(numero_documento, %s) AS CHAR), numero_documento) AS numero_documento,
+                       direccion, 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR), CAST(AES_DECRYPT(telefono, %s) AS CHAR), telefono) AS telefono,
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR), CAST(AES_DECRYPT(email, %s) AS CHAR), email) AS email,
+                       subagente
                 FROM clientes 
                 WHERE tipo_documento = %s 
-                  AND numero_documento = %s
+                  AND (
+                    CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) = %s
+                    OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) = %s
+                    OR numero_documento = %s
+                  )
             """
-            params = [filters['tipo_documento'], filters['numero_documento']]
+            params = [key, key, key, key, key, key, key, key, filters['tipo_documento'], key, filters['numero_documento'], key, filters['numero_documento'], filters['numero_documento']]
             
             if es_subagente:
                 query += " AND subagente = %s"
@@ -95,12 +112,21 @@ def get_estado_cuenta_data(filtros_input=None):
         elif filters['numero_documento']:
             # Búsqueda solo por número de documento
             query = """
-                SELECT idCliente, razon_social, tipo_documento, numero_documento,
-                       direccion, telefono, email
+                SELECT idCliente, 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR), CAST(AES_DECRYPT(razon_social, %s) AS CHAR), razon_social) AS razon_social,
+                       tipo_documento, 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR), CAST(AES_DECRYPT(numero_documento, %s) AS CHAR), numero_documento) AS numero_documento,
+                       direccion, 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR), CAST(AES_DECRYPT(telefono, %s) AS CHAR), telefono) AS telefono,
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR), CAST(AES_DECRYPT(email, %s) AS CHAR), email) AS email
                 FROM clientes
-                WHERE numero_documento = %s
+                WHERE (
+                    CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) = %s
+                    OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) = %s
+                    OR numero_documento = %s
+                )
             """
-            params = [filters['numero_documento']]
+            params = [key, key, key, key, key, key, key, key, key, filters['numero_documento'], key, filters['numero_documento'], filters['numero_documento']]
             
             if es_subagente:
                 query += " AND subagente = %s"
@@ -114,12 +140,24 @@ def get_estado_cuenta_data(filtros_input=None):
             # Búsqueda por texto en nombre o documento
             search_term = f"%{filters['cliente_search']}%"
             query = """
-                SELECT idCliente, razon_social, tipo_documento, numero_documento,
-                       direccion, telefono, email
+                SELECT idCliente, 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR), CAST(AES_DECRYPT(razon_social, %s) AS CHAR), razon_social) AS razon_social,
+                       tipo_documento, 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR), CAST(AES_DECRYPT(numero_documento, %s) AS CHAR), numero_documento) AS numero_documento,
+                       direccion, 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR), CAST(AES_DECRYPT(telefono, %s) AS CHAR), telefono) AS telefono,
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR), CAST(AES_DECRYPT(email, %s) AS CHAR), email) AS email
                 FROM clientes 
-                WHERE (razon_social LIKE %s OR numero_documento LIKE %s)
+                WHERE (
+                    CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR) LIKE %s
+                    OR CAST(AES_DECRYPT(razon_social, %s) AS CHAR) LIKE %s
+                    OR razon_social LIKE %s
+                    OR CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) LIKE %s
+                    OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) LIKE %s
+                    OR numero_documento LIKE %s
+                )
             """
-            params = [search_term, search_term]
+            params = [key, key, key, key, key, key, key, key, key, search_term, key, search_term, search_term, key, search_term, key, search_term, search_term]
             
             if es_subagente:
                 query += " AND subagente = %s"
@@ -145,15 +183,15 @@ def get_estado_cuenta_data(filtros_input=None):
                     p.ramo,
                     p.ramos_producto AS producto,
                     p.tipo_doc,
-                    p.poliza,
-                    p.recibo AS proforma,
-                    q.cupon AS cupon,
-                    q.factura AS factura,
-                    DATE_FORMAT(q.fecha_pago, '%d/%m/%Y') AS fecha_pago,
-                    DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
-                    DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
-                    DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
-                    DATE_FORMAT(COALESCE(q.fecha_vencimiento, p.fecha_vencimiento), '%d/%m/%Y') AS fecha_venc,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), %s) AS CHAR), CAST(AES_DECRYPT(p.poliza, %s) AS CHAR), p.poliza) AS poliza,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), %s) AS CHAR), CAST(AES_DECRYPT(p.recibo, %s) AS CHAR), p.recibo) AS proforma,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(q.cupon), %s) AS CHAR), CAST(AES_DECRYPT(q.cupon, %s) AS CHAR), q.cupon) AS cupon,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(q.factura), %s) AS CHAR), CAST(AES_DECRYPT(q.factura, %s) AS CHAR), q.factura) AS factura,
+                    DATE_FORMAT(q.fecha_pago, '%%d/%%m/%%Y') AS fecha_pago,
+                    DATE_FORMAT(p.fecha_emision, '%%d/%%m/%%Y') AS fecha_emision,
+                    DATE_FORMAT(p.vig_desde, '%%d/%%m/%%Y') AS vig_inicio,
+                    DATE_FORMAT(p.vig_hasta, '%%d/%%m/%%Y') AS vig_fin,
+                    DATE_FORMAT(COALESCE(q.fecha_vencimiento, p.fecha_vencimiento), '%%d/%%m/%%Y') AS fecha_venc,
                     COALESCE(q.moneda, p.moneda) AS moneda,
                     p.prima_comercial_igv AS monto_cta_cobrar,
                     CASE 
@@ -166,28 +204,28 @@ def get_estado_cuenta_data(filtros_input=None):
                     END AS estado
                 FROM polizas p
                 LEFT JOIN cuotas q ON q.poliza_id = p.idPoliza
-                WHERE p.cliente_id = %s
+                WHERE p.cliente_id = %%s
             """
 
-            params = [cliente['idCliente']]
+            params = [key, key, key, key, key, key, key, key, cliente['idCliente']]
 
             # Aplicar filtros adicionales
             if filters['compania']:
-                query += " AND p.cia = %s"
+                query += " AND p.cia = %%s"
                 params.append(filters['compania'])
 
             if filters['moneda']:
                 moneda_filtro = filters['moneda'].upper()
                 if 'SOLES' in moneda_filtro or 'S/' in moneda_filtro:
-                    query += " AND (UPPER(p.moneda) LIKE '%SOLES%' OR UPPER(p.moneda) LIKE '%S/%')"
+                    query += " AND (UPPER(p.moneda) LIKE '%%SOLES%%' OR UPPER(p.moneda) LIKE '%%S/%%')"
                 elif 'DOLAR' in moneda_filtro or 'US$' in moneda_filtro or 'USD' in moneda_filtro:
-                    query += " AND (UPPER(p.moneda) LIKE '%DOLAR%' OR UPPER(p.moneda) LIKE '%US$%' OR UPPER(p.moneda) LIKE '%USD%')"
+                    query += " AND (UPPER(p.moneda) LIKE '%%DOLAR%%' OR UPPER(p.moneda) LIKE '%%US$%%' OR UPPER(p.moneda) LIKE '%%USD%%')"
                 else:
-                    query += " AND p.moneda = %s"
+                    query += " AND p.moneda = %%s"
                     params.append(filters['moneda'])
 
             if filters['ramo']:
-                query += " AND p.ramo = %s"
+                query += " AND p.ramo = %%s"
                 params.append(filters['ramo'])
 
             # estado filtrado luego en Python para considerar cuotas
@@ -195,11 +233,11 @@ def get_estado_cuenta_data(filtros_input=None):
             if filters['fecha_desde'] and filters['fecha_hasta']:
                 # Buscar pólizas donde CUALQUIER fecha esté dentro del rango
                 query += """ AND (
-                    (p.fecha_emision BETWEEN %s AND %s) OR
-                    (p.fecha_vencimiento BETWEEN %s AND %s) OR
-                    (p.vig_desde BETWEEN %s AND %s) OR
-                    (p.vig_hasta BETWEEN %s AND %s) OR
-                    (q.fecha_vencimiento BETWEEN %s AND %s)
+                    (p.fecha_emision BETWEEN %%s AND %%s) OR
+                    (p.fecha_vencimiento BETWEEN %%s AND %%s) OR
+                    (p.vig_desde BETWEEN %%s AND %%s) OR
+                    (p.vig_hasta BETWEEN %%s AND %%s) OR
+                    (q.fecha_vencimiento BETWEEN %%s AND %%s)
                 )"""
                 params.extend([
                     filters['fecha_desde'], filters['fecha_hasta'],  # fecha_emision
@@ -211,11 +249,11 @@ def get_estado_cuenta_data(filtros_input=None):
             elif filters['fecha_desde']:
                 # Solo fecha desde: cualquier fecha >= fecha_desde
                 query += """ AND (
-                    p.fecha_emision >= %s OR
-                    p.fecha_vencimiento >= %s OR
-                    p.vig_desde >= %s OR
-                    p.vig_hasta >= %s OR
-                    q.fecha_vencimiento >= %s
+                    p.fecha_emision >= %%s OR
+                    p.fecha_vencimiento >= %%s OR
+                    p.vig_desde >= %%s OR
+                    p.vig_hasta >= %%s OR
+                    q.fecha_vencimiento >= %%s
                 )"""
                 params.extend([
                     filters['fecha_desde'],
@@ -227,11 +265,11 @@ def get_estado_cuenta_data(filtros_input=None):
             elif filters['fecha_hasta']:
                 # Solo fecha hasta: cualquier fecha <= fecha_hasta
                 query += """ AND (
-                    p.fecha_emision <= %s OR
-                    p.fecha_vencimiento <= %s OR
-                    p.vig_desde <= %s OR
-                    p.vig_hasta <= %s OR
-                    q.fecha_vencimiento <= %s
+                    p.fecha_emision <= %%s OR
+                    p.fecha_vencimiento <= %%s OR
+                    p.vig_desde <= %%s OR
+                    p.vig_hasta <= %%s OR
+                    q.fecha_vencimiento <= %%s
                 )"""
                 params.extend([
                     filters['fecha_hasta'],
@@ -243,7 +281,9 @@ def get_estado_cuenta_data(filtros_input=None):
 
             query += " ORDER BY p.cia ASC, p.fecha_emision DESC, p.vig_desde DESC"
 
-            cur.execute(query, params)
+            # Reemplazar %% por % para la ejecución
+            query_exec = query.replace('%%', '%')
+            cur.execute(query_exec, params)
             polizas = cur.fetchall() or []
 
             if filters['estado']:
@@ -324,6 +364,7 @@ def buscar_clientes(search_term):
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
+        key = get_encrypt_key()
 
         search = f"%{search_term}%"
         
@@ -335,31 +376,45 @@ def buscar_clientes(search_term):
             cur.execute("""
                 SELECT 
                     idCliente,
-                    razon_social,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR), CAST(AES_DECRYPT(razon_social, %s) AS CHAR), razon_social) AS razon_social,
                     tipo_documento,
-                    numero_documento,
-                    telefono,
-                    email
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR), CAST(AES_DECRYPT(numero_documento, %s) AS CHAR), numero_documento) AS numero_documento,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR), CAST(AES_DECRYPT(telefono, %s) AS CHAR), telefono) AS telefono,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR), CAST(AES_DECRYPT(email, %s) AS CHAR), email) AS email
                 FROM clientes
-                WHERE (razon_social LIKE %s OR numero_documento LIKE %s)
+                WHERE (
+                    CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR) LIKE %s
+                    OR CAST(AES_DECRYPT(razon_social, %s) AS CHAR) LIKE %s
+                    OR razon_social LIKE %s
+                    OR CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) LIKE %s
+                    OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) LIKE %s
+                    OR numero_documento LIKE %s
+                )
                   AND subagente = %s
                 ORDER BY razon_social
                 LIMIT 20
-            """, (search, search, usuario_actual))
+            """, (key, key, key, key, key, key, key, key, key, search, key, search, search, key, search, key, search, search, usuario_actual))
         else:
             cur.execute("""
                 SELECT 
                     idCliente,
-                    razon_social,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR), CAST(AES_DECRYPT(razon_social, %s) AS CHAR), razon_social) AS razon_social,
                     tipo_documento,
-                    numero_documento,
-                    telefono,
-                    email
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR), CAST(AES_DECRYPT(numero_documento, %s) AS CHAR), numero_documento) AS numero_documento,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR), CAST(AES_DECRYPT(telefono, %s) AS CHAR), telefono) AS telefono,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR), CAST(AES_DECRYPT(email, %s) AS CHAR), email) AS email
                 FROM clientes
-                WHERE (razon_social LIKE %s OR numero_documento LIKE %s)
+                WHERE (
+                    CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR) LIKE %s
+                    OR CAST(AES_DECRYPT(razon_social, %s) AS CHAR) LIKE %s
+                    OR razon_social LIKE %s
+                    OR CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) LIKE %s
+                    OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) LIKE %s
+                    OR numero_documento LIKE %s
+                )
                 ORDER BY razon_social
                 LIMIT 20
-            """, (search, search))
+            """, (key, key, key, key, key, key, key, key, key, search, key, search, search, key, search, key, search, search))
 
         clientes = cur.fetchall() or []
 
@@ -400,6 +455,7 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
     # Reusar la lógica de consulta para obtener polizas
     cnx = get_connection()
     cur = cnx.cursor(dictionary=True)
+    key = get_encrypt_key()
 
     cliente = None
     polizas = []
@@ -412,10 +468,14 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
     # Buscar cliente (misma lógica que get_estado_cuenta_data)
     if filters['cliente_id']:
         query = """
-            SELECT idCliente, razon_social, tipo_documento, numero_documento, subagente
+            SELECT idCliente, 
+                   COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR), CAST(AES_DECRYPT(razon_social, %s) AS CHAR), razon_social) AS razon_social,
+                   tipo_documento, 
+                   COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR), CAST(AES_DECRYPT(numero_documento, %s) AS CHAR), numero_documento) AS numero_documento,
+                   subagente
             FROM clientes WHERE idCliente = %s
         """
-        params = [filters['cliente_id']]
+        params = [key, key, key, key, filters['cliente_id']]
         
         if es_subagente:
             query += " AND subagente = %s"
@@ -426,10 +486,20 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
 
     elif filters['tipo_documento'] and filters['numero_documento']:
         query = """
-            SELECT idCliente, razon_social, tipo_documento, numero_documento, subagente
-            FROM clientes WHERE tipo_documento = %s AND numero_documento = %s
+            SELECT idCliente, 
+                   COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR), CAST(AES_DECRYPT(razon_social, %s) AS CHAR), razon_social) AS razon_social,
+                   tipo_documento, 
+                   COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR), CAST(AES_DECRYPT(numero_documento, %s) AS CHAR), numero_documento) AS numero_documento,
+                   subagente
+            FROM clientes 
+            WHERE tipo_documento = %s 
+              AND (
+                CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) = %s
+                OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) = %s
+                OR numero_documento = %s
+              )
         """
-        params = [filters['tipo_documento'], filters['numero_documento']]
+        params = [key, key, key, key, filters['tipo_documento'], key, filters['numero_documento'], key, filters['numero_documento'], filters['numero_documento']]
         
         if es_subagente:
             query += " AND subagente = %s"
@@ -440,10 +510,19 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
 
     elif filters['numero_documento']:
         query = """
-            SELECT idCliente, razon_social, tipo_documento, numero_documento, subagente
-            FROM clientes WHERE numero_documento = %s
+            SELECT idCliente, 
+                   COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR), CAST(AES_DECRYPT(razon_social, %s) AS CHAR), razon_social) AS razon_social,
+                   tipo_documento, 
+                   COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR), CAST(AES_DECRYPT(numero_documento, %s) AS CHAR), numero_documento) AS numero_documento,
+                   subagente
+            FROM clientes 
+            WHERE (
+                CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) = %s
+                OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) = %s
+                OR numero_documento = %s
+            )
         """
-        params = [filters['numero_documento']]
+        params = [key, key, key, key, key, filters['numero_documento'], key, filters['numero_documento'], filters['numero_documento']]
         
         if es_subagente:
             query += " AND subagente = %s"
@@ -455,10 +534,22 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
     elif filters['cliente_search']:
         search_term = f"%{filters['cliente_search']}%"
         query = """
-            SELECT idCliente, razon_social, tipo_documento, numero_documento, subagente
-            FROM clientes WHERE (razon_social LIKE %s OR numero_documento LIKE %s)
+            SELECT idCliente, 
+                   COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR), CAST(AES_DECRYPT(razon_social, %s) AS CHAR), razon_social) AS razon_social,
+                   tipo_documento, 
+                   COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR), CAST(AES_DECRYPT(numero_documento, %s) AS CHAR), numero_documento) AS numero_documento,
+                   subagente
+            FROM clientes 
+            WHERE (
+                CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR) LIKE %s
+                OR CAST(AES_DECRYPT(razon_social, %s) AS CHAR) LIKE %s
+                OR razon_social LIKE %s
+                OR CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) LIKE %s
+                OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) LIKE %s
+                OR numero_documento LIKE %s
+            )
         """
-        params = [search_term, search_term]
+        params = [key, key, key, key, key, search_term, key, search_term, search_term, key, search_term, key, search_term, search_term]
         
         if es_subagente:
             query += " AND subagente = %s"
@@ -479,15 +570,15 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
                 p.ramo,
                 p.ramos_producto AS producto,
                 p.tipo_doc,
-                p.poliza,
-                p.recibo AS proforma,
-                q.cupon AS cupon,
-                q.factura AS factura,
-                DATE_FORMAT(q.fecha_pago, '%d/%m/%Y') AS fecha_pago,
-                DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
-                DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
-                DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
-                DATE_FORMAT(COALESCE(q.fecha_vencimiento, p.fecha_vencimiento), '%d/%m/%Y') AS fecha_venc,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), %s) AS CHAR), CAST(AES_DECRYPT(p.poliza, %s) AS CHAR), p.poliza) AS poliza,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), %s) AS CHAR), CAST(AES_DECRYPT(p.recibo, %s) AS CHAR), p.recibo) AS proforma,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(q.cupon), %s) AS CHAR), CAST(AES_DECRYPT(q.cupon, %s) AS CHAR), q.cupon) AS cupon,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(q.factura), %s) AS CHAR), CAST(AES_DECRYPT(q.factura, %s) AS CHAR), q.factura) AS factura,
+                DATE_FORMAT(q.fecha_pago, '%%d/%%m/%%Y') AS fecha_pago,
+                DATE_FORMAT(p.fecha_emision, '%%d/%%m/%%Y') AS fecha_emision,
+                DATE_FORMAT(p.vig_desde, '%%d/%%m/%%Y') AS vig_inicio,
+                DATE_FORMAT(p.vig_hasta, '%%d/%%m/%%Y') AS vig_fin,
+                DATE_FORMAT(COALESCE(q.fecha_vencimiento, p.fecha_vencimiento), '%%d/%%m/%%Y') AS fecha_venc,
                 COALESCE(q.moneda, p.moneda) AS moneda,
                 p.prima_comercial_igv AS monto_cta_cobrar,
                 CASE 
@@ -500,42 +591,45 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
                 END AS estado
             FROM polizas p
             LEFT JOIN cuotas q ON q.poliza_id = p.idPoliza
-            WHERE p.cliente_id = %s
+            WHERE p.cliente_id = %%s
         """
-        params = [cliente['idCliente']]
+        params = [key, key, key, key, key, key, key, key, cliente['idCliente']]
 
         if filters['compania']:
-            query += " AND p.cia = %s"
+            query += " AND p.cia = %%s"
             params.append(filters['compania'])
 
         if filters['moneda']:
             moneda_filtro = filters['moneda'].upper()
             if 'SOLES' in moneda_filtro or 'S/' in moneda_filtro:
-                query += " AND (UPPER(p.moneda) LIKE '%SOLES%' OR UPPER(p.moneda) LIKE '%S/%')"
+                query += " AND (UPPER(p.moneda) LIKE '%%SOLES%%' OR UPPER(p.moneda) LIKE '%%S/%%')"
             elif 'DOLAR' in moneda_filtro or 'US$' in moneda_filtro or 'USD' in moneda_filtro:
-                query += " AND (UPPER(p.moneda) LIKE '%DOLAR%' OR UPPER(p.moneda) LIKE '%US$%' OR UPPER(p.moneda) LIKE '%USD%')"
+                query += " AND (UPPER(p.moneda) LIKE '%%DOLAR%%' OR UPPER(p.moneda) LIKE '%%US$%%' OR UPPER(p.moneda) LIKE '%%USD%%')"
             else:
-                query += " AND p.moneda = %s"
+                query += " AND p.moneda = %%s"
                 params.append(filters['moneda'])
 
         if filters['ramo']:
-            query += " AND p.ramo = %s"
+            query += " AND p.ramo = %%s"
             params.append(filters['ramo'])
 
         # estado filtrado luego en Python para considerar cuotas
 
         if filters['fecha_desde'] and filters['fecha_hasta']:
-            query += """ AND ((p.fecha_emision BETWEEN %s AND %s) OR (p.fecha_vencimiento BETWEEN %s AND %s) OR (p.vig_desde BETWEEN %s AND %s) OR (p.vig_hasta BETWEEN %s AND %s) OR (q.fecha_vencimiento BETWEEN %s AND %s))"""
+            query += """ AND ((p.fecha_emision BETWEEN %%s AND %%s) OR (p.fecha_vencimiento BETWEEN %%s AND %%s) OR (p.vig_desde BETWEEN %%s AND %%s) OR (p.vig_hasta BETWEEN %%s AND %%s) OR (q.fecha_vencimiento BETWEEN %%s AND %%s))"""
             params.extend([filters['fecha_desde'], filters['fecha_hasta']] * 5)
         elif filters['fecha_desde']:
-            query += """ AND (p.fecha_emision >= %s OR p.fecha_vencimiento >= %s OR p.vig_desde >= %s OR p.vig_hasta >= %s OR q.fecha_vencimiento >= %s)"""
+            query += """ AND (p.fecha_emision >= %%s OR p.fecha_vencimiento >= %%s OR p.vig_desde >= %%s OR p.vig_hasta >= %%s OR q.fecha_vencimiento >= %%s)"""
             params.extend([filters['fecha_desde']] * 5)
         elif filters['fecha_hasta']:
-            query += """ AND (p.fecha_emision <= %s OR p.fecha_vencimiento <= %s OR p.vig_desde <= %s OR p.vig_hasta <= %s OR q.fecha_vencimiento <= %s)"""
+            query += """ AND (p.fecha_emision <= %%s OR p.fecha_vencimiento <= %%s OR p.vig_desde <= %%s OR p.vig_hasta <= %%s OR q.fecha_vencimiento <= %%s)"""
             params.extend([filters['fecha_hasta']] * 5)
 
         query += " ORDER BY p.cia ASC, p.fecha_emision DESC, p.vig_desde DESC"
-        cur.execute(query, params)
+        
+        # Reemplazar %% por % para la ejecución
+        query_exec = query.replace('%%', '%')
+        cur.execute(query_exec, params)
         polizas = cur.fetchall() or []
 
         if filters['estado']:
