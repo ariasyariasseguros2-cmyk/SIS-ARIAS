@@ -591,9 +591,33 @@ def lookup_comision_route():
 def home():
     if 'user' not in session:
         return redirect(url_for('login'))
-    rows = get_dashboard_rows()
-    chart = get_dashboard_data()
-    cards = get_dashboard_cards()
+
+    # Solo BROKER consulta métricas reales; el resto ve la vista en estado cero.
+    if session.get('role_name') == Roles.BROKER:
+        rows = get_dashboard_rows()
+        chart = get_dashboard_data()
+        cards = get_dashboard_cards()
+    else:
+        rows = []
+        chart = {
+            'months': [],
+            'totals': [],
+            'daily_labels': [],
+            'daily_income': [],
+        }
+        cards = {
+            'prima_neta_soles': '0.00',
+            'prima_neta_dolares': '0.00',
+            'comision_soles': '0.00',
+            'comision_dolares': '0.00',
+            'total_production': '$0.00',
+            'prod_diff': 0,
+            'total_policies': 0,
+            'active_policies': 0,
+            'last_client_id': 0,
+            'pending_renewals': 0,
+        }
+
     return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards)
 
 
