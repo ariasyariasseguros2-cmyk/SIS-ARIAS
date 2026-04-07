@@ -14,10 +14,33 @@ def get_reporte_diario_data(filters=None):
         sql = """
             SELECT
                 p.idPoliza,
-                p.poliza,
-                p.contrato_nro,
-                p.nro,
-                COALESCE(c.razon_social, p.asegurado) AS cliente,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza
+                ) AS poliza,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.contrato_nro), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.contrato_nro, @SIS_KEY) AS CHAR),
+                    p.contrato_nro
+                ) AS contrato_nro,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+                    p.nro
+                ) AS nro,
+                COALESCE(
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                        c.razon_social
+                    ),
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+                        p.asegurado
+                    )
+                ) AS cliente,
                 p.cia,
                 p.ramo,
                 p.ramos_producto,
