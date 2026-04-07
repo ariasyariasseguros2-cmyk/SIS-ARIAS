@@ -99,16 +99,16 @@ def get_reporte_produccion_rows(filters: Dict[str, Any], limit: int = 1000) -> L
 
         base_sql = """
             SELECT
-                c.numero_documento AS ruc,
-                c.razon_social AS contratante,
-                c.direccion AS direccion_contratante,
-                p.asegurado,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR), c.numero_documento) AS ruc,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR), c.razon_social) AS contratante,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.direccion), @SIS_KEY) AS CHAR), c.direccion) AS direccion_contratante,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR), p.asegurado) AS asegurado,
                 p.cia,
                 p.ramo AS ram,
                 p.ramos_producto AS prod,
-                p.poliza,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), p.poliza) AS poliza,
                 p.tipo_doc AS td,
-                p.recibo AS aviso_cob,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cob,
                 '' AS estado_comision,
                 p.vig_desde AS ini_vig,
                 p.vig_hasta AS fin_vig,

@@ -1668,12 +1668,12 @@ BEGIN
         p.ramo,
         p.ramos_producto AS producto,
         c.tipo_documento,
-        c.numero_documento,
-        c.razon_social AS contratante,
-        p.poliza,
-        p.recibo AS aviso_cobranza,
+        COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR), c.numero_documento) AS numero_documento,
+        COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR), c.razon_social) AS contratante,
+        COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), p.poliza) AS poliza,
+        COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cobranza,
         (
-            SELECT q.cupon
+            SELECT COALESCE(CAST(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) AS CHAR), q.cupon)
             FROM cuotas q
             WHERE q.poliza_id = p.idPoliza
               AND q.activo = 1
