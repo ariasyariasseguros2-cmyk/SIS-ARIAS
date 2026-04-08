@@ -13,10 +13,23 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC', lim
         query = """
             SELECT 
                 c.idCuota,
-                c.cupon,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(c.cupon, @SIS_KEY) AS CHAR),
+                    c.cupon
+                ) as cupon,
                 c.fecha_vencimiento,
-                COALESCE(cl.razon_social, 'Sin Contratante') as contratante,
-                p.poliza,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(cl.razon_social), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(cl.razon_social, @SIS_KEY) AS CHAR),
+                    cl.razon_social,
+                    'Sin Contratante'
+                ) as contratante,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza
+                ) as poliza,
                 p.cia as compania,
                 COALESCE(p.ramos_producto, p.ramo) as producto,
                 p.forma_pago,
