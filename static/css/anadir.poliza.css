@@ -729,17 +729,33 @@ body {
     border-color: rgba(255, 255, 255, 0.1);
 }
 
+[data-theme='dark'] #modalComisiones .table {
+    --bs-table-color: #e2e8f0;
+    --bs-table-bg: #0d0d0d;
+    --bs-table-border-color: rgba(255, 255, 255, 0.08);
+    --bs-table-striped-bg: rgba(255, 255, 255, 0.03);
+    --bs-table-striped-color: #e2e8f0;
+    --bs-table-hover-bg: rgba(255, 255, 255, 0.04);
+    --bs-table-hover-color: #ffffff;
+    color: var(--bs-table-color);
+}
+
+[data-theme='dark'] #modalComisiones .table-bordered > :not(caption) > * {
+    border-color: var(--bs-table-border-color);
+}
+
 [data-theme='dark'] .table-dark {
     background-color: #000000;
 }
 
-[data-theme='dark'] .table-striped > tbody > tr:nth-of-type(odd) > * {
-    background-color: rgba(255, 255, 255, 0.02);
-    color: #e2e8f0;
+[data-theme='dark'] #modalComisiones .table-striped > tbody > tr:nth-of-type(odd) > * {
+    background-color: var(--bs-table-striped-bg) !important;
+    color: var(--bs-table-striped-color) !important;
 }
 
-[data-theme='dark'] .table-striped > tbody > tr:nth-of-type(even) > * {
-    color: #e2e8f0;
+[data-theme='dark'] #modalComisiones .table-striped > tbody > tr:nth-of-type(even) > * {
+    background-color: var(--bs-table-bg) !important;
+    color: var(--bs-table-color) !important;
 }
 
 /* Hide Ramo Col styling from table view */

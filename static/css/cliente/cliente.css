@@ -160,6 +160,23 @@
     border: none !important;
 }
 
+[data-theme='dark'] .btn-lift.btn-primary {
+    background: linear-gradient(to right, #2f7fb3, #1a4c8a);
+}
+
+[data-theme='dark'] .btn-lift.btn-success {
+    background: linear-gradient(to right, #2fbf63, #218a49);
+}
+
+[data-theme='dark'] .btn-lift.btn-danger {
+    background: linear-gradient(to right, #e35d5d, #9a3026);
+}
+
+[data-theme='dark'] .btn-lift.btn-warning {
+    background: linear-gradient(to right, #d4a017, #a86400);
+    color: #0b1220;
+}
+
 /* Remove default Bootstrap focus ring (blue border/shadow) */
 .btn-lift:focus, 
 .btn-lift:active,
@@ -308,6 +325,20 @@
 [data-theme='dark'] .btn-outline-secondary:hover {
     background-color: rgba(255, 255, 255, 0.1) !important;
     color: #fff !important;
+}
+
+[data-theme='dark'] #clientesTable a[href^="mailto:"] {
+    color: #7dd3fc !important;
+    text-decoration: none;
+}
+
+[data-theme='dark'] #clientesTable a[href^="mailto:"]:visited {
+    color: #7dd3fc !important;
+}
+
+[data-theme='dark'] #clientesTable a[href^="mailto:"]:hover {
+    color: #bae6fd !important;
+    text-decoration: underline;
 }
 
 

@@ -1535,7 +1535,7 @@
       url = `${blobUrl}#search=${encodeURIComponent(query)}`;
       label = `PDF local: ${fileEl.files[0].name}`;
     } else {
-      alert('Aún no hay PDF para buscar. Sube uno primero.');
+      showInfoDialog('Sin PDF', 'Aún no hay PDF para buscar. Sube uno primero.');
       return;
     }
     const titleEl = document.getElementById('pdfModalLabel');
@@ -1865,6 +1865,27 @@
     subAgenteEl.value = window.selectedCliente.subagente || '';
   }
 
+  function showInfoDialog(title, text) {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (window.Swal) {
+      Swal.fire({
+        icon: 'info',
+        title: title || 'Aviso',
+        text: text || '',
+        confirmButtonText: 'Aceptar',
+        confirmButtonColor: '#3b82f6',
+        background: isDark ? '#1a1a1a' : '#ffffff',
+        color: isDark ? '#ffffff' : '#333333',
+        customClass: {
+          popup: 'rounded-4',
+          confirmButton: 'rounded-pill px-4'
+        }
+      });
+      return;
+    }
+    alert(text || title || 'Aviso');
+  }
+
   // % Comisión Cía superior → recalcular todas las filas
   pctComCompaniaEl?.addEventListener('input', () => {
     const pct = pctComCompaniaEl.value || '';
@@ -1904,7 +1925,7 @@
       src = blobUrl;
       label = `PDF local (no subido): ${fileEl.files[0].name}`;
     } else {
-      alert('Aún no hay PDF para visualizar. Sube uno primero.');
+      showInfoDialog('Sin PDF', 'Aún no hay PDF para visualizar. Sube uno primero.');
       return;
     }
 

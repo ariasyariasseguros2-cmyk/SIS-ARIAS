@@ -15,6 +15,7 @@
             <div class="row g-3">
               <!-- Columna izquierda -->
               <div class="col-md-6">
+                <div class="renovar-panel">
                 <div class="mb-3">
                   <label for="companiaSelect" class="form-label">Compañía</label>
                   <select id="companiaSelect" class="form-select">
@@ -44,13 +45,15 @@
                     <input id="vigFinInput" type="text" class="form-control" placeholder="dd/mm/aaaa" value="10/01/2026">
                   </div>
                 </div>
+                </div>
               </div>
 
               <!-- Columna derecha -->
               <div class="col-md-6">
+                <div class="renovar-panel">
                 <div class="mb-3">
                   <label for="ramoInput" class="form-label">Ramo</label>
-                  <input id="ramoInput" type="text" class="form-control bg-light" value="SCTR" readonly>
+                  <input id="ramoInput" type="text" class="form-control" value="SCTR" readonly>
                 </div>
 
                 <div class="mb-3">
@@ -77,6 +80,7 @@
                     <input id="fechaEmisionInput" type="text" class="form-control" placeholder="dd/mm/aaaa">
                   </div>
                 </div>
+                </div>
               </div>
             </div>
           </div>
@@ -85,7 +89,7 @@
 
       <div class="modal-footer">
         <button id="btnRenovarPoliza" type="button" class="btn btn-success">Renovar</button>
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>

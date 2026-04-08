@@ -9,6 +9,88 @@
     const tbody = table ? table.querySelector('tbody') : null;
     const totalRegistrosEl = document.querySelector('.pagination-container .text-muted');
 
+    const confirmModalEl = document.getElementById('actionConfirmModal');
+    const confirmModalTitleEl = document.getElementById('actionConfirmModalLabel');
+    const confirmModalBodyEl = document.getElementById('actionConfirmModalBody');
+    const confirmModalCancelBtn = document.getElementById('actionConfirmCancel');
+    const confirmModalOkBtn = document.getElementById('actionConfirmOk');
+    const confirmModalInstance = (confirmModalEl && window.bootstrap)
+      ? bootstrap.Modal.getOrCreateInstance(confirmModalEl, { backdrop: 'static' })
+      : null;
+
+    function openActionModal(opts) {
+      const title = (opts?.title ?? 'Aviso').toString();
+      const message = (opts?.message ?? '').toString();
+      const okText = (opts?.okText ?? 'Aceptar').toString();
+      const cancelText = (opts?.cancelText ?? 'Cancelar').toString();
+      const okClass = (opts?.okClass ?? 'btn-primary').toString();
+      const showCancel = Boolean(opts?.showCancel);
+
+      if (!confirmModalEl || !confirmModalInstance || !confirmModalOkBtn) {
+        if (showCancel) {
+          return Promise.resolve(window.confirm(message || title));
+        }
+        window.alert(message || title);
+        return Promise.resolve(false);
+      }
+
+      if (confirmModalTitleEl) confirmModalTitleEl.textContent = title;
+      if (confirmModalBodyEl) confirmModalBodyEl.textContent = message;
+      confirmModalOkBtn.textContent = okText;
+      confirmModalOkBtn.className = `btn ${okClass} rounded-pill px-4`;
+
+      if (confirmModalCancelBtn) {
+        confirmModalCancelBtn.textContent = cancelText;
+        confirmModalCancelBtn.style.display = showCancel ? '' : 'none';
+      }
+
+      return new Promise((resolve) => {
+        let decided = false;
+
+        const cleanup = () => {
+          confirmModalOkBtn.removeEventListener('click', onOk);
+          confirmModalCancelBtn?.removeEventListener('click', onCancel);
+          confirmModalEl.removeEventListener('hidden.bs.modal', onHidden);
+        };
+
+        const onOk = () => {
+          decided = true;
+          cleanup();
+          confirmModalInstance.hide();
+          resolve(true);
+        };
+
+        const onCancel = () => {
+          decided = true;
+          cleanup();
+          confirmModalInstance.hide();
+          resolve(false);
+        };
+
+        const onHidden = () => {
+          if (decided) return;
+          cleanup();
+          resolve(false);
+        };
+
+        confirmModalOkBtn.addEventListener('click', onOk);
+        confirmModalCancelBtn?.addEventListener('click', onCancel);
+        confirmModalEl.addEventListener('hidden.bs.modal', onHidden);
+
+        confirmModalInstance.show();
+      });
+    }
+
+    function showInfoModal(message, title) {
+      return openActionModal({
+        title: title || 'Aviso',
+        message: message || '',
+        okText: 'Aceptar',
+        okClass: 'btn-primary',
+        showCancel: false
+      });
+    }
+
     let currentSearchType = 'general';
 
     // === 1. LÓGICA DE TABS (FILTROS DE BÚSQUEDA) ===
@@ -258,7 +340,7 @@
           if (typeof window.openRenovarPolizaModal === 'function') {
             window.openRenovarPolizaModal(data);
           } else {
-            alert('El modal de renovación no está cargado correctamente.');
+            showInfoModal('El modal de renovación no está cargado correctamente.');
           }
           break;
 
@@ -314,15 +396,23 @@
            break;
 
         case 'anular':
-           if (!data.idPoliza) {
-             alert('ID de póliza no encontrado');
-             return;
-           }
-           if (!confirm(`¿Seguro que desea ANULAR la póliza ${data.poliza}?`)) {
-             return;
-           }
            (async () => {
              try {
+               if (!data.idPoliza) {
+                 showInfoModal('ID de póliza no encontrado');
+                 return;
+               }
+
+               const ok = await openActionModal({
+                 title: 'Confirmar anulación',
+                 message: `¿Seguro que desea ANULAR la póliza ${data.poliza}?`,
+                 okText: 'Anular',
+                 okClass: 'btn-danger',
+                 cancelText: 'Cancelar',
+                 showCancel: true
+               });
+               if (!ok) return;
+
                const resp = await fetch('/api/polizas/anular', {
                  method: 'POST',
                  headers: {
@@ -338,17 +428,17 @@
                  row.style.opacity = '0.5';
                  row.classList.add('table-warning');
                } else {
-                 alert(json.error || 'No se pudo anular la póliza');
+                 showInfoModal(json.error || 'No se pudo anular la póliza');
                }
              } catch (e) {
                console.error(e);
-               alert('Error de conexión al anular la póliza');
+               showInfoModal('Error de conexión al anular la póliza');
              }
            })();
            break;
 
         default:
-          alert(`Acción "${action.toUpperCase()}" para la póliza ${data.poliza}`);
+          showInfoModal(`Acción "${action.toUpperCase()}" para la póliza ${data.poliza}`);
           break;
       }
     });
