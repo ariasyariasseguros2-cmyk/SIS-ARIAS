@@ -99,7 +99,7 @@ def download_zip():
                        FROM poliza_archivos pa
                        INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
                        WHERE pa.origen = 'CUOTA'
-                         AND p.poliza = %s
+                         AND COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), p.poliza) = %s
                          AND pa.nombre_original LIKE %s
                        ORDER BY pa.creado_en DESC""",
                     (poliza_num, f'[CUOTA {identificador}] %',)
@@ -226,7 +226,16 @@ def search_contratantes():
         try:
             conn = get_connection()
             cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT idCliente, razon_social, numero_documento FROM clientes WHERE activo = 1 ORDER BY razon_social ASC LIMIT 50")
+            cursor.execute("""
+                SELECT 
+                    idCliente, 
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social, 
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento 
+                FROM clientes 
+                WHERE activo = 1 
+                ORDER BY razon_social ASC 
+                LIMIT 50
+            """)
             rows = cursor.fetchall()
             cursor.close()
             conn.close()
@@ -240,14 +249,30 @@ def search_contratantes():
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         # Buscar por numero_documento exacto y luego por razon_social parcial; devolver hasta 20 coincidencias
-        cursor.execute("SELECT idCliente, razon_social, numero_documento FROM clientes WHERE numero_documento = %s LIMIT 1", (busqueda,))
+        cursor.execute("""
+            SELECT 
+                idCliente, 
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social, 
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento 
+            FROM clientes 
+            WHERE COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) = %s 
+            LIMIT 1
+        """, (busqueda,))
         exact = cursor.fetchall()
         if exact:
             cursor.close()
             conn.close()
             return jsonify(exact)
 
-        cursor.execute("SELECT idCliente, razon_social, numero_documento FROM clientes WHERE razon_social LIKE %s LIMIT 20", ('%'+busqueda+'%',))
+        cursor.execute("""
+            SELECT 
+                idCliente, 
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social, 
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento 
+            FROM clientes 
+            WHERE COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) LIKE %s 
+            LIMIT 20
+        """, ('%'+busqueda+'%',))
         rows = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -279,10 +304,24 @@ def download_zip_contratante():
                 conn.close()
                 return jsonify({'error': 'Parametro cliente_id o busqueda requerido'}), 400
             # Intentar encontrar cliente por numero_documento exacto
-            cursor.execute("SELECT idCliente, razon_social, numero_documento FROM clientes WHERE numero_documento = %s LIMIT 1", (busqueda,))
+            cursor.execute("""
+                SELECT idCliente, 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social, 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento 
+                FROM clientes 
+                WHERE COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) = %s 
+                LIMIT 1
+            """, (busqueda,))
             cliente = cursor.fetchone()
             if not cliente:
-                cursor.execute("SELECT idCliente, razon_social, numero_documento FROM clientes WHERE razon_social LIKE %s LIMIT 1", ('%'+busqueda+'%',))
+                cursor.execute("""
+                    SELECT idCliente, 
+                           COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social, 
+                           COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento 
+                    FROM clientes 
+                    WHERE COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) LIKE %s 
+                    LIMIT 1
+                """, ('%'+busqueda+'%',))
                 cliente = cursor.fetchone()
             if not cliente:
                 cursor.close()
