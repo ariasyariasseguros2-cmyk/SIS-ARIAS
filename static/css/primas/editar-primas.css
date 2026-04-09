@@ -1,17 +1,17 @@
-/* Variables de diseño - Estilo Premium Minimal (Mejorado) */
-:root {
-    --modal-bg: #f8fafc;      /* Gris azulado muy suave, casi blanco */
-    --card-bg: #ffffff;       /* Blanco puro */
-    --text-main: #0f172a;     /* Slate muy oscuro, casi negro, para contraste alto */
-    --text-muted: #64748b;    /* Slate medio para etiquetas */
-    --accent-color: #f59e0b;  /* Ámbar principal */
-    --accent-hover: #d97706;  /* Ámbar oscuro para hover */
-    --accent-light: #fffbeb;  /* Fondo ámbar muy pálido para iconos */
-    --border-light: #e2e8f0;  /* Bordes sutiles */
-    --radius-lg: 16px;        /* Bordes muy redondeados para modal */
-    --radius-md: 8px;         /* Bordes medios para inputs */
-    --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-    --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+#editarPrimasModal,
+.edit-primas-container {
+    --modal-bg: var(--layout-bg);
+    --panel-bg: var(--card-bg);
+    --text-main: var(--text-primary);
+    --text-muted: var(--text-secondary);
+    --accent-color: #f59e0b;
+    --accent-hover: #d97706;
+    --accent-light: rgba(245, 158, 11, 0.14);
+    --border-light: var(--card-border);
+    --radius-lg: 16px;
+    --radius-md: 10px;
+    --shadow-soft: var(--card-shadow);
+    --shadow-hover: var(--card-shadow);
     --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -39,7 +39,7 @@
 
 /* Header - Diseño Limpio */
 #editarPrimasModal .modal-header {
-    background-color: #ffffff;
+    background-color: var(--panel-bg);
     padding: 1.25rem 2rem;
     border-bottom: 1px solid var(--border-light);
     display: flex;
@@ -66,28 +66,28 @@
 }
 
 #editarPrimasModal .btn-close {
-    background-color: #f1f5f9;
+    background-color: rgba(15, 23, 42, 0.06);
     border-radius: 50%;
     padding: 0.8rem;
-    opacity: 0.7;
+    opacity: 0.9;
     transition: var(--transition-fast);
-    box-shadow: inset 0 0 0 1px transparent;
+    box-shadow: inset 0 0 0 1px var(--border-light);
 }
 
 #editarPrimasModal .btn-close:hover {
-    background-color: #e2e8f0;
+    background-color: rgba(15, 23, 42, 0.1);
     opacity: 1;
     transform: rotate(90deg);
-    box-shadow: inset 0 0 0 1px #cbd5e1;
+    box-shadow: inset 0 0 0 1px var(--border-light);
 }
 
 /* Body */
 #editarPrimasModal .modal-body {
     padding: 2rem 2.5rem; /* Más espacio lateral */
-    background-color: #ffffff; /* Cuerpo blanco para contraste con inputs grises */
+    background-color: var(--panel-bg);
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
+    scrollbar-color: rgba(100, 116, 139, 0.5) transparent;
 }
 
 /* Estilos compartidos para contenedor standalone */
@@ -99,7 +99,7 @@
 }
 
 .edit-primas-container .card-header {
-    background-color: #ffffff;
+    background-color: var(--panel-bg);
     border-bottom: 1px solid var(--border-light);
     padding: 1.5rem 2rem !important;
 }
@@ -116,7 +116,7 @@
 
 #editPrimasForm .form-control,
 #editPrimasForm .form-select {
-    background-color: #f8fafc; /* Fondo gris muy claro */
+    background-color: var(--modal-bg);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-md);
     padding: 0.6rem 0.9rem;
@@ -128,13 +128,12 @@
 
 #editPrimasForm .form-control:hover,
 #editPrimasForm .form-select:hover {
-    background-color: #f1f5f9;
-    border-color: #cbd5e1;
+    border-color: rgba(100, 116, 139, 0.35);
 }
 
 #editPrimasForm .form-control:focus,
 #editPrimasForm .form-select:focus {
-    background-color: #ffffff;
+    background-color: var(--panel-bg);
     border-color: var(--accent-color);
     box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1); /* Ring focus más suave y amplio */
     outline: none;
@@ -143,16 +142,17 @@
 /* Inputs deshabilitados con estilo */
 #editPrimasForm .form-control:disabled,
 #editPrimasForm .form-select:disabled {
-    background-color: #f1f5f9;
-    color: #94a3b8;
-    border-color: #e2e8f0;
+    background-color: var(--modal-bg);
+    color: rgba(100, 116, 139, 0.7);
+    border-color: var(--border-light);
     cursor: not-allowed;
     opacity: 0.8;
 }
 
 /* Input Group (Calendarios y Moneda) - Fusión visual */
-.input-group-text {
-    background-color: #f8fafc;
+#editarPrimasModal .input-group-text,
+.edit-primas-container .input-group-text {
+    background-color: var(--modal-bg);
     border: 1px solid var(--border-light);
     color: var(--text-muted);
     font-weight: 500;
@@ -163,13 +163,12 @@
     z-index: 3;
 }
 #editPrimasForm .input-group:hover .input-group-text {
-    background-color: #f1f5f9;
-    border-color: #cbd5e1;
+    border-color: rgba(100, 116, 139, 0.35);
 }
 
 /* Footer */
 #editarPrimasModal .modal-footer {
-    background-color: #f8fafc; /* Fondo ligeramente diferente al body */
+    background-color: var(--modal-bg);
     padding: 1.25rem 2rem;
     border-top: 1px solid var(--border-light);
     gap: 1rem;
@@ -200,17 +199,17 @@
 /* Botón Secundario (Cancelar/Volver) */
 #editarPrimasModal .btn-secondary,
 .edit-primas-container .btn-light {
-    background-color: #ffffff;
+    background-color: var(--panel-bg);
     color: var(--text-muted);
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--border-light);
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 #editarPrimasModal .btn-secondary:hover,
 .edit-primas-container .btn-light:hover {
-    background-color: #f8fafc;
+    background-color: var(--modal-bg);
     color: var(--text-main);
-    border-color: #94a3b8;
+    border-color: rgba(100, 116, 139, 0.4);
     transform: translateY(-2px);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
@@ -241,17 +240,17 @@
 
 /* Toolbar de Texto y Textarea */
 .edit-primas-container .border.rounded-top.p-2.bg-light {
-    background-color: #f1f5f9 !important;
+    background-color: var(--modal-bg) !important;
     border-color: var(--border-light) !important;
     border-bottom: none !important;
 }
 
 #masInformacion {
     border-color: var(--border-light);
-    background-color: #f8fafc;
+    background-color: var(--modal-bg);
 }
 #masInformacion:focus {
-    background-color: #ffffff;
+    background-color: var(--panel-bg);
 }
 
 /* Scrollbar Webkit */
@@ -259,19 +258,20 @@
     width: 8px;
 }
 #editarPrimasModal .modal-body::-webkit-scrollbar-track {
-    background: #f1f5f9;
+    background: transparent;
 }
 #editarPrimasModal .modal-body::-webkit-scrollbar-thumb {
-    background-color: #cbd5e1;
+    background-color: rgba(100, 116, 139, 0.45);
     border-radius: 20px;
-    border: 2px solid #f1f5f9; /* Padding visual */
+    border: 2px solid transparent; /* Padding visual */
 }
 #editarPrimasModal .modal-body::-webkit-scrollbar-thumb:hover {
-    background-color: #94a3b8;
+    background-color: rgba(100, 116, 139, 0.7);
 }
 
 /* Utilidades Extra */
-.text-danger {
+#editarPrimasModal .text-danger,
+.edit-primas-container .text-danger {
     color: #ef4444 !important; /* Rojo más suave pero visible */
 }
 
@@ -283,36 +283,37 @@
     letter-spacing: 1px;
 }
 .btn-white {
-    background-color: #ffffff;
+    background-color: var(--panel-bg);
     color: var(--text-main);
     border-color: var(--border-light);
 }
 .btn-white:hover {
-    background-color: #f8fafc;
-    border-color: #cbd5e1;
+    background-color: var(--modal-bg);
+    border-color: rgba(100, 116, 139, 0.35);
 }
 
 /* Card interna para comisiones */
-.card.bg-light {
-    background-color: #f8fafc !important;
+#editarPrimasModal .card.bg-light,
+.edit-primas-container .card.bg-light {
+    background-color: var(--modal-bg) !important;
     border: 1px solid var(--border-light) !important;
     border-radius: var(--radius-md);
 }
 
 /* Personalización de SweetAlert2 */
 div:where(.swal2-container) div:where(.swal2-popup) {
-    border-radius: var(--radius-lg) !important;
+    border-radius: 16px !important;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     padding: 2rem;
 }
 
 div:where(.swal2-container) .swal2-title {
-    color: var(--text-main) !important;
+    color: var(--text-primary) !important;
     font-size: 1.5rem !important;
 }
 
 div:where(.swal2-container) .swal2-html-container {
-    color: var(--text-muted) !important;
+    color: var(--text-secondary) !important;
 }
 
 div:where(.swal2-container) button:where(.swal2-styled).swal2-confirm {
@@ -333,16 +334,93 @@ div:where(.swal2-container) button:where(.swal2-styled).swal2-confirm:hover {
 }
 
 div:where(.swal2-container) button:where(.swal2-styled).swal2-cancel {
-    background-color: #ffffff !important;
-    color: var(--text-muted) !important;
-    border: 1px solid #cbd5e1 !important;
+    background-color: var(--card-bg) !important;
+    color: var(--text-secondary) !important;
+    border: 1px solid var(--card-border) !important;
     border-radius: 9999px !important;
     padding: 0.8rem 2rem;
     font-weight: 600;
 }
 
 div:where(.swal2-container) button:where(.swal2-styled).swal2-cancel:hover {
-    background-color: #f8fafc !important;
-    color: var(--text-main) !important;
+    background-color: var(--layout-bg) !important;
+    color: var(--text-primary) !important;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-}}
+}
+
+[data-theme='dark'] #editPrimasForm .form-control:hover,
+[data-theme='dark'] #editPrimasForm .form-select:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+[data-theme='dark'] #editarPrimasModal .btn-close {
+    background-color: rgba(255, 255, 255, 0.06);
+    filter: invert(1) grayscale(100%);
+    opacity: 0.95;
+}
+
+[data-theme='dark'] #editarPrimasModal .btn-close:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    opacity: 1;
+}
+
+[data-theme='dark'] #editPrimasForm .form-control:disabled,
+[data-theme='dark'] #editPrimasForm .form-select:disabled {
+    color: rgba(255, 255, 255, 0.55);
+}
+
+#editarPrimasModal #editPrimasForm .form-select,
+#editarPrimasModal #editPrimasForm .form-control,
+#editarPrimasModal #editPrimasForm .input-group-text {
+    background-color: var(--modal-bg) !important;
+    border-color: var(--border-light) !important;
+    color: var(--text-main) !important;
+}
+
+[data-theme='dark'] #editarPrimasModal #editPrimasForm .form-select,
+[data-theme='dark'] #editarPrimasModal #editPrimasForm .form-control,
+[data-theme='dark'] #editarPrimasModal #editPrimasForm .input-group-text {
+    background-color: #0d0d0d !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    color: #ffffff !important;
+}
+
+[data-theme='dark'] #editarPrimasModal #editPrimasForm .form-select option {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+}
+
+[data-theme='dark'] #editarPrimasModal #editPrimasForm .form-control::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+#editarPrimasModal #editPrimasForm input:-webkit-autofill,
+#editarPrimasModal #editPrimasForm input:-webkit-autofill:hover,
+#editarPrimasModal #editPrimasForm input:-webkit-autofill:focus,
+#editarPrimasModal #editPrimasForm textarea:-webkit-autofill,
+#editarPrimasModal #editPrimasForm textarea:-webkit-autofill:hover,
+#editarPrimasModal #editPrimasForm textarea:-webkit-autofill:focus,
+#editarPrimasModal #editPrimasForm select:-webkit-autofill,
+#editarPrimasModal #editPrimasForm select:-webkit-autofill:hover,
+#editarPrimasModal #editPrimasForm select:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text-main) !important;
+    transition: background-color 9999s ease-in-out 0s;
+    box-shadow: 0 0 0px 1000px var(--modal-bg) inset !important;
+}
+
+[data-theme='dark'] #editarPrimasModal #editPrimasForm input:-webkit-autofill,
+[data-theme='dark'] #editarPrimasModal #editPrimasForm input:-webkit-autofill:hover,
+[data-theme='dark'] #editarPrimasModal #editPrimasForm input:-webkit-autofill:focus,
+[data-theme='dark'] #editarPrimasModal #editPrimasForm textarea:-webkit-autofill,
+[data-theme='dark'] #editarPrimasModal #editPrimasForm textarea:-webkit-autofill:hover,
+[data-theme='dark'] #editarPrimasModal #editPrimasForm textarea:-webkit-autofill:focus,
+[data-theme='dark'] #editarPrimasModal #editPrimasForm select:-webkit-autofill,
+[data-theme='dark'] #editarPrimasModal #editPrimasForm select:-webkit-autofill:hover,
+[data-theme='dark'] #editarPrimasModal #editPrimasForm select:-webkit-autofill:focus {
+    -webkit-text-fill-color: #ffffff !important;
+    box-shadow: 0 0 0px 1000px #0d0d0d inset !important;
+}
+
+[data-theme='dark'] #editarPrimasModal #editPrimasForm input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) opacity(0.85);
+}

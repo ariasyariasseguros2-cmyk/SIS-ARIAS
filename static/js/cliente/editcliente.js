@@ -13,6 +13,16 @@
     document.addEventListener('DOMContentLoaded', function() {
         initEditButtons();
         initEditForm();
+
+        const editModalEl = document.getElementById('editClienteModal');
+        if (editModalEl) {
+            editModalEl.addEventListener('show.bs.modal', () => {
+                document.body.classList.add('modal-backdrop-strong');
+            });
+            editModalEl.addEventListener('hidden.bs.modal', () => {
+                document.body.classList.remove('modal-backdrop-strong');
+            });
+        }
     });
 
     /**

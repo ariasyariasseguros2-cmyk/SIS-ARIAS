@@ -12,15 +12,16 @@
 {% block page_title %}{% endblock %}
 
 {% block content %}
+<div class="detalles-poliza{% if is_modal %} detalles-poliza--modal{% endif %}">
+{% if not is_modal %}
 <div class="container-fluid py-4">
     <!-- Título y Botón Volver (Solo visible si no es modal) -->
-    {% if not is_modal %}
     <div class="mb-4">
         <a href="{{ url_for('main.menu_page', page='listado-poliza') }}" class="text-decoration-none text-primary fw-semibold">
             <i class="bi bi-arrow-left-circle-fill me-1"></i> Volver al Listado de Pólizas
         </a>
     </div>
-    {% endif %}
+{% endif %}
 
     <!-- Master Panel: Contenedor único con diseño "Glass Panel" -->
     <div class="master-panel">
@@ -182,6 +183,10 @@
             {% endif %}
         </div>
     </div>
+</div>
+{% if not is_modal %}
+</div>
+{% endif %}
 </div>
 {% endblock %}
 

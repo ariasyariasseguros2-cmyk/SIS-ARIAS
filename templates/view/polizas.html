@@ -207,14 +207,41 @@
 
 <!-- Modal Detalles Póliza -->
 <div class="modal fade" id="detallesPolizaModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content bg-transparent border-0 shadow-none">
             <div class="modal-body p-0" id="detallesPolizaModalBody">
-                <div class="text-center py-5 bg-white rounded-3 shadow">
+                <div class="text-center py-5 rounded-3 shadow" style="background: var(--card-bg); border: 1px solid var(--card-border);">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Cargando...</span>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Póliza -->
+<div class="modal fade" id="editarPolizaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content" style="background: var(--layout-bg); border: 1px solid var(--card-border); border-radius: 16px; box-shadow: var(--card-shadow); overflow: hidden;">
+            <div class="modal-header" style="background: var(--card-bg); border-bottom: 1px solid var(--card-border);">
+                <h5 class="modal-title d-flex align-items-center gap-2 m-0" id="editarPolizaModalLabel" style="color: var(--text-primary);">
+                    <i class="bi-pencil-square"></i> Editar Póliza
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="editarPolizaModalBody" style="padding: 1.5rem; background: var(--layout-bg);">
+                <div class="text-center py-5 rounded-3" style="background: var(--card-bg); border: 1px solid var(--card-border);">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="background: var(--card-bg); border-top: 1px solid var(--card-border);">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" id="editarPolizaModalGuardar">
+                    <i class="bi-check-circle me-1"></i>Guardar Cambios
+                </button>
             </div>
         </div>
     </div>

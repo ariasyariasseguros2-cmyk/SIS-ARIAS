@@ -12,6 +12,49 @@ document.addEventListener('DOMContentLoaded', () => {
   // Elementos para actualizar la tabla (simulado)
   const tableBody = document.querySelector('.table-card tbody');
 
+  function confirmModal(message) {
+    return new Promise((resolve) => {
+      const modalEl = document.getElementById('avisoConfirmModal');
+      const msgEl = document.getElementById('avisoConfirmMessage');
+      const okBtn = document.getElementById('btnAvisoConfirmOk');
+      const cancelBtn = document.getElementById('btnAvisoConfirmCancel');
+      if (!modalEl || !msgEl || !okBtn || !cancelBtn || typeof bootstrap === 'undefined') {
+        resolve(window.confirm(message));
+        return;
+      }
+
+      msgEl.textContent = message;
+      const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+      const cleanup = () => {
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+        modalEl.removeEventListener('hidden.bs.modal', onHidden);
+      };
+
+      const onOk = () => {
+        cleanup();
+        try { modal.hide(); } catch (_) {}
+        resolve(true);
+      };
+
+      const onCancel = () => {
+        cleanup();
+        resolve(false);
+      };
+
+      const onHidden = () => {
+        cleanup();
+        resolve(false);
+      };
+
+      okBtn.addEventListener('click', onOk, { once: true });
+      cancelBtn.addEventListener('click', onCancel, { once: true });
+      modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true });
+      modal.show();
+    });
+  }
+
   // Función para obtener la alerta de Bootstrap o inicializarla (MODAL)
   const showAlert = () => {
     alertSuccess.classList.remove('d-none');
@@ -68,44 +111,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const file = fileInput.files[0];
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('archivo', file);
+    formData.append('poliza_id', window.avisoId || '');
+    formData.append('tipo_documento', 'ARCHIVO_EXTRA');
+    formData.append('nombre_documento', file.name);
     
     // Mostrar estado de carga
     if(btnSaveAndAdd) btnSaveAndAdd.disabled = true;
     if(btnSave) btnSave.disabled = true;
 
-    fetch('/upload', {
+    fetch('/api/polizas/upload-archivo', {
         method: 'POST',
         body: formData
     })
     .then(response => response.json())
     .then(data => {
-        if (data.error) {
-            throw new Error(data.error);
+        if (!data || data.ok !== true) {
+            throw new Error((data && (data.error || data.errors?.[0])) || 'Error al subir el archivo');
         }
-        
-        const filename = data.filename;
-        const pdfUrl = `polizas/${filename}`;
-        
-        // Ahora actualizamos la póliza/aviso con el pdf_url
-        // Usamos /primas/update que reutiliza la lógica de pólizas
-        return fetch('/primas/update', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                idPrima: window.avisoId,
-                pdf_url: pdfUrl
-            })
-        }).then(res => res.json().then(r => ({ ...r, filename })));
+        return data;
     })
     .then(result => {
-        if (!result.ok) {
-            throw new Error(result.error || 'Error al actualizar el registro');
-        }
-        
-        console.log('Archivo guardado y registro actualizado:', result.filename);
+        console.log('Archivo guardado:', result.ruta);
 
         // Actualizar tabla si estaba vacía
         const emptyRow = tableBody.querySelector('tr td[colspan="2"]');
@@ -113,19 +140,20 @@ document.addEventListener('DOMContentLoaded', () => {
             emptyRow.parentElement.remove();
         }
 
-        // URL de descarga
-        const downloadUrl = `/uploads/polizas/${result.filename}`;
+        // URL para ver/descargar (sirve el PDF desde uploads/)
+        const downloadUrl = `/uploads/${result.ruta}`;
 
         // Añadir fila a la tabla
+        const safeName = (result.nombre || file.name || '').replace(/"/g, '&quot;');
         const newRow = `
             <tr>
-              <td class="text-break text-muted small">${file.name}</td>
+              <td class="text-break text-muted small">${result.nombre || file.name}</td>
               <td class="text-end">
                 <div class="action-buttons justify-content-end">
-                  <a href="#" class="btn-action btn-danger btn-preview" data-url="${downloadUrl}" title="Descargar">Descargar</a>
+                  <a href="#" class="btn-action btn-danger btn-preview" data-url="${downloadUrl}" data-name="${safeName}" title="Ver">Ver</a>
                   <button class="btn-action btn-primary btn-detalles" data-id="${window.avisoId || ''}" title="Detalles">Detalles</button>
                   <button class="btn-action btn-success btn-editar" data-id="${window.avisoId || ''}" title="Editar">Editar</button>
-                  <button class="btn-action btn-warning btn-delete-document" data-id="${window.avisoId || ''}" title="Eliminar">Eliminar</button>
+                  <button class="btn-action btn-danger btn-delete-document" data-archivo-id="${result.idArchivo || ''}" title="Eliminar">Eliminar</button>
                 </div>
               </td>
             </tr>
@@ -179,23 +207,86 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Event Delegation para Previsualizar Documento
-  document.addEventListener('click', (e) => {
+  document.addEventListener('click', async (e) => {
       const btnPreview = e.target.closest('.btn-preview');
       if (btnPreview) {
           e.preventDefault();
           const url = btnPreview.getAttribute('data-url') || btnPreview.getAttribute('href');
+          const name = btnPreview.getAttribute('data-name') || '';
           if (url && url !== '#') {
               const modalEl = document.getElementById('viewDocumentModal');
               const iframe = document.getElementById('documentPreviewFrame');
-              if (modalEl && iframe) {
-                  iframe.src = url;
-                  if (typeof bootstrap !== 'undefined') {
-                      let modal = bootstrap.Modal.getInstance(modalEl);
-                      if (!modal) modal = new bootstrap.Modal(modalEl);
-                      modal.show();
+              const nameEl = document.getElementById('documentPreviewName');
+              try {
+                  const resp = await fetch(url, { headers: { Range: 'bytes=0-0' } });
+                  if (!resp.ok) throw new Error('Archivo no encontrado');
+                  const ct = (resp.headers.get('content-type') || '').toLowerCase();
+                  if (!ct.includes('pdf') && !ct.startsWith('image/')) throw new Error('Formato no soportado');
+                  if (modalEl && iframe) {
+                      if (nameEl) nameEl.textContent = name;
+                      const viewerUrl = ct.includes('pdf') && !url.includes('#')
+                        ? `${url}#toolbar=1&navpanes=1&scrollbar=1`
+                        : url;
+                      iframe.src = viewerUrl;
+                      if (typeof bootstrap !== 'undefined') {
+                          let modal = bootstrap.Modal.getInstance(modalEl);
+                          if (!modal) modal = new bootstrap.Modal(modalEl);
+                          modal.show();
+                      }
                   }
+              } catch (err) {
+                  alert((err && err.message) ? err.message : 'No se pudo abrir el documento');
               }
           }
       }
+
+      const btnDelete = e.target.closest('.btn-delete-document');
+      if (btnDelete) {
+        e.preventDefault();
+        const archivoId = btnDelete.getAttribute('data-archivo-id');
+        if (!archivoId) return;
+        const ok = await confirmModal('¿Estás seguro de eliminar este documento permanentemente?');
+        if (!ok) return;
+
+        const originalHtml = btnDelete.innerHTML;
+        btnDelete.disabled = true;
+        btnDelete.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        try {
+          const resp = await fetch(`/api/polizas/archivos/delete/${archivoId}`, { method: 'DELETE' });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.ok) throw new Error(data.error || 'Error al eliminar');
+
+          const row = btnDelete.closest('tr');
+          if (row) row.remove();
+          const item = btnDelete.closest('.mb-2');
+          if (!row && item) item.remove();
+
+          const tb = document.querySelector('.table-card tbody');
+          if (tb) {
+            const rows = tb.querySelectorAll('tr');
+            const empty = tb.querySelector('tr td[colspan="2"]');
+            const count = empty ? 0 : rows.length;
+            const totalCountEl = document.getElementById('totalRecordsCount');
+            if (totalCountEl) totalCountEl.innerText = `Total de registros: ${count}`;
+            if (count === 0 && !empty) {
+              tb.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-4">Sin documentos</td></tr>';
+            }
+          }
+        } catch (err) {
+          alert((err && err.message) ? err.message : 'Error al eliminar');
+          btnDelete.disabled = false;
+          btnDelete.innerHTML = originalHtml;
+        }
+      }
   });
+
+  const viewDocumentModal = document.getElementById('viewDocumentModal');
+  if (viewDocumentModal) {
+      viewDocumentModal.addEventListener('hidden.bs.modal', () => {
+          const iframe = document.getElementById('documentPreviewFrame');
+          if (iframe) iframe.src = '';
+          const nameEl = document.getElementById('documentPreviewName');
+          if (nameEl) nameEl.textContent = '';
+      });
+  }
 });

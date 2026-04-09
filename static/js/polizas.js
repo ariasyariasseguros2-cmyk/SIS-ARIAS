@@ -296,11 +296,11 @@
     }
 
     // === 4. DELEGACIÓN DE ACCIONES (Lógica Original Preservada) ===
-    table?.addEventListener('click', (e) => {
+    table?.addEventListener('click', async (e) => {
       const actionEl = e.target.closest('[data-action]');
       if (!actionEl) return;
       
-      if (actionEl.tagName === 'A' && actionEl.getAttribute('href') && actionEl.getAttribute('href') !== '#' && actionEl.dataset.action !== 'detalles') {
+      if (actionEl.tagName === 'A' && actionEl.getAttribute('href') && actionEl.getAttribute('href') !== '#' && !['detalles', 'editar'].includes(actionEl.dataset.action)) {
         return;
       }
 
@@ -390,10 +390,84 @@
           break;
           
         case 'editar':
-           if (data.idPoliza) {
-               window.location.href = `/menu/editar-poliza?id=${data.idPoliza}`;
-           }
-           break;
+          {
+            const modalEl = document.getElementById('editarPolizaModal');
+            const modalBody = document.getElementById('editarPolizaModalBody');
+            const btnGuardarModal = document.getElementById('editarPolizaModalGuardar');
+            if (!modalEl || !modalBody) {
+              if (data.idPoliza) window.location.href = `/menu/editar-poliza?id=${data.idPoliza}`;
+              break;
+            }
+
+            let bsModal = bootstrap.Modal.getInstance(modalEl);
+            if (!bsModal) bsModal = new bootstrap.Modal(modalEl);
+
+            const ensureStylesheet = (href) => {
+              const existing = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+                .some(l => (l.getAttribute('href') || '').includes(href));
+              if (existing) return;
+              const link = document.createElement('link');
+              link.rel = 'stylesheet';
+              link.href = href;
+              document.head.appendChild(link);
+            };
+
+            const ensureScript = (src) => {
+              return new Promise((resolve, reject) => {
+                const existing = Array.from(document.querySelectorAll('script'))
+                  .some(s => (s.getAttribute('src') || '') === src);
+                if (existing) return resolve();
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => resolve();
+                script.onerror = () => reject(new Error(`No se pudo cargar ${src}`));
+                document.body.appendChild(script);
+              });
+            };
+
+            modalBody.innerHTML = `
+              <div class="text-center py-5 rounded-3" style="background: var(--card-bg); border: 1px solid var(--card-border);">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Cargando...</span>
+                </div>
+              </div>`;
+            bsModal.show();
+
+            try {
+              ensureStylesheet('/static/css/editar-poliza.css');
+              await ensureScript('https://cdn.jsdelivr.net/npm/sweetalert2@11');
+              await ensureScript('/static/js/editar-poliza.js');
+            } catch (e) {
+              console.error(e);
+            }
+
+            let url = actionEl.getAttribute('href') || '';
+            if (!url && data.idPoliza) url = `/menu/editar-poliza?id=${data.idPoliza}`;
+            if (url.includes('?')) url += '&partial=true';
+            else url += '?partial=true';
+
+            fetch(url)
+              .then(res => res.text())
+              .then(html => {
+                modalBody.innerHTML = html;
+                if (typeof window.initEditarPoliza === 'function') {
+                  window.initEditarPoliza(modalBody);
+                }
+              })
+              .catch(err => {
+                console.error(err);
+                modalBody.innerHTML = '<div class="alert alert-danger m-3">Error al cargar formulario de edición</div>';
+              });
+
+            if (btnGuardarModal) {
+              btnGuardarModal.onclick = () => {
+                const btnGuardar = modalBody.querySelector('#btnGuardar');
+                if (btnGuardar) btnGuardar.click();
+              };
+            }
+
+            break;
+          }
 
         case 'anular':
            (async () => {

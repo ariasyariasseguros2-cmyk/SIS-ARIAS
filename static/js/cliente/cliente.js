@@ -10,6 +10,58 @@
         const canDelete = !!document.querySelector('.btn-delete-cliente');
         const canRestore = !!document.querySelector('.btn-restore-cliente');
 
+        function showContactosModal(message) {
+            const modalEl = document.getElementById('clienteContactosModal');
+            const msgEl = document.getElementById('clienteContactosMessage');
+            if (!modalEl || !msgEl || typeof bootstrap === 'undefined') {
+                alert(message);
+                return;
+            }
+            msgEl.textContent = message;
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+
+        function confirmDeleteCliente(message) {
+            return new Promise((resolve) => {
+                const modalEl = document.getElementById('clienteDeleteConfirmModal');
+                const msgEl = document.getElementById('clienteDeleteConfirmMessage');
+                const okBtn = document.getElementById('btnClienteDeleteOk');
+                const cancelBtn = document.getElementById('btnClienteDeleteCancel');
+                if (!modalEl || !msgEl || !okBtn || !cancelBtn || typeof bootstrap === 'undefined') {
+                    resolve(window.confirm(message));
+                    return;
+                }
+
+                msgEl.textContent = message;
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+                const cleanup = () => {
+                    okBtn.removeEventListener('click', onOk);
+                    cancelBtn.removeEventListener('click', onCancel);
+                    modalEl.removeEventListener('hidden.bs.modal', onHidden);
+                };
+
+                const onOk = () => {
+                    cleanup();
+                    try { modal.hide(); } catch (_) {}
+                    resolve(true);
+                };
+                const onCancel = () => {
+                    cleanup();
+                    resolve(false);
+                };
+                const onHidden = () => {
+                    cleanup();
+                    resolve(false);
+                };
+
+                okBtn.addEventListener('click', onOk, { once: true });
+                cancelBtn.addEventListener('click', onCancel, { once: true });
+                modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true });
+                modal.show();
+            });
+        }
+
         function debounce(func, wait) {
             let timeout;
             return function(...args) {
@@ -352,7 +404,7 @@
 
         // Acciones: pólizas, contactos, PDF
         if (table) {
-            table.addEventListener('click', (e) => {
+            table.addEventListener('click', async (e) => {
                 const btn = e.target.closest('button');
                 if (!btn) return;
                 // Ignorar botones de restaurar para no activar la rama que redirige a pólizas
@@ -396,13 +448,14 @@
                     }
                     return;
                 } else if (btn.classList.contains('btn-success') || btn.classList.contains('btn-outline-success')) {
-                    alert(`Abrir contactos de: ${razon}`);
+                    showContactosModal(`Abrir contactos de: ${razon}`);
                 } else if (btn.classList.contains('btn-delete-cliente')) {
                     // Eliminar cliente (borrado lógico)
                     const idCliente = btn.getAttribute('data-id');
                     const nombreCliente = btn.getAttribute('data-nombre');
 
-                    if (!confirm(`¿Está seguro de eliminar al cliente "${nombreCliente}"?\n\nEsta acción se puede revertir desde la base de datos.`)) {
+                    const ok = await confirmDeleteCliente(`¿Está seguro de eliminar al cliente "${nombreCliente}"?`);
+                    if (!ok) {
                         return;
                     }
 

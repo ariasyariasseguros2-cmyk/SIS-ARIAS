@@ -15,9 +15,8 @@
         <h1 class="h5 m-0"><i class="bi-people"></i> {{ title }}</h1>
         {# Ocultar botón Añadir cuando estemos en Clientes Anulados #}
         {% if page != 'clientes-anulados' and can_create(session.role_name) %}
-        <button class="btn btn-success btn-sm btn-lift btn-add btn-icon" data-bs-toggle="modal" data-bs-target="#addClienteModal" title="Añadir">
-            <i class="bi-plus-lg" aria-hidden="true"></i>
-            <span class="visually-hidden">Añadir</span>
+        <button class="btn btn-success btn-sm btn-lift btn-add" data-bs-toggle="modal" data-bs-target="#addClienteModal" title="Añadir">
+            <i class="bi-plus-lg" aria-hidden="true"></i> Añadir
         </button>
         {% endif %}
     </div>
@@ -169,6 +168,41 @@
     </div>
   </div>
   </div>
+
+<div class="modal fade" id="clienteContactosModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content cliente-action-modal">
+      <div class="modal-header">
+        <h5 class="modal-title mb-0">Contactos</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body text-center">
+        <p id="clienteContactosMessage" class="mb-0"></p>
+      </div>
+      <div class="modal-footer justify-content-center border-0 pt-0">
+        <button type="button" class="btn btn-primary rounded-pill px-4" data-bs-dismiss="modal">Aceptar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="clienteDeleteConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content cliente-action-modal">
+      <div class="modal-header">
+        <h5 class="modal-title mb-0">Confirmar acción</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body text-center">
+        <p id="clienteDeleteConfirmMessage" class="mb-0"></p>
+      </div>
+      <div class="modal-footer justify-content-center border-0 pt-0 gap-2">
+        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal" id="btnClienteDeleteCancel">Cancelar</button>
+        <button type="button" class="btn btn-danger rounded-pill px-4" id="btnClienteDeleteOk">Aceptar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 {# No incluir ventanas de añadir/editar cuando estemos en clientes anulados #}
 {% if page != 'clientes-anulados' %}

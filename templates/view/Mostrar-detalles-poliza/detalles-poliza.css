@@ -1,24 +1,43 @@
 
 /* Diseño "Unified Glass Panel" - Adaptado para Detalles Póliza */
-:root { 
-    --bg-app: #f0f2f5;
-    --panel-bg: #ffffff;
-    --panel-border: #e4e7eb;
-    --text-primary: #1a1f36;
-    --text-secondary: #697386;
-    --accent-color: #6366f1; /* Indigo moderno */
-    --accent-light: #e0e7ff;
-    --success-color: #10b981;
-    --highlight-bg: #f8fafc;
+.detalles-poliza {
+    --bg-app: var(--layout-bg);
+    --panel-bg: var(--card-bg);
+    --panel-border: var(--card-border);
+    --accent-color: var(--accent-blue);
+    --accent-light: rgba(59, 130, 246, 0.12);
+    --success-color: var(--accent-green);
+    --highlight-bg: var(--nav-active-bg);
     --radius-panel: 16px;
     --radius-inner: 12px;
+    color: var(--text-primary);
+}
+
+.detalles-poliza--modal .master-panel {
+    margin-bottom: 0;
+}
+
+.detalles-poliza--modal .panel-header {
+    padding: 1.5rem 2rem;
+}
+
+.detalles-poliza--modal .panel-body {
+    min-height: auto;
+}
+
+.detalles-poliza--modal .main-content-area {
+    padding: 2rem;
+}
+
+.detalles-poliza--modal .financial-sidebar {
+    padding: 2rem 1.5rem;
 }
 
 /* El Contenedor Único "Master Panel" */
-.master-panel {
+.detalles-poliza .master-panel {
     background: var(--panel-bg);
     border-radius: var(--radius-panel);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    box-shadow: var(--card-shadow);
     border: 1px solid var(--panel-border);
     overflow: hidden;
     margin-bottom: 2rem;
@@ -26,27 +45,27 @@
 }
 
 /* Decoración superior (Top Bar) */
-.master-panel::before {
+.detalles-poliza .master-panel::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     height: 4px;
-    background: linear-gradient(to right, #399AD6, #1F59A3);
+    background: linear-gradient(to right, var(--accent-blue), var(--accent-cyan));
 }
 
 /* Header Integrado */
-.panel-header {
+.detalles-poliza .panel-header {
     padding: 2rem 2.5rem;
     border-bottom: 1px solid var(--panel-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #fff;
+    background: var(--panel-bg);
 }
 
-.header-title-group h1 {
+.detalles-poliza .header-title-group h1 {
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--text-primary);
@@ -56,7 +75,7 @@
     gap: 0.75rem;
 }
 
-.header-title-group h1 i {
+.detalles-poliza .header-title-group h1 i {
     color: var(--accent-color);
     background: var(--accent-light);
     padding: 0.5rem;
@@ -64,7 +83,7 @@
     font-size: 1.2rem;
 }
 
-.header-subtitle {
+.detalles-poliza .header-subtitle {
     margin-top: 0.5rem;
     color: var(--text-secondary);
     font-size: 0.95rem;
@@ -72,7 +91,7 @@
 }
 
 /* Botón de acción flotante */
-.btn-close-custom {
+.detalles-poliza .btn-close-custom {
     background: transparent;
     border: 1px solid var(--panel-border);
     color: var(--text-secondary);
@@ -86,26 +105,26 @@
     text-decoration: none;
 }
 
-.btn-close-custom:hover {
+.detalles-poliza .btn-close-custom:hover {
     background: var(--bg-app);
     color: var(--text-primary);
     transform: rotate(90deg);
 }
 
 /* Layout Interno - Grid */
-.panel-body {
+.detalles-poliza .panel-body {
     display: grid;
     grid-template-columns: 1fr 350px;
     min-height: 600px;
 }
 
 /* Área Principal (Izquierda) */
-.main-content-area {
+.detalles-poliza .main-content-area {
     padding: 2.5rem;
 }
 
 /* Títulos de Sección Internos */
-.section-heading {
+.detalles-poliza .section-heading {
     font-size: 0.85rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -117,7 +136,7 @@
     gap: 0.5rem;
 }
 
-.section-heading::after {
+.detalles-poliza .section-heading::after {
     content: '';
     flex: 1;
     height: 1px;
@@ -126,55 +145,55 @@
 }
 
 /* Grid de Datos */
-.info-grid {
+.detalles-poliza .info-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1.5rem;
     margin-bottom: 2.5rem;
 }
 
-.info-item {
+.detalles-poliza .info-item {
     display: flex;
     flex-direction: column;
 }
 
-.label {
+.detalles-poliza .label {
     font-size: 0.75rem;
     color: var(--text-secondary);
     margin-bottom: 0.35rem;
     font-weight: 500;
 }
 
-.value {
+.detalles-poliza .value {
     font-size: 0.95rem;
     color: var(--text-primary);
     font-weight: 600;
     line-height: 1.4;
 }
 
-.value.highlight {
+.detalles-poliza .value.highlight {
     color: var(--accent-color);
 }
 
 /* Sidebar Financiero (Derecha) */
-.financial-sidebar {
-    background: #f8fafc;
+.detalles-poliza .financial-sidebar {
+    background: var(--bg-app);
     border-left: 1px solid var(--panel-border);
     padding: 2.5rem 2rem;
     display: flex;
     flex-direction: column;
 }
 
-.financial-card {
-    background: #fff;
+.detalles-poliza .financial-card {
+    background: var(--panel-bg);
     border: 1px solid var(--panel-border);
     border-radius: var(--radius-inner);
     padding: 1.5rem;
     margin-bottom: 2rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    box-shadow: var(--card-shadow);
 }
 
-.detail-row {
+.detalles-poliza .detail-row {
     display: flex;
     justify-content: space-between;
     font-size: 0.9rem;
@@ -183,19 +202,19 @@
     border-bottom: 1px dashed var(--panel-border);
 }
 
-.detail-row:last-child {
+.detalles-poliza .detail-row:last-child {
     border-bottom: none;
     margin-bottom: 0;
     padding-bottom: 0;
 }
 
 /* Timeline Vertical Minimalista */
-.timeline-minimal {
+.detalles-poliza .timeline-minimal {
     position: relative;
     padding-left: 1rem;
 }
 
-.timeline-minimal::before {
+.detalles-poliza .timeline-minimal::before {
     content: '';
     position: absolute;
     left: 0;
@@ -205,13 +224,13 @@
     background: var(--panel-border);
 }
 
-.timeline-point {
+.detalles-poliza .timeline-point {
     position: relative;
     padding-bottom: 1.5rem;
     padding-left: 1.5rem;
 }
 
-.timeline-point::after {
+.detalles-poliza .timeline-point::after {
     content: '';
     position: absolute;
     left: -5px;
@@ -219,31 +238,31 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: #fff;
+    background: var(--panel-bg);
     border: 2px solid var(--accent-color);
 }
 
-.timeline-point.end::after {
+.detalles-poliza .timeline-point.end::after {
     border-color: var(--text-secondary);
 }
 
-.timeline-date {
+.detalles-poliza .timeline-date {
     font-weight: 600;
     color: var(--text-primary);
     display: block;
 }
 
-.timeline-desc {
+.detalles-poliza .timeline-desc {
     font-size: 0.8rem;
     color: var(--text-secondary);
 }
 
 /* Footer de Auditoría */
-.panel-footer-info {
+.detalles-poliza .panel-footer-info {
     grid-column: 1 / -1;
     border-top: 1px solid var(--panel-border);
     padding: 1.5rem 2.5rem;
-    background: #fff;
+    background: var(--panel-bg);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -251,7 +270,7 @@
     color: var(--text-secondary);
 }
 
-.user-badge {
+.detalles-poliza .user-badge {
     background: var(--highlight-bg);
     padding: 0.25rem 0.75rem;
     border-radius: 20px;
@@ -262,11 +281,11 @@
 
 /* Responsive */
 @media (max-width: 992px) {
-    .panel-body {
+    .detalles-poliza .panel-body {
         grid-template-columns: 1fr;
     }
     
-    .financial-sidebar {
+    .detalles-poliza .financial-sidebar {
         border-left: none;
         border-top: 1px solid var(--panel-border);
         background: var(--highlight-bg);

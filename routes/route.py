@@ -496,9 +496,19 @@ def delete_poliza_archivo(archivo_id):
             return {'ok': False, 'error': 'Archivo no encontrado'}, 404
 
         upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
-        abs_path = os.path.join(upload_folder, row['ruta_archivo'].lstrip('/\\'))
+        ruta = (row.get('ruta_archivo') or '').replace('\\', '/')
+        while ruta.startswith('uploads/'):
+            ruta = ruta[len('uploads/'):]
+        abs_path = os.path.join(upload_folder, ruta.lstrip('/\\'))
         if os.path.exists(abs_path):
             os.remove(abs_path)
+        else:
+            name = secure_filename(os.path.basename(ruta))
+            for known_sub in ['polizas', 'temp', 'cuotas', 'clientes', 'siniestros', 'soat']:
+                candidate = os.path.join(upload_folder, known_sub, name)
+                if os.path.isfile(candidate):
+                    os.remove(candidate)
+                    break
 
         cur.execute("DELETE FROM poliza_archivos WHERE idArchivo = %s", (archivo_id,))
         cnx.commit()
@@ -1278,8 +1288,11 @@ def menu_page(page):
         if not poliza:
             return redirect(url_for('main.menu_page', page='listado-poliza'))
 
+        is_modal = request.args.get('partial') == 'true'
+
         return render_template(
             'view/editar-poliza.html',
+            is_modal=is_modal,
             poliza=poliza,
             ramos_abbrs=get_ramos(),
             aseguradoras_rows=get_aseguradoras(),
@@ -1381,6 +1394,7 @@ def menu_page(page):
             cnx.close()
             for a in archivos:
                 documents.append({
+                    'idArchivo': a['idArchivo'],
                     'name': a['nombre_original'] or a['ruta_archivo'],
                     'url': url_for('main.serve_upload', filename=a['ruta_archivo'])
                 })
@@ -1424,6 +1438,7 @@ def menu_page(page):
             cnx.close()
             for a in archivos:
                 documents.append({
+                    'idArchivo': a['idArchivo'],
                     'name': a['nombre_original'] or a['ruta_archivo'],
                     'url': url_for('main.serve_upload', filename=a['ruta_archivo'])
                 })
@@ -1467,6 +1482,7 @@ def menu_page(page):
             cnx.close()
             for a in archivos:
                 documents.append({
+                    'idArchivo': a['idArchivo'],
                     'name': a['nombre_original'] or a['ruta_archivo'],
                     'url': url_for('main.serve_upload', filename=a['ruta_archivo'])
                 })

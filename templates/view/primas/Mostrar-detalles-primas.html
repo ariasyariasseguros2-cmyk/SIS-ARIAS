@@ -9,7 +9,11 @@
 {% block page_title %}{% endblock %}
 
 {% block content %}
+{% if is_modal %}
+<div class="p-0">
+{% else %}
 <div class="container-fluid py-4">
+{% endif %}
     
     <!-- MASTER PANEL: Contenedor Único -->
     <div class="master-panel">

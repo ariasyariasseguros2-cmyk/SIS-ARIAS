@@ -79,3 +79,38 @@
     color: #1a1f36;
     transform: rotate(90deg);
 }
+
+[data-theme='dark'] #detallesAvisosModal .details-modal-content {
+    background: #141414 !important;
+    color: #ffffff;
+}
+
+[data-theme='dark'] #detallesAvisosModal .details-modal-content::before {
+    background: linear-gradient(to right, #38bdf8, #60a5fa);
+}
+
+[data-theme='dark'] #detallesAvisosModal .text-muted,
+[data-theme='dark'] #detallesAvisosModal .text-secondary,
+[data-theme='dark'] #detallesAvisosModal .text-dark {
+    color: #ffffff !important;
+}
+
+[data-theme='dark'] #detallesAvisosModal .border-bottom {
+    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme='dark'] #detallesAvisosModal .btn-preview,
+[data-theme='dark'] #detallesAvisosModal .text-primary {
+    color: #38bdf8 !important;
+}
+
+[data-theme='dark'] #detallesAvisosModal .btn-close-custom {
+    border-color: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme='dark'] #detallesAvisosModal .btn-close-custom:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.18);
+}

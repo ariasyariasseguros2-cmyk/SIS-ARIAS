@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Editar Avisos JS loaded');
 
     // Event Delegation para abrir el modal de edición y acciones dentro del modal
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', async function(e) {
         
         // --- Abrir Modal de Edición ---
         const btnEditar = e.target.closest('.btn-editar');
@@ -47,31 +47,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (fileInput && fileInput.files.length > 0) {
                  const file = fileInput.files[0];
                  const formData = new FormData();
-                 formData.append('file', file);
+                 formData.append('archivo', file);
+                 formData.append('poliza_id', idInput ? idInput.value : '');
+                 formData.append('tipo_documento', 'ARCHIVO_EXTRA');
+                 formData.append('nombre_documento', file.name);
                  
                  // UI Loading state
                  const originalText = btnGuardar.innerHTML;
                  btnGuardar.disabled = true;
                  btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
 
-                 fetch('/upload', { method: 'POST', body: formData })
+                 fetch('/api/polizas/upload-archivo', { method: 'POST', body: formData })
                     .then(r => r.json())
                     .then(data => {
-                        if(data.error) throw new Error(data.error);
-                        
-                        // Update DB with new PDF URL
-                        return fetch('/primas/update', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ 
-                                idPrima: idInput.value, 
-                                pdf_url: `polizas/${data.filename}` 
-                            })
-                        });
-                    })
-                    .then(r => r.json())
-                    .then(res => {
-                        if(!res.ok) throw new Error(res.error || 'Error al actualizar');
+                        if (!data || data.ok !== true) throw new Error((data && data.error) || 'Error al guardar');
                         
                         // Success
                         alert('Aviso actualizado correctamente');
@@ -97,40 +86,5 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // --- Eliminar Documento ---
-        const btnDelete = e.target.closest('.btn-delete-document');
-        if (btnDelete) {
-             e.preventDefault();
-             const id = btnDelete.getAttribute('data-id');
-             
-             if(confirm('¿Estás seguro de eliminar este documento permanentemente?')) {
-                 const originalHtml = btnDelete.innerHTML;
-                 btnDelete.disabled = true;
-                 btnDelete.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-
-                 fetch('/primas/update', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ 
-                        idPrima: id, 
-                        pdf_url: '' // Empty string to clear
-                    })
-                 })
-                 .then(r => r.json())
-                 .then(res => {
-                     if(!res.ok) throw new Error(res.error || 'Error al eliminar');
-                     
-                     alert('Documento eliminado');
-                     // Recargar formulario o cerrar modal
-                     location.reload();
-                 })
-                 .catch(err => {
-                     console.error(err);
-                     alert('Error: ' + err.message);
-                     btnDelete.disabled = false;
-                     btnDelete.innerHTML = originalHtml;
-                 });
-             }
-        }
     });
 });

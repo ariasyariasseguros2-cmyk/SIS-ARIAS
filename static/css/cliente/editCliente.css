@@ -18,8 +18,23 @@
     border: 1px solid var(--border-light);
     border-radius: var(--radius-lg);
     background-color: var(--modal-bg);
-    box-shadow: var(--shadow-soft);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     overflow: hidden;
+}
+
+body.modal-backdrop-strong .modal-backdrop.show {
+    opacity: 0.72;
+    backdrop-filter: blur(2px);
+    z-index: 1090;
+}
+
+[data-theme='dark'] body.modal-backdrop-strong .modal-backdrop.show {
+    opacity: 0.82;
+    backdrop-filter: blur(3px);
+}
+
+body.modal-backdrop-strong #editClienteModal {
+    z-index: 1100;
 }
 
 /* Header - Diseño Limpio y Elegante */

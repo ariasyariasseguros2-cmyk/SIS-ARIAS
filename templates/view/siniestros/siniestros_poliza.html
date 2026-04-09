@@ -7,18 +7,27 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/siniestros/siniestros.css') }}">
 {% endblock %}
 
-{% block page_title %}Siniestros{% endblock %}
+{% block page_title %}
+<div class="d-flex align-items-center gap-2">
+    <h1 class="h5 m-0">
+        <i class="bi-exclamation-triangle"></i> Siniestros
+    </h1>
+    <button class="btn btn-success text-white btn-sm rounded-pill siniestros-btn-add" id="btnAnadirSiniestro" title="Añadir">
+        <i class="bi-plus-lg me-1" aria-hidden="true"></i> Añadir
+    </button>
+</div>
+{% endblock %}
 
 {% block content %}
 <div class="mb-3">
-    <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary">
-        <i class="bi-arrow-left"></i> Volver al listado Pólizas
+    <a href="{{ url_for('main.menu_page', page='listado-poliza') }}" class="text-decoration-none text-primary fw-semibold small d-inline-flex align-items-center">
+        <i class="bi-chevron-left me-1"></i> Volver al listado Pólizas
     </a>
 </div>
 
 <div class="card mb-3">
     <div class="card-header fw-semibold">
-        <i class="bi-exclamation-triangle"></i> Siniestros
+        <i></i> Siniestros Listado
     </div>
     <div class="card-body py-3">
         <div class="row g-3">
@@ -47,9 +56,6 @@
 </div>
 
 <div class="filters-bar d-flex align-items-center gap-2 mb-3">
-    <button class="btn btn-success btn-sm" id="btnAnadirSiniestro">
-        <i class="bi-plus-lg"></i> Añadir
-    </button>
     <div class="ms-auto d-flex gap-2 align-items-center">
         <span class="text-muted small" id="totalRegistros">Total de registros: 0 a 0 de 0</span>
         <div class="input-group input-group-sm" style="width: 280px;">
@@ -90,16 +96,16 @@
 </div>
 
 <div class="modal fade" id="modalSiniestro" tabindex="-1">
-    <div class="modal-dialog modal-fullscreen">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header">
                 <h5 class="modal-title" id="modalTitle">
                     <i class="bi bi-file-earmark-plus"></i> Añadir Siniestro
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <form id="formSiniestro" novalidate>
-                <div class="modal-body" style="background-color: #f8f9fa;">
+                <div class="modal-body">
                     <input type="hidden" id="siniestroId">
                     <input type="hidden" id="grupoRamoActual">
 

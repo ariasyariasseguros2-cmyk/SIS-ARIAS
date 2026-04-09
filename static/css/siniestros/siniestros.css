@@ -7,6 +7,176 @@
     flex-wrap: wrap;
 }
 
+.siniestros-btn-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem 0.9rem;
+    line-height: 1;
+}
+
+#modalSiniestro .modal-content {
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    background-color: var(--layout-bg);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+}
+
+#modalSiniestro .modal-header {
+    background-color: var(--card-bg);
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--card-border);
+    display: flex;
+    align-items: center;
+}
+
+#modalSiniestro .modal-title {
+    font-weight: 600;
+    font-size: 1.25rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+#modalSiniestro .modal-title i {
+    color: var(--accent-blue);
+    background: rgba(59, 130, 246, 0.12);
+    padding: 0.5rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+}
+
+#modalSiniestro .btn-close {
+    background-color: transparent;
+    border-radius: 999px;
+    padding: 0.75rem;
+    opacity: 0.8;
+    transition: all 0.2s;
+}
+
+[data-theme='dark'] #modalSiniestro .btn-close {
+    filter: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e");
+}
+
+#modalSiniestro .btn-close:hover {
+    background-color: rgba(0, 0, 0, 0.06);
+    opacity: 1;
+    transform: rotate(90deg);
+}
+
+[data-theme='dark'] #modalSiniestro .btn-close:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+#modalSiniestro .modal-body {
+    padding: 2rem;
+    background-color: var(--layout-bg);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--card-border) transparent;
+}
+
+#modalSiniestro .modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+#modalSiniestro .modal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+#modalSiniestro .modal-body::-webkit-scrollbar-thumb {
+    background-color: var(--card-border);
+    border-radius: 20px;
+}
+
+#modalSiniestro .modal-footer {
+    background-color: var(--card-bg);
+    padding: 1.5rem 2rem;
+    border-top: 1px solid var(--card-border);
+    gap: 1rem;
+}
+
+#modalSiniestro .modal-footer .btn {
+    padding: 0.65rem 1.5rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-radius: 50px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#modalSiniestro .form-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+#modalSiniestro .form-control,
+#modalSiniestro .form-select {
+    background-color: var(--layout-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+}
+
+#modalSiniestro .form-control:focus,
+#modalSiniestro .form-select:focus {
+    background-color: var(--card-bg);
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    outline: none;
+}
+
+#modalSiniestro .form-control[readonly] {
+    background-color: var(--nav-active-bg);
+}
+
+#modalSiniestro .accordion-item {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+#modalSiniestro .accordion-item + .accordion-item {
+    margin-top: 0.75rem;
+}
+
+#modalSiniestro .accordion-button {
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    box-shadow: none;
+}
+
+#modalSiniestro .accordion-button:not(.collapsed) {
+    color: var(--accent-blue);
+    background: rgba(59, 130, 246, 0.08);
+}
+
+#modalSiniestro .accordion-button:focus {
+    box-shadow: none;
+    border-color: rgba(59, 130, 246, 0.35);
+}
+
+[data-theme='dark'] #modalSiniestro .accordion-button::after {
+    filter: invert(1);
+    opacity: 0.85;
+}
+
+#modalSiniestro .accordion-body {
+    background: var(--layout-bg);
+}
+
 #tablaSiniestros {
     width: 100%;
 }
@@ -94,51 +264,8 @@
     opacity: 0.7;
 }
 
-.modal-xl .modal-body h6 {
-    color: #495057;
-    font-weight: 600;
-}
-
-.form-label {
-    font-weight: 500;
-    margin-bottom: 0.25rem;
-    font-size: 0.875rem;
-}
-
-.form-control[readonly] {
-    background-color: #e9ecef;
-}
-
 .text-end {
     text-align: right;
-}
-
-
-.modal.fade .modal-dialog {
-    transition: transform 0.3s ease-out;
-}
-
-.modal.show .modal-dialog {
-    transform: none;
-}
-
-
-.modal {
-    z-index: 1055;
-}
-
-.modal-backdrop {
-    z-index: 1050;
-}
-
-
-.modal-body {
-    overflow-y: auto;
-    max-height: calc(100vh - 200px);
-}
-
-.modal-fullscreen .modal-body {
-    max-height: calc(100vh - 130px);
 }
 
 
