@@ -12,8 +12,12 @@ def get_produccion_soat(page=1, per_page=20, search='', fecha_desde=None, fecha_
 
         if search:
             where_clauses.append(
-                "(p.poliza LIKE %s OR p.recibo LIKE %s OR p.contrato_nro LIKE %s "
-                "OR p.codigo_agente LIKE %s OR p.ejecutivo LIKE %s)"
+                "("
+                "COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR), p.poliza) LIKE %s "
+                "OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR), p.recibo) LIKE %s "
+                "OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.contrato_nro), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.contrato_nro, @SIS_KEY) AS CHAR), p.contrato_nro) LIKE %s "
+                "OR p.codigo_agente LIKE %s OR p.ejecutivo LIKE %s"
+                ")"
             )
             s = f"%{search}%"
             params += [s, s, s, s, s]
@@ -36,9 +40,21 @@ def get_produccion_soat(page=1, per_page=20, search='', fecha_desde=None, fecha_
         query = f"""
             SELECT
                 p.idPoliza,
-                p.poliza,
-                p.recibo,
-                p.contrato_nro                          AS planilla,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza
+                ) AS poliza,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                    p.recibo
+                ) AS recibo,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.contrato_nro), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.contrato_nro, @SIS_KEY) AS CHAR),
+                    p.contrato_nro
+                ) AS planilla,
                 p.codigo_agente                         AS codigo,
                 p.ejecutivo                             AS vendedor,
                 p.prima_neta,
@@ -51,7 +67,11 @@ def get_produccion_soat(page=1, per_page=20, search='', fecha_desde=None, fecha_
                 p.vig_desde,
                 p.vig_hasta,
                 p.cia,
-                p.asegurado,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+                    p.asegurado
+                ) AS asegurado,
                 p.estado
             FROM polizas p
             WHERE {where_sql}
@@ -96,8 +116,12 @@ def export_produccion_soat_excel(search='', fecha_desde=None, fecha_hasta=None):
 
         if search:
             where_clauses.append(
-                "(p.poliza LIKE %s OR p.recibo LIKE %s OR p.contrato_nro LIKE %s "
-                "OR p.codigo_agente LIKE %s OR p.ejecutivo LIKE %s)"
+                "("
+                "COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR), p.poliza) LIKE %s "
+                "OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR), p.recibo) LIKE %s "
+                "OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.contrato_nro), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.contrato_nro, @SIS_KEY) AS CHAR), p.contrato_nro) LIKE %s "
+                "OR p.codigo_agente LIKE %s OR p.ejecutivo LIKE %s"
+                ")"
             )
             s = f"%{search}%"
             params += [s, s, s, s, s]
@@ -114,9 +138,21 @@ def export_produccion_soat_excel(search='', fecha_desde=None, fecha_hasta=None):
 
         query = f"""
             SELECT
-                p.poliza,
-                p.recibo,
-                p.contrato_nro                          AS planilla,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza
+                ) AS poliza,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                    p.recibo
+                ) AS recibo,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.contrato_nro), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.contrato_nro, @SIS_KEY) AS CHAR),
+                    p.contrato_nro
+                ) AS planilla,
                 p.codigo_agente                         AS codigo,
                 p.ejecutivo                             AS vendedor,
                 p.prima_neta,
@@ -129,7 +165,11 @@ def export_produccion_soat_excel(search='', fecha_desde=None, fecha_hasta=None):
                 p.vig_desde,
                 p.vig_hasta,
                 p.cia,
-                p.asegurado,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+                    p.asegurado
+                ) AS asegurado,
                 p.estado
             FROM polizas p
             WHERE {where_sql}
