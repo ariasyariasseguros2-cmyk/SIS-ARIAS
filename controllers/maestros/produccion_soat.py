@@ -13,10 +13,11 @@ def get_produccion_soat(page=1, per_page=20, search='', fecha_desde=None, fecha_
         if search:
             where_clauses.append(
                 "("
-                "COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR), p.poliza) LIKE %s "
-                "OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR), p.recibo) LIKE %s "
-                "OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.contrato_nro), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.contrato_nro, @SIS_KEY) AS CHAR), p.contrato_nro) LIKE %s "
-                "OR p.codigo_agente LIKE %s OR p.ejecutivo LIKE %s"
+                "COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR), p.poliza) COLLATE utf8mb4_0900_ai_ci LIKE %s "
+                "OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR), p.recibo) COLLATE utf8mb4_0900_ai_ci LIKE %s "
+                "OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.contrato_nro), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.contrato_nro, @SIS_KEY) AS CHAR), p.contrato_nro) COLLATE utf8mb4_0900_ai_ci LIKE %s "
+                "OR p.codigo_agente COLLATE utf8mb4_0900_ai_ci LIKE %s "
+                "OR p.ejecutivo COLLATE utf8mb4_0900_ai_ci LIKE %s"
                 ")"
             )
             s = f"%{search}%"
@@ -117,10 +118,11 @@ def export_produccion_soat_excel(search='', fecha_desde=None, fecha_hasta=None):
         if search:
             where_clauses.append(
                 "("
-                "COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR), p.poliza) LIKE %s "
-                "OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR), p.recibo) LIKE %s "
-                "OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.contrato_nro), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.contrato_nro, @SIS_KEY) AS CHAR), p.contrato_nro) LIKE %s "
-                "OR p.codigo_agente LIKE %s OR p.ejecutivo LIKE %s"
+                "COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR), p.poliza) COLLATE utf8mb4_0900_ai_ci LIKE %s "
+                "OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR), p.recibo) COLLATE utf8mb4_0900_ai_ci LIKE %s "
+                "OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.contrato_nro), @SIS_KEY) AS CHAR), CAST(AES_DECRYPT(p.contrato_nro, @SIS_KEY) AS CHAR), p.contrato_nro) COLLATE utf8mb4_0900_ai_ci LIKE %s "
+                "OR p.codigo_agente COLLATE utf8mb4_0900_ai_ci LIKE %s "
+                "OR p.ejecutivo COLLATE utf8mb4_0900_ai_ci LIKE %s"
                 ")"
             )
             s = f"%{search}%"
