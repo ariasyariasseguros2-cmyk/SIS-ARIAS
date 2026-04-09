@@ -622,9 +622,9 @@ BEGIN
         ) AS telefono
     FROM clientes
     WHERE (
-            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR) = p_numero_documento
-         OR CAST(AES_DECRYPT(numero_documento, @SIS_KEY) AS CHAR) = p_numero_documento
-         OR numero_documento = p_numero_documento
+            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR) COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
+         OR CAST(AES_DECRYPT(numero_documento, @SIS_KEY) AS CHAR)            COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
+         OR numero_documento                                                 COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
     )
       AND activo = 1
     LIMIT 1;
@@ -852,9 +852,9 @@ BEGIN
     LEFT JOIN usuarios ur ON ur.username = p.usuario_registro OR ur.nombre = p.usuario_registro
     LEFT JOIN usuarios ue ON ue.username = p.usuario_edicion OR ue.nombre = p.usuario_edicion
     WHERE (
-            CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR) = p_numero_documento
-         OR CAST(AES_DECRYPT(c.numero_documento, @SIS_KEY) AS CHAR) = p_numero_documento
-         OR c.numero_documento = p_numero_documento
+            CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR) COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
+         OR CAST(AES_DECRYPT(c.numero_documento, @SIS_KEY) AS CHAR)           COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
+         OR c.numero_documento                                                COLLATE utf8mb4_0900_ai_ci = p_numero_documento COLLATE utf8mb4_0900_ai_ci
     )
       AND p.activo = 1 AND p.anulado = 0
     ORDER BY p.creado_en DESC;
@@ -3770,8 +3770,19 @@ BEGIN
         SELECT COUNT(*) INTO v_exists
         FROM polizas
         WHERE cliente_id = v_cliente_id
-          AND poliza COLLATE utf8mb4_0900_ai_ci = p_poliza COLLATE utf8mb4_0900_ai_ci
-          AND (contrato_nro COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci OR recibo COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci);
+          AND (
+            CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR) COLLATE utf8mb4_0900_ai_ci = p_poliza COLLATE utf8mb4_0900_ai_ci
+            OR CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR)           COLLATE utf8mb4_0900_ai_ci = p_poliza COLLATE utf8mb4_0900_ai_ci
+            OR poliza                                               COLLATE utf8mb4_0900_ai_ci = p_poliza COLLATE utf8mb4_0900_ai_ci
+          )
+          AND (
+            CAST(AES_DECRYPT(FROM_BASE64(contrato_nro), @SIS_KEY) AS CHAR) COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci
+            OR CAST(AES_DECRYPT(contrato_nro, @SIS_KEY) AS CHAR)           COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci
+            OR contrato_nro                                               COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci
+            OR CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR)    COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci
+            OR CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR)                COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci
+            OR recibo                                                     COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci
+          );
 
         IF v_exists > 0 THEN
             SET v_msg = CONCAT('Póliza ya existe: ', p_poliza);
@@ -3802,8 +3813,8 @@ BEGIN
         porc_compania, imp_compania, porc_subagente, imp_subagente,
         ramos_producto, estado, usuario_registro, datos_vehiculo, codigo_agente
     ) VALUES (
-        v_cliente_id, p_asegurado, p_cia, p_ramo,
-        p_poliza, p_recibo, p_contrato_nro, p_nro,
+        v_cliente_id, TO_BASE64(AES_ENCRYPT(p_asegurado, @SIS_KEY)), p_cia, p_ramo,
+        TO_BASE64(AES_ENCRYPT(p_poliza, @SIS_KEY)), TO_BASE64(AES_ENCRYPT(p_recibo, @SIS_KEY)), TO_BASE64(AES_ENCRYPT(p_contrato_nro, @SIS_KEY)), TO_BASE64(AES_ENCRYPT(p_nro, @SIS_KEY)),
         p_moneda, p_fecha_emision, p_vig_desde, p_vig_hasta, p_ultimo_dia_pago,
         p_fecha_vencimiento, p_tipo_vigencia, p_endosatario, p_forma_pago,
         p_sub_agente, p_ejecutivo, p_tipo_doc,

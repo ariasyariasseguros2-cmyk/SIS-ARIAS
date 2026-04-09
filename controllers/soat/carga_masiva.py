@@ -3,7 +3,7 @@ Controlador para carga masiva de pólizas SOAT desde Excel
 """
 import pandas as pd
 from datetime import datetime, timedelta
-from models.db import get_connection
+from models.db import get_connection, get_encrypt_key
 import mysql.connector
 import unicodedata
 from typing import Optional, Tuple
@@ -726,10 +726,20 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
 
                 # 1. PROCESAR CLIENTE (si no se ha procesado antes)
                 if numero_documento not in clientes_procesados:
-                    # Verificar si existe
+                    # Verificar si existe (considerando campos cifrados)
+                    k = get_encrypt_key()
                     cur.execute(
-                        "SELECT idCliente FROM clientes WHERE numero_documento = %s LIMIT 1",
-                        (numero_documento,)
+                        """
+                        SELECT idCliente FROM clientes 
+                        WHERE (
+                            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) = %s
+                            OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) = %s
+                            OR numero_documento = %s
+                        )
+                        AND activo = 1 
+                        LIMIT 1
+                        """,
+                        (k, numero_documento, k, numero_documento, numero_documento)
                     )
                     cliente_existe = cur.fetchone()
 
