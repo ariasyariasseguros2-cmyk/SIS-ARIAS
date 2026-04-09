@@ -4373,6 +4373,41 @@ def api_maestros_soat():
         'per_page': per_page
     })
 
+@bp.route('/api/maestros/soat/update', methods=['POST'])
+@require_permission(can_access_maestros, response_mode='json')
+def api_maestros_soat_update():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+    
+    data = request.get_json()
+    row_id = data.get('id')
+    tipo_soat_id = data.get('tipo_soat_id')
+    tasa_aas = data.get('tasa_aas')
+    tasa_vendedor = data.get('tasa_vendedor')
+    tasa_final_override = data.get('tasa_final_override')
+    
+    if row_id is None:
+        return jsonify({'ok': False, 'error': 'Missing ID'}), 400
+
+    from controllers.maestros.soat import update_soat_conf
+    
+    # Validar valores numéricos
+    try:
+        val_aas = float(tasa_aas) if tasa_aas is not None and tasa_aas != '' else 0.0
+        val_vendedor = float(tasa_vendedor) if tasa_vendedor is not None and tasa_vendedor != '' else 0.0
+        
+        if tasa_final_override == '' or tasa_final_override is None:
+            val_override = None
+        else:
+            val_override = float(tasa_final_override)
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'Invalid numeric values'}), 400
+
+    if update_soat_conf(row_id, tipo_soat_id, val_aas, val_vendedor, val_override):
+        return jsonify({'ok': True})
+    else:
+        return jsonify({'ok': False, 'error': 'Failed to update database'}), 500
+
 @bp.route('/menu/produccion-soat', methods=['GET'])
 @require_permission(can_access_maestros, response_mode='redirect')
 def menu_produccion_soat():

@@ -36,6 +36,7 @@
                             <th class="text-end">Tasa AAS</th>
                             <th class="text-end">Tasa Vendedor</th>
                             <th class="text-center">Override</th>
+                            <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -57,6 +58,58 @@
         </div>
     </div>
 </div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editSoatModal" tabindex="-1" aria-labelledby="editSoatModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="editSoatModalLabel">Editar Override de Tasa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editSoatForm">
+                <div class="modal-body">
+                    <input type="hidden" id="edit_id">
+                    <input type="hidden" id="edit_tipo_soat_id">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-bold">COMBINACIÓN (Solo Lectura)</label>
+                        <div id="edit_info" class="p-2 bg-light border rounded small"></div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_tasa_aas" class="form-label fw-bold">Tasa AAS (%) <span class="badge bg-secondary-subtle text-secondary border small" style="font-size: 0.65rem;">GENERAL</span></label>
+                            <div class="input-group">
+                                <input type="number" step="0.01" class="form-control" id="edit_tasa_aas" required>
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_tasa_vendedor" class="form-label fw-bold">Tasa Vend (%) <span class="badge bg-secondary-subtle text-secondary border small" style="font-size: 0.65rem;">GENERAL</span></label>
+                            <div class="input-group">
+                                <input type="number" step="0.01" class="form-control" id="edit_tasa_vendedor" required>
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_override" class="form-label fw-bold">Override de Tasa (%) <span class="badge bg-info-subtle text-info border small" style="font-size: 0.65rem;">ESPECÍFICO</span></label>
+                        <div class="input-group">
+                            <input type="number" step="0.01" class="form-control" id="edit_override" placeholder="0.00">
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <div class="form-text">Si se define, este valor reemplaza a la Tasa AAS para esta combinación.</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary px-4">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js_bottom %}
@@ -68,6 +121,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const btnReload = document.getElementById('btnReload');
     const perPageSelect = document.getElementById('perPageSelect');
+    const editSoatForm = document.getElementById('editSoatForm');
+    const editModalElement = document.getElementById('editSoatModal');
+    const editModal = new bootstrap.Modal(editModalElement);
 
     loadSoatData(currentPage, perPage);
 
@@ -81,6 +137,74 @@ document.addEventListener('DOMContentLoaded', function() {
         currentPage = 1;
         loadSoatData(currentPage, perPage);
     });
+
+    // Delegación de eventos para botones de editar
+    document.querySelector('#soatTable tbody').addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-edit');
+        if (btn) {
+            const data = JSON.parse(btn.getAttribute('data-row'));
+            document.getElementById('edit_id').value = data.id;
+            document.getElementById('edit_tipo_soat_id').value = data.tipo_soat_id;
+            document.getElementById('edit_info').innerHTML = `
+                <div class="d-flex flex-wrap gap-1">
+                    <span class="badge bg-white text-dark border">${data.tipo_soat}</span>
+                    <span class="badge bg-white text-dark border">${data.clase}</span>
+                    <span class="badge bg-white text-dark border">${data.uso}</span>
+                </div>
+            `;
+            document.getElementById('edit_tasa_aas').value = data.tasa_aas;
+            document.getElementById('edit_tasa_vendedor').value = data.tasa_vendedor;
+            document.getElementById('edit_override').value = data.tasa_final_override || '';
+            editModal.show();
+        }
+    });
+
+    // Guardar cambios
+    editSoatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = document.getElementById('edit_id').value;
+        const tipo_id = document.getElementById('edit_tipo_soat_id').value;
+        const tasa_aas = document.getElementById('edit_tasa_aas').value;
+        const tasa_vendedor = document.getElementById('edit_tasa_vendedor').value;
+        const override = document.getElementById('edit_override').value;
+        const btnSubmit = editSoatForm.querySelector('button[type="submit"]');
+
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Guardando...';
+
+        fetch('/api/maestros/soat/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                id: id, 
+                tipo_soat_id: tipo_id,
+                tasa_aas: tasa_aas,
+                tasa_vendedor: tasa_vendedor,
+                tasa_final_override: override 
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok) {
+                editModal.hide();
+                loadSoatData(currentPage, perPage);
+                // Notificar éxito si existe una función de notificación (Toast/Alert)
+                if (typeof showToast === 'function') {
+                    showToast('Configuración actualizada', 'success');
+                }
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo guardar'));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error al conectar con el servidor');
+        })
+        .finally(() => {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = 'Guardar Cambios';
+        });
+    });
 });
 
 function loadSoatData(page, perPage) {
@@ -88,7 +212,7 @@ function loadSoatData(page, perPage) {
     const paginationControls = document.getElementById('paginationControls');
     const paginationInfo = document.getElementById('paginationInfo');
     
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></td></tr>';
 
     fetch(`/api/maestros/soat?page=${page}&per_page=${perPage}`)
         .then(response => response.json())
@@ -101,7 +225,8 @@ function loadSoatData(page, perPage) {
                     
                     const tasaAas = parseFloat(row.tasa_aas).toFixed(2) + '%';
                     const tasaVend = parseFloat(row.tasa_vendedor).toFixed(2) + '%';
-                    const override = row.tasa_final_override ? row.tasa_final_override + '%' : '-';
+                    const overrideVal = row.tasa_final_override;
+                    const override = overrideVal ? parseFloat(overrideVal).toFixed(2) + '%' : '-';
 
                     tr.innerHTML = `
                         <td><span class="badge bg-light text-dark border">${row.tipo_soat}</span></td>
@@ -109,7 +234,14 @@ function loadSoatData(page, perPage) {
                         <td>${row.uso}</td>
                         <td class="text-end fw-bold text-primary">${tasaAas}</td>
                         <td class="text-end fw-bold text-success">${tasaVend}</td>
-                        <td class="text-center text-muted small">${override}</td>
+                        <td class="text-center">
+                            ${overrideVal ? `<span class="badge bg-info-subtle text-info border-info-subtle">${override}</span>` : '<span class="text-muted small">-</span>'}
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-outline-primary btn-edit" data-row='${JSON.stringify(row)}'>
+                                <i class="bi-pencil-square"></i>
+                            </button>
+                        </td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -123,14 +255,14 @@ function loadSoatData(page, perPage) {
                 paginationInfo.textContent = `Mostrando ${start} a ${end} de ${data.total} registros`;
 
             } else {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">No se encontraron configuraciones. Importe el Excel primero.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No se encontraron configuraciones. Importe el Excel primero.</td></tr>';
                 paginationControls.innerHTML = '';
                 paginationInfo.textContent = '0 registros';
             }
         })
         .catch(error => {
             console.error('Error loading SOAT data:', error);
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-danger">Error al cargar datos.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-danger">Error al cargar datos.</td></tr>';
         });
 }
 
