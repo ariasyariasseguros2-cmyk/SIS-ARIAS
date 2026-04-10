@@ -1,4 +1,4 @@
-from models.db import get_connection
+from models.db import get_connection, get_encrypt_key
 import datetime
 
 def _birthday_for_year(fecha_nacimiento, year):
@@ -17,23 +17,24 @@ def get_cumpleanos_data(mes=None, estado=None, dias=7, orden='calendario'):
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
         
-        # Consulta para obtener clientes activos con fecha de nacimiento
-        # Seleccionamos: razon social, numero de documento, fecha de nacimiento, email, telefono
+        key = get_encrypt_key()
+
+        # Consulta para obtener clientes activos con datos sensibles desencriptados
         query = """
             SELECT 
                 idCliente, 
-                razon_social, 
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR), CAST(AES_DECRYPT(razon_social, %s) AS CHAR), razon_social) AS razon_social,
                 tipo_documento, 
-                numero_documento, 
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR), CAST(AES_DECRYPT(numero_documento, %s) AS CHAR), numero_documento) AS numero_documento,
                 fecha_nacimiento,
-                email,
-                telefono,
-                celular
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR), CAST(AES_DECRYPT(email, %s) AS CHAR), email) AS email,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR), CAST(AES_DECRYPT(telefono, %s) AS CHAR), telefono) AS telefono,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(celular), %s) AS CHAR), CAST(AES_DECRYPT(celular, %s) AS CHAR), celular) AS celular
             FROM clientes 
             WHERE (activo = 1 OR activo IS NULL) AND fecha_nacimiento IS NOT NULL
         """
         
-        params = []
+        params = [key, key, key, key, key, key, key, key, key, key]
         if mes and str(mes).isdigit():
             m = int(mes)
             if 1 <= m <= 12:
