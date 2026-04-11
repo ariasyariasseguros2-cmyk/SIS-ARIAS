@@ -57,6 +57,14 @@ try:
                 return (parts[0][0] + parts[1][0]).upper()
             return parts[0][0].upper()
 
+        notifications = []
+        if session.get('user'):
+            try:
+                from controllers.dashboard import get_expired_policy_notifications
+                notifications = get_expired_policy_notifications(limit=10)
+            except Exception as e:
+                print(f"[context.notifications] {e}")
+
         return {
             'Roles': Roles,
             'can_create': can_create,
@@ -67,6 +75,7 @@ try:
             'can_restore': can_restore,
             'get_role_scope': get_role_scope,
             'get_initials': get_initials,
+            'notifications': notifications,
         }
 except Exception:
     # Si falla la importación, seguimos sin inyectar (evita romper arranque)
