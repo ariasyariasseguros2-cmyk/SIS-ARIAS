@@ -48,13 +48,16 @@
                                     <ul class="list-unstyled mb-0">
                                         {% for notif in notifications %}
                                         <li>
-                                            <a class="dropdown-item py-3 d-flex align-items-start text-wrap" href="#">
+                                            <a class="dropdown-item notification-item py-3 d-flex align-items-start text-wrap gap-2 notif-{{ notif.notif_tipo or 'vencida' }}" href="{{ notif.url or '#' }}">
                                                 <div class="flex-grow-1">
                                                     <p class="mb-1 small">{{ notif.message }}</p>
                                                     <span class="text-muted" style="font-size: 0.75rem;">{{ notif.time }}</span>
                                                 </div>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary btn-copy-poliza" data-poliza="{{ notif.poliza_num or '' }}" title="Copiar numero de poliza" aria-label="Copiar numero de poliza">
+                                                    <i class="bi bi-copy"></i>
+                                                </button>
                                             </a>
-                                            <div style="height: 1px; background: linear-gradient(to right, #399AD6, #1F59A3);"></div>
+                                            <div class="notification-separator"></div>
                                         </li>
                                         {% endfor %}
                                     </ul>
