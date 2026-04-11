@@ -176,43 +176,52 @@ def search_polizas_global(query: str, search_type: str) -> dict:
             WHERE p.activo = 1 AND p.anulado = 0
         """
         params = []
+        query = (query or '').strip()
         q = f"%{query}%"
+        query_no_space = query.replace(' ', '')
+        q_no_space = f"%{query_no_space}%"
         
         # Expresiones desencriptadas para filtros textuales
-        poliza_expr = """COALESCE(
+        poliza_expr = """CONVERT(COALESCE(
                 CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
                 CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
-                p.poliza
-            )"""
-        asegurado_expr = """COALESCE(
+                CAST(p.poliza AS CHAR)
+            ) USING utf8mb4) COLLATE utf8mb4_0900_ai_ci"""
+        asegurado_expr = """CONVERT(COALESCE(
                 CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
                 CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
-                p.asegurado
-            )"""
-        razon_expr = """COALESCE(
+                CAST(p.asegurado AS CHAR)
+            ) USING utf8mb4) COLLATE utf8mb4_0900_ai_ci"""
+        razon_expr = """CONVERT(COALESCE(
                 CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
                 CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
-                c.razon_social
-            )"""
-        nro_expr = """COALESCE(
+                CAST(c.razon_social AS CHAR)
+            ) USING utf8mb4) COLLATE utf8mb4_0900_ai_ci"""
+        nro_expr = """CONVERT(COALESCE(
                 CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
                 CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
-                p.nro
-            )"""
-        contrato_expr = """COALESCE(
+                CAST(p.nro AS CHAR)
+            ) USING utf8mb4) COLLATE utf8mb4_0900_ai_ci"""
+        contrato_expr = """CONVERT(COALESCE(
                 CAST(AES_DECRYPT(FROM_BASE64(p.contrato_nro), @SIS_KEY) AS CHAR),
                 CAST(AES_DECRYPT(p.contrato_nro, @SIS_KEY) AS CHAR),
-                p.contrato_nro
-            )"""
+                CAST(p.contrato_nro AS CHAR)
+            ) USING utf8mb4) COLLATE utf8mb4_0900_ai_ci"""
+        asegurada_expr = "CONVERT(CAST(p.asegurada AS CHAR) USING utf8mb4) COLLATE utf8mb4_0900_ai_ci"
 
         if search_type == 'historica':
-            sql += f" AND ({poliza_expr} LIKE %s)"
-            params.append(q)
+            sql += f""" AND (
+                {poliza_expr} LIKE %s
+                OR REPLACE({poliza_expr}, ' ', '') LIKE %s
+                OR CAST(p.poliza AS CHAR) LIKE %s
+                OR REPLACE(CAST(p.poliza AS CHAR), ' ', '') LIKE %s
+            )"""
+            params.extend([q, q_no_space, q, q_no_space])
         elif search_type == 'aviso':
             sql += f" AND ({nro_expr} LIKE %s OR {contrato_expr} LIKE %s)"
             params.extend([q, q])
         elif search_type == 'placa':
-            sql += " AND (p.asegurada LIKE %s)"
+            sql += f" AND ({asegurada_expr} LIKE %s)"
             params.append(q)
         elif search_type == 'titular':
             sql += f" AND ({razon_expr} LIKE %s OR {asegurado_expr} LIKE %s)"
@@ -220,12 +229,13 @@ def search_polizas_global(query: str, search_type: str) -> dict:
         else:  # General
             sql += f""" AND (
                 {poliza_expr} LIKE %s OR 
+                REPLACE({poliza_expr}, ' ', '') LIKE %s OR
                 {razon_expr} LIKE %s OR 
                 {asegurado_expr} LIKE %s OR 
-                p.asegurada LIKE %s OR
+                {asegurada_expr} LIKE %s OR
                 {nro_expr} LIKE %s
             )"""
-            params.extend([q, q, q, q, q])
+            params.extend([q, q_no_space, q, q, q, q])
             
         # Apply User Filter (RLS)
         if user_filter_sql:
