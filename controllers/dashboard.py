@@ -1,8 +1,122 @@
 from typing import Dict, List, Any
 from models.db import get_connection
-from datetime import datetime
-from flask import session
+from datetime import datetime, date
+from flask import session, url_for
 from utils.rbac import Roles
+
+
+def get_expired_policy_notifications(limit: int = 10) -> List[dict]:
+    """Retorna notificaciones de polizas vencidas para la campana del layout."""
+    if not session.get('user'):
+        return []
+
+    safe_limit = max(1, min(int(limit or 10), 50))
+    notifications: List[dict] = []
+
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+
+        user_filter = ""
+        user_filter_args: List[Any] = []
+
+        if session.get('role_name') == Roles.SUB_AGENTE:
+            user = session.get('user')
+            nombre_usuario = user
+            try:
+                cur.execute(
+                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s LIMIT 1",
+                    (user,),
+                )
+                u_row = cur.fetchone() or {}
+                if u_row.get('nombre'):
+                    nombre_usuario = u_row['nombre']
+            except Exception:
+                nombre_usuario = user
+
+            user_filter = " AND (LOWER(TRIM(sub_agente)) = LOWER(TRIM(%s)) OR LOWER(TRIM(sub_agente)) = LOWER(TRIM(%s))) "
+            user_filter_args = [user, nombre_usuario]
+
+        sql = f"""
+            SELECT
+                idPoliza,
+                cliente_id,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                    poliza
+                ) AS poliza,
+                CASE
+                    WHEN vig_hasta < CURDATE() THEN 'VENCIDA'
+                    ELSE 'POR_VENCER'
+                END AS notif_tipo,
+                vig_hasta
+            FROM polizas
+            WHERE activo = 1
+              AND anulado = 0
+              AND vig_hasta IS NOT NULL
+              AND (
+                    vig_hasta < CURDATE()
+                    OR (
+                        vig_hasta >= CURDATE()
+                        AND YEAR(vig_hasta) = YEAR(CURDATE())
+                        AND MONTH(vig_hasta) = MONTH(CURDATE())
+                    )
+                  )
+              {user_filter}
+            ORDER BY
+                CASE WHEN vig_hasta < CURDATE() THEN 0 ELSE 1 END,
+                vig_hasta ASC
+            LIMIT %s
+        """
+        cur.execute(sql, [*user_filter_args, safe_limit])
+        rows = cur.fetchall() or []
+        cur.close()
+        cnx.close()
+
+        today = date.today()
+        for r in rows:
+            poliza_num = (r.get('poliza') or '').strip() or f"ID {r.get('idPoliza')}"
+            vig_hasta = r.get('vig_hasta')
+            notif_tipo = (r.get('notif_tipo') or 'VENCIDA').upper()
+
+            vig_date = None
+            if isinstance(vig_hasta, datetime):
+                vig_date = vig_hasta.date()
+            elif isinstance(vig_hasta, date):
+                vig_date = vig_hasta
+
+            if vig_date:
+                fecha_txt = vig_date.strftime('%d/%m/%Y')
+                if notif_tipo == 'POR_VENCER':
+                    dias = max(0, (vig_date - today).days)
+                    time_txt = "Vence hoy" if dias == 0 else (f"Vence en {dias} dia" if dias == 1 else f"Vence en {dias} dias")
+                    message_txt = f"Poliza {poliza_num} por vencer el {fecha_txt}"
+                else:
+                    dias = max(0, (today - vig_date).days)
+                    time_txt = f"Hace {dias} dia" if dias == 1 else f"Hace {dias} dias"
+                    message_txt = f"Poliza {poliza_num} vencida el {fecha_txt}"
+            else:
+                fecha_txt = str(vig_hasta or '-')
+                if notif_tipo == 'POR_VENCER':
+                    time_txt = "Por vencer"
+                    message_txt = f"Poliza {poliza_num} por vencer el {fecha_txt}"
+                else:
+                    time_txt = "Vencida"
+                    message_txt = f"Poliza {poliza_num} vencida el {fecha_txt}"
+
+            notifications.append({
+                'message': message_txt,
+                'time': time_txt,
+                'poliza_num': poliza_num,
+                'notif_tipo': 'por_vencer' if notif_tipo == 'POR_VENCER' else 'vencida',
+                'url': url_for('main.open_polizas_from_notification', poliza_id=r.get('idPoliza')),
+            })
+    except Exception as e:
+        print(f"[notifications] Error loading expired policies: {e}")
+        return []
+
+    return notifications
 
 def get_rows() -> List[dict]:
     # Placeholder for table rows if needed, or we can fetch latest policies
@@ -206,7 +320,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
     return cards
 
 def get_dashboard_data() -> Dict[str, Any]:
-    # Chart data: Last 12 months production
+    # Chart data: prima neta mensual del año actual
     months_labels = []
     totals_data = []
     
@@ -218,56 +332,58 @@ def get_dashboard_data() -> Dict[str, Any]:
         user_filter_args = []
 
         if session.get('role_name') == Roles.SUB_AGENTE:
-            pass
-        
-        # Obtener producción de los últimos 12 meses usando imp_compania y vig_desde
-        # Query puede variar según versión de MySQL, usaremos un loop simple en python para llenar huecos
-        # O query agrupada
+            user = session.get('user')
+            nombre_usuario = user
+            try:
+                cur.execute(
+                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1",
+                    (user,),
+                )
+                u_row = cur.fetchone()
+                if u_row and u_row[0]:
+                    nombre_usuario = u_row[0]
+            except Exception:
+                nombre_usuario = user
+
+            user_filter = " AND (LOWER(TRIM(sub_agente)) = LOWER(TRIM(%s)) OR LOWER(TRIM(sub_agente)) = LOWER(TRIM(%s))) "
+            user_filter_args = [user, nombre_usuario]
+
         sql = f"""
-            SELECT 
-                vig_desde, 
-                imp_compania
+            SELECT
+                MONTH(vig_desde) AS mes,
+                SUM(COALESCE(prima_neta, 0)) AS total_prima_neta
             FROM polizas
             WHERE vig_desde IS NOT NULL
-              AND vig_desde BETWEEN DATE('2025-12-01') AND DATE('2026-12-31')
-            ORDER BY vig_desde ASC
+              AND YEAR(vig_desde) = YEAR(CURDATE())
+              AND anulado = 0
+              {user_filter}
+            GROUP BY MONTH(vig_desde)
+            ORDER BY MONTH(vig_desde)
         """
-        cur.execute(sql)
+        cur.execute(sql, user_filter_args)
         rows = cur.fetchall() or []
-        
-        data_map = {}
-        for r in rows:
-            d = r[0]
-            val_raw = r[1]
-            try:
-                val = float(str(val_raw).replace(',', '.')) if val_raw is not None else 0.0
-            except Exception:
-                val = 0.0
-            key = f"{d.year}-{d.month:02d}"
-            data_map[key] = data_map.get(key, 0.0) + val
-        
-        # Generar etiquetas y totales para 2025-12 a 2026-12
-        start_year, start_month = 2025, 12
-        end_year, end_month = 2026, 12
-        y, m = start_year, start_month
-        meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
-        while True:
-            key = f"{y}-{m:02d}"
-            months_labels.append(f"{meses[m-1]} {y}")
-            totals_data.append(data_map.get(key, 0.0))
-            if y == end_year and m == end_month:
-                break
-            m += 1
-            if m > 12:
-                m = 1
-                y += 1
+
+        data_map = {int(r[0]): float(r[1] or 0) for r in rows}
+        meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+        current_year = datetime.now().year
+        for month_index in range(1, 13):
+            months_labels.append(f"{meses[month_index - 1]} {current_year}")
+            totals_data.append(data_map.get(month_index, 0.0))
             
         cur.close()
         cnx.close()
     except Exception as e:
         print(f"[Dashboard] Error fetching chart data: {e}")
         # Fallback data
-        months_labels = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
-        totals_data = [0]*12
+        current_year = datetime.now().year
+        meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+        months_labels = [f"{m} {current_year}" for m in meses]
+        totals_data = [0] * 12
 
-    return {"months": months_labels, "totals": totals_data, "title": "Producción Anual"}
+    return {
+        "months": months_labels,
+        "totals": totals_data,
+        "daily_labels": months_labels,
+        "daily_income": totals_data,
+        "title": "Prima Neta Mensual",
+    }
