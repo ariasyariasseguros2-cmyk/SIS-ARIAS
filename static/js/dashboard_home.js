@@ -125,16 +125,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 2. Income per Day Chart (Wave/Soundtrack Style)
+    const formatCurrency = (value, currency) => {
+        const symbol = currency === 'soles' ? 'S/ ' : 'US$ ';
+        return symbol + new Intl.NumberFormat('es-PE', { style: 'decimal', maximumFractionDigits: 2 }).format(value || 0);
+    };
+
+    // 2. Prima Neta Mensual (line chart)
     function initIncomeDayChart(currency = 'soles') {
         const ctxIncome = document.getElementById('incomeDayChart');
         if (!ctxIncome) return;
 
-        // Ensure data exists or use defaults
-        const dailyLabels = data.dailyLabels || Array.from({length: 30}, (_, i) => i + 1);
-        const dailyIncome = data.dailyIncome || new Array(dailyLabels.length).fill(0);
+        const dailyLabels = data.dailyLabels || data.months || ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const dailyIncome = data.dailyIncome || data.totals || new Array(dailyLabels.length).fill(0);
 
         const chartData = currency === 'soles' ? dailyIncome : dailyIncome.map(v => v / 3.7);
+        const totalValue = chartData.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
         
         const gradient = ctxIncome.getContext('2d').createLinearGradient(0, 0, 0, 400);
         gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
@@ -147,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
             data: {
                 labels: dailyLabels,
                 datasets: [{
-                    label: 'Ingresos',
+                    label: 'Prima Neta',
                     data: chartData,
                     borderColor: '#3b82f6',
                     borderWidth: 3,
@@ -214,6 +219,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+
+        const totalLabel = document.getElementById('dailyTotalLabel');
+        if (totalLabel) {
+            totalLabel.innerText = formatCurrency(totalValue, currency);
+        }
     }
 
     // Currency Switcher Logic
@@ -227,16 +237,8 @@ document.addEventListener('DOMContentLoaded', () => {
             e.target.classList.add('active');
             e.target.classList.remove('text-muted');
             
-            // Update Daily Income Chart
+            // Update monthly premium chart
             initIncomeDayChart(currency);
-            
-            // Update Total Label (Mock)
-            const label = document.getElementById('dailyTotalLabel');
-            if (currency === 'soles') {
-                label.innerText = 'S/ 5,240.00'; // Example
-            } else {
-                label.innerText = 'US$ 1,416.21'; // Example
-            }
         });
     });
 
