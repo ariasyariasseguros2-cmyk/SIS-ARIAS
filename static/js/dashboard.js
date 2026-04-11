@@ -8,6 +8,25 @@ window.addEventListener('unhandledrejection', function(ev){
 
 document.addEventListener('DOMContentLoaded', () => {
     try {
+        async function copyText(text) {
+            const value = String(text || '').trim();
+            if (!value) return false;
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(value);
+                return true;
+            }
+            const ta = document.createElement('textarea');
+            ta.value = value;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            return ok;
+        }
+
         const { months = [], totals = [], title = 'Total Pólizas' } = window.chartData || {};
 
         const ctx = document.getElementById('renewalsChart');
@@ -85,6 +104,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.addEventListener('click', (e) => {
             try {
+                const copyBtn = e.target.closest('.btn-copy-poliza');
+                if (copyBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const poliza = copyBtn.getAttribute('data-poliza') || '';
+                    const original = copyBtn.innerHTML;
+                    copyText(poliza)
+                        .then((ok) => {
+                            copyBtn.innerHTML = ok ? '<i class="bi bi-check2"></i>' : '<i class="bi bi-x-lg"></i>';
+                            copyBtn.title = ok ? 'Copiado' : 'No se pudo copiar';
+                        })
+                        .catch(() => {
+                            copyBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+                            copyBtn.title = 'No se pudo copiar';
+                        })
+                        .finally(() => {
+                            setTimeout(() => {
+                                copyBtn.innerHTML = original;
+                                copyBtn.title = 'Copiar numero de poliza';
+                            }, 1200);
+                        });
+                    return;
+                }
+
                 const a = e.target.closest('a[data-page]');
                 if (!a) return;
                 const href = a.href;
