@@ -405,6 +405,7 @@
     // }
 
     // Mantener "Fin Vigencia" (vencimiento) tal cual PDF para la columna "Fin Vigencia"
+    if (!it.cuotas) it.cuotas = [];
     return it;
   }
 
@@ -586,23 +587,56 @@
 
   // NUEVO: helper para generar botones de acción por fila
   function buildActions(index) {
-    return `
-      <div class="actions-pane" data-index="${index}">
-        <div class="drop-facturas" data-index="${index}">Haz clic para seleccionar o arrastra la factura aquí</div>
-        <input type="file" class="d-none input-facturas" data-index="${index}" accept=".pdf,image/*" multiple>
-        <div class="pane-fields">
-          <div class="field">
-            <label class="form-label small mb-1">Factura</label>
-            <input type="text" class="form-control form-control-sm pane-factura" data-index="${index}" placeholder="F123-00000000">
+    const item = extractedItems[index] || {};
+    const cuotas = item.cuotas || [];
+    
+    let cuotasHtml = '';
+    if (cuotas.length > 0) {
+      cuotasHtml = cuotas.map((c, ci) => `
+        <div class="cuota-row border rounded p-2 mb-2 bg-dark" data-cuota-index="${ci}">
+          <div class="pane-fields mb-2">
+            <div class="field">
+              <label class="form-label small mb-1">CUPON</label>
+              <input type="text" class="form-control form-control-sm cuota-cupon" data-index="${index}" data-cuota-index="${ci}" value="${c.cupon || ''}" placeholder="115441271">
+            </div>
+            <div class="field">
+              <label class="form-label small mb-1">VENCIMIENTO</label>
+              <input type="text" class="form-control form-control-sm cuota-vencimiento" data-index="${index}" data-cuota-index="${ci}" value="${c.fecha_vencimiento || ''}" placeholder="dd/mm/aaaa">
+            </div>
+            <div class="field">
+              <label class="form-label small mb-1">IMPORTE</label>
+              <input type="text" class="form-control form-control-sm cuota-importe" data-index="${index}" data-cuota-index="${ci}" value="${c.importe || ''}" placeholder="0.00">
+            </div>
           </div>
-          <div class="field">
-            <label class="form-label small mb-1">Fecha Pago</label>
-            <input type="text" class="form-control form-control-sm pane-fecha" data-index="${index}" placeholder="dd/mm/aaaa">
+          <div class="pane-fields mb-2">
+            <div class="field">
+              <label class="form-label small mb-1">FACTURA</label>
+              <input type="text" class="form-control form-control-sm cuota-factura" data-index="${index}" data-cuota-index="${ci}" value="${c.factura || ''}" placeholder="F123-00000000">
+            </div>
+            <div class="field">
+              <label class="form-label small mb-1">FECHA PAGO</label>
+              <input type="text" class="form-control form-control-sm cuota-fecha" data-index="${index}" data-cuota-index="${ci}" value="${c.fecha_pago || ''}" placeholder="dd/mm/aaaa">
+            </div>
+          </div>
+          <div class="d-flex justify-content-end">
+            <button type="button" class="btn btn-sm btn-outline-danger action-remove-cuota" data-index="${index}" data-cuota-index="${ci}">Eliminar</button>
           </div>
         </div>
-        <div class="list-facturas" data-index="${index}"></div>
-        <div class="top-row">
-          <button type="button" class="btn btn-sm btn-outline-danger action-remove" data-index="${index}">Eliminar</button>
+      `).join('');
+    }
+
+    return `
+      <div class="actions-pane" data-index="${index}">
+        <div class="drop-facturas mb-2" data-index="${index}">Haz clic para seleccionar o arrastra la factura aquí</div>
+        <input type="file" class="d-none input-facturas" data-index="${index}" accept=".pdf,image/*" multiple>
+        
+        <div class="cuotas-list" data-index="${index}">
+          ${cuotasHtml}
+        </div>
+
+        <div class="top-row mt-2 d-flex justify-content-between align-items-center">
+          <button type="button" class="btn btn-sm btn-outline-primary action-add-cuota" data-index="${index}">+ Agregar Cuota</button>
+          <button type="button" class="btn btn-sm btn-outline-danger action-remove" data-index="${index}">Eliminar Fila</button>
         </div>
       </div>
     `;
@@ -674,6 +708,13 @@
       } else {
         it.moneda = 'S/';
       }
+
+      // Sync factura/fecha_pago from first cuota if available
+      if (it.cuotas && it.cuotas.length > 0) {
+        it.factura = it.cuotas[0].factura || '';
+        it.fecha_pago = it.cuotas[0].fecha_pago || '';
+      }
+
       const tr = document.createElement('tr');
       let inferredVal = it.cia_value || findIssuerValueByText(it.cia || '');
       if (!inferredVal) {
@@ -1273,15 +1314,37 @@
     scheduleAutoSave();
   });
 
-  // Acciones por fila (Eliminar/Duplicar)
+  // Acciones por fila (Eliminar/Duplicar/Cuotas)
   tbody.addEventListener('click', (e) => {
     const btnRemove = e.target.closest('.action-remove');
     const btnDup = e.target.closest('.action-duplicate');
     const btnAttach = e.target.closest('.action-attach-factura');
-    if (!btnRemove && !btnDup && !btnAttach) return;
+    const btnAddCuota = e.target.closest('.action-add-cuota');
+    const btnRemoveCuota = e.target.closest('.action-remove-cuota');
+    
+    if (!btnRemove && !btnDup && !btnAttach && !btnAddCuota && !btnRemoveCuota) return;
 
-    const idx = Number((btnRemove || btnDup || btnAttach)?.dataset?.index);
+    const btn = (btnRemove || btnDup || btnAttach || btnAddCuota || btnRemoveCuota);
+    const idx = Number(btn?.dataset?.index);
     if (!Number.isFinite(idx)) return;
+
+    if (btnAddCuota) {
+      if (!extractedItems[idx].cuotas) extractedItems[idx].cuotas = [];
+       extractedItems[idx].cuotas.push({ cupon: '', factura: '', fecha_pago: '', importe: '', fecha_vencimiento: '', moneda: 'S/' });
+      refreshCuotasUI(idx);
+      scheduleAutoSave();
+      return;
+    }
+
+    if (btnRemoveCuota) {
+      const cuotaIdx = Number(btn.dataset.cuotaIndex);
+      if (Number.isFinite(cuotaIdx) && extractedItems[idx].cuotas) {
+        extractedItems[idx].cuotas.splice(cuotaIdx, 1);
+        refreshCuotasUI(idx);
+        scheduleAutoSave();
+      }
+      return;
+    }
 
     if (btnAttach) {
       const tr = tbody.querySelectorAll('tr')[idx];
@@ -1333,6 +1396,48 @@
     }
   });
 
+  tbody.addEventListener('input', (e) => {
+    const cc = e.target.closest('.cuota-cupon');
+    const cv = e.target.closest('.cuota-vencimiento');
+    const ci = e.target.closest('.cuota-importe');
+    const cf = e.target.closest('.cuota-factura');
+    const cp = e.target.closest('.cuota-fecha');
+    
+    if (!cc && !cv && !ci && !cf && !cp) return;
+    
+    const src = (cc || cv || ci || cf || cp);
+    const idx = Number(src.dataset.index);
+    const cuotaIdx = Number(src.dataset.cuotaIndex);
+    if (!Number.isFinite(idx) || !Number.isFinite(cuotaIdx)) return;
+    if (!extractedItems[idx] || !extractedItems[idx].cuotas[cuotaIdx]) return;
+    
+    if (cc) {
+      extractedItems[idx].cuotas[cuotaIdx].cupon = cc.value;
+    }
+    if (cv) {
+      extractedItems[idx].cuotas[cuotaIdx].fecha_vencimiento = cv.value;
+    }
+    if (ci) {
+      extractedItems[idx].cuotas[cuotaIdx].importe = ci.value;
+    }
+    if (cf) {
+      extractedItems[idx].cuotas[cuotaIdx].factura = cf.value;
+    }
+    if (cp) {
+      extractedItems[idx].cuotas[cuotaIdx].fecha_pago = cp.value;
+    }
+    scheduleAutoSave();
+  });
+
+  function refreshCuotasUI(index) {
+    const tr = tbody.querySelectorAll('tr')[index];
+    if (!tr) return;
+    const actionsCol = tr.querySelector('.actions-col');
+    if (actionsCol) {
+      actionsCol.innerHTML = buildActions(index);
+    }
+  }
+
   function updateRowFilesUI(index) {
     const tr = tbody.querySelectorAll('tr')[index];
     if (!tr) return;
@@ -1374,8 +1479,20 @@
           if (/\.pdf$/i.test(f.name)) {
             const meta = await extractFacturaMetaFromFile(f);
             facturaMetaMap.set(keyForFile(f), meta);
-            if (meta && meta.factura) setCellValue(idx, 'factura', meta.factura);
-            if (meta && meta.fecha_pago) setCellValue(idx, 'fecha_pago', meta.fecha_pago);
+            if (meta && meta.factura) {
+              if (!extractedItems[idx].cuotas) extractedItems[idx].cuotas = [];
+              const exists = extractedItems[idx].cuotas.some(c => c.factura === meta.factura);
+              if (!exists) {
+                extractedItems[idx].cuotas.push({
+                  factura: meta.factura || '',
+                  fecha_pago: meta.fecha_pago || '',
+                  fecha_vencimiento: meta.fecha_vencimiento || '',
+                  importe: '',
+                  moneda: extractedItems[idx].moneda || 'S/'
+                });
+                refreshCuotasUI(idx);
+              }
+            }
           }
         }
       }
@@ -1412,8 +1529,22 @@
         if (/\.pdf$/i.test(f.name)) {
           const meta = await extractFacturaMetaFromFile(f);
           facturaMetaMap.set(keyForFile(f), meta);
-          if (meta && meta.factura) setCellValue(idx, 'factura', meta.factura);
-          if (meta && meta.fecha_pago) setCellValue(idx, 'fecha_pago', meta.fecha_pago);
+          if (meta && Array.isArray(meta.cuotas) && meta.cuotas.length > 0) {
+            mergeExtractedCuotas(idx, meta);
+          } else if (meta && meta.factura) {
+            if (!extractedItems[idx].cuotas) extractedItems[idx].cuotas = [];
+            const exists = extractedItems[idx].cuotas.some(c => c.factura === meta.factura);
+            if (!exists) {
+              extractedItems[idx].cuotas.push({
+                factura: meta.factura || '',
+                fecha_pago: meta.fecha_pago || '',
+                fecha_vencimiento: meta.fecha_vencimiento || '',
+                importe: '',
+                moneda: extractedItems[idx].moneda || 'S/'
+              });
+              refreshCuotasUI(idx);
+            }
+          }
         }
       }
     }
@@ -2346,38 +2477,66 @@
       return {
         factura: d.factura || d.cupon || '',
         fecha_pago: d.fecha_pago || d.fecha_vencimiento || '',
-        fecha_vencimiento: d.fecha_vencimiento || ''
+        fecha_vencimiento: d.fecha_vencimiento || '',
+        cuotas: Array.isArray(d.cuotas) ? d.cuotas : []
       };
     } catch (_) {
       return { factura: '', fecha_pago: '' };
     }
   }
+  function mergeExtractedCuotas(index, meta) {
+    if (!Number.isFinite(index) || !meta || !extractedItems[index]) return;
+    if (!Array.isArray(meta.cuotas) || meta.cuotas.length === 0) return;
+    extractedItems[index].cuotas = meta.cuotas.map(c => ({
+      cupon: c.cupon || '',
+      fecha_vencimiento: c.fecha_vencimiento || '',
+      importe: c.importe || '',
+      factura: c.factura || '',
+      fecha_pago: c.fecha_pago || '',
+      moneda: c.moneda || extractedItems[index].moneda || 'S/'
+    }));
+    if (!extractedItems[index].factura && extractedItems[index].cuotas[0]) {
+      extractedItems[index].factura = extractedItems[index].cuotas[0].factura || '';
+      extractedItems[index].fecha_pago = extractedItems[index].cuotas[0].fecha_pago || '';
+      extractedItems[index].fecha_vencimiento = extractedItems[index].cuotas[0].fecha_vencimiento || extractedItems[index].fecha_vencimiento || '';
+    }
+    refreshCuotasUI(index);
+  }
   function applyFacturaMeta(meta) {
     if (!meta) return;
     if (!extractedItems || extractedItems.length === 0) return;
-    if (extractedItems.length === 1) {
-      setCellValue(0, 'factura', meta.factura || extractedItems[0].recibo || '');
-      if (meta.fecha_pago) setCellValue(0, 'fecha_pago', meta.fecha_pago);
-      render(extractedItems);
-      return;
-    }
+    
     // Si hay varias filas: intentar por coincidencia de recibo/factura; si no, aplicar al primer hueco libre
-    const byMatchIdx = extractedItems.findIndex(it => {
+    let idx = extractedItems.findIndex(it => {
       const rec = (it.recibo || '').toString().trim();
       const fac = (it.factura || '').toString().trim();
       return (meta.factura && (rec === meta.factura || fac === meta.factura));
     });
-    if (byMatchIdx >= 0) {
-      setCellValue(byMatchIdx, 'factura', meta.factura);
-      if (meta.fecha_pago) setCellValue(byMatchIdx, 'fecha_pago', meta.fecha_pago);
-      render(extractedItems);
+    
+    if (idx < 0) {
+      // Si no hay coincidencia, buscar la primera fila sin cuotas o la primera fila
+      const emptyIdx = extractedItems.findIndex(it => !it.cuotas || it.cuotas.length === 0);
+      idx = emptyIdx >= 0 ? emptyIdx : 0;
+    }
+
+    if (!extractedItems[idx].cuotas) extractedItems[idx].cuotas = [];
+    if (Array.isArray(meta.cuotas) && meta.cuotas.length > 0) {
+      mergeExtractedCuotas(idx, meta);
       return;
     }
-    const emptyIdx = extractedItems.findIndex(it => !it.factura && !it.fecha_pago);
-    const idx = emptyIdx >= 0 ? emptyIdx : 0;
-    if (meta.factura) setCellValue(idx, 'factura', meta.factura);
-    if (meta.fecha_pago) setCellValue(idx, 'fecha_pago', meta.fecha_pago);
-    render(extractedItems);
+    
+    // Evitar duplicados por factura
+    const exists = extractedItems[idx].cuotas.some(c => c.factura === meta.factura);
+    if (!exists) {
+      extractedItems[idx].cuotas.push({
+        factura: meta.factura || '',
+        fecha_pago: meta.fecha_pago || '',
+        fecha_vencimiento: meta.fecha_vencimiento || '',
+        importe: '',
+        moneda: extractedItems[idx].moneda || 'S/'
+      });
+      refreshCuotasUI(idx);
+    }
   }
   facturasFilesEl?.addEventListener('change', async () => {
     if (!facturasFilesEl.files || facturasFilesEl.files.length === 0) return;
@@ -2467,20 +2626,12 @@
     const rows = Array.from(tbody?.querySelectorAll('tr') || []);
     rows.forEach((tr, idx) => {
       if (extractedItems[idx]) {
-        extractedItems[idx].factura = '';
-        extractedItems[idx].fecha_pago = '';
+        extractedItems[idx].cuotas = [];
         extractedItems[idx].numero_documento_extracted = '';
       }
-      const pf = tr.querySelector('.pane-factura');
-      if (pf) pf.value = '';
-      const pfp = tr.querySelector('.pane-fecha');
-      if (pfp) pfp.value = '';
+      refreshCuotasUI(idx);
       const tdDoc = getTd(idx, 'numero_documento_extracted');
       if (tdDoc) tdDoc.textContent = '';
-      const tdFac = getTd(idx, 'factura');
-      if (tdFac) tdFac.textContent = '';
-      const tdFec = getTd(idx, 'fecha_pago');
-      if (tdFec) tdFec.textContent = '';
       rowFacturasMap.set(idx, []);
       updateRowFilesUI(idx);
     });

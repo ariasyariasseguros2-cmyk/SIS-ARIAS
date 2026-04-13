@@ -728,7 +728,8 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
         'importe': '',
         'factura': '',
         'fecha_pago': '',
-        'observacion': ''
+        'observacion': '',
+        'cuotas': []
     }
 
     # Regex Helpers
@@ -913,5 +914,17 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
             if not raw:
                 raw = find_date_after(r'(?:PAGADO|FECHA\s*PAGO|EMISI[ÓO]N)', text)
             data['fecha_pago'] = normalize_date_token(raw)
+
+    try:
+        from controllers.cuotas.VariosCuotasGenerales import extract_cronograma_cuotas_from_text
+        cuotas = extract_cronograma_cuotas_from_text(text, data.get('moneda') or 'S/.')
+        if cuotas:
+            data['cuotas'] = cuotas
+            primera = cuotas[0]
+            data['cupon'] = data['cupon'] or str(primera.get('cupon') or '')
+            data['fecha_vencimiento'] = data['fecha_vencimiento'] or str(primera.get('fecha_vencimiento') or '')
+            data['importe'] = data['importe'] or str(primera.get('importe') or '')
+    except Exception as e:
+        print(f"Error extracting multiple cuotas: {e}")
 
     return data

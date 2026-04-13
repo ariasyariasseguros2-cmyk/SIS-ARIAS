@@ -605,226 +605,109 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                     except Exception as e_anexos:
                         print(f"[save_polizas] Error linking anexos: {e_anexos}")
 
-                # INSERTAR CUOTA AUTOMÁTICA
+                # INSERTAR CUOTAS
                 try:
-                    c_poliza = U(row.get("numero_poliza") or "")
-                    c_cupon = U(row.get("recibo") or "")
-                    c_fec_venc = (
-                        parse_date(row.get("fecha_vencimiento")) or
-                        parse_date(row.get("vencimiento")) or
-                        parse_date((selected or {}).get("fecha_vencimiento")) or
-                        parse_date((selected or {}).get("vencimiento")) or
-                        parse_date((selected or {}).get("vig_hasta")) or
-                        datetime.today().strftime('%Y-%m-%d')
-                    )
-                    c_moneda = U(row.get("moneda") or "S/.")
-                    c_importe = parse_decimal(row.get("prima_comercial_igv"))
-                    if c_importe is None:
-                         c_importe = parse_decimal(row.get("prima_total"))
-                    if c_importe is None:
-                         c_importe = 0.0
-                    c_fecha_pago = parse_date(row.get("fecha_pago"))
-                    c_factura = U(row.get("factura") or "")
-                    if not c_poliza and real_poliza_id:
-                        try:
-                            cur.execute(
-                                """
-                                SELECT 
-                                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
-                                             CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
-                                             poliza) AS pval,
-                                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR),
-                                             CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
-                                             recibo) AS rval,
-                                    DATE_FORMAT(vig_hasta, '%Y-%m-%d') AS fh
-                                FROM polizas
-                                WHERE idPoliza = %s
-                                """,
-                                (real_poliza_id,)
-                            )
-                            rp = cur.fetchone()
-                            if rp:
-                                c_poliza = U(rp[0] or "")
-                                c_cupon = U((c_cupon or rp[1] or ""))
-                                c_fec_venc = c_fec_venc or (rp[2] or datetime.today().strftime('%Y-%m-%d'))
-                        except Exception:
-                            pass
-                    if c_poliza:
-                        target_poliza_id = real_poliza_id
-                        if not target_poliza_id:
-                            try:
-                                if c_cupon:
-                                    cur.execute(
-                                        """
-                                        SELECT idPoliza
-                                        FROM polizas
-                                        WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
-                                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) USING utf8mb4), recibo) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
-                                        ORDER BY creado_en DESC
-                                        LIMIT 1
-                                        """,
-                                        (c_poliza, c_cupon),
-                                    )
-                                else:
-                                    cur.execute(
-                                        """
-                                        SELECT idPoliza
-                                        FROM polizas
-                                        WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
-                                        ORDER BY creado_en DESC
-                                        LIMIT 1
-                                        """,
-                                        (c_poliza,),
-                                    )
-                                rpid = cur.fetchone()
-                                if rpid:
-                                    target_poliza_id = rpid[0]
-                            except Exception:
-                                target_poliza_id = None
+                    row_cuotas = row.get("cuotas") or []
+                    if not row_cuotas:
+                        # Fallback: crear una cuota automática con los campos de la fila si no hay array de cuotas
+                        row_cuotas = [{
+                            "cupon": U(row.get("recibo") or ""),
+                            "fecha_vencimiento": (
+                                row.get("fecha_vencimiento") or
+                                row.get("vencimiento") or
+                                (selected or {}).get("fecha_vencimiento") or
+                                (selected or {}).get("vencimiento") or
+                                (selected or {}).get("vig_hasta")
+                            ),
+                            "moneda": U(row.get("moneda") or "S/."),
+                            "importe": row.get("prima_comercial_igv") or row.get("prima_total"),
+                            "fecha_pago": row.get("fecha_pago"),
+                            "factura": U(row.get("factura") or "")
+                        }]
 
-                        if target_poliza_id:
-                            cur.execute(
-                                "SELECT IFNULL(MAX(numero_cuota), 0) + 1 FROM cuotas WHERE poliza_id = %s",
-                                (target_poliza_id,),
-                            )
-                        else:
-                            cur.execute(
-                                """
-                                SELECT IFNULL(MAX(numero_cuota), 0) + 1 
-                                FROM cuotas 
-                                WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
-                                """,
-                                (c_poliza,),
-                            )
-                        rnc = cur.fetchone()
-                        numero_cuota = rnc[0] if rnc and rnc[0] is not None else 1
+                    for ci, c_data in enumerate(row_cuotas, start=1):
+                        c_poliza = U(row.get("numero_poliza") or "")
+                        c_cupon = U(c_data.get("cupon") or row.get("recibo") or "")
+                        c_fec_venc = parse_date(c_data.get("fecha_vencimiento")) or datetime.today().strftime('%Y-%m-%d')
+                        c_moneda = U(c_data.get("moneda") or row.get("moneda") or "S/.")
+                        c_importe = parse_decimal(c_data.get("importe")) or 0.0
+                        c_fecha_pago = parse_date(c_data.get("fecha_pago"))
+                        c_factura = U(c_data.get("factura") or "")
+                        numero_cuota = ci
 
-                        if c_factura:
-                            cur.execute("SELECT 1 FROM cuotas WHERE factura = %s AND activo = 1 LIMIT 1", (c_factura,))
-                            if cur.fetchone():
-                                raise Exception("El número de factura ya existe.")
-                        if c_cupon:
-                            cur.execute(
-                                """
-                                SELECT 1 FROM cuotas 
-                                WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
-                                  AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) USING utf8mb4), cupon) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
-                                  AND activo = 1 
-                                LIMIT 1
-                                """,
-                                (c_poliza, c_cupon),
-                            )
-                            if cur.fetchone():
-                                pass
+                        if c_poliza:
+                            target_poliza_id = real_poliza_id
+                            # (Omitir búsqueda redundante si ya tenemos real_poliza_id)
+                            
+                            if c_factura:
+                                cur.execute("SELECT 1 FROM cuotas WHERE factura = %s AND activo = 1 LIMIT 1", (c_factura,))
+                                if cur.fetchone():
+                                    # Solo avisar, no bloquear si es duplicado en el loop
+                                    print(f"[WARNING] Factura duplicada: {c_factura}")
+                                    continue
 
-                        try:
-                            cur.execute(
-                                "CALL sp_insert_cuota(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                                (
-                                    c_poliza,
-                                    c_cupon or None,
-                                    c_fec_venc,
-                                    c_moneda,
-                                    c_importe,
-                                    c_fecha_pago,
-                                    c_factura or None,
-                                    None,
-                                    usuario_display,
-                                    numero_cuota,
-                                ),
-                            )
-                            while cur.nextset():
-                                pass
-                            cur.execute(
-                                """
-                                SELECT 1 FROM cuotas 
-                                WHERE (poliza_id = %s OR TRIM(poliza)=TRIM(%s))
-                                  AND numero_cuota = %s
-                                  AND activo = 1
-                                LIMIT 1
-                                """,
-                                (target_poliza_id, c_poliza, numero_cuota),
-                            )
-                            exists_row = cur.fetchone()
-                            if not exists_row:
-                                raise Exception("SP did not insert cuota")
-                        except Exception as e_ins_cuota:
-                            print(f"[WARNING] sp_insert_cuota failed: {e_ins_cuota}")
                             try:
                                 cur.execute(
-                                    """
-                                    INSERT INTO cuotas (
-                                        poliza_id,
-                                        poliza,
-                                        cupon,
-                                        fecha_vencimiento,
-                                        moneda,
-                                        importe,
-                                        fecha_pago,
-                                        factura,
-                                        observacion,
-                                        usuario_registro,
-                                        numero_cuota,
-                                        activo
-                                    ) VALUES (
-                                        %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, 1
-                                    )
-                                    """,
+                                    "CALL sp_insert_cuota(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                                     (
-                                        target_poliza_id,
                                         c_poliza,
-                                        c_cupon,
+                                        c_cupon or None,
                                         c_fec_venc,
                                         c_moneda,
                                         c_importe,
                                         c_fecha_pago,
-                                        c_factura,
+                                        c_factura or None,
                                         None,
                                         usuario_display,
                                         numero_cuota,
                                     ),
                                 )
+                                while cur.nextset():
+                                    pass
+                            except Exception as e_ins_cuota:
+                                print(f"[WARNING] sp_insert_cuota failed for cuota {ci}: {e_ins_cuota}")
+                                # Fallback manual
+                                cur.execute(
+                                    """
+                                    INSERT INTO cuotas (
+                                        poliza_id, poliza, cupon, fecha_vencimiento, moneda,
+                                        importe, fecha_pago, factura, observacion, usuario_registro,
+                                        numero_cuota, activo
+                                    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, 1)
+                                    """,
+                                    (target_poliza_id, c_poliza, c_cupon, c_fec_venc, c_moneda,
+                                     c_importe, c_fecha_pago, c_factura, None, usuario_display, numero_cuota)
+                                )
                                 try:
                                     last_id = cur.lastrowid
+                                    k_enc = get_encrypt_key()
                                     cur.execute(
-                                        "UPDATE cuotas SET poliza = TO_BASE64(AES_ENCRYPT(%s, @SIS_KEY)), cupon = TO_BASE64(AES_ENCRYPT(%s, @SIS_KEY)) WHERE idCuota = %s",
-                                        (c_poliza, c_cupon, last_id)
+                                        "UPDATE cuotas SET poliza = TO_BASE64(AES_ENCRYPT(%s, %s)), cupon = TO_BASE64(AES_ENCRYPT(%s, %s)) WHERE idCuota = %s",
+                                        (c_poliza, k_enc, c_cupon, k_enc, last_id)
                                     )
                                 except Exception:
                                     pass
-                            except Exception as e_manual:
-                                print(f"[ERROR] manual cuota insert failed: {e_manual}")
 
-                        final_poliza_id = target_poliza_id
-                        if final_poliza_id is not None:
-                            cur.execute(
-                                """
-                                SELECT COUNT(*)
-                                FROM cuotas
-                                WHERE poliza_id = %s
-                                  AND (
-                                    fecha_pago IS NULL
-                                    OR factura IS NULL OR factura = ''
-                                  )
-                                  AND activo = 1
-                                """,
-                                (final_poliza_id,),
-                            )
-                            row_p = cur.fetchone()
-                            pendientes = row_p[0] if row_p and row_p[0] is not None else 0
-                            nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'CANCELADO'
-                            try:
-                                tdoc_sel = (((selected or {}).get("tipo_doc") or (selected or {}).get("tipo_documento") or "")).strip().upper()
-                            except Exception:
-                                tdoc_sel = ""
-                            est_row = (U(row.get("estado") or "") or "")
-                            forma_pago_row = (U(row.get("forma_pago") or "") or "")
-                            if tdoc_sel == 'NETEO' or est_row == 'SIN PRIMA' or forma_pago_row == 'SIN PRIMA':
-                                nuevo_estado = 'SIN PRIMA'
-                            cur.execute("UPDATE polizas SET estado = %s WHERE idPoliza = %s", (nuevo_estado, final_poliza_id))
+                    # Actualizar estado de la póliza basado en cuotas pendientes
+                    if real_poliza_id:
+                        cur.execute(
+                            "SELECT COUNT(*) FROM cuotas WHERE poliza_id = %s AND (fecha_pago IS NULL OR factura IS NULL OR factura = '') AND activo = 1",
+                            (real_poliza_id,)
+                        )
+                        row_p = cur.fetchone()
+                        pendientes = row_p[0] if row_p and row_p[0] is not None else 0
+                        nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'CANCELADO'
+                        
+                        tdoc_sel = U((selected or {}).get("tipo_doc") or "").strip().upper()
+                        est_row = U(row.get("estado") or "").strip().upper()
+                        forma_pago_row = U(row.get("forma_pago") or "").strip().upper()
+                        
+                        if tdoc_sel == 'NETEO' or est_row == 'SIN PRIMA' or forma_pago_row == 'SIN PRIMA':
+                            nuevo_estado = 'SIN PRIMA'
+                            
+                        cur.execute("UPDATE polizas SET estado = %s WHERE idPoliza = %s", (nuevo_estado, real_poliza_id))
                 except Exception as ex_cuota:
-                    print(f"[WARNING] No se pudo crear cuota automática: {ex_cuota}")
-                    # No bloqueamos el flujo principal, pero lo logueamos
+                    print(f"[WARNING] Error procesando cuotas: {ex_cuota}")
                     pass
                 try:
                     files_for_row = saved_facturas_by_index.get(i, saved_facturas)

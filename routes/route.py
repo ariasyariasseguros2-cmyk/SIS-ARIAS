@@ -1,6 +1,7 @@
 from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory, jsonify, send_file, abort, Response
 from werkzeug.utils import secure_filename
 import os
+import re
 from utils.rbac import can_access_maestros, can_delete, can_edit, can_create, can_create_poliza, can_restore, Roles, get_role_scope, require_permission
 from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards
 from datetime import datetime, timedelta
@@ -11,6 +12,7 @@ from controllers.reportes.reporte_produccion import (
     get_reporte_produccion_filters,
 )
 from controllers.addPoliza import lookup_commission_pct
+from controllers.cuotas.VariosCuotasGenerales import extract_cronograma_cuotas_from_text as extract_cronograma_cuotas_general
 from models.db import get_connection
 
 bp = Blueprint('main', __name__)
@@ -81,6 +83,87 @@ def get_cuota_info():
         row = data['rows'][0]
         
     return {'ok': True, 'data': row}
+
+def _normalize_importe_text(raw: str | None) -> str:
+    txt = (raw or '').strip()
+    if not txt:
+        return ''
+    txt = re.sub(r'[^\d,.\-]', '', txt)
+    if not txt:
+        return ''
+    try:
+        if '.' in txt and ',' in txt:
+            if txt.rfind('.') > txt.rfind(','):
+                txt = txt.replace(',', '')
+            else:
+                txt = txt.replace('.', '').replace(',', '.')
+        elif txt.count('.') > 1 and ',' not in txt:
+            parts = txt.split('.')
+            txt = ''.join(parts[:-1]) + '.' + parts[-1]
+        elif txt.count(',') > 1 and '.' not in txt:
+            parts = txt.split(',')
+            txt = ''.join(parts[:-1]) + '.' + parts[-1]
+        elif ',' in txt:
+            txt = txt.replace('.', '').replace(',', '.')
+        return f"{float(txt):.2f}"
+    except Exception:
+        return (raw or '').strip()
+
+def _extract_cronograma_cuotas(text: str | None, moneda_default: str | None = None) -> list[dict]:
+    if not text:
+        return []
+
+    normalized = (text or '').replace('\u00A0', ' ').replace('：', ':')
+    normalized = re.sub(r'[ \t]+', ' ', normalized)
+
+    section_match = re.search(
+        r'Cronograma\s+de\s+Pago([\s\S]{0,2500})',
+        normalized,
+        re.IGNORECASE
+    )
+    section = section_match.group(1) if section_match else normalized
+    lines = [re.sub(r'\s+', ' ', ln).strip() for ln in section.splitlines() if ln.strip()]
+
+    cuotas = []
+    seen = set()
+    row_pattern = re.compile(
+        r'(?P<orden>\d{1,2}/\d{1,2})\s+'
+        r'(?P<fecha>\d{2}/\d{2}/\d{4})\s+'
+        r'(?P<cupon>\d{6,20})\s+'
+        r'(?P<importe>\d[\d\.,]*)',
+        re.IGNORECASE,
+    )
+
+    for ln in lines:
+        if re.search(r'Monto total a pagar|Tasa de costo efectivo|Intereses de Financiaci|Sub\s*-\s*Total|^\s*Total\s*:?', ln, re.IGNORECASE):
+            continue
+        m = row_pattern.search(ln)
+        if not m:
+            continue
+
+        cupon = (m.group('cupon') or '').strip()
+        if not cupon or cupon in seen:
+            continue
+        seen.add(cupon)
+
+        orden = (m.group('orden') or '').strip()
+        numero_cuota = None
+        try:
+            numero_cuota = int(orden.split('/')[0])
+        except Exception:
+            numero_cuota = None
+
+        cuotas.append({
+            'numero_cuota': numero_cuota,
+            'cupon': cupon,
+            'fecha_vencimiento': (m.group('fecha') or '').strip(),
+            'importe': _normalize_importe_text(m.group('importe')),
+            'moneda': moneda_default or '',
+            'factura': '',
+            'fecha_pago': '',
+        })
+
+    return cuotas
 
 @bp.route('/api/cuotas/list', methods=['GET'])
 def api_cuotas_list():
@@ -1847,6 +1930,16 @@ def upload():
     if items and len(items) > 0:
         LOG('[upload] Origen de datos: provider parser (items).')
         items_ui = [_normalize_to_ui(it) for it in items]
+        pdf_text_full = ''
+        try:
+            pdf_text_full = _extract_text_fitz(save_path, password=pdf_password) or ''
+        except Exception:
+            pdf_text_full = ''
+        if not pdf_text_full:
+            try:
+                pdf_text_full = _extract_text_pypdf2(save_path, password=pdf_password) or ''
+            except Exception:
+                pdf_text_full = ''
         # Rimac: garantizar UN solo ítem y priorizar póliza en formato '#### - #######'
         try:
             issuer_low = (issuer or '').lower()
@@ -1933,7 +2026,7 @@ def upload():
                     return None
                 return "US$" if (min(dollar_idxs) if dollar_idxs else 10**9) <= (min(sol_idxs) if sol_idxs else 10**9) else "S/"
 
-            pdf_text = _extract_text_pypdf2(save_path, password=pdf_password)
+            pdf_text = pdf_text_full or _extract_text_pypdf2(save_path, password=pdf_password)
             if pdf_text:
                 inferred_moneda = _infer_moneda_from_pdf(pdf_text) if is_pos else None
                 for it in items_ui:
@@ -1986,6 +2079,29 @@ def upload():
                                 it['fecha_emision'] = f"{dd}/{mon_num}/{mwords.group(3)}"
         except Exception:
             pass
+        try:
+            moneda_cuotas = ''
+            if items_ui:
+                moneda_cuotas = (items_ui[0].get('moneda') or '').strip()
+            cuotas_extraidas = extract_cronograma_cuotas_general(pdf_text_full, moneda_cuotas)
+            if cuotas_extraidas:
+                LOG(f"[upload] cronograma detectado: {len(cuotas_extraidas)} cuota(s)")
+                if len(items_ui) == 1:
+                    items_ui[0]['cuotas'] = cuotas_extraidas
+                    if not items_ui[0].get('fecha_vencimiento'):
+                        items_ui[0]['fecha_vencimiento'] = cuotas_extraidas[0].get('fecha_vencimiento') or ''
+                else:
+                    poliza_to_cuotas = {}
+                    for cuota in cuotas_extraidas:
+                        poliza_to_cuotas.setdefault((items_ui[0].get('numero_poliza') or '').strip(), []).append(cuota)
+                    for it in items_ui:
+                        poliza_key = (it.get('numero_poliza') or '').strip()
+                        if poliza_key in poliza_to_cuotas:
+                            it['cuotas'] = poliza_to_cuotas[poliza_key]
+                            if not it.get('fecha_vencimiento') and it['cuotas']:
+                                it['fecha_vencimiento'] = it['cuotas'][0].get('fecha_vencimiento') or ''
+        except Exception as e:
+            LOG(f"[upload] cronograma parse error: {e}")
         LOG(f"[upload] fechas normalizadas: {[(x.get('ultimo_dia_pago'), x.get('vencimiento')) for x in items_ui]}")
         # Dedupe por combinación clave y descartar muy vacíos
         unique = []
