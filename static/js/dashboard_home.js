@@ -37,17 +37,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Ensure data exists or use defaults
         const months = data.months || ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-        const totals = data.totals || new Array(months.length).fill(0);
+        const totalsComision = data.totals_comision || new Array(months.length).fill(0);
 
-        const chartData = currency === 'soles' ? totals : totals.map(v => v / 3.7);
+        const chartDataComision = currency === 'soles' ? totalsComision : totalsComision.map(v => v / 3.7);
         
-        const prodGradient = ctxProduction.getContext('2d').createLinearGradient(0, 0, 0, 400);
+        const comisionGradient = ctxProduction.getContext('2d').createLinearGradient(0, 0, 0, 400);
         if (colors.isDark) {
-            prodGradient.addColorStop(0, '#3b82f6');
-            prodGradient.addColorStop(1, '#06b6d4');
+            comisionGradient.addColorStop(0, '#10b981');
+            comisionGradient.addColorStop(1, '#34d399');
         } else {
-            prodGradient.addColorStop(0, '#399AD6');
-            prodGradient.addColorStop(1, '#1F59A3');
+            comisionGradient.addColorStop(0, '#28a745');
+            comisionGradient.addColorStop(1, '#5dd39e');
         }
 
         if (productionChart) productionChart.destroy();
@@ -56,15 +56,17 @@ document.addEventListener('DOMContentLoaded', () => {
             type: 'bar',
             data: {
                 labels: months,
-                datasets: [{
-                    label: 'Producción',
-                    data: chartData,
-                    backgroundColor: prodGradient,
-                    borderColor: colors.isDark ? 'transparent' : '#1F59A3',
-                    borderWidth: 1,
-                    borderRadius: 12,
-                    barThickness: 20
-                }]
+                datasets: [
+                    {
+                        label: 'Comisión',
+                        data: chartDataComision,
+                        backgroundColor: comisionGradient,
+                        borderColor: colors.isDark ? 'transparent' : '#28a745',
+                        borderWidth: 1,
+                        borderRadius: 6,
+                        barThickness: 20
+                    }
+                ]
             },
             options: {
                 responsive: true,
@@ -75,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         callbacks: {
                             label: function(context) {
                                 const symbol = currency === 'soles' ? 'S/ ' : 'US$ ';
-                                return symbol + new Intl.NumberFormat('es-PE', { style: 'decimal', maximumFractionDigits: 2 }).format(context.parsed.y);
+                                return context.dataset.label + ': ' + symbol + new Intl.NumberFormat('es-PE', { style: 'decimal', maximumFractionDigits: 2 }).format(context.parsed.y);
                             }
                         }
                     }
@@ -83,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 scales: {
                     y: { 
                         beginAtZero: true,
-                        display: true, // Always show Y axis
+                        display: true,
                         grid: { 
                             borderDash: [2, 4], 
                             color: colors.grid,
@@ -92,9 +94,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         ticks: { color: colors.text, font: { size: 11 }, callback: (val) => new Intl.NumberFormat('es-PE', {maximumFractionDigits: 0}).format(val) }
                     },
                     x: { 
-                        display: true, // Always show X axis
+                        display: true,
                         grid: { 
-                            display: true, // Force grid display for consistency
+                            display: true,
                             color: colors.grid,
                             drawBorder: true
                         },
@@ -106,18 +108,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 id: 'valueLabel',
                 afterDatasetsDraw(chart) {
                     const {ctx} = chart;
-                    const dataset = chart.data.datasets[0];
-                    const meta = chart.getDatasetMeta(0);
                     ctx.save();
                     ctx.fillStyle = colors.text;
                     ctx.textAlign = 'center';
                     ctx.font = '10px system-ui';
-                    meta.data.forEach((bar, i) => {
-                        const val = dataset.data[i] || 0;
-                        if (val > 0) {
-                            const text = new Intl.NumberFormat('es-PE', {maximumFractionDigits: 0}).format(val);
-                            ctx.fillText(text, bar.x, bar.y - 6);
-                        }
+                    
+                    chart.data.datasets.forEach((dataset, datasetIndex) => {
+                        const meta = chart.getDatasetMeta(datasetIndex);
+                        meta.data.forEach((bar, i) => {
+                            const val = dataset.data[i] || 0;
+                            if (val > 0) {
+                                const text = new Intl.NumberFormat('es-PE', {maximumFractionDigits: 0}).format(val);
+                                ctx.fillText(text, bar.x, bar.y - 6);
+                            }
+                        });
                     });
                     ctx.restore();
                 }
@@ -136,34 +140,34 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!ctxIncome) return;
 
         const dailyLabels = data.dailyLabels || data.months || ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-        const dailyIncome = data.dailyIncome || data.totals || new Array(dailyLabels.length).fill(0);
+        const dailyIncome = data.dailyIncome || data.totals_prima || new Array(dailyLabels.length).fill(0);
 
         const chartData = currency === 'soles' ? dailyIncome : dailyIncome.map(v => v / 3.7);
         const totalValue = chartData.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
         
         const gradient = ctxIncome.getContext('2d').createLinearGradient(0, 0, 0, 400);
-        gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
-        gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+        if (colors.isDark) {
+            gradient.addColorStop(0, '#3b82f6');
+            gradient.addColorStop(1, 'rgba(59, 130, 246, 0.1)');
+        } else {
+            gradient.addColorStop(0, '#399AD6');
+            gradient.addColorStop(1, 'rgba(57, 154, 214, 0.1)');
+        }
 
         if (incomeDayChart) incomeDayChart.destroy();
 
         incomeDayChart = new Chart(ctxIncome, {
-            type: 'line',
+            type: 'bar',
             data: {
                 labels: dailyLabels,
                 datasets: [{
                     label: 'Prima Neta',
                     data: chartData,
-                    borderColor: '#3b82f6',
-                    borderWidth: 3,
-                    fill: true,
                     backgroundColor: gradient,
-                    tension: 0.4,
-                    pointRadius: 0,
-                    pointHoverRadius: 6,
-                    pointHoverBackgroundColor: '#3b82f6',
-                    pointHoverBorderColor: '#fff',
-                    pointHoverBorderWidth: 2
+                    borderColor: colors.isDark ? 'transparent' : '#1F59A3',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    barThickness: 30
                 }]
             },
             options: {
@@ -190,34 +194,52 @@ document.addEventListener('DOMContentLoaded', () => {
                 scales: {
                     y: {
                         beginAtZero: true,
-                        display: true, // Always show Y axis
-                        grid: { 
-                            color: colors.grid, 
+                        display: true,
+                        grid: {
+                            color: colors.grid,
                             drawBorder: true,
-                            borderDash: [2, 4] 
+                            borderDash: [2, 4]
                         },
-                        ticks: { 
-                            color: colors.text, 
-                            font: { size: 10 },
+                        ticks: {
+                            color: colors.text,
+                            font: { size: 11 },
                             callback: (val) => new Intl.NumberFormat('es-PE', {maximumFractionDigits: 0}).format(val)
                         }
                     },
                     x: {
-                        display: true, // Always show X axis
-                        grid: { 
-                            color: colors.grid,
-                            drawBorder: true
+                        display: true,
+                        grid: {
+                            display: false
                         },
-                        ticks: { 
-                            color: colors.text, 
-                            font: { size: 10 }, 
-                            maxRotation: 0,
-                            autoSkip: true,
-                            maxTicksLimit: 10
+                        ticks: {
+                            color: colors.text,
+                            font: { size: 11 }
                         }
                     }
                 }
-            }
+            },
+            plugins: [{
+                id: 'valueLabelTop',
+                afterDatasetsDraw(chart) {
+                    const {ctx} = chart;
+                    ctx.save();
+                    ctx.fillStyle = colors.text;
+                    ctx.textAlign = 'center';
+                    ctx.font = '10px system-ui';
+                    
+                    chart.data.datasets.forEach((dataset, datasetIndex) => {
+                        const meta = chart.getDatasetMeta(datasetIndex);
+                        meta.data.forEach((bar, i) => {
+                            const val = dataset.data[i] || 0;
+                            if (val > 0) {
+                                const text = new Intl.NumberFormat('es-PE', {maximumFractionDigits: 0}).format(val);
+                                ctx.fillText(text, bar.x, bar.y - 6);
+                            }
+                        });
+                    });
+                    ctx.restore();
+                }
+            }]
         });
 
         const totalLabel = document.getElementById('dailyTotalLabel');

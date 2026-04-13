@@ -76,22 +76,22 @@
 
     <!-- Section 2: Operational Metrics -->
     <div class="row g-4 mb-4">
-        <!-- Card 1: Producción Total -->
+        <!-- Card 1: Comisión Total -->
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h6 class="text-muted mb-0">Producción Total (Mes)</h6>
+                        <h6 class="text-muted mb-0">Comisión Total (Mes)</h6>
                         <div class="icon-shape text-primary">
                             <i class="bi-currency-dollar"></i>
                         </div>
                     </div>
-                    <h3 class="mb-1 fw-bold">{{ cards.total_production | default('$0') }}</h3>
+                    <h3 class="mb-1 fw-bold">{{ cards.total_commission | default('$0') }}</h3>
                     <div class="small">
-                        {% if cards.prod_diff >= 0 %}
-                        <span class="text-success fw-bold"><i class="bi-arrow-up"></i> {{ cards.prod_diff }}%</span>
+                        {% if cards.comision_diff >= 0 %}
+                        <span class="text-success fw-bold"><i class="bi-arrow-up"></i> {{ cards.comision_diff }}%</span>
                         {% else %}
-                        <span class="text-danger fw-bold"><i class="bi-arrow-down"></i> {{ cards.prod_diff }}%</span>
+                        <span class="text-danger fw-bold"><i class="bi-arrow-down"></i> {{ cards.comision_diff }}%</span>
                         {% endif %}
                         <span class="text-muted">vs mes anterior</span>
                     </div>
@@ -200,7 +200,7 @@
         <div class="col-12 col-xl-8">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-transparent border-0 pt-4 ps-4 d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Resumen de Producción (Últimos 12 meses)</h5>
+                    <h5 class="mb-0">Comisiones Mensual</h5>
                     <div class="currency-toggle-group p-1 rounded-pill bg-dark-soft d-flex border border-white-10 me-4">
                         <button class="btn btn-sm rounded-pill px-3 active prod-currency-btn" data-currency="soles" type="button">S/.</button>
                         <button class="btn btn-sm rounded-pill px-3 prod-currency-btn text-muted" data-currency="dolares" type="button">US$</button>
@@ -239,7 +239,8 @@
 <script>
     window.dashboardData = {
         months: {{ chart.months | tojson if chart.months is defined else '[]' }},
-        totals: {{ chart.totals | tojson if chart.totals is defined else '[]' }},
+        totals_prima: {{ chart.totals_prima | tojson if chart.totals_prima is defined else '[]' }},
+        totals_comision: {{ chart.totals_comision | tojson if chart.totals_comision is defined else '[]' }},
         dailyLabels: {{ chart.daily_labels | tojson if chart.daily_labels is defined else '[]' }},
         dailyIncome: {{ chart.daily_income | tojson if chart.daily_income is defined else '[]' }},
         activePolicies: {{ cards.active_policies | default(0) }},

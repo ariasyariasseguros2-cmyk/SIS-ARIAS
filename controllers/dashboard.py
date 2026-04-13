@@ -142,7 +142,9 @@ def get_dashboard_cards() -> Dict[str, Any]:
         'prima_neta_soles': '0.00',
         'prima_neta_dolares': '0.00',
         'comision_soles': '0.00',
-        'comision_dolares': '0.00'
+        'comision_dolares': '0.00',
+        'total_commission': '$0.00',
+        'comision_diff': 0
     }
     
     try:
@@ -223,27 +225,29 @@ def get_dashboard_cards() -> Dict[str, Any]:
             if res: cards['pending_renewals'] = res[0]
         except Exception: pass
         
-        # 4. Producción (Mes Actual vs Mes Anterior)
+        # 4. Producción y Comisión (Mes Actual vs Mes Anterior)
         try:
-            # Mes Actual
+            # Mes Actual - Producción
             sql = f"""
-                SELECT SUM(COALESCE(CAST(REPLACE(imp_compania, ',', '.') AS DECIMAL(15,2)), 0)) FROM polizas 
+                SELECT SUM(COALESCE(prima_neta, 0)) FROM polizas 
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE()) 
                   AND YEAR(vig_desde) = YEAR(CURDATE())
+                  AND anulado = 0 {user_filter}
             """
-            cur.execute(sql)
+            cur.execute(sql, user_filter_args)
             curr_res = cur.fetchone()
             curr_prod = float(curr_res[0] or 0)
             
-            # Mes Anterior
+            # Mes Anterior - Producción
             sql = f"""
-                SELECT SUM(COALESCE(CAST(REPLACE(imp_compania, ',', '.') AS DECIMAL(15,2)), 0)) FROM polizas 
+                SELECT SUM(COALESCE(prima_neta, 0)) FROM polizas 
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) 
                   AND YEAR(vig_desde) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+                  AND anulado = 0 {user_filter}
             """
-            cur.execute(sql)
+            cur.execute(sql, user_filter_args)
             prev_res = cur.fetchone()
             prev_prod = float(prev_res[0] or 0)
             
@@ -254,19 +258,52 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 cards['prod_diff'] = round(diff, 1)
             else:
                 cards['prod_diff'] = 100 if curr_prod > 0 else 0
+
+            # Mes Actual - Comisión
+            sql = f"""
+                SELECT SUM(COALESCE(imp_compania, 0)) FROM polizas 
+                WHERE vig_desde IS NOT NULL
+                  AND MONTH(vig_desde) = MONTH(CURDATE()) 
+                  AND YEAR(vig_desde) = YEAR(CURDATE())
+                  AND anulado = 0 {user_filter}
+            """
+            cur.execute(sql, user_filter_args)
+            curr_com_res = cur.fetchone()
+            curr_com = float(curr_com_res[0] or 0)
+
+            # Mes Anterior - Comisión
+            sql = f"""
+                SELECT SUM(COALESCE(imp_compania, 0)) FROM polizas 
+                WHERE vig_desde IS NOT NULL
+                  AND MONTH(vig_desde) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) 
+                  AND YEAR(vig_desde) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+                  AND anulado = 0 {user_filter}
+            """
+            cur.execute(sql, user_filter_args)
+            prev_com_res = cur.fetchone()
+            prev_com = float(prev_com_res[0] or 0)
+
+            cards['total_commission'] = f"${curr_com:,.2f}"
+
+            if prev_com > 0:
+                diff_com = ((curr_com - prev_com) / prev_com) * 100
+                cards['comision_diff'] = round(diff_com, 1)
+            else:
+                cards['comision_diff'] = 100 if curr_com > 0 else 0
                 
         except Exception as e:
-            print(f"[Dashboard] Error calculating production: {e}")
+            print(f"[Dashboard] Error calculating production/commission metrics: {e}")
             pass
 
-        # 5. Primas Netas y Comisiones (Soles y Dólares)
+        # 5. Primas Netas y Comisiones por Moneda
         try:
             sql = f"""
-                SELECT SUM(COALESCE(CAST(REPLACE(imp_compania, ',', '.') AS DECIMAL(15,2)), 0)) FROM polizas 
+                SELECT SUM(COALESCE(prima_neta, 0)) FROM polizas 
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND (moneda LIKE 'S%%' OR moneda = 'PEN')
+                  AND anulado = 0
             """
             cur.execute(sql)
             res = cur.fetchone()
@@ -274,11 +311,12 @@ def get_dashboard_cards() -> Dict[str, Any]:
             cards['prima_neta_soles'] = f"{val:,.2f}"
 
             sql = f"""
-                SELECT SUM(COALESCE(CAST(REPLACE(imp_compania, ',', '.') AS DECIMAL(15,2)), 0)) FROM polizas 
+                SELECT SUM(COALESCE(prima_neta, 0)) FROM polizas 
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND (moneda LIKE 'D%%' OR moneda LIKE 'U%%' OR moneda = 'USD')
+                  AND anulado = 0
             """
             cur.execute(sql)
             res = cur.fetchone()
@@ -286,11 +324,12 @@ def get_dashboard_cards() -> Dict[str, Any]:
             cards['prima_neta_dolares'] = f"{val:,.2f}"
 
             sql = f"""
-                SELECT SUM(COALESCE(CAST(REPLACE(imp_compania, ',', '.') AS DECIMAL(15,2)), 0)) FROM polizas 
+                SELECT SUM(COALESCE(imp_compania, 0)) FROM polizas 
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND (moneda LIKE 'S%%' OR moneda = 'PEN')
+                  AND anulado = 0
             """
             cur.execute(sql)
             res = cur.fetchone()
@@ -298,11 +337,12 @@ def get_dashboard_cards() -> Dict[str, Any]:
             cards['comision_soles'] = f"{val:,.2f}"
 
             sql = f"""
-                SELECT SUM(COALESCE(CAST(REPLACE(imp_compania, ',', '.') AS DECIMAL(15,2)), 0)) FROM polizas 
+                SELECT SUM(COALESCE(imp_compania, 0)) FROM polizas 
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND (moneda LIKE 'D%%' OR moneda LIKE 'U%%' OR moneda = 'USD')
+                  AND anulado = 0
             """
             cur.execute(sql)
             res = cur.fetchone()
@@ -320,9 +360,10 @@ def get_dashboard_cards() -> Dict[str, Any]:
     return cards
 
 def get_dashboard_data() -> Dict[str, Any]:
-    # Chart data: prima neta mensual del año actual
+    # Chart data: prima neta y comision mensual del año actual
     months_labels = []
-    totals_data = []
+    totals_prima = []
+    totals_comision = []
     
     try:
         cnx = get_connection()
@@ -351,7 +392,8 @@ def get_dashboard_data() -> Dict[str, Any]:
         sql = f"""
             SELECT
                 MONTH(vig_desde) AS mes,
-                SUM(COALESCE(prima_neta, 0)) AS total_prima_neta
+                SUM(COALESCE(prima_neta, 0)) AS total_prima_neta,
+                SUM(COALESCE(imp_compania, 0)) AS total_comision
             FROM polizas
             WHERE vig_desde IS NOT NULL
               AND YEAR(vig_desde) = YEAR(CURDATE())
@@ -363,12 +405,15 @@ def get_dashboard_data() -> Dict[str, Any]:
         cur.execute(sql, user_filter_args)
         rows = cur.fetchall() or []
 
-        data_map = {int(r[0]): float(r[1] or 0) for r in rows}
+        prima_map = {int(r[0]): float(r[1] or 0) for r in rows}
+        comision_map = {int(r[0]): float(r[2] or 0) for r in rows}
+        
         meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
         current_year = datetime.now().year
         for month_index in range(1, 13):
             months_labels.append(f"{meses[month_index - 1]} {current_year}")
-            totals_data.append(data_map.get(month_index, 0.0))
+            totals_prima.append(prima_map.get(month_index, 0.0))
+            totals_comision.append(comision_map.get(month_index, 0.0))
             
         cur.close()
         cnx.close()
@@ -378,12 +423,14 @@ def get_dashboard_data() -> Dict[str, Any]:
         current_year = datetime.now().year
         meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
         months_labels = [f"{m} {current_year}" for m in meses]
-        totals_data = [0] * 12
+        totals_prima = [0] * 12
+        totals_comision = [0] * 12
 
     return {
         "months": months_labels,
-        "totals": totals_data,
+        "totals_prima": totals_prima,
+        "totals_comision": totals_comision,
         "daily_labels": months_labels,
-        "daily_income": totals_data,
-        "title": "Prima Neta Mensual",
+        "daily_income": totals_prima,
+        "title": "Producción vs Comisión",
     }
