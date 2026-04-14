@@ -64,18 +64,30 @@ def extract_cronograma_cuotas_from_text(text: str | None, moneda_default: str | 
 
     cuotas: List[Dict[str, object]] = []
     seen = set()
-    row_pattern = re.compile(
+    
+    # Patrón 1: Formato "1/12 26/01/2026 123456 1,490.89"
+    row_pattern_full = re.compile(
         r"(?P<orden>\d{1,2}/\d{1,2})\s+"
         r"(?P<fecha>\d{1,2}/\d{1,2}/\d{4})\s+"
         r"(?P<cupon>\d{6,20})\s+"
         r"(?P<importe>\d[\d\.,]*)",
         re.IGNORECASE,
     )
+    
+    # Patrón 2: Formato simple "1 26/01/2026 123456 1,490.89" (como La Positiva)
+    row_pattern_simple = re.compile(
+        r"(?P<numero_cuota>\d{1,3})\s+"
+        r"(?P<cupon>\d{6,20})\s+"
+        r"(?P<fecha>\d{1,2}/\d{1,2}/\d{4})\s+"
+        r"(?P<importe>\d[\d\.,]*)",
+        re.IGNORECASE,
+    )
 
     for ln in lines:
-        if re.search(r"Orden|Fec\.?\s*Vcto|Cod\.?\s*Cuota|Monto\s+a\s+Pagar", ln, re.IGNORECASE):
+        if re.search(r"Orden|Fec\.?\s*Vcto|Cod\.?\s*Cuota|Monto\s+a\s+Pagar|Cup[oó]n|Número", ln, re.IGNORECASE):
             continue
-        m = row_pattern.search(ln)
+            
+        m = row_pattern_full.search(ln) or row_pattern_simple.search(ln)
         if not m:
             continue
 
@@ -84,10 +96,14 @@ def extract_cronograma_cuotas_from_text(text: str | None, moneda_default: str | 
             continue
         seen.add(cupon)
 
-        orden = (m.group("orden") or "").strip()
         numero_cuota = None
         try:
-            numero_cuota = int(orden.split("/")[0])
+            # Si es patrón 1 (1/12), sacamos el primer número
+            # Si es patrón 2 (1), lo usamos directamente
+            if "orden" in m.groupdict() and m.group("orden"):
+                numero_cuota = int(m.group("orden").split("/")[0])
+            else:
+                numero_cuota = int(m.group("numero_cuota"))
         except Exception:
             numero_cuota = None
 

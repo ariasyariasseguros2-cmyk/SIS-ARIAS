@@ -13,6 +13,8 @@ from controllers.reportes.reporte_produccion import (
 )
 from controllers.addPoliza import lookup_commission_pct
 from controllers.cuotas.VariosCuotasGenerales import extract_cronograma_cuotas_from_text as extract_cronograma_cuotas_general
+from controllers.cuotas.VariosCuotasPositiva import extract_cronograma_cuotas_positiva
+from controllers.cuotas.VariosCuotasPacifico import extract_cronograma_cuotas_pacifico
 from models.db import get_connection
 
 bp = Blueprint('main', __name__)
@@ -2083,7 +2085,18 @@ def upload():
             moneda_cuotas = ''
             if items_ui:
                 moneda_cuotas = (items_ui[0].get('moneda') or '').strip()
-            cuotas_extraidas = extract_cronograma_cuotas_general(pdf_text_full, moneda_cuotas)
+            cuotas_extraidas = []
+            prov_norm = str(detected_provider or '').lower()
+            pdf_low = pdf_text_full.lower()
+            
+            # Prioridad: Si el texto dice POSITIVA, usar ese extractor
+            if ('positiva' in prov_norm) or ('lpv' in prov_norm) or ('la positiva' in pdf_low):
+                cuotas_extraidas = extract_cronograma_cuotas_positiva(pdf_text_full, moneda_cuotas)
+            elif ('pacifico' in prov_norm) or ('pacifico' in pdf_low):
+                cuotas_extraidas = extract_cronograma_cuotas_pacifico(pdf_text_full, moneda_cuotas)
+            
+            if not cuotas_extraidas:
+                cuotas_extraidas = extract_cronograma_cuotas_general(pdf_text_full, moneda_cuotas)
             if cuotas_extraidas:
                 LOG(f"[upload] cronograma detectado: {len(cuotas_extraidas)} cuota(s)")
                 if len(items_ui) == 1:
