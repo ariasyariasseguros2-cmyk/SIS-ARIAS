@@ -17,7 +17,7 @@ def cia_to_col(cia_txt: str | None) -> str | None:
         return 'pacifico'
     if 'sanitas' in s:
         return 'sanitas'
-    if 'protecta' in s:
+    if 'protecta' in s or 'proctecta' in s:
         return 'protecta'
     if 'crecer' in s:
         return 'crecer'
@@ -58,7 +58,7 @@ def lookup_commission_pct(cnx_, cia_txt: str | None, candidates: list[str]) -> f
                 col = 'pacifico'
             elif 'sanitas' in s:
                 col = 'sanitas'
-            elif 'protecta' in s:
+            elif 'protecta' in s or 'proctecta' in s:
                 col = 'protecta'
             elif 'crecer' in s:
                 col = 'crecer'
