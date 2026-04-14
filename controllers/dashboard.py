@@ -302,7 +302,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
-                  AND moneda = 'S/.'
+                  AND moneda = 'S/'
                   AND anulado = 0
             """
             cur.execute(sql)
@@ -328,7 +328,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
-                  AND moneda = 'S/.'
+                  AND moneda = 'S/'
                   AND anulado = 0
             """
             cur.execute(sql)
@@ -421,7 +421,7 @@ def get_dashboard_data() -> Dict[str, Any]:
             p_neta = float(r[2] or 0)
             comision = float(r[3] or 0)
 
-            if moneda == 'S/.':
+            if moneda == 'S/':
                 prima_map_soles[mes] = p_neta
                 comision_map_soles[mes] = comision
             elif moneda == 'US$':
