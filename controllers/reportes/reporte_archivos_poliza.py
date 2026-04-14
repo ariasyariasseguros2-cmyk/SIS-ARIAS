@@ -16,7 +16,6 @@ def get_reporte_archivos(search='', limit=INITIAL_LIMIT):
     try:
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        # Fix para los parámetros opcionales del SP: si el SP no acepta el segundo parámetro, llamar solo con search
         effective_search = search if (search and search.strip()) else '%'
         try:
             cursor.callproc('sp_reporte_archivos_resumen', [effective_search, limit + 1])
@@ -25,6 +24,7 @@ def get_reporte_archivos(search='', limit=INITIAL_LIMIT):
                 cursor.callproc('sp_reporte_archivos_resumen', [effective_search])
             else:
                 raise
+
         results = []
         for result in cursor.stored_results():
             results = result.fetchall()
@@ -35,7 +35,45 @@ def get_reporte_archivos(search='', limit=INITIAL_LIMIT):
         if has_more:
             results = results[:limit]
 
+        # Enriquecer con recibo/poliza por id para poder separar filas por poliza + recibo en UI.
+        poliza_ids = sorted({int(r.get('poliza_id')) for r in results if r.get('poliza_id')})
+        poliza_meta = {}
+        if poliza_ids:
+            conn_meta = get_connection()
+            cur_meta = conn_meta.cursor(dictionary=True)
+            placeholders = ','.join(['%s'] * len(poliza_ids))
+            cur_meta.execute(
+                f"""
+                SELECT
+                    p.idPoliza,
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                        p.poliza
+                    ) AS poliza,
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                        p.recibo
+                    ) AS recibo
+                FROM polizas p
+                WHERE p.idPoliza IN ({placeholders})
+                """,
+                tuple(poliza_ids)
+            )
+            for row_meta in cur_meta.fetchall() or []:
+                poliza_meta[row_meta['idPoliza']] = row_meta
+            cur_meta.close()
+            conn_meta.close()
+
         for r in results:
+            pid = r.get('poliza_id')
+            meta = poliza_meta.get(int(pid)) if pid else None
+            if meta:
+                if not r.get('recibo'):
+                    r['recibo'] = meta.get('recibo')
+                if not r.get('identificador'):
+                    r['identificador'] = meta.get('poliza')
             if r.get('ultima_fecha') and hasattr(r['ultima_fecha'], 'strftime'):
                 r['ultima_fecha'] = r['ultima_fecha'].strftime('%Y-%m-%dT%H:%M:%SZ')
         return results, has_more
@@ -87,13 +125,24 @@ def download_zip():
     identificador = request.args.get('identificador', '')
     tipo_origen = request.args.get('tipo', '')
     poliza_num  = request.args.get('poliza', '')
+    poliza_id   = request.args.get('poliza_id', '').strip()
 
     results = []
     if tipo_origen == 'CUOTA' and identificador:
         try:
             conn = get_connection()
             cursor = conn.cursor(dictionary=True)
-            if poliza_num:
+            if poliza_id:
+                cursor.execute(
+                    """SELECT pa.idArchivo, pa.ruta_archivo, pa.nombre_original
+                       FROM poliza_archivos pa
+                       WHERE pa.origen = 'CUOTA'
+                         AND pa.poliza_id = %s
+                         AND pa.nombre_original LIKE %s
+                       ORDER BY pa.creado_en DESC""",
+                    (int(poliza_id), f'[CUOTA {identificador}] %',)
+                )
+            elif poliza_num:
                 cursor.execute(
                     """SELECT pa.idArchivo, pa.ruta_archivo, pa.nombre_original
                        FROM poliza_archivos pa
@@ -117,6 +166,23 @@ def download_zip():
             cursor.close()
             conn.close()
         except Exception as e:
+            results = []
+    elif tipo_origen == 'POLIZA' and poliza_id:
+        try:
+            conn = get_connection()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute(
+                """SELECT idArchivo, ruta_archivo, nombre_original
+                   FROM poliza_archivos
+                   WHERE poliza_id = %s
+                     AND (origen IS NULL OR origen != 'CUOTA')
+                   ORDER BY creado_en DESC""",
+                (int(poliza_id),)
+            )
+            results = cursor.fetchall()
+            cursor.close()
+            conn.close()
+        except Exception:
             results = []
     else:
         results = get_archivos_detalle(search, identificador, tipo_origen)
@@ -229,8 +295,8 @@ def search_contratantes():
             cursor.execute("""
                 SELECT 
                     idCliente, 
-                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social, 
-                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento 
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social,
+                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento
                 FROM clientes 
                 WHERE activo = 1 
                 ORDER BY razon_social ASC 
@@ -252,10 +318,10 @@ def search_contratantes():
         cursor.execute("""
             SELECT 
                 idCliente, 
-                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social, 
-                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento 
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento
             FROM clientes 
-            WHERE COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) = %s 
+            WHERE COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) = %s
             LIMIT 1
         """, (busqueda,))
         exact = cursor.fetchall()
@@ -267,10 +333,10 @@ def search_contratantes():
         cursor.execute("""
             SELECT 
                 idCliente, 
-                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social, 
-                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento 
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social,
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento
             FROM clientes 
-            WHERE COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) LIKE %s 
+            WHERE COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) LIKE %s
             LIMIT 20
         """, ('%'+busqueda+'%',))
         rows = cursor.fetchall()
@@ -306,20 +372,20 @@ def download_zip_contratante():
             # Intentar encontrar cliente por numero_documento exacto
             cursor.execute("""
                 SELECT idCliente, 
-                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social, 
-                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento 
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social,
+                       COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento
                 FROM clientes 
-                WHERE COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) = %s 
+                WHERE COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) = %s
                 LIMIT 1
             """, (busqueda,))
             cliente = cursor.fetchone()
             if not cliente:
                 cursor.execute("""
                     SELECT idCliente, 
-                           COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social, 
-                           COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento 
+                           COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) AS razon_social,
+                           COALESCE(CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR), numero_documento) AS numero_documento
                     FROM clientes 
-                    WHERE COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) LIKE %s 
+                    WHERE COALESCE(CAST(AES_DECRYPT(FROM_BASE64(razon_social), @SIS_KEY) AS CHAR), razon_social) LIKE %s
                     LIMIT 1
                 """, ('%'+busqueda+'%',))
                 cliente = cursor.fetchone()
