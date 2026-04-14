@@ -687,6 +687,18 @@ body {
     row-gap: .5rem;
     margin-bottom: .5rem;
 }
+.actions-pane .pane-fields.pane-fields-2 {
+    grid-template-columns: 1fr 1fr;
+}
+
+.actions-pane .pane-cuotas-hint {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    padding: 0.35rem 0.5rem;
+    border: 1px dashed var(--card-border);
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.02);
+}
 .actions-pane .pane-fields .form-control {
     font-size: 0.85rem;
     padding: 0.35rem 0.5rem;

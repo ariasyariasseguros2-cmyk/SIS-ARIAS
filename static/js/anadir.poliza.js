@@ -590,6 +590,7 @@
   function buildActions(index) {
     const item = extractedItems[index] || {};
     const cuotas = item.cuotas || [];
+    const hasMultipleCuotas = cuotas.length > 1;
     
     let cuotasHtml = '';
     if (cuotas.length > 0) {
@@ -658,6 +659,20 @@
           <span class="badge text-bg-secondary facturas-count">0</span>
         </div>
         <div class="list-facturas"></div>
+        ${hasMultipleCuotas ? `
+          <div class="pane-cuotas-hint mb-2">Cuotas múltiples: completa Factura y Fecha Pago en cada cuota.</div>
+        ` : `
+          <div class="pane-fields pane-fields-2 mb-2">
+            <div class="field">
+              <label class="form-label small mb-1">FACTURA</label>
+              <input type="text" class="form-control form-control-sm pane-factura" data-index="${index}" value="${item.factura || ''}" placeholder="F003-00000000">
+            </div>
+            <div class="field">
+              <label class="form-label small mb-1">FECHA PAGO</label>
+              <input type="text" class="form-control form-control-sm pane-fecha" data-index="${index}" value="${item.fecha_pago || ''}" placeholder="dd/mm/aaaa">
+            </div>
+          </div>
+        `}
         
         <div class="cuotas-list" data-index="${index}">
           ${cuotasHtml}
@@ -1564,18 +1579,22 @@
           if (/\.pdf$/i.test(f.name)) {
             const meta = await extractFacturaMetaFromFile(f);
             facturaMetaMap.set(keyForFile(f), meta);
-            if (meta && meta.factura) {
-              if (!extractedItems[idx].cuotas) extractedItems[idx].cuotas = [];
-              const exists = extractedItems[idx].cuotas.some(c => c.factura === meta.factura);
-              if (!exists) {
-                extractedItems[idx].cuotas.push({
-                  factura: meta.factura || '',
-                  fecha_pago: meta.fecha_pago || '',
-                  fecha_vencimiento: meta.fecha_vencimiento || '',
-                  importe: '',
-                  moneda: extractedItems[idx].moneda || 'S/'
-                });
-                refreshCuotasUI(idx);
+            if (meta && Array.isArray(meta.cuotas) && meta.cuotas.length > 0) {
+              mergeExtractedCuotas(idx, meta);
+            } else if (meta && meta.factura) {
+              if (extractedItems[idx]) {
+                extractedItems[idx].factura = meta.factura || '';
+                extractedItems[idx].fecha_pago = meta.fecha_pago || '';
+                if (meta.fecha_vencimiento && !extractedItems[idx].fecha_vencimiento) {
+                  extractedItems[idx].fecha_vencimiento = meta.fecha_vencimiento;
+                }
+                const tdFac = getTd(idx, 'factura');
+                if (tdFac) tdFac.textContent = extractedItems[idx].factura || '';
+                const tdFec = getTd(idx, 'fecha_pago');
+                if (tdFec) tdFec.textContent = extractedItems[idx].fecha_pago || '';
+                const tdV = getTd(idx, 'fecha_vencimiento');
+                if (tdV && extractedItems[idx].fecha_vencimiento) tdV.textContent = extractedItems[idx].fecha_vencimiento;
+                updateRowFilesUI(idx);
               }
             }
           }
@@ -1590,6 +1609,7 @@
   function syncFirstCuotaToRow(index) {
     if (!Number.isFinite(index) || !extractedItems[index]) return;
     const qs = extractedItems[index].cuotas || [];
+    if (!qs.length) return;
     extractedItems[index].factura = qs[0]?.factura || '';
     extractedItems[index].fecha_pago = qs[0]?.fecha_pago || '';
     const tdFac = getTd(index, 'factura');
@@ -1758,17 +1778,19 @@
           if (meta && Array.isArray(meta.cuotas) && meta.cuotas.length > 0) {
             mergeExtractedCuotas(idx, meta);
           } else if (meta && meta.factura) {
-            if (!extractedItems[idx].cuotas) extractedItems[idx].cuotas = [];
-            const exists = extractedItems[idx].cuotas.some(c => c.factura === meta.factura);
-            if (!exists) {
-              extractedItems[idx].cuotas.push({
-                factura: meta.factura || '',
-                fecha_pago: meta.fecha_pago || '',
-                fecha_vencimiento: meta.fecha_vencimiento || '',
-                importe: '',
-                moneda: extractedItems[idx].moneda || 'S/'
-              });
-              refreshCuotasUI(idx);
+            if (extractedItems[idx]) {
+              extractedItems[idx].factura = meta.factura || '';
+              extractedItems[idx].fecha_pago = meta.fecha_pago || '';
+              if (meta.fecha_vencimiento && !extractedItems[idx].fecha_vencimiento) {
+                extractedItems[idx].fecha_vencimiento = meta.fecha_vencimiento;
+              }
+              const tdFac = getTd(idx, 'factura');
+              if (tdFac) tdFac.textContent = extractedItems[idx].factura || '';
+              const tdFec = getTd(idx, 'fecha_pago');
+              if (tdFec) tdFec.textContent = extractedItems[idx].fecha_pago || '';
+              const tdV = getTd(idx, 'fecha_vencimiento');
+              if (tdV && extractedItems[idx].fecha_vencimiento) tdV.textContent = extractedItems[idx].fecha_vencimiento;
+              updateRowFilesUI(idx);
             }
           }
         }
@@ -2766,13 +2788,22 @@
       idx = emptyIdx >= 0 ? emptyIdx : 0;
     }
 
-    if (!extractedItems[idx].cuotas) extractedItems[idx].cuotas = [];
     if (Array.isArray(meta.cuotas) && meta.cuotas.length > 0) {
       mergeExtractedCuotas(idx, meta);
       return;
     }
-    
-    // Evitar duplicados por factura
+
+    if (extractedItems[idx] && (!extractedItems[idx].cuotas || extractedItems[idx].cuotas.length === 0)) {
+      extractedItems[idx].factura = meta.factura || '';
+      extractedItems[idx].fecha_pago = meta.fecha_pago || '';
+      if (meta.fecha_vencimiento && !extractedItems[idx].fecha_vencimiento) {
+        extractedItems[idx].fecha_vencimiento = meta.fecha_vencimiento;
+      }
+      updateRowFilesUI(idx);
+      return;
+    }
+
+    if (!extractedItems[idx].cuotas) extractedItems[idx].cuotas = [];
     const exists = extractedItems[idx].cuotas.some(c => c.factura === meta.factura);
     if (!exists) {
       extractedItems[idx].cuotas.push({
