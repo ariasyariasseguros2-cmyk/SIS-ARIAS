@@ -40,7 +40,7 @@
                                 <i class="bi-search text-muted"></i>
                             </span>
                             <input type="text" id="searchInput" class="form-control border-start-0 ps-0"
-                                   placeholder="Buscar por póliza, cliente, contrato o archivo..." autocomplete="off">
+                                   placeholder="Buscar por póliza, recibo, cliente, contrato o archivo..." autocomplete="off">
                             <!-- Botón para descargar por contratante usando el texto del buscador -->
                             <button id="btnDownloadByContratante" class="btn btn-outline-secondary" type="button" title="Descargar archivos por contratante">
                                 <i class="bi-file-zip"></i>
@@ -78,7 +78,8 @@
                     <tr>
                         <th scope="col" style="width: 50px;" class="text-center">Acciones</th>
                         <th scope="col">Origen</th>
-                        <th scope="col">Poliza/Nro Documento</th>
+                        <th scope="col">Poliza</th>
+                        <th scope="col">Recibo</th>
                         <th scope="col">Contratante</th>
                         <th scope="col">Ramo</th>
                         <th scope="col">Producto</th>
@@ -91,7 +92,7 @@
                     <tbody>
                     <!-- Rows will be populated by JS -->
                     <tr class="placeholder-row">
-                        <td colspan="10" class="text-center py-4 text-muted">
+                        <td colspan="11" class="text-center py-4 text-muted">
                             Cargando archivos...
                         </td>
                     </tr>
