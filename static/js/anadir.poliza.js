@@ -34,6 +34,7 @@
   let allAnexos = []; // NUEVO: Acumulador de archivos anexos
   let allFacturas = [];
   let rowFacturasMap = new Map();
+  let cuotaFacturaFileMap = new Map();
   let autoSaveTimer = null;
   const AUTO_SAVE_ENABLED = false;
   let isSaving = false;
@@ -617,6 +618,29 @@
               <label class="form-label small mb-1">FECHA PAGO</label>
               <input type="text" class="form-control form-control-sm cuota-fecha" data-index="${index}" data-cuota-index="${ci}" value="${c.fecha_pago || ''}" placeholder="dd/mm/aaaa">
             </div>
+            <div class="field">
+              <label class="form-label small mb-1">ARCHIVO</label>
+              ${(() => {
+                const k = `${index}:${ci}`;
+                const f = cuotaFacturaFileMap.get(k);
+                const has = !!f;
+                const nm = f ? (f.name || '') : '';
+                return `
+                  <div class="cuota-file-drop ${has ? 'has-file' : ''}" data-index="${index}" data-cuota-index="${ci}">
+                    <div class="cuota-file-name text-truncate" title="${nm}">${nm || 'Adjuntar factura'}</div>
+                    <div class="cuota-file-actions">
+                      <button type="button" class="btn btn-sm btn-outline-secondary cuota-file-view" data-index="${index}" data-cuota-index="${ci}" ${has ? '' : 'disabled'}>
+                        <i class="bi bi-eye"></i>
+                      </button>
+                      <button type="button" class="btn btn-sm btn-outline-danger cuota-file-remove" data-index="${index}" data-cuota-index="${ci}" ${has ? '' : 'disabled'}>
+                        <i class="bi bi-x-lg"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <input type="file" class="d-none cuota-file-input" data-index="${index}" data-cuota-index="${ci}" accept=".pdf,image/*">
+                `;
+              })()}
+            </div>
           </div>
           <div class="d-flex justify-content-end">
             <button type="button" class="btn btn-sm btn-outline-danger action-remove-cuota" data-index="${index}" data-cuota-index="${ci}">Eliminar</button>
@@ -629,6 +653,11 @@
       <div class="actions-pane" data-index="${index}">
         <div class="drop-facturas mb-2" data-index="${index}">Haz clic para seleccionar o arrastra la factura aquí</div>
         <input type="file" class="d-none input-facturas" data-index="${index}" accept=".pdf,image/*" multiple>
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <div class="small text-muted">Archivos adjuntos</div>
+          <span class="badge text-bg-secondary facturas-count">0</span>
+        </div>
+        <div class="list-facturas"></div>
         
         <div class="cuotas-list" data-index="${index}">
           ${cuotasHtml}
@@ -1340,7 +1369,33 @@
       const cuotaIdx = Number(btn.dataset.cuotaIndex);
       if (Number.isFinite(cuotaIdx) && extractedItems[idx].cuotas) {
         extractedItems[idx].cuotas.splice(cuotaIdx, 1);
+        const rebuilt = new Map();
+        Array.from(cuotaFacturaFileMap.entries()).forEach(([k, f]) => {
+          const [riRaw, ciRaw] = String(k).split(':');
+          const ri = Number(riRaw);
+          const ci = Number(ciRaw);
+          if (!Number.isFinite(ri) || !Number.isFinite(ci)) return;
+          if (ri !== idx) {
+            rebuilt.set(k, f);
+            return;
+          }
+          if (ci < cuotaIdx) {
+            rebuilt.set(k, f);
+            return;
+          }
+          if (ci === cuotaIdx) {
+            try {
+              const arr = rowFacturasMap.get(idx) || [];
+              const newArr = arr.filter(x => keyForFile(x) !== keyForFile(f));
+              rowFacturasMap.set(idx, newArr);
+            } catch (_) {}
+            return;
+          }
+          rebuilt.set(`${idx}:${ci - 1}`, f);
+        });
+        cuotaFacturaFileMap = rebuilt;
         refreshCuotasUI(idx);
+        updateRowFilesUI(idx);
         scheduleAutoSave();
       }
       return;
@@ -1361,6 +1416,16 @@
         else if (k > idx) newMap.set(k - 1, v);
       });
       rowFacturasMap = newMap;
+      const newCuotaMap = new Map();
+      Array.from(cuotaFacturaFileMap.entries()).forEach(([k, f]) => {
+        const [riRaw, ciRaw] = String(k).split(':');
+        const ri = Number(riRaw);
+        const ci = Number(ciRaw);
+        if (!Number.isFinite(ri) || !Number.isFinite(ci)) return;
+        if (ri < idx) newCuotaMap.set(k, f);
+        else if (ri > idx) newCuotaMap.set(`${ri - 1}:${ci}`, f);
+      });
+      cuotaFacturaFileMap = newCuotaMap;
       render(extractedItems);
       if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
       const newIndex = Math.max(0, Math.min(idx, extractedItems.length - 1));
@@ -1385,6 +1450,24 @@
         rowFacturasMap = shifted;
         rowFacturasMap.set(idx + 1, files.slice());
       }
+      const shiftedCuota = new Map();
+      Array.from(cuotaFacturaFileMap.entries()).forEach(([k, f]) => {
+        const [riRaw, ciRaw] = String(k).split(':');
+        const ri = Number(riRaw);
+        const ci = Number(ciRaw);
+        if (!Number.isFinite(ri) || !Number.isFinite(ci)) return;
+        if (ri <= idx) shiftedCuota.set(k, f);
+        else shiftedCuota.set(`${ri + 1}:${ci}`, f);
+      });
+      Array.from(cuotaFacturaFileMap.entries()).forEach(([k, f]) => {
+        const [riRaw, ciRaw] = String(k).split(':');
+        const ri = Number(riRaw);
+        const ci = Number(ciRaw);
+        if (ri === idx && Number.isFinite(ci)) {
+          shiftedCuota.set(`${idx + 1}:${ci}`, f);
+        }
+      });
+      cuotaFacturaFileMap = shiftedCuota;
       render(extractedItems);
       if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
       setTimeout(() => {
@@ -1436,6 +1519,7 @@
     if (actionsCol) {
       actionsCol.innerHTML = buildActions(index);
     }
+    updateRowFilesUI(index);
   }
 
   function updateRowFilesUI(index) {
@@ -1500,6 +1584,141 @@
       updateRowFilesUI(idx);
       input.value = '';
     }
+  });
+
+  function syncFirstCuotaToRow(index) {
+    if (!Number.isFinite(index) || !extractedItems[index]) return;
+    const qs = extractedItems[index].cuotas || [];
+    if (!qs.length) return;
+    extractedItems[index].factura = qs[0].factura || '';
+    extractedItems[index].fecha_pago = qs[0].fecha_pago || '';
+    const tdFac = getTd(index, 'factura');
+    if (tdFac) tdFac.textContent = extractedItems[index].factura || '';
+    const tdFec = getTd(index, 'fecha_pago');
+    if (tdFec) tdFec.textContent = extractedItems[index].fecha_pago || '';
+  }
+
+  async function attachCuotaFile(index, cuotaIdx, file) {
+    if (!Number.isFinite(index) || !Number.isFinite(cuotaIdx) || !file) return;
+    if (!extractedItems[index] || !extractedItems[index].cuotas || !extractedItems[index].cuotas[cuotaIdx]) return;
+
+    const cuotaKey = `${index}:${cuotaIdx}`;
+    const prev = cuotaFacturaFileMap.get(cuotaKey);
+    if (prev) {
+      try {
+        const arrPrev = rowFacturasMap.get(index) || [];
+        const cleaned = arrPrev.filter(x => keyForFile(x) !== keyForFile(prev));
+        rowFacturasMap.set(index, cleaned);
+      } catch (_) {}
+    }
+
+    cuotaFacturaFileMap.set(cuotaKey, file);
+
+    const arr = rowFacturasMap.get(index) || [];
+    if (!arr.some(x => keyForFile(x) === keyForFile(file))) {
+      arr.push(file);
+    }
+    rowFacturasMap.set(index, arr);
+
+    if (/\.pdf$/i.test(file.name)) {
+      const meta = await extractFacturaMetaFromFile(file);
+      facturaMetaMap.set(keyForFile(file), meta);
+      const cuota = extractedItems[index].cuotas[cuotaIdx];
+      if (cuota) {
+        if (!cuota.factura && meta.factura) cuota.factura = meta.factura;
+        if (!cuota.fecha_pago && meta.fecha_pago) cuota.fecha_pago = meta.fecha_pago;
+        if (!cuota.fecha_vencimiento && meta.fecha_vencimiento) cuota.fecha_vencimiento = meta.fecha_vencimiento;
+      }
+      syncFirstCuotaToRow(index);
+    }
+
+    refreshCuotasUI(index);
+    updateRowFilesUI(index);
+    scheduleAutoSave();
+  }
+
+  tbody.addEventListener('change', async (e) => {
+    const input = e.target.closest('.cuota-file-input');
+    if (!input) return;
+    const idx = Number(input.dataset.index);
+    const cuotaIdx = Number(input.dataset.cuotaIndex);
+    if (!Number.isFinite(idx) || !Number.isFinite(cuotaIdx)) return;
+    const file = (input.files && input.files[0]) ? input.files[0] : null;
+    input.value = '';
+    if (!file) return;
+    await attachCuotaFile(idx, cuotaIdx, file);
+  });
+
+  tbody.addEventListener('click', (e) => {
+    const btnView = e.target.closest('.cuota-file-view');
+    const btnRem = e.target.closest('.cuota-file-remove');
+    if (btnView || btnRem) {
+      const idx = Number((btnView || btnRem).dataset.index);
+      const cuotaIdx = Number((btnView || btnRem).dataset.cuotaIndex);
+      if (!Number.isFinite(idx) || !Number.isFinite(cuotaIdx)) return;
+      const k = `${idx}:${cuotaIdx}`;
+      const file = cuotaFacturaFileMap.get(k);
+      if (!file) return;
+      if (btnView) {
+        try {
+          const url = URL.createObjectURL(file);
+          const titleEl = document.getElementById('pdfModalLabel');
+          if (titleEl) titleEl.textContent = `Factura: ${file.name}`;
+          if (typeof window.openPdfInModal === 'function') {
+            window.openPdfInModal(url);
+          } else {
+            window.open(url, '_blank', 'noopener');
+          }
+          setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_) {} }, 10000);
+        } catch (_) {}
+        return;
+      }
+      if (btnRem) {
+        cuotaFacturaFileMap.delete(k);
+        try {
+          const arr = rowFacturasMap.get(idx) || [];
+          const newArr = arr.filter(x => keyForFile(x) !== keyForFile(file));
+          rowFacturasMap.set(idx, newArr);
+        } catch (_) {}
+        refreshCuotasUI(idx);
+        updateRowFilesUI(idx);
+        scheduleAutoSave();
+        return;
+      }
+    }
+
+    const dz = e.target.closest('.cuota-file-drop');
+    if (!dz) return;
+    const idx = Number(dz.dataset.index);
+    const cuotaIdx = Number(dz.dataset.cuotaIndex);
+    if (!Number.isFinite(idx) || !Number.isFinite(cuotaIdx)) return;
+    const tr = tbody.querySelectorAll('tr')[idx];
+    const input = tr?.querySelector(`.cuota-file-input[data-index="${idx}"][data-cuota-index="${cuotaIdx}"]`);
+    input?.click();
+  });
+
+  tbody.addEventListener('dragover', (e) => {
+    const dz = e.target.closest('.cuota-file-drop');
+    if (!dz) return;
+    e.preventDefault();
+    dz.classList.add('dragover');
+  });
+  tbody.addEventListener('dragleave', (e) => {
+    const dz = e.target.closest('.cuota-file-drop');
+    if (!dz) return;
+    dz.classList.remove('dragover');
+  });
+  tbody.addEventListener('drop', async (e) => {
+    const dz = e.target.closest('.cuota-file-drop');
+    if (!dz) return;
+    e.preventDefault();
+    dz.classList.remove('dragover');
+    const idx = Number(dz.dataset.index);
+    const cuotaIdx = Number(dz.dataset.cuotaIndex);
+    if (!Number.isFinite(idx) || !Number.isFinite(cuotaIdx)) return;
+    const file = Array.from(e.dataTransfer?.files || []).find(f => /\.pdf$/i.test(f.name) || /^image\//i.test(f.type));
+    if (!file) return;
+    await attachCuotaFile(idx, cuotaIdx, file);
   });
 
   tbody.addEventListener('dragover', (e) => {
@@ -2579,6 +2798,7 @@
       if (facturasFilesEl) facturasFilesEl.value = '';
       allFacturas = [];
       rowFacturasMap = new Map();
+      cuotaFacturaFileMap = new Map();
       if (typeof facturaMetaMap?.clear === 'function') facturaMetaMap.clear();
       if (typeof renderFacturasList === 'function') {
         renderFacturasList();
@@ -2633,6 +2853,9 @@
       const tdDoc = getTd(idx, 'numero_documento_extracted');
       if (tdDoc) tdDoc.textContent = '';
       rowFacturasMap.set(idx, []);
+      Array.from(cuotaFacturaFileMap.keys()).forEach(k => {
+        if (String(k).startsWith(`${idx}:`)) cuotaFacturaFileMap.delete(k);
+      });
       updateRowFilesUI(idx);
     });
     allFacturas = [];

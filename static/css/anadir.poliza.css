@@ -789,6 +789,43 @@ body {
     font-size: 0.85rem;
 }
 
+.cuota-file-drop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 32px;
+    padding: 0.35rem 0.5rem;
+    border: 1px dashed var(--card-border);
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+}
+.cuota-file-drop.has-file {
+    border-color: rgba(13, 110, 253, 0.45);
+}
+.cuota-file-drop.dragover {
+    border-color: var(--primary);
+    background: rgba(13, 110, 253, 0.08);
+}
+.cuota-file-name {
+    flex: 1;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+.cuota-file-drop.has-file .cuota-file-name {
+    color: var(--text);
+}
+.cuota-file-actions {
+    display: flex;
+    gap: 0.35rem;
+    flex: 0 0 auto;
+}
+.cuota-file-actions .btn {
+    padding: 0.15rem 0.35rem;
+    line-height: 1;
+}
+
 /* Ocultar columnas nativas de Factura y Fecha Pago (20, 21) ya que estarán en el panel derecho */
 .table-custom td:nth-child(20),
 .table-custom td:nth-child(21) {
