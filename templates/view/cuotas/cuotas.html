@@ -18,6 +18,7 @@
   window.currentPrimaId = "{{ resumen.prima_id or '' }}";
   window.currentPolizaId = "{{ resumen.prima_id or '' }}";
   window.currentAviso = "{{ resumen.aviso_cob }}";
+  window.currentMoneda = "{{ resumen.moneda or '' }}";
 </script>
 {% endblock %}
 
@@ -88,7 +89,7 @@
                 <div class="amount-display">
                     <span class="amount-label text-uppercase mb-2">Prima Total</span>
                     <span class="amount-value text-primary" style="font-size: 2.5rem;">
-                        <span class="amount-currency">S/.</span><span id="header-total-monto">{{ total_monto }}</span>
+                        <span class="amount-currency" id="header-total-currency">{{ resumen.moneda or 'S/.' }}</span><span id="header-total-monto">{{ total_monto }}</span>
                     </span>
                 </div>
              </div>

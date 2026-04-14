@@ -80,6 +80,7 @@ const Cuotas = (() => {
     const tbody = document.querySelector('#cuotas-table tbody');
     // Elemento para mostrar el total de la prima
     const totalEl = document.getElementById('header-total-monto');
+    const currencyEl = document.getElementById('header-total-currency');
     
     if (!tbody || !totalEl) return;
     
@@ -90,8 +91,8 @@ const Cuotas = (() => {
       if (!td) return;
       
       const raw = (td.textContent || '').trim();
-      // Limpiar el texto: quitar 'S/.', quitar comas (separador de miles)
-      let clean = raw.replace(/S\/\.?\s?/g, '').replace(/,/g, '').trim();
+      // Limpiar el texto: quitar comas y cualquier cosa que no sea número o punto
+      let clean = raw.replace(/,/g, '').replace(/[^0-9.-]/g, '');
       
       const num = parseFloat(clean);
       if (!isNaN(num)) total += num;
@@ -99,6 +100,11 @@ const Cuotas = (() => {
     
     // Formatear el total con comas para miles y dos decimales
     totalEl.textContent = total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    
+    // Si tenemos una moneda global, actualizar el símbolo
+    if (currencyEl && window.currentMoneda) {
+      currencyEl.textContent = window.currentMoneda;
+    }
   }
 
   function openConfirm(message, onAccept, type) {

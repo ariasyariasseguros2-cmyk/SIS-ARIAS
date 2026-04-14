@@ -62,6 +62,7 @@ def get_cuotas_data(
         'tipo_doc': '',
         'concepto': 'EMISION',
         'prima_id': None,
+        'moneda': '',
     }
 
     # Try DB-backed primas to populate cuotas context
@@ -111,6 +112,7 @@ def get_cuotas_data(
                 resumen['tipo_doc'] = pr.get('tipo') or pr.get('tipo_mov') or ''
                 resumen['concepto'] = pr.get('motivo') or resumen['concepto']
                 resumen['prima_id'] = pr.get('idPoliza') or None
+                resumen['moneda'] = pr.get('moneda') or ''
 
                 # No pre-filled demo row; tabla queda vacía si no hay cuotas reales
 
@@ -274,8 +276,12 @@ def get_cuotas_data(
 
     def _to_float(s: str) -> float:
         try:
-            # FORMAT(x, 2) de MySQL usa ',' para miles y '.' para decimales
-            return float(str(s).replace(',', '').replace('S/.', '').strip())
+            if not s: return 0.0
+            # Remove currency symbols and separators
+            # Keep digits, dots and minus sign
+            import re
+            clean = re.sub(r'[^\d.-]', '', str(s).replace(',', ''))
+            return float(clean)
         except Exception:
             return 0.0
     
