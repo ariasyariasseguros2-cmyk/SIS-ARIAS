@@ -302,7 +302,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
-                  AND (moneda LIKE 'S%%' OR moneda = 'PEN')
+                  AND moneda = 'S/.'
                   AND anulado = 0
             """
             cur.execute(sql)
@@ -315,7 +315,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
-                  AND (moneda LIKE 'D%%' OR moneda LIKE 'U%%' OR moneda = 'USD')
+                  AND moneda = 'US$'
                   AND anulado = 0
             """
             cur.execute(sql)
@@ -328,7 +328,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
-                  AND (moneda LIKE 'S%%' OR moneda = 'PEN')
+                  AND moneda = 'S/.'
                   AND anulado = 0
             """
             cur.execute(sql)
@@ -341,7 +341,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
-                  AND (moneda LIKE 'D%%' OR moneda LIKE 'U%%' OR moneda = 'USD')
+                  AND moneda = 'US$'
                   AND anulado = 0
             """
             cur.execute(sql)
@@ -362,8 +362,11 @@ def get_dashboard_cards() -> Dict[str, Any]:
 def get_dashboard_data() -> Dict[str, Any]:
     # Chart data: prima neta y comision mensual del año actual
     months_labels = []
-    totals_prima = []
-    totals_comision = []
+    
+    totals_prima_soles = []
+    totals_comision_soles = []
+    totals_prima_usd = []
+    totals_comision_usd = []
     
     try:
         cnx = get_connection()
@@ -392,6 +395,7 @@ def get_dashboard_data() -> Dict[str, Any]:
         sql = f"""
             SELECT
                 MONTH(vig_desde) AS mes,
+                moneda,
                 SUM(COALESCE(prima_neta, 0)) AS total_prima_neta,
                 SUM(COALESCE(imp_compania, 0)) AS total_comision
             FROM polizas
@@ -399,21 +403,41 @@ def get_dashboard_data() -> Dict[str, Any]:
               AND YEAR(vig_desde) = YEAR(CURDATE())
               AND anulado = 0
               {user_filter}
-            GROUP BY MONTH(vig_desde)
+            GROUP BY MONTH(vig_desde), moneda
             ORDER BY MONTH(vig_desde)
         """
         cur.execute(sql, user_filter_args)
         rows = cur.fetchall() or []
 
-        prima_map = {int(r[0]): float(r[1] or 0) for r in rows}
-        comision_map = {int(r[0]): float(r[2] or 0) for r in rows}
+        # Data maps for each currency
+        prima_map_soles = {}
+        comision_map_soles = {}
+        prima_map_usd = {}
+        comision_map_usd = {}
+
+        for r in rows:
+            mes = int(r[0])
+            moneda = r[1]
+            p_neta = float(r[2] or 0)
+            comision = float(r[3] or 0)
+
+            if moneda == 'S/.':
+                prima_map_soles[mes] = p_neta
+                comision_map_soles[mes] = comision
+            elif moneda == 'US$':
+                prima_map_usd[mes] = p_neta
+                comision_map_usd[mes] = comision
         
         meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
         current_year = datetime.now().year
         for month_index in range(1, 13):
             months_labels.append(f"{meses[month_index - 1]} {current_year}")
-            totals_prima.append(prima_map.get(month_index, 0.0))
-            totals_comision.append(comision_map.get(month_index, 0.0))
+            
+            totals_prima_soles.append(prima_map_soles.get(month_index, 0.0))
+            totals_comision_soles.append(comision_map_soles.get(month_index, 0.0))
+            
+            totals_prima_usd.append(prima_map_usd.get(month_index, 0.0))
+            totals_comision_usd.append(comision_map_usd.get(month_index, 0.0))
             
         cur.close()
         cnx.close()
@@ -423,14 +447,16 @@ def get_dashboard_data() -> Dict[str, Any]:
         current_year = datetime.now().year
         meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
         months_labels = [f"{m} {current_year}" for m in meses]
-        totals_prima = [0] * 12
-        totals_comision = [0] * 12
+        totals_prima_soles = [0] * 12
+        totals_comision_soles = [0] * 12
+        totals_prima_usd = [0] * 12
+        totals_comision_usd = [0] * 12
 
     return {
         "months": months_labels,
-        "totals_prima": totals_prima,
-        "totals_comision": totals_comision,
-        "daily_labels": months_labels,
-        "daily_income": totals_prima,
+        "totals_prima_soles": totals_prima_soles,
+        "totals_comision_soles": totals_comision_soles,
+        "totals_prima_usd": totals_prima_usd,
+        "totals_comision_usd": totals_comision_usd,
         "title": "Producción vs Comisión",
     }

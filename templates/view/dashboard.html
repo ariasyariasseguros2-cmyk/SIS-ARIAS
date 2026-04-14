@@ -239,10 +239,10 @@
 <script>
     window.dashboardData = {
         months: {{ chart.months | tojson if chart.months is defined else '[]' }},
-        totals_prima: {{ chart.totals_prima | tojson if chart.totals_prima is defined else '[]' }},
-        totals_comision: {{ chart.totals_comision | tojson if chart.totals_comision is defined else '[]' }},
-        dailyLabels: {{ chart.daily_labels | tojson if chart.daily_labels is defined else '[]' }},
-        dailyIncome: {{ chart.daily_income | tojson if chart.daily_income is defined else '[]' }},
+        totals_prima_soles: {{ chart.totals_prima_soles | tojson if chart.totals_prima_soles is defined else '[]' }},
+        totals_comision_soles: {{ chart.totals_comision_soles | tojson if chart.totals_comision_soles is defined else '[]' }},
+        totals_prima_usd: {{ chart.totals_prima_usd | tojson if chart.totals_prima_usd is defined else '[]' }},
+        totals_comision_usd: {{ chart.totals_comision_usd | tojson if chart.totals_comision_usd is defined else '[]' }},
         activePolicies: {{ cards.active_policies | default(0) }},
         pendingRenewals: {{ cards.pending_renewals | default(0) }}
     };

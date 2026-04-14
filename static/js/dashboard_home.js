@@ -37,9 +37,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Ensure data exists or use defaults
         const months = data.months || ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-        const totalsComision = data.totals_comision || new Array(months.length).fill(0);
-
-        const chartDataComision = currency === 'soles' ? totalsComision : totalsComision.map(v => v / 3.7);
+        
+        // Use data from DB instead of client-side conversion
+        const chartDataComision = currency === 'soles' 
+            ? (data.totals_comision_soles || new Array(months.length).fill(0))
+            : (data.totals_comision_usd || new Array(months.length).fill(0));
         
         const comisionGradient = ctxProduction.getContext('2d').createLinearGradient(0, 0, 0, 400);
         if (colors.isDark) {
@@ -76,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                const symbol = currency === 'soles' ? 'S/ ' : 'US$ ';
+                                const symbol = currency === 'soles' ? 'S/. ' : 'US$ ';
                                 return context.dataset.label + ': ' + symbol + new Intl.NumberFormat('es-PE', { style: 'decimal', maximumFractionDigits: 2 }).format(context.parsed.y);
                             }
                         }
@@ -130,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const formatCurrency = (value, currency) => {
-        const symbol = currency === 'soles' ? 'S/ ' : 'US$ ';
+        const symbol = currency === 'soles' ? 'S/. ' : 'US$ ';
         return symbol + new Intl.NumberFormat('es-PE', { style: 'decimal', maximumFractionDigits: 2 }).format(value || 0);
     };
 
@@ -139,10 +141,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const ctxIncome = document.getElementById('incomeDayChart');
         if (!ctxIncome) return;
 
-        const dailyLabels = data.dailyLabels || data.months || ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-        const dailyIncome = data.dailyIncome || data.totals_prima || new Array(dailyLabels.length).fill(0);
-
-        const chartData = currency === 'soles' ? dailyIncome : dailyIncome.map(v => v / 3.7);
+        const dailyLabels = data.months || ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        
+        // Use data from DB instead of client-side conversion
+        const chartData = currency === 'soles' 
+            ? (data.totals_prima_soles || new Array(dailyLabels.length).fill(0))
+            : (data.totals_prima_usd || new Array(dailyLabels.length).fill(0));
+            
         const totalValue = chartData.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
         
         const gradient = ctxIncome.getContext('2d').createLinearGradient(0, 0, 0, 400);
@@ -185,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         borderWidth: 1,
                         callbacks: {
                             label: function(context) {
-                                const symbol = currency === 'soles' ? 'S/ ' : 'US$ ';
+                                const symbol = currency === 'soles' ? 'S/. ' : 'US$ ';
                                 return symbol + new Intl.NumberFormat('es-PE', { style: 'decimal', maximumFractionDigits: 2 }).format(context.parsed.y);
                             }
                         }
