@@ -1312,12 +1312,18 @@ BEGIN
                 CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
                 p.poliza
             ) AS identificador,
+            COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                p.recibo
+            ) AS recibo,
             'CUOTA' AS tipo_origen
         FROM poliza_archivos pa
         INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
         WHERE pa.origen = 'CUOTA'
           AND (p_identificador IS NULL OR p_identificador = '' 
-               OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), p.poliza) = p_identificador 
+               OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), p.poliza) = p_identificador
+               OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) = p_identificador
                OR CAST(pa.poliza_id AS CHAR) = p_identificador);
     ELSE
         SELECT
@@ -1329,6 +1335,11 @@ BEGIN
                 CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
                 p.poliza
             ) AS identificador,
+            COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                p.recibo
+            ) AS recibo,
             'POLIZA' AS tipo_origen
         FROM poliza_archivos pa
         INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
@@ -1339,7 +1350,7 @@ BEGIN
                OR pa.nombre_original LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%')
                OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.contrato_nro), @SIS_KEY) AS CHAR), p.contrato_nro) LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%')
                OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%'))
-          AND (p_identificador IS NULL OR p_identificador = '' 
+          AND (p_identificador IS NULL OR p_identificador = ''
                OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), p.poliza) = p_identificador)
           AND (p_tipo_origen IS NULL OR p_tipo_origen = '' OR 'POLIZA' = p_tipo_origen);
     END IF;
@@ -1356,6 +1367,7 @@ BEGIN
     END IF;
     SELECT
         identificador,
+        recibo,
         tipo_origen,
         contratante,
         COUNT(*) AS cantidad_archivos,
@@ -1382,6 +1394,11 @@ BEGIN
                 CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
                 c.razon_social
             ) COLLATE utf8mb4_0900_ai_ci AS contratante,
+            COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                p.recibo
+            ) COLLATE utf8mb4_0900_ai_ci AS recibo,
             pa.creado_en AS fecha_subida,
             p.ramo COLLATE utf8mb4_0900_ai_ci AS ramo,
             p.ramos_producto COLLATE utf8mb4_0900_ai_ci AS producto,
@@ -1417,6 +1434,11 @@ BEGIN
                 CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
                 c.razon_social
             ) COLLATE utf8mb4_0900_ai_ci AS contratante,
+            COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                p.recibo
+            ) COLLATE utf8mb4_0900_ai_ci AS recibo,
             pa.creado_en AS fecha_subida,
             p.ramo COLLATE utf8mb4_0900_ai_ci AS ramo,
             p.ramos_producto COLLATE utf8mb4_0900_ai_ci AS producto,
@@ -1440,12 +1462,14 @@ BEGIN
         WHERE pa.origen = 'CUOTA'
           AND (p_busqueda IS NULL OR p_busqueda = ''
                OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), p.poliza) LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%')
+               OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%')
                OR COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR), c.razon_social) LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%')
                OR pa.nombre_original LIKE CONCAT('%', p_busqueda COLLATE utf8mb4_0900_ai_ci, '%'))
     ) AS combined
-    GROUP BY identificador, tipo_origen, contratante, ramo, producto, usuario, compania, poliza_padre_id, cupon
+    GROUP BY identificador, recibo, tipo_origen, contratante, ramo, producto, usuario, compania, poliza_padre_id, cupon
     ORDER BY
         COALESCE(poliza_padre_id, identificador) ASC,
+        recibo ASC,
         tipo_origen ASC,
         ultima_fecha DESC
     LIMIT p_limite;
