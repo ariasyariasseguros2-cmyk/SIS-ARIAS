@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let activeSuggestion = -1;
     let lastSelectedName = '';
     let suggestTimer = null;
+    let searchTimer = null;
+    let fetchController = null;
     let allData = [];
     let groups = [];
     let currentPage = 1;
@@ -40,6 +42,8 @@ document.addEventListener('DOMContentLoaded', function() {
             fetchFiles('');
             return;
         }
+        if (searchTimer) clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => fetchFiles(q.trim()), 250);
         if (suggestTimer) clearTimeout(suggestTimer);
         suggestTimer = setTimeout(() => handleAutocomplete(q), 200);
     });
@@ -170,9 +174,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // ── Fetch principal ──────────────────────────────────────────────────────
     async function fetchFiles(query = '') {
         try {
-            tableBody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">Cargando...</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-muted">Cargando...</td></tr>`;
             hideBanner();
-            const response = await fetch(`/api/reportes/archivos-poliza?search=${encodeURIComponent(query)}`);
+            if (fetchController) {
+                fetchController.abort();
+            }
+            fetchController = new AbortController();
+            const response = await fetch(
+                `/api/reportes/archivos-poliza?search=${encodeURIComponent(query)}`,
+                { signal: fetchController.signal }
+            );
             const json = await response.json();
             // El API devuelve { data: [...], has_more: bool }
             const data     = json.data     ?? json;   // fallback por si acaso
@@ -185,8 +196,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 showBanner();
             }
         } catch (error) {
+            if (error && error.name === 'AbortError') return;
             console.error('Error loading files:', error);
-            tableBody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Error cargando datos</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="11" class="text-center text-danger">Error cargando datos</td></tr>`;
         }
     }
 
@@ -228,10 +240,31 @@ document.addEventListener('DOMContentLoaded', function() {
         return `${get('day')}/${get('month')}/${get('year')} ${get('hour')}:${get('minute')}`;
     }
 
+    function buildPolizaGroupKey(poliza, recibo, polizaId) {
+        const p = (poliza || '').toString().trim();
+        const r = (recibo || '').toString().trim();
+        const id = (polizaId || '').toString().trim();
+        return `${p}||${r}||${id}`;
+    }
+
+    function getRowGroupKey(row) {
+        return buildPolizaGroupKey(row.identificador, row.recibo, row.poliza_id);
+    }
+
+    function formatIdentificador(row) {
+        const poliza = row.identificador || '-';
+        return poliza;
+    }
+
+    function formatRecibo(row) {
+        const recibo = (row.recibo || '').toString().trim();
+        return recibo ? `RECIBO: ${recibo}` : '-';
+    }
+
     // ── Render tabla ─────────────────────────────────────────────────────────
     function renderTable(data) {
         if (!data || data.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="10" class="text-center text-muted py-4">No se encontraron archivos</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="11" class="text-center text-muted py-4">No se encontraron archivos</td></tr>`;
             return;
         }
 
@@ -240,7 +273,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const cuotasByPoliza = {};
         cuotas.forEach(c => {
-            const padre = c.poliza_padre_id || '__sin_padre__';
+            const padre = c.poliza_padre_id
+                ? buildPolizaGroupKey(c.poliza_padre_id, c.recibo, c.poliza_id)
+                : '__sin_padre__';
             if (!cuotasByPoliza[padre]) cuotasByPoliza[padre] = [];
             cuotasByPoliza[padre].push(c);
         });
@@ -248,9 +283,10 @@ document.addEventListener('DOMContentLoaded', function() {
         let html = '';
 
         polizas.forEach(row => {
-            const hijos    = cuotasByPoliza[row.identificador] || [];
+            const rowKey   = getRowGroupKey(row);
+            const hijos    = cuotasByPoliza[rowKey] || [];
             const hasHijos = hijos.length > 0;
-            const toggleId = `toggle-${row.identificador.replace(/[^a-z0-9]/gi,'_')}`;
+            const toggleId = `toggle-${rowKey.replace(/[^a-z0-9]/gi,'_')}`;
             const polizaId = row.poliza_id || '';
             // hay hijos si tiene cuotas O tiene polizaId (puede tener archivos extra)
             const hasToggle = hasHijos || !!polizaId;
@@ -272,13 +308,15 @@ document.addEventListener('DOMContentLoaded', function() {
                         <button class="btn btn-outline-primary btn-sm btn-zip-group"
                                 data-id="${row.identificador}"
                                 data-type="${row.tipo_origen}"
+                                data-poliza-id="${polizaId}"
                                 title="Descargar archivos ZIP">
                             <i class="bi-file-zip"></i>
                         </button>
                     </div>
                 </td>
                 <td><span class="badge bg-primary text-white">PÓLIZA</span></td>
-                <td class="fw-bold">${row.identificador || '-'}</td>
+                <td class="fw-bold">${formatIdentificador(row)}</td>
+                <td class="small text-muted fw-semibold">${formatRecibo(row)}</td>
                 <td class="small text-truncate" style="max-width:260px;" title="${row.contratante||''}">${row.contratante||'-'}</td>
                 <td class="small text-muted">${row.ramo||'-'}</td>
                 <td class="small text-muted">${row.producto||'-'}</td>
@@ -298,6 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <button class="btn btn-outline-success btn-sm btn-zip-group"
                                     data-id="${c.cupon || ''}"
                                     data-policy="${c.poliza_padre_id || ''}"
+                                    data-poliza-id="${c.poliza_id || ''}"
                                     data-type="CUOTA"
                                     title="Descargar archivos ZIP de cuota">
                                 <i class="bi-file-zip"></i>
@@ -306,6 +345,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </td>
                     <td><span class="badge bg-success text-white">CUOTA</span></td>
                     <td class="text-muted small fw-semibold">${c.cupon || ('ID: ' + c.cuota_id)}</td>
+                    <td class="small text-muted fw-semibold">${(c.recibo || '').toString().trim() ? `RECIBO: ${c.recibo}` : '-'}</td>
                     <td class="small text-truncate" style="max-width:260px;" title="${c.contratante||''}">${c.contratante||'-'}</td>
                     <td class="small text-muted">${c.ramo||'-'}</td>
                     <td class="small text-muted">${c.producto||'-'}</td>
@@ -319,7 +359,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Fila placeholder para archivos extra (lazy-load) — oculta
             if (polizaId) {
                 html += `<tr class="arch-extra-placeholder d-none" data-parent="${toggleId}" id="arch-ph-${toggleId}">
-                    <td colspan="10" class="py-1 text-center text-muted fst-italic small">
+                    <td colspan="11" class="py-1 text-center text-muted fst-italic small">
                         <span class="spinner-border spinner-border-sm me-1"></span>Cargando archivos...
                     </td>
                 </tr>`;
@@ -334,6 +374,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td class="text-center">
                     <button class="btn btn-outline-success btn-sm btn-zip-group"
                             data-id="${c.cuota_id}"
+                            data-poliza-id="${c.poliza_id || ''}"
                             data-type="CUOTA"
                             title="Descargar archivos ZIP de cuota">
                         <i class="bi-file-zip"></i>
@@ -341,6 +382,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </td>
                 <td><span class="badge bg-success text-white">CUOTA</span></td>
                 <td class="small fw-semibold">${c.cupon || ('ID: ' + c.cuota_id)}</td>
+                <td class="small text-muted fw-semibold">${(c.recibo || '').toString().trim() ? `RECIBO: ${c.recibo}` : '-'}</td>
                 <td class="small text-truncate" style="max-width:260px;" title="${c.contratante||''}">${c.contratante||'-'}</td>
                 <td class="small text-muted">${c.ramo||'-'}</td>
                 <td class="small text-muted">${c.producto||'-'}</td>
@@ -427,7 +469,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <i class="bi-file-earmark me-1 text-warning"></i>${escapeHtml(a.nombre_original||'-')}
                             </td>
                             <td colspan="3" class="small">${tipoBadge}</td>
-                            <td colspan="3" class="small text-muted">${a.creado_en||''}</td>`;
+                            <td colspan="4" class="small text-muted">${a.creado_en||''}</td>`;
                         insertRef.insertAdjacentElement('afterend', tr);
                         insertRef = tr;
                     });
@@ -445,8 +487,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const id = this.dataset.id || '';
                 const type = this.dataset.type || '';
                 const poliza = this.dataset.policy || '';
+                const polizaId = this.dataset.polizaId || '';
                 const extra = type === 'CUOTA' && poliza ? `&poliza=${encodeURIComponent(poliza)}` : '';
-                window.location.href = `/api/reportes/download-zip?identificador=${encodeURIComponent(id)}&tipo=${encodeURIComponent(type)}${extra}`;
+                const extraPolizaId = polizaId ? `&poliza_id=${encodeURIComponent(polizaId)}` : '';
+                window.location.href = `/api/reportes/download-zip?identificador=${encodeURIComponent(id)}&tipo=${encodeURIComponent(type)}${extra}${extraPolizaId}`;
             });
         });
     }
@@ -456,13 +500,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const cuotas  = data.filter(r => r.tipo_origen === 'CUOTA');
         const cuotasByPoliza = {};
         cuotas.forEach(c => {
-            const padre = c.poliza_padre_id || '__sin_padre__';
+            const padre = c.poliza_padre_id
+                ? buildPolizaGroupKey(c.poliza_padre_id, c.recibo, c.poliza_id)
+                : '__sin_padre__';
             if (!cuotasByPoliza[padre]) cuotasByPoliza[padre] = [];
             cuotasByPoliza[padre].push(c);
         });
         const gs = [];
         polizas.forEach(p => {
-            gs.push({ type: 'POLIZA', id: p.identificador });
+            gs.push({ type: 'POLIZA', id: getRowGroupKey(p) });
         });
         (cuotasByPoliza['__sin_padre__'] || []).forEach(c => {
             gs.push({ type: 'CUOTA_ORPHAN', id: c.cuota_id });
@@ -479,9 +525,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const cuotasByPoliza = {};
         allData.forEach(r => {
             if (r.tipo_origen === 'POLIZA') {
-                polizaMap[r.identificador] = r;
+                polizaMap[getRowGroupKey(r)] = r;
             } else if (r.tipo_origen === 'CUOTA') {
-                const padre = r.poliza_padre_id || '__sin_padre__';
+                const padre = r.poliza_padre_id
+                    ? buildPolizaGroupKey(r.poliza_padre_id, r.recibo, r.poliza_id)
+                    : '__sin_padre__';
                 if (!cuotasByPoliza[padre]) cuotasByPoliza[padre] = [];
                 cuotasByPoliza[padre].push(r);
             }
