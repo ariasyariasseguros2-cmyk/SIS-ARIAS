@@ -1509,6 +1509,7 @@
     if (cp) {
       extractedItems[idx].cuotas[cuotaIdx].fecha_pago = cp.value;
     }
+    syncFirstCuotaToRow(idx);
     scheduleAutoSave();
   });
 
@@ -1589,9 +1590,8 @@
   function syncFirstCuotaToRow(index) {
     if (!Number.isFinite(index) || !extractedItems[index]) return;
     const qs = extractedItems[index].cuotas || [];
-    if (!qs.length) return;
-    extractedItems[index].factura = qs[0].factura || '';
-    extractedItems[index].fecha_pago = qs[0].fecha_pago || '';
+    extractedItems[index].factura = qs[0]?.factura || '';
+    extractedItems[index].fecha_pago = qs[0]?.fecha_pago || '';
     const tdFac = getTd(index, 'factura');
     if (tdFac) tdFac.textContent = extractedItems[index].factura || '';
     const tdFec = getTd(index, 'fecha_pago');
@@ -1680,6 +1680,13 @@
           const newArr = arr.filter(x => keyForFile(x) !== keyForFile(file));
           rowFacturasMap.set(idx, newArr);
         } catch (_) {}
+        try {
+          if (extractedItems[idx]?.cuotas?.[cuotaIdx]) {
+            extractedItems[idx].cuotas[cuotaIdx].factura = '';
+            extractedItems[idx].cuotas[cuotaIdx].fecha_pago = '';
+          }
+        } catch (_) {}
+        syncFirstCuotaToRow(idx);
         refreshCuotasUI(idx);
         updateRowFilesUI(idx);
         scheduleAutoSave();
@@ -1806,8 +1813,29 @@
       return;
     }
     if (btnRem) {
+      try {
+        const kf = keyForFile(file);
+        let hitKey = '';
+        Array.from(cuotaFacturaFileMap.entries()).some(([k, f]) => {
+          if (f && keyForFile(f) === kf) {
+            hitKey = k;
+            return true;
+          }
+          return false;
+        });
+        if (hitKey) {
+          cuotaFacturaFileMap.delete(hitKey);
+          const parts = String(hitKey).split(':');
+          const cuotaIdx = Number(parts[1]);
+          if (Number.isFinite(cuotaIdx) && extractedItems[idx]?.cuotas?.[cuotaIdx]) {
+            extractedItems[idx].cuotas[cuotaIdx].factura = '';
+            extractedItems[idx].cuotas[cuotaIdx].fecha_pago = '';
+          }
+        }
+      } catch (_) {}
       arr.splice(i, 1);
       rowFacturasMap.set(idx, arr);
+      syncFirstCuotaToRow(idx);
       // Si ya no quedan archivos de cuota, resetear Factura y Fecha de Pago
       if (arr.length === 0) {
         if (extractedItems[idx]) {
