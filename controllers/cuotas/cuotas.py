@@ -274,10 +274,13 @@ def get_cuotas_data(
 
     def _to_float(s: str) -> float:
         try:
-            return float(str(s).replace(',', '.').replace('S/.', '').strip())
+            # FORMAT(x, 2) de MySQL usa ',' para miles y '.' para decimales
+            return float(str(s).replace(',', '').replace('S/.', '').strip())
         except Exception:
             return 0.0
-    total_monto = f"{sum(_to_float(r['importe']) for r in rows):.2f}"
+    
+    total_val = sum(_to_float(r['importe']) for r in rows)
+    total_monto = "{:,.2f}".format(total_val)
 
     return {
         'title': 'Cuotas',

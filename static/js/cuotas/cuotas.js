@@ -12,6 +12,7 @@ const Cuotas = (() => {
     if (!tbody) return;
     allRows = Array.from(tbody.querySelectorAll('tr'));
     applyFilter('');
+    recalcTotal();
 
     const modalEl = document.getElementById('cuotaConfirmModal');
     const msgEl = document.getElementById('cuotaConfirmMessage');
@@ -77,20 +78,27 @@ const Cuotas = (() => {
 
   function recalcTotal() {
     const tbody = document.querySelector('#cuotas-table tbody');
-    // Updated selector to match the new Glass Panel design
+    // Elemento para mostrar el total de la prima
     const totalEl = document.getElementById('header-total-monto');
     
     if (!tbody || !totalEl) return;
     
     let total = 0;
+    // Seleccionamos todas las filas, incluyendo las ocultas por el filtro
     tbody.querySelectorAll('tr').forEach(tr => {
       const td = tr.querySelector('td:nth-child(4)');
       if (!td) return;
-      const raw = td.textContent || '';
-      const num = parseFloat(raw.replace('S/.', '').replace(',', '.').trim());
+      
+      const raw = (td.textContent || '').trim();
+      // Limpiar el texto: quitar 'S/.', quitar comas (separador de miles)
+      let clean = raw.replace(/S\/\.?\s?/g, '').replace(/,/g, '').trim();
+      
+      const num = parseFloat(clean);
       if (!isNaN(num)) total += num;
     });
-    totalEl.textContent = total.toFixed(2);
+    
+    // Formatear el total con comas para miles y dos decimales
+    totalEl.textContent = total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   function openConfirm(message, onAccept, type) {
