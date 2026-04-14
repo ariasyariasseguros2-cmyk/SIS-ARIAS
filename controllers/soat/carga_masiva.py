@@ -98,7 +98,8 @@ def map_excel_columns(df: pd.DataFrame) -> pd.DataFrame:
         'año': 'ANIO',
         'planilla': 'PLANILLA',
         'recibo': 'RECIBO',
-        'formulario': 'FORMULARIO'
+        'formulario': 'FORMULARIO',
+        'estado': 'ESTADO'
     }
 
     for norm_key, dst in synonyms.items():
@@ -301,6 +302,59 @@ def normalize_numero_documento(value) -> str:
     # Si después de limpiar es sólo dígitos, retornarlo tal cual (preserva ceros a la izquierda si existían)
     # Si no son sólo dígitos (p.ej. pasaporte con letras), devolver la cadena limpia
     return s
+
+
+def _normalize_estado_token(value) -> str:
+    if pd.isna(value) or value is None:
+        return ''
+    s = str(value).strip().upper()
+    s = ''.join(ch for ch in unicodedata.normalize('NFKD', s) if not unicodedata.combining(ch))
+    s = ''.join(ch if ch.isalnum() else ' ' for ch in s)
+    return ' '.join(s.split())
+
+
+def _is_recibo_zero(recibo: str) -> bool:
+    s = '' if recibo is None else str(recibo).strip()
+    if not s:
+        return False
+    digits = ''.join(ch for ch in s if ch.isdigit())
+    if not digits:
+        return s == '0'
+    try:
+        return int(digits) == 0
+    except Exception:
+        return False
+
+
+def _recibo_tiene_numero(recibo: str) -> bool:
+    s = '' if recibo is None else str(recibo).strip()
+    if not s:
+        return False
+    digits = ''.join(ch for ch in s if ch.isdigit())
+    if not digits:
+        return False
+    try:
+        return int(digits) > 0
+    except Exception:
+        return False
+
+
+def resolver_estado_y_anulado_soat(recibo: str, estado_excel: str) -> tuple[str, int]:
+    """Reglas de negocio para estado/anulado en carga masiva SOAT."""
+    estado_norm = _normalize_estado_token(estado_excel)
+
+    # Cuando recibo tiene numero, siempre se considera cancelado
+    if _recibo_tiene_numero(recibo):
+        return 'CANCELADO', 0
+
+    # Reglas especiales cuando recibo es cero
+    if _is_recibo_zero(recibo):
+        if estado_norm == 'ANULADO':
+            return 'ANULADO', 0
+        if estado_norm == 'CANCELADO PTO VENTA':
+            return 'EMISION', 1
+
+    return 'EMISION', 0
 
 
 def normalize_tipo_persona(value) -> int:
@@ -902,6 +956,13 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 if not compania_nombre_corto:
                     errors_list.append(f"Fila {idx + 2}: Advertencia - Compañía no encontrada (columna CIA/COMPAÑIA vacía o no detectada)")
 
+                recibo_poliza = normalize_numero_documento(row.get('AVISO_COB', '')) if pd.notna(row.get('AVISO_COB')) else ''
+                # Para reglas de estado/anulado, priorizamos PLANILLA; si no viene, usamos AVISO_COB.
+                referencia_estado_raw = row.get('PLANILLA') if pd.notna(row.get('PLANILLA')) else row.get('AVISO_COB', '')
+                referencia_estado = normalize_numero_documento(referencia_estado_raw) if pd.notna(referencia_estado_raw) else ''
+                estado_excel = normalize_string(row.get('ESTADO', ''))
+                estado_poliza, anulado_poliza = resolver_estado_y_anulado_soat(referencia_estado, estado_excel)
+
                 poliza_args = (
                     numero_documento,
                     normalize_string(row.get('TIPO_DOC', 'EMISION')),
@@ -909,7 +970,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     compania_nombre_corto,
                     normalize_string(row.get('RAMO_ABREVIACION', 'SOAT')),
                     normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',
-                    normalize_numero_documento(row.get('AVISO_COB', '')) if pd.notna(row.get('AVISO_COB')) else '',  # recibo
+                    recibo_poliza,  # recibo
                     normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',  # contrato_nro
                     normalize_numero_documento(row.get('INCISO', '')) if pd.notna(row.get('INCISO')) else '',  # nro
                     moneda,
@@ -934,7 +995,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     porc_subagente,  # calculado en Python desde tabla agentes
                     imp_subagente,   # calculado en Python
                     normalize_string(row.get('PRODUCTO_ABREVIACION', 'SOAT')),
-                    'CANCELADO',
+                    estado_poliza,
                     None,  # pdf_path
                     usuario,
                     datos_vehiculo_json,
@@ -947,15 +1008,27 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                         poliza_args
                     )
                     # Consumir todos los resultsets que devuelve el SP (incluido el SELECT final)
+                    poliza_id_insertada = None
                     try:
-                        cur.fetchall()
+                        rows = cur.fetchall()
+                        if rows and isinstance(rows[0], dict) and 'id' in rows[0]:
+                            poliza_id_insertada = rows[0]['id']
                     except Exception:
                         pass
                     while cur.nextset():
                         try:
-                            cur.fetchall()
+                            rows = cur.fetchall()
+                            if poliza_id_insertada is None and rows and isinstance(rows[0], dict) and 'id' in rows[0]:
+                                poliza_id_insertada = rows[0]['id']
                         except Exception:
                             pass
+
+                    if poliza_id_insertada is not None:
+                        cur.execute(
+                            "UPDATE polizas SET estado = %s, anulado = %s WHERE idPoliza = %s",
+                            (estado_poliza, anulado_poliza, poliza_id_insertada)
+                        )
+
                     if commit_db:
                         cnx.commit()
                     polizas_insertadas += 1
