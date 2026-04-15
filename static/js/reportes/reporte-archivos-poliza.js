@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ── Fetch principal ──────────────────────────────────────────────────────
     async function fetchFiles(query = '') {
         try {
-            tableBody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-muted">Cargando...</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="12" class="text-center py-4 text-muted">Cargando...</td></tr>`;
             hideBanner();
             if (fetchController) {
                 fetchController.abort();
@@ -185,6 +185,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 { signal: fetchController.signal }
             );
             const json = await response.json();
+            if (!response.ok) {
+                const msg = (json && (json.error || json.message)) || `Error HTTP ${response.status}`;
+                throw new Error(msg);
+            }
             // El API devuelve { data: [...], has_more: bool }
             const data     = json.data     ?? json;   // fallback por si acaso
             const has_more = json.has_more ?? false;
@@ -198,7 +202,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             if (error && error.name === 'AbortError') return;
             console.error('Error loading files:', error);
-            tableBody.innerHTML = `<tr><td colspan="11" class="text-center text-danger">Error cargando datos</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="12" class="text-center text-danger">Error cargando datos</td></tr>`;
         }
     }
 
@@ -247,6 +251,14 @@ document.addEventListener('DOMContentLoaded', function() {
         return `${p}||${r}||${id}`;
     }
 
+    function getTipoOrigen(row) {
+        return ((row && row.tipo_origen) || '').toString().trim().toUpperCase();
+    }
+
+    function getCuotaStandaloneKey(row, index) {
+        return `${buildPolizaGroupKey(row.poliza_padre_id || row.identificador, row.recibo, row.poliza_id)}||${row.cupon || row.cuota_id || ''}||${index}`;
+    }
+
     function getRowGroupKey(row) {
         return buildPolizaGroupKey(row.identificador, row.recibo, row.poliza_id);
     }
@@ -258,18 +270,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function formatRecibo(row) {
         const recibo = (row.recibo || '').toString().trim();
-        return recibo ? `RECIBO: ${recibo}` : '-';
+        return recibo ? recibo : '-';
+    }
+
+    function formatArchivo(row) {
+        const archivo = (row.archivo || row.nombre_original || '').toString().trim();
+        return archivo ? archivo : '-';
+    }
+
+    function formatPolizaCuota(row) {
+        return (row.identificador || row.poliza_padre_id || '').toString().trim() || '-';
     }
 
     // ── Render tabla ─────────────────────────────────────────────────────────
     function renderTable(data) {
         if (!data || data.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="11" class="text-center text-muted py-4">No se encontraron archivos</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="12" class="text-center text-muted py-4">No se encontraron archivos</td></tr>`;
             return;
         }
 
-        const polizas = data.filter(r => r.tipo_origen === 'POLIZA');
-        const cuotas  = data.filter(r => r.tipo_origen === 'CUOTA');
+        const polizas = data.filter(r => getTipoOrigen(r) === 'POLIZA');
+        const cuotas  = data.filter(r => getTipoOrigen(r) === 'CUOTA');
+        const polizaKeys = new Set(polizas.map(p => getRowGroupKey(p)));
 
         const cuotasByPoliza = {};
         cuotas.forEach(c => {
@@ -303,8 +325,16 @@ document.addEventListener('DOMContentLoaded', function() {
                                 data-poliza-id="${polizaId}"
                                 data-loaded="0"
                                 title="Ver cuotas y archivos">
-                            <i class="bi bi-chevron-right transition-icon"></i>
+                            <i class="bi bi-chevron-right transition-icon" style="transform:rotate(0deg);"></i>
                         </button>` : '<span style="width:22px;display:inline-block;"></span>'}
+                        <button class="btn btn-outline-secondary btn-sm btn-view-group"
+                                data-id="${row.identificador || ''}"
+                                data-type="POLIZA"
+                                data-poliza-id="${polizaId}"
+                                data-doc="${escapeHtml((formatArchivo(row) || '').split('|')[0].trim())}"
+                                title="Ver archivo">
+                            <i class="bi-eye"></i>
+                        </button>
                         <button class="btn btn-outline-primary btn-sm btn-zip-group"
                                 data-id="${row.identificador}"
                                 data-type="${row.tipo_origen}"
@@ -314,9 +344,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         </button>
                     </div>
                 </td>
-                <td><span class="badge bg-primary text-white">PÓLIZA</span></td>
-                <td class="fw-bold">${formatIdentificador(row)}</td>
-                <td class="small text-muted fw-semibold">${formatRecibo(row)}</td>
+                <td><span class="badge bg-primary text-white">Poliza</span></td>
+                <td>
+                    <div class="cell-main">${formatIdentificador(row)}</div>
+                    <div class="cell-secondary">Poliza principal</div>
+                </td>
+                <td class="cell-doc" title="${escapeHtml(formatArchivo(row))}">${escapeHtml(formatArchivo(row))}</td>
+                <td class="cell-recibo">${formatRecibo(row)}</td>
                 <td class="small text-truncate" style="max-width:260px;" title="${row.contratante||''}">${row.contratante||'-'}</td>
                 <td class="small text-muted">${row.ramo||'-'}</td>
                 <td class="small text-muted">${row.producto||'-'}</td>
@@ -333,8 +367,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td class="text-center ps-4">
                         <div class="d-flex align-items-center justify-content-center gap-1 ps-3">
                             <i class="bi bi-arrow-return-right text-muted me-1"></i>
+                            <button class="btn btn-outline-secondary btn-sm btn-view-group"
+                                    data-id="${c.cupon || c.recibo || ''}"
+                                    data-poliza-id="${c.poliza_id || ''}"
+                                    data-type="CUOTA"
+                                    data-doc="${escapeHtml((formatArchivo(c) || '').split('|')[0].trim())}"
+                                    title="Ver archivo">
+                                <i class="bi-eye"></i>
+                            </button>
                             <button class="btn btn-outline-success btn-sm btn-zip-group"
-                                    data-id="${c.cupon || ''}"
+                                    data-id="${c.cupon || c.recibo || ''}"
                                     data-policy="${c.poliza_padre_id || ''}"
                                     data-poliza-id="${c.poliza_id || ''}"
                                     data-type="CUOTA"
@@ -343,9 +385,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             </button>
                         </div>
                     </td>
-                    <td><span class="badge bg-success text-white">CUOTA</span></td>
-                    <td class="text-muted small fw-semibold">${c.cupon || ('ID: ' + c.cuota_id)}</td>
-                    <td class="small text-muted fw-semibold">${(c.recibo || '').toString().trim() ? `RECIBO: ${c.recibo}` : '-'}</td>
+                    <td><span class="badge bg-success text-white">Cuota</span></td>
+                    <td>
+                        <div class="cell-main">${formatPolizaCuota(c)}</div>
+                        <div class="cell-secondary">Cuota asociada</div>
+                    </td>
+                    <td class="cell-doc" title="${escapeHtml(formatArchivo(c))}">${escapeHtml(formatArchivo(c))}</td>
+                    <td class="cell-recibo">${(c.recibo || '').toString().trim() ? c.recibo : '-'}</td>
                     <td class="small text-truncate" style="max-width:260px;" title="${c.contratante||''}">${c.contratante||'-'}</td>
                     <td class="small text-muted">${c.ramo||'-'}</td>
                     <td class="small text-muted">${c.producto||'-'}</td>
@@ -359,30 +405,50 @@ document.addEventListener('DOMContentLoaded', function() {
             // Fila placeholder para archivos extra (lazy-load) — oculta
             if (polizaId) {
                 html += `<tr class="arch-extra-placeholder d-none" data-parent="${toggleId}" id="arch-ph-${toggleId}">
-                    <td colspan="11" class="py-1 text-center text-muted fst-italic small">
+                    <td colspan="12" class="py-1 text-center text-muted fst-italic small">
                         <span class="spinner-border spinner-border-sm me-1"></span>Cargando archivos...
                     </td>
                 </tr>`;
             }
         });
 
-        // Cuotas sin póliza padre
-        const cuotasHuerfanas = cuotasByPoliza['__sin_padre__'] || [];
-        cuotasHuerfanas.forEach(c => {
+        // Cuotas sin fila padre de póliza en el set actual (incluye huérfanas y faltantes)
+        const cuotasSinPadreVisible = cuotas.filter(c => {
+            const padre = c.poliza_padre_id
+                ? buildPolizaGroupKey(c.poliza_padre_id, c.recibo, c.poliza_id)
+                : '__sin_padre__';
+            return padre === '__sin_padre__' || !polizaKeys.has(padre);
+        });
+
+        cuotasSinPadreVisible.forEach(c => {
             html += `
             <tr class="cuota-child-row">
                 <td class="text-center">
-                    <button class="btn btn-outline-success btn-sm btn-zip-group"
-                            data-id="${c.cuota_id}"
-                            data-poliza-id="${c.poliza_id || ''}"
-                            data-type="CUOTA"
-                            title="Descargar archivos ZIP de cuota">
-                        <i class="bi-file-zip"></i>
-                    </button>
+                    <div class="d-flex align-items-center justify-content-center gap-1">
+                        <button class="btn btn-outline-secondary btn-sm btn-view-group"
+                                data-id="${c.cupon || c.recibo || ''}"
+                                data-poliza-id="${c.poliza_id || ''}"
+                                data-type="CUOTA"
+                                data-doc="${escapeHtml((formatArchivo(c) || '').split('|')[0].trim())}"
+                                title="Ver archivo">
+                            <i class="bi-eye"></i>
+                        </button>
+                        <button class="btn btn-outline-success btn-sm btn-zip-group"
+                                data-id="${c.cupon || c.recibo || ''}"
+                                data-poliza-id="${c.poliza_id || ''}"
+                                data-type="CUOTA"
+                                title="Descargar archivos ZIP de cuota">
+                            <i class="bi-file-zip"></i>
+                        </button>
+                    </div>
                 </td>
-                <td><span class="badge bg-success text-white">CUOTA</span></td>
-                <td class="small fw-semibold">${c.cupon || ('ID: ' + c.cuota_id)}</td>
-                <td class="small text-muted fw-semibold">${(c.recibo || '').toString().trim() ? `RECIBO: ${c.recibo}` : '-'}</td>
+                <td><span class="badge bg-success text-white">Cuota</span></td>
+                <td>
+                    <div class="cell-main">${formatPolizaCuota(c)}</div>
+                    <div class="cell-secondary">Sin poliza padre visible</div>
+                </td>
+                <td class="cell-doc" title="${escapeHtml(formatArchivo(c))}">${escapeHtml(formatArchivo(c))}</td>
+                <td class="cell-recibo">${(c.recibo || '').toString().trim() ? c.recibo : '-'}</td>
                 <td class="small text-truncate" style="max-width:260px;" title="${c.contratante||''}">${c.contratante||'-'}</td>
                 <td class="small text-muted">${c.ramo||'-'}</td>
                 <td class="small text-muted">${c.producto||'-'}</td>
@@ -462,10 +528,17 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <a href="${url}" target="_blank" class="btn btn-outline-warning btn-sm" title="Ver archivo">
                                         <i class="bi-eye"></i>
                                     </a>
+                                    <button class="btn btn-outline-primary btn-sm btn-zip-group"
+                                            data-id="${a.identificador || ''}"
+                                            data-poliza-id="${polizaId || ''}"
+                                            data-type="POLIZA"
+                                            title="Descargar archivos ZIP">
+                                        <i class="bi-file-zip"></i>
+                                    </button>
                                 </div>
                             </td>
-                            <td><span class="badge-arch-poliza-label">ARCHIVO</span></td>
-                            <td class="small fw-semibold" colspan="2">
+                            <td><span class="badge-arch-poliza-label">Archivo</span></td>
+                            <td class="small fw-semibold" colspan="3">
                                 <i class="bi-file-earmark me-1 text-warning"></i>${escapeHtml(a.nombre_original||'-')}
                             </td>
                             <td colspan="3" class="small">${tipoBadge}</td>
@@ -477,6 +550,109 @@ document.addEventListener('DOMContentLoaded', function() {
                 } catch(e) {
                     console.error('[arch-extra]', e);
                     if (phRow) phRow.remove();
+                }
+            });
+        });
+
+        // Botón ver — abre el primer archivo disponible del grupo
+        document.querySelectorAll('.btn-view-group').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const identificador = this.dataset.id || '';
+                const tipo = this.dataset.type || '';
+                const polizaId = this.dataset.polizaId || '';
+                const docHintRaw = (this.dataset.doc || '').trim();
+                const docHint = docHintRaw && docHintRaw !== '-' ? docHintRaw : '';
+                const norm = (v) => (v || '').toString().trim().toLowerCase();
+                const isImage = (name) => /\.(png|jpg|jpeg|webp|gif|bmp|svg)$/i.test((name || '').toString());
+                const isPdf = (name) => /\.pdf$/i.test((name || '').toString());
+                const isLogoLike = (path) => /(^|[\\/])img[\\/]logo-aasnet/i.test((path || '').toString());
+                try {
+                    const qs = new URLSearchParams({
+                        identificador,
+                        tipo,
+                        poliza_id: polizaId
+                    });
+                    const resp = await fetch(`/api/reportes/archivos-detalle-completo?${qs.toString()}`);
+                    const json = await resp.json();
+                    const archivos = [
+                        ...((json && json.archivos) || []),
+                        ...((json && json.archivos_extra) || [])
+                    ];
+                    if (!archivos.length) {
+                        alert('No hay archivos para visualizar en este registro');
+                        return;
+                    }
+
+                    // En fila padre: abrir todos los archivos del grupo (sin duplicados por ruta).
+                    if (tipo === 'POLIZA') {
+                        const rutas = [...new Set(
+                            archivos
+                                .map(a => (a && a.ruta_archivo ? String(a.ruta_archivo).replace(/^[/\\]+/, '') : ''))
+                                .filter(Boolean)
+                        )];
+
+                        if (!rutas.length) {
+                            alert('No hay archivos para visualizar en este registro');
+                            return;
+                        }
+
+                        const multiWin = window.open('', '_blank');
+                        if (!multiWin) {
+                            alert('El navegador bloqueó la ventana emergente. Habilítala para visualizar los archivos.');
+                            return;
+                        }
+
+                        const safeTitle = escapeHtml(identificador || 'Poliza');
+                        const itemsHtml = rutas.map((ruta, i) => {
+                            const url = `/uploads/${ruta}`;
+                            const label = escapeHtml((archivos.find(a => (a && String(a.ruta_archivo || '').replace(/^[/\\]+/, '') === ruta) || {}).nombre_original || `Archivo ${i + 1}`));
+                            return `
+                                <section style="border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin:10px 0;background:#fff;">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">
+                                        <strong style="font-family:Arial,sans-serif;font-size:14px;">${label}</strong>
+                                        <a href="${url}" target="_blank" rel="noopener" style="font-family:Arial,sans-serif;font-size:12px;">Abrir en nueva pestaña</a>
+                                    </div>
+                                    <iframe src="${url}" style="width:100%;height:520px;border:1px solid #e5e7eb;border-radius:6px;"></iframe>
+                                </section>
+                            `;
+                        }).join('');
+
+                        multiWin.document.open();
+                        multiWin.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Archivos de ${safeTitle}</title></head><body style="margin:16px;background:#f8fafc;">` +
+                            `<h2 style="font-family:Arial,sans-serif;margin:0 0 8px 0;">Archivos de ${safeTitle}</h2>` +
+                            `<p style="font-family:Arial,sans-serif;color:#475569;margin:0 0 14px 0;">Se encontraron ${rutas.length} archivo(s).</p>` +
+                            itemsHtml +
+                            `</body></html>`);
+                        multiWin.document.close();
+                        return;
+                    }
+
+                    const scoreFile = (a) => {
+                        const nombre = (a && a.nombre_original) || '';
+                        const ruta = (a && a.ruta_archivo) || '';
+                        let score = 0;
+
+                        if (docHint && norm(nombre) === norm(docHint)) score += 120;
+                        else if (docHint && (norm(nombre).includes(norm(docHint)) || norm(docHint).includes(norm(nombre)))) score += 80;
+
+                        if (isPdf(ruta)) score += 30;
+                        if (isImage(ruta)) score -= 30;
+                        if (isLogoLike(ruta)) score -= 120;
+
+                        return score;
+                    };
+
+                    const selected = [...archivos].sort((a, b) => scoreFile(b) - scoreFile(a))[0];
+
+                    const ruta = (selected && selected.ruta_archivo ? selected.ruta_archivo : '').toString().replace(/^[/\\]+/, '');
+                    if (!ruta) {
+                        alert('No se pudo obtener la ruta del archivo');
+                        return;
+                    }
+                    window.open(`/uploads/${ruta}`, '_blank');
+                } catch (e) {
+                    console.error('Error abriendo vista de archivo', e);
+                    alert('No se pudo abrir el archivo');
                 }
             });
         });
@@ -496,23 +672,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function buildGroupsFromData(data) {
-        const polizas = data.filter(r => r.tipo_origen === 'POLIZA');
-        const cuotas  = data.filter(r => r.tipo_origen === 'CUOTA');
-        const cuotasByPoliza = {};
-        cuotas.forEach(c => {
-            const padre = c.poliza_padre_id
-                ? buildPolizaGroupKey(c.poliza_padre_id, c.recibo, c.poliza_id)
-                : '__sin_padre__';
-            if (!cuotasByPoliza[padre]) cuotasByPoliza[padre] = [];
-            cuotasByPoliza[padre].push(c);
-        });
+        const polizas = data.filter(r => getTipoOrigen(r) === 'POLIZA');
+        const cuotas  = data.filter(r => getTipoOrigen(r) === 'CUOTA');
+        const polizaKeys = new Set(polizas.map(p => getRowGroupKey(p)));
+
         const gs = [];
         polizas.forEach(p => {
             gs.push({ type: 'POLIZA', id: getRowGroupKey(p) });
         });
-        (cuotasByPoliza['__sin_padre__'] || []).forEach(c => {
-            gs.push({ type: 'CUOTA_ORPHAN', id: c.cuota_id });
+
+        cuotas.forEach((c, idx) => {
+            const padre = c.poliza_padre_id
+                ? buildPolizaGroupKey(c.poliza_padre_id, c.recibo, c.poliza_id)
+                : '__sin_padre__';
+            if (padre === '__sin_padre__' || !polizaKeys.has(padre)) {
+                gs.push({ type: 'CUOTA_ONLY', id: getCuotaStandaloneKey(c, idx) });
+            }
         });
+
         groups = gs;
     }
 
@@ -523,10 +700,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const slice = groups.slice(start, end);
         const polizaMap = {};
         const cuotasByPoliza = {};
+        const cuotaStandaloneMap = {};
         allData.forEach(r => {
-            if (r.tipo_origen === 'POLIZA') {
+            const tipo = getTipoOrigen(r);
+            if (tipo === 'POLIZA') {
                 polizaMap[getRowGroupKey(r)] = r;
-            } else if (r.tipo_origen === 'CUOTA') {
+            } else if (tipo === 'CUOTA') {
                 const padre = r.poliza_padre_id
                     ? buildPolizaGroupKey(r.poliza_padre_id, r.recibo, r.poliza_id)
                     : '__sin_padre__';
@@ -534,6 +713,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 cuotasByPoliza[padre].push(r);
             }
         });
+
+        const polizaKeys = new Set(Object.keys(polizaMap));
+        allData.forEach((r, idx) => {
+            if (getTipoOrigen(r) !== 'CUOTA') return;
+            const padre = r.poliza_padre_id
+                ? buildPolizaGroupKey(r.poliza_padre_id, r.recibo, r.poliza_id)
+                : '__sin_padre__';
+            if (padre === '__sin_padre__' || !polizaKeys.has(padre)) {
+                cuotaStandaloneMap[getCuotaStandaloneKey(r, idx)] = r;
+            }
+        });
+
         const pageRaw = [];
         slice.forEach(g => {
             if (g.type === 'POLIZA') {
@@ -542,9 +733,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     pageRaw.push(p);
                     (cuotasByPoliza[g.id] || []).forEach(c => pageRaw.push(c));
                 }
-            } else {
-                const orphan = (cuotasByPoliza['__sin_padre__'] || []).find(x => String(x.cuota_id) === String(g.id));
-                if (orphan) pageRaw.push(orphan);
+            } else if (g.type === 'CUOTA_ONLY') {
+                const quota = cuotaStandaloneMap[g.id];
+                if (quota) pageRaw.push(quota);
             }
         });
         return { pageRaw, totalGroups, start, end };
