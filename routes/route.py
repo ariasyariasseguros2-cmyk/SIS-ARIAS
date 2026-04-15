@@ -4147,6 +4147,7 @@ def dashboard_notes():
 @bp.route('/uploads/<path:filename>', methods=['GET'])
 def serve_upload(filename):
     folder = current_app.config.get('UPLOAD_FOLDER')
+    static_folder = current_app.static_folder
 
     # Normalizar separadores
     filename = filename.replace('\\', '/')
@@ -4156,6 +4157,10 @@ def serve_upload(filename):
     # y el blueprint ya añade "/uploads/" en la URL.
     while filename.startswith('uploads/'):
         filename = filename[len('uploads/'):]
+
+    # Compatibilidad: algunos registros guardaron "static/...".
+    while filename.startswith('static/'):
+        filename = filename[len('static/'):]
 
     # Separar subcarpeta(s) y nombre de archivo
     parts = filename.split('/')
@@ -4181,6 +4186,17 @@ def serve_upload(filename):
     root_path = os.path.join(folder, name)
     if os.path.isfile(root_path):
         return send_from_directory(folder, name, as_attachment=False)
+
+    # 4. Fallback: recursos en static (ej. img/logo-aasnet.png usado en seeds/tests)
+    if filename.startswith('img/'):
+        static_rel = filename.replace('\\', '/').lstrip('/')
+    else:
+        static_rel = f"img/{name}"
+    static_candidate = os.path.join(static_folder, static_rel)
+    if os.path.isfile(static_candidate):
+        static_dir = os.path.dirname(static_candidate)
+        static_name = os.path.basename(static_candidate)
+        return send_from_directory(static_dir, static_name, as_attachment=False)
 
     return {'error': 'Archivo no encontrado', 'path': os.path.join(folder, filename)}, 404
 
