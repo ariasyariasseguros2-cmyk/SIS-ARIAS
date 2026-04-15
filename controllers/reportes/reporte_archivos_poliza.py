@@ -12,6 +12,40 @@ bp = Blueprint('reporte_archivos_poliza', __name__)
 INITIAL_LIMIT = 1000000
 SEARCH_LIMIT  = 1000000
 
+def _resolve_file_path(file_path):
+    if not file_path:
+        return None
+    raw = str(file_path).replace('\\', '/').strip()
+    if not raw:
+        return None
+    rel = raw.lstrip('/\\')
+    while rel.startswith('uploads/'):
+        rel = rel[len('uploads/'):]
+
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
+    candidates = [
+        os.path.join(upload_folder, rel),
+        os.path.join(current_app.root_path, rel),
+        os.path.join(current_app.root_path, 'static', rel),
+    ]
+
+    # Compatibilidad para registros como static/img/foo.png
+    if rel.startswith('static/'):
+        rel_static = rel[len('static/'):]
+        candidates.append(os.path.join(current_app.root_path, 'static', rel_static))
+
+    # Compatibilidad para registros como img/foo.png
+    if rel.startswith('img/'):
+        candidates.append(os.path.join(current_app.root_path, 'static', rel))
+
+    return next((p for p in candidates if os.path.exists(p)), None)
+
+def _normalize_reporte_row(row):
+    row['archivo'] = row.get('archivo') or row.get('nombre_original') or '-'
+    row['recibo'] = row.get('recibo') or '-'
+    row['identificador'] = row.get('identificador') or '-'
+    return row
+
 def get_reporte_archivos(search='', limit=INITIAL_LIMIT):
     try:
         conn = get_connection()
@@ -35,45 +69,8 @@ def get_reporte_archivos(search='', limit=INITIAL_LIMIT):
         if has_more:
             results = results[:limit]
 
-        # Enriquecer con recibo/poliza por id para poder separar filas por poliza + recibo en UI.
-        poliza_ids = sorted({int(r.get('poliza_id')) for r in results if r.get('poliza_id')})
-        poliza_meta = {}
-        if poliza_ids:
-            conn_meta = get_connection()
-            cur_meta = conn_meta.cursor(dictionary=True)
-            placeholders = ','.join(['%s'] * len(poliza_ids))
-            cur_meta.execute(
-                f"""
-                SELECT
-                    p.idPoliza,
-                    COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
-                        CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
-                        p.poliza
-                    ) AS poliza,
-                    COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
-                        CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
-                        p.recibo
-                    ) AS recibo
-                FROM polizas p
-                WHERE p.idPoliza IN ({placeholders})
-                """,
-                tuple(poliza_ids)
-            )
-            for row_meta in cur_meta.fetchall() or []:
-                poliza_meta[row_meta['idPoliza']] = row_meta
-            cur_meta.close()
-            conn_meta.close()
-
         for r in results:
-            pid = r.get('poliza_id')
-            meta = poliza_meta.get(int(pid)) if pid else None
-            if meta:
-                if not r.get('recibo'):
-                    r['recibo'] = meta.get('recibo')
-                if not r.get('identificador'):
-                    r['identificador'] = meta.get('poliza')
+            _normalize_reporte_row(r)
             if r.get('ultima_fecha') and hasattr(r['ultima_fecha'], 'strftime'):
                 r['ultima_fecha'] = r['ultima_fecha'].strftime('%Y-%m-%dT%H:%M:%SZ')
         return results, has_more
@@ -128,7 +125,7 @@ def download_zip():
     poliza_id   = request.args.get('poliza_id', '').strip()
 
     results = []
-    if tipo_origen == 'CUOTA' and identificador:
+    if tipo_origen == 'CUOTA':
         try:
             conn = get_connection()
             cursor = conn.cursor(dictionary=True)
@@ -138,10 +135,39 @@ def download_zip():
                        FROM poliza_archivos pa
                        WHERE pa.origen = 'CUOTA'
                          AND pa.poliza_id = %s
-                         AND pa.nombre_original LIKE %s
+                         AND (%s = ''
+                              OR pa.nombre_original LIKE %s
+                              OR pa.nombre_original LIKE %s)
                        ORDER BY pa.creado_en DESC""",
-                    (int(poliza_id), f'[CUOTA {identificador}] %',)
+                    (int(poliza_id), identificador, f'[CUOTA {identificador}] %', f'%{identificador}%',)
                 )
+                results = cursor.fetchall() or []
+
+                # Fallback: si no matchea por patron/cupon, descargar todas las cuotas de la poliza.
+                if not results:
+                    cursor.execute(
+                        """SELECT pa.idArchivo, pa.ruta_archivo, pa.nombre_original
+                           FROM poliza_archivos pa
+                           WHERE pa.origen = 'CUOTA'
+                             AND pa.poliza_id = %s
+                           ORDER BY pa.creado_en DESC""",
+                        (int(poliza_id),)
+                    )
+                    results = cursor.fetchall() or []
+
+                # Compatibilidad: algunos flujos guardan en cuota_archivos.
+                if not results:
+                    cursor.execute(
+                        """SELECT ca.idArchivo, ca.ruta_archivo, ca.nombre_original
+                           FROM cuota_archivos ca
+                           WHERE ca.poliza_id = %s
+                             AND (%s = ''
+                                  OR ca.cupon = %s
+                                  OR ca.nombre_original LIKE %s)
+                           ORDER BY ca.creado_en DESC""",
+                        (int(poliza_id), identificador, identificador, f'%{identificador}%',)
+                    )
+                    results = cursor.fetchall() or []
             elif poliza_num:
                 cursor.execute(
                     """SELECT pa.idArchivo, pa.ruta_archivo, pa.nombre_original
@@ -149,20 +175,35 @@ def download_zip():
                        INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
                        WHERE pa.origen = 'CUOTA'
                          AND COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), p.poliza) = %s
-                         AND pa.nombre_original LIKE %s
+                         AND (%s = ''
+                              OR pa.nombre_original LIKE %s
+                              OR pa.nombre_original LIKE %s)
                        ORDER BY pa.creado_en DESC""",
-                    (poliza_num, f'[CUOTA {identificador}] %',)
+                    (poliza_num, identificador, f'[CUOTA {identificador}] %', f'%{identificador}%',)
                 )
+                results = cursor.fetchall() or []
             else:
                 cursor.execute(
                     """SELECT idArchivo, ruta_archivo, nombre_original
                        FROM poliza_archivos
                        WHERE origen = 'CUOTA'
-                         AND nombre_original LIKE %s
+                         AND (%s = ''
+                              OR nombre_original LIKE %s
+                              OR nombre_original LIKE %s)
                        ORDER BY creado_en DESC""",
-                    (f'[CUOTA {identificador}] %',)
+                    (identificador, f'[CUOTA {identificador}] %', f'%{identificador}%',)
                 )
-            results = cursor.fetchall()
+                results = cursor.fetchall() or []
+
+                if not results:
+                    cursor.execute(
+                        """SELECT idArchivo, ruta_archivo, nombre_original
+                           FROM cuota_archivos
+                           WHERE (%s = '' OR cupon = %s OR nombre_original LIKE %s)
+                           ORDER BY creado_en DESC""",
+                        (identificador, identificador, f'%{identificador}%',)
+                    )
+                    results = cursor.fetchall() or []
             cursor.close()
             conn.close()
         except Exception as e:
@@ -194,22 +235,13 @@ def download_zip():
     try:
         with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
             files_added = 0
-            upload_folder = current_app.config.get('UPLOAD_FOLDER',
-                                                   os.path.join(current_app.root_path, 'uploads'))
 
             for row in results:
                 file_path = row.get('ruta_archivo')
                 if not file_path:
                     continue
 
-                # Candidatos de ruta en orden de prioridad:
-                candidates = [
-                    os.path.join(upload_folder, file_path.lstrip('/\\')),
-                    os.path.join(current_app.root_path, file_path.lstrip('/\\')),
-                    os.path.join(current_app.root_path, 'static', file_path.lstrip('/\\')),
-                ]
-
-                final_path = next((p for p in candidates if os.path.exists(p)), None)
+                final_path = _resolve_file_path(file_path)
 
                 if final_path:
                     arcname = f"{row['idArchivo']}_{row['nombre_original'] or os.path.basename(file_path)}"
@@ -246,6 +278,55 @@ def api_archivos_detalle_completo():
 
     # 1. Archivos del SP (CARGA_MASIVA y otros)
     archivos_sp = get_archivos_detalle('', identificador, tipo_origen)
+
+    # Fallback para CUOTA: cuando el SP no devuelve resultados pero existe poliza_id,
+    # replicar el criterio robusto del ZIP para no perder archivos válidos.
+    if tipo_origen == 'CUOTA' and poliza_id and not archivos_sp:
+        try:
+            conn_fb = get_connection()
+            cur_fb = conn_fb.cursor(dictionary=True)
+            cur_fb.execute(
+                """SELECT pa.idArchivo, pa.ruta_archivo, pa.nombre_original, pa.origen, pa.creado_en
+                   FROM poliza_archivos pa
+                   WHERE pa.origen = 'CUOTA'
+                     AND pa.poliza_id = %s
+                     AND (%s = ''
+                          OR pa.nombre_original LIKE %s
+                          OR pa.nombre_original LIKE %s)
+                   ORDER BY pa.creado_en DESC""",
+                (int(poliza_id), identificador, f'[CUOTA {identificador}] %', f'%{identificador}%')
+            )
+            archivos_sp = cur_fb.fetchall() or []
+
+            if not archivos_sp:
+                cur_fb.execute(
+                    """SELECT pa.idArchivo, pa.ruta_archivo, pa.nombre_original, pa.origen, pa.creado_en
+                       FROM poliza_archivos pa
+                       WHERE pa.origen = 'CUOTA'
+                         AND pa.poliza_id = %s
+                       ORDER BY pa.creado_en DESC""",
+                    (int(poliza_id),)
+                )
+                archivos_sp = cur_fb.fetchall() or []
+
+            if not archivos_sp:
+                cur_fb.execute(
+                    """SELECT ca.idArchivo, ca.ruta_archivo, ca.nombre_original, 'CUOTA' AS origen, ca.creado_en
+                       FROM cuota_archivos ca
+                       WHERE ca.poliza_id = %s
+                         AND (%s = ''
+                              OR ca.cupon = %s
+                              OR ca.nombre_original LIKE %s)
+                       ORDER BY ca.creado_en DESC""",
+                    (int(poliza_id), identificador, identificador, f'%{identificador}%')
+                )
+                archivos_sp = cur_fb.fetchall() or []
+
+            cur_fb.close()
+            conn_fb.close()
+        except Exception as e:
+            print(f"[archivos_detalle_completo] fallback cuota error: {e}")
+
     for a in archivos_sp:
         a['es_extra'] = False
         if a.get('creado_en') and hasattr(a['creado_en'], 'strftime'):
@@ -416,17 +497,11 @@ def download_zip_contratante():
         memory_file = io.BytesIO()
         with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
             files_added = 0
-            upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
             for row in rows:
                 file_path = row.get('ruta_archivo')
                 if not file_path:
                     continue
-                candidates = [
-                    os.path.join(upload_folder, file_path.lstrip('/\\')),
-                    os.path.join(current_app.root_path, file_path.lstrip('/\\')),
-                    os.path.join(current_app.root_path, 'static', file_path.lstrip('/\\')),
-                ]
-                final_path = next((p for p in candidates if os.path.exists(p)), None)
+                final_path = _resolve_file_path(file_path)
                 if final_path:
                     arcname = f"{row.get('idArchivo')}_{row.get('nombre_original') or os.path.basename(file_path)}"
                     zf.write(final_path, arcname)
