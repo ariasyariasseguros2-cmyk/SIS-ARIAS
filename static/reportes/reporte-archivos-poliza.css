@@ -2,6 +2,52 @@
     background-color: #f8f9fa;
 }
 
+#filesTable {
+    font-size: 0.93rem;
+}
+
+#filesTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #495057;
+    white-space: nowrap;
+}
+
+#filesTable tbody td {
+    vertical-align: middle;
+}
+
+.poliza-row td {
+    border-top: 2px solid #e9ecef;
+    background: #fcfdff;
+}
+
+.cell-main {
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.cell-secondary {
+    color: #6b7280;
+    font-size: 0.82rem;
+}
+
+.cell-recibo {
+    font-weight: 600;
+    color: #334155;
+}
+
+.cell-doc {
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .btn-pdf {
     width: 32px;
     height: 32px;
@@ -25,6 +71,10 @@
     background-color: #f0fdf4;
     border-left: 3px solid #22c55e;
     font-size: 0.875rem;
+}
+
+.cuota-child-row td:nth-child(3) {
+    font-weight: 600;
 }
 
 .cuota-child-row:hover td {
@@ -51,6 +101,10 @@
     background-color: #fffbeb;          /* amarillo muy pálido */
     border-left: 3px solid #f59e0b;     /* borde izquierdo ámbar */
     font-size: 0.85rem;
+}
+
+.arch-extra-row td {
+    color: #374151;
 }
 
 .arch-extra-row:hover td {
@@ -133,3 +187,13 @@
     border-radius: .3rem;
     white-space: nowrap;
 }
+
+@media (max-width: 1200px) {
+    #filesTable {
+        font-size: 0.87rem;
+    }
+    .cell-doc {
+        max-width: 200px;
+    }
+}
+
