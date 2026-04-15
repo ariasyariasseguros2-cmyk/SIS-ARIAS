@@ -1370,6 +1370,7 @@ BEGIN
         recibo,
         tipo_origen,
         contratante,
+        GROUP_CONCAT(DISTINCT archivo ORDER BY fecha_subida DESC SEPARATOR ' | ') AS archivo,
         COUNT(*) AS cantidad_archivos,
         MAX(fecha_subida) AS ultima_fecha,
         ramo,
@@ -1404,6 +1405,7 @@ BEGIN
             p.ramos_producto COLLATE utf8mb4_0900_ai_ci AS producto,
             COALESCE(NULLIF(TRIM(ur.nombre), ''), p.usuario_registro) COLLATE utf8mb4_0900_ai_ci AS usuario,
             p.cia COLLATE utf8mb4_0900_ai_ci AS compania,
+            pa.nombre_original COLLATE utf8mb4_0900_ai_ci AS archivo,
             NULL AS poliza_padre_id,
             NULL AS cupon,
             p.idPoliza AS poliza_id
@@ -1444,6 +1446,7 @@ BEGIN
             p.ramos_producto COLLATE utf8mb4_0900_ai_ci AS producto,
             pa.usuario COLLATE utf8mb4_0900_ai_ci AS usuario,
             p.cia COLLATE utf8mb4_0900_ai_ci AS compania,
+            pa.nombre_original COLLATE utf8mb4_0900_ai_ci AS archivo,
             COALESCE(
                 CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
                 CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
