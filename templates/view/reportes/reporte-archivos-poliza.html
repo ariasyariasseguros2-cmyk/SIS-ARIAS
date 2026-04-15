@@ -71,28 +71,34 @@
                 </nav>
             </div>
 
+            <div class="alert alert-light border small py-2 px-3 mb-3" role="alert">
+                <i class="bi-info-circle me-1"></i>
+                <strong>Guia rapida:</strong> cada fila azul es una poliza; debajo aparecen sus cuotas (verde) y archivos relacionados (amarillo).
+            </div>
+
             <!-- Table -->
             <div class="table-responsive">
                 <table class="table table-hover align-middle" id="filesTable">
                     <thead class="table-light">
                     <tr>
-                        <th scope="col" style="width: 50px;" class="text-center">Acciones</th>
-                        <th scope="col">Origen</th>
-                        <th scope="col">Poliza</th>
+                        <th scope="col" style="width: 50px;" class="text-center">Acc.</th>
+                        <th scope="col">Tipo</th>
+                        <th scope="col">Nro Poliza</th>
+                        <th scope="col">Documento</th>
                         <th scope="col">Recibo</th>
                         <th scope="col">Contratante</th>
                         <th scope="col">Ramo</th>
                         <th scope="col">Producto</th>
                         <th scope="col">Compañía</th>
                         <th scope="col">Usuario</th>
-                        <th scope="col" class="text-center">Cantidad</th>
-                        <th scope="col">Fecha/Hora</th>
+                        <th scope="col" class="text-center">Archivos</th>
+                        <th scope="col">Ultima carga</th>
                     </tr>
                     </thead>
                     <tbody>
                     <!-- Rows will be populated by JS -->
                     <tr class="placeholder-row">
-                        <td colspan="11" class="text-center py-4 text-muted">
+                        <td colspan="12" class="text-center py-4 text-muted">
                             Cargando archivos...
                         </td>
                     </tr>
