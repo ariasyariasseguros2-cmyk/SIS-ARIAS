@@ -753,14 +753,34 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderPagination(totalGroups) {
         if (!paginationEl) return;
         const pages = Math.max(1, Math.ceil(totalGroups / pageSize));
+        const visible = new Set([1, pages]);
+        for (let i = currentPage - 2; i <= currentPage + 2; i++) {
+            if (i >= 1 && i <= pages) visible.add(i);
+        }
+
+        const ordered = Array.from(visible).sort((a, b) => a - b);
+        const items = [];
+        let previous = 0;
+        ordered.forEach(num => {
+            if (num - previous > 1) {
+                items.push('ellipsis');
+            }
+            items.push(num);
+            previous = num;
+        });
+
         let html = '';
         const prevDisabled = currentPage <= 1 ? ' disabled' : '';
         const nextDisabled = currentPage >= pages ? ' disabled' : '';
         html += `<li class="page-item${prevDisabled}"><a class="page-link" href="#" data-action="prev">&laquo;</a></li>`;
-        for (let i = 1; i <= pages; i++) {
-            const active = i === currentPage ? ' active' : '';
-            html += `<li class="page-item${active}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
-        }
+        items.forEach(item => {
+            if (item === 'ellipsis') {
+                html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+                return;
+            }
+            const active = item === currentPage ? ' active' : '';
+            html += `<li class="page-item${active}"><a class="page-link" href="#" data-page="${item}">${item}</a></li>`;
+        });
         html += `<li class="page-item${nextDisabled}"><a class="page-link" href="#" data-action="next">&raquo;</a></li>`;
         paginationEl.innerHTML = html;
         paginationEl.querySelectorAll('a.page-link').forEach(a => {
@@ -768,7 +788,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 const act = this.dataset.action;
                 const num = parseInt(this.dataset.page || '0', 10);
-                const pages = Math.max(1, Math.ceil(groups.length / pageSize));
+                const pages = Math.max(1, Math.ceil(totalGroups / pageSize));
                 if (act === 'prev') {
                     currentPage = Math.max(1, currentPage - 1);
                 } else if (act === 'next') {
