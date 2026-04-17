@@ -4,6 +4,8 @@
 
 #filesTable {
     font-size: 0.93rem;
+    width: 100%;
+    table-layout: fixed;
 }
 
 #filesTable thead th {
@@ -16,6 +18,19 @@
     color: #495057;
     white-space: nowrap;
 }
+
+#filesTable th:nth-child(1), #filesTable td:nth-child(1) { width: 88px; }
+#filesTable th:nth-child(2), #filesTable td:nth-child(2) { width: 86px; }
+#filesTable th:nth-child(3), #filesTable td:nth-child(3) { width: 160px; }
+#filesTable th:nth-child(4), #filesTable td:nth-child(4) { width: 320px; }
+#filesTable th:nth-child(5), #filesTable td:nth-child(5) { width: 120px; }
+#filesTable th:nth-child(6), #filesTable td:nth-child(6) { width: 220px; }
+#filesTable th:nth-child(7), #filesTable td:nth-child(7) { width: 120px; }
+#filesTable th:nth-child(8), #filesTable td:nth-child(8) { width: 120px; }
+#filesTable th:nth-child(9), #filesTable td:nth-child(9) { width: 120px; }
+#filesTable th:nth-child(10), #filesTable td:nth-child(10) { width: 110px; }
+#filesTable th:nth-child(11), #filesTable td:nth-child(11) { width: 92px; }
+#filesTable th:nth-child(12), #filesTable td:nth-child(12) { width: 145px; }
 
 #filesTable tbody td {
     vertical-align: middle;
@@ -42,7 +57,9 @@
 }
 
 .cell-doc {
-    max-width: 280px;
+    display: block;
+    width: 100%;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -193,7 +210,10 @@
         font-size: 0.87rem;
     }
     .cell-doc {
-        max-width: 200px;
+        max-width: 100%;
     }
+
+    #filesTable th:nth-child(4), #filesTable td:nth-child(4) { width: 220px; }
+    #filesTable th:nth-child(6), #filesTable td:nth-child(6) { width: 180px; }
 }
 
