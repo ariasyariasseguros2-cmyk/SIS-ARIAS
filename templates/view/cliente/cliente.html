@@ -219,11 +219,11 @@
 
 {% block extra_js_bottom %}
 {{ super() }}
-<script src="{{ url_for('static', filename='js/cliente/cliente.js') }}"></script>
+<script src="{{ url_for('static', filename='js/cliente/cliente.js', v='20260420-1') }}"></script>
 {% if page != 'clientes-anulados' %}
-<script src="{{ url_for('static', filename='js/cliente/addcliente.js') }}"></script>
-<script src="{{ url_for('static', filename='js/cliente/editcliente.js') }}"></script>
+<script src="{{ url_for('static', filename='js/cliente/addcliente.js', v='20260420-1') }}"></script>
+<script src="{{ url_for('static', filename='js/cliente/editcliente.js', v='20260420-1') }}"></script>
 {% else %}
-<script src="{{ url_for('static', filename='js/cliente/restorecliente.js') }}"></script>
+<script src="{{ url_for('static', filename='js/cliente/restorecliente.js', v='20260420-1') }}"></script>
 {% endif %}
 {% endblock %}

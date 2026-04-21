@@ -13,16 +13,38 @@ def editar_cliente_route():
         usuario_actual = session.get('user', 'SISTEMA')
         role_name = session.get('role_name')
 
-        data = request.get_json()
+        # Soporta JSON y form-data para evitar fallas por diferencias de despliegue/proxy.
+        data = request.get_json(silent=True) or request.form.to_dict()
 
 
-        if not data or 'idCliente' not in data:
+        if not data:
             return jsonify({
                 'status': 'error',
                 'message': 'ID de cliente no proporcionado'
             }), 400
 
-        id_cliente = data['idCliente']
+        id_cliente = data.get('idCliente') or data.get('id')
+        if not id_cliente:
+            return jsonify({
+                'status': 'error',
+                'message': 'ID de cliente no proporcionado'
+            }), 400
+
+        # Compatibilidad de nombres de campos entre versiones (local/prod).
+        tipo_documento = (
+            data.get('tipo_documento')
+            or data.get('tipoDocumento')
+            or data.get('tipo_doc')
+            or ''
+        )
+        numero_documento = (
+            data.get('numero_documento')
+            or data.get('nro_documento')
+            or data.get('numeroDocumento')
+            or data.get('num_documento')
+            or ''
+        )
+        razon_social = data.get('razon_social') or data.get('razonSocial') or ''
 
         # RBAC: Verificar propiedad para SUB AGENTE
         from utils.rbac import Roles
@@ -45,12 +67,16 @@ def editar_cliente_route():
             data['subagente'] = usuario_actual
 
         # Validar campos requeridos
-        required_fields = ['razon_social', 'tipo_documento', 'numero_documento']
-        for field in required_fields:
-            if not data.get(field):
+        required_pairs = [
+            ('razon_social', razon_social),
+            ('tipo_documento', tipo_documento),
+            ('numero_documento', numero_documento),
+        ]
+        for field_name, field_value in required_pairs:
+            if not str(field_value).strip():
                 return jsonify({
                     'status': 'error',
-                    'message': f'El campo {field} es requerido'
+                    'message': f'El campo {field_name} es requerido'
                 }), 400
 
         # Convertir fechas vacías a None
@@ -94,9 +120,9 @@ def editar_cliente_route():
         # Preparar argumentos en el orden que el procedimiento espera
         args = (
             id_cliente,
-            data.get('razon_social'),
-            data.get('tipo_documento'),
-            data.get('numero_documento'),
+            razon_social,
+            tipo_documento,
+            numero_documento,
             data.get('telefono', ''),
             data.get('celular', ''),
             data.get('telefono_sec', ''),

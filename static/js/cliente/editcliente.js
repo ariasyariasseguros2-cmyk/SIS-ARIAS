@@ -241,6 +241,13 @@
             data[key] = value;
         });
 
+        // Compatibilidad entre versiones: normalizar y enviar aliases de documento.
+        data.tipo_documento = (data.tipo_documento || data.tipoDocumento || '').trim();
+        data.numero_documento = (data.numero_documento || data.nro_documento || data.numeroDocumento || '').trim();
+        data.tipoDocumento = data.tipo_documento;
+        data.nro_documento = data.numero_documento;
+        data.numeroDocumento = data.numero_documento;
+
         // Agregar el checkbox manualmente
         data.recibir_notificaciones = document.getElementById('edit_recibir_notificaciones').checked ? 1 : 0;
 
@@ -300,7 +307,8 @@
             if (error && error.status === 401) {
                 showAlert('error', 'No autenticado. Por favor inicia sesión.');
             } else {
-                showAlert('error', 'Error al actualizar el cliente');
+                const backendMsg = (error && error.body && (error.body.message || error.body.error)) || null;
+                showAlert('error', backendMsg || 'Error al actualizar el cliente');
             }
         });
     }
