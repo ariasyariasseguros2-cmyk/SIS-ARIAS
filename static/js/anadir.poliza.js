@@ -359,6 +359,78 @@
     return `${dd}/${mm}/${yyyy}`;
   }
 
+  function parseDMYDateStrict(value) {
+    const raw = (value || '').toString().trim();
+    const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return null;
+    const day = Number(m[1]);
+    const month = Number(m[2]);
+    const year = Number(m[3]);
+    const dt = new Date(year, month - 1, day);
+    if (dt.getFullYear() !== year || (dt.getMonth() + 1) !== month || dt.getDate() !== day) return null;
+    return dt;
+  }
+
+  function addMonthsClamped(baseDate, monthsToAdd) {
+    if (!(baseDate instanceof Date) || Number.isNaN(baseDate.getTime())) return null;
+    const y = baseDate.getFullYear();
+    const m = baseDate.getMonth();
+    const d = baseDate.getDate();
+    const targetMonthIdx = m + monthsToAdd;
+    const targetYear = y + Math.floor(targetMonthIdx / 12);
+    const normMonth = ((targetMonthIdx % 12) + 12) % 12;
+    const maxDay = new Date(targetYear, normMonth + 1, 0).getDate();
+    const finalDay = Math.min(d, maxDay);
+    return new Date(targetYear, normMonth, finalDay);
+  }
+
+  function isSameDate(a, b) {
+    return !!a && !!b
+      && a.getFullYear() === b.getFullYear()
+      && a.getMonth() === b.getMonth()
+      && a.getDate() === b.getDate();
+  }
+
+  function detectTipoVigenciaByDates(inicioVigencia, finVigencia) {
+    const start = parseDMYDateStrict(inicioVigencia);
+    const end = parseDMYDateStrict(finVigencia);
+    if (!start || !end) return '';
+    const map = [
+      { months: 1, tipo: 'DECLARACION MENSUAL' },
+      { months: 3, tipo: 'PERIODICA' },
+      { months: 12, tipo: 'ANUAL' }
+    ];
+    for (const candidate of map) {
+      const until = addMonthsClamped(start, candidate.months);
+      if (!until) continue;
+      const untilMinusOne = new Date(until.getTime());
+      untilMinusOne.setDate(untilMinusOne.getDate() - 1);
+      if (isSameDate(end, until) || isSameDate(end, untilMinusOne)) {
+        return candidate.tipo;
+      }
+    }
+    return '';
+  }
+
+  function inferTipoVigenciaFromItems(items) {
+    const tipos = new Set();
+    (items || []).forEach((it) => {
+      const tipo = detectTipoVigenciaByDates(it?.inicio_vigencia, it?.vencimiento);
+      if (tipo) tipos.add(tipo);
+    });
+    if (!tipos.size) return '';
+    if (tipos.size > 1) return '__MIXED__';
+    return Array.from(tipos)[0] || '';
+  }
+
+  function syncTipoVigenciaTopFromDates(items) {
+    if (!tipoVigenciaTopEl) return '';
+    const inferred = inferTipoVigenciaFromItems(items);
+    if (!inferred || inferred === '__MIXED__') return inferred;
+    tipoVigenciaTopEl.value = inferred;
+    return inferred;
+  }
+
   function normalizeItem(src) {
     const it = { ...src };
     const totalNum = parseNumber(it.prima_total);
@@ -736,6 +808,8 @@
       // REMOVIDO: 'vencimiento' ↔ 'fecha_vencimiento'
       // (no se rellenan mutuamente)
     });
+
+    syncTipoVigenciaTopFromDates(items);
 
     tbody.innerHTML = '';
     items.forEach((it, idx) => {
@@ -1257,6 +1331,9 @@
     if (field === 'prima_comercial' || field === 'prima_neta') {
       updateDependents(idx, field, td);
     }
+    if (field === 'inicio_vigencia' || field === 'vencimiento') {
+      syncTipoVigenciaTopFromDates(extractedItems);
+    }
   });
 
   // Formateo en blur y guardado
@@ -1302,6 +1379,9 @@
 
     if (field === 'prima_comercial' || field === 'prima_neta') {
       updateDependents(idx, field, td);
+    }
+    if (field === 'inicio_vigencia' || field === 'vencimiento') {
+      syncTipoVigenciaTopFromDates(extractedItems);
     }
     scheduleAutoSave();
   });
@@ -2371,6 +2451,21 @@
         }
         return;
       }
+      const tipoVigenciaAuto = syncTipoVigenciaTopFromDates(extractedItems);
+      if (!tipoVigenciaAuto || tipoVigenciaAuto === '__MIXED__') {
+        isSaving = false;
+        const msg = tipoVigenciaAuto === '__MIXED__'
+          ? 'Las filas tienen vigencias distintas. Ajusta Inicio/Fin de vigencia para que sean mensual, trimestral o anual.'
+          : 'No se pudo determinar el Tipo de Vigencia. Revisa Inicio y Fin de vigencia (mensual, trimestral o anual).';
+        if (window.Swal) Swal.fire({ icon: 'warning', title: 'Tipo de vigencia', text: msg });
+        else alert(msg);
+        if (btnSave) {
+          const hasTipoDoc = ((tipoDocTopEl?.value || '').toString().trim() !== '');
+          const hasTipoPago = ((tipoPagoTopEl?.value || '').toString().trim() !== '');
+          btnSave.disabled = (extractedItems || []).length === 0 || !hasTipoDoc || !hasTipoPago;
+        }
+        return;
+      }
       if (btnSave) btnSave.disabled = true;
 
       const selected = Object.assign({}, (window.selectedCliente || {}), {
@@ -2384,7 +2479,7 @@
         ejecutivo: (ejecutivoTopEl?.value || '').trim(),
         // NUEVO: campos endosatario y tipo vigencia
         endosatario: (endosatarioTopEl?.value || '').trim(),
-        tipo_vigencia: (tipoVigenciaTopEl?.value || '').trim(),
+        tipo_vigencia: tipoVigenciaAuto,
         pdf_filename: lastUploadedFilename
       });
 
