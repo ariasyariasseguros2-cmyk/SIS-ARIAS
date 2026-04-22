@@ -280,6 +280,13 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
         # VALIDACIÓN: cliente seleccionado (numero_documento o nombre)
         numero_documento = (selected or {}).get("n_doc") or (selected or {}).get("numero_documento") or ""
         razon_social_selected = (selected or {}).get("razon_social") or (selected or {}).get("contratante") or ""
+        tipo_vigencia_selected = U((selected or {}).get("tipo_vigencia") or "")
+        if tipo_vigencia_selected == "PERIÓDICA":
+            tipo_vigencia_selected = "PERIODICA"
+        if tipo_vigencia_selected == "MENSUAL":
+            tipo_vigencia_selected = "DECLARACION MENSUAL"
+        if tipo_vigencia_selected and tipo_vigencia_selected not in {"ANUAL", "DECLARACION MENSUAL", "PERIODICA"}:
+            return {"ok": False, "errors": ["Tipo de vigencia inválido. Solo se permite ANUAL, DECLARACION MENSUAL o PERIODICA."]}
         
         if not numero_documento and not razon_social_selected:
             return {"ok": False, "errors": ["Falta seleccionar cliente (documento o nombre)."]}
@@ -499,7 +506,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                 parse_date(row.get("vencimiento")),
                 parse_date(row.get("ultimo_dia_pago")),
                 parse_date(row.get("fecha_vencimiento")),  # NUEVO
-                U((selected or {}).get("tipo_vigencia") or ""),  # NUEVO
+                tipo_vigencia_selected,  # NUEVO
                 U((selected or {}).get("endosatario") or ""),    # NUEVO
                 U(row.get("forma_pago") or ""),
                 U(row.get("subagente") or (selected or {}).get("subagente") or ""),
