@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 import os
 import time
 from datetime import datetime
+import unicodedata
 
 def cia_to_col(cia_txt: str | None) -> str | None:
     if not cia_txt:
@@ -30,6 +31,26 @@ def cia_to_col(cia_txt: str | None) -> str | None:
     if 'ohio' in s:
         return 'ohio_natural'
     return None
+
+def normalize_tipo_vigencia(value: str | None) -> str:
+    raw = (value or '').strip()
+    if not raw:
+        return ''
+    try:
+        upper = unicodedata.normalize('NFD', raw.upper())
+        upper = ''.join(ch for ch in upper if unicodedata.category(ch) != 'Mn')
+    except Exception:
+        upper = raw.upper()
+    upper = ' '.join(upper.split())
+    if upper in {'MENSUAL', 'DECLARACION MENSUAL'}:
+        return 'DECLARACION MENSUAL'
+    if upper in {'TRIMESTRAL', 'PERIODICA', 'PERIÓDICA'}:
+        return 'PERIODICA'
+    if upper == 'ANUAL':
+        return 'ANUAL'
+    if upper in {'NO RENOVABLE', 'EVENTUAL', 'FLOTANTE'}:
+        return upper
+    return upper
 
 def lookup_commission_pct(cnx_, cia_txt: str | None, candidates: list[str]) -> float | None:
     col = cia_to_col(cia_txt)
@@ -280,13 +301,9 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
         # VALIDACIÓN: cliente seleccionado (numero_documento o nombre)
         numero_documento = (selected or {}).get("n_doc") or (selected or {}).get("numero_documento") or ""
         razon_social_selected = (selected or {}).get("razon_social") or (selected or {}).get("contratante") or ""
-        tipo_vigencia_selected = U((selected or {}).get("tipo_vigencia") or "")
-        if tipo_vigencia_selected == "PERIÓDICA":
-            tipo_vigencia_selected = "PERIODICA"
-        if tipo_vigencia_selected == "MENSUAL":
-            tipo_vigencia_selected = "DECLARACION MENSUAL"
-        if tipo_vigencia_selected and tipo_vigencia_selected not in {"ANUAL", "DECLARACION MENSUAL", "PERIODICA"}:
-            return {"ok": False, "errors": ["Tipo de vigencia inválido. Solo se permite ANUAL, DECLARACION MENSUAL o PERIODICA."]}
+        tipo_vigencia_selected = normalize_tipo_vigencia((selected or {}).get("tipo_vigencia") or "")
+        if tipo_vigencia_selected and tipo_vigencia_selected not in {"ANUAL", "DECLARACION MENSUAL", "PERIODICA", "NO RENOVABLE", "EVENTUAL", "FLOTANTE"}:
+            return {"ok": False, "errors": ["Tipo de vigencia inválido. Verifica el valor seleccionado."]}
         
         if not numero_documento and not razon_social_selected:
             return {"ok": False, "errors": ["Falta seleccionar cliente (documento o nombre)."]}
