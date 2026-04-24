@@ -40,6 +40,7 @@
   let isSaving = false;
   let lastUploadedFilename = null;
   let productsCache = null;
+  let tipoVigenciaManualOverride = false;
   try { if (btnSave) btnSave.setAttribute('type', 'button'); } catch (e) {}
 
   function setIssuerFromProvider(provider) {
@@ -391,6 +392,21 @@
       && a.getDate() === b.getDate();
   }
 
+  function normalizeTipoVigenciaValue(value) {
+    const raw = (value || '').toString().trim();
+    if (!raw) return '';
+    const upper = raw
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .toUpperCase();
+    if (upper === 'MENSUAL' || upper === 'DECLARACION MENSUAL') return 'DECLARACION MENSUAL';
+    if (upper === 'TRIMESTRAL' || upper === 'PERIODICA') return 'PERIODICA';
+    if (upper === 'ANUAL') return 'ANUAL';
+    if (['NO RENOVABLE', 'EVENTUAL', 'FLOTANTE'].includes(upper)) return upper;
+    return upper;
+  }
+
   function detectTipoVigenciaByDates(inicioVigencia, finVigencia) {
     const start = parseDMYDateStrict(inicioVigencia);
     const end = parseDMYDateStrict(finVigencia);
@@ -425,10 +441,38 @@
 
   function syncTipoVigenciaTopFromDates(items) {
     if (!tipoVigenciaTopEl) return '';
+    const current = normalizeTipoVigenciaValue(tipoVigenciaTopEl.value);
+    if (tipoVigenciaManualOverride && current) {
+      tipoVigenciaTopEl.value = current;
+      return current;
+    }
     const inferred = inferTipoVigenciaFromItems(items);
     if (!inferred || inferred === '__MIXED__') return inferred;
     tipoVigenciaTopEl.value = inferred;
     return inferred;
+  }
+
+  function resolveTipoVigenciaForSave(items) {
+    if (tipoVigenciaManualOverride) {
+      return normalizeTipoVigenciaValue(tipoVigenciaTopEl?.value || '');
+    }
+    const inferred = inferTipoVigenciaFromItems(items);
+    if (inferred && inferred !== '__MIXED__' && tipoVigenciaTopEl) {
+      tipoVigenciaTopEl.value = inferred;
+    }
+    return inferred;
+  }
+
+  if (tipoVigenciaTopEl) {
+    tipoVigenciaTopEl.addEventListener('change', () => {
+      const normalized = normalizeTipoVigenciaValue(tipoVigenciaTopEl.value);
+      if (normalized) {
+        tipoVigenciaManualOverride = true;
+        tipoVigenciaTopEl.value = normalized;
+      } else {
+        tipoVigenciaManualOverride = false;
+      }
+    });
   }
 
   function normalizeItem(src) {
@@ -2451,10 +2495,10 @@
         }
         return;
       }
-      const tipoVigenciaAuto = syncTipoVigenciaTopFromDates(extractedItems);
-      if (!tipoVigenciaAuto || tipoVigenciaAuto === '__MIXED__') {
+      const tipoVigenciaSeleccionada = resolveTipoVigenciaForSave(extractedItems);
+      if (!tipoVigenciaSeleccionada || tipoVigenciaSeleccionada === '__MIXED__') {
         isSaving = false;
-        const msg = tipoVigenciaAuto === '__MIXED__'
+        const msg = tipoVigenciaSeleccionada === '__MIXED__'
           ? 'Las filas tienen vigencias distintas. Ajusta Inicio/Fin de vigencia para que sean mensual, trimestral o anual.'
           : 'No se pudo determinar el Tipo de Vigencia. Revisa Inicio y Fin de vigencia (mensual, trimestral o anual).';
         if (window.Swal) Swal.fire({ icon: 'warning', title: 'Tipo de vigencia', text: msg });
@@ -2479,7 +2523,7 @@
         ejecutivo: (ejecutivoTopEl?.value || '').trim(),
         // NUEVO: campos endosatario y tipo vigencia
         endosatario: (endosatarioTopEl?.value || '').trim(),
-        tipo_vigencia: tipoVigenciaAuto,
+        tipo_vigencia: tipoVigenciaSeleccionada,
         pdf_filename: lastUploadedFilename
       });
 
@@ -2966,6 +3010,7 @@
         tipoVigenciaTopEl.value = '';
         if (tipoVigenciaTopEl.selectedIndex !== 0) tipoVigenciaTopEl.selectedIndex = 0;
       }
+      tipoVigenciaManualOverride = false;
       if (tipoPagoTopEl) {
         tipoPagoTopEl.value = '';
         if (tipoPagoTopEl.selectedIndex !== 0) tipoPagoTopEl.selectedIndex = 0;
