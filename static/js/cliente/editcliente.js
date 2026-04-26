@@ -274,7 +274,14 @@
         })
         .then(response => {
             if (!response.ok) {
-                return response.json().then(body => { throw { status: response.status, body }; }).catch(() => { throw { status: response.status }; });
+                return response.text().then(raw => {
+                    try {
+                        const body = raw ? JSON.parse(raw) : null;
+                        throw { status: response.status, body, raw };
+                    } catch (_e) {
+                        throw { status: response.status, raw };
+                    }
+                });
             }
             return response.json();
         })
@@ -308,7 +315,9 @@
                 showAlert('error', 'No autenticado. Por favor inicia sesión.');
             } else {
                 const backendMsg = (error && error.body && (error.body.message || error.body.error)) || null;
-                showAlert('error', backendMsg || 'Error al actualizar el cliente');
+                const rawMsg = error && typeof error.raw === 'string' ? error.raw.replace(/<[^>]+>/g, ' ').trim() : '';
+                const fallbackMsg = rawMsg ? rawMsg.slice(0, 180) : 'Error al actualizar el cliente';
+                showAlert('error', backendMsg || fallbackMsg);
             }
         });
     }
