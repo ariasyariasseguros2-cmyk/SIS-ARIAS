@@ -1,12 +1,41 @@
-from flask import request, jsonify, session
+from flask import request, jsonify, session, current_app
 from models.db import get_connection
 from datetime import datetime, date
 import traceback
+import mysql.connector
+import re
+import time
+import uuid
+
+
+def _mask_value(value, head=2, tail=2):
+    s = '' if value is None else str(value)
+    if len(s) <= head + tail:
+        return '*' * len(s)
+    return f"{s[:head]}***{s[-tail:]}"
+
+
+def _safe_edit_payload(data):
+    # Solo campos utiles para diagnostico (sin exponer datos completos).
+    return {
+        'idCliente': data.get('idCliente') or data.get('id'),
+        'tipo_documento': (data.get('tipo_documento') or data.get('tipoDocumento') or data.get('tipo_doc') or ''),
+        'numero_documento_mask': _mask_value(data.get('numero_documento') or data.get('nro_documento') or data.get('numeroDocumento') or data.get('num_documento') or ''),
+        'razon_social_len': len(str(data.get('razon_social') or data.get('razonSocial') or '')),
+        'subagente': data.get('subagente', ''),
+        'estado': data.get('estado', ''),
+        'has_telefono': bool(str(data.get('telefono', '')).strip()),
+        'has_email': bool(str(data.get('email', '')).strip()),
+        'keys': sorted(list(data.keys()))
+    }
 
 def editar_cliente_route():
     """Ruta para editar un cliente existente"""
     if 'user' not in session:
         return jsonify({'status': 'error', 'message': 'No autorizado'}), 401
+
+    req_id = request.headers.get('X-Request-ID') or str(uuid.uuid4())
+    started = time.perf_counter()
 
     try:
         # Obtener usuario de la sesión
@@ -15,6 +44,15 @@ def editar_cliente_route():
 
         # Soporta JSON y form-data para evitar fallas por diferencias de despliegue/proxy.
         data = request.get_json(silent=True) or request.form.to_dict()
+
+        current_app.logger.info(
+            "[clientes.edit][%s] inicio user=%s role=%s content_type=%s payload=%s",
+            req_id,
+            usuario_actual,
+            role_name,
+            request.content_type,
+            _safe_edit_payload(data or {})
+        )
 
 
         if not data:
@@ -30,19 +68,21 @@ def editar_cliente_route():
                 'message': 'ID de cliente no proporcionado'
             }), 400
 
+        current_app.logger.info("[clientes.edit][%s] idCliente=%s", req_id, id_cliente)
+
         # Compatibilidad de nombres de campos entre versiones (local/prod).
         tipo_documento = (
-            data.get('tipo_documento')
-            or data.get('tipoDocumento')
-            or data.get('tipo_doc')
-            or ''
+                data.get('tipo_documento')
+                or data.get('tipoDocumento')
+                or data.get('tipo_doc')
+                or ''
         )
         numero_documento = (
-            data.get('numero_documento')
-            or data.get('nro_documento')
-            or data.get('numeroDocumento')
-            or data.get('num_documento')
-            or ''
+                data.get('numero_documento')
+                or data.get('nro_documento')
+                or data.get('numeroDocumento')
+                or data.get('num_documento')
+                or ''
         )
         razon_social = data.get('razon_social') or data.get('razonSocial') or ''
 
@@ -56,13 +96,20 @@ def editar_cliente_route():
             row = cur_check.fetchone()
             cur_check.close()
             conn_check.close()
-            
+
             if not row or row['subagente'] != usuario_actual:
-                 return jsonify({
+                current_app.logger.warning(
+                    "[clientes.edit][%s] denegado ownership idCliente=%s owner=%s user=%s",
+                    req_id,
+                    id_cliente,
+                    (row or {}).get('subagente'),
+                    usuario_actual
+                )
+                return jsonify({
                     'status': 'error',
                     'message': 'No tiene permiso para editar este cliente'
                 }), 403
-            
+
             # Forzar que no se cambie el subagente
             data['subagente'] = usuario_actual
 
@@ -102,8 +149,9 @@ def editar_cliente_route():
                         id_productor = row['idProductor']
                 temp_cursor.close()
                 temp_conn.close()
+                current_app.logger.info("[clientes.edit][%s] idProductor_resuelto=%s subagente=%s", req_id, id_productor, subagente)
             except Exception as e:
-                print(f"Error obteniendo idProductor: {str(e)}")
+                current_app.logger.exception("[clientes.edit][%s] error_resolviendo_idProductor subagente=%s", req_id, subagente)
                 # Si no se puede obtener, intentar usar el que viene en los datos
                 id_productor = int(data.get('idProductor')) if data.get('idProductor') else None
 
@@ -151,43 +199,103 @@ def editar_cliente_route():
             usuario_actual
         )
 
-        # ajustar el call al sp
         try:
-            temp_cursor = conn.cursor()
-            try:
-                temp_cursor.execute("SELECT COUNT(*) FROM information_schema.parameters WHERE specific_name = 'sp_update_cliente' AND routine_schema = DATABASE()")
-                row = temp_cursor.fetchone()
-                param_count = int(row[0]) if row and row[0] is not None else None
-            except Exception:
-                param_count = None
-            finally:
-                temp_cursor.close()
+            current_app.logger.info("[clientes.edit][%s] call sp_update_cliente args_len=%s", req_id, len(args))
+            sp_started = time.perf_counter()
+            cursor.callproc('sp_update_cliente', args)
+            conn.commit()
+            current_app.logger.info(
+                "[clientes.edit][%s] sp_update_cliente ok elapsed_ms=%.2f",
+                req_id,
+                (time.perf_counter() - sp_started) * 1000
+            )
+        except mysql.connector.Error as db_err:
+            conn.rollback()
+            msg = str(db_err)
+            current_app.logger.error(
+                "[clientes.edit][%s] mysql_error errno=%s sqlstate=%s msg=%s",
+                req_id,
+                getattr(db_err, 'errno', None),
+                getattr(db_err, 'sqlstate', None),
+                msg
+            )
 
-            if param_count is None or param_count >= len(args):
-                cursor.callproc('sp_update_cliente', args)
-            else:
-                cursor.callproc('sp_update_cliente', args[:param_count])
-        except Exception as e:
-            print(f"Error llamando sp_update_cliente: {e}")
+            # Algunos entornos restringen metadata y/o tienen una firma antigua del SP.
+            if getattr(db_err, 'errno', None) == 1318:
+                m = re.search(r"expects\s+(\d+)\s+arguments", msg, re.IGNORECASE)
+                if m:
+                    expected = int(m.group(1))
+                    if 0 < expected < len(args):
+                        try:
+                            retry_cursor = conn.cursor()
+                            current_app.logger.warning(
+                                "[clientes.edit][%s] retry_sp_update_cliente expected_args=%s",
+                                req_id,
+                                expected
+                            )
+                            retry_cursor.callproc('sp_update_cliente', args[:expected])
+                            conn.commit()
+                            retry_cursor.close()
+                            return jsonify({
+                                'status': 'success',
+                                'message': 'Cliente actualizado correctamente',
+                                'id_productor_used': id_productor,
+                                'request_id': req_id
+                            })
+                        except mysql.connector.Error as retry_err:
+                            conn.rollback()
+                            msg = str(retry_err)
+                            current_app.logger.error(
+                                "[clientes.edit][%s] mysql_retry_error errno=%s sqlstate=%s msg=%s",
+                                req_id,
+                                getattr(retry_err, 'errno', None),
+                                getattr(retry_err, 'sqlstate', None),
+                                msg
+                            )
+
+            if 'El numero_documento ya existe' in msg or 'Duplicate entry' in msg:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'El numero de documento ya existe en otro cliente'
+                }), 400
+
+            if 'Cliente no encontrado' in msg:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Cliente no encontrado'
+                }), 404
+
+            if 'Incorrect number of arguments' in msg or getattr(db_err, 'errno', None) == 1318:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'SP desactualizado en produccion (firma distinta). Actualiza sp_update_cliente.'
+                }), 500
+
             raise
-
-        conn.commit()
-        cursor.close()
-        conn.close()
+        finally:
+            cursor.close()
+            conn.close()
 
         return jsonify({
             'status': 'success',
             'message': 'Cliente actualizado correctamente',
-            'id_productor_used': id_productor
+            'id_productor_used': id_productor,
+            'request_id': req_id
         })
 
     except Exception as e:
-        print(f"Error al editar cliente: {str(e)}")
-        print(traceback.format_exc())
+        current_app.logger.exception("[clientes.edit][%s] unhandled_exception", req_id)
         return jsonify({
             'status': 'error',
-            'message': f'Error al actualizar el cliente: {str(e)}'
+            'message': f'Error al actualizar el cliente: {str(e)}',
+            'request_id': req_id
         }), 500
+    finally:
+        current_app.logger.info(
+            "[clientes.edit][%s] fin total_elapsed_ms=%.2f",
+            req_id,
+            (time.perf_counter() - started) * 1000
+        )
 
 
 def get_cliente_detalle_route(idCliente):
