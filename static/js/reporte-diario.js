@@ -51,7 +51,7 @@
 
   function renderRows(rows) {
     if (!rows || rows.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="13" class="text-center py-5 text-muted">
+      tbody.innerHTML = `<tr><td colspan="14" class="text-center py-5 text-muted">
         <i class="bi-inbox fs-3 d-block mb-2"></i>No hay pólizas registradas hoy.</td></tr>`;
       cardTotal.textContent = '0';
       cardPEN.textContent   = 'S/ 0.00';
@@ -84,6 +84,7 @@
       return `<tr>
         <td class="text-muted small">${i + 1}</td>
         <td><strong>${r.poliza || r.contrato_nro || r.nro || '–'}</strong></td>
+        <td><span class="badge bg-light text-dark border">${r.recibo || '–'}</span></td>
         <td>${r.cliente || '–'}</td>
         <td>${r.cia || '–'}</td>
         <td><span class="badge bg-light text-dark border">${r.ramo || '–'}</span></td>
@@ -106,7 +107,7 @@
   }
 
   function cargar() {
-    tbody.innerHTML = `<tr><td colspan="13" class="text-center py-5 text-muted">
+    tbody.innerHTML = `<tr><td colspan="14" class="text-center py-5 text-muted">
       <div class="spinner-border spinner-border-sm me-2" role="status"></div>Cargando...</td></tr>`;
 
     fetch('/api/reporte-diario', {
@@ -119,12 +120,12 @@
         if (data.ok) {
           renderRows(data.rows);
         } else {
-          tbody.innerHTML = `<tr><td colspan="13" class="text-center py-4 text-danger">
+          tbody.innerHTML = `<tr><td colspan="14" class="text-center py-4 text-danger">
             <i class="bi-exclamation-triangle me-1"></i>${data.error || 'Error al cargar datos'}</td></tr>`;
         }
       })
       .catch(err => {
-        tbody.innerHTML = `<tr><td colspan="13" class="text-center py-4 text-danger">
+        tbody.innerHTML = `<tr><td colspan="14" class="text-center py-4 text-danger">
           <i class="bi-exclamation-triangle me-1"></i>Error de conexión</td></tr>`;
         console.error(err);
       });
