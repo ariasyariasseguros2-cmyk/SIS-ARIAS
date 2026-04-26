@@ -20,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
         mutations.forEach((mutation) => {
             if (mutation.attributeName === 'data-theme') {
                 colors = getThemeColors();
-                initProductionChart();
                 initIncomeDayChart();
             }
         });
@@ -28,115 +27,14 @@ document.addEventListener('DOMContentLoaded', () => {
     observer.observe(document.documentElement, { attributes: true });
 
     // Store chart instances to update them
-    let productionChart, incomeDayChart;
-
-    // 1. Production Chart (Rounded Bars with Gradients)
-    function initProductionChart(currency = 'soles') {
-        const ctxProduction = document.getElementById('productionChart');
-        if (!ctxProduction) return;
-
-        // Ensure data exists or use defaults
-        const months = data.months || ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-        
-        // Use data from DB instead of client-side conversion
-        const chartDataComision = currency === 'soles' 
-            ? (data.totals_comision_soles || new Array(months.length).fill(0))
-            : (data.totals_comision_usd || new Array(months.length).fill(0));
-        
-        const comisionGradient = ctxProduction.getContext('2d').createLinearGradient(0, 0, 0, 400);
-        if (colors.isDark) {
-            comisionGradient.addColorStop(0, '#10b981');
-            comisionGradient.addColorStop(1, '#34d399');
-        } else {
-            comisionGradient.addColorStop(0, '#28a745');
-            comisionGradient.addColorStop(1, '#5dd39e');
-        }
-
-        if (productionChart) productionChart.destroy();
-
-        productionChart = new Chart(ctxProduction, {
-            type: 'bar',
-            data: {
-                labels: months,
-                datasets: [
-                    {
-                        label: 'Comisión',
-                        data: chartDataComision,
-                        backgroundColor: comisionGradient,
-                        borderColor: colors.isDark ? 'transparent' : '#28a745',
-                        borderWidth: 1,
-                        borderRadius: 6,
-                        barThickness: 20
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const symbol = currency === 'soles' ? 'S/. ' : 'US$ ';
-                                return context.dataset.label + ': ' + symbol + new Intl.NumberFormat('es-PE', { style: 'decimal', maximumFractionDigits: 2 }).format(context.parsed.y);
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: { 
-                        beginAtZero: true,
-                        display: true,
-                        grid: { 
-                            borderDash: [2, 4], 
-                            color: colors.grid,
-                            drawBorder: true
-                        },
-                        ticks: { color: colors.text, font: { size: 11 }, callback: (val) => new Intl.NumberFormat('es-PE', {maximumFractionDigits: 0}).format(val) }
-                    },
-                    x: { 
-                        display: true,
-                        grid: { 
-                            display: true,
-                            color: colors.grid,
-                            drawBorder: true
-                        },
-                        ticks: { color: colors.text, font: { size: 11 } }
-                    }
-                }
-            },
-            plugins: [{
-                id: 'valueLabel',
-                afterDatasetsDraw(chart) {
-                    const {ctx} = chart;
-                    ctx.save();
-                    ctx.fillStyle = colors.text;
-                    ctx.textAlign = 'center';
-                    ctx.font = '10px system-ui';
-                    
-                    chart.data.datasets.forEach((dataset, datasetIndex) => {
-                        const meta = chart.getDatasetMeta(datasetIndex);
-                        meta.data.forEach((bar, i) => {
-                            const val = dataset.data[i] || 0;
-                            if (val > 0) {
-                                const text = new Intl.NumberFormat('es-PE', {maximumFractionDigits: 0}).format(val);
-                                ctx.fillText(text, bar.x, bar.y - 6);
-                            }
-                        });
-                    });
-                    ctx.restore();
-                }
-            }]
-        });
-    }
+    let incomeDayChart;
 
     const formatCurrency = (value, currency) => {
         const symbol = currency === 'soles' ? 'S/. ' : 'US$ ';
         return symbol + new Intl.NumberFormat('es-PE', { style: 'decimal', maximumFractionDigits: 2 }).format(value || 0);
     };
 
-    // 2. Prima Neta Mensual (line chart)
+    // Prima Neta + Comisiones Mensuales (barras agrupadas por color)
     function initIncomeDayChart(currency = 'soles') {
         const ctxIncome = document.getElementById('incomeDayChart');
         if (!ctxIncome) return;
@@ -144,11 +42,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const dailyLabels = data.months || ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
         
         // Use data from DB instead of client-side conversion
-        const chartData = currency === 'soles' 
+        const chartDataPrima = currency === 'soles' 
             ? (data.totals_prima_soles || new Array(dailyLabels.length).fill(0))
             : (data.totals_prima_usd || new Array(dailyLabels.length).fill(0));
+
+        const chartDataComision = currency === 'soles'
+            ? (data.totals_comision_soles || new Array(dailyLabels.length).fill(0))
+            : (data.totals_comision_usd || new Array(dailyLabels.length).fill(0));
             
-        const totalValue = chartData.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
+        const totalValue = chartDataPrima.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
         
         const gradient = ctxIncome.getContext('2d').createLinearGradient(0, 0, 0, 400);
         if (colors.isDark) {
@@ -159,21 +61,41 @@ document.addEventListener('DOMContentLoaded', () => {
             gradient.addColorStop(1, 'rgba(57, 154, 214, 0.1)');
         }
 
+        const comisionGradient = ctxIncome.getContext('2d').createLinearGradient(0, 0, 0, 400);
+        if (colors.isDark) {
+            comisionGradient.addColorStop(0, '#10b981');
+            comisionGradient.addColorStop(1, '#34d399');
+        } else {
+            comisionGradient.addColorStop(0, '#28a745');
+            comisionGradient.addColorStop(1, '#5dd39e');
+        }
+
         if (incomeDayChart) incomeDayChart.destroy();
 
         incomeDayChart = new Chart(ctxIncome, {
             type: 'bar',
             data: {
                 labels: dailyLabels,
-                datasets: [{
-                    label: 'Prima Neta',
-                    data: chartData,
-                    backgroundColor: gradient,
-                    borderColor: colors.isDark ? 'transparent' : '#1F59A3',
-                    borderWidth: 1,
-                    borderRadius: 6,
-                    barThickness: 30
-                }]
+                datasets: [
+                    {
+                        label: 'Prima Neta',
+                        data: chartDataPrima,
+                        backgroundColor: gradient,
+                        borderColor: colors.isDark ? 'transparent' : '#1F59A3',
+                        borderWidth: 1,
+                        borderRadius: 6,
+                        barThickness: 16
+                    },
+                    {
+                        label: 'Comisión',
+                        data: chartDataComision,
+                        backgroundColor: comisionGradient,
+                        borderColor: colors.isDark ? 'transparent' : '#28a745',
+                        borderWidth: 1,
+                        borderRadius: 6,
+                        barThickness: 16
+                    }
+                ]
             },
             options: {
                 responsive: true,
@@ -191,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         callbacks: {
                             label: function(context) {
                                 const symbol = currency === 'soles' ? 'S/. ' : 'US$ ';
-                                return symbol + new Intl.NumberFormat('es-PE', { style: 'decimal', maximumFractionDigits: 2 }).format(context.parsed.y);
+                                return `${context.dataset.label}: ${symbol}${new Intl.NumberFormat('es-PE', { style: 'decimal', maximumFractionDigits: 2 }).format(context.parsed.y)}`;
                             }
                         }
                     }
@@ -222,29 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 }
-            },
-            plugins: [{
-                id: 'valueLabelTop',
-                afterDatasetsDraw(chart) {
-                    const {ctx} = chart;
-                    ctx.save();
-                    ctx.fillStyle = colors.text;
-                    ctx.textAlign = 'center';
-                    ctx.font = '10px system-ui';
-                    
-                    chart.data.datasets.forEach((dataset, datasetIndex) => {
-                        const meta = chart.getDatasetMeta(datasetIndex);
-                        meta.data.forEach((bar, i) => {
-                            const val = dataset.data[i] || 0;
-                            if (val > 0) {
-                                const text = new Intl.NumberFormat('es-PE', {maximumFractionDigits: 0}).format(val);
-                                ctx.fillText(text, bar.x, bar.y - 6);
-                            }
-                        });
-                    });
-                    ctx.restore();
-                }
-            }]
+            }
         });
 
         const totalLabel = document.getElementById('dailyTotalLabel');
@@ -269,23 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    document.querySelectorAll('.prod-currency-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const currency = e.target.getAttribute('data-currency');
-            document.querySelectorAll('.prod-currency-btn').forEach(b => {
-                b.classList.remove('active');
-                b.classList.add('text-muted');
-            });
-            e.target.classList.add('active');
-            e.target.classList.remove('text-muted');
-            
-            // Update Production Chart
-            initProductionChart(currency);
-        });
-    });
-
     // Initial load
-    initProductionChart();
     initIncomeDayChart();
 
     // 3. Doughnut Chart: Distribución
