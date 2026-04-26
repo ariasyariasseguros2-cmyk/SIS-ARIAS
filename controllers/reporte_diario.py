@@ -20,6 +20,11 @@ def get_reporte_diario_data(filters=None):
                     p.poliza
                 ) AS poliza,
                 COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                    p.recibo
+                ) AS recibo,
+                COALESCE(
                     CAST(AES_DECRYPT(FROM_BASE64(p.contrato_nro), @SIS_KEY) AS CHAR),
                     CAST(AES_DECRYPT(p.contrato_nro, @SIS_KEY) AS CHAR),
                     p.contrato_nro
@@ -80,7 +85,7 @@ def get_reporte_diario_data(filters=None):
 # ─────────────────────────────────────────────
 
 HEADERS = [
-    "N°", "Póliza", "Cliente", "Compañía", "Ramo", "Producto",
+    "N°", "Póliza", "Recibo", "Cliente", "Compañía", "Ramo", "Producto",
     "Moneda", "Prima Total", "Vig. Desde", "Vig. Hasta",
     "Ejecutivo", "Sub Agente", "Estado", "Registrado por", "Hora registro",
 ]
@@ -91,6 +96,7 @@ def _build_table_rows(rows):
         result.append([
             i,
             r.get("poliza") or r.get("contrato_nro") or r.get("nro") or "",
+            r.get("recibo") or "",
             r.get("cliente") or "",
             r.get("cia") or "",
             r.get("ramo") or "",
@@ -123,7 +129,7 @@ def export_excel(upload_folder: str):
     ws.title = "Reporte Diario"
 
     # Título
-    ws.merge_cells("A1:O1")
+    ws.merge_cells("A1:P1")
     title_cell = ws["A1"]
     title_cell.value = f"REPORTE DIARIO DE PÓLIZAS — {today_str}"
     title_cell.font = Font(bold=True, size=13, color="FFFFFF")
@@ -153,7 +159,7 @@ def export_excel(upload_folder: str):
             cell.border = border
             cell.fill = fill
             cell.font = Font(size=9)
-            if ci == 8:
+            if ci == 9:
                 cell.number_format = '#,##0.00'
                 cell.alignment = Alignment(horizontal="right")
             elif ci == 1:
@@ -161,13 +167,13 @@ def export_excel(upload_folder: str):
 
     # Fila totales
     total_row = len(table_rows) + 3
-    ws.cell(row=total_row, column=7, value="TOTAL").font = Font(bold=True, size=9)
-    ws.cell(row=total_row, column=8, value=sum(r[7] for r in table_rows)).font = Font(bold=True, size=9)
-    ws.cell(row=total_row, column=8).number_format = '#,##0.00'
-    ws.cell(row=total_row, column=8).alignment = Alignment(horizontal="right")
+    ws.cell(row=total_row, column=8, value="TOTAL").font = Font(bold=True, size=9)
+    ws.cell(row=total_row, column=9, value=sum(r[8] for r in table_rows)).font = Font(bold=True, size=9)
+    ws.cell(row=total_row, column=9).number_format = '#,##0.00'
+    ws.cell(row=total_row, column=9).alignment = Alignment(horizontal="right")
 
     # Ancho columnas
-    col_widths = [5, 16, 30, 16, 22, 22, 10, 14, 13, 13, 16, 16, 12, 16, 14]
+    col_widths = [5, 16, 16, 30, 16, 22, 22, 10, 14, 13, 13, 16, 16, 12, 16, 14]
     for i, w in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -238,12 +244,13 @@ def export_pdf(upload_folder: str):
     )
 
     # Ancho total útil disponible (cm): 29.7 - 0.8*2 = 28.1 cm
-    # Columnas: N°, Póliza, Cliente, Cia, Ramo, Mon, Prima, Desde, Hasta, Ejec, Estado, RegPor, Hora
-    # Totales:  0.8  2.5    5.5     3.0  3.5   1.6  2.6    2.2    2.2    3.0   2.2     2.5    1.5  = 33.1? reducir
+    # Columnas: N°, Póliza, Recibo, Cliente, Cia, Ramo, Mon, Prima, Desde, Hasta, Ejec, Estado, RegPor, Hora
+    # Totales:  0.8  2.5    2.5     5.5     3.0  3.5   1.6  2.6    2.2    2.2    3.0   2.2     2.5    1.5  = 36.1? reducir
     # Ajuste fino para que sumen ≤ 28.1 cm:
     col_w = [
         0.7*cm,   # N°
         2.4*cm,   # Póliza
+        2.4*cm,   # Recibo
         5.0*cm,   # Cliente
         2.8*cm,   # Compañía
         3.2*cm,   # Ramo
@@ -261,17 +268,17 @@ def export_pdf(upload_folder: str):
     scale = available / sum(col_w)
     col_w = [w * scale for w in col_w]
 
-    pdf_headers = ["N°", "Póliza", "Cliente", "Compañía", "Ramo", "Moneda",
+    pdf_headers = ["N°", "Póliza", "Recibo", "Cliente", "Compañía", "Ramo", "Moneda",
                    "Prima Total", "Vig. Desde", "Vig. Hasta", "Ejecutivo",
                    "Estado", "Reg. por", "Hora"]
-    pdf_col_idx = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14]
+    pdf_col_idx = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 13, 14, 15]
 
     # Cabecera con Paragraph para wrap
     data = [[Paragraph(h, header_style) for h in pdf_headers]]
 
     for row in table_rows:
         def cell(i):
-            if i == 7:
+            if i == 8:
                 return Paragraph(f"{row[i]:,.2f}", cell_right)
             elif i == 0:
                 return Paragraph(str(row[i]), cell_center)
@@ -294,7 +301,7 @@ def export_pdf(upload_folder: str):
         ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
     ]))
 
-    total_prima = sum(row[7] for row in table_rows)
+    total_prima = sum(row[8] for row in table_rows)
     total_label = Paragraph(
         f"<b>Total Prima: {total_prima:,.2f}</b> &nbsp;&nbsp; "
         f"<b>Total pólizas: {len(table_rows)}</b>",
