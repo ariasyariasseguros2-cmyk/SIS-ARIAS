@@ -89,8 +89,12 @@ def get_connection():
 
     try:
         cur_cs = cnx.cursor()
-        cur_cs.execute("SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci")
-        cur_cs.execute("SET collation_connection = 'utf8mb4_0900_ai_ci'")
+        try:
+            cur_cs.execute("SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci")
+            cur_cs.execute("SET collation_connection = 'utf8mb4_0900_ai_ci'")
+        except Exception:
+            cur_cs.execute("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci")
+            cur_cs.execute("SET collation_connection = 'utf8mb4_unicode_ci'")
         cur_cs.close()
     except Exception:
         pass

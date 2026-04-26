@@ -335,7 +335,7 @@ CREATE TABLE IF NOT EXISTS clientes (
     idCliente INT AUTO_INCREMENT PRIMARY KEY,
     razon_social VARCHAR(255) NOT NULL,
     tipo_documento ENUM('DNI', 'RUC', 'CE', 'PAS', 'CEX', 'DNI/CEDULA') NOT NULL,
-    numero_documento VARCHAR(100) NOT NULL UNIQUE,
+    numero_documento VARCHAR(100) NOT NULL,
 
     -- Contacto y ubicación
     telefono VARCHAR(100),
@@ -430,6 +430,28 @@ CREATE PROCEDURE sp_insert_cliente (
 )
 BEGIN
     DECLARE v_cliente_id INT;
+    DECLARE v_exists INT DEFAULT 0;
+
+    IF p_numero_documento IS NOT NULL AND TRIM(p_numero_documento) <> '' THEN
+        SELECT COUNT(*)
+        INTO v_exists
+        FROM clientes c
+        WHERE COALESCE(c.activo, 1) = 1
+          AND (
+                CONVERT(
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR(100) CHARACTER SET utf8mb4),
+                        CAST(AES_DECRYPT(c.numero_documento, @SIS_KEY) AS CHAR(100) CHARACTER SET utf8mb4),
+                        CONVERT(c.numero_documento USING utf8mb4)
+                    )
+                    USING utf8mb4
+                ) COLLATE utf8mb4_unicode_ci
+              ) = CONVERT(p_numero_documento USING utf8mb4) COLLATE utf8mb4_unicode_ci;
+
+        IF v_exists > 0 THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El numero_documento ya existe';
+        END IF;
+    END IF;
 
     INSERT INTO clientes (
         razon_social, tipo_documento, numero_documento,
@@ -1826,50 +1848,75 @@ CREATE PROCEDURE sp_update_cliente (
     IN p_usuario_modificacion VARCHAR(50)
 )
 BEGIN
-UPDATE clientes
-SET razon_social = CASE 
-                      WHEN p_razon_social IS NULL OR TRIM(p_razon_social) = '' THEN razon_social
-                      ELSE TO_BASE64(AES_ENCRYPT(p_razon_social, @SIS_KEY))
-                   END,
-    tipo_documento = p_tipo_documento,
-    numero_documento = CASE 
-                          WHEN p_numero_documento IS NULL OR TRIM(p_numero_documento) = '' THEN numero_documento
-                          ELSE TO_BASE64(AES_ENCRYPT(p_numero_documento, @SIS_KEY))
+    DECLARE v_current_num_raw VARCHAR(100);
+    DECLARE v_current_num_plain VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    DECLARE v_new_num_plain VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+    SELECT numero_documento
+    INTO v_current_num_raw
+    FROM clientes
+    WHERE idCliente = p_idCliente
+    LIMIT 1;
+
+    IF v_current_num_raw IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente no encontrado';
+    END IF;
+
+    SET v_current_num_plain = CONVERT(
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(v_current_num_raw), @SIS_KEY) AS CHAR(100) CHARACTER SET utf8mb4),
+            CAST(AES_DECRYPT(v_current_num_raw, @SIS_KEY) AS CHAR(100) CHARACTER SET utf8mb4),
+            CONVERT(v_current_num_raw USING utf8mb4)
+        )
+        USING utf8mb4
+    ) COLLATE utf8mb4_unicode_ci;
+
+    SET v_new_num_plain = NULLIF(TRIM(CONVERT(p_numero_documento USING utf8mb4)), '') COLLATE utf8mb4_unicode_ci;
+
+    UPDATE clientes
+    SET razon_social = CASE
+                          WHEN p_razon_social IS NULL OR TRIM(p_razon_social) = '' THEN razon_social
+                          ELSE TO_BASE64(AES_ENCRYPT(p_razon_social, @SIS_KEY))
                        END,
-    telefono = CASE 
-                  WHEN p_telefono IS NULL OR TRIM(p_telefono) = '' THEN telefono
-                  ELSE TO_BASE64(AES_ENCRYPT(p_telefono, @SIS_KEY))
-               END,
-    celular = p_celular,
-    telefono_sec = p_telefono_sec,
-    subagente = p_subagente,
-    idProductor = p_idProductor,
-    email = CASE 
-               WHEN p_email IS NULL OR TRIM(p_email) = '' THEN email
-               ELSE TO_BASE64(AES_ENCRYPT(p_email, @SIS_KEY))
-            END,
-    direccion = p_direccion,
-    departamento = p_departamento,
-    provincia = p_provincia,
-    distrito = p_distrito,
-    estado = p_estado,
-    tipo_persona = p_tipo_persona,
-    profesion = p_profesion,
-    fecha_ingreso = p_fecha_ingreso,
-    fecha_nacimiento = p_fecha_nacimiento,
-    licencia_num = p_licencia_num,
-    licencia_venc = p_licencia_venc,
-    grupo_economico = p_grupo_economico,
-    giro_negocio = p_giro_negocio,
-    referencia = p_referencia,
-    recomendado_por = p_recomendado_por,
-    recibir_notificaciones = p_recibir_notificaciones,
-    contacto_nombre = p_contacto_nombre,
-    contacto_email = p_contacto_email,
-    contacto_telefono = p_contacto_telefono,
-    usuario_modificacion = p_usuario_modificacion,
-    fecha_modificacion = NOW()
-WHERE idCliente = p_idCliente;
+        tipo_documento = p_tipo_documento,
+        numero_documento = CASE
+                              WHEN v_new_num_plain IS NULL OR v_new_num_plain = v_current_num_plain THEN numero_documento
+                              ELSE TO_BASE64(AES_ENCRYPT(v_new_num_plain, @SIS_KEY))
+                           END,
+        telefono = CASE
+                      WHEN p_telefono IS NULL OR TRIM(p_telefono) = '' THEN telefono
+                      ELSE TO_BASE64(AES_ENCRYPT(p_telefono, @SIS_KEY))
+                   END,
+        celular = p_celular,
+        telefono_sec = p_telefono_sec,
+        subagente = p_subagente,
+        idProductor = p_idProductor,
+        email = CASE
+                   WHEN p_email IS NULL OR TRIM(p_email) = '' THEN email
+                   ELSE TO_BASE64(AES_ENCRYPT(p_email, @SIS_KEY))
+                END,
+        direccion = p_direccion,
+        departamento = p_departamento,
+        provincia = p_provincia,
+        distrito = p_distrito,
+        estado = p_estado,
+        tipo_persona = p_tipo_persona,
+        profesion = p_profesion,
+        fecha_ingreso = p_fecha_ingreso,
+        fecha_nacimiento = p_fecha_nacimiento,
+        licencia_num = p_licencia_num,
+        licencia_venc = p_licencia_venc,
+        grupo_economico = p_grupo_economico,
+        giro_negocio = p_giro_negocio,
+        referencia = p_referencia,
+        recomendado_por = p_recomendado_por,
+        recibir_notificaciones = p_recibir_notificaciones,
+        contacto_nombre = p_contacto_nombre,
+        contacto_email = p_contacto_email,
+        contacto_telefono = p_contacto_telefono,
+        usuario_modificacion = p_usuario_modificacion,
+        fecha_modificacion = NOW()
+    WHERE idCliente = p_idCliente;
 END$$
 
 DELIMITER ;
