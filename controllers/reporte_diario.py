@@ -60,8 +60,9 @@ def get_reporte_diario_data(filters=None):
                 p.creado_en
             FROM polizas p
             LEFT JOIN clientes c ON c.idCliente = p.cliente_id
-            WHERE DATE(p.creado_en) = %s
-              AND p.activo = 1
+                WHERE DATE(p.creado_en) = %s
+                      AND TIME(p.creado_en) >= '07:00:00'
+                      AND p.activo = 1
             ORDER BY p.idPoliza DESC
         """
         cur.execute(sql, (today,))
