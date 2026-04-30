@@ -5,6 +5,7 @@ from flask import session, current_app
 from werkzeug.utils import secure_filename
 import os
 import time
+import re
 from datetime import datetime
 import unicodedata
 
@@ -255,11 +256,17 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                 return None
             try:
                 txt = str(s).strip()
-                # Conservar solo dígitos, separadores y signo
-                raw = ''.join(ch for ch in txt if (ch.isdigit() or ch in '.,-'))
-                if not raw or raw in {'-', '.', ',', '-.', '-,'}:
+                if not txt:
                     return None
-                # Determinar separador decimal por la última aparición de '.' o ','
+                m = re.search(r'[-+]?\d[\d.,]*', txt)
+                if not m:
+                    return None
+                raw = (m.group(0) or '').strip()
+                if not raw:
+                    return None
+                if raw.startswith('+'):
+                    raw = raw[1:]
+
                 last_dot = raw.rfind('.')
                 last_comma = raw.rfind(',')
                 if last_dot == -1 and last_comma == -1:
@@ -292,6 +299,21 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                 return float(cleaned)
             except Exception:
                 return None
+
+        def normalize_dup_key(value: str | None) -> str | None:
+            if value is None:
+                return None
+            try:
+                t = str(value).replace('\u00A0', ' ').strip()
+            except Exception:
+                t = (value or '').strip() if isinstance(value, str) else None
+            if not t:
+                return None
+            try:
+                t = ' '.join(t.split())
+            except Exception:
+                pass
+            return t
 
         # Normalizador a MAYÚSCULAS para campos de texto
         def U(s):
@@ -412,6 +434,27 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                 if res: return res[0]
             return None
 
+        def find_client_id(doc, cursor):
+            if not doc:
+                return None
+            k = get_encrypt_key()
+            cursor.execute(
+                """
+                SELECT idCliente
+                FROM clientes
+                WHERE (
+                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                     OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR)            COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                     OR numero_documento                                           COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                )
+                  AND activo = 1
+                LIMIT 1
+                """,
+                (k, doc, k, doc, doc),
+            )
+            r = cursor.fetchone()
+            return int(r[0]) if r and r[0] is not None else None
+
         # Validar si el cliente existe (por documento o nombre)
         found_doc = find_client_doc(numero_documento, razon_social_selected, cur)
         if not found_doc:
@@ -421,6 +464,24 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
 
         # Actualizar numero_documento con el encontrado (para usarlo como default)
         numero_documento = found_doc
+
+        cliente_id_global = None
+        try:
+            cliente_id_global = find_client_id(numero_documento, cur)
+        except Exception:
+            cliente_id_global = None
+
+        batch_dups = set()
+        for idx, row in enumerate(normalized, start=1):
+            rk = normalize_dup_key(row.get("recibo"))
+            if not rk:
+                continue
+            k = rk.upper()
+            if k in batch_dups:
+                cur.close()
+                cnx.close()
+                return {"ok": False, "errors": [f"Fila {idx}: el recibo está repetido en el mismo guardado: {rk}"]}
+            batch_dups.add(k)
 
         inserted = 0
 
@@ -476,6 +537,35 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                     }
 
                 target_doc = found_row_doc
+
+            if row.get("recibo") is not None:
+                rk = normalize_dup_key(row.get("recibo"))
+            else:
+                rk = None
+            if rk:
+                try:
+                    cid = cliente_id_global if (target_doc == numero_documento) else find_client_id(target_doc, cur)
+                except Exception:
+                    cid = None
+                if cid:
+                    cur.execute(
+                        """
+                        SELECT 1
+                        FROM polizas
+                        WHERE cliente_id = %s
+                          AND TRIM(COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
+                                recibo
+                              )) COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                        LIMIT 1
+                        """,
+                        (cid, rk),
+                    )
+                    if cur.fetchone():
+                        cur.close()
+                        cnx.close()
+                        return {"ok": False, "errors": [f"El recibo ya existe para este cliente: {rk}"]}
 
             # AUTOCOMPLETAR % COMISIÓN COMPAÑÍA DESDE comisiones_temp (por compañía + producto/ramo)
             try:
@@ -823,6 +913,23 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
 
             except mysql.connector.Error as err:
                 # Detecta SIGNAL SQLSTATE '45000' del SP (duplicado / cliente no existe)
+                if getattr(err, 'errno', None) == 1062:
+                    try:
+                        cnx.rollback()
+                    except Exception:
+                        pass
+                    try:
+                        cur.close()
+                    except Exception:
+                        pass
+                    try:
+                        cnx.close()
+                    except Exception:
+                        pass
+                    msg = str(getattr(err, 'msg', err))
+                    if 'uk_polizas_cliente_recibo' in msg:
+                        return {"ok": False, "errors": ["El recibo ya existe para este cliente."]}
+                    return {"ok": False, "errors": [msg]}
                 if getattr(err, 'sqlstate', '') == '45000':
                     try:
                         cnx.rollback()
