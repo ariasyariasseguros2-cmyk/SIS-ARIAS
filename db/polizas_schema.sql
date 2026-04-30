@@ -605,6 +605,8 @@ CREATE TABLE IF NOT EXISTS polizas (
     FOREIGN KEY (cliente_id) REFERENCES clientes(idCliente)
 );
 
+CREATE UNIQUE INDEX uk_polizas_cliente_recibo ON polizas (cliente_id, recibo);
+
 -- Tabla para archivos de pólizas (separada)
 CREATE TABLE IF NOT EXISTS poliza_archivos (
     idArchivo INT AUTO_INCREMENT PRIMARY KEY,
@@ -704,6 +706,7 @@ BEGIN
     DECLARE v_exists INT DEFAULT 0;
     DECLARE v_msg VARCHAR(255);
     DECLARE v_key VARCHAR(50); -- clave para duplicados: contrato_nro o recibo
+    DECLARE v_recibo_key VARCHAR(50); -- recibo normalizado
     DECLARE v_poliza_id INT;
     DECLARE v_usuario_registro_nombre VARCHAR(100);
 
@@ -721,6 +724,24 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente no existe';
     END IF;
 
+    -- Validar duplicado por recibo (por cliente)
+    SET v_recibo_key = NULLIF(TRIM(IFNULL(p_recibo, '')), '');
+    IF v_recibo_key IS NOT NULL THEN
+        SELECT COUNT(*) INTO v_exists
+        FROM polizas
+        WHERE cliente_id = v_cliente_id
+          AND TRIM(COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR),
+                CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
+                recibo
+              )) COLLATE utf8mb4_0900_ai_ci = v_recibo_key COLLATE utf8mb4_0900_ai_ci;
+
+        IF v_exists > 0 THEN
+            SET v_msg = CONCAT('El recibo ya existe para este cliente: ', v_recibo_key);
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+        END IF;
+    END IF;
+
     -- Normalizar clave de duplicado: primero contrato_nro, si no, recibo
     SET v_key = NULLIF(TRIM(IFNULL(p_contrato_nro, '')), '');
     IF v_key IS NULL THEN
@@ -732,14 +753,26 @@ BEGIN
         SELECT COUNT(*) INTO v_exists
         FROM polizas
         WHERE cliente_id = v_cliente_id
-          AND poliza COLLATE utf8mb4_0900_ai_ci = p_poliza COLLATE utf8mb4_0900_ai_ci
+          AND TRIM(COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                poliza
+              )) COLLATE utf8mb4_0900_ai_ci = TRIM(p_poliza) COLLATE utf8mb4_0900_ai_ci
           AND (
-               contrato_nro COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci
-            OR recibo COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci
+               TRIM(COALESCE(
+                   CAST(AES_DECRYPT(FROM_BASE64(contrato_nro), @SIS_KEY) AS CHAR),
+                   CAST(AES_DECRYPT(contrato_nro, @SIS_KEY) AS CHAR),
+                   contrato_nro
+               )) COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci
+            OR TRIM(COALESCE(
+                   CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR),
+                   CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
+                   recibo
+               )) COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci
           );
 
         IF v_exists > 0 THEN
-            SET v_msg = CONCAT('Póliza ya existe con mismo número y contrato: ', p_poliza, ' / ', p_contrato_nro);
+            SET v_msg = CONCAT('Póliza ya existe con mismo número y contrato/recibo: ', p_poliza, ' / ', v_key);
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
         END IF;
     END IF;
