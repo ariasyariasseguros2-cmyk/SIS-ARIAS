@@ -99,14 +99,14 @@ def lookup_commission_pct(cnx_, cia_txt: str | None, candidates: list[str]) -> f
                 continue
             cdict.execute(
                 """
-                SELECT 
-                  pos_eps, pos_vsr, pos_sr, pacifico, sanitas, protecta, mapfre, crecer, ohio_natural, factor
+                SELECT
+                    pos_eps, pos_vsr, pos_sr, pacifico, sanitas, protecta, mapfre, crecer, ohio_natural, factor
                 FROM comisiones_temp
                 WHERE UPPER(producto_abrev) = %s
                    OR UPPER(producto) = %s
                    OR UPPER(ramo_abreviacion) = %s
                    OR UPPER(ramo_nombre) = %s
-                LIMIT 1
+                    LIMIT 1
                 """,
                 (val, val, val, val)
             )
@@ -212,7 +212,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
     try:
         if items:
             print(f"[DEBUG] save_polizas items[0]: {items[0]}")
-        
+
         if selected:
             print(f"[DEBUG] save_polizas selected: {selected}")
             print(f"[DEBUG] pdf_filename in selected: {selected.get('pdf_filename')}")
@@ -304,7 +304,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
         tipo_vigencia_selected = normalize_tipo_vigencia((selected or {}).get("tipo_vigencia") or "")
         if tipo_vigencia_selected and tipo_vigencia_selected not in {"ANUAL", "DECLARACION MENSUAL", "PERIODICA", "NO RENOVABLE", "EVENTUAL", "FLOTANTE"}:
             return {"ok": False, "errors": ["Tipo de vigencia inválido. Verifica el valor seleccionado."]}
-        
+
         if not numero_documento and not razon_social_selected:
             return {"ok": False, "errors": ["Falta seleccionar cliente (documento o nombre)."]}
 
@@ -343,12 +343,12 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
             if session.get('user'):
                 c2 = cnx.cursor()
                 c2.execute("""
-                    SELECT e.nombre
-                    FROM usuarios u
-                    LEFT JOIN ejecutivos e ON e.idEjecutivo = u.id_ejecutivo
-                    WHERE u.username COLLATE utf8mb4_0900_ai_ci = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_0900_ai_ci
-                    LIMIT 1
-                """, (session.get('user'),))
+                           SELECT e.nombre
+                           FROM usuarios u
+                                    LEFT JOIN ejecutivos e ON e.idEjecutivo = u.id_ejecutivo
+                           WHERE u.username COLLATE utf8mb4_0900_ai_ci = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_0900_ai_ci
+                               LIMIT 1
+                           """, (session.get('user'),))
                 r2 = c2.fetchone()
                 if r2 and r2[0]:
                     default_ejecutivo = r2[0]
@@ -376,38 +376,38 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
             if doc:
                 k = get_encrypt_key()
                 cursor.execute("""
-                    SELECT 
-                        COALESCE(
-                            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
-                            CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
-                            numero_documento
-                        ) AS n
-                    FROM clientes 
-                    WHERE 
-                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) = %s
-                        OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) = %s
-                        OR numero_documento = %s
-                    LIMIT 1
-                """, (k, k, k, doc, k, doc, doc))
+                               SELECT
+                                   COALESCE(
+                                           CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
+                                           CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
+                                           numero_documento
+                                   ) AS n
+                               FROM clientes
+                               WHERE
+                                   CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) = %s
+                                  OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) = %s
+                                  OR numero_documento = %s
+                                   LIMIT 1
+                               """, (k, k, k, doc, k, doc, doc))
                 res = cursor.fetchone()
                 if res: return res[0]
             # Fallback: nombre (razon_social)
             if name:
                 k = get_encrypt_key()
                 cursor.execute("""
-                    SELECT 
-                        COALESCE(
-                            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
-                            CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
-                            numero_documento
-                        ) AS n
-                    FROM clientes 
-                    WHERE 
-                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR) = %s
-                        OR CAST(AES_DECRYPT(razon_social, %s) AS CHAR) = %s
-                        OR razon_social = %s
-                    LIMIT 1
-                """, (k, k, k, name, k, name, name))
+                               SELECT
+                                   COALESCE(
+                                           CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
+                                           CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
+                                           numero_documento
+                                   ) AS n
+                               FROM clientes
+                               WHERE
+                                   CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR) = %s
+                                  OR CAST(AES_DECRYPT(razon_social, %s) AS CHAR) = %s
+                                  OR razon_social = %s
+                                   LIMIT 1
+                               """, (k, k, k, name, k, name, name))
                 res = cursor.fetchone()
                 if res: return res[0]
             return None
@@ -418,7 +418,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
             cur.close()
             cnx.close()
             return {"ok": False, "errors": ["El cliente no existe (ni por documento ni por nombre), debes registrar cliente nuevo"]}
-        
+
         # Actualizar numero_documento con el encontrado (para usarlo como default)
         numero_documento = found_doc
 
@@ -452,9 +452,9 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
             # NUEVO: Validar cliente de la fila (por documento o nombre)
             row_doc = row.get("numero_documento_extracted")
             row_name = row.get("contratante") or row.get("razon_social")
-            
+
             target_doc = numero_documento # Default: el seleccionado globalmente
-            
+
             if row_doc or row_name:
                 found_row_doc = find_client_doc(row_doc, row_name, cur)
                 if not found_row_doc:
@@ -462,19 +462,19 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                     cnx.close()
                     err_ident = row_doc or row_name
                     return {"ok": False, "errors": [f"El cliente '{err_ident}' (extraído del PDF) no existe. Debes registrar cliente nuevo."]}
-                
+
                 # VALIDACIÓN ADICIONAL: Si se seleccionó un cliente explícito y el PDF trae otro, RECHAZAR.
                 # numero_documento viene del 'selected' global. found_row_doc es lo que hallamos en la BD para el PDF.
                 if numero_documento and found_row_doc != numero_documento:
                     cur.close()
                     cnx.close()
                     return {
-                        "ok": False, 
+                        "ok": False,
                         "errors": [
                             f"La proforma/cupón corresponde al cliente dni/ruc {found_row_doc}, estás intentando guardarlo en la cuenta de dni/ruc {numero_documento}. Verifica el archivo o cambia de cliente."
                         ]
                     }
-                
+
                 target_doc = found_row_doc
 
             # AUTOCOMPLETAR % COMISIÓN COMPAÑÍA DESDE comisiones_temp (por compañía + producto/ramo)
@@ -501,6 +501,55 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
             except Exception as _e:
                 # Falla silenciosa: no bloquear guardado si no se puede autocompletar
                 pass
+
+            # VALIDACION: evitar recibo duplicado para el cliente
+            try:
+                recibo_key = U(row.get("recibo") or "")
+                if recibo_key:
+                    cur.execute(
+                        """
+                        SELECT idCliente
+                        FROM clientes
+                        WHERE (
+                            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR) COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                                OR CAST(AES_DECRYPT(numero_documento, @SIS_KEY) AS CHAR)            COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                                OR numero_documento                                                 COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                            )
+                          AND activo = 1
+                            LIMIT 1
+                        """,
+                        (target_doc, target_doc, target_doc)
+                    )
+                    row_cli = cur.fetchone()
+                    if row_cli and row_cli[0]:
+                        cur.execute(
+                            """
+                            SELECT 1
+                            FROM polizas
+                            WHERE cliente_id = %s
+                              AND TRIM(COALESCE(
+                                    CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR),
+                                    CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
+                                    recibo
+                                       )) COLLATE utf8mb4_0900_ai_ci = TRIM(%s) COLLATE utf8mb4_0900_ai_ci
+                                LIMIT 1
+                            """,
+                            (row_cli[0], recibo_key)
+                        )
+                        if cur.fetchone():
+                            cur.close()
+                            cnx.close()
+                            return {"ok": False, "errors": [f"El recibo ya existe para este cliente: {recibo_key}"]}
+            except Exception as e_dup:
+                try:
+                    cur.close()
+                except Exception:
+                    pass
+                try:
+                    cnx.close()
+                except Exception:
+                    pass
+                return {"ok": False, "errors": [f"No se pudo validar duplicado de recibo: {e_dup}"]}
 
             # Determinar ejecutivo efectivo: fila -> seleccionado -> fallback por usuario
             efectivo_ejecutivo = U(row.get("ejecutivo") or (selected or {}).get("ejecutivo") or default_ejecutivo or "")
@@ -588,21 +637,21 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                         k_enc = get_encrypt_key()
                         c_enc = cnx.cursor()
                         c_enc.execute("""
-                            UPDATE polizas SET
-                              asegurado = CASE WHEN %s IS NULL THEN asegurado ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
-                              poliza = CASE WHEN %s IS NULL THEN poliza ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
-                              recibo = CASE WHEN %s IS NULL THEN recibo ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
-                              contrato_nro = CASE WHEN %s IS NULL THEN contrato_nro ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
-                              nro = CASE WHEN %s IS NULL THEN nro ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END
-                            WHERE idPoliza = %s
-                        """, (
-                            enc_asegurado, enc_asegurado, k_enc,
-                            enc_poliza, enc_poliza, k_enc,
-                            enc_recibo, enc_recibo, k_enc,
-                            enc_contrato_nro, enc_contrato_nro, k_enc,
-                            enc_nro, enc_nro, k_enc,
-                            real_poliza_id,
-                        ))
+                                      UPDATE polizas SET
+                                                         asegurado = CASE WHEN %s IS NULL THEN asegurado ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
+                                                         poliza = CASE WHEN %s IS NULL THEN poliza ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
+                                                         recibo = CASE WHEN %s IS NULL THEN recibo ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
+                                                         contrato_nro = CASE WHEN %s IS NULL THEN contrato_nro ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END,
+                                                         nro = CASE WHEN %s IS NULL THEN nro ELSE TO_BASE64(AES_ENCRYPT(%s, %s)) END
+                                      WHERE idPoliza = %s
+                                      """, (
+                                          enc_asegurado, enc_asegurado, k_enc,
+                                          enc_poliza, enc_poliza, k_enc,
+                                          enc_recibo, enc_recibo, k_enc,
+                                          enc_contrato_nro, enc_contrato_nro, k_enc,
+                                          enc_nro, enc_nro, k_enc,
+                                          real_poliza_id,
+                                      ))
                         c_enc.close()
                 except Exception as _e_enc:
                     print(f"[save_polizas] Error encrypting new poliza {real_poliza_id}: {_e_enc}")
@@ -613,19 +662,19 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                         if real_poliza_id:
                             for sa in saved_anexos:
                                 cur.execute("""
-                                    INSERT INTO poliza_archivos 
-                                    (poliza_id, numero_poliza, ruta_archivo, nombre_original, ramo, producto, usuario, compania, origen)
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ANEXO')
-                                """, (
-                                    real_poliza_id, 
-                                    row.get('poliza') or row.get('numero_poliza') or "", 
-                                    sa['ruta'], 
-                                    sa['nombre'], 
-                                    row.get('ramo') or "", 
-                                    row.get('ramos_producto') or "", 
-                                    usuario_display, 
-                                    row.get('cia') or ""
-                                ))
+                                            INSERT INTO poliza_archivos
+                                            (poliza_id, numero_poliza, ruta_archivo, nombre_original, ramo, producto, usuario, compania, origen)
+                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ANEXO')
+                                            """, (
+                                                real_poliza_id,
+                                                row.get('poliza') or row.get('numero_poliza') or "",
+                                                sa['ruta'],
+                                                sa['nombre'],
+                                                row.get('ramo') or "",
+                                                row.get('ramos_producto') or "",
+                                                usuario_display,
+                                                row.get('cia') or ""
+                                            ))
                     except Exception as e_anexos:
                         print(f"[save_polizas] Error linking anexos: {e_anexos}")
 
@@ -637,11 +686,11 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                         row_cuotas = [{
                             "cupon": U(row.get("recibo") or ""),
                             "fecha_vencimiento": (
-                                row.get("fecha_vencimiento") or
-                                row.get("vencimiento") or
-                                (selected or {}).get("fecha_vencimiento") or
-                                (selected or {}).get("vencimiento") or
-                                (selected or {}).get("vig_hasta")
+                                    row.get("fecha_vencimiento") or
+                                    row.get("vencimiento") or
+                                    (selected or {}).get("fecha_vencimiento") or
+                                    (selected or {}).get("vencimiento") or
+                                    (selected or {}).get("vig_hasta")
                             ),
                             "moneda": U(row.get("moneda") or "S/."),
                             "importe": row.get("prima_comercial_igv") or row.get("prima_total"),
@@ -662,7 +711,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                         if c_poliza:
                             target_poliza_id = real_poliza_id
                             # (Omitir búsqueda redundante si ya tenemos real_poliza_id)
-                            
+
                             if c_factura:
                                 cur.execute("SELECT 1 FROM cuotas WHERE factura = %s AND activo = 1 LIMIT 1", (c_factura,))
                                 if cur.fetchone():
@@ -721,14 +770,14 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                         row_p = cur.fetchone()
                         pendientes = row_p[0] if row_p and row_p[0] is not None else 0
                         nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'CANCELADO'
-                        
+
                         tdoc_sel = U((selected or {}).get("tipo_doc") or "").strip().upper()
                         est_row = U(row.get("estado") or "").strip().upper()
                         forma_pago_row = U(row.get("forma_pago") or "").strip().upper()
-                        
+
                         if tdoc_sel == 'NETEO' or est_row == 'SIN PRIMA' or forma_pago_row == 'SIN PRIMA':
                             nuevo_estado = 'SIN PRIMA'
-                            
+
                         cur.execute("UPDATE polizas SET estado = %s WHERE idPoliza = %s", (nuevo_estado, real_poliza_id))
                 except Exception as ex_cuota:
                     print(f"[WARNING] Error procesando cuotas: {ex_cuota}")
