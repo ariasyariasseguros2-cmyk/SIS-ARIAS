@@ -17,10 +17,13 @@ window.initEditarPrimasLogic = function(isModal = false) {
         const selectMoneda = document.getElementById('moneda');
         const updateCurrencySymbols = () => {
              if (!selectMoneda) return;
-             const moneda = selectMoneda.value;
-             let symbol = '$';
-             if (moneda === 'S/.' || moneda === 'SOLES' || moneda === 'PEN') {
-                 symbol = 'S/.';
+             const moneda = (selectMoneda.value || '').trim();
+             const monedaNorm = moneda.toUpperCase();
+             let symbol = 'US$';
+             if (monedaNorm === 'S/' || monedaNorm === 'S/.' || monedaNorm === 'SOLES' || monedaNorm === 'PEN') {
+                 symbol = 'S/';
+             } else if (monedaNorm === 'US$' || monedaNorm === 'USD' || monedaNorm === 'DOLARES' || monedaNorm === '$') {
+                 symbol = 'US$';
              }
              document.querySelectorAll('.currency-symbol').forEach(el => el.textContent = symbol);
         };

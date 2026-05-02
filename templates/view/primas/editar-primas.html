@@ -133,7 +133,7 @@
                         <label for="moneda" class="form-label">Moneda <span class="text-danger">*</span></label>
                         <select class="form-select" id="moneda">
                             <option value="US$" {% if prima and prima.moneda in ['US$', 'DOLARES', 'USD'] %}selected{% endif %}>US$</option>
-                            <option value="S/." {% if prima and prima.moneda in ['S/.', 'SOLES', 'PEN'] %}selected{% endif %}>S/.</option>
+                            <option value="S/" {% if prima and prima.moneda in ['S/', 'S/.', 'SOLES', 'PEN'] %}selected{% endif %}>S/</option>
                         </select>
                     </div>
                 </div>
