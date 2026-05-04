@@ -3654,6 +3654,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
 
                 if data and not data.get('error') and data.get('poliza'):
                     it = {
+                        'cia': 'Pacífico',
                         'numero_poliza': data.get('poliza'),
                         'recibo': data.get('recibo', ''),  # Added field
                         'colectivo_asegurado': data.get('asegurado'),  # Added field

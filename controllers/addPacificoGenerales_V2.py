@@ -35,6 +35,15 @@ def addPacificoGenerales_V2(filepath):
         data["error"] = f"Error al leer PDF: {str(e)}"
         print(f"[PacificoGeneralesV2] Error: {e}")
         return data
+    
+    try:
+        compact = re.sub(r"\s+", "", (text or "").upper())
+        if ("US$" in compact) or ("U$S" in compact) or ("USD" in compact) or ("DOLARES" in compact) or ("DÓLARES" in compact):
+            data["moneda"] = "US$"
+        elif ("S/." in compact) or ("S/" in compact) or ("SOLES" in compact) or ("PEN" in compact):
+            data["moneda"] = "S/."
+    except Exception:
+        pass
 
     # 1. Póliza
     # Matches: Póliza : 13404419, Póliza N°: 13404419, Póliza No 13404419-65874107
@@ -53,10 +62,19 @@ def addPacificoGenerales_V2(filepath):
 
     # 2. Vigencia
     # Vigencia : 18/01/2026 - 18/01/2027
-    m_vig = re.search(r'Vigencia\s*[:.]?\s*(\d{2}/\d{2}/\d{4})\s*-\s*(\d{2}/\d{2}/\d{4})', text, re.IGNORECASE)
+    m_vig = re.search(
+        r'Vigencia\s*[:.]?\s*(\d{2}/\d{2}/\d{4})(?:\s*-\s*(\d{2}/\d{2}/\d{4}))?',
+        text,
+        re.IGNORECASE,
+    )
+    if not m_vig:
+        m_vig = re.search(r'Vigencia\s*\n\s*(\d{2}/\d{2}/\d{4})', text, re.IGNORECASE)
+    if not m_vig:
+        m_vig = re.search(r'(\d{2}/\d{2}/\d{4})\s*\n\s*Vigencia\b', text, re.IGNORECASE)
     if m_vig:
         data["inicio"] = m_vig.group(1)
-        data["fin"] = m_vig.group(2)
+        if len(m_vig.groups()) > 1 and m_vig.group(2):
+            data["fin"] = m_vig.group(2)
 
     # 2.2 Fecha de Pago (Cronograma - Vencimiento Cuota)
     # Buscamos la primera fecha en el cronograma: 1/04 01/02/2026
