@@ -1012,9 +1012,7 @@
     });
 
     if (btnSave) {
-      const hasTipoDoc = ((tipoDocTopEl?.value || '').toString().trim() !== '');
-      const hasTipoPago = ((tipoPagoTopEl?.value || '').toString().trim() !== '');
-      btnSave.disabled = items.length === 0 || !hasTipoDoc || !hasTipoPago;
+      btnSave.disabled = items.length === 0;
     }
     if (hint) hint.textContent = items.length ? `Se extrajeron ${items.length} ítem(s). Revisa y guarda.` : 'Sube un PDF para ver información.';
     const total = sumCommission(items);
@@ -2509,6 +2507,123 @@
     try { if (pdfFrameEl) pdfFrameEl.src = 'about:blank'; } catch (e) {}
   });
 
+  function __rowFieldValue(index, field) {
+    const td = getTd(index, field);
+    if (!td) {
+      const v = extractedItems && extractedItems[index] ? extractedItems[index][field] : '';
+      return (v == null) ? '' : String(v).trim();
+    }
+    const sel = td.querySelector('select');
+    if (sel) return (sel.value || '').toString().trim();
+    const inp = td.querySelector('input');
+    if (inp) return (inp.value || '').toString().trim();
+    return (td.textContent || '').toString().trim();
+  }
+
+  function __focusRowField(index, field) {
+    const td = getTd(index, field);
+    if (!td) return;
+    const el = td.querySelector('input,select') || td;
+    try { el.focus(); } catch (_) {}
+  }
+
+  function __warnMissing(title, text, focusFn) {
+    if (window.Swal) Swal.fire({ icon: 'warning', title, text });
+    else alert(text);
+    try { if (typeof focusFn === 'function') focusFn(); } catch (_) {}
+  }
+
+  function __validateBeforeSave() {
+    const tipoDocSel = (tipoDocTopEl?.value || '').toString().trim();
+    if (!tipoDocSel) {
+      __warnMissing('Falta completar', 'Selecciona el Tipo de Doc antes de guardar.', () => tipoDocTopEl?.focus());
+      return false;
+    }
+    const tipoPagoSel = (tipoPagoTopEl?.value || '').toString().trim();
+    if (!tipoPagoSel) {
+      __warnMissing('Falta completar', 'Selecciona el Tipo de Pago antes de guardar.', () => tipoPagoTopEl?.focus());
+      return false;
+    }
+
+    const subAg = (document.getElementById('subAgenteTop')?.value || document.getElementById('subAgente')?.value || '').toString().trim();
+    if (!subAg) {
+      __warnMissing('Falta completar', 'Selecciona el Sub Agente antes de guardar.', () => document.getElementById('subAgenteTop')?.focus());
+      return false;
+    }
+    const ej = (ejecutivoTopEl?.value || '').toString().trim();
+    if (!ej) {
+      __warnMissing('Falta completar', 'Selecciona el Ejecutivo de Cuenta antes de guardar.', () => ejecutivoTopEl?.focus());
+      return false;
+    }
+
+    const tipoVigenciaSeleccionada = resolveTipoVigenciaForSave(extractedItems);
+    if (!tipoVigenciaSeleccionada || tipoVigenciaSeleccionada === '__MIXED__') {
+      const msg = tipoVigenciaSeleccionada === '__MIXED__'
+        ? 'Las filas tienen vigencias distintas. Ajusta Inicio/Fin de vigencia para que sean mensual, trimestral o anual.'
+        : 'No se pudo determinar el Tipo de Vigencia. Revisa Inicio y Fin de vigencia (mensual, trimestral o anual).';
+      __warnMissing('Tipo de vigencia', msg, () => {});
+      return false;
+    }
+
+    const required = [
+      ['numero_poliza', 'Póliza'],
+      ['recibo', 'Proforma/Recibo'],
+      ['fecha_emision', 'Fecha Emisión'],
+      ['fecha_vencimiento', 'Fecha Vencimiento'],
+      ['numero_documento_extracted', 'Documento (DNI/RUC)'],
+      ['colectivo_asegurado', 'Asegurado'],
+      ['cia', 'Cía'],
+      ['ramo', 'Ramo'],
+      ['ramos_producto', 'Producto'],
+      ['moneda', 'Moneda'],
+      ['inicio_vigencia', 'Inicio Vigencia'],
+      ['vencimiento', 'Fin Vigencia'],
+      ['prima_neta', 'Prima Neta'],
+      ['prima_comercial', 'Prima Comercial'],
+      ['prima_comercial_igv', 'Prima + IGV'],
+      ['comision_compania_pct', '% Com. Cía'],
+      ['comision_compania_importe', 'Imp. Com. Cía'],
+      ['comision_subagente_pct', '% Com. Sub'],
+      ['comision_subagente_importe', 'Imp. Com. Sub'],
+    ];
+
+    for (let i = 0; i < (extractedItems || []).length; i++) {
+      const neta = __rowFieldValue(i, 'prima_neta');
+      const pct = __rowFieldValue(i, 'comision_compania_pct');
+      const curImp = __rowFieldValue(i, 'comision_compania_importe');
+      if (neta && pct && !curImp) {
+        const calc = computeCommissionAmount(neta, pct);
+        if (calc) {
+          if (extractedItems[i]) extractedItems[i].comision_compania_importe = calc;
+          const inp = tbody.querySelector(`td[data-index="${i}"][data-field="comision_compania_importe"] .imp-comp`);
+          if (inp) inp.value = calc;
+        }
+      }
+      const subPct = __rowFieldValue(i, 'comision_subagente_pct');
+      const curSubImp = __rowFieldValue(i, 'comision_subagente_importe');
+      const base = __rowFieldValue(i, 'comision_compania_importe') || curImp;
+      if (base && subPct && !curSubImp) {
+        const calcSub = computeSubAgentCommissionAmount(base, subPct);
+        if (calcSub) {
+          if (extractedItems[i]) extractedItems[i].comision_subagente_importe = calcSub;
+          const inp = tbody.querySelector(`td[data-index="${i}"][data-field="comision_subagente_importe"] .imp-sub`);
+          if (inp) inp.value = calcSub;
+        }
+      }
+    }
+
+    for (let i = 0; i < (extractedItems || []).length; i++) {
+      for (const [field, label] of required) {
+        const v = __rowFieldValue(i, field);
+        if (!v) {
+          __warnMissing('Campo vacío', `Fila ${i + 1}: "${label}" está vacío.`, () => __focusRowField(i, field));
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   // Guardado manual (btnSave) - UN SOLO HANDLER + GUARD CLAUSE
   btnSave?.addEventListener('click', async (e) => {
     try { e.preventDefault(); } catch (_) {}
@@ -2516,42 +2631,15 @@
     if (isSaving) return; // evita clics repetidos
     isSaving = true;
     try {
-      const tipoDocSel = (tipoDocTopEl?.value || '').toString().trim();
-      if (!tipoDocSel) {
+      if (!__validateBeforeSave()) {
         isSaving = false;
-        if (window.Swal) Swal.fire({ icon: 'warning', title: 'Falta completar', text: 'Selecciona el Tipo de Doc antes de guardar.' });
-        else alert('Selecciona el Tipo de Doc antes de guardar.');
-        if (btnSave) btnSave.disabled = (extractedItems || []).length === 0 || true;
-        return;
-      }
-      const tipoPagoSel = (tipoPagoTopEl?.value || '').toString().trim();
-      if (!tipoPagoSel) {
-        isSaving = false;
-        if (window.Swal) Swal.fire({ icon: 'warning', title: 'Falta completar', text: 'Selecciona el Tipo de Pago antes de guardar.' });
-        else alert('Selecciona el Tipo de Pago antes de guardar.');
-        if (btnSave) {
-          const hasTipoDoc = ((tipoDocTopEl?.value || '').toString().trim() !== '');
-          btnSave.disabled = (extractedItems || []).length === 0 || !hasTipoDoc || true;
-        }
-        return;
-      }
-      const tipoVigenciaSeleccionada = resolveTipoVigenciaForSave(extractedItems);
-      if (!tipoVigenciaSeleccionada || tipoVigenciaSeleccionada === '__MIXED__') {
-        isSaving = false;
-        const msg = tipoVigenciaSeleccionada === '__MIXED__'
-          ? 'Las filas tienen vigencias distintas. Ajusta Inicio/Fin de vigencia para que sean mensual, trimestral o anual.'
-          : 'No se pudo determinar el Tipo de Vigencia. Revisa Inicio y Fin de vigencia (mensual, trimestral o anual).';
-        if (window.Swal) Swal.fire({ icon: 'warning', title: 'Tipo de vigencia', text: msg });
-        else alert(msg);
-        if (btnSave) {
-          const hasTipoDoc = ((tipoDocTopEl?.value || '').toString().trim() !== '');
-          const hasTipoPago = ((tipoPagoTopEl?.value || '').toString().trim() !== '');
-          btnSave.disabled = (extractedItems || []).length === 0 || !hasTipoDoc || !hasTipoPago;
-        }
+        if (btnSave) btnSave.disabled = (extractedItems || []).length === 0;
         return;
       }
       if (btnSave) btnSave.disabled = true;
 
+      const tipoDocSel = (tipoDocTopEl?.value || '').toString().trim();
+      const tipoVigenciaSeleccionada = resolveTipoVigenciaForSave(extractedItems);
       const selected = Object.assign({}, (window.selectedCliente || {}), {
         subagente: (document.getElementById('subAgenteTop')?.value ||
                     document.getElementById('subAgente')?.value ||
@@ -2566,27 +2654,6 @@
         tipo_vigencia: tipoVigenciaSeleccionada,
         pdf_filename: lastUploadedFilename
       });
-
-      const missingDocIdx = (extractedItems || []).findIndex(it => {
-        const doc = (it && it.numero_documento_extracted != null) ? String(it.numero_documento_extracted).trim() : '';
-        return doc === '';
-      });
-      if (missingDocIdx >= 0) {
-        isSaving = false;
-        const msg = `Fila ${missingDocIdx + 1}: falta el número de documento (DNI/RUC) en la columna "Documento".`;
-        if (window.Swal) Swal.fire({ icon: 'warning', title: 'Documento vacío', text: msg });
-        else alert(msg);
-        try {
-          const td = getTd(missingDocIdx, 'numero_documento_extracted');
-          td?.focus();
-        } catch (_) {}
-        if (btnSave) {
-          const hasTipoDoc = ((tipoDocTopEl?.value || '').toString().trim() !== '');
-          const hasTipoPago = ((tipoPagoTopEl?.value || '').toString().trim() !== '');
-          btnSave.disabled = (extractedItems || []).length === 0 || !hasTipoDoc || !hasTipoPago;
-        }
-        return;
-      }
 
       // Asegurar 'asegurado' y limpiar 'ramo' si no coincide con abbrs; forzar ramos_producto desde el bloque superior si existe
       const abbrs = (window.ramosAbbrs || []).map(s => (s || '').trim());
@@ -2700,9 +2767,7 @@
     extractedItems = (extractedItems || []).map(it => ({ ...it, forma_pago: val }));
     render(extractedItems);
     if (btnSave) {
-      const hasTipoDoc = ((tipoDocTopEl?.value || '').toString().trim() !== '');
-      const hasTipoPago = ((tipoPagoTopEl?.value || '').toString().trim() !== '');
-      btnSave.disabled = (extractedItems || []).length === 0 || !hasTipoDoc || !hasTipoPago;
+      btnSave.disabled = (extractedItems || []).length === 0;
     }
   });
 
@@ -2750,9 +2815,7 @@
       }
     }
     if (btnSave) {
-      const hasTipoDoc = ((tipoDocTopEl?.value || '').toString().trim() !== '');
-      const hasTipoPago = ((tipoPagoTopEl?.value || '').toString().trim() !== '');
-      btnSave.disabled = (extractedItems || []).length === 0 || !hasTipoDoc || !hasTipoPago;
+      btnSave.disabled = (extractedItems || []).length === 0;
     }
   });
 
@@ -3125,9 +3188,7 @@
     } else if (facturasListEl) {
       facturasListEl.innerHTML = '';
     }
-    const hasTipoDoc = ((tipoDocTopEl?.value || '').toString().trim() !== '');
-    const hasTipoPago = ((tipoPagoTopEl?.value || '').toString().trim() !== '');
-    if (btnSave) btnSave.disabled = extractedItems.length === 0 || !hasTipoDoc || !hasTipoPago;
+    if (btnSave) btnSave.disabled = extractedItems.length === 0;
   }
 
   // NUEVO: ejecutar el reset al cargar la página y al mostrar (bfcache)
@@ -3150,6 +3211,9 @@
     if (!AUTO_SAVE_ENABLED) return;
     clearTimeout(autoSaveTimer);
     autoSaveTimer = setTimeout(async () => {
+      const tipoDocSel = (tipoDocTopEl?.value || '').toString().trim();
+      const tipoPagoSel = (tipoPagoTopEl?.value || '').toString().trim();
+      if (!tipoDocSel || !tipoPagoSel) return;
       const selected = Object.assign({}, (window.selectedCliente || {}), {
         subagente: (document.getElementById('subAgenteTop')?.value ||
                     document.getElementById('subAgente')?.value ||
