@@ -78,16 +78,59 @@ def _extract_primas(text: str) -> Dict[str, str]:
     out: Dict[str, str] = {}
     money = r"(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})"
 
-    m_neta = re.search(r"prima\s+neta\*?\s*[:：]?\s*" + money, text, flags=re.IGNORECASE | re.DOTALL)
-    m_gastos = re.search(r"gastos?\s+de\s+emisi[oó]n\s*[:：]?\s*" + money, text, flags=re.IGNORECASE | re.DOTALL)
-    m_comercial = re.search(r"prima\s+comercial\s*[:：]?\s*" + money, text, flags=re.IGNORECASE | re.DOTALL)
-    m_total = re.search(r"prima\s+total\s*[:：]?\s*" + money, text, flags=re.IGNORECASE | re.DOTALL)
-    m_igv = re.search(r"I\.?G\.?V\.?\s*[:：]?\s*" + money, text, flags=re.IGNORECASE | re.DOTALL)
+    t = text or ""
+
+    m_cons = re.search(r"consolidado\s+de\s+primas", t, flags=re.IGNORECASE)
+    if m_cons:
+        window = t[m_cons.end() : m_cons.end() + 3500]
+        m_pc = re.search(r"prima\s+comercial\s*[:：]?\s*" + money, window, flags=re.IGNORECASE | re.DOTALL)
+        if m_pc:
+            out["prima_comercial"] = _normalize_amount(m_pc.group(1)) or ""
+        m_igv2 = re.search(r"I\.?G\.?V\.?\s*[:：]?\s*" + money, window, flags=re.IGNORECASE | re.DOTALL)
+        if m_igv2:
+            igv_val = _normalize_amount(m_igv2.group(1)) or ""
+            if igv_val:
+                out["igv"] = igv_val
+        m_tot2 = re.search(r"prima\s+comercial\s*\+\s*I\.?G\.?V\.?[\s\S]{0,60}?" + money, window, flags=re.IGNORECASE | re.DOTALL)
+        if not m_tot2:
+            m_tot2 = re.search(r"prima\s+comercial\s*\+\s*igv[\s\S]{0,60}?" + money, window, flags=re.IGNORECASE | re.DOTALL)
+        if m_tot2:
+            val = _normalize_amount(m_tot2.group(1)) or ""
+            if val:
+                out["prima_total"] = val
+                out["prima_comercial_igv"] = val
+
+    if "prima_comercial" not in out:
+        m_conf = re.search(r"primas?\s+por\s+conformaci[oó]n", t, flags=re.IGNORECASE)
+        if m_conf:
+            window = t[m_conf.end() : m_conf.end() + 2500]
+            nums = re.findall(money, window)
+            vals = []
+            for n in nums:
+                nn = _normalize_amount(n)
+                if nn:
+                    vals.append(nn)
+            try:
+                floats = [float(v) for v in vals]
+            except Exception:
+                floats = []
+            if floats:
+                out["prima_comercial"] = f"{min(floats):.2f}"
+                if len(floats) >= 2:
+                    tot = f"{max(floats):.2f}"
+                    out.setdefault("prima_total", tot)
+                    out.setdefault("prima_comercial_igv", tot)
+
+    m_neta = re.search(r"prima\s+neta\*?\s*[:：]?\s*" + money, t, flags=re.IGNORECASE | re.DOTALL)
+    m_gastos = re.search(r"gastos?\s+de\s+emisi[oó]n\s*[:：]?\s*" + money, t, flags=re.IGNORECASE | re.DOTALL)
+    m_comercial = re.search(r"prima\s+comercial\s*[:：]?\s*" + money, t, flags=re.IGNORECASE | re.DOTALL)
+    m_total = re.search(r"prima\s+total\s*[:：]?\s*" + money, t, flags=re.IGNORECASE | re.DOTALL)
+    m_igv = re.search(r"I\.?G\.?V\.?\s*[:：]?\s*" + money, t, flags=re.IGNORECASE | re.DOTALL)
 
     if m_neta:
         out["prima_neta"] = _normalize_amount(m_neta.group(1)) or ""
 
-    if m_comercial:
+    if m_comercial and not out.get("prima_comercial"):
         out["prima_comercial"] = _normalize_amount(m_comercial.group(1)) or ""
 
     if not out.get("prima_comercial") and m_neta and m_gastos:
@@ -98,17 +141,36 @@ def _extract_primas(text: str) -> Dict[str, str]:
         except Exception:
             pass
 
-    if m_total:
+    if m_total and not out.get("prima_total"):
         val = _normalize_amount(m_total.group(1)) or ""
         out["prima_comercial_igv"] = val
         out["prima_total"] = val
-    elif m_comercial and m_igv:
+    elif m_comercial and m_igv and not out.get("prima_total"):
         try:
             pc = float((_normalize_amount(m_comercial.group(1)) or "0").replace(",", "."))
             igv = float((_normalize_amount(m_igv.group(1)) or "0").replace(",", "."))
             val = f"{pc + igv:.2f}"
             out["prima_comercial_igv"] = val
             out["prima_total"] = val
+        except Exception:
+            pass
+
+    try:
+        pc = float(str(out.get("prima_comercial") or "").strip() or "0")
+        igv = float(str(out.get("igv") or "").strip() or "0")
+        tot = float(str(out.get("prima_total") or "").strip() or "0")
+        if pc > 0 and igv > 0:
+            calc = pc + igv
+            if tot <= pc + 0.01 or abs(calc - tot) > 0.02:
+                out["prima_total"] = f"{calc:.2f}"
+                out["prima_comercial_igv"] = f"{calc:.2f}"
+    except Exception:
+        pass
+
+    if out.get("prima_comercial") and not out.get("prima_neta"):
+        try:
+            pc = float(out["prima_comercial"])
+            out["prima_neta"] = f"{(pc / 1.03):.2f}"
         except Exception:
             pass
 
