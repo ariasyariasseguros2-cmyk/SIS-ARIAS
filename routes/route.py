@@ -2100,6 +2100,10 @@ def upload():
                 cuotas_extraidas = extract_cronograma_cuotas_general(pdf_text_full, moneda_cuotas)
             if cuotas_extraidas:
                 LOG(f"[upload] cronograma detectado: {len(cuotas_extraidas)} cuota(s)")
+                try:
+                    LOG(f"[upload] cronograma primera cuota: {cuotas_extraidas[0]}")
+                except Exception:
+                    pass
                 if len(items_ui) == 1:
                     items_ui[0]['cuotas'] = cuotas_extraidas
                     if not items_ui[0].get('fecha_vencimiento'):
@@ -2114,6 +2118,8 @@ def upload():
                             it['cuotas'] = poliza_to_cuotas[poliza_key]
                             if not it.get('fecha_vencimiento') and it['cuotas']:
                                 it['fecha_vencimiento'] = it['cuotas'][0].get('fecha_vencimiento') or ''
+            else:
+                LOG("[upload] cronograma NO detectado")
         except Exception as e:
             LOG(f"[upload] cronograma parse error: {e}")
         LOG(f"[upload] fechas normalizadas: {[(x.get('ultimo_dia_pago'), x.get('vencimiento')) for x in items_ui]}")
