@@ -1906,12 +1906,13 @@ def upload():
             except Exception:
                 pass
 
-        # Si hay Prima Comercial, derive Prima Neta; o viceversa
         try:
-            if res["prima_comercial"]:
+            has_com = res.get("prima_comercial") is not None and str(res.get("prima_comercial") or "").strip() != ""
+            has_net = res.get("prima_neta") is not None and str(res.get("prima_neta") or "").strip() != ""
+            if has_com and not has_net:
                 val = float(str(res["prima_comercial"]).replace(',', '.').replace(' ', ''))
                 res["prima_neta"] = f"{(val / 1.03):.2f}"
-            elif res["prima_neta"]:
+            elif has_net and not has_com:
                 val = float(str(res["prima_neta"]).replace(',', '.').replace(' ', ''))
                 res["prima_comercial"] = f"{(val * 1.03):.2f}"
         except Exception:
@@ -3664,8 +3665,9 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
                         'ultimo_dia_pago': data.get('fecha_pago'), # Added field
                         'fecha_vencimiento': data.get('fecha_pago'), # Added field
                         'prima_neta': str(data.get('prima_neta', '')),
+                        'prima_total': str(data.get('total', '')),
                         'prima_comercial_igv': str(data.get('total', '')),
-                        'prima_comercial': str(data.get('total', '')), # Duplicamos en prima comercial para asegurar visualizacion
+                        'prima_comercial': str(data.get('prima_neta', '')),
                         'moneda': data.get('moneda'),
                         'ramo': 'SALUD',
                         'ramos_producto': data.get('producto')
@@ -3673,7 +3675,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
 
                     # Ensure prima comercial is set correctly if total exists
                     if data.get('total'):
-                        it['prima_comercial'] = str(data.get('total', ''))
+                        it['prima_total'] = str(data.get('total', ''))
                     items.append(it)
 
             elif is_vida_ley:
