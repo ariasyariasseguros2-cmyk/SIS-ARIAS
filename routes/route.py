@@ -3482,6 +3482,15 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
         elif "positiva" in pnorm and "salud" in pnorm:
             prov = "lpv-salud"
 
+    if prov == "rimac":
+        strong_rimac = (
+            ("rimac seguros" in low) or ("rímac seguros" in low) or ("web vehiculos" in low)
+            or re.search(r"\bNro\.?\s*[:：]?\s*\d{3,6}\s*[-–—]\s*\d{5,12}\b", text, re.IGNORECASE)
+            or re.search(r"pol[ií]za\s*\d{3,6}\s*[-–—]\s*\d{5,12}", text, re.IGNORECASE)
+        )
+        if not strong_rimac:
+            prov = None
+
     if not prov:
         # detección básica por contenido
         # Primero: Vida Ley de Mapfre por patrones de contenido
@@ -3535,7 +3544,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             prov = "protecta"
         elif "sanitas" in t:
             prov = "sanitas"
-        elif ("rimac" in t or "rimac seguros" in t) or re.search(r"\bNro\.?\s*[:：]?\s*\d{3,6}\s*[-–—]\s*\d{5,12}\b", t) or re.search(r"pol[ií]za\s*\d{3,6}\s*-\s*\d{5,12}", t):
+        elif (re.search(r"\br[íi]mac\b", t) or "rimac seguros" in t or "rímac seguros" in t) or re.search(r"\bNro\.?\s*[:：]?\s*\d{3,6}\s*[-–—]\s*\d{5,12}\b", t) or re.search(r"pol[ií]za\s*\d{3,6}\s*-\s*\d{5,12}", t):
             prov = "rimac"
         elif "pacifico" in t or "pacífico" in t:
                 prov = "pacifico"
@@ -3564,7 +3573,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
 
     # Forzar Rimac si aparecen señales claras del encabezado Rimac Generales
     # (ej.: "Web Vehiculos" y "Póliza #### - #######"), incluso si antes se clasificó erróneamente
-    if ("rimac" in t or "rimac seguros" in t or re.search(r"pol[ií]za\s*\d{2,6}\s*[-–—]\s*\d{5,12}", t)) and (re.search(r"\bContratante\b", t, re.IGNORECASE) or re.search(r"\bNro\.?\b", t, re.IGNORECASE)):
+    if ((re.search(r"\br[íi]mac\b", t) or "rimac seguros" in t or "rímac seguros" in t or re.search(r"pol[ií]za\s*\d{2,6}\s*[-–—]\s*\d{5,12}", t)) and (re.search(r"\bContratante\b", t, re.IGNORECASE) or re.search(r"\bNro\.?\b", t, re.IGNORECASE))):
         prov = "rimac"
 
     # NUEVO: si vino 'pacifico' o 'positiva' desde UI pero el contenido dice 'sanitas', fuerza Sanitas

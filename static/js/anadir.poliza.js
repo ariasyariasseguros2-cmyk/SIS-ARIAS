@@ -670,10 +670,23 @@
     }
     return v || '';
   }
+  function __normIssuerText(text) {
+    const s = (text || '').toString().toLowerCase();
+    try {
+      return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    } catch (e) {
+      return s;
+    }
+  }
+  function __hasToken(normText, token) {
+    const t = __normIssuerText(normText);
+    const re = new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`);
+    return re.test(t);
+  }
   function __detectIssuerSlug(text) {
     const t = (text || '').toString().toLowerCase();
     if (!t) return '';
-    if (t.includes('rimac') || t.includes('rímac')) return 'rimac';
+    if (__hasToken(t, 'rimac')) return 'rimac';
     if (t.includes('hdi')) return 'hdi';
     if (t.includes('ohio')) return 'ohio';
     if (t.includes('qualitas') || t.includes('quálitas')) return 'qualitas';
@@ -2303,10 +2316,23 @@
             }
             return v || '';
           }
+          function normIssuerText(text) {
+            const s = (text || '').toString().toLowerCase();
+            try {
+              return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            } catch (e) {
+              return s;
+            }
+          }
+          function hasToken(normText, token) {
+            const t = normIssuerText(normText);
+            const re = new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`);
+            return re.test(t);
+          }
           function detectSlugFromText(text) {
             const t = (text || '').toString().toLowerCase();
             if (!t) return '';
-            if (t.includes('rimac') || t.includes('rímac')) return 'rimac';
+            if (hasToken(t, 'rimac')) return 'rimac';
             if (t.includes('hdi')) return 'hdi';
             if (t.includes('ohio')) return 'ohio';
             if (t.includes('qualitas') || t.includes('quálitas')) return 'qualitas';
