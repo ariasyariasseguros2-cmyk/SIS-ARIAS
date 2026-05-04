@@ -724,7 +724,7 @@
     let cuotasHtml = '';
     if (cuotas.length > 0) {
       cuotasHtml = cuotas.map((c, ci) => `
-        <div class="cuota-row border rounded p-2 mb-2 bg-dark" data-cuota-index="${ci}">
+        <div class="cuota-row border rounded p-2 mb-2" data-cuota-index="${ci}">
           <div class="pane-fields mb-2">
             <div class="field">
               <label class="form-label small mb-1">CUPON</label>

@@ -838,6 +838,15 @@ body {
     line-height: 1;
 }
 
+.cuota-row {
+    background: var(--card-bg);
+    border-color: var(--card-border) !important;
+}
+
+[data-theme='dark'] .cuota-row {
+    background: #141414;
+}
+
 /* Ocultar columnas nativas de Factura y Fecha Pago (20, 21) ya que estarán en el panel derecho */
 .table-custom td:nth-child(20),
 .table-custom td:nth-child(21) {
