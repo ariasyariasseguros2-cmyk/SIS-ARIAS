@@ -3660,7 +3660,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
                         'recibo': data.get('recibo', ''),  # Added field
                         'colectivo_asegurado': data.get('asegurado'),  # Added field
                         'inicio_vigencia': data.get('inicio'),
-                        'vencimiento': data.get('fecha_pago') or data.get('fin'),
+                        'vencimiento': data.get('fin'),
                         'fecha_emision': data.get('emision'),  # Added field
                         'ultimo_dia_pago': data.get('fecha_pago'), # Added field
                         'fecha_vencimiento': data.get('fecha_pago'), # Added field
