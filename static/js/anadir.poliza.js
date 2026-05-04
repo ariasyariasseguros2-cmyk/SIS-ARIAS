@@ -2373,6 +2373,20 @@
           extractedItems = items;
           render(extractedItems);
 
+          try {
+            const missingDocIdx = (extractedItems || []).findIndex(it => {
+              const doc = (it && it.numero_documento_extracted != null) ? String(it.numero_documento_extracted).trim() : '';
+              return doc === '';
+            });
+            if (missingDocIdx >= 0) {
+              const msg = `Fila ${missingDocIdx + 1}: falta el número de documento (DNI/RUC) en la columna "Documento".`;
+              if (window.Swal) Swal.fire({ icon: 'warning', title: 'Documento vacío', text: msg });
+              else alert(msg);
+              const td = getTd(missingDocIdx, 'numero_documento_extracted');
+              td?.focus();
+            }
+          } catch (_) {}
+
           // Autocompletar % comisión de compañía desde la tabla comisiones_temp (servidor)
           try {
             const fillPromises = extractedItems.map(async (it, i) => {
@@ -2552,6 +2566,27 @@
         tipo_vigencia: tipoVigenciaSeleccionada,
         pdf_filename: lastUploadedFilename
       });
+
+      const missingDocIdx = (extractedItems || []).findIndex(it => {
+        const doc = (it && it.numero_documento_extracted != null) ? String(it.numero_documento_extracted).trim() : '';
+        return doc === '';
+      });
+      if (missingDocIdx >= 0) {
+        isSaving = false;
+        const msg = `Fila ${missingDocIdx + 1}: falta el número de documento (DNI/RUC) en la columna "Documento".`;
+        if (window.Swal) Swal.fire({ icon: 'warning', title: 'Documento vacío', text: msg });
+        else alert(msg);
+        try {
+          const td = getTd(missingDocIdx, 'numero_documento_extracted');
+          td?.focus();
+        } catch (_) {}
+        if (btnSave) {
+          const hasTipoDoc = ((tipoDocTopEl?.value || '').toString().trim() !== '');
+          const hasTipoPago = ((tipoPagoTopEl?.value || '').toString().trim() !== '');
+          btnSave.disabled = (extractedItems || []).length === 0 || !hasTipoDoc || !hasTipoPago;
+        }
+        return;
+      }
 
       // Asegurar 'asegurado' y limpiar 'ramo' si no coincide con abbrs; forzar ramos_producto desde el bloque superior si existe
       const abbrs = (window.ramosAbbrs || []).map(s => (s || '').trim());
