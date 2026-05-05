@@ -45,18 +45,18 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC', lim
             WHERE c.activo = 1 AND c.fecha_pago IS NULL
         """
         
-        # Agregar filtros de fecha si existen
-        # Aseguramos que los parámetros sean cadenas limpias y no vacías
-        if fecha_desde:
-            fecha_desde_str = str(fecha_desde).strip()
+        fecha_desde_str = str(fecha_desde).strip() if fecha_desde else ''
+        fecha_hasta_str = str(fecha_hasta).strip() if fecha_hasta else ''
+
+        if fecha_desde_str and fecha_hasta_str and fecha_desde_str == fecha_hasta_str:
+            query += " AND DATE(c.fecha_vencimiento) = %s"
+            params.append(fecha_desde_str)
+        else:
             if fecha_desde_str:
                 query += " AND c.fecha_vencimiento >= %s"
                 params.append(fecha_desde_str)
-            
-        if fecha_hasta:
-            fecha_hasta_str = str(fecha_hasta).strip()
             if fecha_hasta_str:
-                query += " AND c.fecha_vencimiento <= %s"
+                query += " AND c.fecha_vencimiento < DATE_ADD(%s, INTERVAL 1 DAY)"
                 params.append(fecha_hasta_str)
             
         # Ordenar
