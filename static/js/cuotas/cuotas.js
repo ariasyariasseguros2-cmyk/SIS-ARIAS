@@ -1,16 +1,23 @@
 const Cuotas = (() => {
   let allRows = [];
+  let filteredRows = [];
   let pageSize = 20;
+  let currentPage = 1;
   let editIndex = null;
   let confirmModal = null;
   let confirmMessageEl = null;
   let confirmOkBtn = null;
   let confirmCallback = null;
+  let pagerWrap = null;
+  let pagerPrevBtn = null;
+  let pagerNextBtn = null;
+  let pagerInfoEl = null;
 
   function init() {
     const tbody = document.querySelector('#cuotas-table tbody');
     if (!tbody) return;
     allRows = Array.from(tbody.querySelectorAll('tr'));
+    ensurePager();
     applyFilter('');
     recalcTotal();
 
@@ -33,24 +40,90 @@ const Cuotas = (() => {
 
   function applyFilter(query) {
     const q = (query || '').toLowerCase();
-    let shown = 0;
-    allRows.forEach(tr => {
+    filteredRows = allRows.filter(tr => {
       const text = tr.innerText.toLowerCase();
-      const match = text.indexOf(q) !== -1;
-      if (match && shown < pageSize) {
-        tr.style.display = '';
-        shown++;
-      } else {
-        tr.style.display = 'none';
-      }
+      return text.indexOf(q) !== -1;
     });
+    renderPage();
   }
 
-  function onSearch(val) { applyFilter(val); }
+  function onSearch(val) {
+    currentPage = 1;
+    applyFilter(val);
+  }
   function onPageSize(val) {
     pageSize = parseInt(val || '20', 10);
+    currentPage = 1;
     const input = document.getElementById('cuotas-search');
     applyFilter(input ? input.value : '');
+  }
+
+  function ensurePager() {
+    if (pagerWrap) return;
+    const toolbar = document.querySelector('.table-toolbar');
+    if (!toolbar) return;
+    if (document.getElementById('cuotas-pager')) {
+      pagerWrap = document.getElementById('cuotas-pager');
+      pagerPrevBtn = document.getElementById('cuotas-pager-prev');
+      pagerNextBtn = document.getElementById('cuotas-pager-next');
+      pagerInfoEl = document.getElementById('cuotas-pager-info');
+      return;
+    }
+
+    pagerWrap = document.createElement('div');
+    pagerWrap.id = 'cuotas-pager';
+    pagerWrap.className = 'd-flex align-items-center gap-2';
+    pagerWrap.innerHTML = `
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="cuotas-pager-prev">Anterior</button>
+      <span class="text-secondary small" id="cuotas-pager-info"></span>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="cuotas-pager-next">Siguiente</button>
+    `;
+    toolbar.appendChild(pagerWrap);
+
+    pagerPrevBtn = document.getElementById('cuotas-pager-prev');
+    pagerNextBtn = document.getElementById('cuotas-pager-next');
+    pagerInfoEl = document.getElementById('cuotas-pager-info');
+
+    if (pagerPrevBtn) {
+      pagerPrevBtn.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage -= 1;
+          renderPage();
+        }
+      });
+    }
+    if (pagerNextBtn) {
+      pagerNextBtn.addEventListener('click', () => {
+        const totalPages = Math.max(1, Math.ceil((filteredRows || []).length / Math.max(1, pageSize)));
+        if (currentPage < totalPages) {
+          currentPage += 1;
+          renderPage();
+        }
+      });
+    }
+  }
+
+  function renderPage() {
+    const safePageSize = Math.max(1, pageSize || 20);
+    const total = (filteredRows || []).length;
+    const totalPages = Math.max(1, Math.ceil(total / safePageSize));
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    allRows.forEach(tr => { tr.style.display = 'none'; });
+
+    const start = (currentPage - 1) * safePageSize;
+    const end = start + safePageSize;
+    (filteredRows || []).slice(start, end).forEach(tr => { tr.style.display = ''; });
+
+    if (pagerWrap) {
+      pagerWrap.style.display = total > 0 ? '' : 'none';
+    }
+    if (pagerInfoEl) {
+      pagerInfoEl.textContent = total > 0 ? `Página ${currentPage} de ${totalPages} (${total})` : '';
+    }
+    if (pagerPrevBtn) pagerPrevBtn.disabled = currentPage <= 1;
+    if (pagerNextBtn) pagerNextBtn.disabled = currentPage >= totalPages;
   }
 
   function getRow(idx) {

@@ -140,13 +140,24 @@ def get_cuotas_data(
                             p.tipo_doc
                         FROM cuotas c
                         LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
-                        WHERE c.poliza_id = %s
-                          AND c.activo = 1
-                          -- Sanity Check: Exclude receipts incorrectly linked to wrong renewal period
-                          AND (c.fecha_vencimiento <= DATE_ADD(p.vig_hasta, INTERVAL 400 DAY))
+                        WHERE c.activo = 1
+                          AND (
+                            c.poliza_id = %s
+                            OR (
+                              c.poliza_id IS NULL
+                              AND (
+                                CAST(AES_DECRYPT(FROM_BASE64(c.poliza), @SIS_KEY) AS CHAR) = %s
+                                OR c.poliza = %s
+                              )
+                            )
+                          )
+                          AND (
+                            p.vig_hasta IS NULL
+                            OR c.fecha_vencimiento <= DATE_ADD(p.vig_hasta, INTERVAL 400 DAY)
+                          )
                         ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
                         """,
-                        (target_prima_id,),
+                        (target_prima_id, poliza, poliza),
                     )
                     cuota_rows = cur.fetchall() or []
                     try:
@@ -188,7 +199,7 @@ def get_cuotas_data(
                     
                     # Sanity Check: Exclude receipts incorrectly linked to wrong renewal period
                     # Increased to 400 days to allow receipts due significantly after policy end (e.g. data anomalies or long extensions)
-                    sql_query += " AND (c.fecha_vencimiento <= DATE_ADD(p.vig_hasta, INTERVAL 400 DAY)) "
+                    sql_query += " AND (p.vig_hasta IS NULL OR c.fecha_vencimiento <= DATE_ADD(p.vig_hasta, INTERVAL 400 DAY)) "
 
                     sql_query += " ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC "
 
@@ -351,11 +362,10 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                 SELECT idPoliza
                 FROM polizas
                 WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
-                  AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) USING utf8mb4), recibo) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
                 ORDER BY creado_en DESC
                 LIMIT 1
                 """,
-                (poliza, cupon),
+                (poliza,),
             )
             row = cur.fetchone()
             if row:
@@ -430,11 +440,10 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                     SELECT idPoliza
                     FROM polizas
                     WHERE TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza)) = TRIM(%s)
-                      AND TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR), recibo)) = TRIM(%s)
                     ORDER BY creado_en DESC
                     LIMIT 1
                     """,
-                    (poliza, cupon),
+                    (poliza,),
                 )
                 row = cur.fetchone()
                 if row:
