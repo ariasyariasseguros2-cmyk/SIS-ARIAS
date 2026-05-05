@@ -925,8 +925,27 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
             data['fecha_pago'] = normalize_date_token(raw)
 
     try:
-        from controllers.cuotas.VariosCuotasGenerales import extract_cronograma_cuotas_from_text
-        cuotas = extract_cronograma_cuotas_from_text(text, data.get('moneda') or 'S/.')
+        moneda_default = data.get('moneda') or 'S/.'
+        cuotas = []
+        try:
+            from controllers.cuotas.VariosCuotasGenerales import extract_cronograma_cuotas_from_text as extract_general
+            from controllers.cuotas.VariosCuotasPositiva import extract_cronograma_cuotas_positiva
+            from controllers.cuotas.VariosCuotasPacifico import extract_cronograma_cuotas_pacifico
+            from controllers.cuotas.VariosCuponGeneralesRimac import extract_cronograma_cuotas_rimac
+
+            if 'LA POSITIVA' in text_upper or 'POSITIVA' in text_upper:
+                cuotas = extract_cronograma_cuotas_positiva(text, moneda_default)
+            elif 'PACIFICO' in text_fold_upper:
+                cuotas = extract_cronograma_cuotas_pacifico(text, moneda_default)
+            elif 'RIMAC' in text_upper:
+                cuotas = extract_cronograma_cuotas_rimac(text, moneda_default)
+
+            if not cuotas:
+                cuotas = extract_general(text, moneda_default)
+        except Exception:
+            from controllers.cuotas.VariosCuotasGenerales import extract_cronograma_cuotas_from_text as extract_general
+            cuotas = extract_general(text, moneda_default)
+
         if cuotas:
             data['cuotas'] = cuotas
             primera = cuotas[0]

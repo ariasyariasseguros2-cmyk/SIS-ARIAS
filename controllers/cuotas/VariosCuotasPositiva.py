@@ -45,13 +45,11 @@ def extract_cronograma_cuotas_positiva(text: str | None, moneda_default: str | N
         re.IGNORECASE,
     )
 
-    for ln in lines:
-        if re.search(r"Cup[oó]n|N[uú]mero|Vencimiento|Monto", ln, re.IGNORECASE):
-            continue
-        m = row_pattern.search(ln)
-        if not m:
-            continue
+    header_re = re.compile(r"Cup[oó]n|N[uú]mero|Vencimiento|Monto", re.IGNORECASE)
+    data_lines = [ln for ln in lines if not header_re.search(ln)]
+    flat = " ".join(data_lines)
 
+    for m in row_pattern.finditer(flat):
         cupon = (m.group("cupon") or "").strip()
         if not cupon or cupon in seen:
             continue

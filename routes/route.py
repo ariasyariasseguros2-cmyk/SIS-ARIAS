@@ -2138,7 +2138,25 @@ def upload():
             seen.add(key)
             unique.append(it)
 
-        return {'filename': filename, 'items': unique, 'debug': debug_logs, 'provider': detected_provider}, 200
+        provider_final = detected_provider
+        try:
+            if not provider_final:
+                if 'rimac' in pdf_low:
+                    provider_final = 'rimac'
+                elif ('pacifico' in pdf_low) or ('pacífico' in pdf_low):
+                    provider_final = 'pacifico'
+                elif 'sanitas' in pdf_low:
+                    provider_final = 'sanitas'
+                elif ('la positiva' in pdf_low) or ('positiva' in pdf_low) or ('lpv' in pdf_low):
+                    provider_final = 'positiva'
+                elif 'mapfre' in pdf_low:
+                    provider_final = 'mapfre'
+                elif issuer:
+                    provider_final = issuer
+        except Exception:
+            provider_final = detected_provider
+
+        return {'filename': filename, 'items': unique, 'debug': debug_logs, 'provider': provider_final}, 200
 
     # Fallback: comportamiento anterior (un solo objeto)
     extracted = {}
@@ -2225,7 +2243,42 @@ def upload():
     except Exception:
         pass
 
-    return {'filename': filename, 'fields': extracted, 'debug': debug_logs}, 200
+    provider_final = detected_provider
+    try:
+        pdf_text_full = _extract_text_fitz(save_path, password=pdf_password) or ''
+        pdf_low = pdf_text_full.lower()
+        if not provider_final:
+            if 'rimac' in pdf_low:
+                provider_final = 'rimac'
+            elif ('pacifico' in pdf_low) or ('pacífico' in pdf_low):
+                provider_final = 'pacifico'
+            elif 'sanitas' in pdf_low:
+                provider_final = 'sanitas'
+            elif ('la positiva' in pdf_low) or ('positiva' in pdf_low) or ('lpv' in pdf_low):
+                provider_final = 'positiva'
+            elif 'mapfre' in pdf_low:
+                provider_final = 'mapfre'
+            elif issuer:
+                provider_final = issuer
+        prov_norm = str(provider_final or '').lower()
+        moneda_cuotas = (extracted.get('moneda') or '').strip()
+        cuotas_extraidas = []
+
+        if ('positiva' in prov_norm) or ('lpv' in prov_norm) or ('la positiva' in pdf_low):
+            cuotas_extraidas = extract_cronograma_cuotas_positiva(pdf_text_full, moneda_cuotas)
+        elif ('pacifico' in prov_norm) or ('pacifico' in pdf_low):
+            cuotas_extraidas = extract_cronograma_cuotas_pacifico(pdf_text_full, moneda_cuotas)
+        if not cuotas_extraidas:
+            cuotas_extraidas = extract_cronograma_cuotas_general(pdf_text_full, moneda_cuotas)
+
+        if cuotas_extraidas:
+            extracted['cuotas'] = cuotas_extraidas
+            if not extracted.get('fecha_vencimiento'):
+                extracted['fecha_vencimiento'] = cuotas_extraidas[0].get('fecha_vencimiento') or ''
+    except Exception:
+        pass
+
+    return {'filename': filename, 'fields': extracted, 'debug': debug_logs, 'provider': provider_final}, 200
 
 
 @bp.route('/clientes/add', methods=['POST'])

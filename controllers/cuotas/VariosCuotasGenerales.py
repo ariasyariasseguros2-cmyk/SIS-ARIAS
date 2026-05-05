@@ -83,25 +83,21 @@ def extract_cronograma_cuotas_from_text(text: str | None, moneda_default: str | 
         re.IGNORECASE,
     )
 
-    for ln in lines:
-        if re.search(r"Orden|Fec\.?\s*Vcto|Cod\.?\s*Cuota|Monto\s+a\s+Pagar|Cup[oó]n|Número", ln, re.IGNORECASE):
-            continue
-            
-        m = row_pattern_full.search(ln) or row_pattern_simple.search(ln)
-        if not m:
-            continue
+    header_re = re.compile(r"Orden|Fec\.?\s*Vcto|Cod\.?\s*Cuota|Monto\s+a\s+Pagar|Cup[oó]n|Número", re.IGNORECASE)
+    data_lines = [ln for ln in lines if not header_re.search(ln)]
+    flat = " ".join(data_lines)
 
+    def _append_match(m: re.Match) -> None:
         cupon = (m.group("cupon") or "").strip()
         if not cupon or cupon in seen:
-            continue
+            return
         seen.add(cupon)
 
         numero_cuota = None
         try:
-            # Si es patrón 1 (1/12), sacamos el primer número
-            # Si es patrón 2 (1), lo usamos directamente
-            if "orden" in m.groupdict() and m.group("orden"):
-                numero_cuota = int(m.group("orden").split("/")[0])
+            orden = m.groupdict().get("orden")
+            if orden:
+                numero_cuota = int(orden.split("/")[0])
             else:
                 numero_cuota = int(m.group("numero_cuota"))
         except Exception:
@@ -116,6 +112,11 @@ def extract_cronograma_cuotas_from_text(text: str | None, moneda_default: str | 
             "factura": "",
             "fecha_pago": "",
         })
+
+    for m in row_pattern_full.finditer(flat):
+        _append_match(m)
+    for m in row_pattern_simple.finditer(flat):
+        _append_match(m)
 
     if cuotas:
         return cuotas

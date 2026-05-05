@@ -695,10 +695,10 @@
     if (t.includes('crecer')) return __pickCrecerVariant(t);
     // Priorizar sanitas por encima del caso genérico "EPS"
     if (t.includes('sanitas')) return 'sanitas';
-    // Positiva/LPV (incluye EPS genérico solo si no se detectó "sanitas")
-    if (t.includes('positiva') || t.includes('lpv') || t.includes('vida ley') || t.includes('vida') || t.includes('pension') || t.includes('pensión') || t.includes('eps') || t.includes('entidad prestadora') || t.includes('salud') || t.includes('lpeps')) return __pickLPVVariant(t);
     if (t.includes('mapfre')) return 'mapfre';
     if (t.includes('pacifico') || t.includes('pacífico')) return 'pacifico';
+    // Positiva/LPV: evitar heurísticas genéricas como "salud"/"eps"/"vida" (causan falsos positivos)
+    if (t.includes('la positiva') || t.includes('positiva') || t.includes('lpv') || t.includes('lpeps')) return __pickLPVVariant(t);
     if (t.includes('protecta') || t.includes('proctecta')) return 'proctecta';
     return '';
   }
@@ -2339,10 +2339,10 @@
             if (t.includes('crecer')) return pickCrecerVariantByText(t);
             // Priorizar sanitas por encima del caso genérico "EPS"
             if (t.includes('sanitas')) return 'sanitas';
-            // Positiva/LPV (incluye EPS genérico solo si no se detectó "sanitas")
-            if (t.includes('positiva') || t.includes('lpv') || t.includes('vida ley') || t.includes('eps') || t.includes('entidad prestadora') || t.includes('salud') || t.includes('lpeps')) return pickLPVVariantByText(t);
             if (t.includes('mapfre')) return 'mapfre';
             if (t.includes('pacifico') || t.includes('pacífico')) return 'pacifico';
+            // Positiva/LPV: evitar heurísticas genéricas como "salud"/"eps" (causan falsos positivos en otras aseguradoras)
+            if (t.includes('la positiva') || t.includes('positiva') || t.includes('lpv') || t.includes('lpeps')) return pickLPVVariantByText(t);
             if (t.includes('protecta') || t.includes('proctecta')) return 'proctecta';
             return '';
           }
