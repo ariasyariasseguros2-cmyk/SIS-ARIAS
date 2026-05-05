@@ -131,6 +131,9 @@
     [data-theme='dark'] .text-muted {
         color: var(--text-secondary) !important;
     }
+    /* Paginación - botón Última página (gestión) */
+    .pagination .page-item.ms-2 { margin-left: 0.75rem !important; }
+    .pagination .page-item.ms-2 .page-link { border-left: 2px solid #dee2e6; padding-left: 1rem; }
 </style>
 {% endblock %}
 
@@ -265,18 +268,47 @@
                 Mostrando {{ pagination.start_index }}–{{ pagination.end_index }} de {{ pagination.total }}
             </div>
             <nav aria-label="Gestión pagination">
-                <ul class="pagination mb-0">
+                <ul class="pagination mb-0" id="gestion-pagination">
+                    {# Prev button #}
                     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
                         <a class="page-link" href="{{ url_for('main.gestion', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas=orden_fechas, limit=limit, page=pagination.page - 1) }}" tabindex="-1">«</a>
                     </li>
-                    {% for p in page_numbers %}
-                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                        <a class="page-link" href="{{ url_for('main.gestion', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas=orden_fechas, limit=limit, page=p) }}">{{ p }}</a>
-                    </li>
+
+                    {# Build pages: 3 first and 3 last, with ellipsis if needed #}
+                    {% set limit_int = limit|int %}
+                    {% if limit_int <= 0 %}
+                        {% set limit_int = 20 %}
+                    {% endif %}
+                    {% set pages = ((pagination.total + limit_int - 1) // limit_int) if pagination.total is not none else 1 %}
+
+                    {% set ns = namespace(list=[]) %}
+                    {# first 3 #}
+                    {% for i in range(1, (3 if 3 < pages else pages) + 1) %}
+                        {% set _ = ns.list.append(i) %}
                     {% endfor %}
+                    {# last 3 #}
+                    {% for i in range((pages - 2) if pages - 2 > 1 else 1, pages + 1) %}
+                        {% if i not in ns.list %}
+                            {% set _ = ns.list.append(i) %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% set previous = 0 %}
+                    {% for num in ns.list %}
+                        {% if num - previous > 1 %}
+                            <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                        <li class="page-item {% if num == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('main.gestion', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas=orden_fechas, limit=limit, page=num) }}">{{ num }}</a></li>
+                        {% set previous = num %}
+                    {% endfor %}
+
+                    {# Next button #}
                     <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
                         <a class="page-link" href="{{ url_for('main.gestion', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas=orden_fechas, limit=limit, page=pagination.page + 1) }}">»</a>
                     </li>
+
+                    {# Última página button separado a la derecha #}
+                    <li class="page-item ms-2"><a class="page-link" href="{{ url_for('main.gestion', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas=orden_fechas, limit=limit, page=pages) }}" title="Ir a última página">Última</a></li>
                 </ul>
             </nav>
         </div>
