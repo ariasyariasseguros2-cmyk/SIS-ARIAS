@@ -215,7 +215,7 @@
             <i class="bi-briefcase-fill"></i> Gestión
         </div>
         <div class="gestion-actions">
-            <button class="btn btn-custom btn-icon-only"><i class="bi-chevron-left"></i></button>
+            <button type="button" class="btn btn-custom btn-icon-only" id="prevDayBtn"><i class="bi-chevron-left"></i></button>
             <form action="{{ url_for('main.gestion') }}" method="POST" style="display:inline;">
                 <input type="hidden" name="fecha_desde" value="{{ today }}">
                 <input type="hidden" name="fecha_hasta" value="{{ today }}">
@@ -223,7 +223,7 @@
                 <input type="hidden" name="page" value="1">
                 <button type="submit" class="btn btn-custom text-decoration-none" title="Ver cuotas que vencen hoy"><i class="bi-calendar-event"></i> Vencen Hoy</button>
             </form>
-            <button class="btn btn-custom btn-icon-only"><i class="bi-chevron-right"></i></button>
+            <button type="button" class="btn btn-custom btn-icon-only" id="nextDayBtn"><i class="bi-chevron-right"></i></button>
             <button class="btn btn-custom"><i class="bi-ticket-detailed"></i> Cupones Comisionables</button>
             <a href="{{ url_for('main.gestion', limit='todos') }}" class="btn btn-custom text-decoration-none"><i class="bi-list-ul"></i> Ver Todos</a>
         </div>
@@ -238,7 +238,7 @@
     <!-- Table Container -->
     <div class="table-container">
         <!-- Search and Filter Row -->
-        <form action="{{ url_for('main.gestion') }}" method="POST" class="search-row">
+        <form action="{{ url_for('main.gestion') }}" method="POST" class="search-row" id="gestionFilterForm">
             <div class="d-flex gap-2 align-items-center">
                 <div class="input-group" title="Filtrar por fecha de vencimiento inicial">
                     <span class="input-group-text">Venc. Desde</span>
@@ -401,5 +401,57 @@
         // For simplicity, reload page to reflect changes (e.g. if it disappears from list because it is paid)
         window.location.reload();
     });
+
+    (function() {
+        const form = document.getElementById('gestionFilterForm');
+        const prevBtn = document.getElementById('prevDayBtn');
+        const nextBtn = document.getElementById('nextDayBtn');
+        if (!form || !prevBtn || !nextBtn) return;
+
+        const inputDesde = form.querySelector('input[name="fecha_desde"]');
+        const inputHasta = form.querySelector('input[name="fecha_hasta"]');
+        const inputPage = form.querySelector('input[name="page"]');
+        const fallbackToday = "{{ today }}";
+
+        function parseISODate(value) {
+            const v = (value || '').trim();
+            if (!v) return null;
+            const d = new Date(`${v}T00:00:00`);
+            return isNaN(d.getTime()) ? null : d;
+        }
+
+        function toISODate(d) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        function getBaseDate() {
+            const desdeVal = inputDesde ? inputDesde.value : '';
+            const hastaVal = inputHasta ? inputHasta.value : '';
+            if (desdeVal && hastaVal && desdeVal === hastaVal) {
+                return parseISODate(desdeVal);
+            }
+            if (hastaVal) return parseISODate(hastaVal);
+            if (desdeVal) return parseISODate(desdeVal);
+            return parseISODate(fallbackToday);
+        }
+
+        function shiftDay(delta) {
+            const base = getBaseDate() || parseISODate(fallbackToday);
+            if (!base) return;
+            const d = new Date(base.getTime());
+            d.setDate(d.getDate() + delta);
+            const iso = toISODate(d);
+            if (inputDesde) inputDesde.value = iso;
+            if (inputHasta) inputHasta.value = iso;
+            if (inputPage) inputPage.value = '1';
+            form.submit();
+        }
+
+        prevBtn.addEventListener('click', () => shiftDay(-1));
+        nextBtn.addEventListener('click', () => shiftDay(1));
+    })();
 </script>
 {% endblock %}
