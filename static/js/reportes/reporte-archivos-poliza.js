@@ -317,8 +317,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const countDisplay = countChildren > 0 ? countChildren : (row.cantidad_archivos || 0);
             html += `
             <tr class="poliza-row">
-                <td class="text-center">
-                    <div class="d-flex align-items-center justify-content-center gap-1">
+                <td class="text-start">
+                    <div class="d-flex align-items-center justify-content-start gap-2 flex-nowrap">
                         ${hasToggle ? `
                         <button class="btn btn-sm btn-link p-0 text-secondary btn-toggle-children"
                                 data-target="${toggleId}"
@@ -364,8 +364,8 @@ document.addEventListener('DOMContentLoaded', function() {
             hijos.forEach(c => {
                 html += `
                 <tr class="cuota-child-row d-none" data-parent="${toggleId}">
-                    <td class="text-center ps-4">
-                        <div class="d-flex align-items-center justify-content-center gap-1 ps-3">
+                    <td class="text-start ps-4">
+                        <div class="d-flex align-items-center justify-content-start gap-2 ps-3 flex-nowrap">
                             <i class="bi bi-arrow-return-right text-muted me-1"></i>
                             <button class="btn btn-outline-secondary btn-sm btn-view-group"
                                     data-id="${c.cupon || c.recibo || ''}"
@@ -423,8 +423,8 @@ document.addEventListener('DOMContentLoaded', function() {
         cuotasSinPadreVisible.forEach(c => {
             html += `
             <tr class="cuota-child-row">
-                <td class="text-center">
-                    <div class="d-flex align-items-center justify-content-center gap-1">
+                <td class="text-start">
+                    <div class="d-flex align-items-center justify-content-start gap-2 flex-nowrap">
                         <button class="btn btn-outline-secondary btn-sm btn-view-group"
                                 data-id="${c.cupon || c.recibo || ''}"
                                 data-poliza-id="${c.poliza_id || ''}"
@@ -522,8 +522,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         tr.className = 'arch-extra-row';
                         tr.dataset.parent = target;
                         tr.innerHTML = `
-                            <td class="text-center">
-                                <div class="d-flex align-items-center justify-content-center gap-1">
+                            <td class="text-start">
+                                <div class="d-flex align-items-center justify-content-start gap-2 flex-nowrap">
                                     <i class="bi bi-arrow-return-right text-warning" style="font-size:.8rem;"></i>
                                     <a href="${url}" target="_blank" class="btn btn-outline-warning btn-sm" title="Ver archivo">
                                         <i class="bi-eye"></i>
@@ -751,55 +751,65 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderPagination(totalGroups) {
-        if (!paginationEl) return;
-        const pages = Math.max(1, Math.ceil(totalGroups / pageSize));
-        const visible = new Set([1, pages]);
-        for (let i = currentPage - 2; i <= currentPage + 2; i++) {
-            if (i >= 1 && i <= pages) visible.add(i);
-        }
+         if (!paginationEl) return;
+         const pages = Math.max(1, Math.ceil(totalGroups / pageSize));
+         const visible = new Set();
+         
+         // Agregar primeros 3 números de página
+         for (let i = 1; i <= Math.min(3, pages); i++) {
+             visible.add(i);
+         }
+         
+         // Agregar últimos 3 números de página
+         for (let i = Math.max(1, pages - 2); i <= pages; i++) {
+             visible.add(i);
+         }
 
-        const ordered = Array.from(visible).sort((a, b) => a - b);
-        const items = [];
-        let previous = 0;
-        ordered.forEach(num => {
-            if (num - previous > 1) {
-                items.push('ellipsis');
-            }
-            items.push(num);
-            previous = num;
-        });
+         const ordered = Array.from(visible).sort((a, b) => a - b);
+         const items = [];
+         let previous = 0;
+         ordered.forEach(num => {
+             if (num - previous > 1) {
+                 items.push('ellipsis');
+             }
+             items.push(num);
+             previous = num;
+         });
 
-        let html = '';
-        const prevDisabled = currentPage <= 1 ? ' disabled' : '';
-        const nextDisabled = currentPage >= pages ? ' disabled' : '';
-        html += `<li class="page-item${prevDisabled}"><a class="page-link" href="#" data-action="prev">&laquo;</a></li>`;
-        items.forEach(item => {
-            if (item === 'ellipsis') {
-                html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
-                return;
-            }
-            const active = item === currentPage ? ' active' : '';
-            html += `<li class="page-item${active}"><a class="page-link" href="#" data-page="${item}">${item}</a></li>`;
-        });
-        html += `<li class="page-item${nextDisabled}"><a class="page-link" href="#" data-action="next">&raquo;</a></li>`;
-        paginationEl.innerHTML = html;
-        paginationEl.querySelectorAll('a.page-link').forEach(a => {
-            a.addEventListener('click', function(e) {
-                e.preventDefault();
-                const act = this.dataset.action;
-                const num = parseInt(this.dataset.page || '0', 10);
-                const pages = Math.max(1, Math.ceil(totalGroups / pageSize));
-                if (act === 'prev') {
-                    currentPage = Math.max(1, currentPage - 1);
-                } else if (act === 'next') {
-                    currentPage = Math.min(pages, currentPage + 1);
-                } else if (num) {
-                    currentPage = num;
-                }
-                renderPage();
-            });
-        });
-    }
+         let html = '';
+         const prevDisabled = currentPage <= 1 ? ' disabled' : '';
+         const nextDisabled = currentPage >= pages ? ' disabled' : '';
+         html += `<li class="page-item${prevDisabled}"><a class="page-link" href="#" data-action="prev">&laquo;</a></li>`;
+         items.forEach(item => {
+             if (item === 'ellipsis') {
+                 html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+                 return;
+             }
+             const active = item === currentPage ? ' active' : '';
+             html += `<li class="page-item${active}"><a class="page-link" href="#" data-page="${item}">${item}</a></li>`;
+         });
+         html += `<li class="page-item${nextDisabled}"><a class="page-link" href="#" data-action="next">&raquo;</a></li>`;
+         html += `<li class="page-item ms-2"><a class="page-link" href="#" data-action="last" title="Ir a última página">Última</a></li>`;
+         paginationEl.innerHTML = html;
+         paginationEl.querySelectorAll('a.page-link').forEach(a => {
+             a.addEventListener('click', function(e) {
+                 e.preventDefault();
+                 const act = this.dataset.action;
+                 const num = parseInt(this.dataset.page || '0', 10);
+                 const pages = Math.max(1, Math.ceil(totalGroups / pageSize));
+                 if (act === 'prev') {
+                     currentPage = Math.max(1, currentPage - 1);
+                 } else if (act === 'next') {
+                     currentPage = Math.min(pages, currentPage + 1);
+                 } else if (act === 'last') {
+                     currentPage = pages;
+                 } else if (num) {
+                     currentPage = num;
+                 }
+                 renderPage();
+             });
+         });
+     }
 
     if (pageSizeSelect) {
         pageSizeSelect.addEventListener('change', function() {
