@@ -46,12 +46,13 @@
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
                         <label for="tipoDoc" class="form-label">Tipo Doc <span class="text-danger">*</span></label>
+                        {% set tipo_doc_norm = (prima.tipo_doc|default('')|upper|replace('Á','A')|replace('É','E')|replace('Í','I')|replace('Ó','O')|replace('Ú','U')|replace('Ü','U')|replace(' ','') ) if prima else '' %}
                         <select class="form-select" id="tipoDoc">
-                            <option value="EMISION" {% if prima and prima.tipo_doc == 'EMISION' %}selected{% endif %}>EMISION</option>
-                            <option value="RENOVACION" {% if prima and prima.tipo_doc == 'RENOVACION' %}selected{% endif %}>RENOVACION</option>
-                            <option value="DEVOLUCION" {% if prima and prima.tipo_doc == 'DEVOLUCION' %}selected{% endif %}>DEVOLUCION</option>
-                            <option value="INCLUSION" {% if prima and prima.tipo_doc == 'INCLUSION' %}selected{% endif %}>INCLUSIÓN</option>
-                            <option value="NETEO" {% if prima and prima.tipo_doc == 'NETEO' %}selected{% endif %}>NETEO</option>
+                            <option value="EMISION" {% if tipo_doc_norm == 'EMISION' %}selected{% endif %}>EMISION</option>
+                            <option value="RENOVACION" {% if tipo_doc_norm == 'RENOVACION' %}selected{% endif %}>RENOVACION</option>
+                            <option value="DEVOLUCION" {% if tipo_doc_norm == 'DEVOLUCION' %}selected{% endif %}>DEVOLUCION</option>
+                            <option value="INCLUSIÓN" {% if tipo_doc_norm == 'INCLUSION' %}selected{% endif %}>INCLUSIÓN</option>
+                            <option value="NETEO" {% if tipo_doc_norm == 'NETEO' %}selected{% endif %}>NETEO</option>
                         </select>
                     </div>
                     <div class="col-md-4">
@@ -223,7 +224,7 @@
                     -->
                     <div class="col-md-4">
                         <label for="nroOperacion" class="form-label">Número de Operación</label>
-                        <input type="text" class="form-control" id="nroOperacion" value="{{ prima.nro if prima and prima.nro else '' or ''}}">
+                        <input type="text" class="form-control" id="nroOperacion" value="">
                     </div>
                     <div class="col-md-4">
                         <label for="numPrimeraCuota" class="form-label">Num. de la primera cuota</label>

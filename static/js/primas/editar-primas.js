@@ -159,7 +159,6 @@ window.initEditarPrimasLogic = function(isModal = false) {
                 prima_neta: document.getElementById('primaNeta').value,
                 prima_comercial_igv: document.getElementById('primaTotal').value,
                 // motivo: document.getElementById('motivo').value, // comentado por solicitud
-                nro_operacion: document.getElementById('nroOperacion').value,
                 porc_compania: document.getElementById('comisionCompania').value,
                 imp_compania: document.getElementById('importeComisionCompania').value,
                 sub_agente: document.getElementById('subAgente').value,
@@ -168,6 +167,10 @@ window.initEditarPrimasLogic = function(isModal = false) {
                 recibo: document.getElementById('numPrimeraCuota').value,
                 mas_informacion: document.getElementById('masInformacion').value
             };
+            const nroOperacion = document.getElementById('nroOperacion')?.value?.trim();
+            if (nroOperacion) {
+                data.nro_operacion = nroOperacion;
+            }
 
             // Basic validation
             if (!data.prima_neta || !data.prima_comercial_igv) {

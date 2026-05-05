@@ -3174,17 +3174,24 @@ def primas_update():
     if res.get('ok'):
         poliza = (data.get('poliza') or '').strip()
         cupon = (data.get('recibo') or data.get('aviso') or '').strip()
-        if poliza and cupon:
+        importe = data.get('prima_comercial_igv')
+        pid = data.get('idPoliza')
+        user_session = session.get('user')
+        if isinstance(user_session, dict):
+            usuario = user_session.get('username') or user_session.get('user') or user_session.get('name')
+        else:
+            usuario = user_session
+        if pid and importe and (poliza or cupon):
             from controllers.editar_poliza import _parse_date
             from controllers.cuotas.cuotas import update_cuota_cupon
             from models.db import get_connection
             try:
                 cnx = get_connection()
                 cur = cnx.cursor()
-                pid = data.get('idPoliza')
-                cupon_norm = cupon.strip()
-                cupon_base = cupon_norm.split('-')[0].strip()
-                if pid:
+                row = None
+                if cupon:
+                    cupon_norm = cupon.strip()
+                    cupon_base = cupon_norm.split('-')[0].strip()
                     try:
                         cur.execute(
                             """
@@ -3193,9 +3200,9 @@ def primas_update():
                             WHERE poliza_id = %s 
                               AND activo=1
                               AND (
-                                   TRIM(cupon)=TRIM(%s) 
-                                OR TRIM(cupon)=TRIM(%s)
-                                OR TRIM(cupon) LIKE CONCAT(TRIM(%s), '-%%')
+                                   TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon))=TRIM(%s) 
+                                OR TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon))=TRIM(%s)
+                                OR TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon)) LIKE CONCAT(TRIM(%s), '-%%')
                               )
                             ORDER BY idCuota ASC LIMIT 1
                             """,
@@ -3204,35 +3211,47 @@ def primas_update():
                         row = cur.fetchone()
                     except Exception:
                         row = None
-                else:
-                    row = None
+                    if not row and poliza:
+                        cur.execute(
+                            """
+                            SELECT idCuota 
+                            FROM cuotas 
+                            WHERE TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza))=TRIM(%s) 
+                              AND activo=1
+                              AND (
+                                   TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon))=TRIM(%s) 
+                                OR TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon))=TRIM(%s)
+                                OR TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon)) LIKE CONCAT(TRIM(%s), '-%%')
+                              )
+                            ORDER BY idCuota ASC LIMIT 1
+                            """,
+                            (poliza, cupon_norm, cupon_base, cupon_base)
+                        )
+                        row = cur.fetchone()
                 if not row:
                     cur.execute(
                         """
-                        SELECT idCuota 
-                        FROM cuotas 
-                        WHERE TRIM(poliza)=TRIM(%s) 
-                          AND activo=1
-                          AND (
-                               TRIM(cupon)=TRIM(%s) 
-                            OR TRIM(cupon)=TRIM(%s)
-                            OR TRIM(cupon) LIKE CONCAT(TRIM(%s), '-%%')
-                          )
-                        ORDER BY idCuota ASC LIMIT 1
+                        SELECT idCuota
+                        FROM cuotas
+                        WHERE poliza_id = %s AND activo=1
+                        ORDER BY idCuota ASC
+                        LIMIT 1
                         """,
-                        (poliza, cupon_norm, cupon_base, cupon_base)
+                        (pid,),
                     )
                     row = cur.fetchone()
                 cur.close()
                 cnx.close()
                 if row and row[0]:
-                    update_cuota_cupon({
+                    payload = {
                         'idCuota': row[0],
-                        'cupon': cupon_norm,
                         'fecha_vencimiento': _parse_date(data.get('vig_hasta')) if data.get('vig_hasta') else None,
-                        'importe': data.get('prima_comercial_igv') or data.get('prima_total'),
-                        'usuario': session.get('user')
-                    })
+                        'importe': importe,
+                        'usuario': usuario
+                    }
+                    if cupon:
+                        payload['cupon'] = cupon.strip()
+                    update_cuota_cupon(payload)
             except Exception:
                 pass
     return res, status
