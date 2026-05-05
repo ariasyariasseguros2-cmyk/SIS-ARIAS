@@ -2567,9 +2567,7 @@
 
     const required = [
       ['numero_poliza', 'Póliza'],
-      ['recibo', 'Proforma/Recibo'],
       ['fecha_emision', 'Fecha Emisión'],
-      ['fecha_vencimiento', 'Fecha Vencimiento'],
       ['numero_documento_extracted', 'Documento (DNI/RUC)'],
       ['colectivo_asegurado', 'Asegurado'],
       ['cia', 'Cía'],
