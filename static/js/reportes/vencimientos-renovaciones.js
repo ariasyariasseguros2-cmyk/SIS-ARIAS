@@ -333,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function fetchData(usuario, estado, fechaDesde, fechaHasta, ramo) {
         try {
-            tableBody.innerHTML = `<tr><td colspan="13" class="text-center py-4 text-muted">Cargando datos...</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-muted">Cargando datos...</td></tr>`;
             if (paginationContainer) paginationContainer.style.display = 'none';
 
             let url = `/api/reportes/vencimientos-renovaciones?usuario=${encodeURIComponent(usuario)}&estado=${encodeURIComponent(estado)}`;
@@ -357,13 +357,13 @@ document.addEventListener('DOMContentLoaded', function() {
             renderPaginatedTable();
         } catch (error) {
             console.error('Error loading data:', error);
-            tableBody.innerHTML = `<tr><td colspan="13" class="text-center text-danger">Error cargando datos</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="11" class="text-center text-danger">Error cargando datos</td></tr>`;
         }
     }
 
     function renderPaginatedTable() {
         if (!allData || allData.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="13" class="text-center text-muted py-4">No se encontraron resultados</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="11" class="text-center text-muted py-4">No se encontraron resultados</td></tr>`;
             if (paginationContainer) paginationContainer.style.display = 'none';
             return;
         }
@@ -391,7 +391,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${row.compania || '-'}</td>
                     <td>${row.ramo || '-'}</td>
                     <td>${row.producto || '-'}</td>
-                    <td>${row.tipo_documento || '-'}</td>
                     <td>${row.numero_documento || '-'}</td>
                     <td>${row.contratante || '-'}</td>
                     <td>${row.poliza || '-'}</td>
@@ -399,7 +398,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${row.vig_hasta || '-'}</td>
                     <td>${primaNeta}</td>
                     <td>${primaTotal}</td>
-                    <td><span class="badge bg-${getStatusColor(row.estado)}">${row.estado || '-'}</span></td>
                     <td class="text-end">
                         <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleCuotasRow('${row.poliza || ''}', '${row.idPoliza || ''}')">
                             Ver recibos
@@ -407,7 +405,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </td>
                 </tr>
                 <tr id="cuotas_${row.poliza || ''}_${row.idPoliza || ''}" class="d-none">
-                    <td colspan="13">
+                    <td colspan="11">
                         <div id="cuotas_container_${row.poliza || ''}_${row.idPoliza || ''}" class="py-2"></div>
                     </td>
                 </tr>
@@ -550,6 +548,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!rows || rows.length === 0) {
             return `<div class="text-muted small">No hay cuotas registradas</div>`;
         }
+        const paidCount = rows.reduce((acc, r) => {
+            const hasFactura = !!(r.factura && String(r.factura).trim() !== '' && r.factura !== '-');
+            const hasFechaPago = !!(r.fecha_pago && String(r.fecha_pago).trim() !== '' && r.fecha_pago !== '-');
+            return acc + (hasFactura && hasFechaPago ? 1 : 0);
+        }, 0);
+        const note = paidCount === rows.length
+            ? `<div class="text-muted small px-2 mb-2">No hay cuotas pendientes</div>`
+            : '';
+
         const header = `
             <div class="table-responsive">
               <table class="table table-sm mb-0">
@@ -562,6 +569,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <th>FECHA DE PAGO</th>
                     <th>IMPORTE</th>
                     <th>FACTURA</th>
+                    <th>ESTADO</th>
                     <th>ACCIONES</th>
                   </tr>
                 </thead>
@@ -570,18 +578,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const body = rows.map((r, index) => {
             const hasFactura = !!(r.factura && String(r.factura).trim() !== '' && r.factura !== '-');
             const hasFechaPago = !!(r.fecha_pago && String(r.fecha_pago).trim() !== '' && r.fecha_pago !== '-');
-
-            // Filtrar las filas que tienen tanto la fecha de pago como la factura
-            if (hasFactura && hasFechaPago) {
-                return '';
-            }
-
-            // User requested to show edit button even if it has factura ("le falta pagar")
-            // and explicitly mentioned "que tenga 2 ambos" (both rows should have actions).
-            // So we enable the edit button always.
-            const showEdit = true; 
+            const isPaid = hasFactura && hasFechaPago;
+            const estadoLabel = isPaid ? 'PAGADO' : 'PENDIENTE';
+            const showEdit = true;
             return `
-            <tr>
+            <tr class="${isPaid ? 'table-success' : ''}">
                 <td>${r.aviso_cobranza || String(r.cupon || '').replace(/-\d+$/,'') || '-'}</td>
                 <td>${r.tipo_doc || '-'}</td>
                 <td>${r.cupon || '-'}</td>
@@ -589,6 +590,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td>${r.fecha_pago || '-'}</td>
                 <td>${r.importe || '-'}</td>
                 <td>${r.factura || '-'}</td>
+                <td><span class="badge bg-${isPaid ? 'success' : 'warning'}">${estadoLabel}</span></td>
                 <td>
                     ${showEdit
                         ? `<button type="button"
@@ -604,16 +606,12 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         }).join('');
 
-        if (!body.trim()) {
-            return `<div class="text-muted small px-2">No hay cuotas pendientes</div>`;
-        }
-
         const footer = `
                 </tbody>
               </table>
             </div>
         `;
-        return header + body + footer;
+        return note + header + body + footer;
     }
 
     window.cuotasCache = {};
