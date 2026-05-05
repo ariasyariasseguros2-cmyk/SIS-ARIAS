@@ -19,9 +19,9 @@
     white-space: nowrap;
 }
 
-#filesTable th:nth-child(1), #filesTable td:nth-child(1) { width: 88px; }
-#filesTable th:nth-child(2), #filesTable td:nth-child(2) { width: 86px; }
-#filesTable th:nth-child(3), #filesTable td:nth-child(3) { width: 160px; }
+#filesTable th:nth-child(1), #filesTable td:nth-child(1) { width: 180px !important; min-width: 180px; }
+#filesTable th:nth-child(2), #filesTable td:nth-child(2) { width: 110px !important; min-width: 110px; }
+#filesTable th:nth-child(3), #filesTable td:nth-child(3) { width: 140px; }
 #filesTable th:nth-child(4), #filesTable td:nth-child(4) { width: 320px; }
 #filesTable th:nth-child(5), #filesTable td:nth-child(5) { width: 120px; }
 #filesTable th:nth-child(6), #filesTable td:nth-child(6) { width: 220px; }
@@ -34,6 +34,27 @@
 
 #filesTable tbody td {
     vertical-align: middle;
+    padding: 0.5rem 0.75rem;
+}
+
+#filesTable td:first-child {
+    padding: 0.5rem 0.5rem;
+    min-width: 180px;
+    white-space: nowrap;
+    overflow: visible;
+}
+
+#filesTable td:first-child > .d-flex {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: max-content;
+}
+
+#filesTable td:first-child .btn {
+    flex: 0 0 auto;
 }
 
 .poliza-row td {
@@ -57,12 +78,11 @@
 }
 
 .cell-doc {
-    display: block;
-    width: 100%;
-    max-width: 100%;
+    display: table-cell;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    vertical-align: middle;
 }
 
 .btn-pdf {
@@ -205,15 +225,26 @@
     white-space: nowrap;
 }
 
-@media (max-width: 1200px) {
-    #filesTable {
-        font-size: 0.87rem;
-    }
-    .cell-doc {
-        max-width: 100%;
-    }
-
-    #filesTable th:nth-child(4), #filesTable td:nth-child(4) { width: 220px; }
-    #filesTable th:nth-child(6), #filesTable td:nth-child(6) { width: 180px; }
+/* Paginación - botón Última página */
+#pagination .page-item.ms-2 {
+    margin-left: 0.75rem !important;
 }
+
+#pagination .page-item.ms-2 .page-link {
+    border-left: 2px solid #dee2e6;
+    padding-left: 1rem;
+}
+
+@media (max-width: 1200px) {
+     #filesTable {
+         font-size: 0.87rem;
+     }
+     .cell-doc {
+         max-width: 100%;
+     }
+
+     #filesTable th:nth-child(4), #filesTable td:nth-child(4) { width: 220px; }
+     #filesTable th:nth-child(6), #filesTable td:nth-child(6) { width: 180px; }
+}
+
 
