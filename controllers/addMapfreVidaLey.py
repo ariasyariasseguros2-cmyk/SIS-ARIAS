@@ -29,6 +29,7 @@ def _find_after(label_pat: str, text: str, value_pat: str, window: int = 2000, f
 def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
     item: Dict[str, str] = {}
     flat = _canon(text)
+    date_pat = r"([0-9]{2}/[0-9]{2}/[0-9]{4})"
 
     # Stream global: valores que vienen después del run de ":" (fuera del bloque)
     def _extract_values_stream_after_colons(flat_text: str) -> Dict[str, Optional[str]]:
@@ -102,8 +103,16 @@ def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
     cond = _extract_values_stream_after_colons(flat)
 
     # Póliza y recibo (solo fallback mínimo con etiquetas si hiciera falta)
-    item["numero_poliza"] = cond.get("numero_poliza") or _find_after(r"N[ÚU]MERO\s+DE\s+P[ÓO]LIZA\b", flat, r"([0-9]{6,15})", window=4000)
-    rec_raw = cond.get("recibo") or _find_after(r"\bRECIBO\b", flat, r"([0-9]{6,12})", window=4000)
+    item["numero_poliza"] = (
+        _find(r"N[ÚU]MERO\s+DE\s+P[ÓO]LIZA\s*:\s*([0-9]{6,15})", flat)
+        or cond.get("numero_poliza")
+        or _find_after(r"N[ÚU]MERO\s+DE\s+P[ÓO]LIZA\b", flat, r"([0-9]{6,15})", window=4000)
+    )
+    rec_raw = (
+        _find(r"\bRECIBO\s*:\s*(\d{6,12})\b", flat)
+        or cond.get("recibo")
+        or _find_after(r"\bRECIBO\s*:\s*", flat, r"(\d{6,12})", window=120)
+    )
     if rec_raw and item.get("numero_poliza") and rec_raw == item["numero_poliza"]:
         rec_raw = None
     item["recibo"] = rec_raw
@@ -124,11 +133,60 @@ def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
 
     # Usa la etiqueta; si falla, respalda con "Contratante" y por último con el stream
     item["colectivo_asegurado"] = _only_company(colectivo_label or cond.get("contratante") or cond.get("colectivo_asegurado"))
-    item["inicio_vigencia"] = cond.get("inicio_vigencia")
-    item["vencimiento"] = cond.get("vencimiento")
-    item["fecha_vecimiento"] = item["vencimiento"] or _find_after(r"\bVencimiento\b", flat, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=4000)
-    item["ultimo_dia_pago"] = cond.get("ultimo_dia_pago")
-    item["fecha_emision"] = cond.get("fecha_emision")
+    item["inicio_vigencia"] = (
+        _find(rf"\bInicio\s+de\s+Vigencia\b(?!\s+Aplicaci[óo]n)\s*:\s*{date_pat}", flat)
+        or cond.get("inicio_vigencia")
+    )
+    item["vencimiento"] = (
+        _find(rf"\bVencimiento\b(?!\s+de\s+Aplicaci[óo]n)\s*:\s*{date_pat}", flat)
+        or cond.get("vencimiento")
+    )
+    item["fecha_vecimiento"] = item.get("vencimiento") or _find_after(r"\bVencimiento\b(?!\s+de\s+Aplicaci[óo]n)", flat, date_pat, window=4000)
+    item["ultimo_dia_pago"] = (
+        _find(rf"\b[ÚU]ltimo\s+d[ií]a\s+de\s+Pago\b\s*:\s*{date_pat}", flat)
+        or cond.get("ultimo_dia_pago")
+    )
+    item["fecha_emision"] = (
+        _find(rf"\bFecha\s+de\s+Emisi[óo]n\b\s*:\s*{date_pat}", flat)
+        or cond.get("fecha_emision")
+    )
+
+    def _as_date(s: Optional[str]):
+        try:
+            return datetime.strptime(s.strip(), "%d/%m/%Y").date() if s else None
+        except Exception:
+            return None
+
+    header_block = _between(
+        r"\bCONDICIONES\s+PARTICULARES\b",
+        r"\bIMPORTES\s+DE\s+LA\s+DECLARACI",
+        flat,
+        window=8000,
+    ) or flat[:8000]
+    _dates = []
+    for d in re.findall(date_pat, header_block):
+        if d not in _dates and _as_date(d):
+            _dates.append(d)
+    if len(_dates) >= 4:
+        _dates.sort(key=lambda x: _as_date(x))
+        _v = _dates[-1]
+        _mid = _dates[1:-2] if len(_dates) >= 5 else _dates[1:-1]
+        _iv = _dates[0]
+        _iv_app = _mid[0] if len(_mid) >= 1 else None
+        _fe = _mid[1] if len(_mid) >= 2 else None
+        _udp = _mid[2] if len(_mid) >= 3 else (_mid[-1] if _mid else None)
+
+        if _iv and (not item.get("inicio_vigencia") or _as_date(item.get("inicio_vigencia")) != _as_date(_iv)):
+            item["inicio_vigencia"] = _iv
+        if _iv_app and (not item.get("inicio_vigencia_aplicacion") or _as_date(item.get("inicio_vigencia_aplicacion")) != _as_date(_iv_app)):
+            item["inicio_vigencia_aplicacion"] = _iv_app
+        if _fe and (not item.get("fecha_emision") or _as_date(item.get("fecha_emision")) != _as_date(_fe)):
+            item["fecha_emision"] = _fe
+        if _udp and (not item.get("ultimo_dia_pago") or _as_date(item.get("ultimo_dia_pago")) != _as_date(_udp)):
+            item["ultimo_dia_pago"] = _udp
+        if _v and (not item.get("vencimiento") or _as_date(item.get("vencimiento")) != _as_date(_v)):
+            item["vencimiento"] = _v
+
     item["moneda"] = cond.get("moneda")
     item["ramo"] = cond.get("actividad")
     item["forma_pago"] = _find(r"Forma\s+de\s+Pago\s*:\s*([A-ZÁÉÍÓÚÑ0-9 \.\-]+)", flat)

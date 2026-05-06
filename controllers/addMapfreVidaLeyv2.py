@@ -43,6 +43,7 @@ def _only_company(s: Optional[str]) -> Optional[str]:
 def parse_mapfre_vidaley_v2(text: str) -> Dict[str, str]:
     item: Dict[str, str] = {}
     flat = _canon(text)
+    date_pat = r"([0-9]{2}/[0-9]{2}/[0-9]{4})"
 
     def _extract_stream(flat_text: str) -> Dict[str, Optional[str]]:
         out: Dict[str, Optional[str]] = {}
@@ -100,8 +101,34 @@ def parse_mapfre_vidaley_v2(text: str) -> Dict[str, str]:
 
     cond = _extract_stream(flat)
 
-    item["numero_poliza"] = cond.get("numero_poliza") or _find_after(r"N[ÚU]MERO\s+DE\s+P[ÓO]LIZA\b", flat, r"([0-9]{6,15})", window=4000)
-    rec_raw = cond.get("recibo") or _find_after(r"\bRECIBO\b", flat, r"([0-9]{6,12})", window=4000)
+    item["numero_poliza"] = (
+        _find(r"N[ÚU]MERO\s+DE\s+P[ÓO]LIZA\s*:\s*([0-9]{6,15})", flat)
+        or cond.get("numero_poliza")
+        or _find_after(r"N[ÚU]MERO\s+DE\s+P[ÓO]LIZA\b", flat, r"([0-9]{6,15})", window=4000)
+    )
+
+    # RECIBO: no confiar en el stream cuando el OCR dejó "RECIBO :" sin número (termina capturando Monto Base 245064.00)
+    rec_raw = _find(r"\bRECIBO\s*:\s*(\d{6,12})\b", flat)
+    if not rec_raw:
+        # Caso OCR común: el recibo aparece como número suelto inmediatamente después de la póliza (en la cabecera)
+        m = re.search(
+            r"N[ÚU]MERO\s+DE\s+P[ÓO]LIZA\s*:\s*([0-9]{6,15})[\s\r\n]+([0-9]{6,12})\b",
+            text,
+            re.IGNORECASE,
+        )
+        if m and m.group(2) != m.group(1):
+            rec_raw = m.group(2)
+    if not rec_raw:
+        # Fallback: buscar un número de recibo en la cabecera antes de "CONDICIONES PARTICULARES"
+        m_cond = re.search(r"\bCONDICIONES\s+PARTICULARES\b", text, re.IGNORECASE)
+        prefix = text[:m_cond.start()] if m_cond else text[:2500]
+        pol = item.get("numero_poliza")
+        nums = [n for n in re.findall(r"\b(\d{6,12})\b", prefix) if not pol or n != pol]
+        if nums:
+            rec_raw = nums[-1]
+    if not rec_raw:
+        # Último recurso: stream (solo si no se detectó el problema de "RECIBO :" vacío)
+        rec_raw = cond.get("recibo")
     if rec_raw and item.get("numero_poliza") and rec_raw == item["numero_poliza"]:
         rec_raw = None
     item["recibo"] = rec_raw
@@ -148,7 +175,7 @@ def parse_mapfre_vidaley_v2(text: str) -> Dict[str, str]:
             fe_val = after_sorted[0][1]
         else:
             fe_val = candidates[-1][1]
-    item["fecha_emision"] = fe_val or _find_after(r"Fecha\s+de\s+Emisi[óo]n\s*:?\s*", flat, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=300) or _find(r"Fecha\s+de\s+Emisi[óo]n\s*:?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", flat) or cond.get("fecha_emision")
+    item["fecha_emision"] = fe_val or _find_after(r"Fecha\s+de\s+Emisi[óo]n\s*:?\s*", flat, date_pat, window=300) or _find(rf"Fecha\s+de\s+Emisi[óo]n\s*:?\s*{date_pat}", flat) or cond.get("fecha_emision")
 
     # Bloque cercano a "Forma de Pago" puede mezclar moneda y fecha; extraer tokens
     fp_block = _find_after(r"Forma\s+de\s+Pago\s*:\s*", flat, r"(.{1,120})", window=300) or ""
@@ -353,9 +380,73 @@ def parse_mapfre_vidaley_v2(text: str) -> Dict[str, str]:
             ruc_candidato = candidates_ruc[0]
     item["numero_documento_extracted"] = ruc_candidato
 
+    try:
+        def _as_date2(s: Optional[str]):
+            try:
+                return datetime.strptime(s.strip(), "%d/%m/%Y").date() if s else None
+            except Exception:
+                return None
+
+        header_block2 = _between(
+            r"\bCONDICIONES\s+PARTICULARES\b",
+            r"\bIMP[OÓ]RTES\b",
+            flat,
+            window=8000,
+        ) or flat[:8000]
+        dates2 = []
+        for d in re.findall(date_pat, header_block2):
+            if d not in dates2 and _as_date2(d):
+                dates2.append(d)
+        if len(dates2) >= 6:
+            dates2.sort(key=lambda x: _as_date2(x))
+            _inicio_pol = dates2[0]
+            _venc = dates2[-1]
+            _venc_app = dates2[-2]
+
+            if not item.get("vencimiento_aplicacion"):
+                item["vencimiento_aplicacion"] = _venc_app
+            item["vencimiento"] = _venc_app
+            item["fecha_vecimiento"] = _venc
+
+            iv_app_dt = _as_date2(item.get("inicio_vigencia_aplicacion"))
+            if iv_app_dt and not item.get("inicio_vigencia"):
+                item["inicio_vigencia"] = item.get("inicio_vigencia_aplicacion")
+            if iv_app_dt and item.get("inicio_vigencia") != item.get("inicio_vigencia_aplicacion"):
+                item["inicio_vigencia"] = item.get("inicio_vigencia_aplicacion")
+
+            mid = [d for d in dates2 if d not in {_inicio_pol, _venc_app, _venc}]
+            if iv_app_dt:
+                udp_dt = _as_date2(item.get("ultimo_dia_pago"))
+                udp_need = (
+                    udp_dt is None
+                    or item.get("ultimo_dia_pago") == item.get("fecha_vecimiento")
+                    or (_as_date2(_venc_app) and udp_dt and udp_dt > _as_date2(_venc_app))
+                    or (udp_dt and udp_dt < iv_app_dt)
+                )
+                if udp_need:
+                    udp_candidates = [d for d in mid if _as_date2(d) and _as_date2(d) >= iv_app_dt and _as_date2(d) <= _as_date2(_venc_app)]
+                    if udp_candidates:
+                        udp_candidates.sort(key=lambda x: _as_date2(x))
+                        item["ultimo_dia_pago"] = udp_candidates[-1]
+
+                fe_dt = _as_date2(item.get("fecha_emision"))
+                fe_need = (
+                    fe_dt is None
+                    or item.get("fecha_emision") == item.get("inicio_vigencia_aplicacion")
+                    or item.get("fecha_emision") == _inicio_pol
+                    or abs((fe_dt - iv_app_dt).days) > 45
+                )
+                if fe_need:
+                    fe_candidates = [d for d in mid if d != item.get("ultimo_dia_pago") and d != item.get("inicio_vigencia_aplicacion")]
+                    if fe_candidates:
+                        fe_candidates.sort(key=lambda x: abs((_as_date2(x) - iv_app_dt).days))
+                        item["fecha_emision"] = fe_candidates[0]
+    except Exception:
+        pass
+
     fe = item.get("fecha_emision")
     try:
-        if fe:
+        if fe and not item.get("fecha_vecimiento"):
             d = datetime.strptime(fe, "%d/%m/%Y")
             item["fecha_vecimiento"] = (d + timedelta(days=15)).strftime("%d/%m/%Y")
     except Exception:

@@ -2617,8 +2617,9 @@ def upload():
             if fv:
                 extracted['fecha_vencimiento'] = fv
 
-        # Sincroniza fecha_vecimiento a la fecha de pago
-        extracted['fecha_vecimiento'] = extracted.get('ultimo_dia_pago') or _add_days_ddmmyyyy(extracted.get('fecha_emision'), 15)
+        # Sincroniza fecha_vecimiento a la fecha de pago (no sobreescribir si el parser ya la definió)
+        if not extracted.get('fecha_vecimiento'):
+            extracted['fecha_vecimiento'] = extracted.get('ultimo_dia_pago') or _add_days_ddmmyyyy(extracted.get('fecha_emision'), 15)
     except Exception:
         pass
 
