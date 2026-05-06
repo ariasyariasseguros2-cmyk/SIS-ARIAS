@@ -9,6 +9,7 @@
     <div class="card mb-4">
         <div class="card-header">Estado de Cuenta de Cupones</div>
         <div class="card-body">
+            <div id="estadoCuentaCuponesAlert"></div>
             <form id="formEstadoCuentaCupones" class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Del</label>
@@ -20,55 +21,127 @@
                 </div>
                 <div class="col-md-6 position-relative">
                     <label class="form-label fw-bold">Contratante</label>
-                    <input type="text" class="form-control" id="contratanteSearch" placeholder="Seleccionar" autocomplete="off">
-                    <input type="hidden" name="cliente_id" id="contratanteId" value="">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="contratanteSearch" placeholder="Seleccionar" autocomplete="off">
+                        <button type="button" class="btn btn-outline-secondary" id="btnContratanteToggle" aria-label="Mostrar lista">▼</button>
+                    </div>
+                    <div id="contratanteSelected" class="d-flex flex-wrap gap-1 mt-2"></div>
+                    <div id="contratanteHidden"></div>
                     <div id="contratanteResults" class="list-group mt-2 position-absolute w-100" style="z-index: 1000; display: none; max-height: 280px; overflow-y: auto;"></div>
                 </div>
 
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Compañía</label>
-                    <select class="form-select" name="cia">
-                        <option value="">Seleccionar</option>
-                        {% for c in filtros.companias %}
-                        {% set nombre_cia = c.nombre_corto or c.nombre %}
-                        <option value="{{ nombre_cia }}">{{ nombre_cia }}</option>
-                        {% endfor %}
-                    </select>
+                    <div class="dropdown w-100" data-ms-name="cia" data-ms-default-text="Seleccionar" data-ms-all-label="Todas las compañías" data-ms-search-placeholder="Buscar compañía..." data-ms-all-text="Todas">
+                        <button type="button" class="form-select text-start" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">Seleccionar</button>
+                        <div class="dropdown-menu p-2 w-100" style="max-height: 320px; overflow-y: auto;">
+                            <input type="text" class="form-control form-control-sm mb-2 ms-search" placeholder="Buscar compañía...">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input ms-all" type="checkbox" id="msCiaAll">
+                                <label class="form-check-label" for="msCiaAll">Todas las compañías</label>
+                            </div>
+                            <div class="ms-options">
+                                {% for c in filtros.companias %}
+                                {% set nombre_cia = c.nombre_corto or c.nombre %}
+                                <div class="form-check">
+                                    <input class="form-check-input ms-opt" type="checkbox" value="{{ nombre_cia }}" id="msCiaOpt{{ loop.index }}">
+                                    <label class="form-check-label" for="msCiaOpt{{ loop.index }}">{{ nombre_cia }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="ms-hidden"></div>
+                    </div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Ramo</label>
-                    <select class="form-select" name="ramo">
-                        <option value="">Seleccionar</option>
-                        {% for r in filtros.ramos %}
-                        <option value="{{ r }}">{{ r }}</option>
-                        {% endfor %}
-                    </select>
+                    <div class="dropdown w-100" data-ms-name="ramo" data-ms-default-text="Seleccionar" data-ms-all-label="Todos los ramos" data-ms-search-placeholder="Buscar ramo..." data-ms-all-text="Todos">
+                        <button type="button" class="form-select text-start" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">Seleccionar</button>
+                        <div class="dropdown-menu p-2 w-100" style="max-height: 320px; overflow-y: auto;">
+                            <input type="text" class="form-control form-control-sm mb-2 ms-search" placeholder="Buscar ramo...">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input ms-all" type="checkbox" id="msRamoAll">
+                                <label class="form-check-label" for="msRamoAll">Todos los ramos</label>
+                            </div>
+                            <div class="ms-options">
+                                {% for r in filtros.ramos %}
+                                <div class="form-check">
+                                    <input class="form-check-input ms-opt" type="checkbox" value="{{ r }}" id="msRamoOpt{{ loop.index }}">
+                                    <label class="form-check-label" for="msRamoOpt{{ loop.index }}">{{ r }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="ms-hidden"></div>
+                    </div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Ejecutivo</label>
-                    <select class="form-select" name="ejecutivo">
-                        <option value="">Seleccionar</option>
-                        {% for e in filtros.ejecutivos %}
-                        <option value="{{ e.nombre }}">{{ e.nombre }}</option>
-                        {% endfor %}
-                    </select>
+                    <div class="dropdown w-100" data-ms-name="ejecutivo" data-ms-default-text="Seleccionar" data-ms-all-label="Todos los ejecutivos" data-ms-search-placeholder="Buscar ejecutivo..." data-ms-all-text="Todos">
+                        <button type="button" class="form-select text-start" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">Seleccionar</button>
+                        <div class="dropdown-menu p-2 w-100" style="max-height: 320px; overflow-y: auto;">
+                            <input type="text" class="form-control form-control-sm mb-2 ms-search" placeholder="Buscar ejecutivo...">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input ms-all" type="checkbox" id="msEjecutivoAll">
+                                <label class="form-check-label" for="msEjecutivoAll">Todos los ejecutivos</label>
+                            </div>
+                            <div class="ms-options">
+                                {% for e in filtros.ejecutivos %}
+                                <div class="form-check">
+                                    <input class="form-check-input ms-opt" type="checkbox" value="{{ e.nombre }}" id="msEjecutivoOpt{{ loop.index }}">
+                                    <label class="form-check-label" for="msEjecutivoOpt{{ loop.index }}">{{ e.nombre }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="ms-hidden"></div>
+                    </div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Sub Agente</label>
-                    <select class="form-select" name="sub_agente">
-                        <option value="">Seleccionar</option>
-                        {% for s in filtros.subagentes %}
-                        <option value="{{ s }}">{{ s }}</option>
-                        {% endfor %}
-                    </select>
+                    <div class="dropdown w-100" data-ms-name="sub_agente" data-ms-default-text="Seleccionar" data-ms-all-label="Todos los sub agentes" data-ms-search-placeholder="Buscar sub agente..." data-ms-all-text="Todos">
+                        <button type="button" class="form-select text-start" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">Seleccionar</button>
+                        <div class="dropdown-menu p-2 w-100" style="max-height: 320px; overflow-y: auto;">
+                            <input type="text" class="form-control form-control-sm mb-2 ms-search" placeholder="Buscar sub agente...">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input ms-all" type="checkbox" id="msSubAgenteAll">
+                                <label class="form-check-label" for="msSubAgenteAll">Todos los sub agentes</label>
+                            </div>
+                            <div class="ms-options">
+                                {% for s in filtros.subagentes %}
+                                <div class="form-check">
+                                    <input class="form-check-input ms-opt" type="checkbox" value="{{ s }}" id="msSubAgenteOpt{{ loop.index }}">
+                                    <label class="form-check-label" for="msSubAgenteOpt{{ loop.index }}">{{ s }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="ms-hidden"></div>
+                    </div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Estado</label>
-                    <select class="form-select" name="estado">
-                        <option value="">Seleccionar</option>
-                        <option value="PENDIENTE">PENDIENTE</option>
-                        <option value="PAGADO">PAGADO</option>
-                    </select>
+                    <div class="dropdown w-100" data-ms-name="estado" data-ms-default-text="Seleccionar" data-ms-all-label="Todos los estados" data-ms-search-placeholder="Buscar estado..." data-ms-all-text="Todos">
+                        <button type="button" class="form-select text-start" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">Seleccionar</button>
+                        <div class="dropdown-menu p-2 w-100" style="max-height: 320px; overflow-y: auto;">
+                            <input type="text" class="form-control form-control-sm mb-2 ms-search" placeholder="Buscar estado...">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input ms-all" type="checkbox" id="msEstadoAll">
+                                <label class="form-check-label" for="msEstadoAll">Todos los estados</label>
+                            </div>
+                            <div class="ms-options">
+                                <div class="form-check">
+                                    <input class="form-check-input ms-opt" type="checkbox" value="PENDIENTE" id="msEstadoOpt1">
+                                    <label class="form-check-label" for="msEstadoOpt1">PENDIENTE</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input ms-opt" type="checkbox" value="PAGADO" id="msEstadoOpt2">
+                                    <label class="form-check-label" for="msEstadoOpt2">PAGADO</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ms-hidden"></div>
+                    </div>
                 </div>
 
                 <div class="col-12 d-flex justify-content-start mt-2 gap-2">
@@ -96,6 +169,7 @@
                 <table class="table table-striped table-hover table-sm table-bordered align-middle text-nowrap" id="estadoCuentaCuponesTable">
                     <thead class="table-light">
                         <tr>
+                            <th>CONTRATANTE</th>
                             <th>POLIZA</th>
                             <th>CIA</th>
                             <th>RAM</th>
@@ -112,7 +186,7 @@
                     </thead>
                     <tbody id="tbodyEstadoCuentaCupones">
                         <tr>
-                            <td colspan="12" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td>
+                            <td colspan="13" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -137,6 +211,7 @@
                                 <th>ASEGURADO</th>
                                 <th>DIRECCION</th>
                                 <th>TELEFONO</th>
+                                <th>CONTRATANTE</th>
                                 <th>POLIZA</th>
                                 <th>CIA</th>
                                 <th>RAM</th>
@@ -161,7 +236,7 @@
                         </thead>
                         <tbody id="tbodyEstadoCuentaCuponesFull">
                             <tr>
-                                <td colspan="23" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td>
+                                <td colspan="24" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -181,6 +256,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('formEstadoCuentaCupones');
+    const alertBox = document.getElementById('estadoCuentaCuponesAlert');
     const tbody = document.getElementById('tbodyEstadoCuentaCupones');
     const info = document.getElementById('estadoCuentaCuponesInfo');
     const tbodyFull = document.getElementById('tbodyEstadoCuentaCuponesFull');
@@ -189,9 +265,238 @@ document.addEventListener('DOMContentLoaded', function () {
     const btnClear = document.getElementById('btnClearEstadoCuentaCupones');
 
     const contratanteSearch = document.getElementById('contratanteSearch');
-    const contratanteId = document.getElementById('contratanteId');
+    const btnContratanteToggle = document.getElementById('btnContratanteToggle');
+    const contratanteSelected = document.getElementById('contratanteSelected');
+    const contratanteHidden = document.getElementById('contratanteHidden');
     const contratanteResults = document.getElementById('contratanteResults');
     let searchTimeout = null;
+    const multiSelects = [];
+    const selectedContratantes = new Map();
+
+    function initMultiSelect(root) {
+        if (!root) return null;
+        const name = root.getAttribute('data-ms-name');
+        const defaultText = root.getAttribute('data-ms-default-text') || 'Seleccionar';
+        const allLabel = root.getAttribute('data-ms-all-label') || 'Todos';
+        const allText = root.getAttribute('data-ms-all-text') || 'Todos';
+        const searchPlaceholder = root.getAttribute('data-ms-search-placeholder') || 'Buscar...';
+
+        const btn = root.querySelector('button');
+        const search = root.querySelector('.ms-search');
+        const chkAll = root.querySelector('.ms-all');
+        const options = Array.from(root.querySelectorAll('.ms-opt'));
+        const hidden = root.querySelector('.ms-hidden');
+
+        if (search) search.placeholder = searchPlaceholder;
+        if (chkAll) {
+            const lbl = root.querySelector(`label[for="${chkAll.id}"]`);
+            if (lbl) lbl.textContent = allLabel;
+        }
+
+        function getSelected() {
+            return options.filter(o => o.checked).map(o => o.value);
+        }
+
+        function updateHidden() {
+            if (!hidden) return;
+            hidden.innerHTML = '';
+            const selected = getSelected();
+            selected.forEach(function (val) {
+                const inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = name;
+                inp.value = val;
+                hidden.appendChild(inp);
+            });
+        }
+
+        function updateAllCheckbox() {
+            if (!chkAll) return;
+            const selectedCount = options.filter(o => o.checked).length;
+            chkAll.checked = options.length > 0 && selectedCount === options.length;
+            chkAll.indeterminate = selectedCount > 0 && selectedCount < options.length;
+        }
+
+        function updateButton() {
+            if (!btn) return;
+            const selected = getSelected();
+            if (selected.length === 0) {
+                btn.textContent = defaultText;
+                return;
+            }
+            if (selected.length === options.length) {
+                btn.textContent = allText;
+                return;
+            }
+            if (selected.length <= 2) {
+                btn.textContent = selected.join(', ');
+                return;
+            }
+            btn.textContent = `${selected.length} seleccionados`;
+        }
+
+        function applyFilter(q) {
+            const needle = (q || '').trim().toLowerCase();
+            options.forEach(function (opt) {
+                const wrap = opt.closest('.form-check');
+                if (!wrap) return;
+                const label = wrap.querySelector('label');
+                const text = (label ? label.textContent : opt.value || '').toLowerCase();
+                wrap.style.display = !needle || text.includes(needle) ? '' : 'none';
+            });
+        }
+
+        function refresh() {
+            updateHidden();
+            updateAllCheckbox();
+            updateButton();
+        }
+
+        if (chkAll) {
+            chkAll.addEventListener('change', function () {
+                const checked = chkAll.checked;
+                options.forEach(function (opt) { opt.checked = checked; });
+                refresh();
+            });
+        }
+
+        options.forEach(function (opt) {
+            opt.addEventListener('change', function () {
+                refresh();
+            });
+        });
+
+        if (search) {
+            search.addEventListener('input', function () {
+                applyFilter(search.value);
+            });
+        }
+
+        root.addEventListener('hidden.bs.dropdown', function () {
+            if (search) {
+                search.value = '';
+                applyFilter('');
+            }
+        });
+
+        refresh();
+
+        return {
+            reset: function () {
+                options.forEach(function (opt) { opt.checked = false; });
+                if (chkAll) {
+                    chkAll.checked = false;
+                    chkAll.indeterminate = false;
+                }
+                if (search) {
+                    search.value = '';
+                    applyFilter('');
+                }
+                refresh();
+            }
+        };
+    }
+
+    document.querySelectorAll('[data-ms-name]').forEach(function (el) {
+        const ms = initMultiSelect(el);
+        if (ms) multiSelects.push(ms);
+    });
+
+    function showAlert(message) {
+        if (!message) return;
+        if (!alertBox) {
+            window.alert(message);
+            return;
+        }
+        alertBox.innerHTML = '';
+        const div = document.createElement('div');
+        div.className = 'alert alert-warning alert-dismissible fade show';
+        div.setAttribute('role', 'alert');
+        div.textContent = message;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn-close';
+        btn.setAttribute('data-bs-dismiss', 'alert');
+        btn.setAttribute('aria-label', 'Close');
+        div.appendChild(btn);
+        alertBox.appendChild(div);
+    }
+
+    function clearAlert() {
+        if (alertBox) alertBox.innerHTML = '';
+    }
+
+    function validateRequiredFilters() {
+        if (!form) return true;
+        clearAlert();
+
+        const inpDesde = form.querySelector('input[name="fecha_desde"]');
+        const inpHasta = form.querySelector('input[name="fecha_hasta"]');
+        const contratanteInp = document.getElementById('contratanteSearch');
+
+        const msMap = [
+            { name: 'cia', label: 'Compañía' },
+            { name: 'ramo', label: 'Ramo' },
+            { name: 'ejecutivo', label: 'Ejecutivo' },
+            { name: 'sub_agente', label: 'Sub Agente' },
+            { name: 'estado', label: 'Estado' }
+        ];
+
+        const invalidEls = [];
+        const missing = [];
+
+        function markInvalid(el) {
+            if (!el) return;
+            el.classList.add('is-invalid');
+            if (el.tagName === 'BUTTON') {
+                el.classList.add('border', 'border-danger');
+            }
+            invalidEls.push(el);
+        }
+
+        function clearInvalid(el) {
+            if (!el) return;
+            el.classList.remove('is-invalid');
+            el.classList.remove('border', 'border-danger');
+        }
+
+        [inpDesde, inpHasta, contratanteInp].forEach(clearInvalid);
+        msMap.forEach(function (m) {
+            const root = document.querySelector(`[data-ms-name="${m.name}"]`);
+            const btn = root ? root.querySelector('button') : null;
+            clearInvalid(btn);
+        });
+
+        if (!inpDesde || !inpDesde.value) {
+            missing.push('Del');
+            markInvalid(inpDesde);
+        }
+        if (!inpHasta || !inpHasta.value) {
+            missing.push('Al');
+            markInvalid(inpHasta);
+        }
+
+        msMap.forEach(function (m) {
+            const root = document.querySelector(`[data-ms-name="${m.name}"]`);
+            if (!root) return;
+            const btn = root.querySelector('button');
+            const selectedCount = root.querySelectorAll('.ms-opt:checked').length;
+            if (selectedCount === 0) {
+                missing.push(m.label);
+                markInvalid(btn);
+            }
+        });
+
+        if (missing.length > 0) {
+            showAlert('Debe completar: ' + missing.join(', ') + '.');
+            const first = invalidEls.find(Boolean);
+            if (first && typeof first.scrollIntoView === 'function') {
+                first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return false;
+        }
+        return true;
+    }
 
     function buildQuery() {
         const params = new URLSearchParams();
@@ -213,8 +518,66 @@ document.addEventListener('DOMContentLoaded', function () {
         if (contratanteResults) contratanteResults.style.display = 'none';
     }
 
+    function renderSelectedContratantes() {
+        if (contratanteHidden) contratanteHidden.innerHTML = '';
+        if (contratanteSelected) contratanteSelected.innerHTML = '';
+        if (contratanteSearch) contratanteSearch.placeholder = selectedContratantes.size === 0 ? 'Todos los contratantes' : 'Seleccionar';
+        if (selectedContratantes.size === 0) {
+            if (contratanteSelected) {
+                const badge = document.createElement('span');
+                badge.className = 'badge text-bg-secondary';
+                badge.textContent = 'Todos los contratantes';
+                contratanteSelected.appendChild(badge);
+            }
+            return;
+        }
+        selectedContratantes.forEach(function (title, id) {
+            if (contratanteHidden) {
+                const inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = 'cliente_id';
+                inp.value = id;
+                contratanteHidden.appendChild(inp);
+            }
+            if (contratanteSelected) {
+                const badge = document.createElement('span');
+                badge.className = 'badge text-bg-primary d-inline-flex align-items-center';
+                badge.textContent = title;
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn-close btn-close-white ms-2';
+                btn.setAttribute('aria-label', 'Quitar');
+                btn.style.width = '0.5em';
+                btn.style.height = '0.5em';
+                btn.addEventListener('click', function () {
+                    selectedContratantes.delete(id);
+                    renderSelectedContratantes();
+                });
+                badge.appendChild(btn);
+                contratanteSelected.appendChild(badge);
+            }
+        });
+    }
+
+    renderSelectedContratantes();
+
     function showResults(clientes) {
         contratanteResults.innerHTML = '';
+        const allItem = document.createElement('div');
+        allItem.className = 'list-group-item';
+        allItem.innerHTML = `<div class="form-check m-0"><input class="form-check-input" type="checkbox"><label class="form-check-label">Todos los contratantes</label></div>`;
+        const chk = allItem.querySelector('input');
+        if (chk) chk.checked = selectedContratantes.size === 0;
+        allItem.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            selectedContratantes.clear();
+            renderSelectedContratantes();
+            if (chk) chk.checked = true;
+            if (contratanteSearch) contratanteSearch.value = '';
+        });
+        contratanteResults.appendChild(allItem);
+
         clientes.forEach(function (c) {
             const a = document.createElement('a');
             a.href = '#';
@@ -224,12 +587,22 @@ document.addEventListener('DOMContentLoaded', function () {
             a.innerHTML = `<div class="d-flex w-100 justify-content-between"><div>${title}</div><small class="text-muted">${sub}</small></div>`;
             a.addEventListener('click', function (ev) {
                 ev.preventDefault();
-                contratanteSearch.value = title;
-                contratanteId.value = c.idCliente || '';
+                const id = c.idCliente === null || c.idCliente === undefined ? '' : String(c.idCliente);
+                if (id) {
+                    selectedContratantes.set(id, title);
+                    renderSelectedContratantes();
+                }
+                contratanteSearch.value = '';
                 hideResults();
             });
             contratanteResults.appendChild(a);
         });
+        if (!clientes || clientes.length === 0) {
+            const emptyItem = document.createElement('div');
+            emptyItem.className = 'list-group-item text-muted';
+            emptyItem.textContent = 'No se encontraron resultados';
+            contratanteResults.appendChild(emptyItem);
+        }
         contratanteResults.style.display = 'block';
     }
 
@@ -239,7 +612,6 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(data => {
                 if (!data.ok) { hideResults(); return; }
                 const clientes = data.clientes || [];
-                if (!clientes.length) { hideResults(); return; }
                 showResults(clientes);
             })
             .catch(() => hideResults());
@@ -248,20 +620,49 @@ document.addEventListener('DOMContentLoaded', function () {
     if (contratanteSearch) {
         contratanteSearch.addEventListener('input', function () {
             const q = (contratanteSearch.value || '').trim();
-            contratanteId.value = '';
             if (searchTimeout) clearTimeout(searchTimeout);
+            if (!q) {
+                searchTimeout = setTimeout(() => searchContratantes(''), 150);
+                return;
+            }
             if (q.length < 2) { hideResults(); return; }
             searchTimeout = setTimeout(() => searchContratantes(q), 250);
+        });
+        contratanteSearch.addEventListener('focus', function () {
+            const q = (contratanteSearch.value || '').trim();
+            if (!q) searchContratantes('');
         });
         contratanteSearch.addEventListener('blur', function () {
             setTimeout(hideResults, 150);
         });
     }
+    if (btnContratanteToggle && contratanteSearch) {
+        btnContratanteToggle.addEventListener('mousedown', function (ev) {
+            ev.preventDefault();
+        });
+        btnContratanteToggle.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            if (contratanteResults && contratanteResults.style.display === 'block') {
+                hideResults();
+                return;
+            }
+            const q = (contratanteSearch.value || '').trim();
+            if (!q) {
+                searchContratantes('');
+                return;
+            }
+            if (q.length < 2) {
+                searchContratantes('');
+                return;
+            }
+            searchContratantes(q);
+        });
+    }
 
     function renderRows(rows) {
         if (!rows || rows.length === 0) {
-            const emptyMain = '<tr><td colspan="12" class="text-center text-muted">No se encontraron resultados</td></tr>';
-            const emptyFull = '<tr><td colspan="23" class="text-center text-muted">No se encontraron resultados</td></tr>';
+            const emptyMain = '<tr><td colspan="13" class="text-center text-muted">No se encontraron resultados</td></tr>';
+            const emptyFull = '<tr><td colspan="24" class="text-center text-muted">No se encontraron resultados</td></tr>';
             tbody.innerHTML = emptyMain;
             if (tbodyFull) tbodyFull.innerHTML = emptyFull;
             if (info) info.textContent = '';
@@ -271,6 +672,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const htmlMain = rows.map(function (r) {
             return (
                 '<tr>' +
+                `<td>${r.contratante || ''}</td>` +
                 `<td>${r.poliza || ''}</td>` +
                 `<td>${r.cia || ''}</td>` +
                 `<td>${r.ram || ''}</td>` +
@@ -292,6 +694,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 `<td>${r.asegurado || ''}</td>` +
                 `<td>${r.direccion || ''}</td>` +
                 `<td>${r.telefono || ''}</td>` +
+                `<td>${r.contratante || ''}</td>` +
                 `<td>${r.poliza || ''}</td>` +
                 `<td>${r.cia || ''}</td>` +
                 `<td>${r.ram || ''}</td>` +
@@ -323,8 +726,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function loadReporte() {
-        const loadingMain = '<tr><td colspan="12" class="text-center text-muted">Cargando...</td></tr>';
-        const loadingFull = '<tr><td colspan="23" class="text-center text-muted">Cargando...</td></tr>';
+        const loadingMain = '<tr><td colspan="13" class="text-center text-muted">Cargando...</td></tr>';
+        const loadingFull = '<tr><td colspan="24" class="text-center text-muted">Cargando...</td></tr>';
         tbody.innerHTML = loadingMain;
         if (tbodyFull) tbodyFull.innerHTML = loadingFull;
         const q = buildQuery();
@@ -333,8 +736,8 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(r => r.json())
             .then(data => {
                 if (!data.ok) {
-                    const errMain = `<tr><td colspan="12" class="text-center text-danger">${data.error || 'Error'}</td></tr>`;
-                    const errFull = `<tr><td colspan="23" class="text-center text-danger">${data.error || 'Error'}</td></tr>`;
+                    const errMain = `<tr><td colspan="13" class="text-center text-danger">${data.error || 'Error'}</td></tr>`;
+                    const errFull = `<tr><td colspan="24" class="text-center text-danger">${data.error || 'Error'}</td></tr>`;
                     tbody.innerHTML = errMain;
                     if (tbodyFull) tbodyFull.innerHTML = errFull;
                     if (info) info.textContent = '';
@@ -344,8 +747,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 renderRows(data.rows || []);
             })
             .catch(() => {
-                const errMain = '<tr><td colspan="12" class="text-center text-danger">Error de conexión</td></tr>';
-                const errFull = '<tr><td colspan="23" class="text-center text-danger">Error de conexión</td></tr>';
+                const errMain = '<tr><td colspan="13" class="text-center text-danger">Error de conexión</td></tr>';
+                const errFull = '<tr><td colspan="24" class="text-center text-danger">Error de conexión</td></tr>';
                 tbody.innerHTML = errMain;
                 if (tbodyFull) tbodyFull.innerHTML = errFull;
                 if (info) info.textContent = '';
@@ -356,12 +759,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (form) {
         form.addEventListener('submit', function (ev) {
             ev.preventDefault();
+            if (!validateRequiredFilters()) return;
             loadReporte();
         });
     }
 
     if (btnExport) {
         btnExport.addEventListener('click', function () {
+            if (!validateRequiredFilters()) return;
             const q = buildQuery();
             const url = '/api/cobranzas/estado-cuenta-cupones/export/xlsx' + (q ? `?${q}` : '');
             window.open(url, '_blank');
@@ -370,16 +775,49 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (btnClear) {
         btnClear.addEventListener('click', function () {
+            clearAlert();
             form.reset();
+            const inpDesde = form.querySelector('input[name="fecha_desde"]');
+            const inpHasta = form.querySelector('input[name="fecha_hasta"]');
+            if (inpDesde) inpDesde.classList.remove('is-invalid');
+            if (inpHasta) inpHasta.classList.remove('is-invalid');
+            if (contratanteSearch) contratanteSearch.classList.remove('is-invalid');
+            document.querySelectorAll('[data-ms-name]').forEach(function (root) {
+                const btn = root.querySelector('button');
+                if (btn) btn.classList.remove('is-invalid', 'border', 'border-danger');
+            });
             contratanteSearch.value = '';
-            contratanteId.value = '';
             hideResults();
-            const initMain = '<tr><td colspan="12" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td></tr>';
-            const initFull = '<tr><td colspan="23" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td></tr>';
+            selectedContratantes.clear();
+            renderSelectedContratantes();
+            multiSelects.forEach(function (ms) { ms.reset(); });
+            const initMain = '<tr><td colspan="13" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td></tr>';
+            const initFull = '<tr><td colspan="24" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td></tr>';
             tbody.innerHTML = initMain;
             if (tbodyFull) tbodyFull.innerHTML = initFull;
             if (info) info.textContent = '';
             if (infoFull) infoFull.textContent = '';
+        });
+    }
+
+    if (form) {
+        const inpDesde = form.querySelector('input[name="fecha_desde"]');
+        const inpHasta = form.querySelector('input[name="fecha_hasta"]');
+        if (inpDesde) inpDesde.addEventListener('change', function () { inpDesde.classList.remove('is-invalid'); clearAlert(); });
+        if (inpHasta) inpHasta.addEventListener('change', function () { inpHasta.classList.remove('is-invalid'); clearAlert(); });
+    }
+
+    document.querySelectorAll('[data-ms-name]').forEach(function (root) {
+        root.addEventListener('change', function () {
+            const btn = root.querySelector('button');
+            if (btn) btn.classList.remove('is-invalid', 'border', 'border-danger');
+            clearAlert();
+        });
+    });
+
+    if (contratanteSearch) {
+        contratanteSearch.addEventListener('input', function () {
+            contratanteSearch.classList.remove('is-invalid');
         });
     }
 });

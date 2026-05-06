@@ -1789,14 +1789,50 @@ def api_cobranzas_estado_cuenta_cupones():
         return {'ok': False, 'error': 'No autenticado'}, 401
 
     try:
+        def _get_multi(name: str):
+            values = request.args.getlist(name) or []
+            out = []
+            seen = set()
+            for v in values:
+                if v is None:
+                    continue
+                for part in str(v).split(','):
+                    p = part.strip()
+                    if not p:
+                        continue
+                    if p in seen:
+                        continue
+                    seen.add(p)
+                    out.append(p)
+            return out
+
         fecha_desde = (request.args.get('fecha_desde') or '').strip()
         fecha_hasta = (request.args.get('fecha_hasta') or '').strip()
-        cliente_id = (request.args.get('cliente_id') or '').strip()
-        cia = (request.args.get('cia') or '').strip()
-        ramo = (request.args.get('ramo') or '').strip()
-        ejecutivo = (request.args.get('ejecutivo') or '').strip()
-        sub_agente = (request.args.get('sub_agente') or '').strip()
-        estado = (request.args.get('estado') or '').strip().upper()
+        cliente_ids = _get_multi('cliente_id')
+        cias = _get_multi('cia')
+        ramos = _get_multi('ramo')
+        ejecutivos = _get_multi('ejecutivo')
+        sub_agentes = _get_multi('sub_agente')
+        estados = [e.upper() for e in _get_multi('estado')]
+
+        missing = []
+        if not fecha_desde:
+            missing.append('Del')
+        if not fecha_hasta:
+            missing.append('Al')
+        if not cias:
+            missing.append('Compañía')
+        if not ramos:
+            missing.append('Ramo')
+        if not ejecutivos:
+            missing.append('Ejecutivo')
+        if not sub_agentes:
+            missing.append('Sub Agente')
+        if not estados:
+            missing.append('Estado')
+
+        if missing:
+            return jsonify({'ok': False, 'error': 'Debe completar: ' + ', '.join(missing) + '.'}), 400
 
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
@@ -1814,6 +1850,11 @@ def api_cobranzas_estado_cuenta_cupones():
                     CAST(AES_DECRYPT(cl.telefono, @SIS_KEY) AS CHAR),
                     cl.telefono
                 ) AS telefono,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(cl.razon_social), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(cl.razon_social, @SIS_KEY) AS CHAR),
+                    cl.razon_social
+                ) AS contratante,
                 COALESCE(
                     CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
                     CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
@@ -1860,25 +1901,26 @@ def api_cobranzas_estado_cuenta_cupones():
         if fecha_hasta:
             query += " AND c.fecha_vencimiento < DATE_ADD(%s, INTERVAL 1 DAY)"
             params.append(fecha_hasta)
-        if cliente_id:
-            query += " AND p.cliente_id = %s"
-            params.append(cliente_id)
-        if cia:
-            query += " AND p.cia = %s"
-            params.append(cia)
-        if ramo:
-            query += " AND p.ramo = %s"
-            params.append(ramo)
-        if ejecutivo:
-            query += " AND p.ejecutivo = %s"
-            params.append(ejecutivo)
-        if sub_agente:
-            query += " AND p.sub_agente = %s"
-            params.append(sub_agente)
+        if cliente_ids:
+            query += " AND p.cliente_id IN (" + ",".join(["%s"] * len(cliente_ids)) + ")"
+            params.extend(cliente_ids)
+        if cias:
+            query += " AND p.cia IN (" + ",".join(["%s"] * len(cias)) + ")"
+            params.extend(cias)
+        if ramos:
+            query += " AND p.ramo IN (" + ",".join(["%s"] * len(ramos)) + ")"
+            params.extend(ramos)
+        if ejecutivos:
+            query += " AND p.ejecutivo IN (" + ",".join(["%s"] * len(ejecutivos)) + ")"
+            params.extend(ejecutivos)
+        if sub_agentes:
+            query += " AND p.sub_agente IN (" + ",".join(["%s"] * len(sub_agentes)) + ")"
+            params.extend(sub_agentes)
 
-        if estado == 'PENDIENTE':
+        estados_set = set([e for e in estados if e])
+        if estados_set == {'PENDIENTE'}:
             query += " AND c.fecha_pago IS NULL"
-        elif estado == 'PAGADO':
+        elif estados_set == {'PAGADO'}:
             query += " AND c.fecha_pago IS NOT NULL"
 
         role = session.get('role_name')
@@ -1959,6 +2001,7 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
             "ASEGURADO",
             "DIRECCION",
             "TELEFONO",
+            "CONTRATANTE",
             "POLIZA",
             "CIA",
             "RAM",
@@ -1989,26 +2032,27 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
             ws.cell(row=i, column=1, value=r.get('asegurado') or '')
             ws.cell(row=i, column=2, value=r.get('direccion') or '')
             ws.cell(row=i, column=3, value=r.get('telefono') or '')
-            ws.cell(row=i, column=4, value=r.get('poliza') or '')
-            ws.cell(row=i, column=5, value=r.get('cia') or '')
-            ws.cell(row=i, column=6, value=r.get('ram') or '')
-            ws.cell(row=i, column=7, value=r.get('prod') or '')
-            ws.cell(row=i, column=8, value=r.get('cupon') or '')
-            ws.cell(row=i, column=9, value=r.get('num_cuota') or '')
-            ws.cell(row=i, column=10, value=r.get('fec_vencimiento_cob') or '')
-            ws.cell(row=i, column=11, value=r.get('mon') or '')
-            ws.cell(row=i, column=12, value=float(r.get('importe') or 0))
-            ws.cell(row=i, column=13, value=r.get('fec_pago') or '')
-            ws.cell(row=i, column=14, value=r.get('factura') or '')
-            ws.cell(row=i, column=15, value=int(r.get('dias_vencidos') or 0))
-            ws.cell(row=i, column=16, value=r.get('ult_gestion') or '')
-            ws.cell(row=i, column=17, value=r.get('tp') or '')
-            ws.cell(row=i, column=18, value=r.get('vig_del') or '')
-            ws.cell(row=i, column=19, value=r.get('vig_al') or '')
-            ws.cell(row=i, column=20, value=float(r.get('prima_total') or 0))
-            ws.cell(row=i, column=21, value=r.get('motivo') or '')
-            ws.cell(row=i, column=22, value=r.get('tp_pago') or '')
-            ws.cell(row=i, column=23, value=r.get('breve_descripcion') or '')
+            ws.cell(row=i, column=4, value=r.get('contratante') or '')
+            ws.cell(row=i, column=5, value=r.get('poliza') or '')
+            ws.cell(row=i, column=6, value=r.get('cia') or '')
+            ws.cell(row=i, column=7, value=r.get('ram') or '')
+            ws.cell(row=i, column=8, value=r.get('prod') or '')
+            ws.cell(row=i, column=9, value=r.get('cupon') or '')
+            ws.cell(row=i, column=10, value=r.get('num_cuota') or '')
+            ws.cell(row=i, column=11, value=r.get('fec_vencimiento_cob') or '')
+            ws.cell(row=i, column=12, value=r.get('mon') or '')
+            ws.cell(row=i, column=13, value=float(r.get('importe') or 0))
+            ws.cell(row=i, column=14, value=r.get('fec_pago') or '')
+            ws.cell(row=i, column=15, value=r.get('factura') or '')
+            ws.cell(row=i, column=16, value=int(r.get('dias_vencidos') or 0))
+            ws.cell(row=i, column=17, value=r.get('ult_gestion') or '')
+            ws.cell(row=i, column=18, value=r.get('tp') or '')
+            ws.cell(row=i, column=19, value=r.get('vig_del') or '')
+            ws.cell(row=i, column=20, value=r.get('vig_al') or '')
+            ws.cell(row=i, column=21, value=float(r.get('prima_total') or 0))
+            ws.cell(row=i, column=22, value=r.get('motivo') or '')
+            ws.cell(row=i, column=23, value=r.get('tp_pago') or '')
+            ws.cell(row=i, column=24, value=r.get('breve_descripcion') or '')
 
         upload_folder = current_app.config.get("UPLOAD_FOLDER", os.path.join(current_app.root_path, "uploads"))
         exports_dir = os.path.join(upload_folder, "exports")
@@ -2700,7 +2744,7 @@ def api_buscar_clientes():
     from controllers.clientes.estado_cuenta import buscar_clientes
     search_term = request.args.get('q', '').strip()
 
-    if not search_term or len(search_term) < 2:
+    if search_term and len(search_term) < 2:
         return jsonify({'ok': False, 'message': 'Mínimo 2 caracteres'}), 400
 
     clientes = buscar_clientes(search_term)
