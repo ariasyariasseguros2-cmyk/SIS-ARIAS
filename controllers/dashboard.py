@@ -233,6 +233,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE()) 
                   AND YEAR(vig_desde) = YEAR(CURDATE())
+                  AND activo = 1
                   AND anulado = 0 {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -245,6 +246,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) 
                   AND YEAR(vig_desde) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+                  AND activo = 1
                   AND anulado = 0 {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -265,6 +267,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE()) 
                   AND YEAR(vig_desde) = YEAR(CURDATE())
+                  AND activo = 1
                   AND anulado = 0 {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -277,6 +280,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) 
                   AND YEAR(vig_desde) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+                  AND activo = 1
                   AND anulado = 0 {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -302,10 +306,12 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
-                  AND moneda = 'S/'
+                  AND activo = 1
                   AND anulado = 0
+                  AND moneda IN ('S/', 'S/.', 'SOLES', 'PEN')
+                  {user_filter}
             """
-            cur.execute(sql)
+            cur.execute(sql, user_filter_args)
             res = cur.fetchone()
             val = float(res[0] or 0)
             cards['prima_neta_soles'] = f"{val:,.2f}"
@@ -315,10 +321,12 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
-                  AND moneda = 'US$'
+                  AND activo = 1
                   AND anulado = 0
+                  AND moneda IN ('US$', 'USD', '$')
+                  {user_filter}
             """
-            cur.execute(sql)
+            cur.execute(sql, user_filter_args)
             res = cur.fetchone()
             val = float(res[0] or 0)
             cards['prima_neta_dolares'] = f"{val:,.2f}"
@@ -328,10 +336,12 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
-                  AND moneda = 'S/'
+                  AND activo = 1
                   AND anulado = 0
+                  AND moneda IN ('S/', 'S/.', 'SOLES', 'PEN')
+                  {user_filter}
             """
-            cur.execute(sql)
+            cur.execute(sql, user_filter_args)
             res = cur.fetchone()
             val = float(res[0] or 0)
             cards['comision_soles'] = f"{val:,.2f}"
@@ -341,10 +351,12 @@ def get_dashboard_cards() -> Dict[str, Any]:
                 WHERE vig_desde IS NOT NULL
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
-                  AND moneda = 'US$'
+                  AND activo = 1
                   AND anulado = 0
+                  AND moneda IN ('US$', 'USD', '$')
+                  {user_filter}
             """
-            cur.execute(sql)
+            cur.execute(sql, user_filter_args)
             res = cur.fetchone()
             val = float(res[0] or 0)
             cards['comision_dolares'] = f"{val:,.2f}"
@@ -395,12 +407,17 @@ def get_dashboard_data() -> Dict[str, Any]:
         sql = f"""
             SELECT
                 MONTH(vig_desde) AS mes,
-                moneda,
+                CASE
+                    WHEN moneda IN ('S/', 'S/.', 'SOLES', 'PEN') THEN 'S/'
+                    WHEN moneda IN ('US$', 'USD', '$') THEN 'US$'
+                    ELSE moneda
+                END AS moneda,
                 SUM(COALESCE(prima_neta, 0)) AS total_prima_neta,
                 SUM(COALESCE(imp_compania, 0)) AS total_comision
             FROM polizas
             WHERE vig_desde IS NOT NULL
               AND YEAR(vig_desde) = YEAR(CURDATE())
+              AND activo = 1
               AND anulado = 0
               {user_filter}
             GROUP BY MONTH(vig_desde), moneda
