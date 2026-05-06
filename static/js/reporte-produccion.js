@@ -3,6 +3,7 @@ function reporteProduccionInit() {
     const tableBodySummary = document.querySelector('#reporteProduccionTableSummary tbody');
     const tableBodyFull = document.querySelector('#reporteProduccionTableFull tbody');
     const btnExport = document.getElementById('btnExportProduccionExcel');
+    const btnClear = document.getElementById('btnClearProduccion');
 
     // Estado de paginación
     let allData = [];
@@ -311,6 +312,22 @@ function reporteProduccionInit() {
                 url += '?' + query;
             }
             window.open(url, '_blank');
+        });
+    }
+
+    if (btnClear) {
+        btnClear.addEventListener('click', function () {
+            form.reset();
+            allData = [];
+            currentPage = 1;
+            rowsPerPage = 20;
+            rowsPerPageSelects.forEach(sel => sel.value = rowsPerPage);
+            paginationContainers.forEach(c => c.style.display = 'none');
+            tableBodySummary.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Use los filtros y pulse Buscar.</td></tr>';
+            if (tableBodyFull) {
+                tableBodyFull.innerHTML = '<tr><td colspan="30" class="text-center text-muted">Use los filtros y pulse Buscar.</td></tr>';
+            }
+            updatePaginationUI(0, 0, 0);
         });
     }
 

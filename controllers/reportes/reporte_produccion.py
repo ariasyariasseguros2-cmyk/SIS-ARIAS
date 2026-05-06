@@ -53,23 +53,6 @@ def _build_filters(filters: Dict[str, Any]) -> Tuple[str, List[Any]]:
         sql_filters.append("p.ejecutivo = %s")
         params.append(filters["ejecutivo"])
 
-    if filters.get("usuario"):
-        sql_filters.append(
-            "(p.usuario_registro = %s OR p.usuario_registro = (SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1))"
-        )
-        params.extend([filters["usuario"], filters["usuario"]])
-
-    f_reg_desde = filters.get("f_reg_desde")
-    f_reg_hasta = filters.get("f_reg_hasta")
-
-    if f_reg_desde:
-        sql_filters.append("DATE(p.creado_en) >= %s")
-        params.append(f_reg_desde)
-    
-    if f_reg_hasta:
-        sql_filters.append("DATE(p.creado_en) <= %s")
-        params.append(f_reg_hasta)
-
     # Filtro por rol: sub agente solo ve sus pólizas
     role = session.get("role_name")
     user = session.get("user")

@@ -1,0 +1,91 @@
+{% extends 'view/layout_dashboard.html' %}
+{% set page = 'reporte-gestion-diaria' %}
+
+{% block html_title %}Reporte Gestión Diaria{% endblock %}
+{% block page_title %}Reporte Gestión Diaria{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reporte-diario.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h1 class="h5 mb-3">Pólizas <small class="text-muted">Reporte Gestión Diaria</small></h1>
+
+    <div class="card mb-4">
+        <div class="card-header">Filtros</div>
+        <div class="card-body">
+            <form id="formReporteGestionDiaria" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Usuario Registro</label>
+                    <select class="form-select" name="usuario">
+                        <option value="">Todos</option>
+                        {% for u in filtros.usuarios %}
+                        <option value="{{ u.username }}">{{ u.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Desde (F. Registro)</label>
+                    <input type="date" class="form-control" name="f_reg_desde" value="">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Hasta (F. Registro)</label>
+                    <input type="date" class="form-control" name="f_reg_hasta" value="">
+                </div>
+
+                <div class="col-12 d-flex justify-content-start mt-2 gap-2">
+                    <button type="submit" class="btn btn-success">Buscar</button>
+                    <button type="button" id="btnExportGestionDiariaExcel" class="btn btn-outline-primary">
+                        <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+                    </button>
+                    <button type="button" id="btnExportGestionDiariaPdf" class="btn btn-outline-danger">
+                        <i class="bi bi-file-earmark-pdf"></i> Exportar PDF
+                    </button>
+                    <button type="button" id="btnClearGestionDiaria" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg"></i> Limpiar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0 p-md-3">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="tablaReporteGestionDiaria">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>N° Póliza</th>
+                            <th>Recibo</th>
+                            <th>Cliente</th>
+                            <th>Compañía</th>
+                            <th>Ramo</th>
+                            <th>Moneda</th>
+                            <th class="text-end">Prima Total</th>
+                            <th>Vigencia Desde</th>
+                            <th>Vigencia Hasta</th>
+                            <th>Ejecutivo</th>
+                            <th>Estado</th>
+                            <th>Registrado por</th>
+                            <th>Hora registro</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyReporteGestionDiaria">
+                        <tr>
+                            <td colspan="14" class="text-center py-4 text-muted">Use los filtros y pulse Buscar.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-muted small mt-2" id="gestionDiariaInfo"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js_bottom %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/reporte-gestion-diaria.js') }}"></script>
+{% endblock %}

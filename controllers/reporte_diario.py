@@ -5,12 +5,47 @@ import os
 
 
 def get_reporte_diario_data(filters=None):
-    """Retorna las pólizas creadas en el día actual."""
+    """Retorna pólizas creadas hoy o filtradas por usuario/fecha de registro (gestión diaria)."""
     conn = get_connection()
     rows = []
     try:
         cur = conn.cursor(dictionary=True)
+        filters = filters or {}
         today = date.today().isoformat()
+        f_reg_desde = (filters.get("f_reg_desde") or "").strip()
+        f_reg_hasta = (filters.get("f_reg_hasta") or "").strip()
+        usuario = (filters.get("usuario") or "").strip()
+
+        where = ["p.activo = 1"]
+        params = []
+
+        if f_reg_desde and f_reg_hasta and f_reg_desde == f_reg_hasta:
+            where.append("DATE(p.creado_en) = %s")
+            params.append(f_reg_desde)
+        else:
+            if f_reg_desde:
+                where.append("DATE(p.creado_en) >= %s")
+                params.append(f_reg_desde)
+            if f_reg_hasta:
+                where.append("DATE(p.creado_en) <= %s")
+                params.append(f_reg_hasta)
+
+        if not f_reg_desde and not f_reg_hasta:
+            where.append("DATE(p.creado_en) = %s")
+            params.append(today)
+
+        where.append("TIME(p.creado_en) >= '07:00:00'")
+
+        if usuario:
+            where.append(
+                "("
+                "p.usuario_registro = %s "
+                "OR p.usuario_registro = (SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1)"
+                ")"
+            )
+            params.extend([usuario, usuario])
+
+        where_clause = " WHERE " + " AND ".join(where)
         sql = """
             SELECT
                 p.idPoliza,
@@ -60,12 +95,11 @@ def get_reporte_diario_data(filters=None):
                 p.creado_en
             FROM polizas p
             LEFT JOIN clientes c ON c.idCliente = p.cliente_id
-                WHERE DATE(p.creado_en) = %s
-                      AND TIME(p.creado_en) >= '07:00:00'
-                      AND p.activo = 1
+            {where_clause}
             ORDER BY p.idPoliza DESC
         """
-        cur.execute(sql, (today,))
+        sql = sql.format(where_clause=where_clause)
+        cur.execute(sql, tuple(params))
         for row in cur.fetchall():
             for k, v in row.items():
                 if isinstance(v, Decimal):
@@ -115,15 +149,22 @@ def _build_table_rows(rows):
     return result
 
 
-def export_excel(upload_folder: str):
+def export_excel(upload_folder: str, filters=None):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
     from datetime import datetime
 
-    rows = get_reporte_diario_data()
+    rows = get_reporte_diario_data(filters)
     table_rows = _build_table_rows(rows)
-    today_str = date.today().strftime("%d/%m/%Y")
+    filters = filters or {}
+    f_reg_desde = (filters.get("f_reg_desde") or "").strip()
+    f_reg_hasta = (filters.get("f_reg_hasta") or "").strip()
+    if f_reg_desde and f_reg_hasta and f_reg_desde != f_reg_hasta:
+        today_str = f"{f_reg_desde} a {f_reg_hasta}"
+    else:
+        ref = f_reg_desde or f_reg_hasta or date.today().isoformat()
+        today_str = datetime.fromisoformat(ref).strftime("%d/%m/%Y")
 
     wb = Workbook()
     ws = wb.active
@@ -187,7 +228,7 @@ def export_excel(upload_folder: str):
     return filepath, filename
 
 
-def export_pdf(upload_folder: str):
+def export_pdf(upload_folder: str, filters=None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
     from reportlab.lib.units import cm
@@ -195,9 +236,16 @@ def export_pdf(upload_folder: str):
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from datetime import datetime
 
-    rows = get_reporte_diario_data()
+    rows = get_reporte_diario_data(filters)
     table_rows = _build_table_rows(rows)
-    today_str = date.today().strftime("%d/%m/%Y")
+    filters = filters or {}
+    f_reg_desde = (filters.get("f_reg_desde") or "").strip()
+    f_reg_hasta = (filters.get("f_reg_hasta") or "").strip()
+    if f_reg_desde and f_reg_hasta and f_reg_desde != f_reg_hasta:
+        today_str = f"{f_reg_desde} a {f_reg_hasta}"
+    else:
+        ref = f_reg_desde or f_reg_hasta or date.today().isoformat()
+        today_str = datetime.fromisoformat(ref).strftime("%d/%m/%Y")
 
     exports_dir = os.path.join(upload_folder, "exports")
     os.makedirs(exports_dir, exist_ok=True)
