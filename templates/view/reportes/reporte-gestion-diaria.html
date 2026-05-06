@@ -21,7 +21,7 @@
                     <select class="form-select" name="usuario">
                         <option value="">Todos</option>
                         {% for u in filtros.usuarios %}
-                        <option value="{{ u.username }}">{{ u.username }}</option>
+                        <option value="{{ u.username }}">{{ u.nombre or u.username }}</option>
                         {% endfor %}
                     </select>
                 </div>
