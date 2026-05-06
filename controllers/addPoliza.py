@@ -558,6 +558,8 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                                 CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
                                 recibo
                               )) COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                          AND activo = 1
+                          AND (anulado = 0 OR anulado IS NULL)
                         LIMIT 1
                         """,
                         (cid, rk),
@@ -622,6 +624,8 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                                     CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
                                     recibo
                                        )) COLLATE utf8mb4_0900_ai_ci = TRIM(%s) COLLATE utf8mb4_0900_ai_ci
+                              AND activo = 1
+                              AND (anulado = 0 OR anulado IS NULL)
                                 LIMIT 1
                             """,
                             (row_cli[0], recibo_key)
@@ -687,34 +691,178 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
             )
 
             try:
-                cur.execute(
-                    "CALL sp_insert_poliza_por_numero("
-                    "%s,%s,%s,%s,%s,"        # doc, tipo_doc, asegurado, cia, ramo
-                    "%s,%s,%s,%s,"          # poliza, recibo, contrato_nro, nro
-                    "%s,%s,%s,%s,%s,%s,%s,%s,%s," # moneda, fecha_emision, vig_desde, vig_hasta, ultimo_dia_pago, fecha_vencimiento, tipo_vigencia, endosatario, forma_pago
-                    "%s,%s,"                # sub_agente, ejecutivo
-                    "%s,%s,%s,%s,%s,%s,"    # asegurada, motivo, prima_comercial, prima_neta, prima_comercial_igv, prima_total
-                    "%s,%s,%s,%s,"          # porc_compania, imp_compania, porc_subagente, imp_subagente
-                    "%s,%s,%s,%s"           # ramos_producto, estado, pdf_path, usuario_registro
-                    ")",
-                    args
-                )
-                while cur.nextset():
-                    pass
+                real_poliza_id = None
+                restored_poliza = False
+                try:
+                    cur.execute(
+                        "CALL sp_insert_poliza_por_numero("
+                        "%s,%s,%s,%s,%s,"
+                        "%s,%s,%s,%s,"
+                        "%s,%s,%s,%s,%s,%s,%s,%s,%s,"
+                        "%s,%s,"
+                        "%s,%s,%s,%s,%s,%s,"
+                        "%s,%s,%s,%s,"
+                        "%s,%s,%s,%s"
+                        ")",
+                        args,
+                    )
+                    while cur.nextset():
+                        pass
+                except mysql.connector.Error as err_sp:
+                    msg = str(getattr(err_sp, "msg", err_sp))
+                    if getattr(err_sp, "errno", None) == 1062 and "uk_polizas_cliente_recibo" in msg:
+                        cid_restore = None
+                        try:
+                            cid_restore = cliente_id_global if (target_doc == numero_documento) else find_client_id(target_doc, cur)
+                        except Exception:
+                            cid_restore = None
+                        recibo_restore = normalize_dup_key(row.get("recibo"))
+                        if cid_restore and recibo_restore:
+                            cur.execute(
+                                """
+                                SELECT idPoliza, activo, anulado
+                                FROM polizas
+                                WHERE cliente_id = %s
+                                  AND TRIM(COALESCE(
+                                        CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR),
+                                        CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
+                                        recibo
+                                      )) COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                                ORDER BY idPoliza DESC
+                                LIMIT 1
+                                """,
+                                (cid_restore, recibo_restore),
+                            )
+                            rr = cur.fetchone()
+                            if rr and rr[0]:
+                                old_id = rr[0]
+                                old_activo = int(rr[1] or 0)
+                                old_anulado = int(rr[2] or 0)
+                                if old_activo == 0 or old_anulado == 1:
+                                    cur.execute(
+                                        """
+                                        UPDATE polizas
+                                        SET asegurado = %s,
+                                            cia = %s,
+                                            ramo = %s,
+                                            poliza = %s,
+                                            recibo = %s,
+                                            contrato_nro = %s,
+                                            nro = %s,
+                                            moneda = %s,
+                                            fecha_emision = %s,
+                                            vig_desde = %s,
+                                            vig_hasta = %s,
+                                            ultimo_dia_pago = %s,
+                                            fecha_vencimiento = %s,
+                                            tipo_vigencia = %s,
+                                            endosatario = %s,
+                                            forma_pago = %s,
+                                            sub_agente = %s,
+                                            ejecutivo = %s,
+                                            tipo_doc = %s,
+                                            asegurada = %s,
+                                            motivo = %s,
+                                            prima_comercial = %s,
+                                            prima_neta = %s,
+                                            prima_comercial_igv = %s,
+                                            prima_total = %s,
+                                            porc_compania = %s,
+                                            imp_compania = %s,
+                                            porc_subagente = %s,
+                                            imp_subagente = %s,
+                                            ramos_producto = %s,
+                                            estado = %s,
+                                            activo = 1,
+                                            anulado = 0,
+                                            usuario_edicion = %s,
+                                            usuario_registro = COALESCE(usuario_registro, %s)
+                                        WHERE idPoliza = %s
+                                        """,
+                                        (
+                                            U(row.get("colectivo_asegurado") or row.get("asegurado") or ""),
+                                            U(row.get("cia") or ""),
+                                            U(row.get("ramo") or ""),
+                                            U(row.get("numero_poliza") or ""),
+                                            U(row.get("recibo") or ""),
+                                            U(row.get("contrato_nro") or row.get("recibo") or ""),
+                                            U(row.get("nro") or ""),
+                                            U(row.get("moneda") or ""),
+                                            parse_date(row.get("fecha_emision")),
+                                            parse_date(row.get("inicio_vigencia")),
+                                            parse_date(row.get("vencimiento")),
+                                            parse_date(row.get("ultimo_dia_pago")),
+                                            parse_date(row.get("fecha_vencimiento")),
+                                            tipo_vigencia_selected,
+                                            U((selected or {}).get("endosatario") or ""),
+                                            U(row.get("forma_pago") or ""),
+                                            U(row.get("subagente") or (selected or {}).get("subagente") or ""),
+                                            efectivo_ejecutivo,
+                                            U((selected or {}).get("tipo_doc") or (selected or {}).get("tipo_documento") or ""),
+                                            U(row.get("asegurada") or ""),
+                                            U(row.get("motivo") or (selected or {}).get("motivo") or ""),
+                                            parse_decimal(row.get("prima_comercial")),
+                                            parse_decimal(row.get("prima_neta")),
+                                            parse_decimal(row.get("prima_comercial_igv")),
+                                            parse_decimal(row.get("prima_total")),
+                                            parse_decimal(row.get("comision_compania_pct")),
+                                            parse_decimal(row.get("comision_compania_importe")),
+                                            parse_decimal(row.get("comision_subagente_pct")),
+                                            parse_decimal(row.get("comision_subagente_importe")),
+                                            U(row.get("ramos_producto") or (selected or {}).get("ramos_producto") or ""),
+                                            U(row.get("estado") or "PENDIENTE"),
+                                            usuario_display,
+                                            usuario_display,
+                                            old_id,
+                                        ),
+                                    )
+                                    real_poliza_id = old_id
+                                    restored_poliza = True
+                                else:
+                                    raise
+                            else:
+                                raise
+                        else:
+                            raise
+                    else:
+                        raise
+
+                if real_poliza_id is None:
+                    try:
+                        cur.execute("SELECT LAST_INSERT_ID()")
+                        lid_row_any = cur.fetchone()
+                        lid_any = lid_row_any[0] if lid_row_any else 0
+                        if args[32]:
+                            cur.execute("SELECT poliza_id FROM poliza_archivos WHERE idArchivo = %s", (lid_any,))
+                            pid_row_any = cur.fetchone()
+                            if pid_row_any:
+                                real_poliza_id = pid_row_any[0]
+                        else:
+                            real_poliza_id = lid_any
+                    except Exception:
+                        real_poliza_id = None
+
                 inserted += 1
                 try:
-                    cur.execute("SELECT LAST_INSERT_ID()")
-                    lid_row_any = cur.fetchone()
-                    lid_any = lid_row_any[0] if lid_row_any else 0
-                    if args[32]:
-                        cur.execute("SELECT poliza_id FROM poliza_archivos WHERE idArchivo = %s", (lid_any,))
-                        pid_row_any = cur.fetchone()
-                        if pid_row_any:
-                            real_poliza_id = pid_row_any[0]
-                    else:
-                        real_poliza_id = lid_any
+                    if restored_poliza and real_poliza_id and args[32]:
+                        cur.execute(
+                            """
+                            INSERT INTO poliza_archivos (poliza_id, numero_poliza, ruta_archivo, nombre_original, ramo, producto, usuario, compania)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                            """,
+                            (
+                                real_poliza_id,
+                                U(row.get("numero_poliza") or ""),
+                                args[32],
+                                (str(args[32]).split("/")[-1] if args[32] else None),
+                                U(row.get("ramo") or ""),
+                                U(row.get("ramos_producto") or (selected or {}).get("ramos_producto") or ""),
+                                usuario_display,
+                                U(row.get("cia") or ""),
+                            ),
+                        )
                 except Exception:
-                    real_poliza_id = None
+                    pass
 
                 # Encriptar campos sensibles de la póliza recién creada (asegurado, poliza, recibo, contrato_nro, nro)
                 try:

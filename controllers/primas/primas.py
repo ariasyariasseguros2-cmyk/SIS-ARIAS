@@ -168,16 +168,74 @@ def delete_prima_route():
         if not cnx:
             return {'ok': False, 'errors': ['Error de conexión a BD']}, 500
         cur = cnx.cursor()
-        cur.callproc('sp_delete_poliza', [pid, usuario])
         affected_rows = 0
-        for result in cur.stored_results():
-            row = result.fetchone()
-            if row:
-                affected_rows = row[0]
+        try:
+            cur.callproc('sp_delete_poliza', [pid, usuario])
+            for result in cur.stored_results():
+                row = result.fetchone()
+                if row:
+                    affected_rows = row[0]
+        except Exception:
+            try:
+                try:
+                    cur.close()
+                except Exception:
+                    pass
+                cur = cnx.cursor()
+                cur.execute(
+                    "UPDATE polizas SET activo = 0, usuario_edicion = %s WHERE idPoliza = %s AND activo = 1",
+                    (usuario, pid),
+                )
+                affected_rows = cur.rowcount or 0
+            except Exception:
+                affected_rows = 0
+        cuotas_affected = 0
+        poliza_numero = None
+        try:
+            cur.execute(
+                """
+                SELECT (TRIM(
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                        CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                        poliza
+                    )
+                ) COLLATE utf8mb4_0900_ai_ci) AS poliza_numero
+                FROM polizas
+                WHERE idPoliza = %s
+                LIMIT 1
+                """,
+                (pid,),
+            )
+            r = cur.fetchone()
+            if r:
+                poliza_numero = r[0]
+        except Exception:
+            poliza_numero = None
+
+        if poliza_numero:
+            try:
+                cur.execute(
+                    """
+                    UPDATE cuotas
+                    SET activo = 0,
+                        usuario_edicion = %s
+                    WHERE activo = 1
+                      AND (
+                        poliza_id = %s
+                        OR (TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4), poliza)) COLLATE utf8mb4_0900_ai_ci) = (%s COLLATE utf8mb4_0900_ai_ci)
+                        OR (TRIM(poliza) COLLATE utf8mb4_0900_ai_ci) = (%s COLLATE utf8mb4_0900_ai_ci)
+                      )
+                    """,
+                    (usuario, pid, poliza_numero, poliza_numero),
+                )
+                cuotas_affected = cur.rowcount or 0
+            except Exception:
+                cuotas_affected = 0
         cnx.commit()
         cur.close()
         cnx.close()
-        if affected_rows > 0:
+        if affected_rows > 0 or cuotas_affected > 0:
             return {'ok': True}
         return {'ok': False, 'errors': ['No encontrado o ya eliminado']}, 404
     except Exception as e:

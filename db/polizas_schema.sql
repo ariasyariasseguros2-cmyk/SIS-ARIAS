@@ -605,7 +605,7 @@ CREATE TABLE IF NOT EXISTS polizas (
     FOREIGN KEY (cliente_id) REFERENCES clientes(idCliente)
 );
 
-CREATE UNIQUE INDEX uk_polizas_cliente_recibo ON polizas (cliente_id, recibo);
+CREATE UNIQUE INDEX uk_polizas_cliente_recibo ON polizas (cliente_id, recibo, activo, anulado);
 
 -- Tabla para archivos de pólizas (separada)
 CREATE TABLE IF NOT EXISTS poliza_archivos (
@@ -734,7 +734,9 @@ BEGIN
                 CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR),
                 CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
                 recibo
-              )) COLLATE utf8mb4_0900_ai_ci = v_recibo_key COLLATE utf8mb4_0900_ai_ci;
+              )) COLLATE utf8mb4_0900_ai_ci = v_recibo_key COLLATE utf8mb4_0900_ai_ci
+          AND activo = 1
+          AND (anulado = 0 OR anulado IS NULL);
 
         IF v_exists > 0 THEN
             SET v_msg = CONCAT('El recibo ya existe para este cliente: ', v_recibo_key);
@@ -769,7 +771,9 @@ BEGIN
                    CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
                    recibo
                )) COLLATE utf8mb4_0900_ai_ci = v_key COLLATE utf8mb4_0900_ai_ci
-          );
+          )
+          AND activo = 1
+          AND (anulado = 0 OR anulado IS NULL);
 
         IF v_exists > 0 THEN
             SET v_msg = CONCAT('Póliza ya existe con mismo número y contrato/recibo: ', p_poliza, ' / ', v_key);
@@ -1211,7 +1215,7 @@ BEGIN
         SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
         INTO v_usuario_nombre
         FROM usuarios
-        WHERE username = p_usuario
+        WHERE username COLLATE utf8mb4_0900_ai_ci = p_usuario COLLATE utf8mb4_0900_ai_ci
         LIMIT 1;
     END IF;
     IF v_usuario_nombre IS NULL OR v_usuario_nombre = '' THEN
@@ -1264,6 +1268,8 @@ CREATE PROCEDURE sp_delete_poliza(
 )
 BEGIN
     DECLARE v_usuario_nombre VARCHAR(100);
+    DECLARE v_poliza_numero VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+    DECLARE v_poliza_affected INT;
     SET v_usuario_nombre = NULL;
     IF p_usuario IS NOT NULL AND TRIM(p_usuario) <> '' THEN
         SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
@@ -1280,7 +1286,34 @@ BEGIN
     SET activo = 0,
         usuario_edicion = v_usuario_nombre
     WHERE idPoliza = p_id AND activo = 1;
-    SELECT ROW_COUNT() AS affected_rows;
+    SET v_poliza_affected = ROW_COUNT();
+
+    IF v_poliza_affected > 0 THEN
+        SET v_poliza_numero = NULL;
+        SELECT TRIM(
+            COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                poliza
+            )
+        )
+        INTO v_poliza_numero
+        FROM polizas
+        WHERE idPoliza = p_id
+        LIMIT 1;
+
+        UPDATE cuotas
+        SET activo = 0,
+            usuario_edicion = v_usuario_nombre
+        WHERE activo = 1
+          AND (
+            poliza_id = p_id
+            OR (TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4), poliza)) COLLATE utf8mb4_0900_ai_ci) = v_poliza_numero
+            OR (TRIM(poliza) COLLATE utf8mb4_0900_ai_ci) = v_poliza_numero
+          );
+    END IF;
+
+    SELECT v_poliza_affected AS affected_rows;
 END$$
 DELIMITER ;
 -- Tabla cuotas (mínima)
