@@ -1096,6 +1096,14 @@ def menu_page(page):
             now=datetime.now()
         )
 
+    if page == 'cobranzas-estado-cuenta':
+        filtros = get_reporte_produccion_filters()
+        return render_template(
+            'view/cobranzas/estado-cuenta-cupones.html',
+            page='cobranzas-estado-cuenta',
+            filtros=filtros
+        )
+
     # Pólizas → plantilla dedicada
     if page == 'polizas':
         from controllers.polizas import get_polizas_data
@@ -1773,6 +1781,247 @@ def api_reporte_gestion_diaria_pdf():
         return send_file(filepath, as_attachment=True, download_name=filename)
     except Exception as e:
         current_app.logger.error(f"Error exportando reporte gestion diaria PDF: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@bp.route('/api/cobranzas/estado-cuenta-cupones', methods=['GET'])
+def api_cobranzas_estado_cuenta_cupones():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+
+    try:
+        fecha_desde = (request.args.get('fecha_desde') or '').strip()
+        fecha_hasta = (request.args.get('fecha_hasta') or '').strip()
+        cliente_id = (request.args.get('cliente_id') or '').strip()
+        cia = (request.args.get('cia') or '').strip()
+        ramo = (request.args.get('ramo') or '').strip()
+        ejecutivo = (request.args.get('ejecutivo') or '').strip()
+        sub_agente = (request.args.get('sub_agente') or '').strip()
+        estado = (request.args.get('estado') or '').strip().upper()
+
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        query = """
+            SELECT
+                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR), p.asegurado) AS asegurado,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(cl.direccion), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(cl.direccion, @SIS_KEY) AS CHAR),
+                    cl.direccion
+                ) AS direccion,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(cl.telefono), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(cl.telefono, @SIS_KEY) AS CHAR),
+                    cl.telefono
+                ) AS telefono,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza
+                ) AS poliza,
+                p.cia,
+                p.ramo AS ram,
+                COALESCE(p.ramos_producto, p.ramo) AS prod,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(c.cupon, @SIS_KEY) AS CHAR),
+                    c.cupon
+                ) AS cupon,
+                c.numero_cuota AS num_cuota,
+                c.fecha_vencimiento AS fec_vencimiento_cob,
+                c.moneda AS mon,
+                c.importe,
+                c.fecha_pago AS fec_pago,
+                c.factura,
+                CASE
+                    WHEN c.fecha_pago IS NULL AND c.fecha_vencimiento IS NOT NULL
+                        THEN GREATEST(DATEDIFF(CURDATE(), DATE(c.fecha_vencimiento)), 0)
+                    ELSE 0
+                END AS dias_vencidos,
+                c.observacion AS ult_gestion,
+                p.tipo_doc AS tp,
+                p.vig_desde AS vig_del,
+                p.vig_hasta AS vig_al,
+                p.prima_comercial_igv AS prima_total,
+                p.motivo,
+                p.forma_pago AS tp_pago,
+                NULL AS breve_descripcion
+            FROM cuotas c
+            INNER JOIN polizas p ON c.poliza_id = p.idPoliza
+            LEFT JOIN clientes cl ON p.cliente_id = cl.idCliente
+            WHERE c.activo = 1
+        """
+
+        params = []
+
+        if fecha_desde:
+            query += " AND c.fecha_vencimiento >= %s"
+            params.append(fecha_desde)
+        if fecha_hasta:
+            query += " AND c.fecha_vencimiento < DATE_ADD(%s, INTERVAL 1 DAY)"
+            params.append(fecha_hasta)
+        if cliente_id:
+            query += " AND p.cliente_id = %s"
+            params.append(cliente_id)
+        if cia:
+            query += " AND p.cia = %s"
+            params.append(cia)
+        if ramo:
+            query += " AND p.ramo = %s"
+            params.append(ramo)
+        if ejecutivo:
+            query += " AND p.ejecutivo = %s"
+            params.append(ejecutivo)
+        if sub_agente:
+            query += " AND p.sub_agente = %s"
+            params.append(sub_agente)
+
+        if estado == 'PENDIENTE':
+            query += " AND c.fecha_pago IS NULL"
+        elif estado == 'PAGADO':
+            query += " AND c.fecha_pago IS NOT NULL"
+
+        role = session.get('role_name')
+        user = session.get('user')
+        if role == Roles.SUB_AGENTE and user:
+            query += " AND (p.sub_agente = %s OR p.usuario_registro = %s)"
+            params.extend([user, user])
+
+        query += " ORDER BY (c.fecha_vencimiento IS NULL), c.fecha_vencimiento ASC, c.idCuota DESC LIMIT 2000"
+
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall() or []
+
+        for r in rows:
+            if r.get('fec_vencimiento_cob'):
+                try:
+                    r['fec_vencimiento_cob'] = r['fec_vencimiento_cob'].strftime('%Y-%m-%d')
+                except Exception:
+                    r['fec_vencimiento_cob'] = str(r['fec_vencimiento_cob'])[:10]
+            if r.get('fec_pago'):
+                try:
+                    r['fec_pago'] = r['fec_pago'].strftime('%Y-%m-%d')
+                except Exception:
+                    r['fec_pago'] = str(r['fec_pago'])[:10]
+            if r.get('vig_del'):
+                try:
+                    r['vig_del'] = r['vig_del'].strftime('%Y-%m-%d')
+                except Exception:
+                    r['vig_del'] = str(r['vig_del'])[:10]
+            if r.get('vig_al'):
+                try:
+                    r['vig_al'] = r['vig_al'].strftime('%Y-%m-%d')
+                except Exception:
+                    r['vig_al'] = str(r['vig_al'])[:10]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'ok': True, 'rows': rows})
+    except Exception as e:
+        try:
+            cursor.close()
+        except Exception:
+            pass
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@bp.route('/api/cobranzas/estado-cuenta-cupones/export/xlsx', methods=['GET'])
+def api_cobranzas_estado_cuenta_cupones_export_xlsx():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+
+    try:
+        resp = api_cobranzas_estado_cuenta_cupones()
+        if isinstance(resp, tuple):
+            body, status = resp
+            if status != 200:
+                return body, status
+            data = body.get_json(silent=True) if hasattr(body, 'get_json') else None
+        else:
+            data = resp.get_json(silent=True) if hasattr(resp, 'get_json') else None
+        if not data or not data.get('ok'):
+            return jsonify({'ok': False, 'error': (data or {}).get('error', 'Error')}), 500
+
+        rows = data.get('rows') or []
+
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Cupones"
+
+        headers = [
+            "ASEGURADO",
+            "DIRECCION",
+            "TELEFONO",
+            "POLIZA",
+            "CIA",
+            "RAM",
+            "PROD",
+            "CUPON",
+            "NUM_CUOTA",
+            "FEC_VENCIMIENTO COB",
+            "MON",
+            "IMPORTE",
+            "FEC_PAGO",
+            "FACTURA",
+            "DIAS_VENCIDOS",
+            "ULT_GESTION",
+            "TP",
+            "VIG_DEL",
+            "VIG_AL",
+            "PRIMA_TOTAL",
+            "MOTIVO",
+            "TP_PAGO",
+            "BREVE_DESCRIPCION",
+        ]
+        bold_font = Font(bold=True)
+        for col, h in enumerate(headers, start=1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = bold_font
+
+        for i, r in enumerate(rows, start=2):
+            ws.cell(row=i, column=1, value=r.get('asegurado') or '')
+            ws.cell(row=i, column=2, value=r.get('direccion') or '')
+            ws.cell(row=i, column=3, value=r.get('telefono') or '')
+            ws.cell(row=i, column=4, value=r.get('poliza') or '')
+            ws.cell(row=i, column=5, value=r.get('cia') or '')
+            ws.cell(row=i, column=6, value=r.get('ram') or '')
+            ws.cell(row=i, column=7, value=r.get('prod') or '')
+            ws.cell(row=i, column=8, value=r.get('cupon') or '')
+            ws.cell(row=i, column=9, value=r.get('num_cuota') or '')
+            ws.cell(row=i, column=10, value=r.get('fec_vencimiento_cob') or '')
+            ws.cell(row=i, column=11, value=r.get('mon') or '')
+            ws.cell(row=i, column=12, value=float(r.get('importe') or 0))
+            ws.cell(row=i, column=13, value=r.get('fec_pago') or '')
+            ws.cell(row=i, column=14, value=r.get('factura') or '')
+            ws.cell(row=i, column=15, value=int(r.get('dias_vencidos') or 0))
+            ws.cell(row=i, column=16, value=r.get('ult_gestion') or '')
+            ws.cell(row=i, column=17, value=r.get('tp') or '')
+            ws.cell(row=i, column=18, value=r.get('vig_del') or '')
+            ws.cell(row=i, column=19, value=r.get('vig_al') or '')
+            ws.cell(row=i, column=20, value=float(r.get('prima_total') or 0))
+            ws.cell(row=i, column=21, value=r.get('motivo') or '')
+            ws.cell(row=i, column=22, value=r.get('tp_pago') or '')
+            ws.cell(row=i, column=23, value=r.get('breve_descripcion') or '')
+
+        upload_folder = current_app.config.get("UPLOAD_FOLDER", os.path.join(current_app.root_path, "uploads"))
+        exports_dir = os.path.join(upload_folder, "exports")
+        os.makedirs(exports_dir, exist_ok=True)
+
+        from datetime import datetime
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"estado_cuenta_cupones_{ts}.xlsx"
+        filepath = os.path.join(exports_dir, filename)
+        wb.save(filepath)
+
+        return send_file(filepath, as_attachment=True, download_name=filename)
+    except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 @bp.route('/upload/temp/delete', methods=['POST'])

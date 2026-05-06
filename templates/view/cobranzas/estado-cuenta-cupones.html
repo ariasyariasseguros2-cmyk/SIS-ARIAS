@@ -1,0 +1,387 @@
+{% extends 'view/layout_dashboard.html' %}
+{% set page = 'cobranzas-estado-cuenta' %}
+
+{% block html_title %}Estado de Cuenta de Cupones{% endblock %}
+{% block page_title %}Estado de Cuenta de Cupones{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="card mb-4">
+        <div class="card-header">Estado de Cuenta de Cupones</div>
+        <div class="card-body">
+            <form id="formEstadoCuentaCupones" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Del</label>
+                    <input type="date" class="form-control" name="fecha_desde" value="">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Al</label>
+                    <input type="date" class="form-control" name="fecha_hasta" value="">
+                </div>
+                <div class="col-md-6 position-relative">
+                    <label class="form-label fw-bold">Contratante</label>
+                    <input type="text" class="form-control" id="contratanteSearch" placeholder="Seleccionar" autocomplete="off">
+                    <input type="hidden" name="cliente_id" id="contratanteId" value="">
+                    <div id="contratanteResults" class="list-group mt-2 position-absolute w-100" style="z-index: 1000; display: none; max-height: 280px; overflow-y: auto;"></div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Compañía</label>
+                    <select class="form-select" name="cia">
+                        <option value="">Seleccionar</option>
+                        {% for c in filtros.companias %}
+                        {% set nombre_cia = c.nombre_corto or c.nombre %}
+                        <option value="{{ nombre_cia }}">{{ nombre_cia }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Ramo</label>
+                    <select class="form-select" name="ramo">
+                        <option value="">Seleccionar</option>
+                        {% for r in filtros.ramos %}
+                        <option value="{{ r }}">{{ r }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Ejecutivo</label>
+                    <select class="form-select" name="ejecutivo">
+                        <option value="">Seleccionar</option>
+                        {% for e in filtros.ejecutivos %}
+                        <option value="{{ e.nombre }}">{{ e.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Sub Agente</label>
+                    <select class="form-select" name="sub_agente">
+                        <option value="">Seleccionar</option>
+                        {% for s in filtros.subagentes %}
+                        <option value="{{ s }}">{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Estado</label>
+                    <select class="form-select" name="estado">
+                        <option value="">Seleccionar</option>
+                        <option value="PENDIENTE">PENDIENTE</option>
+                        <option value="PAGADO">PAGADO</option>
+                    </select>
+                </div>
+
+                <div class="col-12 d-flex justify-content-start mt-2 gap-2">
+                    <button type="submit" class="btn btn-success">Procesar Archivo</button>
+                    <button type="button" id="btnExportPlanillaCupones" class="btn btn-outline-primary">
+                        <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+                    </button>
+                    <button type="button" id="btnClearEstadoCuentaCupones" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg"></i> Limpiar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Resultados</span>
+            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalEstadoCuentaCuponesFull">
+                <i class="bi bi-arrows-fullscreen"></i> Ver Pantalla Completa
+            </button>
+        </div>
+        <div class="card-body p-0 p-md-3">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm table-bordered align-middle text-nowrap" id="estadoCuentaCuponesTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>POLIZA</th>
+                            <th>CIA</th>
+                            <th>RAM</th>
+                            <th>PROD</th>
+                            <th>CUPON</th>
+                            <th>NUM_CUOTA</th>
+                            <th>FEC_VENCIMIENTO COB</th>
+                            <th>MON</th>
+                            <th class="text-end">IMPORTE</th>
+                            <th>FEC_PAGO</th>
+                            <th>FACTURA</th>
+                            <th class="text-end">DIAS_VENCIDOS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyEstadoCuentaCupones">
+                        <tr>
+                            <td colspan="12" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-muted small mt-2" id="estadoCuentaCuponesInfo"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEstadoCuentaCuponesFull" tabindex="-1" aria-labelledby="modalEstadoCuentaCuponesFullLabel" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEstadoCuentaCuponesFullLabel">Estado de Cuenta de Cupones - Pantalla Completa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body d-flex flex-column">
+                <div class="table-responsive flex-grow-1">
+                    <table class="table table-striped table-hover table-sm table-bordered align-middle text-nowrap" id="estadoCuentaCuponesTableFull">
+                        <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                            <tr>
+                                <th>ASEGURADO</th>
+                                <th>DIRECCION</th>
+                                <th>TELEFONO</th>
+                                <th>POLIZA</th>
+                                <th>CIA</th>
+                                <th>RAM</th>
+                                <th>PROD</th>
+                                <th>CUPON</th>
+                                <th>NUM_CUOTA</th>
+                                <th>FEC_VENCIMIENTO COB</th>
+                                <th>MON</th>
+                                <th class="text-end">IMPORTE</th>
+                                <th>FEC_PAGO</th>
+                                <th>FACTURA</th>
+                                <th class="text-end">DIAS_VENCIDOS</th>
+                                <th>ULT_GESTION</th>
+                                <th>TP</th>
+                                <th>VIG_DEL</th>
+                                <th>VIG_AL</th>
+                                <th class="text-end">PRIMA_TOTAL</th>
+                                <th>MOTIVO</th>
+                                <th>TP_PAGO</th>
+                                <th>BREVE_DESCRIPCION</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyEstadoCuentaCuponesFull">
+                            <tr>
+                                <td colspan="23" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-muted small mt-2" id="estadoCuentaCuponesInfoFull"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js_bottom %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('formEstadoCuentaCupones');
+    const tbody = document.getElementById('tbodyEstadoCuentaCupones');
+    const info = document.getElementById('estadoCuentaCuponesInfo');
+    const tbodyFull = document.getElementById('tbodyEstadoCuentaCuponesFull');
+    const infoFull = document.getElementById('estadoCuentaCuponesInfoFull');
+    const btnExport = document.getElementById('btnExportPlanillaCupones');
+    const btnClear = document.getElementById('btnClearEstadoCuentaCupones');
+
+    const contratanteSearch = document.getElementById('contratanteSearch');
+    const contratanteId = document.getElementById('contratanteId');
+    const contratanteResults = document.getElementById('contratanteResults');
+    let searchTimeout = null;
+
+    function buildQuery() {
+        const params = new URLSearchParams();
+        const fd = new FormData(form);
+        for (const [k, v] of fd.entries()) {
+            const val = (v || '').toString().trim();
+            if (val) params.append(k, val);
+        }
+        return params.toString();
+    }
+
+    function fmtMoney(val) {
+        const num = parseFloat(val);
+        if (isNaN(num)) return val === null || val === undefined ? '' : String(val);
+        return num.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function hideResults() {
+        if (contratanteResults) contratanteResults.style.display = 'none';
+    }
+
+    function showResults(clientes) {
+        contratanteResults.innerHTML = '';
+        clientes.forEach(function (c) {
+            const a = document.createElement('a');
+            a.href = '#';
+            a.className = 'list-group-item list-group-item-action';
+            const title = c.razon_social || c.nombre || c.numero_documento || '';
+            const sub = (c.tipo_documento && c.numero_documento) ? `${c.tipo_documento}: ${c.numero_documento}` : '';
+            a.innerHTML = `<div class="d-flex w-100 justify-content-between"><div>${title}</div><small class="text-muted">${sub}</small></div>`;
+            a.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                contratanteSearch.value = title;
+                contratanteId.value = c.idCliente || '';
+                hideResults();
+            });
+            contratanteResults.appendChild(a);
+        });
+        contratanteResults.style.display = 'block';
+    }
+
+    function searchContratantes(q) {
+        fetch(`/api/clientes/buscar?q=${encodeURIComponent(q)}`, { headers: { 'Accept': 'application/json' } })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.ok) { hideResults(); return; }
+                const clientes = data.clientes || [];
+                if (!clientes.length) { hideResults(); return; }
+                showResults(clientes);
+            })
+            .catch(() => hideResults());
+    }
+
+    if (contratanteSearch) {
+        contratanteSearch.addEventListener('input', function () {
+            const q = (contratanteSearch.value || '').trim();
+            contratanteId.value = '';
+            if (searchTimeout) clearTimeout(searchTimeout);
+            if (q.length < 2) { hideResults(); return; }
+            searchTimeout = setTimeout(() => searchContratantes(q), 250);
+        });
+        contratanteSearch.addEventListener('blur', function () {
+            setTimeout(hideResults, 150);
+        });
+    }
+
+    function renderRows(rows) {
+        if (!rows || rows.length === 0) {
+            const emptyMain = '<tr><td colspan="12" class="text-center text-muted">No se encontraron resultados</td></tr>';
+            const emptyFull = '<tr><td colspan="23" class="text-center text-muted">No se encontraron resultados</td></tr>';
+            tbody.innerHTML = emptyMain;
+            if (tbodyFull) tbodyFull.innerHTML = emptyFull;
+            if (info) info.textContent = '';
+            if (infoFull) infoFull.textContent = '';
+            return;
+        }
+        const htmlMain = rows.map(function (r) {
+            return (
+                '<tr>' +
+                `<td>${r.poliza || ''}</td>` +
+                `<td>${r.cia || ''}</td>` +
+                `<td>${r.ram || ''}</td>` +
+                `<td>${r.prod || ''}</td>` +
+                `<td>${r.cupon || ''}</td>` +
+                `<td>${r.num_cuota || ''}</td>` +
+                `<td>${r.fec_vencimiento_cob || ''}</td>` +
+                `<td>${r.mon || ''}</td>` +
+                `<td class="text-end">${fmtMoney(r.importe)}</td>` +
+                `<td>${r.fec_pago || ''}</td>` +
+                `<td>${r.factura || ''}</td>` +
+                `<td class="text-end">${r.dias_vencidos === null || r.dias_vencidos === undefined ? '' : r.dias_vencidos}</td>` +
+                '</tr>'
+            );
+        }).join('');
+        const htmlFull = rows.map(function (r) {
+            return (
+                '<tr>' +
+                `<td>${r.asegurado || ''}</td>` +
+                `<td>${r.direccion || ''}</td>` +
+                `<td>${r.telefono || ''}</td>` +
+                `<td>${r.poliza || ''}</td>` +
+                `<td>${r.cia || ''}</td>` +
+                `<td>${r.ram || ''}</td>` +
+                `<td>${r.prod || ''}</td>` +
+                `<td>${r.cupon || ''}</td>` +
+                `<td>${r.num_cuota || ''}</td>` +
+                `<td>${r.fec_vencimiento_cob || ''}</td>` +
+                `<td>${r.mon || ''}</td>` +
+                `<td class="text-end">${fmtMoney(r.importe)}</td>` +
+                `<td>${r.fec_pago || ''}</td>` +
+                `<td>${r.factura || ''}</td>` +
+                `<td class="text-end">${r.dias_vencidos === null || r.dias_vencidos === undefined ? '' : r.dias_vencidos}</td>` +
+                `<td>${r.ult_gestion || ''}</td>` +
+                `<td>${r.tp || ''}</td>` +
+                `<td>${r.vig_del || ''}</td>` +
+                `<td>${r.vig_al || ''}</td>` +
+                `<td class="text-end">${fmtMoney(r.prima_total)}</td>` +
+                `<td>${r.motivo || ''}</td>` +
+                `<td>${r.tp_pago || ''}</td>` +
+                `<td>${r.breve_descripcion || ''}</td>` +
+                '</tr>'
+            );
+        }).join('');
+        tbody.innerHTML = htmlMain;
+        if (tbodyFull) tbodyFull.innerHTML = htmlFull;
+        const infoText = `Registros: ${rows.length}`;
+        if (info) info.textContent = infoText;
+        if (infoFull) infoFull.textContent = infoText;
+    }
+
+    function loadReporte() {
+        const loadingMain = '<tr><td colspan="12" class="text-center text-muted">Cargando...</td></tr>';
+        const loadingFull = '<tr><td colspan="23" class="text-center text-muted">Cargando...</td></tr>';
+        tbody.innerHTML = loadingMain;
+        if (tbodyFull) tbodyFull.innerHTML = loadingFull;
+        const q = buildQuery();
+        const url = '/api/cobranzas/estado-cuenta-cupones' + (q ? `?${q}` : '');
+        fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.ok) {
+                    const errMain = `<tr><td colspan="12" class="text-center text-danger">${data.error || 'Error'}</td></tr>`;
+                    const errFull = `<tr><td colspan="23" class="text-center text-danger">${data.error || 'Error'}</td></tr>`;
+                    tbody.innerHTML = errMain;
+                    if (tbodyFull) tbodyFull.innerHTML = errFull;
+                    if (info) info.textContent = '';
+                    if (infoFull) infoFull.textContent = '';
+                    return;
+                }
+                renderRows(data.rows || []);
+            })
+            .catch(() => {
+                const errMain = '<tr><td colspan="12" class="text-center text-danger">Error de conexión</td></tr>';
+                const errFull = '<tr><td colspan="23" class="text-center text-danger">Error de conexión</td></tr>';
+                tbody.innerHTML = errMain;
+                if (tbodyFull) tbodyFull.innerHTML = errFull;
+                if (info) info.textContent = '';
+                if (infoFull) infoFull.textContent = '';
+            });
+    }
+
+    if (form) {
+        form.addEventListener('submit', function (ev) {
+            ev.preventDefault();
+            loadReporte();
+        });
+    }
+
+    if (btnExport) {
+        btnExport.addEventListener('click', function () {
+            const q = buildQuery();
+            const url = '/api/cobranzas/estado-cuenta-cupones/export/xlsx' + (q ? `?${q}` : '');
+            window.open(url, '_blank');
+        });
+    }
+
+    if (btnClear) {
+        btnClear.addEventListener('click', function () {
+            form.reset();
+            contratanteSearch.value = '';
+            contratanteId.value = '';
+            hideResults();
+            const initMain = '<tr><td colspan="12" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td></tr>';
+            const initFull = '<tr><td colspan="23" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td></tr>';
+            tbody.innerHTML = initMain;
+            if (tbodyFull) tbodyFull.innerHTML = initFull;
+            if (info) info.textContent = '';
+            if (infoFull) infoFull.textContent = '';
+        });
+    }
+});
+</script>
+{% endblock %}
