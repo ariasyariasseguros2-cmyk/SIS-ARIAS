@@ -801,6 +801,25 @@ def reporte_produccion_page():
     return render_template('view/reportes/reporte-produccion.html', page='reporte-produccion', filtros=filters)
 
 
+def _validate_reporte_produccion_dates(filters: dict) -> str | None:
+    vig_desde = filters.get('vig_desde')
+    vig_hasta = filters.get('vig_hasta')
+
+    if not vig_desde or not vig_hasta:
+        return 'Debe seleccionar Desde y Hasta (Inicio Vigencia).'
+
+    try:
+        d_desde = datetime.strptime(vig_desde, '%Y-%m-%d').date()
+        d_hasta = datetime.strptime(vig_hasta, '%Y-%m-%d').date()
+    except Exception:
+        return 'Formato de fecha inválido. Use YYYY-MM-DD.'
+
+    if d_desde > d_hasta:
+        return 'La fecha "Desde" no puede ser mayor que la fecha "Hasta".'
+
+    return None
+
+
 @bp.route('/api/reportes/produccion', methods=['GET'])
 @require_permission(lambda r: r in [Roles.BROKER, Roles.OPERADOR], response_mode='json')
 def api_reporte_produccion():
@@ -818,6 +837,10 @@ def api_reporte_produccion():
         'f_reg_desde': request.args.get('f_reg_desde') or None,
         'f_reg_hasta': request.args.get('f_reg_hasta') or None,
     }
+
+    error = _validate_reporte_produccion_dates(filters)
+    if error:
+        return jsonify({'ok': False, 'error': error}), 400
 
     try:
         rows = get_reporte_produccion_rows(filters)
@@ -844,6 +867,10 @@ def api_reporte_produccion_export():
         'f_reg_desde': request.args.get('f_reg_desde') or None,
         'f_reg_hasta': request.args.get('f_reg_hasta') or None,
     }
+
+    error = _validate_reporte_produccion_dates(filters)
+    if error:
+        return jsonify({'ok': False, 'error': error}), 400
 
     try:
         filepath, filename = export_reporte_produccion(filters)
@@ -1860,6 +1887,7 @@ def api_cobranzas_estado_cuenta_cupones():
                     CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
                     p.poliza
                 ) AS poliza,
+                p.ejecutivo AS ejecutivo,
                 p.cia,
                 p.ramo AS ram,
                 COALESCE(p.ramos_producto, p.ramo) AS prod,
@@ -2003,6 +2031,7 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
             "TELEFONO",
             "CONTRATANTE",
             "POLIZA",
+            "EJECUTIVO",
             "CIA",
             "RAM",
             "PROD",
@@ -2034,25 +2063,26 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
             ws.cell(row=i, column=3, value=r.get('telefono') or '')
             ws.cell(row=i, column=4, value=r.get('contratante') or '')
             ws.cell(row=i, column=5, value=r.get('poliza') or '')
-            ws.cell(row=i, column=6, value=r.get('cia') or '')
-            ws.cell(row=i, column=7, value=r.get('ram') or '')
-            ws.cell(row=i, column=8, value=r.get('prod') or '')
-            ws.cell(row=i, column=9, value=r.get('cupon') or '')
-            ws.cell(row=i, column=10, value=r.get('num_cuota') or '')
-            ws.cell(row=i, column=11, value=r.get('fec_vencimiento_cob') or '')
-            ws.cell(row=i, column=12, value=r.get('mon') or '')
-            ws.cell(row=i, column=13, value=float(r.get('importe') or 0))
-            ws.cell(row=i, column=14, value=r.get('fec_pago') or '')
-            ws.cell(row=i, column=15, value=r.get('factura') or '')
-            ws.cell(row=i, column=16, value=int(r.get('dias_vencidos') or 0))
-            ws.cell(row=i, column=17, value=r.get('ult_gestion') or '')
-            ws.cell(row=i, column=18, value=r.get('tp') or '')
-            ws.cell(row=i, column=19, value=r.get('vig_del') or '')
-            ws.cell(row=i, column=20, value=r.get('vig_al') or '')
-            ws.cell(row=i, column=21, value=float(r.get('prima_total') or 0))
-            ws.cell(row=i, column=22, value=r.get('motivo') or '')
-            ws.cell(row=i, column=23, value=r.get('tp_pago') or '')
-            ws.cell(row=i, column=24, value=r.get('breve_descripcion') or '')
+            ws.cell(row=i, column=6, value=r.get('ejecutivo') or '')
+            ws.cell(row=i, column=7, value=r.get('cia') or '')
+            ws.cell(row=i, column=8, value=r.get('ram') or '')
+            ws.cell(row=i, column=9, value=r.get('prod') or '')
+            ws.cell(row=i, column=10, value=r.get('cupon') or '')
+            ws.cell(row=i, column=11, value=r.get('num_cuota') or '')
+            ws.cell(row=i, column=12, value=r.get('fec_vencimiento_cob') or '')
+            ws.cell(row=i, column=13, value=r.get('mon') or '')
+            ws.cell(row=i, column=14, value=float(r.get('importe') or 0))
+            ws.cell(row=i, column=15, value=r.get('fec_pago') or '')
+            ws.cell(row=i, column=16, value=r.get('factura') or '')
+            ws.cell(row=i, column=17, value=int(r.get('dias_vencidos') or 0))
+            ws.cell(row=i, column=18, value=r.get('ult_gestion') or '')
+            ws.cell(row=i, column=19, value=r.get('tp') or '')
+            ws.cell(row=i, column=20, value=r.get('vig_del') or '')
+            ws.cell(row=i, column=21, value=r.get('vig_al') or '')
+            ws.cell(row=i, column=22, value=float(r.get('prima_total') or 0))
+            ws.cell(row=i, column=23, value=r.get('motivo') or '')
+            ws.cell(row=i, column=24, value=r.get('tp_pago') or '')
+            ws.cell(row=i, column=25, value=r.get('breve_descripcion') or '')
 
         upload_folder = current_app.config.get("UPLOAD_FOLDER", os.path.join(current_app.root_path, "uploads"))
         exports_dir = os.path.join(upload_folder, "exports")

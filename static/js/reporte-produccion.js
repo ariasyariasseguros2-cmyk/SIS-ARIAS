@@ -4,6 +4,7 @@ function reporteProduccionInit() {
     const tableBodyFull = document.querySelector('#reporteProduccionTableFull tbody');
     const btnExport = document.getElementById('btnExportProduccionExcel');
     const btnClear = document.getElementById('btnClearProduccion');
+    const alertEl = document.getElementById('reporteProduccionAlert');
 
     // Estado de paginación
     let allData = [];
@@ -18,6 +19,43 @@ function reporteProduccionInit() {
 
     if (!form || !tableBodySummary) {
         return;
+    }
+
+    function showAlert(message, type) {
+        if (!alertEl) return;
+        const finalType = type || 'warning';
+        alertEl.className = `alert alert-${finalType} mb-3`;
+        alertEl.textContent = message || '';
+        alertEl.classList.remove('d-none');
+    }
+
+    function clearAlert() {
+        if (!alertEl) return;
+        alertEl.textContent = '';
+        alertEl.className = 'alert d-none mb-3';
+    }
+
+    function validateRequiredDates() {
+        const inputDesde = form.querySelector('[name="vig_desde"]');
+        const inputHasta = form.querySelector('[name="vig_hasta"]');
+        const vigDesde = (inputDesde && inputDesde.value ? inputDesde.value : '').trim();
+        const vigHasta = (inputHasta && inputHasta.value ? inputHasta.value : '').trim();
+
+        if (!vigDesde || !vigHasta) {
+            showAlert('Debe seleccionar Desde y Hasta (Inicio Vigencia) para buscar o exportar.', 'warning');
+            if (!vigDesde && inputDesde) inputDesde.focus();
+            else if (!vigHasta && inputHasta) inputHasta.focus();
+            return false;
+        }
+
+        if (vigDesde > vigHasta) {
+            showAlert('La fecha "Desde" no puede ser mayor que la fecha "Hasta".', 'warning');
+            if (inputDesde) inputDesde.focus();
+            return false;
+        }
+
+        clearAlert();
+        return true;
     }
 
     function buildQueryFromForm() {
@@ -39,6 +77,14 @@ function reporteProduccionInit() {
             }
         }
         return false;
+    }
+
+    function hasValidAutoLoadFilters() {
+        const inputDesde = form.querySelector('[name="vig_desde"]');
+        const inputHasta = form.querySelector('[name="vig_hasta"]');
+        const vigDesde = (inputDesde && inputDesde.value ? inputDesde.value : '').trim();
+        const vigHasta = (inputHasta && inputHasta.value ? inputHasta.value : '').trim();
+        return !!vigDesde && !!vigHasta && vigDesde <= vigHasta;
     }
 
     function renderTable() {
@@ -301,11 +347,13 @@ function reporteProduccionInit() {
 
     form.addEventListener('submit', function (ev) {
         ev.preventDefault();
+        if (!validateRequiredDates()) return;
         loadReporte();
     });
 
     if (btnExport) {
         btnExport.addEventListener('click', function () {
+            if (!validateRequiredDates()) return;
             var query = buildQueryFromForm();
             var url = '/api/reportes/produccion/export';
             if (query) {
@@ -318,6 +366,7 @@ function reporteProduccionInit() {
     if (btnClear) {
         btnClear.addEventListener('click', function () {
             form.reset();
+            clearAlert();
             allData = [];
             currentPage = 1;
             rowsPerPage = 20;
@@ -331,7 +380,7 @@ function reporteProduccionInit() {
         });
     }
 
-    if (hasAnyFilter()) {
+    if (hasAnyFilter() && hasValidAutoLoadFilters()) {
         loadReporte();
     }
 }
