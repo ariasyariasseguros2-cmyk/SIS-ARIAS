@@ -38,6 +38,7 @@
             <th>Ram</th>
             <th>Prod</th>
             <th>Póliza</th>
+            <th>Recibo</th>
             <th>Vig Inicio</th>
             <th>Vig Fin</th>
             <th>Sub Agente</th>
@@ -54,6 +55,7 @@
             <td>{{ r.ramo }}</td>
             <td>{{ r.producto }}</td>
             <td>{{ r.poliza }}</td>
+            <td>{{ r.recibo }}</td>
             <td>{{ r.vig_desde }}</td>
             <td>{{ r.vig_hasta }}</td>
             <td>{{ r.sub_agente }}</td>
@@ -66,11 +68,17 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="11" class="text-center text-muted py-4">Sin pólizas anuladas</td>
+            <td colspan="12" class="text-center text-muted py-4">Sin pólizas anuladas</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
+    </div>
+    <div class="d-flex align-items-center justify-content-between px-3 pb-3">
+      <div class="small text-muted" id="anuladasPagerInfo"></div>
+      <nav aria-label="Paginación" class="ms-auto">
+        <ul class="pagination pagination-sm mb-0" id="anuladasPagination"></ul>
+      </nav>
     </div>
   </div>
 </div>
@@ -85,8 +93,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputQ = document.getElementById('searchQ');
   const inputDesde = document.getElementById('vigDesde');
   const inputHasta = document.getElementById('vigHasta');
+  const pager = document.getElementById('anuladasPagination');
+  const pagerInfo = document.getElementById('anuladasPagerInfo');
 
-  async function reload() {
+  const perPage = 15;
+  let currentPage = 1;
+
+  async function reload(page = 1) {
+    currentPage = page || 1;
     const params = new URLSearchParams();
     const q = (inputQ.value || '').trim();
     const desde = (inputDesde.value || '').trim();
@@ -94,12 +108,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (q) params.set('q', q);
     if (desde) params.set('desde', desde);
     if (hasta) params.set('hasta', hasta);
+    params.set('page', String(currentPage));
+    params.set('per_page', String(perPage));
     const url = '/api/polizas/anuladas' + (params.toString() ? ('?' + params.toString()) : '');
     try {
       if (tbody) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="11" class="text-center py-4">
+            <td colspan="12" class="text-center py-4">
               <div class="spinner-border text-primary" role="status"></div>
               <div class="text-muted small mt-2">Buscando...</div>
             </td>
@@ -108,14 +124,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const resp = await fetch(url);
       const json = await resp.json();
       const rows = json.ok ? (json.rows || []) : [];
+      const pageFromApi = json.ok ? (parseInt(json.page || 1, 10) || 1) : 1;
+      const pagesFromApi = json.ok ? (parseInt(json.pages || 1, 10) || 1) : 1;
+      const totalFromApi = json.ok ? (parseInt(json.total || 0, 10) || 0) : 0;
+      currentPage = pageFromApi;
       renderRows(rows);
+      renderPagination(currentPage, pagesFromApi, totalFromApi, rows.length);
     } catch (e) {
       if (tbody) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="11" class="text-center text-danger py-4">Error al consultar</td>
+            <td colspan="12" class="text-center text-danger py-4">Error al consultar</td>
           </tr>`;
       }
+      renderPagination(1, 1, 0, 0);
     }
   }
 
@@ -123,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!tbody) return;
     tbody.innerHTML = '';
     if (!rows || rows.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="11" class="text-center text-muted py-4">Sin resultados</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="12" class="text-center text-muted py-4">Sin resultados</td></tr>`;
       return;
     }
     const v = (x) => x || '';
@@ -138,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${v(r.ramo)}</td>
         <td>${v(r.producto)}</td>
         <td>${v(r.poliza)}</td>
+        <td>${v(r.recibo)}</td>
         <td>${v(r.vig_desde)}</td>
         <td>${v(r.vig_hasta)}</td>
         <td>${v(r.sub_agente)}</td>
@@ -150,8 +173,72 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  btnBuscar?.addEventListener('click', reload);
-  inputQ?.addEventListener('keypress', (e) => { if (e.key === 'Enter') reload(); });
+  function renderPagination(page, pages, total, pageCount) {
+    if (pagerInfo) {
+      if (!total) pagerInfo.textContent = '';
+      else pagerInfo.textContent = `Mostrando ${pageCount} de ${total}`;
+    }
+    if (!pager) return;
+    pager.innerHTML = '';
+    const p = Math.max(1, parseInt(page || 1, 10) || 1);
+    const ps = Math.max(1, parseInt(pages || 1, 10) || 1);
+
+    const addItem = (label, targetPage, disabled, active) => {
+      const li = document.createElement('li');
+      li.className = 'page-item' + (disabled ? ' disabled' : '') + (active ? ' active' : '');
+      const a = document.createElement('a');
+      a.className = 'page-link';
+      a.href = '#';
+      a.textContent = label;
+      if (!disabled && !active) a.setAttribute('data-page', String(targetPage));
+      li.appendChild(a);
+      pager.appendChild(li);
+    };
+
+    const addEllipsis = () => {
+      const li = document.createElement('li');
+      li.className = 'page-item disabled';
+      const span = document.createElement('span');
+      span.className = 'page-link';
+      span.textContent = '...';
+      li.appendChild(span);
+      pager.appendChild(li);
+    };
+
+    addItem('«', Math.max(1, p - 1), p <= 1, false);
+
+    const maxVisible = 5;
+    let start = Math.max(1, p - Math.floor(maxVisible / 2));
+    let end = Math.min(ps, start + maxVisible - 1);
+    start = Math.max(1, end - maxVisible + 1);
+
+    if (start > 1) {
+      addItem('1', 1, false, p === 1);
+      if (start > 2) addEllipsis();
+    }
+
+    for (let i = start; i <= end; i++) {
+      addItem(String(i), i, false, i === p);
+    }
+
+    if (end < ps) {
+      if (end < ps - 1) addEllipsis();
+      addItem(String(ps), ps, false, p === ps);
+    }
+
+    addItem('»', Math.min(ps, p + 1), p >= ps, false);
+  }
+
+  pager?.addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-page]');
+    if (!a) return;
+    e.preventDefault();
+    const p = parseInt(a.getAttribute('data-page') || '1', 10) || 1;
+    reload(p);
+  });
+
+  btnBuscar?.addEventListener('click', () => reload(1));
+  inputQ?.addEventListener('keypress', (e) => { if (e.key === 'Enter') reload(1); });
 
   const table = document.getElementById('polizasAnuladasTable');
   table?.addEventListener('click', async (e) => {
@@ -171,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const json = await resp.json();
       if (json.ok) {
-        row.remove();
+        reload(currentPage);
       } else {
         alert(json.error || 'No se pudo restaurar');
       }
@@ -179,6 +266,8 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Error de conexión');
     }
   });
+
+  reload(1);
 });
 </script>
 {% endblock %}

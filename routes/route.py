@@ -5525,6 +5525,39 @@ def api_polizas_restaurar():
                 pass
             cnx.commit()
             if affected > 0:
+                try:
+                    cur.execute("""
+                        SELECT TRIM(
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                                poliza
+                            )
+                        ) AS poliza_num
+                        FROM polizas
+                        WHERE idPoliza = %s
+                        LIMIT 1
+                    """, (pid,))
+                    pol_row = cur.fetchone()
+                    pol_num = (pol_row[0] if pol_row else None) or None
+                    if pol_num:
+                        cur.execute("""
+                            UPDATE cuotas
+                            SET activo = 1,
+                                usuario_edicion = %s
+                            WHERE activo = 0
+                              AND (
+                                poliza_id = %s
+                                OR TRIM(COALESCE(
+                                    CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                                    CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                                    poliza
+                                )) COLLATE utf8mb4_0900_ai_ci = TRIM(%s) COLLATE utf8mb4_0900_ai_ci
+                              )
+                        """, (session.get('user'), pid, pol_num))
+                        cnx.commit()
+                except Exception:
+                    pass
                 cur.close()
                 cnx.close()
                 return jsonify({'ok': True})
@@ -5536,11 +5569,45 @@ def api_polizas_restaurar():
                 cnx.close()
                 return jsonify({'ok': False, 'error': 'Póliza no encontrada'}), 400
             cur.execute(
-                "UPDATE polizas SET anulado=0, estado='VIGENTE', usuario_edicion=%s WHERE idPoliza=%s AND (anulado=1 OR anulado IS NULL) AND (activo=1 OR activo IS NULL)",
+                "UPDATE polizas SET anulado=0, activo=1, estado='VIGENTE', usuario_edicion=%s WHERE idPoliza=%s AND (anulado=1 OR activo=0)",
                 (session.get('user'), pid)
             )
             cnx.commit()
             ok = cur.rowcount > 0
+            if ok:
+                try:
+                    cur.execute("""
+                        SELECT TRIM(
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                                poliza
+                            )
+                        ) AS poliza_num
+                        FROM polizas
+                        WHERE idPoliza = %s
+                        LIMIT 1
+                    """, (pid,))
+                    pol_row = cur.fetchone()
+                    pol_num = (pol_row[0] if pol_row else None) or None
+                    if pol_num:
+                        cur.execute("""
+                            UPDATE cuotas
+                            SET activo = 1,
+                                usuario_edicion = %s
+                            WHERE activo = 0
+                              AND (
+                                poliza_id = %s
+                                OR TRIM(COALESCE(
+                                    CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                                    CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                                    poliza
+                                )) COLLATE utf8mb4_0900_ai_ci = TRIM(%s) COLLATE utf8mb4_0900_ai_ci
+                              )
+                        """, (session.get('user'), pid, pol_num))
+                        cnx.commit()
+                except Exception:
+                    pass
             cur.close()
             cnx.close()
             if ok:
@@ -5565,11 +5632,45 @@ def api_polizas_restaurar():
         except Exception:
             try:
                 cur.execute(
-                    "UPDATE polizas SET anulado=0, estado='VIGENTE', usuario_edicion=%s WHERE idPoliza=%s AND activo=1 AND anulado=1",
+                    "UPDATE polizas SET anulado=0, activo=1, estado='VIGENTE', usuario_edicion=%s WHERE idPoliza=%s AND (anulado=1 OR activo=0)",
                     (session.get('user'), pid)
                 )
                 cnx.commit()
                 ok = cur.rowcount > 0
+                if ok:
+                    try:
+                        cur.execute("""
+                            SELECT TRIM(
+                                COALESCE(
+                                    CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                                    CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                                    poliza
+                                )
+                            ) AS poliza_num
+                            FROM polizas
+                            WHERE idPoliza = %s
+                            LIMIT 1
+                        """, (pid,))
+                        pol_row = cur.fetchone()
+                        pol_num = (pol_row[0] if pol_row else None) or None
+                        if pol_num:
+                            cur.execute("""
+                                UPDATE cuotas
+                                SET activo = 1,
+                                    usuario_edicion = %s
+                                WHERE activo = 0
+                                  AND (
+                                    poliza_id = %s
+                                    OR TRIM(COALESCE(
+                                        CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                                        CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                                        poliza
+                                    )) COLLATE utf8mb4_0900_ai_ci = TRIM(%s) COLLATE utf8mb4_0900_ai_ci
+                                  )
+                            """, (session.get('user'), pid, pol_num))
+                            cnx.commit()
+                    except Exception:
+                        pass
                 cur.close()
                 cnx.close()
                 if ok:
@@ -5608,10 +5709,19 @@ def api_polizas_anuladas_list():
     q = request.args.get('q') or None
     desde = request.args.get('desde') or None
     hasta = request.args.get('hasta') or None
+    page = request.args.get('page') or 1
+    per_page = request.args.get('per_page') or 15
     try:
         from controllers.polizas import get_polizas_anuladas_filtered
-        rows = get_polizas_anuladas_filtered(q, desde, hasta)
-        return jsonify({'ok': True, 'rows': rows})
+        data = get_polizas_anuladas_filtered(q, desde, hasta, page=page, per_page=per_page)
+        return jsonify({
+            'ok': True,
+            'rows': data.get('rows', []),
+            'total': data.get('total', 0),
+            'page': data.get('page', 1),
+            'per_page': data.get('per_page', 15),
+            'pages': data.get('pages', 1),
+        })
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 

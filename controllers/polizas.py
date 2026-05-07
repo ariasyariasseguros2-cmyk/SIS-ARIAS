@@ -227,7 +227,7 @@ def get_polizas_all() -> dict:
                     p.asegurada
                 FROM polizas p
                 INNER JOIN clientes c ON c.idCliente = p.cliente_id
-                WHERE p.activo = 1 AND p.anulado = 0 
+                WHERE (p.activo = 1 OR p.activo IS NULL) AND (p.anulado = 0 OR p.anulado IS NULL)
             """ + rls_filter + """
                 ORDER BY p.creado_en DESC
             """
@@ -329,6 +329,71 @@ def get_polizas_anuladas() -> dict:
                 except: pass
             except Exception:
                 use_sp = False
+            if use_sp:
+                try:
+                    base_ids = set()
+                    for r in (rows or []):
+                        try:
+                            base_ids.add(int(r.get('idPoliza')))
+                        except Exception:
+                            pass
+
+                    sql_inactivas = """
+                        SELECT 
+                            p.idPoliza,
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                                c.razon_social
+                            ) AS contratante,
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+                                p.asegurado
+                            ) AS asegurado,
+                            p.cia,
+                            p.ramo,
+                            p.ramos_producto AS producto,
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                                p.poliza
+                            ) AS poliza,
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                                p.recibo
+                            ) AS recibo,
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+                                p.nro
+                            ) AS nro,
+                            p.moneda,
+                            DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
+                            DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
+                            DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
+                            p.sub_agente,
+                            p.asegurada
+                        FROM polizas p
+                        INNER JOIN clientes c ON c.idCliente = p.cliente_id
+                        WHERE p.activo = 0
+                        ORDER BY p.creado_en DESC
+                    """
+                    cur.execute(sql_inactivas)
+                    extra = cur.fetchall() or []
+                    if extra:
+                        if not rows:
+                            rows = []
+                        for r in extra:
+                            try:
+                                rid = int(r.get('idPoliza'))
+                            except Exception:
+                                rid = None
+                            if rid is None or rid not in base_ids:
+                                rows.append(r)
+                except Exception:
+                    pass
 
         if not use_sp:
             sql = """
@@ -353,6 +418,11 @@ def get_polizas_anuladas() -> dict:
                         p.poliza
                     ) AS poliza,
                     COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                        p.recibo
+                    ) AS recibo,
+                    COALESCE(
                         CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
                         CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
                         p.nro
@@ -365,7 +435,7 @@ def get_polizas_anuladas() -> dict:
                     p.asegurada
                 FROM polizas p
                 INNER JOIN clientes c ON c.idCliente = p.cliente_id
-                WHERE p.activo = 1 AND p.anulado = 1
+                WHERE (p.anulado = 1 OR p.activo = 0)
             """ + rls_filter + """
                 ORDER BY p.creado_en DESC
             """
@@ -374,6 +444,47 @@ def get_polizas_anuladas() -> dict:
 
         for r in rows:
             r['producto'] = r.get('producto') or r.get('ramos_producto') or ''
+            if 'recibo' not in r:
+                r['recibo'] = ''
+
+        try:
+            ids = []
+            for r in (rows or []):
+                pid = r.get('idPoliza')
+                if pid is None:
+                    continue
+                try:
+                    ids.append(int(pid))
+                except Exception:
+                    continue
+
+            if ids:
+                ph = ",".join(["%s"] * len(ids))
+                cur.execute(f"""
+                    SELECT 
+                        idPoliza,
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR),
+                            CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
+                            recibo
+                        ) AS recibo
+                    FROM polizas
+                    WHERE idPoliza IN ({ph})
+                """, tuple(ids))
+                rec_rows = cur.fetchall() or []
+                rec_map = {}
+                for rr in rec_rows:
+                    try:
+                        rec_map[int(rr.get('idPoliza'))] = rr.get('recibo') or ''
+                    except Exception:
+                        pass
+                for r in (rows or []):
+                    try:
+                        r['recibo'] = rec_map.get(int(r.get('idPoliza')), r.get('recibo') or '')
+                    except Exception:
+                        r['recibo'] = r.get('recibo') or ''
+        except Exception:
+            pass
 
         cur.close()
         cnx.close()
@@ -385,14 +496,43 @@ def get_polizas_anuladas() -> dict:
         'rows': rows
     }
 
-def get_polizas_anuladas_filtered(q: str | None = None, desde: str | None = None, hasta: str | None = None) -> list[dict]:
-    rows = []
+def get_polizas_anuladas_filtered(
+    q: str | None = None,
+    desde: str | None = None,
+    hasta: str | None = None,
+    page: int | None = 1,
+    per_page: int | None = 15,
+) -> dict:
+    rows: list[dict] = []
+    total = 0
+    page_num = 1
+    per_page_num = 15
+    pages = 1
     try:
         from models.db import get_connection
         from flask import session
         from utils.rbac import Roles
+
+        try:
+            page_num = int(page or 1)
+        except Exception:
+            page_num = 1
+        try:
+            per_page_num = int(per_page or 15)
+        except Exception:
+            per_page_num = 15
+        if page_num < 1:
+            page_num = 1
+        if per_page_num < 1:
+            per_page_num = 15
+        if per_page_num > 200:
+            per_page_num = 200
+
+        offset = (page_num - 1) * per_page_num
+
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
+
         rls_sql = ""
         rls_params: list = []
         if session.get('role_name') == Roles.SUB_AGENTE:
@@ -402,6 +542,77 @@ def get_polizas_anuladas_filtered(q: str | None = None, desde: str | None = None
             nombre_usuario = (u_row.get('nombre') if u_row else user) or user
             rls_sql = " AND (p.usuario_registro = %s OR p.usuario_registro = %s OR p.sub_agente = %s OR p.sub_agente = %s) "
             rls_params = [user, nombre_usuario, user, nombre_usuario]
+
+        where_sql = " WHERE (p.anulado = 1 OR p.activo = 0) "
+        params: list = []
+        if q:
+            like = f"%{q}%"
+            where_sql += """
+              AND (
+                TRIM(COALESCE(
+                  CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                  CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                  p.poliza
+                )) LIKE %s OR
+                TRIM(COALESCE(
+                  CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                  CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                  p.recibo
+                )) LIKE %s OR
+                TRIM(COALESCE(
+                  CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                  CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                  c.razon_social
+                )) LIKE %s OR
+                TRIM(COALESCE(
+                  CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+                  CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+                  p.asegurado
+                )) LIKE %s OR
+                TRIM(COALESCE(
+                  CAST(AES_DECRYPT(FROM_BASE64(p.asegurada), @SIS_KEY) AS CHAR),
+                  CAST(AES_DECRYPT(p.asegurada, @SIS_KEY) AS CHAR),
+                  p.asegurada
+                )) LIKE %s OR
+                TRIM(COALESCE(
+                  CAST(AES_DECRYPT(FROM_BASE64(p.ramo), @SIS_KEY) AS CHAR),
+                  CAST(AES_DECRYPT(p.ramo, @SIS_KEY) AS CHAR),
+                  p.ramo
+                )) LIKE %s OR
+                TRIM(COALESCE(
+                  CAST(AES_DECRYPT(FROM_BASE64(p.cia), @SIS_KEY) AS CHAR),
+                  CAST(AES_DECRYPT(p.cia, @SIS_KEY) AS CHAR),
+                  p.cia
+                )) LIKE %s OR
+                TRIM(COALESCE(
+                  CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+                  CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+                  p.nro
+                )) LIKE %s
+              )
+            """
+            params.extend([like, like, like, like, like, like, like, like])
+        if desde:
+            where_sql += " AND p.vig_desde >= %s "
+            params.append(desde)
+        if hasta:
+            where_sql += " AND p.vig_hasta <= %s "
+            params.append(hasta)
+        where_sql += rls_sql
+        params.extend(rls_params)
+
+        count_sql = "SELECT COUNT(*) AS total FROM polizas p INNER JOIN clientes c ON c.idCliente = p.cliente_id " + where_sql
+        cur.execute(count_sql, tuple(params))
+        total_row = cur.fetchone() or {}
+        try:
+            total = int(total_row.get('total', 0) or 0)
+        except Exception:
+            total = 0
+        pages = max(1, (total + per_page_num - 1) // per_page_num) if per_page_num > 0 else 1
+        if page_num > pages:
+            page_num = pages
+            offset = (page_num - 1) * per_page_num
+
         sql = """
             SELECT 
                 p.idPoliza,
@@ -424,6 +635,11 @@ def get_polizas_anuladas_filtered(q: str | None = None, desde: str | None = None
                     p.poliza
                 ) AS poliza,
                 COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                    p.recibo
+                ) AS recibo,
+                COALESCE(
                     CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
                     CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
                     p.nro
@@ -436,38 +652,28 @@ def get_polizas_anuladas_filtered(q: str | None = None, desde: str | None = None
                 p.asegurada
             FROM polizas p
             INNER JOIN clientes c ON c.idCliente = p.cliente_id
-            WHERE p.activo = 1 AND p.anulado = 1
-        """
-        params: list = []
-        if q:
-            like = f"%{q}%"
-            sql += """
-              AND (
-                p.poliza LIKE %s OR
-                c.razon_social LIKE %s OR
-                p.asegurado LIKE %s OR
-                p.asegurada LIKE %s OR
-                p.ramo LIKE %s OR
-                p.cia LIKE %s OR
-                p.nro LIKE %s
-              )
-            """
-            params.extend([like, like, like, like, like, like, like])
-        if desde:
-            sql += " AND p.vig_desde >= %s "
-            params.append(desde)
-        if hasta:
-            sql += " AND p.vig_hasta <= %s "
-            params.append(hasta)
-        sql += rls_sql
-        params.extend(rls_params)
-        sql += " ORDER BY p.creado_en DESC"
-        cur.execute(sql, tuple(params))
+        """ + where_sql + " ORDER BY p.creado_en DESC LIMIT %s OFFSET %s"
+
+        page_params = list(params)
+        page_params.extend([per_page_num, offset])
+        cur.execute(sql, tuple(page_params))
         rows = cur.fetchall() or []
         for r in rows:
             r['producto'] = r.get('producto') or r.get('ramos_producto') or ''
+
         cur.close()
         cnx.close()
     except Exception:
         rows = []
-    return rows
+        total = 0
+        page_num = 1
+        per_page_num = 15
+        pages = 1
+
+    return {
+        'rows': rows,
+        'total': total,
+        'page': page_num,
+        'per_page': per_page_num,
+        'pages': pages,
+    }
