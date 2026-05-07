@@ -1682,12 +1682,12 @@ BEGIN
     IF p_fecha_pago IS NOT NULL THEN
         IF p_cupon IS NOT NULL AND TRIM(p_cupon) <> '' THEN
             UPDATE polizas
-            SET estado = 'CANCELADO'
+            SET estado = 'PAGADO'
             WHERE TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza)) = TRIM(p_poliza)
               AND TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR), recibo)) = TRIM(p_cupon);
         ELSE
             UPDATE polizas
-            SET estado = 'CANCELADO'
+            SET estado = 'PAGADO'
             WHERE TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza)) = TRIM(p_poliza);
         END IF;
     END IF;
