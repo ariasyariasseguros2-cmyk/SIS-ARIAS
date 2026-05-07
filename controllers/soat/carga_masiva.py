@@ -343,9 +343,9 @@ def resolver_estado_y_anulado_soat(recibo: str, estado_excel: str) -> tuple[str,
     """Reglas de negocio para estado/anulado en carga masiva SOAT."""
     estado_norm = _normalize_estado_token(estado_excel)
 
-    # Cuando recibo tiene numero, siempre se considera cancelado
+    # Cuando recibo tiene numero, siempre se considera pagado
     if _recibo_tiene_numero(recibo):
-        return 'CANCELADO', 0
+        return 'PAGADO', 0
 
     # Reglas especiales cuando recibo es cero
     if _is_recibo_zero(recibo):
