@@ -85,7 +85,7 @@ def get_reporte_diario_data(filters=None):
                 p.ramo,
                 p.ramos_producto,
                 p.moneda,
-                COALESCE(p.prima_total, p.prima_comercial_igv, p.prima_neta, 0) AS prima_total,
+                COALESCE(p.prima_comercial_igv) AS prima_total,
                 p.vig_desde,
                 p.vig_hasta,
                 p.ejecutivo,
