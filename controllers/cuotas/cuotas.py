@@ -467,7 +467,7 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
             )
             row = cur.fetchone()
             pendientes = row[0] if row and row[0] is not None else 0
-            nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'CANCELADO'
+            nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'PAGADO'
             cur.execute(
                 "UPDATE polizas SET estado = %s WHERE idPoliza = %s",
                 (nuevo_estado, target_poliza_id),
@@ -688,9 +688,9 @@ def delete_cuota(cuota_id: int) -> Tuple[bool, str]:
                 """,
                 (poliza_id,),
             )
-            r = cur.fetchone()
+             r = cur.fetchone()
             pendientes = r[0] if r else 0
-            nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'CANCELADO'
+            nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'PAGADO'
             cur.execute(
                 "UPDATE polizas SET estado = %s WHERE idPoliza = %s",
                 (nuevo_estado, poliza_id),
