@@ -110,6 +110,43 @@ def update_poliza(data):
 
         cnx = get_connection()
         cur = cnx.cursor()
+
+        try:
+            recibo_new = data.get('recibo') if 'recibo' in data else None
+            if isinstance(recibo_new, str):
+                recibo_new = recibo_new.strip()
+            recibo_curr = (current.get('recibo') or '')
+            if isinstance(recibo_curr, str):
+                recibo_curr = recibo_curr.strip()
+
+            cliente_id_new = data.get('cliente_id') if 'cliente_id' in data else None
+            cliente_id_final = cliente_id_new if cliente_id_new not in (None, '') else current.get('cliente_id')
+
+            if recibo_new:
+                if str(recibo_new) != str(recibo_curr):
+                    cur.execute(
+                        """
+                        SELECT 1
+                        FROM polizas
+                        WHERE cliente_id = %s
+                          AND idPoliza <> %s
+                          AND activo = 1
+                          AND (anulado = 0 OR anulado IS NULL)
+                          AND TRIM(COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
+                                recibo
+                              )) COLLATE utf8mb4_0900_ai_ci = TRIM(%s) COLLATE utf8mb4_0900_ai_ci
+                        LIMIT 1
+                        """,
+                        (cliente_id_final, pid, recibo_new),
+                    )
+                    if cur.fetchone():
+                        cur.close()
+                        cnx.close()
+                        return {'ok': False, 'error': f'El recibo ya existe para este cliente: {recibo_new}'}
+        except Exception:
+            pass
         
         # Helper: si la clave está en data, usar su valor (None si vacío).
         # Si no está, usar valor actual de DB.
