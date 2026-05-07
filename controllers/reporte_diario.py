@@ -207,12 +207,17 @@ def export_excel(upload_folder: str, filters=None):
             elif ci == 1:
                 cell.alignment = Alignment(horizontal="center")
 
-    # Fila totales
+    # Fila totales (SUBTOTAL para que el total se actualice al filtrar en Excel)
     total_row = len(table_rows) + 3
     ws.cell(row=total_row, column=8, value="TOTAL").font = Font(bold=True, size=9)
-    ws.cell(row=total_row, column=9, value=sum(r[8] for r in table_rows)).font = Font(bold=True, size=9)
-    ws.cell(row=total_row, column=9).number_format = '#,##0.00'
-    ws.cell(row=total_row, column=9).alignment = Alignment(horizontal="right")
+    total_cell = ws.cell(row=total_row, column=9)
+    total_cell.font = Font(bold=True, size=9)
+    total_cell.number_format = '#,##0.00'
+    total_cell.alignment = Alignment(horizontal="right")
+    if table_rows:
+        total_cell.value = f"=SUBTOTAL(109,I3:I{total_row-1})"
+    else:
+        total_cell.value = 0
 
     # Ancho columnas
     col_widths = [5, 16, 16, 30, 16, 22, 22, 10, 14, 13, 13, 16, 16, 12, 16, 14]

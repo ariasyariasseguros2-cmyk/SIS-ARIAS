@@ -239,21 +239,83 @@ def export_reporte_produccion(filters: Dict[str, Any]) -> Tuple[str, str]:
     filepath = os.path.join(exports_dir, filename)
 
     from openpyxl import Workbook
-    from openpyxl.styles import Font
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Produccion"
 
-    bold_font = Font(bold=True)
+    title = "REPORTE DE PRODUCCIÓN"
+    vig_desde = filters.get("vig_desde") or ""
+    vig_hasta = filters.get("vig_hasta") or ""
+    if vig_desde and vig_hasta:
+        title = f"{title} — {vig_desde} a {vig_hasta}"
+
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+    title_cell = ws.cell(row=1, column=1, value=title)
+    title_cell.font = Font(bold=True, size=13, color="FFFFFF")
+    title_cell.fill = PatternFill("solid", fgColor="1F59A3")
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 28
+
+    header_fill = PatternFill("solid", fgColor="399AD6")
+    header_font = Font(bold=True, color="FFFFFF", size=9)
+    thin = Side(style="thin", color="CCCCCC")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
     for col, h in enumerate(headers, start=1):
-        cell = ws.cell(row=1, column=col, value=h)
-        cell.font = bold_font
+        cell = ws.cell(row=2, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = border
+    ws.row_dimensions[2].height = 22
 
-    for row_idx, row in enumerate(table_rows, start=2):
+    money_cols = {15, 16, 18, 21}
+    percent_cols = {17, 20}
+
+    for row_idx, row in enumerate(table_rows, start=3):
+        fill = PatternFill("solid", fgColor="F4F8FF") if row_idx % 2 == 0 else PatternFill("solid", fgColor="FFFFFF")
         for col_idx, value in enumerate(row, start=1):
-            ws.cell(row=row_idx, column=col_idx, value=value)
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            cell.fill = fill
+            cell.font = Font(size=9)
+            if col_idx in money_cols:
+                cell.number_format = '#,##0.00'
+                cell.alignment = Alignment(horizontal="right", vertical="center")
+            elif col_idx in percent_cols:
+                cell.number_format = '0.00'
+                cell.alignment = Alignment(horizontal="right", vertical="center")
+            else:
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    total_row = len(table_rows) + 3
+    ws.cell(row=total_row, column=1, value="TOTAL").font = Font(bold=True, size=9)
+    total_cols = [15, 16, 18, 21]
+    for col in total_cols:
+        cell = ws.cell(row=total_row, column=col)
+        cell.font = Font(bold=True, size=9)
+        cell.number_format = '#,##0.00'
+        cell.alignment = Alignment(horizontal="right", vertical="center")
+        if table_rows:
+            col_letter = get_column_letter(col)
+            cell.value = f"=SUBTOTAL(109,{col_letter}3:{col_letter}{total_row-1})"
+        else:
+            cell.value = 0
+
+    for c in [15, 16, 18, 21]:
+        ws.cell(row=total_row, column=c).number_format = '#,##0.00'
+        ws.cell(row=total_row, column=c).alignment = Alignment(horizontal="right", vertical="center")
+
+    col_widths = [
+        12, 28, 28, 28, 16, 18, 18, 16, 6, 16,
+        14, 12, 12, 10, 12, 12, 8, 12, 16, 8,
+        12, 12, 18, 18, 14, 16, 16, 18, 16, 12
+    ]
+    for i, w in enumerate(col_widths[:len(headers)], start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
 
     wb.save(filepath)
 

@@ -2042,7 +2042,8 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
         rows = data.get('rows') or []
 
         from openpyxl import Workbook
-        from openpyxl.styles import Font
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
 
         wb = Workbook()
         ws = wb.active
@@ -2075,37 +2076,106 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
             "TP_PAGO",
             "BREVE_DESCRIPCION",
         ]
-        bold_font = Font(bold=True)
-        for col, h in enumerate(headers, start=1):
-            cell = ws.cell(row=1, column=col, value=h)
-            cell.font = bold_font
+        fecha_desde = (request.args.get('fecha_desde') or '').strip()
+        fecha_hasta = (request.args.get('fecha_hasta') or '').strip()
+        title = "ESTADO DE CUENTA DE CUPONES"
+        if fecha_desde and fecha_hasta:
+            title = f"{title} — {fecha_desde} a {fecha_hasta}"
 
-        for i, r in enumerate(rows, start=2):
-            ws.cell(row=i, column=1, value=r.get('asegurado') or '')
-            ws.cell(row=i, column=2, value=r.get('direccion') or '')
-            ws.cell(row=i, column=3, value=r.get('telefono') or '')
-            ws.cell(row=i, column=4, value=r.get('contratante') or '')
-            ws.cell(row=i, column=5, value=r.get('poliza') or '')
-            ws.cell(row=i, column=6, value=r.get('ejecutivo') or '')
-            ws.cell(row=i, column=7, value=r.get('cia') or '')
-            ws.cell(row=i, column=8, value=r.get('ram') or '')
-            ws.cell(row=i, column=9, value=r.get('prod') or '')
-            ws.cell(row=i, column=10, value=r.get('cupon') or '')
-            ws.cell(row=i, column=11, value=r.get('num_cuota') or '')
-            ws.cell(row=i, column=12, value=r.get('fec_vencimiento_cob') or '')
-            ws.cell(row=i, column=13, value=r.get('mon') or '')
-            ws.cell(row=i, column=14, value=float(r.get('importe') or 0))
-            ws.cell(row=i, column=15, value=r.get('fec_pago') or '')
-            ws.cell(row=i, column=16, value=r.get('factura') or '')
-            ws.cell(row=i, column=17, value=int(r.get('dias_vencidos') or 0))
-            ws.cell(row=i, column=18, value=r.get('ult_gestion') or '')
-            ws.cell(row=i, column=19, value=r.get('tp') or '')
-            ws.cell(row=i, column=20, value=r.get('vig_del') or '')
-            ws.cell(row=i, column=21, value=r.get('vig_al') or '')
-            ws.cell(row=i, column=22, value=float(r.get('prima_total') or 0))
-            ws.cell(row=i, column=23, value=r.get('motivo') or '')
-            ws.cell(row=i, column=24, value=r.get('tp_pago') or '')
-            ws.cell(row=i, column=25, value=r.get('breve_descripcion') or '')
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+        title_cell = ws.cell(row=1, column=1, value=title)
+        title_cell.font = Font(bold=True, size=13, color="FFFFFF")
+        title_cell.fill = PatternFill("solid", fgColor="1F59A3")
+        title_cell.alignment = Alignment(horizontal="center", vertical="center")
+        ws.row_dimensions[1].height = 28
+
+        header_fill = PatternFill("solid", fgColor="399AD6")
+        header_font = Font(bold=True, color="FFFFFF", size=9)
+        thin = Side(style="thin", color="CCCCCC")
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+        for col, h in enumerate(headers, start=1):
+            cell = ws.cell(row=2, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = border
+        ws.row_dimensions[2].height = 22
+
+        money_cols = {14, 22}
+        int_cols = {11, 17}
+        totals_importe = 0.0
+        totals_prima_total = 0.0
+
+        for i, r in enumerate(rows, start=3):
+            row_vals = [
+                r.get('asegurado') or '',
+                r.get('direccion') or '',
+                r.get('telefono') or '',
+                r.get('contratante') or '',
+                r.get('poliza') or '',
+                r.get('ejecutivo') or '',
+                r.get('cia') or '',
+                r.get('ram') or '',
+                r.get('prod') or '',
+                r.get('cupon') or '',
+                int(r.get('num_cuota') or 0),
+                r.get('fec_vencimiento_cob') or '',
+                r.get('mon') or '',
+                float(r.get('importe') or 0),
+                r.get('fec_pago') or '',
+                r.get('factura') or '',
+                int(r.get('dias_vencidos') or 0),
+                r.get('ult_gestion') or '',
+                r.get('tp') or '',
+                r.get('vig_del') or '',
+                r.get('vig_al') or '',
+                float(r.get('prima_total') or 0),
+                r.get('motivo') or '',
+                r.get('tp_pago') or '',
+                r.get('breve_descripcion') or '',
+            ]
+
+            totals_importe += float(r.get('importe') or 0)
+            totals_prima_total += float(r.get('prima_total') or 0)
+
+            fill = PatternFill("solid", fgColor="F4F8FF") if i % 2 == 0 else PatternFill("solid", fgColor="FFFFFF")
+            for col_idx, val in enumerate(row_vals, start=1):
+                cell = ws.cell(row=i, column=col_idx, value=val)
+                cell.border = border
+                cell.fill = fill
+                cell.font = Font(size=9)
+                if col_idx in money_cols:
+                    cell.number_format = '#,##0.00'
+                    cell.alignment = Alignment(horizontal="right", vertical="center")
+                elif col_idx in int_cols:
+                    cell.number_format = '0'
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                else:
+                    cell.alignment = Alignment(horizontal="left", vertical="center")
+
+        total_row = len(rows) + 3
+        ws.cell(row=total_row, column=13, value="TOTAL").font = Font(bold=True, size=9)
+        tot_importe_cell = ws.cell(row=total_row, column=14)
+        tot_prima_cell = ws.cell(row=total_row, column=22)
+        for c in (tot_importe_cell, tot_prima_cell):
+            c.font = Font(bold=True, size=9)
+            c.number_format = '#,##0.00'
+            c.alignment = Alignment(horizontal="right", vertical="center")
+        if rows:
+            tot_importe_cell.value = f"=SUBTOTAL(109,N3:N{total_row-1})"
+            tot_prima_cell.value = f"=SUBTOTAL(109,V3:V{total_row-1})"
+        else:
+            tot_importe_cell.value = 0
+            tot_prima_cell.value = 0
+
+        col_widths = [
+            22, 22, 14, 28, 16, 18, 14, 14, 18, 18,
+            10, 16, 10, 14, 14, 16, 12, 18, 8, 12,
+            12, 14, 20, 14, 24
+        ]
+        for i, w in enumerate(col_widths[:len(headers)], start=1):
+            ws.column_dimensions[get_column_letter(i)].width = w
 
         upload_folder = current_app.config.get("UPLOAD_FOLDER", os.path.join(current_app.root_path, "uploads"))
         exports_dir = os.path.join(upload_folder, "exports")
