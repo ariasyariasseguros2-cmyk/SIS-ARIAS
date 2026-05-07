@@ -53,7 +53,7 @@ def get_expired_policy_notifications(limit: int = 10) -> List[dict]:
                 vig_hasta
             FROM polizas
             WHERE activo = 1
-              AND anulado = 0
+              AND (anulado = 0 OR anulado IS NULL)
               AND vig_hasta IS NOT NULL
               AND (
                     vig_hasta < CURDATE()
@@ -201,15 +201,15 @@ def get_dashboard_cards() -> Dict[str, Any]:
         # 2. Pólizas Activas (vigencia_hasta >= hoy)
         try:
             # Note: user_filter starts with AND, so we need WHERE clause first
-            sql = f"SELECT COUNT(*) FROM polizas WHERE activo = 1 AND anulado = 0 AND vig_hasta >= CURDATE() {user_filter}"
+            sql = f"SELECT COUNT(*) FROM polizas WHERE activo = 1 AND (anulado = 0 OR anulado IS NULL) AND vig_hasta >= CURDATE() {user_filter}"
             cur.execute(sql, user_filter_args)
             res = cur.fetchone()
             if res: cards['active_policies'] = res[0]
         except Exception: pass
         
-        # 2b. Pólizas Registradas (total no anuladas)
+        # 2b. Pólizas Registradas (no anuladas; excluye eliminadas lógicamente)
         try:
-            sql = f"SELECT COUNT(*) FROM polizas WHERE anulado = 0 {user_filter}"
+            sql = f"SELECT COUNT(*) FROM polizas WHERE activo = 1 AND (anulado = 0 OR anulado IS NULL) {user_filter}"
             cur.execute(sql, user_filter_args)
             res = cur.fetchone()
             if res: cards['total_policies'] = res[0]
@@ -219,7 +219,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
         # vigencia_hasta BETWEEN FirstDayNextMonth AND LastDayNextMonth
         try:
             # Simplificado: entre hoy y hoy+30 días
-            sql = f"SELECT COUNT(*) FROM polizas WHERE activo = 1 AND anulado = 0 AND vig_hasta BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) {user_filter}"
+            sql = f"SELECT COUNT(*) FROM polizas WHERE activo = 1 AND (anulado = 0 OR anulado IS NULL) AND vig_hasta BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) {user_filter}"
             cur.execute(sql, user_filter_args)
             res = cur.fetchone()
             if res: cards['pending_renewals'] = res[0]
@@ -234,7 +234,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND MONTH(vig_desde) = MONTH(CURDATE()) 
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND activo = 1
-                  AND anulado = 0 {user_filter}
+                  AND (anulado = 0 OR anulado IS NULL) {user_filter}
             """
             cur.execute(sql, user_filter_args)
             curr_res = cur.fetchone()
@@ -247,7 +247,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND MONTH(vig_desde) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) 
                   AND YEAR(vig_desde) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
                   AND activo = 1
-                  AND anulado = 0 {user_filter}
+                  AND (anulado = 0 OR anulado IS NULL) {user_filter}
             """
             cur.execute(sql, user_filter_args)
             prev_res = cur.fetchone()
@@ -268,7 +268,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND MONTH(vig_desde) = MONTH(CURDATE()) 
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND activo = 1
-                  AND anulado = 0 {user_filter}
+                  AND (anulado = 0 OR anulado IS NULL) {user_filter}
             """
             cur.execute(sql, user_filter_args)
             curr_com_res = cur.fetchone()
@@ -281,7 +281,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND MONTH(vig_desde) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) 
                   AND YEAR(vig_desde) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
                   AND activo = 1
-                  AND anulado = 0 {user_filter}
+                  AND (anulado = 0 OR anulado IS NULL) {user_filter}
             """
             cur.execute(sql, user_filter_args)
             prev_com_res = cur.fetchone()
@@ -307,8 +307,8 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND activo = 1
-                  AND anulado = 0
-                  AND moneda IN ('S/', 'S/.', 'SOLES', 'PEN')
+                  AND (anulado = 0 OR anulado IS NULL)
+                  AND UPPER(TRIM(moneda)) IN ('S/', 'S/.', 'SOLES', 'PEN')
                   {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -322,8 +322,8 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND activo = 1
-                  AND anulado = 0
-                  AND moneda IN ('US$', 'USD', '$')
+                  AND (anulado = 0 OR anulado IS NULL)
+                  AND UPPER(TRIM(moneda)) IN ('US$', 'USD', '$')
                   {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -337,8 +337,8 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND activo = 1
-                  AND anulado = 0
-                  AND moneda IN ('S/', 'S/.', 'SOLES', 'PEN')
+                  AND (anulado = 0 OR anulado IS NULL)
+                  AND UPPER(TRIM(moneda)) IN ('S/', 'S/.', 'SOLES', 'PEN')
                   {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -352,8 +352,8 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND MONTH(vig_desde) = MONTH(CURDATE())
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND activo = 1
-                  AND anulado = 0
-                  AND moneda IN ('US$', 'USD', '$')
+                  AND (anulado = 0 OR anulado IS NULL)
+                  AND UPPER(TRIM(moneda)) IN ('US$', 'USD', '$')
                   {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -408,8 +408,8 @@ def get_dashboard_data() -> Dict[str, Any]:
             SELECT
                 MONTH(vig_desde) AS mes,
                 CASE
-                    WHEN moneda IN ('S/', 'S/.', 'SOLES', 'PEN') THEN 'S/'
-                    WHEN moneda IN ('US$', 'USD', '$') THEN 'US$'
+                    WHEN UPPER(TRIM(moneda)) IN ('S/', 'S/.', 'SOLES', 'PEN') THEN 'S/'
+                    WHEN UPPER(TRIM(moneda)) IN ('US$', 'USD', '$') THEN 'US$'
                     ELSE moneda
                 END AS moneda,
                 SUM(COALESCE(prima_neta, 0)) AS total_prima_neta,
@@ -418,7 +418,7 @@ def get_dashboard_data() -> Dict[str, Any]:
             WHERE vig_desde IS NOT NULL
               AND YEAR(vig_desde) = YEAR(CURDATE())
               AND activo = 1
-              AND anulado = 0
+              AND (anulado = 0 OR anulado IS NULL)
               {user_filter}
             GROUP BY MONTH(vig_desde), moneda
             ORDER BY MONTH(vig_desde)
