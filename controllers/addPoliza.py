@@ -1007,7 +1007,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                         )
                         row_p = cur.fetchone()
                         pendientes = row_p[0] if row_p and row_p[0] is not None else 0
-                        nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'CANCELADO'
+                        nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'PAGADO'
 
                         tdoc_sel = U((selected or {}).get("tipo_doc") or "").strip().upper()
                         est_row = U(row.get("estado") or "").strip().upper()
