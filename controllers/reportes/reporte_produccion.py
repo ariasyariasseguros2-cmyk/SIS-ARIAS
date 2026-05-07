@@ -27,7 +27,7 @@ def _build_filters(filters: Dict[str, Any]) -> Tuple[str, List[Any]]:
     params: List[Any] = []
 
     sql_filters.append("p.activo = 1")
-    sql_filters.append("p.anulado = 0")
+    sql_filters.append("(p.anulado = 0 OR p.anulado IS NULL)")
 
     vig_desde = filters.get("vig_desde")
     vig_hasta = filters.get("vig_hasta")
