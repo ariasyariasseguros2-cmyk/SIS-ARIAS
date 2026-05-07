@@ -1916,9 +1916,32 @@ def api_cobranzas_estado_cuenta_cupones():
                 p.forma_pago AS tp_pago,
                 NULL AS breve_descripcion
             FROM cuotas c
-            INNER JOIN polizas p ON c.poliza_id = p.idPoliza
+            LEFT JOIN (
+                SELECT
+                    MAX(idPoliza) AS idPoliza,
+                    TRIM(
+                        COALESCE(
+                            CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4),
+                            poliza
+                        ) COLLATE utf8mb4_0900_ai_ci
+                    ) AS poliza_plain
+                FROM polizas
+                WHERE activo = 1
+                  AND (anulado = 0 OR anulado IS NULL)
+                GROUP BY poliza_plain
+            ) p_lookup
+              ON c.poliza_id IS NULL
+             AND TRIM(
+                    COALESCE(
+                        CONVERT(AES_DECRYPT(FROM_BASE64(c.poliza), @SIS_KEY) USING utf8mb4),
+                        c.poliza
+                    ) COLLATE utf8mb4_0900_ai_ci
+                 ) = p_lookup.poliza_plain
+            INNER JOIN polizas p ON p.idPoliza = COALESCE(c.poliza_id, p_lookup.idPoliza)
             LEFT JOIN clientes cl ON p.cliente_id = cl.idCliente
             WHERE c.activo = 1
+              AND p.activo = 1
+              AND (p.anulado = 0 OR p.anulado IS NULL)
         """
 
         params = []
