@@ -16,7 +16,7 @@ def get_reporte_diario_data(filters=None):
         f_reg_hasta = (filters.get("f_reg_hasta") or "").strip()
         usuario = (filters.get("usuario") or "").strip()
 
-        where = ["p.activo = 1"]
+        where = ["p.activo = 1", "p.anulado = 0"]
         params = []
 
         if f_reg_desde and f_reg_hasta and f_reg_desde == f_reg_hasta:
