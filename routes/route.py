@@ -383,7 +383,7 @@ def revert_cuota_route():
             )
             r = cur.fetchone()
             pendientes = (r and list(r.values())[0]) if r else 0
-            nuevo_estado = 'PENDIENTE' if pendientes and int(pendientes) > 0 else 'CANCELADO'
+            nuevo_estado = 'PENDIENTE' if pendientes and int(pendientes) > 0 else 'PAGADO'
             cur.execute("UPDATE polizas SET estado = %s WHERE idPoliza = %s", (nuevo_estado, int(poliza_id)))
         cnx.commit()
         cur.close()
