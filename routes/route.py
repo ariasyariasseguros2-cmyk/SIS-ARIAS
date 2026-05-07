@@ -3010,7 +3010,7 @@ def descargar_plantilla_soat():
 
     return send_from_directory(
         plantillas_dir,
-        'plantilla_carga_masiva_soat.xlsx',
+        'plantilla_carga_masiva_soat.xls',
         as_attachment=True
     )
 
