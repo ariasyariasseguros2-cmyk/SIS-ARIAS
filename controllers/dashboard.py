@@ -34,8 +34,15 @@ def get_expired_policy_notifications(limit: int = 10) -> List[dict]:
             except Exception:
                 nombre_usuario = user
 
-            user_filter = " AND (LOWER(TRIM(sub_agente)) = LOWER(TRIM(%s)) OR LOWER(TRIM(sub_agente)) = LOWER(TRIM(%s))) "
-            user_filter_args = [user, nombre_usuario]
+            user_filter = (
+                " AND ("
+                "LOWER(TRIM(REPLACE(CONVERT(sub_agente USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(sub_agente USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(usuario_registro USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(usuario_registro USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s))"
+                ") "
+            )
+            user_filter_args = [user, nombre_usuario, user, nombre_usuario]
 
         sql = f"""
             SELECT
@@ -171,8 +178,15 @@ def get_dashboard_cards() -> Dict[str, Any]:
             except Exception:
                 nombre_usuario = user
 
-            user_filter = " AND (LOWER(TRIM(sub_agente)) = LOWER(TRIM(%s)) OR LOWER(TRIM(sub_agente)) = LOWER(TRIM(%s))) "
-            user_filter_args = [user, nombre_usuario]
+            user_filter = (
+                " AND ("
+                "LOWER(TRIM(REPLACE(CONVERT(sub_agente USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(sub_agente USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(usuario_registro USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(usuario_registro USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s))"
+                ") "
+            )
+            user_filter_args = [user, nombre_usuario, user, nombre_usuario]
 
             client_where += " AND (LOWER(TRIM(subagente)) = LOWER(TRIM(%s)) OR LOWER(TRIM(subagente)) = LOWER(TRIM(%s))) "
             client_where_args = [user, nombre_usuario]
@@ -301,6 +315,14 @@ def get_dashboard_cards() -> Dict[str, Any]:
 
         # 5. Primas Netas y Comisiones por Moneda
         try:
+            moneda_norm = "UPPER(REPLACE(REPLACE(TRIM(REPLACE(CONVERT(moneda USING latin1), _latin1 0xA0, ' ')), ' ', ''), '.', ''))"
+            moneda_bucket = (
+                f"CASE "
+                f"WHEN {moneda_norm} IN ('US$', 'USD', '$', 'DOLARES') OR {moneda_norm} LIKE 'DOL%' THEN 'US$' "
+                f"WHEN {moneda_norm} IN ('S/', 'SOLES', 'PEN') OR {moneda_norm} LIKE 'S/%' OR {moneda_norm} LIKE 'SOL%' THEN 'S/' "
+                f"ELSE {moneda_norm} "
+                f"END"
+            )
             sql = f"""
                 SELECT SUM(COALESCE(prima_neta, 0)) FROM polizas 
                 WHERE vig_desde IS NOT NULL
@@ -308,7 +330,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND activo = 1
                   AND (anulado = 0 OR anulado IS NULL)
-                  AND UPPER(TRIM(moneda)) IN ('S/', 'S/.', 'SOLES', 'PEN')
+                  AND {moneda_bucket} = 'S/'
                   {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -323,7 +345,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND activo = 1
                   AND (anulado = 0 OR anulado IS NULL)
-                  AND UPPER(TRIM(moneda)) IN ('US$', 'USD', '$')
+                  AND {moneda_bucket} = 'US$'
                   {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -338,7 +360,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND activo = 1
                   AND (anulado = 0 OR anulado IS NULL)
-                  AND UPPER(TRIM(moneda)) IN ('S/', 'S/.', 'SOLES', 'PEN')
+                  AND {moneda_bucket} = 'S/'
                   {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -353,7 +375,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND activo = 1
                   AND (anulado = 0 OR anulado IS NULL)
-                  AND UPPER(TRIM(moneda)) IN ('US$', 'USD', '$')
+                  AND {moneda_bucket} = 'US$'
                   {user_filter}
             """
             cur.execute(sql, user_filter_args)
@@ -377,8 +399,11 @@ def get_dashboard_data() -> Dict[str, Any]:
     
     totals_prima_soles = []
     totals_comision_soles = []
+    totals_prima_total_soles = []
     totals_prima_usd = []
     totals_comision_usd = []
+    totals_prima_total_usd = []
+    chart_error = None
     
     try:
         cnx = get_connection()
@@ -401,26 +426,38 @@ def get_dashboard_data() -> Dict[str, Any]:
             except Exception:
                 nombre_usuario = user
 
-            user_filter = " AND (LOWER(TRIM(sub_agente)) = LOWER(TRIM(%s)) OR LOWER(TRIM(sub_agente)) = LOWER(TRIM(%s))) "
-            user_filter_args = [user, nombre_usuario]
+            user_filter = (
+                " AND ("
+                "LOWER(TRIM(REPLACE(CONVERT(sub_agente USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(sub_agente USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(usuario_registro USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(usuario_registro USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s))"
+                ") "
+            )
+            user_filter_args = [user, nombre_usuario, user, nombre_usuario]
 
+        moneda_norm = "UPPER(REPLACE(REPLACE(TRIM(REPLACE(CONVERT(moneda USING latin1), _latin1 0xA0, ' ')), ' ', ''), '.', ''))"
+        moneda_bucket = (
+            f"CASE "
+            f"WHEN {moneda_norm} IN ('US$', 'USD', '$', 'DOLARES') OR {moneda_norm} LIKE 'DOL%' THEN 'US$' "
+            f"WHEN {moneda_norm} IN ('S/', 'SOLES', 'PEN') OR {moneda_norm} LIKE 'S/%' OR {moneda_norm} LIKE 'SOL%' THEN 'S/' "
+            f"ELSE {moneda_norm} "
+            f"END"
+        )
         sql = f"""
             SELECT
                 MONTH(vig_desde) AS mes,
-                CASE
-                    WHEN UPPER(TRIM(moneda)) IN ('S/', 'S/.', 'SOLES', 'PEN') THEN 'S/'
-                    WHEN UPPER(TRIM(moneda)) IN ('US$', 'USD', '$') THEN 'US$'
-                    ELSE moneda
-                END AS moneda,
+                ({moneda_bucket}) AS moneda_bucketed,
                 SUM(COALESCE(prima_neta, 0)) AS total_prima_neta,
-                SUM(COALESCE(imp_compania, 0)) AS total_comision
+                SUM(COALESCE(imp_compania, 0)) AS total_comision,
+                SUM(COALESCE(prima_comercial_igv, prima_total, 0)) AS total_prima_total
             FROM polizas
             WHERE vig_desde IS NOT NULL
               AND YEAR(vig_desde) = YEAR(CURDATE())
               AND activo = 1
               AND (anulado = 0 OR anulado IS NULL)
               {user_filter}
-            GROUP BY MONTH(vig_desde), moneda
+            GROUP BY MONTH(vig_desde), ({moneda_bucket})
             ORDER BY MONTH(vig_desde)
         """
         cur.execute(sql, user_filter_args)
@@ -429,21 +466,26 @@ def get_dashboard_data() -> Dict[str, Any]:
         # Data maps for each currency
         prima_map_soles = {}
         comision_map_soles = {}
+        prima_total_map_soles = {}
         prima_map_usd = {}
         comision_map_usd = {}
+        prima_total_map_usd = {}
 
         for r in rows:
             mes = int(r[0])
             moneda = r[1]
             p_neta = float(r[2] or 0)
             comision = float(r[3] or 0)
+            p_total = float(r[4] or 0)
 
             if moneda == 'S/':
                 prima_map_soles[mes] = p_neta
                 comision_map_soles[mes] = comision
+                prima_total_map_soles[mes] = p_total
             elif moneda == 'US$':
                 prima_map_usd[mes] = p_neta
                 comision_map_usd[mes] = comision
+                prima_total_map_usd[mes] = p_total
         
         meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
         current_year = datetime.now().year
@@ -452,28 +494,36 @@ def get_dashboard_data() -> Dict[str, Any]:
             
             totals_prima_soles.append(prima_map_soles.get(month_index, 0.0))
             totals_comision_soles.append(comision_map_soles.get(month_index, 0.0))
+            totals_prima_total_soles.append(prima_total_map_soles.get(month_index, 0.0))
             
             totals_prima_usd.append(prima_map_usd.get(month_index, 0.0))
             totals_comision_usd.append(comision_map_usd.get(month_index, 0.0))
+            totals_prima_total_usd.append(prima_total_map_usd.get(month_index, 0.0))
             
         cur.close()
         cnx.close()
     except Exception as e:
         print(f"[Dashboard] Error fetching chart data: {e}")
+        chart_error = str(e)
         # Fallback data
         current_year = datetime.now().year
         meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
         months_labels = [f"{m} {current_year}" for m in meses]
         totals_prima_soles = [0] * 12
         totals_comision_soles = [0] * 12
+        totals_prima_total_soles = [0] * 12
         totals_prima_usd = [0] * 12
         totals_comision_usd = [0] * 12
+        totals_prima_total_usd = [0] * 12
 
     return {
+        "error": chart_error,
         "months": months_labels,
         "totals_prima_soles": totals_prima_soles,
         "totals_comision_soles": totals_comision_soles,
+        "totals_prima_total_soles": totals_prima_total_soles,
         "totals_prima_usd": totals_prima_usd,
         "totals_comision_usd": totals_comision_usd,
+        "totals_prima_total_usd": totals_prima_total_usd,
         "title": "Producción vs Comisión",
     }

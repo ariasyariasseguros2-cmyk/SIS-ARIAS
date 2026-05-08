@@ -179,14 +179,23 @@
                     <div>
                         <h5 class="mb-0">Prima Neta y Comisiones Mensuales</h5>
                         <p class="text-muted small mb-0">Distribucion por meses del ano actual</p>
+                        <p class="text-danger small mb-0" id="chartErrorText" style="display:none;"></p>
                     </div>
                     <div class="d-flex align-items-center gap-3">
                         <div class="currency-toggle-group p-1 rounded-pill bg-dark-soft d-flex border border-white-10">
                             <button class="btn btn-sm rounded-pill px-3 active currency-btn" data-currency="soles" type="button">S/.</button>
                             <button class="btn btn-sm rounded-pill px-3 currency-btn text-muted" data-currency="dolares" type="button">US$</button>
                         </div>
-                        <div class="income-total-badge px-3 py-2 rounded-pill bg-primary-soft">
-                            <span class="fw-bold text-primary" id="dailyTotalLabel">S/ 0.00</span>
+                        <div class="d-flex flex-column align-items-end gap-1">
+                            <div class="income-total-badge px-3 py-2 rounded-pill bg-primary-soft">
+                                <span class="fw-bold text-primary" id="totalPrimaNetaLabel">Prima Neta: S/ 0.00</span>
+                            </div>
+                            <div class="income-total-badge px-3 py-2 rounded-pill bg-primary-soft">
+                                <span class="fw-bold text-primary" id="totalPrimaTotalLabel">Prima Comercial IGV: S/ 0.00</span>
+                            </div>
+                            <div class="income-total-badge px-3 py-2 rounded-pill bg-primary-soft">
+                                <span class="fw-bold text-primary" id="totalComisionLabel">Comisión: S/ 0.00</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -222,11 +231,14 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     window.dashboardData = {
+        error: {{ chart.error | tojson if chart.error is defined else 'null' }},
         months: {{ chart.months | tojson if chart.months is defined else '[]' }},
         totals_prima_soles: {{ chart.totals_prima_soles | tojson if chart.totals_prima_soles is defined else '[]' }},
         totals_comision_soles: {{ chart.totals_comision_soles | tojson if chart.totals_comision_soles is defined else '[]' }},
+        totals_prima_total_soles: {{ chart.totals_prima_total_soles | tojson if chart.totals_prima_total_soles is defined else '[]' }},
         totals_prima_usd: {{ chart.totals_prima_usd | tojson if chart.totals_prima_usd is defined else '[]' }},
         totals_comision_usd: {{ chart.totals_comision_usd | tojson if chart.totals_comision_usd is defined else '[]' }},
+        totals_prima_total_usd: {{ chart.totals_prima_total_usd | tojson if chart.totals_prima_total_usd is defined else '[]' }},
         activePolicies: {{ cards.active_policies | default(0) }},
         pendingRenewals: {{ cards.pending_renewals | default(0) }}
     };

@@ -1,6 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
     const data = window.dashboardData || {};
 
+    const chartErrorText = document.getElementById('chartErrorText');
+    if (chartErrorText && data.error) {
+        chartErrorText.innerText = `Error cargando gráfico: ${data.error}`;
+        chartErrorText.style.display = 'block';
+    }
+
     // Helper to get theme colors
     const getThemeColors = () => {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -49,8 +55,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const chartDataComision = currency === 'soles'
             ? (data.totals_comision_soles || new Array(dailyLabels.length).fill(0))
             : (data.totals_comision_usd || new Array(dailyLabels.length).fill(0));
+
+        const chartDataPrimaTotal = currency === 'soles'
+            ? (data.totals_prima_total_soles || new Array(dailyLabels.length).fill(0))
+            : (data.totals_prima_total_usd || new Array(dailyLabels.length).fill(0));
             
-        const totalValue = chartDataPrima.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
+        const totalPrimaNetaValue = chartDataPrima.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
+        const totalPrimaTotalValue = chartDataPrimaTotal.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
+        const totalComisionValue = chartDataComision.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
         
         const gradient = ctxIncome.getContext('2d').createLinearGradient(0, 0, 0, 400);
         if (colors.isDark) {
@@ -147,9 +159,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        const totalLabel = document.getElementById('dailyTotalLabel');
-        if (totalLabel) {
-            totalLabel.innerText = formatCurrency(totalValue, currency);
+        const primaNetaLabel = document.getElementById('totalPrimaNetaLabel');
+        if (primaNetaLabel) {
+            primaNetaLabel.innerText = `Prima Neta: ${formatCurrency(totalPrimaNetaValue, currency)}`;
+        }
+
+        const primaTotalLabel = document.getElementById('totalPrimaTotalLabel');
+        if (primaTotalLabel) {
+            primaTotalLabel.innerText = `Prima Comercial IGV: ${formatCurrency(totalPrimaTotalValue, currency)}`;
+        }
+
+        const comisionLabel = document.getElementById('totalComisionLabel');
+        if (comisionLabel) {
+            comisionLabel.innerText = `Comisión: ${formatCurrency(totalComisionValue, currency)}`;
         }
     }
 
