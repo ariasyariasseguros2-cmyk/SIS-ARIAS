@@ -25,22 +25,12 @@ def _get_multi(name: str):
     return out
 
 
-def _validate_required(fecha_desde: str, fecha_hasta: str, cias: list, ramos: list, ejecutivos: list, sub_agentes: list, estados: list):
+def _validate_required(fecha_desde: str, fecha_hasta: str):
     missing = []
     if not fecha_desde:
         missing.append("Del")
     if not fecha_hasta:
         missing.append("Al")
-    if not cias:
-        missing.append("Compañía")
-    if not ramos:
-        missing.append("Ramo")
-    if not ejecutivos:
-        missing.append("Ejecutivo")
-    if not sub_agentes:
-        missing.append("Sub Agente")
-    if not estados:
-        missing.append("Estado")
     return missing
 
 
@@ -54,7 +44,7 @@ def _fetch_rows():
     sub_agentes = _get_multi("sub_agente")
     estados = [e.upper() for e in _get_multi("estado")]
 
-    missing = _validate_required(fecha_desde, fecha_hasta, cias, ramos, ejecutivos, sub_agentes, estados)
+    missing = _validate_required(fecha_desde, fecha_hasta)
     if missing:
         return None, jsonify({"ok": False, "error": "Debe completar: " + ", ".join(missing) + "."}), 400
 
@@ -98,7 +88,7 @@ def _fetch_rows():
                 ) AS cupon,
                 c.numero_cuota AS num_cuota,
                 c.fecha_vencimiento AS fec_vencimiento_cob,
-                c.moneda AS mon,
+                p.moneda AS mon,
                 c.importe,
                 c.fecha_pago AS fec_pago,
                 c.factura,

@@ -48,6 +48,7 @@
         if (!hidden) return;
         hidden.innerHTML = '';
         const selected = getSelected();
+        if (selected.length === 0 || selected.length === options.length) return;
         selected.forEach(function (val) {
           const inp = document.createElement('input');
           inp.type = 'hidden';
@@ -181,14 +182,6 @@
       const inpHasta = form.querySelector('input[name="fecha_hasta"]');
       const contratanteInp = document.getElementById('contratanteSearch');
 
-      const msMap = [
-        { name: 'cia', label: 'Compañía' },
-        { name: 'ramo', label: 'Ramo' },
-        { name: 'ejecutivo', label: 'Ejecutivo' },
-        { name: 'sub_agente', label: 'Sub Agente' },
-        { name: 'estado', label: 'Estado' }
-      ];
-
       const invalidEls = [];
       const missing = [];
 
@@ -208,11 +201,6 @@
       }
 
       [inpDesde, inpHasta, contratanteInp].forEach(clearInvalid);
-      msMap.forEach(function (m) {
-        const root = document.querySelector(`[data-ms-name="${m.name}"]`);
-        const btn = root ? root.querySelector('button') : null;
-        clearInvalid(btn);
-      });
 
       if (!inpDesde || !inpDesde.value) {
         missing.push('Del');
@@ -222,17 +210,6 @@
         missing.push('Al');
         markInvalid(inpHasta);
       }
-
-      msMap.forEach(function (m) {
-        const root = document.querySelector(`[data-ms-name="${m.name}"]`);
-        if (!root) return;
-        const btn = root.querySelector('button');
-        const selectedCount = root.querySelectorAll('.ms-opt:checked').length;
-        if (selectedCount === 0) {
-          missing.push(m.label);
-          markInvalid(btn);
-        }
-      });
 
       if (missing.length > 0) {
         showAlert('Debe completar: ' + missing.join(', ') + '.');
@@ -567,4 +544,3 @@
     }
   });
 })();
-
