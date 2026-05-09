@@ -688,7 +688,7 @@ def delete_cuota(cuota_id: int) -> Tuple[bool, str]:
                 """,
                 (poliza_id,),
             )
-             r = cur.fetchone()
+            r = cur.fetchone()
             pendientes = r[0] if r else 0
             nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'PAGADO'
             cur.execute(
