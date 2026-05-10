@@ -125,46 +125,92 @@ def get_cuotas_data(
                     target_prima_id = resumen['prima_id']
 
                 if target_prima_id is not None:
-                    cur.execute(
-                        """
-                        SELECT
-                            c.idCuota,
-                            c.numero_cuota,
-                            COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR), c.cupon) AS cupon,
-                            DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
-                            FORMAT(c.importe, 2) AS importe,
-                            DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
-                            c.factura,
-                            c.observacion,
-                            COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cobranza,
-                            p.tipo_doc
-                        FROM cuotas c
-                        LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
-                        WHERE c.activo = 1
-                          AND (
-                            c.poliza_id = %s
-                            OR (
-                              c.poliza_id IS NULL
+                    aviso_clean = (str(aviso).strip() if aviso is not None else "")
+                    if aviso_clean:
+                        cur.execute(
+                            """
+                            SELECT
+                                c.idCuota,
+                                c.numero_cuota,
+                                COALESCE(
+                                    CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR),
+                                    CAST(AES_DECRYPT(c.cupon, @SIS_KEY) AS CHAR),
+                                    c.cupon
+                                ) AS cupon,
+                                DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
+                                FORMAT(c.importe, 2) AS importe,
+                                DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
+                                c.factura,
+                                c.observacion,
+                                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cobranza,
+                                p.tipo_doc
+                            FROM cuotas c
+                            LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
+                            WHERE c.activo = 1
                               AND (
-                                CAST(AES_DECRYPT(FROM_BASE64(c.poliza), @SIS_KEY) AS CHAR) = %s
-                                OR c.poliza = %s
-                              )
-                            )
-                          )
-                          AND (
-                            p.vig_hasta IS NULL
-                            OR c.fecha_vencimiento <= DATE_ADD(p.vig_hasta, INTERVAL 400 DAY)
-                          )
-                        ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
-                        """,
-                        (target_prima_id, poliza, poliza),
-                    )
-                    cuota_rows = cur.fetchall() or []
-                    try:
-                        while cur.nextset():
+                                    TRIM(
+                                      COALESCE(
+                                        CONVERT(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) USING utf8mb4),
+                                        CONVERT(AES_DECRYPT(c.cupon, @SIS_KEY) USING utf8mb4),
+                                        CONVERT(c.cupon USING utf8mb4)
+                                      )
+                                    ) COLLATE utf8mb4_0900_ai_ci = TRIM(CAST(%s AS CHAR CHARACTER SET utf8mb4)) COLLATE utf8mb4_0900_ai_ci
+                                    OR TRIM(CONVERT(c.factura USING utf8mb4)) COLLATE utf8mb4_0900_ai_ci = TRIM(CAST(%s AS CHAR CHARACTER SET utf8mb4)) COLLATE utf8mb4_0900_ai_ci
+                                  )
+                            ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
+                            """,
+                            (aviso_clean, aviso_clean),
+                        )
+                        cuota_rows = cur.fetchall() or []
+                        try:
+                            while cur.nextset():
+                                pass
+                        except Exception:
                             pass
-                    except Exception:
-                        pass
+                    else:
+                        vig_inicio_sql = None
+                        vig_fin_sql = None
+                        try:
+                            vig_inicio_sql = parse_date_input(resumen.get('vig_inicio'))
+                            vig_fin_sql = parse_date_input(resumen.get('vig_fin'))
+                        except Exception:
+                            vig_inicio_sql = None
+                            vig_fin_sql = None
+
+                        cur.execute(
+                            """
+                            SELECT
+                                c.idCuota,
+                                c.numero_cuota,
+                                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR), c.cupon) AS cupon,
+                                DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
+                                FORMAT(c.importe, 2) AS importe,
+                                DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
+                                c.factura,
+                                c.observacion,
+                                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cobranza,
+                                p.tipo_doc
+                            FROM cuotas c
+                            LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
+                            WHERE c.activo = 1
+                              AND c.poliza_id = %s
+                              AND (
+                                %s IS NULL OR %s IS NULL
+                                OR (
+                                  c.fecha_vencimiento >= %s
+                                  AND c.fecha_vencimiento < DATE_ADD(%s, INTERVAL 1 DAY)
+                                )
+                              )
+                            ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
+                            """,
+                            (target_prima_id, vig_inicio_sql, vig_fin_sql, vig_inicio_sql, vig_fin_sql),
+                        )
+                        cuota_rows = cur.fetchall() or []
+                        try:
+                            while cur.nextset():
+                                pass
+                        except Exception:
+                            pass
                 else:
                     sql_query = """
                         SELECT
