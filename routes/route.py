@@ -2,6 +2,9 @@ from flask import Blueprint, redirect, url_for, session, render_template, reques
 from werkzeug.utils import secure_filename
 import os
 import re
+import hashlib
+import json
+import shutil
 from utils.rbac import can_access_maestros, can_delete, can_edit, can_create, can_create_poliza, can_restore, Roles, get_role_scope, require_permission
 from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards
 from datetime import datetime, timedelta
@@ -3521,6 +3524,49 @@ def _parse_positiva(text: str) -> List[Dict[str, str]]:
 
     return items
 
+def _quarantine_parser_failure(path: str, provider: str, reason: str, details: dict | None = None, text_head: str | None = None) -> str | None:
+    try:
+        base = os.path.join(current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads')), 'quarantine', provider or 'unknown')
+        os.makedirs(base, exist_ok=True)
+        with open(path, 'rb') as f:
+            data = f.read()
+        h = hashlib.sha256(data).hexdigest()[:12]
+        ts = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+        safe_name = secure_filename(os.path.basename(path)) or 'archivo.pdf'
+        dest_name = f"{ts}_{h}_{safe_name}"
+        dest_path = os.path.join(base, dest_name)
+        if not os.path.exists(dest_path):
+            shutil.copy2(path, dest_path)
+        meta = {
+            'provider': provider,
+            'reason': reason,
+            'details': details or {},
+            'saved_at': ts,
+            'source_name': os.path.basename(path),
+            'sha256_12': h,
+        }
+        if text_head:
+            meta['text_head'] = text_head[:600]
+        with open(dest_path + '.meta.json', 'w', encoding='utf-8') as mf:
+            json.dump(meta, mf, ensure_ascii=False, indent=2)
+        return dest_path
+    except Exception as e:
+        try:
+            current_app.logger.error(f"[parser-quarantine] error: {e}")
+        except Exception:
+            print(f"[parser-quarantine] error: {e}")
+        return None
+
+def _missing_fields(item: dict | None, required: list[str]) -> list[str]:
+    if not item:
+        return required
+    missing = []
+    for key in required:
+        val = (item.get(key) or '').strip() if isinstance(item.get(key), str) else item.get(key)
+        if not val:
+            missing.append(key)
+    return missing
+
 def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password: str | None = None):
     text = _extract_text_fitz(path, password=pdf_password)
     if not text or not text.strip():
@@ -3830,20 +3876,37 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
 
 
         from controllers.addMapfre import parse_mapfre
-        item = parse_mapfre(text)
+        try:
+            item = parse_mapfre(text)
+        except Exception as e:
+            _quarantine_parser_failure(path, 'mapfre', 'exception', {'error': str(e)}, text_head=text)
+            print(f"[provider] mapfre parse error: {e}")
+            return []
         print("[provider] mapfre item pension:", item)
+        missing = _missing_fields(item, ['numero_poliza', 'colectivo_asegurado', 'inicio_vigencia', 'vencimiento'])
+        if missing:
+            _quarantine_parser_failure(path, 'mapfre', 'missing_fields', {'missing': missing}, text_head=text)
         return [item] if item else []
     if prov == "mapfre-vida-ley":
         try:
             from controllers.addMapfreVidaLeyv2 import parse_mapfre_vidaley_v2
             item = parse_mapfre_vidaley_v2(text)
-        except Exception as _e_v2:
+        except Exception as e:
             item = None
+            _quarantine_parser_failure(path, 'mapfre-vida-ley', 'exception_v2', {'error': str(e)}, text_head=text)
         # Aceptar ítem de v2 si al menos trae número de póliza; si no, fallback a v1
         if not item or not item.get('numero_poliza'):
-            from controllers.addMapfreVidaLey import parse_mapfre_vidaley
-            item = parse_mapfre_vidaley(text)
+            try:
+                from controllers.addMapfreVidaLey import parse_mapfre_vidaley
+                item = parse_mapfre_vidaley(text)
+            except Exception as e:
+                _quarantine_parser_failure(path, 'mapfre-vida-ley', 'exception_v1', {'error': str(e)}, text_head=text)
+                print(f"[provider] mapfre-vida-ley parse error: {e}")
+                return []
         print("[provider] mapfre-vida-ley item:", item)
+        missing = _missing_fields(item, ['numero_poliza', 'colectivo_asegurado', 'inicio_vigencia', 'vencimiento'])
+        if missing:
+            _quarantine_parser_failure(path, 'mapfre-vida-ley', 'missing_fields', {'missing': missing}, text_head=text)
         return [item] if item else []
 
     # La Positiva (EPS/Vida/Seguros)
