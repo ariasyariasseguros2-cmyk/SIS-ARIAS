@@ -436,7 +436,7 @@ def get_dashboard_data() -> Dict[str, Any]:
             )
             user_filter_args = [user, nombre_usuario, user, nombre_usuario]
 
-        moneda_norm = "UPPER(REPLACE(REPLACE(TRIM(REPLACE(CONVERT(moneda USING latin1), _latin1 0xA0, ' ')), ' ', ''), '.', ''))"
+        moneda_norm = "UPPER(REPLACE(REPLACE(TRIM(REPLACE(CONVERT(p.moneda USING latin1), _latin1 0xA0, ' ')), ' ', ''), '.', ''))"
         moneda_bucket = (
             f"CASE "
             f"WHEN {moneda_norm} IN ('US$', 'USD', '$', 'DOLARES') OR {moneda_norm} LIKE 'DOL%' THEN 'US$' "
@@ -444,21 +444,43 @@ def get_dashboard_data() -> Dict[str, Any]:
             f"ELSE {moneda_norm} "
             f"END"
         )
+
+        poliza_plain = (
+            "TRIM(COALESCE("
+            "CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), "
+            "CONVERT(AES_DECRYPT(poliza, @SIS_KEY) USING utf8mb4), "
+            "poliza"
+            ") COLLATE utf8mb4_0900_ai_ci)"
+        )
+        recibo_plain = (
+            "TRIM(COALESCE("
+            "CONVERT(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) USING utf8mb4), "
+            "CONVERT(AES_DECRYPT(recibo, @SIS_KEY) USING utf8mb4), "
+            "recibo, "
+            "''"
+            ") COLLATE utf8mb4_0900_ai_ci)"
+        )
         sql = f"""
             SELECT
-                MONTH(vig_desde) AS mes,
+                MONTH(p.vig_desde) AS mes,
                 ({moneda_bucket}) AS moneda_bucketed,
                 SUM(COALESCE(prima_neta, 0)) AS total_prima_neta,
                 SUM(COALESCE(imp_compania, 0)) AS total_comision,
                 SUM(COALESCE(prima_comercial_igv, prima_total, 0)) AS total_prima_total
-            FROM polizas
-            WHERE vig_desde IS NOT NULL
-              AND YEAR(vig_desde) = YEAR(CURDATE())
-              AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1'
-              AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0'
-              {user_filter}
-            GROUP BY MONTH(vig_desde), ({moneda_bucket})
-            ORDER BY MONTH(vig_desde)
+            FROM polizas p
+            INNER JOIN (
+                SELECT
+                    MAX(idPoliza) AS idPoliza
+                FROM polizas
+                WHERE vig_desde IS NOT NULL
+                  AND YEAR(vig_desde) = YEAR(CURDATE())
+                  AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1'
+                  AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0'
+                  {user_filter}
+                GROUP BY ({poliza_plain}), ({recibo_plain})
+            ) d ON d.idPoliza = p.idPoliza
+            GROUP BY MONTH(p.vig_desde), ({moneda_bucket})
+            ORDER BY MONTH(p.vig_desde)
         """
         cur.execute(sql, user_filter_args)
         rows = cur.fetchall() or []
