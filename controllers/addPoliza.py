@@ -939,6 +939,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                     for ci, c_data in enumerate(row_cuotas, start=1):
                         c_poliza = U(row.get("numero_poliza") or "")
                         c_cupon = U(c_data.get("cupon") or row.get("recibo") or "")
+                        c_cupon = c_cupon.strip() or None
                         c_fec_venc = parse_date(c_data.get("fecha_vencimiento")) or datetime.today().strftime('%Y-%m-%d')
                         c_moneda = U(c_data.get("moneda") or row.get("moneda") or "S/.")
                         c_importe = parse_decimal(c_data.get("importe")) or 0.0
@@ -956,48 +957,44 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                                     # Solo avisar, no bloquear si es duplicado en el loop
                                     print(f"[WARNING] Factura duplicada: {c_factura}")
                                     continue
-
+                            cur.execute(
+                                """
+                                INSERT INTO cuotas (
+                                    poliza_id, poliza, cupon, fecha_vencimiento, moneda,
+                                    importe, fecha_pago, factura, observacion, usuario_registro,
+                                    numero_cuota, activo
+                                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, 1)
+                                """,
+                                (
+                                    target_poliza_id,
+                                    c_poliza,
+                                    c_cupon,
+                                    c_fec_venc,
+                                    c_moneda,
+                                    c_importe,
+                                    c_fecha_pago,
+                                    c_factura or None,
+                                    None,
+                                    usuario_display,
+                                    numero_cuota,
+                                ),
+                            )
                             try:
-                                cur.execute(
-                                    "CALL sp_insert_cuota(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                                    (
-                                        c_poliza,
-                                        c_cupon or None,
-                                        c_fec_venc,
-                                        c_moneda,
-                                        c_importe,
-                                        c_fecha_pago,
-                                        c_factura or None,
-                                        None,
-                                        usuario_display,
-                                        numero_cuota,
-                                    ),
-                                )
-                                while cur.nextset():
-                                    pass
-                            except Exception as e_ins_cuota:
-                                print(f"[WARNING] sp_insert_cuota failed for cuota {ci}: {e_ins_cuota}")
-                                # Fallback manual
+                                last_id = cur.lastrowid
                                 cur.execute(
                                     """
-                                    INSERT INTO cuotas (
-                                        poliza_id, poliza, cupon, fecha_vencimiento, moneda,
-                                        importe, fecha_pago, factura, observacion, usuario_registro,
-                                        numero_cuota, activo
-                                    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, 1)
+                                    UPDATE cuotas
+                                    SET poliza = TO_BASE64(AES_ENCRYPT(%s, @SIS_KEY)),
+                                        cupon = CASE
+                                            WHEN %s IS NULL THEN NULL
+                                            ELSE TO_BASE64(AES_ENCRYPT(%s, @SIS_KEY))
+                                        END
+                                    WHERE idCuota = %s
                                     """,
-                                    (target_poliza_id, c_poliza, c_cupon, c_fec_venc, c_moneda,
-                                     c_importe, c_fecha_pago, c_factura, None, usuario_display, numero_cuota)
+                                    (c_poliza, c_cupon, c_cupon, last_id),
                                 )
-                                try:
-                                    last_id = cur.lastrowid
-                                    k_enc = get_encrypt_key()
-                                    cur.execute(
-                                        "UPDATE cuotas SET poliza = TO_BASE64(AES_ENCRYPT(%s, %s)), cupon = TO_BASE64(AES_ENCRYPT(%s, %s)) WHERE idCuota = %s",
-                                        (c_poliza, k_enc, c_cupon, k_enc, last_id)
-                                    )
-                                except Exception:
-                                    pass
+                            except Exception:
+                                pass
 
                     # Actualizar estado de la póliza basado en cuotas pendientes
                     if real_poliza_id:

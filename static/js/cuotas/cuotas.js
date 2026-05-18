@@ -18,8 +18,7 @@ const Cuotas = (() => {
     if (!tbody) return;
     allRows = Array.from(tbody.querySelectorAll('tr'));
     ensurePager();
-    applyFilter('');
-    recalcTotal();
+    syncRowIndices();
 
     const modalEl = document.getElementById('cuotaConfirmModal');
     const msgEl = document.getElementById('cuotaConfirmMessage');
@@ -470,7 +469,7 @@ const Cuotas = (() => {
         .then(res => {
           if (res.ok) {
             tr.remove();
-            recalcTotal();
+            syncRowIndices();
           } else {
             alert('Error al eliminar: ' + (res.error || 'Desconocido'));
           }
@@ -478,7 +477,7 @@ const Cuotas = (() => {
         .catch(e => alert('Error de red: ' + e));
       } else {
         tr.remove();
-        recalcTotal();
+        syncRowIndices();
       }
     }, 'delete');
   }
@@ -532,8 +531,8 @@ const Cuotas = (() => {
         const rowCount = isNew ? tbody.rows.length : (Array.from(tbody.rows).indexOf(tr) + 1);
 
         tr.innerHTML = `
-            <td>${data.secuencia || (isNew ? rowCount : tr.cells[0].textContent)}</td>
-            <td>${data.cupon || ''}</td>
+            <td>${rowCount}</td>
+            <td>${data.cupon || '—'}</td>
             <td>${fromISODate(data.fecha_vencimiento) || ''}</td>
             <td>${parseFloat(data.importe || 0).toFixed(2)}</td>
             <td>${fromISODate(data.fecha_pago) || ''}</td>
@@ -559,7 +558,7 @@ const Cuotas = (() => {
             }
         }
         
-        recalcTotal();
+        syncRowIndices();
         editIndex = null;
     });
 
@@ -644,6 +643,35 @@ const Cuotas = (() => {
       });
     }
   });
+
+  function syncRowIndices() {
+    const tbody = document.querySelector('#cuotas-table tbody');
+    if (!tbody) return;
+
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.forEach((tr, idx) => {
+      if (tr.cells && tr.cells[0]) {
+        tr.cells[0].textContent = String(idx + 1);
+      }
+
+      const pdfBtn = tr.querySelector('.btn-pdf');
+      if (pdfBtn) pdfBtn.setAttribute('onclick', `Cuotas.onPDF(${idx})`);
+      const revertBtn = tr.querySelector('.btn-revert');
+      if (revertBtn) revertBtn.setAttribute('onclick', `Cuotas.onRevert(${idx})`);
+      const detailsBtn = tr.querySelector('.btn-details');
+      if (detailsBtn) detailsBtn.setAttribute('onclick', `Cuotas.onDetails(${idx})`);
+      const editBtn = tr.querySelector('.btn-edit');
+      if (editBtn) editBtn.setAttribute('onclick', `Cuotas.onEdit(${idx})`);
+      const deleteBtn = tr.querySelector('.btn-delete');
+      if (deleteBtn) deleteBtn.setAttribute('onclick', `Cuotas.onDelete(${idx})`);
+    });
+
+    allRows = rows;
+    const input = document.getElementById('cuotas-search');
+    const q = input ? input.value : '';
+    applyFilter(q);
+    recalcTotal();
+  }
 
   return { init, onSearch, onPageSize, onPDF, onRevert, onDetails, onEdit, onDelete, onAdd };
 })();

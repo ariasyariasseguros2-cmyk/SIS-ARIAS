@@ -598,6 +598,12 @@ CREATE TABLE IF NOT EXISTS polizas (
     estado VARCHAR(20) DEFAULT 'PENDIENTE',
     anulado TINYINT(1) NOT NULL DEFAULT 0,
     activo TINYINT(1) NOT NULL DEFAULT 1,
+    recibo_uk VARCHAR(50) GENERATED ALWAYS AS (
+        CASE
+            WHEN activo = 1 AND anulado = 0 THEN NULLIF(TRIM(recibo), '')
+            ELSE NULL
+        END
+    ) STORED,
     usuario_registro VARCHAR(100) NULL,
     usuario_edicion VARCHAR(100) NULL,
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -605,7 +611,7 @@ CREATE TABLE IF NOT EXISTS polizas (
     FOREIGN KEY (cliente_id) REFERENCES clientes(idCliente)
 );
 
-CREATE UNIQUE INDEX uk_polizas_cliente_recibo ON polizas (cliente_id, recibo, activo, anulado);
+CREATE UNIQUE INDEX uk_polizas_cliente_recibo ON polizas (cliente_id, recibo_uk);
 
 -- Tabla para archivos de pólizas (separada)
 CREATE TABLE IF NOT EXISTS poliza_archivos (

@@ -68,7 +68,7 @@
                 </div>
                  <div class="info-item">
                     <span class="label">Aviso Cob</span>
-                    <span class="value" id="header-aviso-cob">{{ resumen.aviso_cob }}</span>
+                    <span class="value" id="header-aviso-cob">{{ resumen.aviso_cob if resumen.aviso_cob else '—' }}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Vigencia</span>
@@ -144,8 +144,8 @@
                 data-fecha-pago="{{ r.fecha_pago or '' }}"
                 data-factura="{{ r.factura or '' }}"
                 data-observacion="{{ r.observacion or '' }}">
-              <td>{{ r.numero_cuota or loop.index }}</td>
-              <td>{{ r.cupon }}</td>
+              <td>{{ loop.index }}</td>
+              <td>{{ r.cupon if r.cupon else '—' }}</td>
               <td>{{ r.fecha_vencimiento }}</td>
               <td>{{ r.importe }}</td>
               <td>{{ r.fecha_pago or '' }}</td>

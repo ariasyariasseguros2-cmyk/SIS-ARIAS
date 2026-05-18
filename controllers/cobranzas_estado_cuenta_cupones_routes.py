@@ -86,7 +86,10 @@ def _fetch_rows():
                     CAST(AES_DECRYPT(c.cupon, @SIS_KEY) AS CHAR),
                     c.cupon
                 ) AS cupon,
-                c.numero_cuota AS num_cuota,
+                ROW_NUMBER() OVER (
+                    PARTITION BY p.idPoliza
+                    ORDER BY (c.fecha_vencimiento IS NULL), c.fecha_vencimiento ASC, c.idCuota ASC
+                ) AS num_cuota,
                 c.fecha_vencimiento AS fec_vencimiento_cob,
                 p.moneda AS mon,
                 c.importe,

@@ -176,7 +176,7 @@ def api_cuotas_list():
         return {'ok': False, 'error': 'Unauthorized'}, 401
     poliza = request.args.get('poliza', '').strip()
     aviso = request.args.get('aviso') or request.args.get('cupon')
-    poliza_id = request.args.get('poliza_id')
+    poliza_id = request.args.get('poliza_id') or request.args.get('idPrima')
     
     if not poliza:
         return {'ok': False, 'error': 'Missing poliza'}, 400
@@ -3186,6 +3186,8 @@ def primas_update():
     if res.get('ok'):
         poliza = (data.get('poliza') or '').strip()
         cupon = (data.get('recibo') or data.get('aviso') or '').strip()
+        if cupon.lower() in ('none', 'null'):
+            cupon = ''
         importe = data.get('prima_comercial_igv')
         pid = data.get('idPoliza')
         user_session = session.get('user')
@@ -3193,71 +3195,73 @@ def primas_update():
             usuario = user_session.get('username') or user_session.get('user') or user_session.get('name')
         else:
             usuario = user_session
-        if pid and importe and (poliza or cupon):
+        if pid and importe and poliza:
             from controllers.editar_poliza import _parse_date
             from controllers.cuotas.cuotas import update_cuota_cupon
             from models.db import get_connection
             try:
+                pid_int = int(pid)
+            except Exception:
+                pid_int = None
+            if pid_int is None:
+                return res, status
+            vig_desde = _parse_date(data.get('vig_desde')) if data.get('vig_desde') else None
+            vig_hasta = _parse_date(data.get('vig_hasta')) if data.get('vig_hasta') else None
+            if vig_desde and vig_hasta and str(vig_desde) > str(vig_hasta):
+                vig_desde, vig_hasta = vig_hasta, vig_desde
+            try:
                 cnx = get_connection()
                 cur = cnx.cursor()
                 row = None
-                if cupon:
-                    cupon_norm = cupon.strip()
-                    cupon_base = cupon_norm.split('-')[0].strip()
-                    try:
-                        cur.execute(
-                            """
-                            SELECT idCuota 
-                            FROM cuotas 
-                            WHERE poliza_id = %s 
-                              AND activo=1
-                              AND (
-                                   TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon))=TRIM(%s) 
-                                OR TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon))=TRIM(%s)
-                                OR TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon)) LIKE CONCAT(TRIM(%s), '-%%')
-                              )
-                            ORDER BY idCuota ASC LIMIT 1
-                            """,
-                            (pid, cupon_norm, cupon_base, cupon_base)
-                        )
-                        row = cur.fetchone()
-                    except Exception:
-                        row = None
-                    if not row and poliza:
-                        cur.execute(
-                            """
-                            SELECT idCuota 
-                            FROM cuotas 
-                            WHERE TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza))=TRIM(%s) 
-                              AND activo=1
-                              AND (
-                                   TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon))=TRIM(%s) 
-                                OR TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon))=TRIM(%s)
-                                OR TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon)) LIKE CONCAT(TRIM(%s), '-%%')
-                              )
-                            ORDER BY idCuota ASC LIMIT 1
-                            """,
-                            (poliza, cupon_norm, cupon_base, cupon_base)
-                        )
-                        row = cur.fetchone()
+                cur.execute(
+                    """
+                    SELECT idCuota
+                    FROM cuotas
+                    WHERE poliza_id = %s AND activo=1
+                    ORDER BY fecha_vencimiento ASC, idCuota ASC
+                    LIMIT 1
+                    """,
+                    (pid_int,),
+                )
+                row = cur.fetchone()
                 if not row:
                     cur.execute(
                         """
                         SELECT idCuota
                         FROM cuotas
-                        WHERE poliza_id = %s AND activo=1
-                        ORDER BY idCuota ASC
+                        WHERE activo=1
+                          AND (poliza_id IS NULL OR poliza_id = 0)
+                          AND (TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza)) = TRIM(%s))
+                          AND (
+                            %s IS NULL OR %s IS NULL
+                            OR (fecha_vencimiento >= %s AND fecha_vencimiento <= %s)
+                          )
+                        ORDER BY fecha_vencimiento ASC, idCuota ASC
                         LIMIT 1
                         """,
-                        (pid,),
+                        (poliza, vig_desde, vig_hasta, vig_desde, vig_hasta),
                     )
                     row = cur.fetchone()
                 cur.close()
+                if row and row[0]:
+                    cuota_id = row[0]
+                    try:
+                        cur2 = cnx.cursor()
+                        cur2.execute(
+                            "UPDATE cuotas SET poliza_id = %s WHERE idCuota = %s AND (poliza_id IS NULL OR poliza_id = 0)",
+                            (pid_int, cuota_id),
+                        )
+                        cur2.close()
+                        cnx.commit()
+                    except Exception:
+                        try:
+                            cnx.rollback()
+                        except Exception:
+                            pass
                 cnx.close()
                 if row and row[0]:
                     payload = {
                         'idCuota': row[0],
-                        'fecha_vencimiento': _parse_date(data.get('vig_hasta')) if data.get('vig_hasta') else None,
                         'importe': importe,
                         'usuario': usuario
                     }

@@ -48,6 +48,9 @@ def get_cuotas_data(
     fecha_hasta: str | None = None,
 ) -> Dict[str, object]:
     poliza = (numero_poliza or (selected or {}).get('poliza') or (selected or {}).get('numero_poliza') or '').strip()
+    aviso_str = (str(aviso).strip() if aviso is not None else "")
+    if aviso_str.lower() in ("", "null", "none"):
+        aviso_str = ""
     rows: List[Dict[str, str]] = []
     encabezado = {
         'contratante': '',
@@ -92,13 +95,14 @@ def get_cuotas_data(
                     if prima_id_int is not None and (pr.get('idPoliza') == prima_id_int or str(pr.get('idPoliza')) == str(prima_id_int)):
                         selected_prima = pr
                         break
-                if selected_prima is None and aviso:
-                    aviso_clean = str(aviso).strip()
-                    for pr in prima_rows:
-                        rec = (pr.get('recibo') or pr.get('cupon') or pr.get('aviso') or pr.get('nro_aviso') or '').strip()
-                        if rec == aviso_clean:
-                            selected_prima = pr
-                            break
+                if selected_prima is None and aviso_str:
+                    aviso_clean = aviso_str
+                    if aviso_clean:
+                        for pr in prima_rows:
+                            rec = (pr.get('recibo') or pr.get('cupon') or pr.get('aviso') or pr.get('nro_aviso') or '').strip()
+                            if rec == aviso_clean:
+                                selected_prima = pr
+                                break
                 if selected_prima is None:
                     selected_prima = prima_rows[0]
 
@@ -121,62 +125,48 @@ def get_cuotas_data(
                 target_prima_id = None
                 if prima_id_int is not None:
                     target_prima_id = prima_id_int
-                elif aviso and resumen['prima_id'] is not None:
+                elif aviso_str and resumen['prima_id'] is not None:
                     target_prima_id = resumen['prima_id']
 
                 if target_prima_id is not None:
-                    aviso_clean = (str(aviso).strip() if aviso is not None else "")
-                    if aviso_clean:
-                        cur.execute(
-                            """
-                            SELECT
-                                c.idCuota,
-                                c.numero_cuota,
-                                COALESCE(
-                                    CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR),
-                                    CAST(AES_DECRYPT(c.cupon, @SIS_KEY) AS CHAR),
-                                    c.cupon
-                                ) AS cupon,
-                                DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
-                                FORMAT(c.importe, 2) AS importe,
-                                DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
-                                c.factura,
-                                c.observacion,
-                                COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cobranza,
-                                p.tipo_doc
-                            FROM cuotas c
-                            LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
-                            WHERE c.activo = 1
-                              AND (
-                                    TRIM(
-                                      COALESCE(
-                                        CONVERT(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) USING utf8mb4),
-                                        CONVERT(AES_DECRYPT(c.cupon, @SIS_KEY) USING utf8mb4),
-                                        CONVERT(c.cupon USING utf8mb4)
-                                      )
-                                    ) COLLATE utf8mb4_0900_ai_ci = TRIM(CAST(%s AS CHAR CHARACTER SET utf8mb4)) COLLATE utf8mb4_0900_ai_ci
-                                    OR TRIM(CONVERT(c.factura USING utf8mb4)) COLLATE utf8mb4_0900_ai_ci = TRIM(CAST(%s AS CHAR CHARACTER SET utf8mb4)) COLLATE utf8mb4_0900_ai_ci
-                                  )
-                            ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
-                            """,
-                            (aviso_clean, aviso_clean),
-                        )
-                        cuota_rows = cur.fetchall() or []
-                        try:
-                            while cur.nextset():
-                                pass
-                        except Exception:
-                            pass
-                    else:
+                    vig_inicio_sql = None
+                    vig_fin_sql = None
+                    try:
+                        vig_inicio_sql = parse_date_input(resumen.get('vig_inicio'))
+                        vig_fin_sql = parse_date_input(resumen.get('vig_fin'))
+                    except Exception:
                         vig_inicio_sql = None
                         vig_fin_sql = None
-                        try:
-                            vig_inicio_sql = parse_date_input(resumen.get('vig_inicio'))
-                            vig_fin_sql = parse_date_input(resumen.get('vig_fin'))
-                        except Exception:
-                            vig_inicio_sql = None
-                            vig_fin_sql = None
 
+                    cur.execute(
+                        """
+                        SELECT
+                            c.idCuota,
+                            c.numero_cuota,
+                            COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR), c.cupon) AS cupon,
+                            DATE_FORMAT(c.fecha_vencimiento, '%d-%m-%Y') AS fecha_vencimiento,
+                            FORMAT(c.importe, 2) AS importe,
+                            DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
+                            c.factura,
+                            c.observacion,
+                            COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cobranza,
+                            p.tipo_doc
+                        FROM cuotas c
+                        LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
+                        WHERE c.activo = 1
+                          AND c.poliza_id = %s
+                        ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
+                        """,
+                        (target_prima_id,),
+                    )
+                    cuota_rows = cur.fetchall() or []
+                    try:
+                        while cur.nextset():
+                            pass
+                    except Exception:
+                        pass
+
+                    if (not cuota_rows) and poliza:
                         cur.execute(
                             """
                             SELECT
@@ -193,7 +183,11 @@ def get_cuotas_data(
                             FROM cuotas c
                             LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
                             WHERE c.activo = 1
-                              AND c.poliza_id = %s
+                              AND (c.poliza_id IS NULL OR c.poliza_id = 0)
+                              AND (
+                                CAST(AES_DECRYPT(FROM_BASE64(c.poliza), @SIS_KEY) AS CHAR) = %s
+                                OR c.poliza = %s
+                              )
                               AND (
                                 %s IS NULL OR %s IS NULL
                                 OR (
@@ -203,7 +197,7 @@ def get_cuotas_data(
                               )
                             ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
                             """,
-                            (target_prima_id, vig_inicio_sql, vig_fin_sql, vig_inicio_sql, vig_fin_sql),
+                            (poliza, poliza, vig_inicio_sql, vig_fin_sql, vig_inicio_sql, vig_fin_sql),
                         )
                         cuota_rows = cur.fetchall() or []
                         try:
@@ -256,7 +250,7 @@ def get_cuotas_data(
                             pass
                     except Exception:
                         pass
-                    if (not cuota_rows) and aviso:
+                    if (not cuota_rows) and aviso and str(aviso).strip().lower() not in ('null', 'none', ''):
                         try:
                             cur.execute(
                                 """
@@ -293,10 +287,11 @@ def get_cuotas_data(
 
                 if cuota_rows:
                     rows = []
-                    for c in cuota_rows:
+                    for i, c in enumerate(cuota_rows, start=1):
                         rows.append({
                             'idCuota': c.get('idCuota'),
                             'numero_cuota': c.get('numero_cuota'),
+                            'secuencia': i,
                             'cupon': c.get('cupon') or '',
                             'fecha_vencimiento': format_date_custom(c.get('fecha_vencimiento')),
                             'importe': c.get('importe') or '',
@@ -367,7 +362,9 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
             return v
 
         poliza = (data.get('poliza') or '').strip()
-        cupon = (data.get('cupon') or '').strip()
+        cupon = val_or_none(data.get('cupon'))
+        if isinstance(cupon, str):
+            cupon = cupon.strip() or None
 
         if cupon:
             cur.execute(
@@ -586,11 +583,11 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
         factura_actual = row[6]
         observacion_actual = row[7]
 
-        cupon_nuevo = (data.get('cupon') or cupon_actual or '').strip()
-        if not cupon_nuevo:
-            cur.close()
-            cnx.close()
-            return False, "El cupón no puede estar vacío."
+        cupon_nuevo_val = data.get('cupon')
+        if cupon_nuevo_val is None:
+            cupon_nuevo = cupon_actual
+        else:
+            cupon_nuevo = (str(cupon_nuevo_val) if cupon_nuevo_val is not None else '').strip() or None
 
         fecha_venc_nueva = val_or_none(data.get('fecha_vencimiento')) or fecha_venc_actual
         importe_nuevo = val_or_none(data.get('importe')) or importe_actual
@@ -598,7 +595,7 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
         factura_nueva = val_or_none(data.get('factura')) or factura_actual
         observacion_nueva = val_or_none(data.get('observacion')) or observacion_actual
 
-        if cupon_nuevo != cupon_actual:
+        if cupon_nuevo and cupon_nuevo != cupon_actual:
             cur.execute(
                 """
                 SELECT 1

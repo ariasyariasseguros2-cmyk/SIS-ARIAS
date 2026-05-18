@@ -99,7 +99,7 @@
             <tbody>
                 {% for r in rows %}
                 <tr>
-                    <td>{{ r.aviso }}</td>
+                    <td>{{ r.aviso if r.aviso and r.aviso not in ['None', 'null', 'NULL'] else '—' }}</td>
                     <td>{{ r.poliza }}</td>
                     <td>{{ r.contratante }}</td>
                     <td>{{ r.compania }}</td>
@@ -117,7 +117,7 @@
                             <button class="btn-action btn-primary btn-cuotas"
                                     data-poliza="{{ r.poliza }}"
                                     data-idprima="{{ r.idPrima }}"
-                                    data-aviso="{{ r.aviso }}">Cuotas</button>
+                                    data-aviso="{{ r.aviso if r.aviso and r.aviso not in ['None', 'null', 'NULL'] else '' }}">Cuotas</button>
                             <a href="{{ url_for('main.menu_page', page='avisos') }}?id={{ r.idPrima }}" class="btn-action btn-secondary">Pdf</a>
                             <button class="btn-action btn-info btn-detalles" data-id="{{ r.idPrima }}">Detalles</button>
                             {% if can_edit(session.role_name) %}
