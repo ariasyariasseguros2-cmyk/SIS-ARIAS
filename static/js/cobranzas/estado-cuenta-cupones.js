@@ -100,6 +100,10 @@
         updateButton();
       }
 
+      if (options.length > 0 && !options.some(o => o.checked)) {
+        options.forEach(function (opt) { opt.checked = true; });
+      }
+
       if (chkAll) {
         chkAll.addEventListener('change', function () {
           const checked = chkAll.checked;
@@ -131,9 +135,9 @@
 
       return {
         reset: function () {
-          options.forEach(function (opt) { opt.checked = false; });
+          options.forEach(function (opt) { opt.checked = true; });
           if (chkAll) {
-            chkAll.checked = false;
+            chkAll.checked = options.length > 0;
             chkAll.indeterminate = false;
           }
           if (search) {
