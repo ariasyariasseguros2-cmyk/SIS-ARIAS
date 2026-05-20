@@ -133,7 +133,12 @@ def parse_mapfre_vidaley_v2(text: str) -> Dict[str, str]:
         rec_raw = None
     item["recibo"] = rec_raw
 
-    colectivo_label = _between(r"\bColectivo\s+Asegurado\s*:?\b", r"\bInicio\s+de\s+Vigencia\b", flat, window=600) or _between(r"\bColectivo\s+Asegurado\s*:?\b", r"\bVencimiento\b", flat, window=600) or _find_after(r"\bColectivo\s+Asegurado\b\s*:?\s*", flat, r"([A-ZÁÉÍÓÚÑ0-9 \.&']{3,200})", window=300)
+    colectivo_label = (
+        _between(r"\bColectivo\s+Asegurado\s*:?\b", r"\bInicio\s+de\s+Vigencia\b", flat, window=600)
+        or _between(r"\bColectivo\s+Asegurado\s*:?\b", r"\bVencimiento\b", flat, window=600)
+        or _find_after(r"\bColectivo\s+Asegurado\b\s*:?\s*", flat, r"([A-ZÁÉÍÓÚÑ0-9 \.&']{3,200})", window=300)
+        or _find_after(r"\bColectivo\s+Asegurado\b\s*:?\s*", text, r"([A-ZÁÉÍÓÚÑ0-9 \.&']{3,200})", window=300)
+    )
     item["colectivo_asegurado"] = _only_company(colectivo_label or cond.get("contratante") or cond.get("colectivo_asegurado"))
 
     # Preferir fechas de Aplicación (pedido del usuario)
