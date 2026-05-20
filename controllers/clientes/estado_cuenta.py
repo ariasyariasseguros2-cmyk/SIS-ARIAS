@@ -205,6 +205,7 @@ def get_estado_cuenta_data(filtros_input=None):
                 FROM polizas p
                 LEFT JOIN cuotas q ON q.poliza_id = p.idPoliza
                 WHERE p.cliente_id = %%s
+                  AND (p.estado IS NULL OR UPPER(p.estado) NOT IN ('INACTIVO', 'INACTIVA'))
             """
 
             params = [key, key, key, key, key, key, key, key, cliente['idCliente']]
@@ -319,7 +320,7 @@ def get_estado_cuenta_data(filtros_input=None):
         ramos = [row['nombre'] for row in cur.fetchall()]
 
         # Obtener los estados reales de la tabla polizas
-        cur.execute("SELECT DISTINCT estado FROM polizas WHERE estado IS NOT NULL AND estado != '' ORDER BY estado")
+        cur.execute("SELECT DISTINCT estado FROM polizas WHERE estado IS NOT NULL AND estado != '' AND UPPER(estado) NOT IN ('INACTIVO', 'INACTIVA') ORDER BY estado")
         estados = [row['estado'] for row in cur.fetchall()]
 
         # Normalizar monedas para el filtro (mostrar opciones simples)
@@ -592,6 +593,7 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             FROM polizas p
             LEFT JOIN cuotas q ON q.poliza_id = p.idPoliza
             WHERE p.cliente_id = %%s
+              AND (p.estado IS NULL OR UPPER(p.estado) NOT IN ('INACTIVO', 'INACTIVA'))
         """
         params = [key, key, key, key, key, key, key, key, cliente['idCliente']]
 
