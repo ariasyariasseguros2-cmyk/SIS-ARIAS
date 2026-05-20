@@ -100,7 +100,7 @@ def parse_mapfre(text: str) -> Dict[str, str]:
 
     # Colectivo Asegurado: tomar el texto entre la etiqueta y "Forma de Pago", 
     # luego elegir la última frase en MAYÚSCULAS sin dígitos (evita CONTRATANTE).
-    cfrag = _find(r"Colectivo\s+Asegurado\s*:\s*(.+?)\s+Forma\s+de\s+Pago", flat)
+    cfrag = _find(r"Colectivo\s+Asegurado\s*:?\s*(.+?)\s+Forma\s+de\s+Pago", flat)
     item["colectivo_asegurado"] = None
     if cfrag:
         caps = re.findall(r"[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ ]{4,}", cfrag)
@@ -111,7 +111,8 @@ def parse_mapfre(text: str) -> Dict[str, str]:
     # Fallbacks si el bloque anterior no funciona
     if not item.get("colectivo_asegurado"):
         item["colectivo_asegurado"] = (
-            _find(r"Colectivo\s+Asegurado\s*:\s*([A-ZÁÉÍÓÚÑ0-9 \-\.]+)", text)
+            _find(r"Colectivo\s+Asegurado\s*:?\s*([A-ZÁÉÍÓÚÑ0-9 \-\.]+)", text)
+            or _find_after(r"Colectivo\s+Asegurado\b", text, r"([A-ZÁÉÍÓÚÑ0-9 \-\.]{6,})", window=220)
             or _find_after(r"Actividad\s*:\s*", text, r"([A-ZÁÉÍÓÚÑ0-9 \-\.]{6,})", window=300)
         )
     print("colectivo_asegurado", item["colectivo_asegurado"])
