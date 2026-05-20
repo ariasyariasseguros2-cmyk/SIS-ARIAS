@@ -119,20 +119,21 @@
                     </div>
 
                     <!-- Botones -->
-                    <div class="col-md-12 d-flex gap-2 justify-content-end">
+                    <div class="col-md-12 d-flex gap-2 justify-content-end flex-wrap">
                         <a href="{{ url_for('main.menu_page', page='clientes-estado-cuenta') }}" class="btn btn-secondary">
                             <i class="bi bi-x-circle"></i> Limpiar
                         </a>
                         <button type="submit" class="btn btn-success">
                             <i class="bi bi-search"></i> Buscar
                         </button>
-                    <div class="d-flex gap-2">
-                        <button type="button" id="btnExportPdf" class="btn btn-outline-primary">
-                            <i class="bi bi-file-earmark-pdf"></i> Descargar PDF
-                        </button>
-                        <button type="button" id="btnExportXlsx" class="btn btn-outline-primary">
-                            <i class="bi bi-file-earmark-excel"></i> Descargar Excel
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button type="button" id="btnExportPdf" class="btn btn-outline-primary">
+                                <i class="bi bi-file-earmark-pdf"></i> Descargar PDF
+                            </button>
+                            <button type="button" id="btnExportXlsx" class="btn btn-outline-primary">
+                                <i class="bi bi-file-earmark-excel"></i> Descargar Excel
+                            </button>
+                        </div>
                     </div>
                 </div>
             </form>
@@ -309,6 +310,7 @@
                         </tfoot>
                      </table>
                  </div>
+            </div>
         </div>
         {% endfor %}
 
