@@ -10,6 +10,11 @@
     const infoFull = document.getElementById('estadoCuentaCuponesInfoFull');
     const btnExport = document.getElementById('btnExportPlanillaCupones');
     const btnClear = document.getElementById('btnClearEstadoCuentaCupones');
+    const quickSearch = document.getElementById('quickSearchCupones');
+    const quickSearchFull = document.getElementById('quickSearchCuponesFull');
+    const btnClearQuickSearch = document.getElementById('btnClearQuickSearchCupones');
+    const btnClearQuickSearchFull = document.getElementById('btnClearQuickSearchCuponesFull');
+    const modalFull = document.getElementById('modalEstadoCuentaCuponesFull');
 
     const contratanteSearch = document.getElementById('contratanteSearch');
     const btnContratanteToggle = document.getElementById('btnContratanteToggle');
@@ -19,6 +24,8 @@
     let searchTimeout = null;
     const multiSelects = [];
     const selectedContratantes = new Map();
+    const polizaCuponInput = form ? form.querySelector('input[name="poliza_cupon"]') : null;
+    let allRows = [];
 
     function initMultiSelect(root) {
       if (!root) return null;
@@ -451,6 +458,39 @@
       if (infoFull) infoFull.textContent = infoText;
     }
 
+    function setRows(rows) {
+      allRows = Array.isArray(rows) ? rows : [];
+      applyQuickFilter();
+    }
+
+    function getQuickSearchValue() {
+      if (polizaCuponInput && polizaCuponInput.value) return polizaCuponInput.value;
+      if (quickSearchFull && quickSearchFull.value) return quickSearchFull.value;
+      if (quickSearch && quickSearch.value) return quickSearch.value;
+      return '';
+    }
+
+    function syncQuickSearchValue(val) {
+      const v = (val || '').toString();
+      if (polizaCuponInput) polizaCuponInput.value = v;
+      if (quickSearch) quickSearch.value = v;
+      if (quickSearchFull) quickSearchFull.value = v;
+    }
+
+    function applyQuickFilter() {
+      const needle = (getQuickSearchValue() || '').trim().toLowerCase();
+      if (!needle) {
+        renderRows(allRows);
+        return;
+      }
+      const filtered = allRows.filter(function (r) {
+        const poliza = (r && r.poliza) ? String(r.poliza).toLowerCase() : '';
+        const cupon = (r && r.cupon) ? String(r.cupon).toLowerCase() : '';
+        return poliza.includes(needle) || cupon.includes(needle);
+      });
+      renderRows(filtered);
+    }
+
     function loadReporte() {
       const loadingMain = '<tr><td colspan="10" class="text-center text-muted">Cargando...</td></tr>';
       const loadingFull = '<tr><td colspan="25" class="text-center text-muted">Cargando...</td></tr>';
@@ -470,7 +510,7 @@
             if (infoFull) infoFull.textContent = '';
             return;
           }
-          renderRows(data.rows || []);
+          setRows(data.rows || []);
         })
         .catch(() => {
           const errMain = '<tr><td colspan="10" class="text-center text-danger">Error de conexión</td></tr>';
@@ -517,6 +557,8 @@
         selectedContratantes.clear();
         renderSelectedContratantes();
         multiSelects.forEach(function (ms) { ms.reset(); });
+        syncQuickSearchValue('');
+        allRows = [];
         const initMain = '<tr><td colspan="10" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td></tr>';
         const initFull = '<tr><td colspan="25" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td></tr>';
         tbody.innerHTML = initMain;
@@ -544,6 +586,42 @@
     if (contratanteSearch) {
       contratanteSearch.addEventListener('input', function () {
         contratanteSearch.classList.remove('is-invalid');
+      });
+    }
+
+    if (polizaCuponInput) {
+      polizaCuponInput.addEventListener('input', function () {
+        syncQuickSearchValue(polizaCuponInput.value);
+        applyQuickFilter();
+      });
+    }
+    if (quickSearch) {
+      quickSearch.addEventListener('input', function () {
+        syncQuickSearchValue(quickSearch.value);
+        applyQuickFilter();
+      });
+    }
+    if (quickSearchFull) {
+      quickSearchFull.addEventListener('input', function () {
+        syncQuickSearchValue(quickSearchFull.value);
+        applyQuickFilter();
+      });
+    }
+    if (btnClearQuickSearch) {
+      btnClearQuickSearch.addEventListener('click', function () {
+        syncQuickSearchValue('');
+        applyQuickFilter();
+      });
+    }
+    if (btnClearQuickSearchFull) {
+      btnClearQuickSearchFull.addEventListener('click', function () {
+        syncQuickSearchValue('');
+        applyQuickFilter();
+      });
+    }
+    if (modalFull && typeof modalFull.addEventListener === 'function') {
+      modalFull.addEventListener('shown.bs.modal', function () {
+        if (quickSearchFull) quickSearchFull.focus();
       });
     }
   });

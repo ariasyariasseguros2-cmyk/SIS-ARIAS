@@ -37,6 +37,7 @@ def _validate_required(fecha_desde: str, fecha_hasta: str):
 def _fetch_rows():
     fecha_desde = (request.args.get("fecha_desde") or "").strip()
     fecha_hasta = (request.args.get("fecha_hasta") or "").strip()
+    poliza_cupon = (request.args.get("poliza_cupon") or "").strip()
     cliente_ids = _get_multi("cliente_id")
     cias = _get_multi("cia")
     ramos = _get_multi("ramo")
@@ -54,7 +55,9 @@ def _fetch_rows():
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
 
-        query = """
+        venc_expr = "CASE WHEN c.fecha_vencimiento IS NULL THEN NULL WHEN YEAR(c.fecha_vencimiento) < 1900 THEN DATE_ADD(c.fecha_vencimiento, INTERVAL 2000 YEAR) ELSE c.fecha_vencimiento END"
+
+        query = f"""
             SELECT
                 COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR), p.asegurado) AS asegurado,
                 COALESCE(
@@ -88,16 +91,16 @@ def _fetch_rows():
                 ) AS cupon,
                 ROW_NUMBER() OVER (
                     PARTITION BY p.idPoliza
-                    ORDER BY (c.fecha_vencimiento IS NULL), c.fecha_vencimiento ASC, c.idCuota ASC
+                    ORDER BY ({venc_expr} IS NULL), {venc_expr} ASC, c.idCuota ASC
                 ) AS num_cuota,
-                c.fecha_vencimiento AS fec_vencimiento_cob,
+                {venc_expr} AS fec_vencimiento_cob,
                 p.moneda AS mon,
                 c.importe,
                 c.fecha_pago AS fec_pago,
                 c.factura,
                 CASE
-                    WHEN c.fecha_pago IS NULL AND c.fecha_vencimiento IS NOT NULL
-                        THEN GREATEST(DATEDIFF(CURDATE(), DATE(c.fecha_vencimiento)), 0)
+                    WHEN c.fecha_pago IS NULL AND {venc_expr} IS NOT NULL
+                        THEN GREATEST(DATEDIFF(CURDATE(), DATE({venc_expr})), 0)
                     ELSE 0
                 END AS dias_vencidos,
                 c.observacion AS ult_gestion,
@@ -140,10 +143,10 @@ def _fetch_rows():
         params = []
 
         if fecha_desde:
-            query += " AND c.fecha_vencimiento >= %s"
+            query += f" AND {venc_expr} >= %s"
             params.append(fecha_desde)
         if fecha_hasta:
-            query += " AND c.fecha_vencimiento < DATE_ADD(%s, INTERVAL 1 DAY)"
+            query += f" AND {venc_expr} < DATE_ADD(%s, INTERVAL 1 DAY)"
             params.append(fecha_hasta)
         if cliente_ids:
             query += " AND p.cliente_id IN (" + ",".join(["%s"] * len(cliente_ids)) + ")"
@@ -161,6 +164,29 @@ def _fetch_rows():
             query += " AND p.sub_agente IN (" + ",".join(["%s"] * len(sub_agentes)) + ")"
             params.extend(sub_agentes)
 
+        if poliza_cupon:
+            like = f"%{poliza_cupon}%"
+            poliza_expr = """
+                TRIM(
+                    COALESCE(
+                        CONVERT(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) USING utf8mb4),
+                        CONVERT(AES_DECRYPT(p.poliza, @SIS_KEY) USING utf8mb4),
+                        p.poliza
+                    ) COLLATE utf8mb4_0900_ai_ci
+                )
+            """
+            cupon_expr = """
+                TRIM(
+                    COALESCE(
+                        CONVERT(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) USING utf8mb4),
+                        CONVERT(AES_DECRYPT(c.cupon, @SIS_KEY) USING utf8mb4),
+                        c.cupon
+                    ) COLLATE utf8mb4_0900_ai_ci
+                )
+            """
+            query += f" AND ({poliza_expr} LIKE %s OR {cupon_expr} LIKE %s)"
+            params.extend([like, like])
+
         estados_set = set([e for e in estados if e])
         if estados_set == {"PENDIENTE"}:
             query += " AND c.fecha_pago IS NULL"
@@ -173,7 +199,7 @@ def _fetch_rows():
             query += " AND (p.sub_agente = %s OR p.usuario_registro = %s)"
             params.extend([user, user])
 
-        query += " ORDER BY (c.fecha_vencimiento IS NULL), c.fecha_vencimiento ASC, c.idCuota DESC"
+        query += f" ORDER BY ({venc_expr} IS NULL), {venc_expr} ASC, c.idCuota DESC"
 
         cursor.execute(query, tuple(params))
         rows = cursor.fetchall() or []

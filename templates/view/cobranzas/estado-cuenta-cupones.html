@@ -143,6 +143,10 @@
                         <div class="ms-hidden"></div>
                     </div>
                 </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Póliza / Cupón</label>
+                    <input type="text" class="form-control" name="poliza_cupon" placeholder="Buscar..." autocomplete="off">
+                </div>
 
                 <div class="col-12 d-flex justify-content-start mt-2 gap-2">
                     <button type="submit" class="btn btn-success">Buscar</button>
@@ -158,11 +162,18 @@
     </div>
 
     <div class="card shadow-sm">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span>Resultados</span>
-            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalEstadoCuentaCuponesFull">
-                <i class="bi bi-arrows-fullscreen"></i> Ver Pantalla Completa
-            </button>
+            <div class="d-flex align-items-center gap-2">
+                <div class="input-group input-group-sm" style="width: 280px;">
+                    <span class="input-group-text">Buscar</span>
+                    <input type="text" class="form-control" id="quickSearchCupones" placeholder="Póliza / Cupón" autocomplete="off">
+                    <button type="button" class="btn btn-outline-secondary" id="btnClearQuickSearchCupones">Limpiar</button>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalEstadoCuentaCuponesFull">
+                    <i class="bi bi-arrows-fullscreen"></i> Ver Pantalla Completa
+                </button>
+            </div>
         </div>
         <div class="card-body p-0 p-md-3">
             <div class="table-responsive">
@@ -196,8 +207,13 @@
 <div class="modal fade" id="modalEstadoCuentaCuponesFull" tabindex="-1" aria-labelledby="modalEstadoCuentaCuponesFullLabel" aria-hidden="true">
     <div class="modal-dialog modal-fullscreen">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h5 class="modal-title" id="modalEstadoCuentaCuponesFullLabel">Estado de Cuenta de Cupones - Pantalla Completa</h5>
+                <div class="input-group input-group-sm" style="width: 340px;">
+                    <span class="input-group-text">Buscar</span>
+                    <input type="text" class="form-control" id="quickSearchCuponesFull" placeholder="Póliza / Cupón" autocomplete="off">
+                    <button type="button" class="btn btn-outline-secondary" id="btnClearQuickSearchCuponesFull">Limpiar</button>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body d-flex flex-column">
