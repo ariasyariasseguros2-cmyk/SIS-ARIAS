@@ -3595,6 +3595,8 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             prov = "mapfre-vida-ley"
         elif "pacifico" in pnorm and "salud" in pnorm:
             prov = "pacifico_salud"
+        elif "grandia" in pnorm and ("eps" in pnorm or "salud" in pnorm):
+            prov = "grandia-eps"
         elif "positiva" in pnorm and "vidaley" in pnorm:
             prov = "lpv-vida-ley"
         elif "positiva" in pnorm and "pension" in pnorm:
@@ -3613,6 +3615,8 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             prov = "mapfre-vida-ley"
         elif "pacifico" in pnorm and "salud" in pnorm:
             prov = "pacifico_salud"
+        elif "grandia" in pnorm and ("eps" in pnorm or "salud" in pnorm):
+            prov = "grandia-eps"
         elif "positiva" in pnorm and "vidaley" in pnorm:
             prov = "lpv-vida-ley"
         elif "positiva" in pnorm and "pension" in pnorm:
@@ -3680,8 +3684,19 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
         # NUEVO: detectar Protecta por título específico (SCTR Pensiones)
         elif "condiciones particulares" in t and "pensiones" in t and ("protecta" in t or re.search(r"p\s*r\s*o\s*t\s*e\s*c\s*t\s*a", t) or "20517207331" in t):
             prov = "protecta"
+        elif (
+            re.search(r"\bcontrato\s+no\.", t)
+            and "anexo" in t
+            and re.search(r"denominaci[oó]n\s+social", t)
+            and "consolidado de primas" in t
+            and "prima neta" in t
+            and "prima total" in t
+        ):
+            prov = "grandia-eps"
         elif "sanitas" in t:
             prov = "sanitas"
+        elif "grandia" in t and "eps" in t:
+            prov = "grandia-eps"
         elif (re.search(r"\br[íi]mac\b", t) or "rimac seguros" in t or "rímac seguros" in t) or re.search(r"\bNro\.?\s*[:：]?\s*\d{3,6}\s*[-–—]\s*\d{5,12}\b", t) or re.search(r"pol[ií]za\s*\d{3,6}\s*-\s*\d{5,12}", t):
             prov = "rimac"
         elif "pacifico" in t or "pacífico" in t:
@@ -4103,6 +4118,12 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
         from controllers.addSanitasSalud import parse_sanitas_salud
         item = parse_sanitas_salud(text)
         print("[provider] sanitas salud item:", item)
+        return [item] if item else []
+
+    if prov == "grandia-eps":
+        from controllers.addGrandiaEps import parse_grandia_eps
+        item = parse_grandia_eps(text)
+        print("[provider] grandia eps item:", item)
         return [item] if item else []
 
     if prov == "rimac":

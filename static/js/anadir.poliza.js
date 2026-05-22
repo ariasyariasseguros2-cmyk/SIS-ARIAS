@@ -996,6 +996,16 @@
           extractedItems[idx].cia = label || val;
           try { await fetchCommissionPct(idx); } catch (e) {}
         }
+        if (__normIssuerValue(val) === 'grandia-eps' || __normIssuerValue(val).includes('grandia')) {
+          const emision = (extractedItems[idx]?.fecha_emision || '').toString().trim();
+          const calc = addDaysToDateStr(emision, 15);
+          if (extractedItems[idx]) {
+            extractedItems[idx].fecha_vencimiento = calc || '';
+            extractedItems[idx].ultimo_dia_pago = calc || '';
+          }
+          const fvTd = getTd(idx, 'fecha_vencimiento');
+          if (fvTd) fvTd.textContent = calc || '';
+        }
       });
     });
     // Vincular cambio de Moneda por fila
@@ -1120,6 +1130,26 @@
   // Helper para celdas
   function getTd(index, field) {
     return tbody.querySelector(`td[data-index="${index}"][data-field="${field}"]`);
+  }
+
+  function __normIssuerValue(v) {
+    return (v || '').toString().trim().toLowerCase();
+  }
+
+  function __rowIssuerValue(index) {
+    const item = extractedItems[index] || {};
+    let v = (item.cia_value || '').trim() || findIssuerValueByText(item.cia || '');
+    if (!v) {
+      const tr = tbody.children[index];
+      const sel = tr ? tr.querySelector('.issuer-row') : null;
+      v = sel ? (sel.value || '') : '';
+    }
+    return __normIssuerValue(v);
+  }
+
+  function __isGrandiaEpsRow(index) {
+    const v = __rowIssuerValue(index);
+    return v === 'grandia-eps' || v.includes('grandia');
   }
 
   // Actualiza dependientes sin modificar la celda activa
@@ -1406,6 +1436,17 @@
       extractedItems[idx][field] = formatted;
     } else {
       extractedItems[idx][field] = td.textContent.trim();
+    }
+
+    if (field === 'fecha_emision') {
+      if (__isGrandiaEpsRow(idx)) {
+        const emision = (extractedItems[idx].fecha_emision || '').toString().trim();
+        const calc = addDaysToDateStr(emision, 15);
+        extractedItems[idx].fecha_vencimiento = calc || '';
+        extractedItems[idx].ultimo_dia_pago = calc || '';
+        const fvTd = getTd(idx, 'fecha_vencimiento');
+        if (fvTd) fvTd.textContent = calc || '';
+      }
     }
 
     // NUEVO: Auto-relleno de 'ramos_producto'
