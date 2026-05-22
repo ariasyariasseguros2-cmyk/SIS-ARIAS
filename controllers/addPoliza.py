@@ -23,7 +23,7 @@ def cia_to_col(cia_txt: str | None) -> str | None:
         return 'protecta'
     if 'crecer' in s:
         return 'crecer'
-    if ('positiva' in s) or ('lpv' in s) or ('lvp' in s) or ('lpeps' in s):
+    if ('positiva' in s) or ('lpv' in s) or ('lpv' in s) or ('lpeps' in s):
         if ('lpeps' in s) or ('eps' in s) or ('salud' in s):
             return 'pos_eps'
         if 'vida' in s:
@@ -59,7 +59,7 @@ def lookup_commission_pct(cnx_, cia_txt: str | None, candidates: list[str]) -> f
     col = cia_to_col(cia_txt)
     try:
         s = (str(cia_txt) or '').strip().lower()
-        is_lpv = ('lpv' in s) or ('lvp' in s) or ('lpeps' in s) or ('positiva' in s) or ('la positiva' in s)
+        is_lpv = ('lpv' in s) or ('lpv' in s) or ('lpeps' in s) or ('positiva' in s) or ('la positiva' in s)
         if is_lpv:
             if ('lpeps' in s) or ('eps' in s) or ('salud' in s):
                 col = 'pos_eps'
@@ -345,11 +345,11 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
             is_lp = (
                 ("lapositiva" in issuer)
                 or ("lpv" in issuer_slug)
-                or ("lvp" in issuer_slug)
+                or ("lpv" in issuer_slug)
                 or ("lpeps" in issuer_slug)
                 or ("positiva" in cia_raw)
                 or ("lpv" in cia_raw)
-                or ("lvp" in cia_raw)
+                or ("lpv" in cia_raw)
                 or ("lpeps" in cia_raw)
             )
             if not is_lp:
@@ -367,9 +367,9 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
             if has_salud:
                 return "LPEPS"
             if has_pension or has_vida_ley:
-                return "LVP"
+                return "LPV"
             if "lapositiva_vida" in issuer:
-                return "LVP"
+                return "LPV"
             if "lapositiva" in issuer:
                 return "LPEPS"
             return None
