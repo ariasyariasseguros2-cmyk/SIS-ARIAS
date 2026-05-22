@@ -23,11 +23,13 @@ def cia_to_col(cia_txt: str | None) -> str | None:
         return 'protecta'
     if 'crecer' in s:
         return 'crecer'
-    if 'positiva' in s:
-        if 'eps' in s:
+    if ('positiva' in s) or ('lpv' in s) or ('lvp' in s) or ('lpeps' in s):
+        if ('lpeps' in s) or ('eps' in s) or ('salud' in s):
             return 'pos_eps'
         if 'vida' in s:
             return 'pos_vsr'
+        if ('pension' in s) or ('pensión' in s):
+            return 'pos_sr'
         return 'pos_sr'
     if 'ohio' in s:
         return 'ohio_natural'
@@ -57,8 +59,10 @@ def lookup_commission_pct(cnx_, cia_txt: str | None, candidates: list[str]) -> f
     col = cia_to_col(cia_txt)
     try:
         s = (str(cia_txt) or '').strip().lower()
-        is_lpv = ('lpv' in s) or ('positiva' in s) or ('la positiva' in s)
+        is_lpv = ('lpv' in s) or ('lvp' in s) or ('lpeps' in s) or ('positiva' in s) or ('la positiva' in s)
         if is_lpv:
+            if ('lpeps' in s) or ('eps' in s) or ('salud' in s):
+                col = 'pos_eps'
             for cand in (candidates or []):
                 v = (str(cand) or '').strip().lower()
                 if not v:
@@ -332,6 +336,44 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
 
         # FIX: construir 'normalized' desde 'items' y completar campos globales
         normalized: list[dict] = []
+
+        def _infer_lapositiva_cia(row: dict, selected_: dict | None) -> str | None:
+            sel = selected_ or {}
+            issuer = (row.get("issuer") or sel.get("issuer") or "").strip().lower()
+            issuer_slug = (row.get("cia_value") or row.get("issuer") or sel.get("issuer") or "").strip().lower()
+            cia_raw = (row.get("cia") or sel.get("cia") or "").strip().lower()
+            is_lp = (
+                ("lapositiva" in issuer)
+                or ("lpv" in issuer_slug)
+                or ("lvp" in issuer_slug)
+                or ("lpeps" in issuer_slug)
+                or ("positiva" in cia_raw)
+                or ("lpv" in cia_raw)
+                or ("lvp" in cia_raw)
+                or ("lpeps" in cia_raw)
+            )
+            if not is_lp:
+                return None
+
+            parts = [
+                row.get("producto"), row.get("ramos_producto"), row.get("ramo"),
+                sel.get("producto"), sel.get("ramos_producto"), sel.get("ramo"),
+            ]
+            blob = " ".join((str(p) for p in parts if p)).lower()
+            has_salud = ("salud" in blob) or ("eps" in blob)
+            has_pension = ("pension" in blob) or ("pensión" in blob)
+            has_vida_ley = ("vida" in blob) and ("ley" in blob)
+
+            if has_salud:
+                return "LPEPS"
+            if has_pension or has_vida_ley:
+                return "LVP"
+            if "lapositiva_vida" in issuer:
+                return "LVP"
+            if "lapositiva" in issuer:
+                return "LPEPS"
+            return None
+
         for it in (items or []):
             row = dict(it or {})
             # Completar desde el bloque superior si falta en la fila
@@ -351,6 +393,14 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                 # NUEVO: completar ejecutivo si falta
                 if not row.get("ejecutivo") and selected.get("ejecutivo"):
                     row["ejecutivo"] = selected["ejecutivo"]
+
+                if not row.get("cia") and selected.get("cia"):
+                    row["cia"] = selected["cia"]
+
+            inferred_cia = _infer_lapositiva_cia(row, selected)
+            if inferred_cia:
+                row["cia"] = inferred_cia
+
             normalized.append(row)
 
         if not normalized:

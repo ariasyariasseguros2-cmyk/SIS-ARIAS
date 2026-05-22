@@ -1,4 +1,5 @@
 # controllers/proveedor.compañia.py
+import re
 from models.db import get_connection
 
 def get_aseguradoras() -> list[dict]:
@@ -14,7 +15,9 @@ def get_aseguradoras() -> list[dict]:
         cur.close()
         cnx.close()
 
-        has_crecer = False
+        has_lpv_any = False
+        has_lpv_pension = False
+        has_lpv_eps = False
 
         for dr in db_rows:
             nombre_corto = (dr.get('nombre_corto') or '').strip()
@@ -23,28 +26,37 @@ def get_aseguradoras() -> list[dict]:
             low_short = nombre_corto.lower()
             low_full = nombre_largo.lower()
             low = (low_short + ' ' + low_full).strip()
-            # Mapear al slug que tu parser espera
+            low_compact = re.sub(r'[^a-z0-9]+', '', low)
+
             if 'mapfre' in low and ('vida' in low and 'ley' in low):
                 slug = 'mapfre-vida-ley'
             elif 'mapfre' in low:
                 slug = 'mapfre'
-            elif 'positiva' in low or 'lpv' in low:
-                # Unificar EPS/Salud bajo 'lpv-eps' y Vida bajo 'lpv-vida'/'lpv-vida-ley'
-                if 'lpeps' in low or 'eps' in low or 'entidad prestadora' in low or 'salud' in low:
+            elif (
+                ('positiva' in low)
+                or ('lpv' in low)
+                or ('lpeps' in low)
+                or ('lpv' in low)
+                or ('lpv' in low_compact)
+                or ('lpeps' in low_compact)
+                or ('lpv' in low_compact)
+            ):
+                has_lpv_any = True
+                if ('lpeps' in low) or ('lpeps' in low_compact) or ('eps' in low) or ('entidad prestadora' in low) or ('salud' in low):
                     slug = 'lpv-eps'
-                elif 'vida' in low and 'ley' in low:
+                    has_lpv_eps = True
+                elif ('vida' in low) and ('ley' in low):
                     slug = 'lpv-vida-ley'
                 elif 'vida' in low:
                     slug = 'lpv-vida'
-                elif 'pension' in low or 'pensión' in low:
+                elif ('pension' in low) or ('pensión' in low) or ('lvp' in low) or ('lvp' in low_compact) or (low_compact == 'lpv') or (low_short.strip() == 'lpv'):
                     slug = 'lpv-pension'
+                    has_lpv_pension = True
                 else:
                     slug = 'positiva'
             elif 'sanitas' in low:
                 slug = 'sanitas'
             elif 'pacifico' in low or 'pacífico' in low:
-                slug = 'pacifico'
-            elif 'pacífico' in low or 'pacífico' in low:
                 slug = 'pacifico'
             elif 'rimac' in low or 'rímac' in low:
                 slug = 'rimac'
@@ -58,21 +70,20 @@ def get_aseguradoras() -> list[dict]:
                 slug = 'avla'
             elif 'grandia' in low and 'eps' in low:
                 slug = 'grandia-eps'
-            elif 'crecer' in low and ('vida' in low and 'ley' in low):
-                slug = 'crecer'
-                has_crecer = True
             elif 'crecer' in low:
                 slug = 'crecer'
-                has_crecer = True
             elif 'protecta' in low or 'proctecta' in low:
-                # Mantener compatibilidad con el JS que usa 'proctecta'
                 slug = 'proctecta'
             else:
-                # Desconocidos: usar auto-detección (cadena vacía)
                 slug = ''
+
             rows.append({'nombre_corto': nombre, 'slug': slug})
 
-        # No inyectar variante “Crecer Vida Ley”; mantener solo “Crecer”
+        if has_lpv_any:
+            if not has_lpv_eps:
+                rows.append({'nombre_corto': 'LPEPS', 'slug': 'lpv-eps'})
+            if not has_lpv_pension:
+                rows.append({'nombre_corto': 'LPV', 'slug': 'lpv-pension'})
     except Exception:
         rows = []
     return rows

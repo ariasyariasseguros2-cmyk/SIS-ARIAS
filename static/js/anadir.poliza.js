@@ -648,7 +648,7 @@
   function __pickLPVVariant(txt) {
     const t = (txt || '').toString().toLowerCase();
     if (t.includes('eps') || t.includes('entidad prestadora') || t.includes('salud') || t.includes('lpeps')) return 'lpv-eps';
-    if (t.includes('vida') && t.includes('ley')) return 'lpv-vida-ley';
+    if (t.includes('vida') && t.includes('ley')) return 'lpv-pension';
     if (t.includes('vida')) return 'lpv-vida';
     if (t.includes('pension') || t.includes('pensión')) return 'lpv-pension';
     return 'positiva';
@@ -2293,7 +2293,7 @@
           function pickLPVVariantByText(txt) {
             const t = (txt || '').toString().toLowerCase();
             if (t.includes('eps') || t.includes('entidad prestadora') || t.includes('salud') || t.includes('lpeps')) return 'lpv-eps';
-            if (t.includes('vida') && t.includes('ley')) return 'lpv-vida-ley';
+            if (t.includes('vida') && t.includes('ley')) return 'lpv-pension';
             if (t.includes('vida')) return 'lpv-vida';
             if (t.includes('pension') || t.includes('pensión')) return 'lpv-pension';
             return 'positiva';
