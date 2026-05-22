@@ -4135,6 +4135,18 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
 
     # NUEVO: Protecta Pensión
     if prov in {"protecta", "proctecta"}:
+        hint_vidaley = (
+            re.search(r"\bvida\s+ley\b", low)
+            or re.search(r"decreto\s+legislativo\s*n?\s*688", low)
+            or ("d.l.688" in low)
+            or re.search(r"\bseguro\s+de\s+vida\s+ley\b", low)
+        )
+        if hint_vidaley:
+            from controllers.addProctectaVidaLey import parse_protecta_vidaley
+            item = parse_protecta_vidaley(text)
+            print("[provider] protecta vida ley item:", item)
+            return [item] if item else []
+
         # Detectar si es Emisión (SCTR Pensiones con Prima Comercial)
         # Excluir 'aviso de cobranza' para que vaya al parser estándar (addProctectaPension)
         if "prima comercial" in low and "pension" in low and "aviso de cobranza" not in low:
