@@ -3454,7 +3454,7 @@
 
     function renderRows(rows) {
       if (!rows || rows.length === 0) {
-        tbodyEl.innerHTML = '<tr><td colspan="14" class="text-center text-muted py-3">Sin resultados</td></tr>';
+        tbodyEl.innerHTML = '<tr><td colspan="15" class="text-center text-muted py-3">Sin resultados</td></tr>';
         if (infoEl) infoEl.textContent = '0 registros';
         return;
       }
@@ -3473,6 +3473,7 @@
           <td>${fmt(c.mapfre)}</td>
           <td>${fmt(c.crecer)}</td>
           <td>${fmt(c.ohio_natural)}</td>
+          <td>${fmt(c.grandia_eps)}</td>
           <td>${fmt(c.factor)}</td>
         </tr>`).join('');
       tbodyEl.innerHTML = html;
@@ -3491,7 +3492,7 @@
     }
 
     async function loadComisiones() {
-      tbodyEl.innerHTML = '<tr><td colspan="14" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Cargando...</td></tr>';
+      tbodyEl.innerHTML = '<tr><td colspan="15" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Cargando...</td></tr>';
       try {
         const resp = await fetch('/api/comisiones/list');
         const data = await resp.json();
@@ -3500,10 +3501,10 @@
           renderRows(allRows);
           loaded = true;
         } else {
-          tbodyEl.innerHTML = `<tr><td colspan="14" class="text-center text-danger py-3">Error: ${data.error || 'Error desconocido'}</td></tr>`;
+          tbodyEl.innerHTML = `<tr><td colspan="15" class="text-center text-danger py-3">Error: ${data.error || 'Error desconocido'}</td></tr>`;
         }
       } catch (e) {
-        tbodyEl.innerHTML = `<tr><td colspan="14" class="text-center text-danger py-3">Error de red: ${e.message}</td></tr>`;
+        tbodyEl.innerHTML = `<tr><td colspan="15" class="text-center text-danger py-3">Error de red: ${e.message}</td></tr>`;
       }
     }
 

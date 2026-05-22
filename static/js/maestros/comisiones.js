@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', function(){
       mapfre: document.getElementById('com-mapfre'),
       crecer: document.getElementById('com-crecer'),
       ohio_natural: document.getElementById('com-ohio-natural'),
+      grandia_eps: document.getElementById('com-grandia-eps'),
       factor: document.getElementById('com-factor')
     };
 
@@ -152,7 +153,8 @@ document.addEventListener('DOMContentLoaded', function(){
       if (fields.mapfre) fields.mapfre.value = cells[10] ? cells[10].textContent.trim() : '';
       if (fields.crecer) fields.crecer.value = cells[11] ? cells[11].textContent.trim() : '';
       if (fields.ohio_natural) fields.ohio_natural.value = cells[12] ? cells[12].textContent.trim() : '';
-      if (fields.factor) fields.factor.value = cells[13] ? cells[13].textContent.trim() : '';
+      if (fields.grandia_eps) fields.grandia_eps.value = cells[13] ? cells[13].textContent.trim() : '';
+      if (fields.factor) fields.factor.value = cells[14] ? cells[14].textContent.trim() : '';
     }
 
     function clearForm(){
@@ -206,6 +208,7 @@ document.addEventListener('DOMContentLoaded', function(){
           mapfre: fields.mapfre ? fields.mapfre.value : '',
           crecer: fields.crecer ? fields.crecer.value : '',
           ohio_natural: fields.ohio_natural ? fields.ohio_natural.value : '',
+          grandia_eps: fields.grandia_eps ? fields.grandia_eps.value : '',
           factor: fields.factor ? fields.factor.value : ''
         };
       try{

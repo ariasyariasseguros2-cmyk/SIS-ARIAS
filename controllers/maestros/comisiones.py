@@ -23,6 +23,7 @@ def get_comisiones():
                   mapfre,
                   crecer,
                   ohio_natural,
+                  grandia_eps,
                   factor
                 FROM comisiones_temp
                 ORDER BY id ASC

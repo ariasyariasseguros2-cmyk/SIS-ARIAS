@@ -31,6 +31,7 @@
           <th>Mapfre</th>
           <th>Crecer</th>
           <th>Ohio Natural</th>
+          <th>Grandia EPS</th>
           <th>Factor</th>
           <th>Acción</th>
         </tr>
@@ -51,6 +52,7 @@
           <td>{{ c.mapfre }}</td>
           <td>{{ c.crecer }}</td>
           <td>{{ c.ohio_natural }}</td>
+          <td>{{ c.grandia_eps }}</td>
           <td>{{ c.factor }}</td>
           <td>
             <button type="button" class="btn btn-sm btn-primary com-edit">Editar</button>
@@ -58,7 +60,7 @@
         </tr>
         {% endfor %}
         {% if not rows or rows|length == 0 %}
-        <tr><td colspan="15" class="text-center text-muted">Sin datos</td></tr>
+        <tr><td colspan="16" class="text-center text-muted">Sin datos</td></tr>
         {% endif %}
       </tbody>
     </table>
@@ -142,6 +144,10 @@
             <div class="col-md-3">
               <label for="com-ohio-natural" class="form-label">Ohio Natural</label>
               <input id="com-ohio-natural" class="form-control" type="number" step="0.01">
+            </div>
+            <div class="col-md-3">
+              <label for="com-grandia-eps" class="form-label">Grandia EPS</label>
+              <input id="com-grandia-eps" class="form-control" type="number" step="0.01">
             </div>
           </div>
         </div>

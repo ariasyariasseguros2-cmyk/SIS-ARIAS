@@ -13,6 +13,8 @@ def cia_to_col(cia_txt: str | None) -> str | None:
     if not cia_txt:
         return None
     s = (str(cia_txt) or '').strip().lower()
+    if 'grandia' in s:
+        return 'grandia_eps'
     if 'mapfre' in s:
         return 'mapfre'
     if 'pacif' in s:
@@ -105,7 +107,7 @@ def lookup_commission_pct(cnx_, cia_txt: str | None, candidates: list[str]) -> f
             cdict.execute(
                 """
                 SELECT
-                    pos_eps, pos_vsr, pos_sr, pacifico, sanitas, protecta, mapfre, crecer, ohio_natural, factor
+                    pos_eps, pos_vsr, pos_sr, pacifico, sanitas, protecta, mapfre, crecer, ohio_natural, grandia_eps, factor
                 FROM comisiones_temp
                 WHERE UPPER(producto_abrev) = %s
                    OR UPPER(producto) = %s

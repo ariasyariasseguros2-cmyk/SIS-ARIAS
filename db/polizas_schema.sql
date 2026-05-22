@@ -260,6 +260,7 @@ CREATE TABLE comisiones_temp (
     mapfre        DECIMAL(5,2),
     crecer        DECIMAL(5,2),
     ohio_natural  DECIMAL(5,2),
+    grandia_eps   DECIMAL(5,2),
 
     factor        DECIMAL(10,4)
 );
