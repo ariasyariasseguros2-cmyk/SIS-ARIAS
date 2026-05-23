@@ -3344,6 +3344,32 @@ def _extract_text_fitz(path: str, password: str | None = None) -> str:
     except Exception:
         return _extract_text_pypdf2(path, password)
 
+def _extract_text_pages_fitz(path: str, password: str | None = None) -> list[str]:
+    try:
+        import fitz  # PyMuPDF
+        pages: list[str] = []
+        with fitz.open(path) as doc:
+            try:
+                if getattr(doc, "is_encrypted", False):
+                    if password:
+                        ok = doc.authenticate(password)
+                        if not ok:
+                            return []
+                    else:
+                        return []
+            except Exception:
+                pass
+            for page in doc:
+                pages.append(page.get_text() or "")
+        return pages
+    except Exception:
+        try:
+            import pdfplumber
+            with pdfplumber.open(path) as pdf:
+                return [(p.extract_text() or "") for p in pdf.pages]
+        except Exception:
+            return []
+
 def _extract_text_pypdf2(path: str, password: str | None = None) -> str:
     try:
         try:
@@ -3586,6 +3612,9 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
     else:
         print(f"[DEBUG TEXT HEAD] {text[:600]!r}")
 
+    page_texts = _extract_text_pages_fitz(path, password=pdf_password)
+    page_texts = [p for p in (page_texts or []) if p and p.strip()]
+
     t = text.lower()
     prov = (issuer or "").strip().lower() or None
     low = (text or "").lower()
@@ -3783,42 +3812,13 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
     items: List[Dict[str, str]] = []
     parse_pdf_items_provider._last_provider = prov
     if prov == 'pacifico':
-        # Heurística por contenido para distinguir producto
-        is_vida_ley = re.search(r'\bvida\s+ley\b', low) or re.search(r'\bcondicionado', low)
-        is_factura_eps = (
-            re.search(r"entidad\s+prestadora\s+de\s+salud", low)
-            or re.search(r"factura\s+electr[óo]nica", low)
-        )
-        is_sctr_pension = (
-            (re.search(r"\bsctr\b", low) or re.search(r"\baccidentes\s+de\s+trabajo\b", low))
-            and (re.search(r"\bpensi[oó]n\b", low) or re.search(r"\bpensiones\b", low) or re.search(r"\baccidentes\s+de\s+trabajo\b", low))
-            and not is_factura_eps
-        )
-        is_sctr_salud = (
-            (re.search(r"\bsctr\b", low) and (re.search(r"\bsalud\b", low) or is_factura_eps or re.search(r"\beps\b", low)))
-            or is_factura_eps
-        )
-
-        # NUEVO: Detección de Aviso de Cobranza (Pacifico Generales V2 - Multisalud)
-        is_multisalud = re.search(r'multisalud', low) or re.search(r'aviso\s+de\s+cobranza', low)
-
-        if is_factura_eps and not is_multisalud:
-            from controllers.addPacificoSalud import parse_pacifico_salud
-            it = parse_pacifico_salud(text)
-            if it:
-                items.append(it)
-            return items
-
         try:
-            if is_factura_eps and not is_multisalud:
-                from controllers.addPacificoSalud import parse_pacifico_salud
-                it = parse_pacifico_salud(text)
-                if it:
-                    items.append(it)
-                return items
-            if is_multisalud:
+            pac_pages = page_texts if page_texts else [text]
+            pac_pages_low = [(p or "").lower() for p in pac_pages]
+
+            has_multisalud = any(re.search(r"multisalud", pl) or re.search(r"aviso\s+de\s+cobranza", pl) for pl in pac_pages_low)
+            if has_multisalud:
                 from controllers.addPacificoGenerales_V2 import addPacificoGenerales_V2
-                # Pasamos 'path' porque el controlador usa pdfplumber sobre el archivo
                 data = addPacificoGenerales_V2(path)
 
                 if data and not data.get('error') and data.get('poliza'):
@@ -3845,37 +3845,121 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
                     if data.get('total'):
                         it['prima_total'] = str(data.get('total', ''))
                     items.append(it)
+        except Exception as e:
+            print(f"[provider] pacifico parse error: {e}")
 
-            elif is_vida_ley:
+        if items:
+            return items
+
+        pac_pages = page_texts if page_texts else [text]
+        pac_pages_low = [(p or "").lower() for p in pac_pages]
+
+        vida_pages = [
+            pac_pages[i] for i, pl in enumerate(pac_pages_low)
+            if re.search(r"\bvida\s+ley\b", pl) or re.search(r"\bcondicionado\b", pl)
+        ]
+        factura_pages = [
+            pac_pages[i] for i, pl in enumerate(pac_pages_low)
+            if re.search(r"factura\s+electr[óo]nica", pl)
+            or re.search(r"entidad\s+prestadora\s+de\s+salud", pl)
+            or re.search(r"\beps\b", pl)
+        ]
+        liquid_pages = [
+            pac_pages[i] for i, pl in enumerate(pac_pages_low)
+            if re.search(r"liquidaci[oó]n\s+de\s+prima", pl)
+            or re.search(r"total\s+a\s+cobrar", pl)
+            or re.search(r"\baccidentes\s+de\s+trabajo\b", pl)
+        ]
+
+        if vida_pages:
+            try:
+                from controllers.addPacificoVidaLey import parse_pacifico_vidaley
+                it = parse_pacifico_vidaley("\n".join(vida_pages))
+                return [it] if it else []
+            except Exception as e:
+                print(f"[provider] pacifico-vida-ley parse error: {e}")
+
+        if liquid_pages:
+            liquid_text = "\n".join(liquid_pages)
+        else:
+            liquid_text = ""
+        if factura_pages:
+            factura_text = "\n".join(factura_pages)
+        else:
+            factura_text = ""
+
+        out: List[Dict[str, str]] = []
+
+        if liquid_text:
+            try:
+                is_sctr_pension_local = (
+                    (re.search(r"\bsctr\b", liquid_text, re.IGNORECASE) or re.search(r"\baccidentes\s+de\s+trabajo\b", liquid_text, re.IGNORECASE))
+                    and (re.search(r"\bpensi[oó]n\b", liquid_text, re.IGNORECASE) or re.search(r"\bpensiones\b", liquid_text, re.IGNORECASE) or re.search(r"\baccidentes\s+de\s+trabajo\b", liquid_text, re.IGNORECASE))
+                )
+                if is_sctr_pension_local:
+                    import importlib
+                    pac_mod = importlib.import_module('controllers.addPacifico')
+                    pac_mod = importlib.reload(pac_mod)
+                    it = pac_mod.parse_pacifico_pension(liquid_text)
+                else:
+                    from controllers.addPacifico import parse_pacifico_convenio
+                    it = parse_pacifico_convenio(liquid_text)
+                if it:
+                    out.append(it)
+            except Exception as e:
+                print(f"[provider] pacifico liquid parse error: {e}")
+
+        if factura_text:
+            try:
+                from controllers.addPacificoSalud import parse_pacifico_salud
+                it = parse_pacifico_salud(factura_text)
+                if it:
+                    out.append(it)
+            except Exception as e:
+                print(f"[provider] pacifico salud parse error: {e}")
+
+        if out:
+            return out
+
+        try:
+            is_vida_ley = re.search(r'\bvida\s+ley\b', low) or re.search(r'\bcondicionado', low)
+            is_factura_eps = (
+                re.search(r"entidad\s+prestadora\s+de\s+salud", low)
+                or re.search(r"factura\s+electr[óo]nica", low)
+            )
+            is_sctr_pension = (
+                (re.search(r"\bsctr\b", low) or re.search(r"\baccidentes\s+de\s+trabajo\b", low))
+                and (re.search(r"\bpensi[oó]n\b", low) or re.search(r"\bpensiones\b", low) or re.search(r"\baccidentes\s+de\s+trabajo\b", low))
+                and not is_factura_eps
+            )
+            is_sctr_salud = (
+                (re.search(r"\bsctr\b", low) and (re.search(r"\bsalud\b", low) or is_factura_eps or re.search(r"\beps\b", low)))
+                or is_factura_eps
+            )
+            is_multisalud = re.search(r'multisalud', low) or re.search(r'aviso\s+de\s+cobranza', low)
+
+            if is_multisalud:
+                return []
+            if is_vida_ley:
                 from controllers.addPacificoVidaLey import parse_pacifico_vidaley
                 it = parse_pacifico_vidaley(text)
-                if it:
-                     items.append(it)
-            elif is_sctr_pension:
-
+                return [it] if it else []
+            if is_sctr_pension:
                 import importlib
                 pac_mod = importlib.import_module('controllers.addPacifico')
                 pac_mod = importlib.reload(pac_mod)
                 it = pac_mod.parse_pacifico_pension(text)
-                if it:
-                    items.append(it)
-            else:
-                from controllers.addPacifico import parse_pacifico_convenio
-                it = parse_pacifico_convenio(text)
-                if it:
-                    items.append(it)
-
-            # Antes era "elif"; mantenemos "if" para detectar salud además del anterior
-
-            if is_sctr_salud and not is_multisalud:
+                return [it] if it else []
+            if is_sctr_salud:
                 from controllers.addPacificoSalud import parse_pacifico_salud
                 it = parse_pacifico_salud(text)
-                if it:
-                    items.append(it)
+                return [it] if it else []
+            from controllers.addPacifico import parse_pacifico_convenio
+            it = parse_pacifico_convenio(text)
+            return [it] if it else []
         except Exception as e:
-            print(f"[provider] pacifico parse error: {e}")
-
-        return items
+            print(f"[provider] pacifico parse fallback error: {e}")
+            return []
 
     print(f"[provider] detectado: {prov}")
 
