@@ -26,7 +26,7 @@ def _money(s: Optional[str]) -> Optional[str]:
 
 
 def parse_grandia_eps(text: str) -> Dict[str, str]:
-    contrato = _find(r"CONTRATO\s*(?:NO\.?|NRO\.?|N°|Nº)?\s*[:.]?\s*([0-9A-Z\-]+)", text)
+    contrato = _find(r"CONTRATO\s*(?:NO\.?|NRO\.?|N°|Nº)\s*[:.]?\s*([0-9]{5,}(?:-[0-9A-Z]+)?)", text)
 
     m_vig = re.search(
         r"VIGENCIA\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})\s*(?:al|hasta|-|–|—)\s*([0-9]{2}/[0-9]{2}/[0-9]{4})",

@@ -3684,12 +3684,21 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
         # NUEVO: preferir Crecer si aparece, aunque también figure 'sanitasperu'
         elif "crecer seguros" in t or re.search(r"\bcrecer\b", t):
             prov = "crecer"
+        # NUEVO: Grandia EPS (prioridad sobre Protecta, porque puede contener links de protectasecurity.pe)
+        elif re.search(r"\bgrandia\b", t) and re.search(r"\beps\b", t):
+            prov = "grandia-eps"
         # NUEVO: detectar Protecta ANTES que Sanitas (por pasarela de pago Sanitas en PDFs de Protecta)
         # Se agregan RUC y Código SBS de Protecta para mayor robustez
-        elif "protecta" in t or "protecta security" in t or re.search(r"p\s*r\s*o\s*t\s*e\s*c\s*t\s*a", t) or "20517207331" in t or "vi2097700027" in t:
+        elif (
+            ("protectasecurity.pe" in t)
+            or ("protecta security" in t)
+            or ("20517207331" in t)
+            or ("vi2097700027" in t)
+            or re.search(r"\bprotecta\b\s+security\b", t)
+        ):
             prov = "protecta"
         # NUEVO: detectar Protecta por título específico (SCTR Pensiones)
-        elif "condiciones particulares" in t and "pensiones" in t and ("protecta" in t or re.search(r"p\s*r\s*o\s*t\s*e\s*c\s*t\s*a", t) or "20517207331" in t):
+        elif "condiciones particulares" in t and "pensiones" in t and (("protectasecurity.pe" in t) or ("protecta security" in t) or ("20517207331" in t) or ("vi2097700027" in t)):
             prov = "protecta"
         elif (
             re.search(r"\bcontrato\s+no\.", t)
@@ -3702,8 +3711,6 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             prov = "grandia-eps"
         elif "sanitas" in t:
             prov = "sanitas"
-        elif "grandia" in t and "eps" in t:
-            prov = "grandia-eps"
         elif (re.search(r"\br[íi]mac\b", t) or "rimac seguros" in t or "rímac seguros" in t) or re.search(r"\bNro\.?\s*[:：]?\s*\d{3,6}\s*[-–—]\s*\d{5,12}\b", t) or re.search(r"pol[ií]za\s*\d{3,6}\s*-\s*\d{5,12}", t):
             prov = "rimac"
         elif "pacifico" in t or "pacífico" in t:
@@ -3717,9 +3724,11 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
     # Backstop: corregir proveedor si el contenido lo indica claramente
     # Evita ruta equivocada cuando el UI envió 'proctecta/protecta/positiva' erróneamente.
     if prov in ('proctecta', 'protecta', 'positiva', 'sanitas', None):
-        if ('pacifico' in low or 'pacífico' in low):
+        if ("grandia" in low and "eps" in low):
+            prov = 'grandia-eps'
+        elif ('pacifico' in low or 'pacífico' in low):
             prov = 'pacifico'
-        elif "protecta" in t or "protecta security" in t or re.search(r"p\s*r\s*o\s*t\s*e\s*c\s*t\s*a", t) or "20517207331" in t or "vi2097700027" in t:
+        elif ("protectasecurity.pe" in t) or ("protecta security" in t) or ("20517207331" in t) or ("vi2097700027" in t) or re.search(r"\bprotecta\b\s+security\b", t):
              prov = 'protecta'
 
     # NUEVO: Detectar Crecer Seguros explícitamente (prioridad sobre Positiva/Sanitas)
@@ -4128,8 +4137,11 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
         return [item] if item else []
 
     if prov == "grandia-eps":
-        from controllers.addGrandiaEps import parse_grandia_eps
-        item = parse_grandia_eps(text)
+        from controllers.addGrandiaEpsV2 import parse_grandia_eps_v2
+        from controllers.addGrandiaEps import parse_grandia_eps as parse_grandia_eps_v1
+        item = parse_grandia_eps_v2(text)
+        if _missing_fields(item, ["numero_poliza", "colectivo_asegurado", "prima_neta"]):
+            item = parse_grandia_eps_v1(text)
         print("[provider] grandia eps item:", item)
         return [item] if item else []
 
