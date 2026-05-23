@@ -142,13 +142,16 @@
                 alert('No se pudo obtener el ID del registro.');
                 return;
             }
+            const poliza = tr?.querySelector('td:nth-child(2)')?.textContent?.trim() || '';
+            const avisoCell = tr?.querySelector('td:nth-child(1)')?.textContent?.trim() || '';
+            const aviso = (avisoCell && avisoCell !== '—') ? avisoCell : '';
             openConfirm('¿Eliminar este registro?', async () => {
                 try {
                     t.disabled = true;
                     const res = await fetch('/primas/delete', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ idPrima: id, idPoliza: id })
+                        body: JSON.stringify({ idPrima: id, idPoliza: id, poliza, aviso })
                     });
                     const data = await res.json().catch(() => ({}));
                     if (res.ok && data && data.ok) {

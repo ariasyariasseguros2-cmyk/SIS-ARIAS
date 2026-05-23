@@ -1276,6 +1276,7 @@ CREATE PROCEDURE sp_delete_poliza(
 BEGIN
     DECLARE v_usuario_nombre VARCHAR(100);
     DECLARE v_poliza_numero VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+    DECLARE v_cupon_numero VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
     DECLARE v_poliza_affected INT;
     SET v_usuario_nombre = NULL;
     IF p_usuario IS NOT NULL AND TRIM(p_usuario) <> '' THEN
@@ -1297,6 +1298,7 @@ BEGIN
 
     IF v_poliza_affected > 0 THEN
         SET v_poliza_numero = NULL;
+        SET v_cupon_numero = NULL;
         SELECT TRIM(
             COALESCE(
                 CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
@@ -1309,15 +1311,44 @@ BEGIN
         WHERE idPoliza = p_id
         LIMIT 1;
 
-        UPDATE cuotas
-        SET activo = 0,
-            usuario_edicion = v_usuario_nombre
-        WHERE activo = 1
-          AND (
-            poliza_id = p_id
-            OR (TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4), poliza)) COLLATE utf8mb4_0900_ai_ci) = v_poliza_numero
-            OR (TRIM(poliza) COLLATE utf8mb4_0900_ai_ci) = v_poliza_numero
-          );
+        SELECT TRIM(
+            COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                recibo
+            )
+        )
+        INTO v_cupon_numero
+        FROM polizas
+        WHERE idPoliza = p_id
+        LIMIT 1;
+
+        IF v_cupon_numero IS NOT NULL AND TRIM(v_cupon_numero) <> '' THEN
+            UPDATE cuotas
+            SET activo = 0,
+                usuario_edicion = v_usuario_nombre
+            WHERE activo = 1
+              AND TRIM(
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                        CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                        cupon
+                    )
+                ) COLLATE utf8mb4_0900_ai_ci = (v_cupon_numero COLLATE utf8mb4_0900_ai_ci)
+              AND (
+                    poliza_id = p_id
+                    OR (
+                        v_poliza_numero IS NOT NULL AND TRIM(v_poliza_numero) <> ''
+                        AND TRIM(
+                                COALESCE(
+                                    CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                    CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                    poliza
+                                )
+                            ) COLLATE utf8mb4_0900_ai_ci = (v_poliza_numero COLLATE utf8mb4_0900_ai_ci)
+                    )
+                  );
+        END IF;
     END IF;
 
     SELECT v_poliza_affected AS affected_rows;

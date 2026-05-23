@@ -167,71 +167,113 @@ def delete_prima_route():
         cnx = get_connection()
         if not cnx:
             return {'ok': False, 'errors': ['Error de conexión a BD']}, 500
-        cur = cnx.cursor()
-        affected_rows = 0
-        try:
-            cur.callproc('sp_delete_poliza', [pid, usuario])
-            for result in cur.stored_results():
-                row = result.fetchone()
-                if row:
-                    affected_rows = row[0]
-        except Exception:
-            try:
-                try:
-                    cur.close()
-                except Exception:
-                    pass
-                cur = cnx.cursor()
-                cur.execute(
-                    "UPDATE polizas SET activo = 0, usuario_edicion = %s WHERE idPoliza = %s AND activo = 1",
-                    (usuario, pid),
-                )
-                affected_rows = cur.rowcount or 0
-            except Exception:
-                affected_rows = 0
-        cuotas_affected = 0
+        cur = cnx.cursor(dictionary=True)
         poliza_numero = None
+        cupon_numero = None
         try:
             cur.execute(
                 """
-                SELECT (TRIM(
-                    COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
-                        CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
-                        poliza
-                    )
-                ) COLLATE utf8mb4_0900_ai_ci) AS poliza_numero
+                SELECT
+                    TRIM(
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                            CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                            poliza
+                        )
+                    ) AS poliza_numero,
+                    TRIM(
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                            CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                            recibo
+                        )
+                    ) AS cupon_numero
                 FROM polizas
                 WHERE idPoliza = %s
                 LIMIT 1
                 """,
                 (pid,),
             )
-            r = cur.fetchone()
-            if r:
-                poliza_numero = r[0]
+            r = cur.fetchone() or {}
+            poliza_numero = (r.get('poliza_numero') or '').strip() or None
+            cupon_numero = (r.get('cupon_numero') or '').strip() or None
         except Exception:
-            poliza_numero = None
+            poliza_numero = (data.get('poliza') or '').strip() or None
+            cupon_numero = (data.get('aviso') or data.get('cupon') or '').strip() or None
 
-        if poliza_numero:
+        affected_rows = 0
+        try:
+            cur.execute(
+                "UPDATE polizas SET activo = 0, usuario_edicion = %s WHERE idPoliza = %s AND activo = 1",
+                (usuario, pid),
+            )
+            affected_rows = cur.rowcount or 0
+        except Exception:
+            affected_rows = 0
+
+        cuotas_affected = 0
+        if cupon_numero:
             try:
-                cur.execute(
-                    """
-                    UPDATE cuotas
-                    SET activo = 0,
-                        usuario_edicion = %s
-                    WHERE activo = 1
-                      AND (
-                        poliza_id = %s
-                        OR (TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4), poliza)) COLLATE utf8mb4_0900_ai_ci) = (%s COLLATE utf8mb4_0900_ai_ci)
-                        OR (TRIM(poliza) COLLATE utf8mb4_0900_ai_ci) = (%s COLLATE utf8mb4_0900_ai_ci)
-                      )
-                    """,
-                    (usuario, pid, poliza_numero, poliza_numero),
-                )
-                cuotas_affected = cur.rowcount or 0
+                if poliza_numero:
+                    cur.execute(
+                        """
+                        UPDATE cuotas
+                        SET activo = 0,
+                            usuario_edicion = %s
+                        WHERE activo = 1
+                          AND (
+                                (
+                                    poliza_id = %s
+                                    AND TRIM(
+                                            COALESCE(
+                                                CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                                CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                                cupon
+                                            )
+                                        ) COLLATE utf8mb4_0900_ai_ci = (%s COLLATE utf8mb4_0900_ai_ci)
+                                )
+                                OR (
+                                    TRIM(
+                                            COALESCE(
+                                                CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                                CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                                poliza
+                                            )
+                                        ) COLLATE utf8mb4_0900_ai_ci = (%s COLLATE utf8mb4_0900_ai_ci)
+                                    AND TRIM(
+                                            COALESCE(
+                                                CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                                CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                                cupon
+                                            )
+                                        ) COLLATE utf8mb4_0900_ai_ci = (%s COLLATE utf8mb4_0900_ai_ci)
+                                )
+                            )
+                        """,
+                        (usuario, pid, cupon_numero, poliza_numero, cupon_numero),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        UPDATE cuotas
+                        SET activo = 0,
+                            usuario_edicion = %s
+                        WHERE activo = 1
+                          AND poliza_id = %s
+                          AND TRIM(
+                                COALESCE(
+                                    CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                    CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                    cupon
+                                )
+                            ) COLLATE utf8mb4_0900_ai_ci = (%s COLLATE utf8mb4_0900_ai_ci)
+                        """,
+                        (usuario, pid, cupon_numero),
+                    )
+                cuotas_affected = (cur.rowcount or 0)
             except Exception:
                 cuotas_affected = 0
+
         cnx.commit()
         cur.close()
         cnx.close()
