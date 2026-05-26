@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const cuotasOffcanvasContent = document.getElementById('cuotasOffcanvasContent');
     const cuotasOffcanvasSubtitle = document.getElementById('cuotasOffcanvasSubtitle');
     let cuotasOffcanvasInstance = null;
+    window.activeRecibosPoliza = window.activeRecibosPoliza || '';
 
     if (rowsPerPageSelect) {
         rowsPerPageSelect.addEventListener('change', function() {
@@ -394,9 +395,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const idPoliza = (row.idPoliza || '').toString();
             const safePoliza = poliza.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
             const safeIdPoliza = idPoliza.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const isActive = (window.activeRecibosPoliza || '') === poliza;
+            const trClass = isActive ? 'active-recibo-row' : '';
+            const btnClass = isActive ? 'btn btn-sm btn-primary btn-ver-recibos' : 'btn btn-sm btn-outline-primary btn-ver-recibos';
 
             return `
-                <tr>
+                <tr class="${trClass}" data-poliza="${safePoliza}">
                     <td>${row.compania || '-'}</td>
                     <td>${row.ramo || '-'}</td>
                     <td>${row.producto || '-'}</td>
@@ -408,7 +412,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${primaNeta}</td>
                     <td>${primaTotal}</td>
                     <td class="text-end">
-                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="openCuotasPanel('${safePoliza}', '${safeIdPoliza}')">
+                        <button type="button" class="${btnClass}" data-poliza="${safePoliza}" onclick="openCuotasPanel('${safePoliza}', '${safeIdPoliza}')">
                             Ver recibos
                         </button>
                     </td>
@@ -559,10 +563,37 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!cuotasOffcanvasEl) return null;
         if (cuotasOffcanvasInstance) return cuotasOffcanvasInstance;
         if (window.bootstrap && window.bootstrap.Offcanvas) {
-            cuotasOffcanvasInstance = window.bootstrap.Offcanvas.getOrCreateInstance(cuotasOffcanvasEl);
+            const existing = window.bootstrap.Offcanvas.getInstance(cuotasOffcanvasEl);
+            cuotasOffcanvasInstance = existing || new window.bootstrap.Offcanvas(cuotasOffcanvasEl, { backdrop: 'static', keyboard: false });
             return cuotasOffcanvasInstance;
         }
         return null;
+    }
+
+    function setActiveRecibosPoliza(poliza) {
+        const p = (poliza || '').toString();
+        window.activeRecibosPoliza = p;
+        if (!tableBody) return;
+
+        const prev = tableBody.querySelector('tr.active-recibo-row');
+        if (prev) {
+            prev.classList.remove('active-recibo-row');
+            const prevBtn = prev.querySelector('.btn-ver-recibos');
+            if (prevBtn) {
+                prevBtn.classList.remove('btn-primary');
+                prevBtn.classList.add('btn-outline-primary');
+            }
+        }
+
+        const next = tableBody.querySelector(`tr[data-poliza="${CSS.escape(p)}"]`);
+        if (next) {
+            next.classList.add('active-recibo-row');
+            const nextBtn = next.querySelector('.btn-ver-recibos');
+            if (nextBtn) {
+                nextBtn.classList.remove('btn-outline-primary');
+                nextBtn.classList.add('btn-primary');
+            }
+        }
     }
 
     function getCurrencyPrefix(moneda) {
@@ -769,6 +800,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const polizaRow = findPolizaRow(poliza);
         window.currentPoliza = poliza || '';
         window.currentPolizaId = idPoliza || '';
+        setActiveRecibosPoliza(poliza);
 
         if (cuotasOffcanvasSubtitle) {
             const compania = polizaRow ? (polizaRow.compania || '') : '';
