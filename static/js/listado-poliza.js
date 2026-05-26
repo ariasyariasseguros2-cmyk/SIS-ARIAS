@@ -22,6 +22,113 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let currentSearchType = 'general';
 
+  const anularModalEl = document.getElementById('anularPolizaModal');
+  const anularModalInstance = (anularModalEl && window.bootstrap)
+    ? bootstrap.Modal.getOrCreateInstance(anularModalEl, { backdrop: 'static' })
+    : null;
+  const anularFields = {
+    numero: document.getElementById('anularPolizaNumero'),
+    asegurado: document.getElementById('anularPolizaAsegurado'),
+    vigInicio: document.getElementById('anularPolizaVigInicio'),
+    vigFin: document.getElementById('anularPolizaVigFin'),
+    fecha: document.getElementById('anularPolizaFecha'),
+    motivo: document.getElementById('anularPolizaMotivo'),
+    motivoError: document.getElementById('anularPolizaMotivoError'),
+    btnOk: document.getElementById('anularPolizaConfirm'),
+    btnCancel: document.getElementById('anularPolizaCancel')
+  };
+
+  const toDateInputValue = (dateObj) => {
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const setMotivoError = (message) => {
+    if (!anularFields.motivo) return;
+    if (message) {
+      anularFields.motivo.classList.add('is-invalid');
+      if (anularFields.motivoError) anularFields.motivoError.textContent = message;
+    } else {
+      anularFields.motivo.classList.remove('is-invalid');
+    }
+  };
+
+  const openAnularPolizaModal = (data) => {
+    if (!anularModalEl || !anularModalInstance || !anularFields.motivo || !anularFields.btnOk) {
+      const motivo = window.prompt('Motivo de anulación:');
+      if (!motivo) return Promise.resolve(null);
+      return Promise.resolve({
+        motivo: motivo.trim(),
+        fechaAnulacion: toDateInputValue(new Date())
+      });
+    }
+
+    if (anularFields.numero) anularFields.numero.value = data.poliza || '';
+    if (anularFields.asegurado) anularFields.asegurado.value = data.asegurado || '';
+    if (anularFields.vigInicio) anularFields.vigInicio.value = data.vig_inicio || '';
+    if (anularFields.vigFin) anularFields.vigFin.value = data.vig_fin || '';
+    if (anularFields.fecha) {
+      anularFields.fecha.value = toDateInputValue(new Date());
+    }
+    anularFields.motivo.value = '';
+    setMotivoError('');
+
+    return new Promise((resolve) => {
+      let decided = false;
+
+      const cleanup = () => {
+        anularFields.btnOk.removeEventListener('click', onOk);
+        anularFields.btnCancel?.removeEventListener('click', onCancel);
+        anularModalEl.removeEventListener('hidden.bs.modal', onHidden);
+        anularFields.motivo.removeEventListener('input', onInput);
+      };
+
+      const onInput = () => setMotivoError('');
+
+      const onOk = () => {
+        const motivo = anularFields.motivo.value.trim();
+        if (!motivo) {
+          setMotivoError('Ingrese el motivo de la anulación.');
+          return;
+        }
+        if (motivo.length > 200) {
+          setMotivoError('El motivo no puede exceder 200 caracteres.');
+          return;
+        }
+        decided = true;
+        cleanup();
+        anularModalInstance.hide();
+        resolve({
+          motivo,
+          fechaAnulacion: (anularFields.fecha?.value || toDateInputValue(new Date()))
+        });
+      };
+
+      const onCancel = () => {
+        decided = true;
+        cleanup();
+        anularModalInstance.hide();
+        resolve(null);
+      };
+
+      const onHidden = () => {
+        if (decided) return;
+        cleanup();
+        resolve(null);
+      };
+
+      anularFields.btnOk.addEventListener('click', onOk);
+      anularFields.btnCancel?.addEventListener('click', onCancel);
+      anularModalEl.addEventListener('hidden.bs.modal', onHidden);
+      anularFields.motivo.addEventListener('input', onInput);
+
+      anularModalInstance.show();
+      anularFields.motivo.focus();
+    });
+  };
+
   // === 1. LÓGICA DE TABS (FILTROS DE BÚSQUEDA) ===
   if (searchTabs) {
     searchTabs.addEventListener('click', (e) => {
@@ -398,12 +505,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('openRenovarPolizaModal no definido');
             }
         } else if (action === 'anular') {
-             if (!confirm('¿Está seguro de anular esta póliza?')) return;
+             const modalResult = await openAnularPolizaModal({
+                 poliza,
+                 asegurado: row?.querySelector('td:nth-child(2)')?.textContent?.trim() || '',
+                 vig_inicio: row?.querySelector('td:nth-child(7)')?.textContent?.trim() || '',
+                 vig_fin: row?.querySelector('td:nth-child(8)')?.textContent?.trim() || ''
+             });
+             if (!modalResult) return;
              try {
                  const resp = await fetch('/api/polizas/anular', {
                      method: 'POST',
                      headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify({ idPoliza })
+                     body: JSON.stringify({
+                       idPoliza,
+                       motivo: modalResult.motivo,
+                       fechaAnulacion: modalResult.fechaAnulacion
+                     })
                  });
                  const json = await resp.json();
                  if (json.ok) {
