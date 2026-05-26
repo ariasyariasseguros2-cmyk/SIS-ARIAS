@@ -17,15 +17,29 @@
 }
 
 /* Tabla de pólizas */
-.table-responsive {
+.estado-cuenta-table-responsive {
     max-height: 600px;
-    overflow-y: auto;
+    overflow: auto !important;
+    overscroll-behavior: contain;
+    position: relative;
 }
 
-.table thead {
-    position: sticky;
-    top: 0;
+.estado-cuenta-table-responsive .table-custom-font thead th {
+    position: sticky !important;
+    top: -1px !important;
+    z-index: 20 !important;
+    background-color: var(--bs-table-bg, #fff3cd) !important;
+    background-clip: padding-box;
+}
+
+.estado-cuenta-table-responsive .table-custom-font thead {
     z-index: 10;
+    background-color: var(--bs-table-bg, #fff3cd) !important;
+}
+
+.estado-cuenta-table-responsive .table-custom-font thead tr {
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.08);
+    background-color: var(--bs-table-bg, #fff3cd) !important;
 }
 
 .table th {

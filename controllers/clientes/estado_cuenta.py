@@ -41,6 +41,9 @@ def get_estado_cuenta_data(filtros_input=None):
                 'fecha_hasta': request.args.get('fecha_hasta', '')
             }
 
+        if (filters.get('estado') or '').strip().upper() == 'CANCELADO':
+            filters['estado'] = 'PAGADO'
+
 
 
         cnx = get_connection()
@@ -289,6 +292,8 @@ def get_estado_cuenta_data(filtros_input=None):
 
             if filters['estado']:
                 est = filters['estado'].strip().upper()
+                if est == 'PAGADO':
+                    est = 'CANCELADO'
                 polizas = [r for r in polizas if (r.get('estado') or '').upper() == est]
 
             # (No filtrar aquí: mostrar todas las pólizas, no eliminar por monto_cta_pagar)
@@ -321,7 +326,22 @@ def get_estado_cuenta_data(filtros_input=None):
 
         # Obtener los estados reales de la tabla polizas
         cur.execute("SELECT DISTINCT estado FROM polizas WHERE estado IS NOT NULL AND estado != '' AND UPPER(estado) NOT IN ('INACTIVO', 'INACTIVA') ORDER BY estado")
-        estados = [row['estado'] for row in cur.fetchall()]
+        estados_raw = [row['estado'] for row in cur.fetchall()]
+        estados = []
+        seen = set()
+        for e in estados_raw:
+            disp = 'PAGADO' if (e or '').strip().upper() == 'CANCELADO' else e
+            if not disp:
+                continue
+            key_disp = disp.strip().upper()
+            if key_disp in seen:
+                continue
+            seen.add(key_disp)
+            estados.append(disp)
+        for requerido in ('PENDIENTE', 'PAGADO'):
+            if requerido not in seen:
+                estados.insert(0, requerido)
+                seen.add(requerido)
 
         # Normalizar monedas para el filtro (mostrar opciones simples)
         monedas_normalizadas = ['SOLES', 'DÓLARES']
@@ -452,6 +472,9 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
         'fecha_desde': args.get('fecha_desde', ''),
         'fecha_hasta': args.get('fecha_hasta', '')
     }
+
+    if (filters.get('estado') or '').strip().upper() == 'CANCELADO':
+        filters['estado'] = 'PAGADO'
 
     # Reusar la lógica de consulta para obtener polizas
     cnx = get_connection()
@@ -636,6 +659,8 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
 
         if filters['estado']:
             est = filters['estado'].strip().upper()
+            if est == 'PAGADO':
+                est = 'CANCELADO'
             polizas = [r for r in polizas if (r.get('estado') or '').upper() == est]
 
             # (No filtrar aquí para export: mantener todas las pólizas, no eliminar por monto_cta_pagar)
@@ -688,7 +713,7 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             moneda or '-',
             float(p.get('monto_cta_cobrar') or 0),
             float(p.get('monto_cta_pagar') or 0),
-            p.get('estado') or '-'
+            'PAGADO' if (p.get('estado') or '').strip().upper() == 'CANCELADO' else (p.get('estado') or '-')
         ])
 
     # Crear carpeta de export

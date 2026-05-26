@@ -167,7 +167,7 @@
                 <h5 class="mb-0"><i class="bi bi-table"></i> {{ compania or 'SIN COMPAÑÍA' }} ({{ items|length }} resultados)</h5>
             </div>
             <div class="card-body p-0">
-                <div class="table-responsive">
+                <div class="table-responsive estado-cuenta-table-responsive">
                     <style>
                         /* Tipografía y tamaños consistentes para la tabla y subtotales */
                         .table-custom-font { font-family: inherit; font-size: 15px; }
@@ -259,13 +259,18 @@
                                 </td>
                                 <td class="text-end">{{ "%.2f"|format(p.monto_cta_cobrar|float) if p.monto_cta_cobrar else '0.00' }}</td>
                                 <td>
+                                    {% set estado_raw = p.estado or '' %}
+                                    {% set estado_upper = estado_raw.upper() %}
+                                    {% set estado_display = 'PAGADO' if estado_upper == 'CANCELADO' else (p.estado or '-') %}
+                                    {% set estado_display_upper = estado_display.upper() if estado_display else '' %}
                                     <span class="badge
-                                        {% if p.estado and p.estado.upper() == 'CANCELADO' %}bg-danger
-                                        {% elif p.estado and p.estado.upper() == 'PENDIENTE' %}bg-warning text-dark
-                                        {% elif p.estado and p.estado.upper() == 'SIN PRIMA' %}bg-info text-dark
-                                        {% elif p.estado and p.estado.upper() == 'VIGENTE' %}bg-success
+                                        {% if estado_display_upper == 'PAGADO' %}bg-success
+                                        {% elif estado_display_upper == 'PENDIENTE' %}bg-warning text-dark
+                                        {% elif estado_display_upper == 'SIN PRIMA' %}bg-info text-dark
+                                        {% elif estado_display_upper == 'VIGENTE' %}bg-success
+                                        {% elif 'ANUL' in estado_display_upper %}bg-danger
                                         {% else %}bg-secondary{% endif %}">
-                                        {{ p.estado or '-' }}
+                                        {{ estado_display }}
                                     </span>
                                 </td>
                             </tr>
