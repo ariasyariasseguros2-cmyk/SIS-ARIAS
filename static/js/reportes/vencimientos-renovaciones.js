@@ -22,6 +22,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const pageInfo = document.getElementById('pageInfo');
     const paginationContainer = document.getElementById('paginationContainer');
 
+    const cuotasOffcanvasEl = document.getElementById('cuotasOffcanvas');
+    const cuotasOffcanvasContent = document.getElementById('cuotasOffcanvasContent');
+    const cuotasOffcanvasSubtitle = document.getElementById('cuotasOffcanvasSubtitle');
+    let cuotasOffcanvasInstance = null;
+
     if (rowsPerPageSelect) {
         rowsPerPageSelect.addEventListener('change', function() {
             rowsPerPage = parseInt(this.value);
@@ -385,6 +390,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const moneda = row.moneda || '';
             const primaNeta = row.prima_neta ? parseFloat(row.prima_neta).toFixed(2) : '0.00';
             const primaTotal = row.prima_total ? parseFloat(row.prima_total).toFixed(2) : '0.00';
+            const poliza = (row.poliza || '').toString();
+            const idPoliza = (row.idPoliza || '').toString();
+            const safePoliza = poliza.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const safeIdPoliza = idPoliza.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
             return `
                 <tr>
@@ -399,14 +408,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${primaNeta}</td>
                     <td>${primaTotal}</td>
                     <td class="text-end">
-                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleCuotasRow('${row.poliza || ''}', '${row.idPoliza || ''}')">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="openCuotasPanel('${safePoliza}', '${safeIdPoliza}')">
                             Ver recibos
                         </button>
-                    </td>
-                </tr>
-                <tr id="cuotas_${row.poliza || ''}_${row.idPoliza || ''}" class="d-none">
-                    <td colspan="11">
-                        <div id="cuotas_container_${row.poliza || ''}_${row.idPoliza || ''}" class="py-2"></div>
                     </td>
                 </tr>
             `;
@@ -544,116 +548,239 @@ document.addEventListener('DOMContentLoaded', function() {
         return 'secondary';
     }
 
-    function renderCuotasRows(rows, polizaCtx) {
-        if (!rows || rows.length === 0) {
-            return `<div class="text-muted small">No hay cuotas registradas</div>`;
-        }
-        const paidCount = rows.reduce((acc, r) => {
-            const hasFactura = !!(r.factura && String(r.factura).trim() !== '' && r.factura !== '-');
-            const hasFechaPago = !!(r.fecha_pago && String(r.fecha_pago).trim() !== '' && r.fecha_pago !== '-');
-            return acc + (hasFactura && hasFechaPago ? 1 : 0);
-        }, 0);
-        const note = paidCount === rows.length
-            ? `<div class="text-muted small px-2 mb-2">No hay cuotas pendientes</div>`
-            : '';
-
-        const header = `
-            <div class="table-responsive">
-              <table class="table table-sm mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th>PROFORMA</th>
-                    <th>TIPO</th>
-                    <th>CUPÓN</th>
-                    <th>FECHA VENCIMIENTO</th>
-                    <th>FECHA DE PAGO</th>
-                    <th>IMPORTE</th>
-                    <th>FACTURA</th>
-                    <th>ESTADO</th>
-                    <th>ACCIONES</th>
-                  </tr>
-                </thead>
-                <tbody>
-        `;
-        const body = rows.map((r, index) => {
-            const hasFactura = !!(r.factura && String(r.factura).trim() !== '' && r.factura !== '-');
-            const hasFechaPago = !!(r.fecha_pago && String(r.fecha_pago).trim() !== '' && r.fecha_pago !== '-');
-            const isPaid = hasFactura && hasFechaPago;
-            const estadoLabel = isPaid ? 'PAGADO' : 'PENDIENTE';
-            const showEdit = true;
-            return `
-            <tr class="${isPaid ? 'table-success' : ''}">
-                <td>${r.aviso_cobranza || String(r.cupon || '').replace(/-\d+$/,'') || '-'}</td>
-                <td>${r.tipo_doc || '-'}</td>
-                <td>${r.cupon || '-'}</td>
-                <td>${r.fecha_vencimiento || '-'}</td>
-                <td>${r.fecha_pago || '-'}</td>
-                <td>${r.importe || '-'}</td>
-                <td>${r.factura || '-'}</td>
-                <td><span class="badge bg-${isPaid ? 'success' : 'warning'}">${estadoLabel}</span></td>
-                <td>
-                    ${showEdit
-                        ? `<button type="button"
-                                   class="btn btn-sm btn-outline-secondary"
-                                   title="Editar cuota"
-                                   onclick="CuotaEditModal.open(window.cuotasCache['${polizaCtx || ''}'][${index}], '${polizaCtx || ''}')">
-                               <i class="bi bi-pencil"></i>
-                           </button>`
-                        : ''
-                    }
-                </td>
-            </tr>
-        `;
-        }).join('');
-
-        const footer = `
-                </tbody>
-              </table>
-            </div>
-        `;
-        return note + header + body + footer;
-    }
-
     window.cuotasCache = {};
 
-    window.toggleCuotasRow = async function(poliza, idPoliza) {
-        const rowId = `cuotas_${poliza || ''}_${idPoliza || ''}`;
-        const containerId = `cuotas_container_${poliza || ''}_${idPoliza || ''}`;
-        const row = document.getElementById(rowId);
-        const container = document.getElementById(containerId);
-        
-        if (!row || !container) return;
-        const isHidden = row.classList.contains('d-none');
-        if (isHidden) {
-            container.innerHTML = `<div class="text-muted small px-2">Cargando recibos...</div>`;
-            try {
-                let url = `/api/cuotas/list?poliza=${encodeURIComponent(poliza)}`;
-                
-                // Get date filters from the main form
-                const fechaDesde = document.getElementById('fechaDesde').value;
-                const fechaHasta = document.getElementById('fechaHasta').value;
-                
-                if (fechaDesde) url += `&fecha_desde=${encodeURIComponent(fechaDesde)}`;
-                if (fechaHasta) url += `&fecha_hasta=${encodeURIComponent(fechaHasta)}`;
+    function ensureOffcanvasInstance() {
+        if (!cuotasOffcanvasEl) return null;
+        if (cuotasOffcanvasInstance) return cuotasOffcanvasInstance;
+        if (window.bootstrap && window.bootstrap.Offcanvas) {
+            cuotasOffcanvasInstance = window.bootstrap.Offcanvas.getOrCreateInstance(cuotasOffcanvasEl);
+            return cuotasOffcanvasInstance;
+        }
+        return null;
+    }
 
-                // if (idPoliza) {
-                //     url += `&poliza_id=${encodeURIComponent(idPoliza)}`;
-                // }
-                const resp = await fetch(url);
-                const json = await resp.json();
-                const rows = (json && json.rows) ? json.rows : [];
-                
-                // Cache rows for modal access
-                window.cuotasCache[poliza] = rows;
-                
-                container.innerHTML = renderCuotasRows(rows, poliza);
-            } catch (err) {
-                console.error(err);
-                container.innerHTML = `<div class="text-danger small px-2">Error cargando recibos</div>`;
-            }
-            row.classList.remove('d-none');
+    function getCurrencyPrefix(moneda) {
+        const m = (moneda || '').toString().toLowerCase();
+        if (m.includes('usd') || m.includes('dolar') || m.includes('dólar') || m.includes('$')) return '$';
+        return 'S/';
+    }
+
+    function formatAmount(value, moneda) {
+        const raw = (value ?? '').toString().replace(/,/g, '').trim();
+        const num = parseFloat(raw);
+        const prefix = getCurrencyPrefix(moneda);
+        if (!isFinite(num)) return `${prefix} —`;
+        return `${prefix} ${num.toFixed(2)}`;
+    }
+
+    function isCuotaPagada(r) {
+        const hasFactura = !!(r.factura && String(r.factura).trim() !== '' && r.factura !== '-');
+        const hasFechaPago = !!(r.fecha_pago && String(r.fecha_pago).trim() !== '' && r.fecha_pago !== '-');
+        return hasFactura && hasFechaPago;
+    }
+
+    function findPolizaRow(poliza) {
+        const key = (poliza || '').toString();
+        return (allData || []).find(r => String(r.poliza || '') === key) || null;
+    }
+
+    function renderCuotasPanel(polizaRow, cuotas, poliza, idPoliza) {
+        const total = cuotas.length;
+        const pagadas = cuotas.reduce((acc, r) => acc + (isCuotaPagada(r) ? 1 : 0), 0);
+        const pendientes = Math.max(0, total - pagadas);
+        const moneda = (polizaRow && polizaRow.moneda) ? polizaRow.moneda : '';
+
+        const resumen = `
+            <div class="poliza-resumen-card p-3 mb-3">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <div class="fw-bold">${(polizaRow && polizaRow.compania) ? polizaRow.compania : '—'}${(polizaRow && polizaRow.ramo) ? ` - ${polizaRow.ramo}` : ''}</div>
+                        <div class="text-muted small">${(polizaRow && polizaRow.contratante) ? polizaRow.contratante : '—'}</div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="offcanvas">Ocultar</button>
+                </div>
+                <div class="poliza-resumen-grid mt-3">
+                    <div class="small"><span class="text-muted">Póliza:</span> <span class="fw-semibold">${poliza || '—'}</span></div>
+                    <div class="small"><span class="text-muted">Producto:</span> <span class="fw-semibold">${(polizaRow && polizaRow.producto) ? polizaRow.producto : '—'}</span></div>
+                    <div class="small"><span class="text-muted">Vigencia:</span> <span class="fw-semibold">${(polizaRow && polizaRow.vig_desde) ? polizaRow.vig_desde : '—'} - ${(polizaRow && polizaRow.vig_hasta) ? polizaRow.vig_hasta : '—'}</span></div>
+                </div>
+            </div>
+        `;
+
+        const kpis = `
+            <div class="kpi-grid mb-3">
+                <div class="kpi-card p-3">
+                    <div class="kpi-label">Total cuotas</div>
+                    <div class="kpi-value">${total}</div>
+                </div>
+                <div class="kpi-card p-3">
+                    <div class="kpi-label">Pagadas</div>
+                    <div class="kpi-value text-success">${pagadas}</div>
+                </div>
+                <div class="kpi-card p-3">
+                    <div class="kpi-label">Pendientes</div>
+                    <div class="kpi-value text-warning">${pendientes}</div>
+                </div>
+            </div>
+        `;
+
+        const list = total === 0
+            ? `<div class="text-muted small">No hay cuotas registradas.</div>`
+            : cuotas.map((r, index) => {
+                const pagada = isCuotaPagada(r);
+                const statusClass = pagada ? 'status-paid' : 'status-pending';
+                const statusLabel = pagada ? 'Pagado' : 'Pendiente';
+                const numero = r.numero_cuota || r.secuencia || (index + 1);
+                const proforma = r.aviso_cobranza || String(r.cupon || '').replace(/-\d+$/, '') || '-';
+                const cupon = r.cupon || '-';
+                const vence = r.fecha_vencimiento || '-';
+                const fechaPago = r.fecha_pago || '-';
+                const factura = r.factura || '-';
+                const importe = formatAmount(r.importe, moneda);
+
+                const actions = pagada
+                    ? `
+                        <div class="cuota-actions d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="openCuotaPdf('${String(idPoliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">PDF</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="CuotaEditModal.open(window.cuotasCache['${String(poliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'][${index}], '${String(poliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </div>
+                    `
+                    : `
+                        <div class="cuota-actions d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-sm btn-success" onclick="CuotaEditModal.open(window.cuotasCache['${String(poliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'][${index}], '${String(poliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">Pagar</button>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="openCuotaPdf('${String(idPoliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">PDF</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="CuotaEditModal.open(window.cuotasCache['${String(poliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'][${index}], '${String(poliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </div>
+                    `;
+
+                return `
+                    <div class="cuota-card p-3 mb-3">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div class="cuota-title">Cuota #${numero}</div>
+                            <span class="status-pill ${statusClass}">
+                                <span class="status-dot"></span>
+                                ${statusLabel}
+                            </span>
+                        </div>
+                        <div class="row mt-2 g-2">
+                            <div class="col-12 col-sm-6">
+                                <div class="cuota-meta">Proforma</div>
+                                <div class="fw-semibold">${proforma}</div>
+                            </div>
+                            <div class="col-12 col-sm-6">
+                                <div class="cuota-meta">Cupón</div>
+                                <div class="fw-semibold">${cupon}</div>
+                            </div>
+                            <div class="col-12 col-sm-6">
+                                <div class="cuota-meta">Vence</div>
+                                <div class="fw-semibold">${vence}</div>
+                            </div>
+                            <div class="col-12 col-sm-6">
+                                <div class="cuota-meta">Importe</div>
+                                <div class="fw-semibold">${importe}</div>
+                            </div>
+                            <div class="col-12 col-sm-6">
+                                <div class="cuota-meta">Fecha pago</div>
+                                <div class="fw-semibold">${fechaPago}</div>
+                            </div>
+                            <div class="col-12 col-sm-6">
+                                <div class="cuota-meta">Factura</div>
+                                <div class="fw-semibold">${factura}</div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            ${actions}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+        return resumen + kpis + list;
+    }
+
+    async function fetchCuotas(poliza) {
+        let url = `/api/cuotas/list?poliza=${encodeURIComponent(poliza || '')}`;
+
+        const fechaDesde = document.getElementById('fechaDesde').value;
+        const fechaHasta = document.getElementById('fechaHasta').value;
+
+        if (fechaDesde) url += `&fecha_desde=${encodeURIComponent(fechaDesde)}`;
+        if (fechaHasta) url += `&fecha_hasta=${encodeURIComponent(fechaHasta)}`;
+
+        const resp = await fetch(url);
+        const json = await resp.json();
+        return (json && json.rows) ? json.rows : [];
+    }
+
+    function showInlineAlert(message) {
+        if (window.Swal && typeof window.Swal.fire === 'function') {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            window.Swal.fire({
+                icon: 'info',
+                title: 'Aviso',
+                text: message,
+                confirmButtonText: 'Aceptar',
+                confirmButtonColor: '#3b82f6',
+                background: isDark ? '#1a1a1a' : '#ffffff',
+                color: isDark ? '#ffffff' : '#333333',
+                customClass: { popup: 'rounded-4', confirmButton: 'rounded-pill px-4' }
+            });
         } else {
-            row.classList.add('d-none');
+            alert(message);
         }
     }
+
+    window.openCuotaPdf = async function(polizaId) {
+        const id = (polizaId || '').toString().trim();
+        if (!id) {
+            showInlineAlert('No hay documento asociado a esta póliza.');
+            return;
+        }
+        try {
+            const res = await fetch(`/api/cuotas/archivos/${encodeURIComponent(id)}`);
+            const json = await res.json();
+            if (!json || !json.ok || !json.archivos || json.archivos.length === 0) {
+                showInlineAlert('No hay archivos PDF guardados para esta póliza.');
+                return;
+            }
+            const archivo = json.archivos[0];
+            const url = `/uploads/${archivo.ruta_archivo}`;
+            window.open(url, '_blank');
+        } catch (e) {
+            console.error(e);
+            showInlineAlert('Error al intentar cargar el documento.');
+        }
+    };
+
+    window.openCuotasPanel = async function(poliza, idPoliza) {
+        const inst = ensureOffcanvasInstance();
+        if (!cuotasOffcanvasContent) return;
+
+        const polizaRow = findPolizaRow(poliza);
+        window.currentPoliza = poliza || '';
+        window.currentPolizaId = idPoliza || '';
+
+        if (cuotasOffcanvasSubtitle) {
+            const compania = polizaRow ? (polizaRow.compania || '') : '';
+            const contratante = polizaRow ? (polizaRow.contratante || '') : '';
+            cuotasOffcanvasSubtitle.textContent = [compania, contratante].filter(Boolean).join(' • ');
+        }
+
+        cuotasOffcanvasContent.innerHTML = `<div class="text-muted small">Cargando recibos...</div>`;
+        if (inst) inst.show();
+
+        try {
+            const rows = await fetchCuotas(poliza);
+            window.cuotasCache[poliza] = rows;
+            cuotasOffcanvasContent.innerHTML = renderCuotasPanel(polizaRow, rows, poliza, idPoliza);
+        } catch (err) {
+            console.error(err);
+            cuotasOffcanvasContent.innerHTML = `<div class="text-danger small">Error cargando recibos</div>`;
+        }
+    };
 });

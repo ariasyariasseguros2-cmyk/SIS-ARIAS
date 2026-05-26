@@ -33,3 +33,102 @@
     padding: 0.5rem;
     border-bottom: 1px solid #dee2e6;
 }
+
+.cuotas-offcanvas {
+    --bs-offcanvas-width: 520px;
+}
+
+@media (max-width: 576px) {
+    .cuotas-offcanvas {
+        --bs-offcanvas-width: 100vw;
+    }
+}
+
+.poliza-resumen-card {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(25, 135, 84, 0.06), rgba(25, 135, 84, 0.02));
+}
+
+.poliza-resumen-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+}
+
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.kpi-card {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 14px;
+    background-color: #fff;
+}
+
+.kpi-label {
+    color: #6c757d;
+    font-size: 0.8rem;
+}
+
+.kpi-value {
+    font-weight: 700;
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.cuota-card {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 14px;
+    background-color: #fff;
+}
+
+.cuota-title {
+    font-weight: 700;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.55rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.78rem;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+}
+
+.status-paid {
+    background-color: rgba(25, 135, 84, 0.12);
+    color: #146c43;
+}
+
+.status-paid .status-dot {
+    background-color: #198754;
+}
+
+.status-pending {
+    background-color: rgba(255, 193, 7, 0.18);
+    color: #8a6d00;
+}
+
+.status-pending .status-dot {
+    background-color: #ffc107;
+}
+
+.cuota-meta {
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.cuota-actions .btn {
+    border-radius: 999px;
+}

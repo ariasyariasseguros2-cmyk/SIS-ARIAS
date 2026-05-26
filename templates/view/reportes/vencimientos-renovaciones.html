@@ -122,7 +122,22 @@
 <!-- Modal Editar Cuota (Reused from Cuotas) -->
 {% include 'view/cuotas/modal_edit_cuota.html' %}
 
-{% endblock %}3
+<div class="offcanvas offcanvas-end cuotas-offcanvas" tabindex="-1" id="cuotasOffcanvas" aria-labelledby="cuotasOffcanvasLabel">
+    <div class="offcanvas-header">
+        <div>
+            <div class="offcanvas-title fw-bold" id="cuotasOffcanvasLabel">Recibos</div>
+            <div class="text-muted small" id="cuotasOffcanvasSubtitle"></div>
+        </div>
+        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+    </div>
+    <div class="offcanvas-body">
+        <div id="cuotasOffcanvasContent">
+            <div class="text-muted small">Seleccione una póliza y haga clic en Ver recibos.</div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
 
 {% block extra_js_bottom %}
 {{ super() }}
