@@ -503,6 +503,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const acc = map.get(key);
             
+            if ((!acc.idPoliza || String(acc.idPoliza).trim() === '') && r.idPoliza) {
+                acc.idPoliza = r.idPoliza;
+            }
+
             // Actualizar fechas para mostrar el rango completo (min vig_desde, max vig_hasta)
             const newDesde = parseDate(r.vig_desde);
             if (newDesde) {
@@ -517,6 +521,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const currentHasta = parseDate(acc.vig_hasta);
                 if (!currentHasta || newHasta > currentHasta) {
                     acc.vig_hasta = r.vig_hasta;
+                    if (r.idPoliza) acc.idPoliza = r.idPoliza;
                 }
             }
 
