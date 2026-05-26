@@ -1,0 +1,46 @@
+<div class="modal fade" id="anularPolizaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Anular Póliza</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <form id="anularPolizaForm" novalidate>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="anularPolizaNumero">Póliza</label>
+                            <input type="text" class="form-control" id="anularPolizaNumero" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="anularPolizaAsegurado">Asegurado</label>
+                            <input type="text" class="form-control" id="anularPolizaAsegurado" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="anularPolizaVigInicio">Vigencia Inicio</label>
+                            <input type="text" class="form-control" id="anularPolizaVigInicio" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="anularPolizaVigFin">Vigencia Fin</label>
+                            <input type="text" class="form-control" id="anularPolizaVigFin" readonly>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="anularPolizaFecha">Fecha Anulación</label>
+                            <input type="date" class="form-control" id="anularPolizaFecha" required>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label" for="anularPolizaMotivo">Motivo</label>
+                            <textarea class="form-control" id="anularPolizaMotivo" rows="3" maxlength="200" required></textarea>
+                            <div class="invalid-feedback" id="anularPolizaMotivoError">Ingrese el motivo de la anulación.</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="anularPolizaCancel" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-danger" id="anularPolizaConfirm">Anular</button>
+            </div>
+        </div>
+    </div>
+</div>
+
