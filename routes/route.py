@@ -5182,15 +5182,32 @@ def api_polizas_anular():
         return jsonify({'ok': False, 'error': 'No autenticado'}), 401
     data = request.get_json(silent=True) or {}
     pid = data.get('idPoliza')
-    motivo = data.get('motivo') or ''
+    motivo = (data.get('motivo') or '').strip()
+    fecha_anulacion = data.get('fechaAnulacion') or None
     if not pid:
         return jsonify({'ok': False, 'error': 'ID requerido'}), 400
+    if not motivo:
+        return jsonify({'ok': False, 'error': 'Motivo requerido'}), 400
+    if len(motivo) > 200:
+        return jsonify({'ok': False, 'error': 'El motivo supera 200 caracteres'}), 400
+    if fecha_anulacion:
+        try:
+            from datetime import datetime
+            datetime.strptime(fecha_anulacion, '%Y-%m-%d')
+        except Exception:
+            return jsonify({'ok': False, 'error': 'Fecha de anulación inválida'}), 400
     try:
         from models.db import get_connection
         cnx = get_connection()
-        cur = cnx.cursor()
         try:
-            cur.execute("CALL sp_anular_poliza(%s,%s,%s)", (pid, session.get('user'), motivo))
+            cur = cnx.cursor(buffered=True)
+        except TypeError:
+            cur = cnx.cursor()
+        try:
+            cur.execute(
+                "CALL sp_anular_poliza(%s,%s,%s,%s)",
+                (pid, session.get('user'), motivo, fecha_anulacion)
+            )
             affected = 0
             try:
                 for result in cur.stored_results():
@@ -5226,15 +5243,28 @@ def api_polizas_anular():
                 "UPDATE polizas SET anulado=1, estado='ANULADA', motivo=%s, usuario_edicion=%s WHERE idPoliza=%s AND (anulado=0 OR anulado IS NULL) AND (activo=1 OR activo IS NULL)",
                 (motivo, session.get('user'), pid)
             )
+            affected_update = cur.rowcount
+            if affected_update > 0:
+                try:
+                    cur.execute(
+                        "INSERT INTO poliza_anulaciones (poliza_id, poliza_numero, usuario, motivo, fecha_anulacion) "
+                        "SELECT idPoliza, poliza, %s, %s, COALESCE(%s, CURDATE()) FROM polizas WHERE idPoliza=%s",
+                        (session.get('user'), motivo, fecha_anulacion, pid)
+                    )
+                except Exception:
+                    pass
             cnx.commit()
-            ok = cur.rowcount > 0
+            ok = affected_update > 0
             cur.close()
             cnx.close()
             if ok:
                 return jsonify({'ok': True})
             # Comprobación idempotente: si ya está anulada, consideramos éxito
             cnx = get_connection()
-            cur = cnx.cursor()
+            try:
+                cur = cnx.cursor(buffered=True)
+            except TypeError:
+                cur = cnx.cursor()
             cur.execute("SELECT anulado FROM polizas WHERE idPoliza=%s", (pid,))
             st2 = cur.fetchone()
             cur.close()
@@ -5255,15 +5285,28 @@ def api_polizas_anular():
                     "UPDATE polizas SET anulado=1, estado='ANULADA', motivo=%s, usuario_edicion=%s WHERE idPoliza=%s AND activo=1 AND anulado=0",
                     (motivo, session.get('user'), pid)
                 )
+                affected_update = cur.rowcount
+                if affected_update > 0:
+                    try:
+                        cur.execute(
+                            "INSERT INTO poliza_anulaciones (poliza_id, poliza_numero, usuario, motivo, fecha_anulacion) "
+                            "SELECT idPoliza, poliza, %s, %s, COALESCE(%s, CURDATE()) FROM polizas WHERE idPoliza=%s",
+                            (session.get('user'), motivo, fecha_anulacion, pid)
+                        )
+                    except Exception:
+                        pass
                 cnx.commit()
-                ok = cur.rowcount > 0
+                ok = affected_update > 0
                 cur.close()
                 cnx.close()
                 if ok:
                     return jsonify({'ok': True})
                 # Comprobación idempotente: ya anulada
                 cnx = get_connection()
-                cur = cnx.cursor()
+                try:
+                    cur = cnx.cursor(buffered=True)
+                except TypeError:
+                    cur = cnx.cursor()
                 cur.execute("SELECT anulado FROM polizas WHERE idPoliza=%s", (pid,))
                 st2 = cur.fetchone()
                 cur.close()
