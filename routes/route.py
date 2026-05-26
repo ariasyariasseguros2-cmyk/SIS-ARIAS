@@ -286,6 +286,14 @@ def upload_cuota_archivo():
         p_poliza = numero_poliza
         cnx = get_connection()
         cur = cnx.cursor()
+        if pid is None:
+            try:
+                cur.execute("SELECT poliza_id FROM cuotas WHERE idCuota = %s AND activo = 1", (int(cuota_id),))
+                prow = cur.fetchone()
+                if prow and prow[0] not in (None, 0, ''):
+                    pid = int(prow[0])
+            except Exception:
+                pid = None
         if usuario_username:
             try:
                 cur.execute(
@@ -305,6 +313,10 @@ def upload_cuota_archivo():
                 p_producto = prow[1] or ''
                 p_cia      = prow[2] or ''
                 p_poliza   = prow[3] or numero_poliza
+        else:
+            cur.close()
+            cnx.close()
+            return jsonify({'ok': False, 'error': 'La cuota no está asociada a una póliza/prima (poliza_id).'}), 400
 
         nombre_doc = f"[CUOTA {cupon}] {original_filename}" if cupon else original_filename
 
@@ -405,19 +417,48 @@ def get_cuota_archivos(cuota_id):
     """Lista los archivos de una cuota buscando en poliza_archivos por poliza_id y origen=CUOTA."""
     if 'user' not in session:
         return {'ok': False, 'error': 'No autenticado'}, 401
-        return {'ok': False, 'error': 'No autenticado'}, 401
-    # cuota_id aquí es en realidad el poliza_id (prima_id) pasado desde el frontend
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
+        resolved_poliza_id = None
+        resolved_cuota_id = None
+        try:
+            cur.execute(
+                "SELECT poliza_id FROM cuotas WHERE idCuota = %s AND activo = 1",
+                (int(cuota_id),),
+            )
+            qrow = cur.fetchone() or {}
+            resolved_poliza_id = qrow.get('poliza_id') or None
+            if qrow:
+                resolved_cuota_id = int(cuota_id)
+        except Exception:
+            resolved_poliza_id = None
+        if resolved_poliza_id is None:
+            resolved_poliza_id = int(cuota_id)
+
         cur.execute(
             """SELECT idArchivo, ruta_archivo, nombre_original, origen, creado_en
                FROM poliza_archivos
                WHERE poliza_id = %s AND origen = 'CUOTA'
                ORDER BY creado_en DESC""",
-            (cuota_id,)
+            (int(resolved_poliza_id),)
         )
-        rows = cur.fetchall()
+        rows = cur.fetchall() or []
+
+        if not rows:
+            params = [int(resolved_poliza_id)]
+            where = "poliza_id = %s"
+            if resolved_cuota_id is not None:
+                where = f"({where} OR cuota_id = %s)"
+                params.append(int(resolved_cuota_id))
+            cur.execute(
+                f"""SELECT idArchivo, ruta_archivo, nombre_original, 'CUOTA' AS origen, creado_en
+                    FROM cuota_archivos
+                    WHERE {where}
+                    ORDER BY creado_en DESC""",
+                tuple(params),
+            )
+            rows = cur.fetchall() or []
         cur.close()
         cnx.close()
         for r in rows:
@@ -436,8 +477,11 @@ def delete_cuota_archivo(archivo_id):
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
-        cur.execute("SELECT ruta_archivo FROM poliza_archivos WHERE idArchivo = %s AND origen = 'CUOTA'", (archivo_id,))
+        cur.execute("SELECT ruta_archivo, 'poliza_archivos' AS _tbl FROM poliza_archivos WHERE idArchivo = %s AND origen = 'CUOTA'", (archivo_id,))
         row = cur.fetchone()
+        if not row:
+            cur.execute("SELECT ruta_archivo, 'cuota_archivos' AS _tbl FROM cuota_archivos WHERE idArchivo = %s", (archivo_id,))
+            row = cur.fetchone()
         if not row:
             cur.close()
             cnx.close()
@@ -448,7 +492,10 @@ def delete_cuota_archivo(archivo_id):
         if os.path.exists(abs_path):
             os.remove(abs_path)
 
-        cur.execute("DELETE FROM poliza_archivos WHERE idArchivo = %s", (archivo_id,))
+        if row.get('_tbl') == 'cuota_archivos':
+            cur.execute("DELETE FROM cuota_archivos WHERE idArchivo = %s", (archivo_id,))
+        else:
+            cur.execute("DELETE FROM poliza_archivos WHERE idArchivo = %s", (archivo_id,))
         cnx.commit()
         cur.close()
         cnx.close()

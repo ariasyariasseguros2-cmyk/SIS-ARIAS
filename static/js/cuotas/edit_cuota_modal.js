@@ -2,6 +2,7 @@
     window.CuotaEditModal = {
         currentId: null,
         currentPoliza: null,
+        currentPolizaId: null,
         _extractAbortController: null,
         _localPreviewUrl: null,
 
@@ -170,6 +171,7 @@
             // Acepta distintas claves de id por robustez
             this.currentId = data.idCuota || data.id_cuota || data.id || null;
             this.currentPoliza = polizaContext || data.poliza; // fallback
+            this.currentPolizaId = data.poliza_id || data.polizaId || window.currentPolizaId || window.currentPrimaId || null;
             if (this._localPreviewUrl) {
                 try { URL.revokeObjectURL(this._localPreviewUrl); } catch (e) {}
                 this._localPreviewUrl = null;
@@ -206,9 +208,9 @@
             if (fileInput) fileInput.value = '';
 
             // Cargar archivo existente desde la DB (busca por poliza_id con origen=CUOTA)
-            const polizaIdCtx = window.currentPolizaId || window.currentPrimaId || '';
-            if (polizaIdCtx) {
-                fetch(`/api/cuotas/archivos/${polizaIdCtx}`)
+            const lookupId = this.currentId || this.currentPolizaId || '';
+            if (lookupId) {
+                fetch(`/api/cuotas/archivos/${lookupId}`)
                     .then(r => r.json())
                     .then(res => {
                         if (res.ok && res.archivos && res.archivos.length > 0) {
@@ -317,9 +319,9 @@
                             fd.append('numero_poliza', this.currentPoliza);
                         }
                         // Pasar poliza_id con todas las fuentes disponibles
-                        const polizaId = window.currentPolizaId || window.currentPrimaId || '';
+                        const polizaId = this.currentPolizaId || window.currentPolizaId || window.currentPrimaId || '';
                         if (polizaId) {
-                            fd.append('poliza_id', polizaId);
+                            fd.append('poliza_id', String(polizaId));
                         }
 
                         try {
@@ -372,13 +374,12 @@
                 this._openPdfViewer(this._archivoActual);
                 return;
             }
-            // Buscar por poliza_id con origen=CUOTA en poliza_archivos
-            const polizaIdCtx = window.currentPolizaId || window.currentPrimaId || '';
-            if (!polizaIdCtx) {
+            const lookupId = idCuota || this.currentId || this.currentPolizaId || window.currentPolizaId || window.currentPrimaId || '';
+            if (!lookupId) {
                 alert('No hay documento para visualizar.');
                 return;
             }
-            fetch(`/api/cuotas/archivos/${polizaIdCtx}`)
+            fetch(`/api/cuotas/archivos/${lookupId}`)
               .then(r => r.json())
               .then(res => {
                 if (!res.ok || !res.archivos || res.archivos.length === 0) {

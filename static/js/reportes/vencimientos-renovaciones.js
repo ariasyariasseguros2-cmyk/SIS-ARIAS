@@ -675,20 +675,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 const factura = r.factura || '-';
                 const importe = formatAmount(r.importe, moneda);
 
+                const safePolizaKey = String(poliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                const cuotaId = (r && (r.idCuota || r.id_cuota || r.id)) ? (r.idCuota || r.id_cuota || r.id) : '';
+                const resolvedPolizaId = (r && (r.poliza_id || r.idPoliza)) ? (r.poliza_id || r.idPoliza) : idPoliza;
+                const lookupId = cuotaId || resolvedPolizaId || '';
+                const safeLookupId = String(lookupId || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                const hasLookupId = !!String(lookupId || '').trim();
+                const pdfBtn = (pagada && hasLookupId)
+                    ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="openCuotaPdf('${safeLookupId}')">PDF</button>`
+                    : '';
+
                 const actions = pagada
                     ? `
                         <div class="cuota-actions d-flex justify-content-end gap-2">
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="openCuotaPdf('${String(idPoliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">PDF</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="CuotaEditModal.open(window.cuotasCache['${String(poliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'][${index}], '${String(poliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">
+                            ${pdfBtn}
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="CuotaEditModal.open(window.cuotasCache['${safePolizaKey}'][${index}], '${safePolizaKey}')">
                                 <i class="bi bi-pencil"></i>
                             </button>
                         </div>
                     `
                     : `
                         <div class="cuota-actions d-flex justify-content-end gap-2">
-                            <button type="button" class="btn btn-sm btn-success" onclick="CuotaEditModal.open(window.cuotasCache['${String(poliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'][${index}], '${String(poliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">Pagar</button>
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="openCuotaPdf('${String(idPoliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">PDF</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="CuotaEditModal.open(window.cuotasCache['${String(poliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'][${index}], '${String(poliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">
+                            <button type="button" class="btn btn-sm btn-success" onclick="CuotaEditModal.open(window.cuotasCache['${safePolizaKey}'][${index}], '${safePolizaKey}')">Pagar</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="CuotaEditModal.open(window.cuotasCache['${safePolizaKey}'][${index}], '${safePolizaKey}')">
                                 <i class="bi bi-pencil"></i>
                             </button>
                         </div>
@@ -771,17 +780,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    window.openCuotaPdf = async function(polizaId) {
-        const id = (polizaId || '').toString().trim();
+    window.openCuotaPdf = async function(lookupId) {
+        const id = (lookupId || '').toString().trim();
         if (!id) {
-            showInlineAlert('No hay documento asociado a esta póliza.');
+            showInlineAlert('No hay documento asociado a este registro.');
+            return;
+        }
+        if (!/^\d+$/.test(id)) {
+            showInlineAlert('No se pudo identificar el registro (id inválido).');
             return;
         }
         try {
             const res = await fetch(`/api/cuotas/archivos/${encodeURIComponent(id)}`);
             const json = await res.json();
             if (!json || !json.ok || !json.archivos || json.archivos.length === 0) {
-                showInlineAlert('No hay archivos PDF guardados para esta póliza.');
+                showInlineAlert('No hay archivos PDF guardados para este registro.');
                 return;
             }
             const archivo = json.archivos[0];

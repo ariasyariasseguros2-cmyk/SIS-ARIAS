@@ -56,6 +56,7 @@ def api_vencimientos():
     # Handle empty strings as None for dates
     if not fecha_desde: fecha_desde = None
     if not fecha_hasta: fecha_hasta = None
+    if not estado: estado = None
     
     # Debug print
     print(f"Reporte Vencimientos Params: user='{usuario}', estado='{estado}', ramo='{ramo}', desde={fecha_desde}, hasta={fecha_hasta}")
