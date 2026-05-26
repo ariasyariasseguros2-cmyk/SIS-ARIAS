@@ -4271,13 +4271,6 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             print("[provider] protecta vida ley item:", item)
             return [item] if item else []
 
-        if "condiciones particulares" in low and ("pension" in low or "pensiones" in low):
-            from controllers.addProctectaPensionCondiciones import parse_protecta_pension_condiciones
-            item = parse_protecta_pension_condiciones(text)
-            if not _missing_fields(item, ["numero_poliza", "inicio_vigencia", "prima_comercial"]):
-                print("[provider] protecta condiciones particulares item:", item)
-                return [item]
-
         # Detectar si es Emisión (SCTR Pensiones con Prima Comercial)
         # Excluir 'aviso de cobranza' para que vaya al parser estándar (addProctectaPension)
         if "prima comercial" in low and "pension" in low and "aviso de cobranza" not in low:
