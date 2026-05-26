@@ -630,6 +630,19 @@ CREATE TABLE IF NOT EXISTS poliza_archivos (
     FOREIGN KEY (poliza_id) REFERENCES polizas(idPoliza) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS poliza_anulaciones (
+    idAnulacion INT AUTO_INCREMENT PRIMARY KEY,
+    poliza_id INT NOT NULL,
+    poliza_numero VARCHAR(50) NULL,
+    usuario VARCHAR(100) NULL,
+    motivo VARCHAR(200) NOT NULL,
+    fecha_anulacion DATE NOT NULL,
+    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (poliza_id) REFERENCES polizas(idPoliza)
+);
+
+CREATE INDEX idx_poliza_anulaciones_poliza ON poliza_anulaciones (poliza_id);
+
 
 DELIMITER $$
 CREATE PROCEDURE sp_get_cliente_por_numero(IN p_numero_documento VARCHAR(20))
@@ -1242,10 +1255,13 @@ DELIMITER $$
 CREATE PROCEDURE sp_anular_poliza(
     IN p_id INT,
     IN p_usuario VARCHAR(100),
-    IN p_motivo VARCHAR(200)
+    IN p_motivo VARCHAR(200),
+    IN p_fecha DATE
 )
 BEGIN
     DECLARE v_usuario_nombre VARCHAR(100);
+    DECLARE v_poliza_numero VARCHAR(50);
+    DECLARE v_affected INT;
     SET v_usuario_nombre = NULL;
     IF p_usuario IS NOT NULL AND TRIM(p_usuario) <> '' THEN
         SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
@@ -1258,13 +1274,25 @@ BEGIN
         SET v_usuario_nombre = p_usuario;
     END IF;
 
+    SELECT poliza INTO v_poliza_numero
+    FROM polizas
+    WHERE idPoliza = p_id
+    LIMIT 1;
+
     UPDATE polizas
     SET anulado = 1,
         estado = 'ANULADA',
         motivo = p_motivo,
         usuario_edicion = v_usuario_nombre
     WHERE idPoliza = p_id AND activo = 1 AND anulado = 0;
-    SELECT ROW_COUNT() AS affected_rows;
+    SET v_affected = ROW_COUNT();
+
+    IF v_affected > 0 THEN
+        INSERT INTO poliza_anulaciones (poliza_id, poliza_numero, usuario, motivo, fecha_anulacion)
+        VALUES (p_id, v_poliza_numero, v_usuario_nombre, p_motivo, COALESCE(p_fecha, CURDATE()));
+    END IF;
+
+    SELECT v_affected AS affected_rows;
 END$$
 DELIMITER ;
 
