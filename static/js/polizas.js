@@ -91,6 +91,113 @@
       });
     }
 
+    const anularModalEl = document.getElementById('anularPolizaModal');
+    const anularModalInstance = (anularModalEl && window.bootstrap)
+      ? bootstrap.Modal.getOrCreateInstance(anularModalEl, { backdrop: 'static' })
+      : null;
+    const anularFields = {
+      numero: document.getElementById('anularPolizaNumero'),
+      asegurado: document.getElementById('anularPolizaAsegurado'),
+      vigInicio: document.getElementById('anularPolizaVigInicio'),
+      vigFin: document.getElementById('anularPolizaVigFin'),
+      fecha: document.getElementById('anularPolizaFecha'),
+      motivo: document.getElementById('anularPolizaMotivo'),
+      motivoError: document.getElementById('anularPolizaMotivoError'),
+      btnOk: document.getElementById('anularPolizaConfirm'),
+      btnCancel: document.getElementById('anularPolizaCancel')
+    };
+
+    const toDateInputValue = (dateObj) => {
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const setMotivoError = (message) => {
+      if (!anularFields.motivo) return;
+      if (message) {
+        anularFields.motivo.classList.add('is-invalid');
+        if (anularFields.motivoError) anularFields.motivoError.textContent = message;
+      } else {
+        anularFields.motivo.classList.remove('is-invalid');
+      }
+    };
+
+    const openAnularPolizaModal = (data) => {
+      if (!anularModalEl || !anularModalInstance || !anularFields.motivo || !anularFields.btnOk) {
+        const motivo = window.prompt('Motivo de anulación:');
+        if (!motivo) return Promise.resolve(null);
+        return Promise.resolve({
+          motivo: motivo.trim(),
+          fechaAnulacion: toDateInputValue(new Date())
+        });
+      }
+
+      if (anularFields.numero) anularFields.numero.value = data.poliza || '';
+      if (anularFields.asegurado) anularFields.asegurado.value = data.asegurado || '';
+      if (anularFields.vigInicio) anularFields.vigInicio.value = data.vig_inicio || '';
+      if (anularFields.vigFin) anularFields.vigFin.value = data.vig_fin || '';
+      if (anularFields.fecha) {
+        anularFields.fecha.value = toDateInputValue(new Date());
+      }
+      anularFields.motivo.value = '';
+      setMotivoError('');
+
+      return new Promise((resolve) => {
+        let decided = false;
+
+        const cleanup = () => {
+          anularFields.btnOk.removeEventListener('click', onOk);
+          anularFields.btnCancel?.removeEventListener('click', onCancel);
+          anularModalEl.removeEventListener('hidden.bs.modal', onHidden);
+          anularFields.motivo.removeEventListener('input', onInput);
+        };
+
+        const onInput = () => setMotivoError('');
+
+        const onOk = () => {
+          const motivo = anularFields.motivo.value.trim();
+          if (!motivo) {
+            setMotivoError('Ingrese el motivo de la anulación.');
+            return;
+          }
+          if (motivo.length > 200) {
+            setMotivoError('El motivo no puede exceder 200 caracteres.');
+            return;
+          }
+          decided = true;
+          cleanup();
+          anularModalInstance.hide();
+          resolve({
+            motivo,
+            fechaAnulacion: (anularFields.fecha?.value || toDateInputValue(new Date()))
+          });
+        };
+
+        const onCancel = () => {
+          decided = true;
+          cleanup();
+          anularModalInstance.hide();
+          resolve(null);
+        };
+
+        const onHidden = () => {
+          if (decided) return;
+          cleanup();
+          resolve(null);
+        };
+
+        anularFields.btnOk.addEventListener('click', onOk);
+        anularFields.btnCancel?.addEventListener('click', onCancel);
+        anularModalEl.addEventListener('hidden.bs.modal', onHidden);
+        anularFields.motivo.addEventListener('input', onInput);
+
+        anularModalInstance.show();
+        anularFields.motivo.focus();
+      });
+    };
+
     let currentSearchType = 'general';
 
     // === 1. LÓGICA DE TABS (FILTROS DE BÚSQUEDA) ===
@@ -477,15 +584,8 @@
                  return;
                }
 
-               const ok = await openActionModal({
-                 title: 'Confirmar anulación',
-                 message: `¿Seguro que desea ANULAR la póliza ${data.poliza}?`,
-                 okText: 'Anular',
-                 okClass: 'btn-danger',
-                 cancelText: 'Cancelar',
-                 showCancel: true
-               });
-               if (!ok) return;
+               const modalResult = await openAnularPolizaModal(data);
+               if (!modalResult) return;
 
                const resp = await fetch('/api/polizas/anular', {
                  method: 'POST',
@@ -494,7 +594,8 @@
                  },
                  body: JSON.stringify({
                    idPoliza: data.idPoliza,
-                   motivo: ''
+                   motivo: modalResult.motivo,
+                   fechaAnulacion: modalResult.fechaAnulacion
                  })
                });
                const json = await resp.json();
