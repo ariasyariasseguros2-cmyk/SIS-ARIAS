@@ -398,20 +398,23 @@ def parse_pacifico_salud(text: str) -> dict | None:
             ultimo_dia_pago = calc_ultimo
             fecha_vencimiento = calc_ultimo  # para la columna “Fecha Vencimiento” del frontend
     # Montos: sin cambios
+    prima_label = _label_amount(r"\bPrima\b(?!\s+Comercial)", text, lookahead_lines=3)
     prima_comercial = (
         _first_decimal_after(r"\bPRIMA\s+COMERCIAL\b", text, lookahead_lines=4, dot_only=False)
         or _find_after(r"\bPRIMA\s+COMERCIAL\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
         or _find_last(r"PRIMA\s+COMERCIAL(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
     )
+    if not prima_comercial and prima_label:
+        prima_comercial = prima_label
     igv_val = (
         _first_decimal_after(r"\bIGV\b", text, lookahead_lines=4, dot_only=False)
         or _find_after(r"\bIGV\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
         or _find_last(r"\bIGV\b(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
     )
     total_cobrar = (
-        _first_decimal_after(r"TOTAL\s+A\s+COBRAR\b", text, lookahead_lines=4, dot_only=False)
-        or _find_after(r"TOTAL\s+A\s+COBRAR\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
-        or _find_last(r"TOTAL\s+A\s+COBRAR(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+        _first_decimal_after(r"(TOTAL\s+A\s+COBRAR|IMPORTE\s+TOTAL|V\.?\s*VENTA)\b", text, lookahead_lines=4, dot_only=False)
+        or _find_after(r"(TOTAL\s+A\s+COBRAR|IMPORTE\s+TOTAL|V\.?\s*VENTA)\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
+        or _find_last(r"(TOTAL\s+A\s+COBRAR|IMPORTE\s+TOTAL|V\.?\s*VENTA)(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
     )
 
     # Normalizar y corregir usando la deducción por bloque si hay confusión
@@ -427,8 +430,8 @@ def parse_pacifico_salud(text: str) -> dict | None:
     igv_num = _to_float(igv_val)
     tot_num = _to_float(total_cobrar)
 
-    # Si hay total e IGV, fijar prima = total - igv
-    if igv_num is not None and tot_num is not None:
+    # Si hay total e IGV, fijar prima = total - igv (salvo que ya se leyó "Prima" explícita)
+    if igv_num is not None and tot_num is not None and not (prima_label and pc_num is not None):
         prima_comercial = f"{tot_num - igv_num:.2f}"
         pc_num = _to_float(prima_comercial)
 
@@ -438,18 +441,22 @@ def parse_pacifico_salud(text: str) -> dict | None:
         (pc_num is not None and tot_num is not None and abs(pc_num - tot_num) < 1e-6) or
         (igv_num is not None and tot_num is not None and abs(igv_num - tot_num) < 1e-6)):
         amts = _amounts_near(r"(PRIMA\s+COMERCIAL|IGV|TOTAL\s+A\s+COBRAR)", text, window=800)
+        amts = [a for a in amts if a > 0.01]
         if len(amts) >= 2:
             tot_calc = max(amts)
             igv_calc = min(amts)
             prima_calc = round(tot_calc - igv_calc, 2)
-            prima_comercial = f"{prima_calc:.2f}"
+            if not (prima_label and pc_num is not None):
+                prima_comercial = f"{prima_calc:.2f}"
             igv_val = f"{igv_calc:.2f}"
             total_cobrar = f"{tot_calc:.2f}"
             print("[pacifico] montos deducidos -> prima:", prima_comercial, "igv:", igv_val, "total:", total_cobrar)
         else:
             pc_g, igv_g, tot_g = _deduce_amounts_global(text)
             if tot_g and igv_g:
-                prima_comercial, igv_val, total_cobrar = pc_g, igv_g, tot_g
+                if not (prima_label and pc_num is not None):
+                    prima_comercial = pc_g
+                igv_val, total_cobrar = igv_g, tot_g
                 print("[pacifico] deducción global aplicada -> prima:", prima_comercial, "igv:", igv_val, "total:", total_cobrar)
 
     # Si aún prima coincide con IGV/TOTAL, corregir por identidad contable
@@ -457,7 +464,7 @@ def parse_pacifico_salud(text: str) -> dict | None:
     igv_num = _to_float(igv_val)
     tot_num = _to_float(total_cobrar)
     if pc_num is not None and igv_num is not None and tot_num is not None:
-        if abs(pc_num - igv_num) < 1e-6 or abs(pc_num - tot_num) < 1e-6:
+        if (abs(pc_num - igv_num) < 1e-6 or abs(pc_num - tot_num) < 1e-6) and not (prima_label and pc_num is not None):
             prima_comercial = f"{tot_num - igv_num:.2f}"
             print("[pacifico] prima_comercial recalculada como total - igv:", prima_comercial)
 
