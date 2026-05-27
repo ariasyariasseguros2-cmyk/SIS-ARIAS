@@ -77,7 +77,7 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
                          OR p.poliza COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
                     )
                       AND p.activo = 1 AND (p.anulado = 0 OR p.anulado IS NULL)
-                    ORDER BY p.creado_en DESC
+                    ORDER BY p.vig_desde DESC
                     """,
                     (pol, pol, pol),
                 )
@@ -135,6 +135,27 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
             'pdf_url': r.get('pdf_url') or '',
             'idPrima': r.get('idPoliza') or r.get('idPrima') # idPoliza identifies the row
         })
+
+    from datetime import date, datetime
+
+    def parse_vig_inicio(v):
+        if not v:
+            return date.min
+        if isinstance(v, datetime):
+            return v.date()
+        if isinstance(v, date):
+            return v
+        s = str(v).strip()
+        if not s:
+            return date.min
+        for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%d/%m/%y', '%Y/%m/%d'):
+            try:
+                return datetime.strptime(s, fmt).date()
+            except Exception:
+                pass
+        return date.min
+
+    normalized.sort(key=lambda x: parse_vig_inicio(x.get('vig_inicio')), reverse=True)
 
     return {
         'title': 'Primas / Plan de Pagos',
