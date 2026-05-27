@@ -7,13 +7,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const usuarioDropdownBtn = document.getElementById('usuarioDropdownBtn');
     const usuarioValue = document.getElementById('usuarioValue');
 
+    const ejecutivoDropdownMenu = document.getElementById('ejecutivoDropdownMenu');
+    const ejecutivoDropdownBtn = document.getElementById('ejecutivoDropdownBtn');
+    const ejecutivoValue = document.getElementById('ejecutivoValue');
+
     // Custom Dropdown Elements (Ramos)
     const ramoDropdownMenu = document.getElementById('ramoDropdownMenu');
     const ramoDropdownBtn = document.getElementById('ramoDropdownBtn');
     const ramoValue = document.getElementById('ramoValue');
 
+    const searchQueryEl = document.getElementById('searchQuery');
+
     // Pagination state
     let allData = [];
+    let rawData = [];
     let currentPage = 1;
     let rowsPerPage = 15;
 
@@ -38,6 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load users and ramos on init
     loadUsuarios();
+    loadEjecutivos();
     loadRamos();
 
     // Trigger initial load automatically
@@ -63,12 +71,24 @@ document.addEventListener('DOMContentLoaded', function() {
             // Get selected value (comma separated from hidden input)
             const usuarios = usuarioValue ? usuarioValue.value : '';
             const ramos = ramoValue ? ramoValue.value : '';
+            const ejecutivos = ejecutivoValue ? ejecutivoValue.value : '';
             
             const estado = document.getElementById('estadoSelect').value;
             const fechaDesde = document.getElementById('fechaDesde').value;
             const fechaHasta = document.getElementById('fechaHasta').value;
 
-            fetchData(usuarios, estado, fechaDesde, fechaHasta, ramos);
+            fetchData(usuarios, ejecutivos, estado, fechaDesde, fechaHasta, ramos);
+        });
+    }
+
+    if (searchQueryEl) {
+        let t = null;
+        searchQueryEl.addEventListener('input', function() {
+            if (t) clearTimeout(t);
+            t = setTimeout(() => {
+                currentPage = 1;
+                applyClientFiltersAndRender();
+            }, 150);
         });
     }
 
@@ -113,12 +133,15 @@ document.addEventListener('DOMContentLoaded', function() {
             users.forEach(u => {
                 const li = document.createElement('li');
                 const displayName = (u.nombre || u.username || '').toString();
-                const isChecked = currentUser && (u.username || '').toLowerCase() === currentUser;
+                const value = (u.username || u.nombre || '').toString();
+                const isChecked = currentUser && (
+                    value.toLowerCase() === currentUser || displayName.toLowerCase() === currentUser
+                );
                 li.innerHTML = `
                     <div class="dropdown-item">
                         <div class="form-check">
-                            <input class="form-check-input usuario-checkbox" type="checkbox" value="${u.username}" data-display="${displayName}" id="user_${u.username}" ${isChecked ? 'checked' : ''}>
-                            <label class="form-check-label w-100" style="cursor: pointer;" for="user_${u.username}">${displayName}</label>
+                            <input class="form-check-input usuario-checkbox" type="checkbox" value="${value}" data-display="${displayName}" id="user_${u.username || u.nombre}" ${isChecked ? 'checked' : ''}>
+                            <label class="form-check-label w-100" style="cursor: pointer;" for="user_${u.username || u.nombre}">${displayName}</label>
                         </div>
                     </div>
                 `;
@@ -209,6 +232,128 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             usuarioDropdownBtn.classList.add('text-primary', 'fw-bold');
             usuarioDropdownBtn.textContent = selectedValues.length === 1 ? selectedLabels[0] : `${selectedValues.length} seleccionados`;
+        }
+    }
+
+    // --- EJECUTIVOS LOGIC ---
+    async function loadEjecutivos() {
+        if (!ejecutivoDropdownMenu) return;
+        try {
+            const response = await fetch('/api/reportes/ejecutivos');
+            const ejecutivos = await response.json();
+
+            ejecutivoDropdownMenu.innerHTML = '';
+
+            const liSearch = document.createElement('li');
+            liSearch.className = 'dropdown-search-container';
+            liSearch.innerHTML = `
+                <input type="text" class="form-control form-control-sm" id="ejecutivoSearchInput" placeholder="Buscar ejecutivo...">
+            `;
+            ejecutivoDropdownMenu.appendChild(liSearch);
+
+            const liTodos = document.createElement('li');
+            liTodos.innerHTML = `
+                <div class="dropdown-item">
+                    <div class="form-check">
+                        <input class="form-check-input ejecutivo-checkbox" type="checkbox" value="" id="ejecutivo_todos" checked>
+                        <label class="form-check-label w-100 fw-bold" style="cursor: pointer;" for="ejecutivo_todos">Todos los ejecutivos</label>
+                    </div>
+                </div>
+            `;
+            ejecutivoDropdownMenu.appendChild(liTodos);
+
+            const liDivider = document.createElement('li');
+            liDivider.innerHTML = '<hr class="dropdown-divider">';
+            ejecutivoDropdownMenu.appendChild(liDivider);
+
+            (ejecutivos || []).forEach((e, index) => {
+                const nombre = (e && (e.nombre || e.abreviacion || e.codigo || e.username)) ? (e.nombre || e.abreviacion || e.codigo || e.username) : '';
+                if (!nombre) return;
+                const safeId = `ejecutivo_${index}`;
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div class="dropdown-item">
+                        <div class="form-check">
+                            <input class="form-check-input ejecutivo-checkbox" type="checkbox" value="${nombre}" id="${safeId}">
+                            <label class="form-check-label w-100" style="cursor: pointer;" for="${safeId}">${nombre}</label>
+                        </div>
+                    </div>
+                `;
+                ejecutivoDropdownMenu.appendChild(li);
+            });
+
+            const checkboxes = ejecutivoDropdownMenu.querySelectorAll('.ejecutivo-checkbox');
+            checkboxes.forEach(chk => {
+                chk.addEventListener('change', handleEjecutivoCheckboxChange);
+                chk.closest('.dropdown-item').addEventListener('click', (e) => e.stopPropagation());
+            });
+
+            const searchInput = liSearch.querySelector('input');
+            searchInput.addEventListener('click', (e) => e.stopPropagation());
+            searchInput.addEventListener('input', function(e) {
+                const filter = e.target.value.toLowerCase();
+                const items = ejecutivoDropdownMenu.querySelectorAll('li:not(.dropdown-search-container)');
+                items.forEach(item => {
+                    const label = item.querySelector('label');
+                    if (label) {
+                        const text = label.textContent.toLowerCase();
+                        if (text.includes('todos') || text.includes(filter)) item.style.display = '';
+                        else item.style.display = 'none';
+                    }
+                });
+            });
+
+            updateEjecutivoDropdownState();
+
+        } catch (error) {
+            console.error('Error loading ejecutivos:', error);
+            if (ejecutivoDropdownBtn) ejecutivoDropdownBtn.textContent = 'Error cargando';
+        }
+    }
+
+    function handleEjecutivoCheckboxChange(e) {
+        const target = e.target;
+        const checkboxes = ejecutivoDropdownMenu.querySelectorAll('.ejecutivo-checkbox');
+        const todosCheckbox = document.getElementById('ejecutivo_todos');
+
+        if (target === todosCheckbox) {
+            if (target.checked) {
+                checkboxes.forEach(chk => { if (chk !== todosCheckbox) chk.checked = false; });
+            }
+        } else {
+            if (target.checked && todosCheckbox) todosCheckbox.checked = false;
+        }
+        updateEjecutivoDropdownState();
+    }
+
+    function updateEjecutivoDropdownState() {
+        const checkboxes = ejecutivoDropdownMenu.querySelectorAll('.ejecutivo-checkbox:checked');
+        const selectedValues = [];
+        let todosChecked = false;
+
+        checkboxes.forEach(chk => {
+            if (chk.value === "") todosChecked = true;
+            else selectedValues.push(chk.value);
+        });
+
+        const todosCheckbox = document.getElementById('ejecutivo_todos');
+        if (!todosChecked && selectedValues.length === 0) {
+            if (todosCheckbox) todosCheckbox.checked = true;
+            todosChecked = true;
+        }
+
+        if (ejecutivoValue) {
+            if (todosChecked) ejecutivoValue.value = "";
+            else ejecutivoValue.value = selectedValues.join(',');
+        }
+
+        if (!ejecutivoDropdownBtn) return;
+        if (todosChecked) {
+            ejecutivoDropdownBtn.textContent = "Todos los ejecutivos";
+            ejecutivoDropdownBtn.classList.remove('text-primary', 'fw-bold');
+        } else {
+            ejecutivoDropdownBtn.classList.add('text-primary', 'fw-bold');
+            ejecutivoDropdownBtn.textContent = selectedValues.length === 1 ? selectedValues[0] : `${selectedValues.length} seleccionados`;
         }
     }
 
@@ -337,7 +482,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    async function fetchData(usuario, estado, fechaDesde, fechaHasta, ramo) {
+    function applyClientFiltersAndRender() {
+        const q = (searchQueryEl ? searchQueryEl.value : '').toString().trim().toLowerCase();
+        const filtered = !q
+            ? (rawData || [])
+            : (rawData || []).filter(r => {
+                const poliza = (r.poliza || '').toString().toLowerCase();
+                const aviso = (r.aviso_cobranza || '').toString().toLowerCase();
+                const cupon = (r.cupon || '').toString().toLowerCase();
+                return poliza.includes(q) || aviso.includes(q) || cupon.includes(q);
+            });
+
+        allData = groupByPoliza(filtered);
+        renderPaginatedTable();
+    }
+
+    async function fetchData(usuario, ejecutivo, estado, fechaDesde, fechaHasta, ramo) {
         try {
             tableBody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-muted">Cargando datos...</td></tr>`;
             if (paginationContainer) paginationContainer.style.display = 'none';
@@ -347,20 +507,21 @@ document.addEventListener('DOMContentLoaded', function() {
             if (fechaDesde) url += `&fecha_desde=${encodeURIComponent(fechaDesde)}`;
             if (fechaHasta) url += `&fecha_hasta=${encodeURIComponent(fechaHasta)}`;
             if (ramo) url += `&ramo=${encodeURIComponent(ramo)}`;
+            if (ejecutivo) url += `&ejecutivo=${encodeURIComponent(ejecutivo)}`;
 
             const response = await fetch(url);
             const data = await response.json();
             
             if (!data || data.length === 0) {
+                rawData = [];
                 allData = [];
                 renderPaginatedTable();
                 return;
             }
 
-            // Group data first
-            allData = groupByPoliza(data);
+            rawData = data;
             currentPage = 1;
-            renderPaginatedTable();
+            applyClientFiltersAndRender();
         } catch (error) {
             console.error('Error loading data:', error);
             tableBody.innerHTML = `<tr><td colspan="11" class="text-center text-danger">Error cargando datos</td></tr>`;

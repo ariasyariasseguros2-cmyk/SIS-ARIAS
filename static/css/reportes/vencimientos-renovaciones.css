@@ -4,6 +4,7 @@
 }
 
 #usuarioDropdownMenu,
+#ejecutivoDropdownMenu,
 #ramoDropdownMenu {
     max-height: 300px;
     overflow-y: auto;
@@ -11,6 +12,7 @@
 }
 
 #usuarioDropdownBtn,
+#ejecutivoDropdownBtn,
 #ramoDropdownBtn {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -19,6 +21,7 @@
 
 /* Green checkboxes as requested */
 .usuario-checkbox:checked,
+.ejecutivo-checkbox:checked,
 .ramo-checkbox:checked {
     background-color: #198754;
     border-color: #198754;
