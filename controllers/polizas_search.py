@@ -1,3 +1,71 @@
+def _date_to_sortable_int(value) -> int:
+    if not value:
+        return 0
+    if hasattr(value, 'year'):
+        return value.year * 10000 + value.month * 100 + value.day
+
+    raw = str(value).strip()
+    if '/' in raw:
+        parts = raw.split('/')
+        if len(parts) == 3:
+            try:
+                return int(parts[2]) * 10000 + int(parts[1]) * 100 + int(parts[0])
+            except Exception:
+                return 0
+    if '-' in raw:
+        parts = raw.split('-')
+        if len(parts) == 3:
+            try:
+                return int(parts[0]) * 10000 + int(parts[1]) * 100 + int(parts[2])
+            except Exception:
+                return 0
+    return 0
+
+
+def _dedupe_poliza_rows(rows: list[dict]) -> list[dict]:
+    if not rows:
+        return []
+
+    best_rows: dict[str, dict] = {}
+    for row in rows:
+        poliza = str(row.get('poliza') or '').strip()
+        if not poliza:
+            continue
+
+        current = best_rows.get(poliza)
+        if current is None:
+            best_rows[poliza] = row
+            continue
+
+        candidate_key = (
+            _date_to_sortable_int(row.get('vig_hasta')),
+            _date_to_sortable_int(row.get('vig_desde')),
+            _date_to_sortable_int(row.get('fecha_emision')),
+            int(row.get('idPoliza') or 0),
+        )
+        current_key = (
+            _date_to_sortable_int(current.get('vig_hasta')),
+            _date_to_sortable_int(current.get('vig_desde')),
+            _date_to_sortable_int(current.get('fecha_emision')),
+            int(current.get('idPoliza') or 0),
+        )
+        if candidate_key > current_key:
+            best_rows[poliza] = row
+
+    deduped_rows = []
+    seen = set()
+    for row in rows:
+        poliza = str(row.get('poliza') or '').strip()
+        if not poliza:
+            deduped_rows.append(row)
+            continue
+        if poliza in seen:
+            continue
+        seen.add(poliza)
+        deduped_rows.append(best_rows[poliza])
+
+    return deduped_rows
+
 
 def filter_polizas_rapido(filter_type: str) -> dict:
     """Filtros rápidos del listado:
@@ -99,6 +167,8 @@ def filter_polizas_rapido(filter_type: str) -> dict:
 
         for r in rows:
             r['producto'] = r.get('producto') or r.get('ramos_producto') or ''
+
+        rows = _dedupe_poliza_rows(rows)
 
         cur.close()
         cnx.close()
@@ -250,6 +320,8 @@ def search_polizas_global(query: str, search_type: str) -> dict:
         # Normalizar 'producto'
         for r in rows:
             r['producto'] = r.get('producto') or r.get('ramos_producto') or ''
+
+        rows = _dedupe_poliza_rows(rows)
             
         cur.close()
         cnx.close()
