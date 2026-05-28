@@ -2413,6 +2413,18 @@
           render(extractedItems);
 
           try {
+            const hasAnyCuotas = (extractedItems || []).some(it => Array.isArray(it.cuotas) && it.cuotas.length > 0);
+            if (!hasAnyCuotas) {
+              const meta = await extractFacturaMetaFromFile(file);
+              if (meta && Array.isArray(meta.cuotas) && meta.cuotas.length > 0) {
+                applyFacturaMeta(meta);
+              }
+            }
+          } catch (e) {
+            console.error('Error extracting cronograma de cuotas:', e);
+          }
+
+          try {
             const missingDocIdx = (extractedItems || []).findIndex(it => {
               const doc = (it && it.numero_documento_extracted != null) ? String(it.numero_documento_extracted).trim() : '';
               return doc === '';
