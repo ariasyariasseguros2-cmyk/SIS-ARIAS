@@ -3,6 +3,41 @@ from models.db import get_connection, get_encrypt_key
 from datetime import datetime
 from utils.rbac import Roles
 
+def _get_poliza_activa_sql(alias='p'):
+    return (
+        f"COALESCE(NULLIF(TRIM(REPLACE(CONVERT({alias}.activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1' "
+        f"AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT({alias}.anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0'"
+    )
+
+def _get_cuota_join_sql(poliza_alias='p', cuota_alias='q'):
+    return f"""
+        LEFT JOIN cuotas {cuota_alias}
+          ON {cuota_alias}.idCuota = (
+                SELECT q2.idCuota
+                FROM cuotas q2
+                WHERE q2.poliza_id = {poliza_alias}.idPoliza
+                  AND q2.activo = 1
+                ORDER BY
+                    CASE
+                        WHEN TRIM(COALESCE(
+                                CONVERT(AES_DECRYPT(FROM_BASE64(q2.cupon), %s) USING utf8mb4),
+                                CONVERT(AES_DECRYPT(q2.cupon, %s) USING utf8mb4),
+                                CONVERT(q2.cupon USING utf8mb4)
+                             )) COLLATE utf8mb4_0900_ai_ci =
+                             TRIM(COALESCE(
+                                CONVERT(AES_DECRYPT(FROM_BASE64({poliza_alias}.recibo), %s) USING utf8mb4),
+                                CONVERT(AES_DECRYPT({poliza_alias}.recibo, %s) USING utf8mb4),
+                                CONVERT({poliza_alias}.recibo USING utf8mb4)
+                             )) COLLATE utf8mb4_0900_ai_ci
+                        THEN 0
+                        ELSE 1
+                    END,
+                    q2.fecha_vencimiento DESC,
+                    q2.idCuota DESC
+                LIMIT 1
+          )
+    """
+
 def get_estado_cuenta_data(filtros_input=None):
     """
     Obtiene los datos para el estado de cuenta de un cliente con filtros aplicados.
@@ -179,7 +214,7 @@ def get_estado_cuenta_data(filtros_input=None):
 
         if cliente:
 
-            query = """
+            query = f"""
                 SELECT 
                     p.idPoliza,
                     p.cia AS compania,
@@ -206,12 +241,12 @@ def get_estado_cuenta_data(filtros_input=None):
                         ELSE p.estado
                     END AS estado
                 FROM polizas p
-                LEFT JOIN cuotas q ON q.poliza_id = p.idPoliza
+                {_get_cuota_join_sql('p', 'q')}
                 WHERE p.cliente_id = %%s
-                  AND (p.estado IS NULL OR UPPER(p.estado) NOT IN ('INACTIVO', 'INACTIVA'))
+                  AND {_get_poliza_activa_sql('p')}
             """
 
-            params = [key, key, key, key, key, key, key, key, cliente['idCliente']]
+            params = [key, key, key, key, key, key, key, key, key, key, key, key, cliente['idCliente']]
 
             # Aplicar filtros adicionales
             if filters['compania']:
@@ -325,7 +360,17 @@ def get_estado_cuenta_data(filtros_input=None):
         ramos = [row['nombre'] for row in cur.fetchall()]
 
         # Obtener los estados reales de la tabla polizas
-        cur.execute("SELECT DISTINCT estado FROM polizas WHERE estado IS NOT NULL AND estado != '' AND UPPER(estado) NOT IN ('INACTIVO', 'INACTIVA') ORDER BY estado")
+        cur.execute(
+            f"""
+            SELECT DISTINCT estado
+            FROM polizas
+            WHERE {_get_poliza_activa_sql('polizas')}
+              AND estado IS NOT NULL
+              AND estado != ''
+              AND UPPER(estado) NOT IN ('INACTIVO', 'INACTIVA')
+            ORDER BY estado
+            """
+        )
         estados_raw = [row['estado'] for row in cur.fetchall()]
         estados = []
         seen = set()
@@ -334,6 +379,8 @@ def get_estado_cuenta_data(filtros_input=None):
             if not disp:
                 continue
             key_disp = disp.strip().upper()
+            if key_disp in {'0', '1'}:
+                continue
             if key_disp in seen:
                 continue
             seen.add(key_disp)
@@ -588,7 +635,7 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             cliente = None
 
     if cliente:
-        query = """
+        query = f"""
             SELECT 
                 p.cia AS compania,
                 p.ramo,
@@ -614,11 +661,11 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
                     ELSE p.estado
                 END AS estado
             FROM polizas p
-            LEFT JOIN cuotas q ON q.poliza_id = p.idPoliza
+            {_get_cuota_join_sql('p', 'q')}
             WHERE p.cliente_id = %%s
-              AND (p.estado IS NULL OR UPPER(p.estado) NOT IN ('INACTIVO', 'INACTIVA'))
+              AND {_get_poliza_activa_sql('p')}
         """
-        params = [key, key, key, key, key, key, key, key, cliente['idCliente']]
+        params = [key, key, key, key, key, key, key, key, key, key, key, key, cliente['idCliente']]
 
         if filters['compania']:
             query += " AND p.cia = %%s"

@@ -11,6 +11,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let searchTimeout = null;
 
+    function clearSelectedClienteState() {
+        if (clienteIdInput) {
+            clienteIdInput.value = '';
+        }
+
+        const numeroDocInput = document.querySelector('input[name="numero_documento"]');
+        const tipoDocSelect = document.querySelector('select[name="tipo_documento"]');
+
+        if (numeroDocInput && numeroDocInput.dataset.autofilledFromSearch === 'true') {
+            numeroDocInput.value = '';
+            delete numeroDocInput.dataset.autofilledFromSearch;
+        }
+
+        if (tipoDocSelect && tipoDocSelect.dataset.autofilledFromSearch === 'true') {
+            tipoDocSelect.value = '';
+            delete tipoDocSelect.dataset.autofilledFromSearch;
+        }
+    }
+
     // Serializa el formulario a query string
     function serializeFormToQuery() {
         const params = new URLSearchParams();
@@ -113,6 +132,8 @@ document.addEventListener('DOMContentLoaded', function() {
             clearTimeout(searchTimeout);
             const query = this.value.trim();
 
+            clearSelectedClienteState();
+
             if (query.length < 2) {
                 if (clienteSearchResults) {
                     clienteSearchResults.style.display = 'none';
@@ -191,25 +212,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const numeroDocInput = document.querySelector('input[name="numero_documento"]');
         const tipoDocSelect = document.querySelector('select[name="tipo_documento"]');
 
-        if (numeroDocInput && !numeroDocInput.value) numeroDocInput.value = cliente.numero_documento || '';
-        if (tipoDocSelect && !tipoDocSelect.value) tipoDocSelect.value = cliente.tipo_documento || '';
+        if (numeroDocInput && !numeroDocInput.value) {
+            numeroDocInput.value = cliente.numero_documento || '';
+            numeroDocInput.dataset.autofilledFromSearch = 'true';
+        }
+        if (tipoDocSelect && !tipoDocSelect.value) {
+            tipoDocSelect.value = cliente.tipo_documento || '';
+            tipoDocSelect.dataset.autofilledFromSearch = 'true';
+        }
 
         if (clienteSearchResults) {
             clienteSearchResults.style.display = 'none';
             clienteSearchResults.innerHTML = '';
         }
 
-    }
-
-    // Limpiar cliente_id si se modifica manualmente el campo de búsqueda
-    if (clienteSearchInput) {
-        clienteSearchInput.addEventListener('keypress', function() {
-            if (clienteIdInput && clienteIdInput.value) {
-                setTimeout(() => {
-                    clienteIdInput.value = '';
-                }, 100);
-            }
-        });
     }
 
 });
