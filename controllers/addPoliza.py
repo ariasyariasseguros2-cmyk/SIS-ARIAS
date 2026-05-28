@@ -148,11 +148,19 @@ def get_rows():
         {"label": "Se soporta La Positiva, MAPFRE; EPS/Vida/Seguros"},
     ]
 
-def save_polizas(items: list, selected: dict | None = None, anexos: list = None, facturas: list = None, facturas_by_index: dict | None = None) -> dict:
+def save_polizas(
+    items: list,
+    selected: dict | None = None,
+    anexos: list = None,
+    facturas: list = None,
+    facturas_by_index: dict | None = None,
+    facturas_by_cuota: dict | None = None,
+) -> dict:
     # Insertar en BD usando SP
     saved_anexos = []
     saved_facturas = []
     saved_facturas_by_index = {}
+    saved_facturas_by_cuota = {}
     if anexos:
         try:
             upload_folder = os.path.join(current_app.root_path, 'uploads', 'polizas')
@@ -215,6 +223,38 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                         pass
         except Exception as e:
             print(f"[save_polizas] Error saving facturas_by_index: {e}")
+    if facturas_by_cuota:
+        try:
+            upload_folder = os.path.join(current_app.root_path, 'uploads', 'cuotas')
+            os.makedirs(upload_folder, exist_ok=True)
+            for row_idx, cuotas_files in (facturas_by_cuota or {}).items():
+                row_map = {}
+                for cuota_idx, files in (cuotas_files or {}).items():
+                    arr = []
+                    for file in (files or []):
+                        if file and file.filename:
+                            original_name = file.filename
+                            safe_name = secure_filename(original_name)
+                            ts = int(time.time())
+                            disk_name = f"{ts}_{safe_name}"
+                            save_path = os.path.join(upload_folder, disk_name)
+                            file.save(save_path)
+                            arr.append({
+                                'ruta': f"cuotas/{disk_name}",
+                                'nombre': original_name
+                            })
+                    if arr:
+                        try:
+                            row_map[int(cuota_idx)] = arr
+                        except Exception:
+                            pass
+                if row_map:
+                    try:
+                        saved_facturas_by_cuota[int(row_idx)] = row_map
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"[save_polizas] Error saving facturas_by_cuota: {e}")
 
     try:
         if items:
@@ -971,6 +1011,7 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                 # INSERTAR CUOTAS
                 try:
                     row_cuotas = row.get("cuotas") or []
+                    inserted_cuotas = {}
                     if not row_cuotas:
                         # Fallback: crear una cuota automática con los campos de la fila si no hay array de cuotas
                         row_cuotas = [{
@@ -1033,6 +1074,11 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                             )
                             try:
                                 last_id = cur.lastrowid
+                                inserted_cuotas[ci - 1] = {
+                                    'idCuota': last_id,
+                                    'cupon': c_cupon,
+                                    'numero_poliza': c_poliza,
+                                }
                                 cur.execute(
                                     """
                                     UPDATE cuotas
@@ -1071,7 +1117,8 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                     pass
                 try:
                     files_for_row = saved_facturas_by_index.get(i, saved_facturas)
-                    if files_for_row:
+                    files_for_cuota = saved_facturas_by_cuota.get(i, {})
+                    if files_for_row or files_for_cuota:
                         pid_for_files = real_poliza_id
                         if not pid_for_files:
                             try:
@@ -1084,27 +1131,47 @@ def save_polizas(items: list, selected: dict | None = None, anexos: list = None,
                                     pid_for_files = rpid[0]
                             except Exception:
                                 pid_for_files = None
-                        if pid_for_files:
-                            for sf in files_for_row:
-                                nombre_doc = f"[CUOTA {U(row.get('recibo') or '')}] {sf['nombre']}".strip()
+
+                        def _save_cuota_archivos(cuota_meta, cuota_files):
+                            if not cuota_meta or not cuota_files or not pid_for_files:
+                                return
+                            cuota_id = cuota_meta.get('idCuota')
+                            cuota_cupon = U(cuota_meta.get('cupon') or '')
+                            cuota_poliza = U(cuota_meta.get('numero_poliza') or row.get('numero_poliza') or '')
+                            if not cuota_id:
+                                return
+                            for sf in cuota_files:
+                                nombre_doc = f"[CUOTA {cuota_cupon}] {sf['nombre']}".strip() if cuota_cupon else sf['nombre']
                                 try:
                                     cur.execute(
-                                        """INSERT INTO poliza_archivos
-                                           (poliza_id, numero_poliza, ruta_archivo, nombre_original, origen, ramo, producto, usuario, compania)
-                                           VALUES (%s,%s,%s,%s,'CUOTA',%s,%s,%s,%s)""",
+                                        """INSERT INTO cuota_archivos
+                                           (cuota_id, poliza_id, numero_poliza, cupon, ruta_archivo, nombre_original, usuario)
+                                           VALUES (%s,%s,%s,%s,%s,%s,%s)""",
                                         (
+                                            cuota_id,
                                             pid_for_files,
-                                            U(row.get('numero_poliza') or ''),
+                                            cuota_poliza,
+                                            cuota_cupon or None,
                                             sf['ruta'],
                                             nombre_doc or sf['nombre'],
-                                            U(row.get('ramo') or ''),
-                                            U(row.get('ramos_producto') or ''),
                                             usuario_display,
-                                            U(row.get('cia') or '')
                                         )
                                     )
                                 except Exception as ex_f:
-                                    print(f"[save_polizas] Error linking factura archivo: {ex_f}")
+                                    print(f"[save_polizas] Error linking cuota archivo: {ex_f}")
+
+                        for cuota_idx, cuota_files in (files_for_cuota or {}).items():
+                            _save_cuota_archivos(inserted_cuotas.get(int(cuota_idx)), cuota_files)
+
+                        if files_for_row:
+                            ordered_cuotas = [inserted_cuotas[k] for k in sorted(inserted_cuotas.keys())]
+                            if len(ordered_cuotas) == 1:
+                                _save_cuota_archivos(ordered_cuotas[0], files_for_row)
+                            elif ordered_cuotas and not files_for_cuota and len(files_for_row) == len(ordered_cuotas):
+                                for idx_file, cuota_meta in enumerate(ordered_cuotas):
+                                    _save_cuota_archivos(cuota_meta, [files_for_row[idx_file]])
+                            elif ordered_cuotas and len(files_for_row) > 0:
+                                print(f"[save_polizas] Facturas ambiguas para fila {i}: se omitió asociación automática por cuota.")
                 except Exception as _ex:
                     print(f"[save_polizas] Facturas vinculo error: {_ex}")
 

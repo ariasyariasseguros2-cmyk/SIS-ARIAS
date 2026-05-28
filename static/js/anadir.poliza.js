@@ -2756,12 +2756,27 @@
           formData.append('anexos', file);
         });
       }
+      const cuotaFileKeys = new Set(
+        Array.from(cuotaFacturaFileMap.values()).map(file => keyForFile(file))
+      );
       const hasRowFacturas = rowFacturasMap && rowFacturasMap.size > 0;
       if (hasRowFacturas) {
         Array.from(rowFacturasMap.entries()).forEach(([i, files]) => {
           (files || []).forEach(file => {
-            formData.append(`facturas_${i}`, file);
+            // Los archivos ya asignados a una cuota se envían con una clave específica.
+            if (!cuotaFileKeys.has(keyForFile(file))) {
+              formData.append(`facturas_${i}`, file);
+            }
           });
+        });
+      }
+      if (cuotaFacturaFileMap && cuotaFacturaFileMap.size > 0) {
+        Array.from(cuotaFacturaFileMap.entries()).forEach(([key, file]) => {
+          const parts = String(key).split(':');
+          const rowIdx = Number(parts[0]);
+          const cuotaIdx = Number(parts[1]);
+          if (!Number.isFinite(rowIdx) || !Number.isFinite(cuotaIdx) || !file) return;
+          formData.append(`facturas_cuota_${rowIdx}_${cuotaIdx}`, file);
         });
       } else {
         if (allFacturas && allFacturas.length > 0) {

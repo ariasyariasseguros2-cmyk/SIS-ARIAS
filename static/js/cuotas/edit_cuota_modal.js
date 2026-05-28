@@ -207,7 +207,7 @@
             const fileInput = document.getElementById('editDocumentoFile');
             if (fileInput) fileInput.value = '';
 
-            // Cargar archivo existente desde la DB (busca por poliza_id con origen=CUOTA)
+            // Cargar archivo existente desde la DB usando la cuota actual.
             const lookupId = this.currentId || this.currentPolizaId || '';
             if (lookupId) {
                 fetch(`/api/cuotas/archivos/${lookupId}`)
@@ -383,7 +383,7 @@
               .then(r => r.json())
               .then(res => {
                 if (!res.ok || !res.archivos || res.archivos.length === 0) {
-                  alert('No hay archivos guardados para esta póliza.');
+                  alert('No hay archivos guardados para esta cuota.');
                   return;
                 }
                 const archivo = res.archivos[0];

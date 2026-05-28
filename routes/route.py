@@ -241,7 +241,7 @@ def delete_cuota_route():
 
 @bp.route('/api/cuotas/upload-archivo', methods=['POST'])
 def upload_cuota_archivo():
-    """Guarda un PDF de cuota en uploads/cuotas/ y registra en poliza_archivos con origen=CUOTA."""
+    """Guarda un archivo de cuota en uploads/cuotas/ y lo registra en cuota_archivos."""
     if 'user' not in session:
         return jsonify({'ok': False, 'error': 'No autenticado'}), 401
 
@@ -320,18 +320,18 @@ def upload_cuota_archivo():
 
         nombre_doc = f"[CUOTA {cupon}] {original_filename}" if cupon else original_filename
 
-        # Insertar en poliza_archivos con origen=CUOTA (sin modificar la tabla)
+        # Registrar el archivo directamente contra la cuota para evitar mezclar PDFs entre cuotas.
         cur.execute(
-            """INSERT INTO poliza_archivos
-               (poliza_id, numero_poliza, ruta_archivo, nombre_original, origen, ramo, producto, usuario, compania)
-               VALUES (%s, %s, %s, %s, 'CUOTA', %s, %s, %s, %s)""",
-            (pid, p_poliza, ruta_relativa, nombre_doc, p_ramo, p_producto, usuario, p_cia)
+            """INSERT INTO cuota_archivos
+               (cuota_id, poliza_id, numero_poliza, cupon, ruta_archivo, nombre_original, usuario)
+               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+            (int(cuota_id), pid, p_poliza, cupon, ruta_relativa, nombre_doc, usuario)
         )
         new_archivo_id = cur.lastrowid
         cnx.commit()
         cur.close()
         cnx.close()
-        print(f"[upload_cuota_archivo] registro en poliza_archivos idArchivo={new_archivo_id} ruta={ruta_relativa}")
+        print(f"[upload_cuota_archivo] registro en cuota_archivos idArchivo={new_archivo_id} ruta={ruta_relativa}")
 
         return jsonify({'ok': True, 'ruta': ruta_relativa, 'idArchivo': new_archivo_id}), 200
 
@@ -342,7 +342,7 @@ def upload_cuota_archivo():
 
 @bp.route('/cuotas/revert', methods=['POST'])
 def revert_cuota_route():
-    """Revierte una cuota: limpia fecha_pago, factura y observacion; elimina PDF(s) origen=CUOTA de esa póliza."""
+    """Revierte una cuota: limpia sus datos y elimina solo sus archivos asociados."""
     if 'user' not in session:
         return {'ok': False, 'error': 'Unauthorized'}, 401
     data = request.get_json(force=True) or {}
@@ -354,7 +354,18 @@ def revert_cuota_route():
         cur = cnx.cursor(dictionary=True)
         # Obtener poliza_id y datos de la cuota
         cur.execute(
-            "SELECT idCuota, poliza_id FROM cuotas WHERE idCuota = %s AND activo = 1",
+            """
+            SELECT
+                idCuota,
+                poliza_id,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR),
+                    cupon
+                ) AS cupon_plain
+            FROM cuotas
+            WHERE idCuota = %s AND activo = 1
+            """,
             (int(cuota_id),)
         )
         row = cur.fetchone()
@@ -363,28 +374,66 @@ def revert_cuota_route():
             cnx.close()
             return {'ok': False, 'error': 'Cuota no encontrada'}, 404
         poliza_id = row.get('poliza_id')
+        cupon_plain = (row.get('cupon_plain') or '').strip()
         # Limpiar campos de la cuota
         cur.execute(
             "UPDATE cuotas SET fecha_pago = NULL, factura = NULL, observacion = NULL WHERE idCuota = %s",
             (int(cuota_id),)
         )
-        # Eliminar archivos asociados a la póliza con origen=CUOTA
-        if poliza_id is not None:
-            cur.execute(
-                "SELECT idArchivo, ruta_archivo FROM poliza_archivos WHERE poliza_id = %s AND origen = 'CUOTA'",
-                (int(poliza_id),)
-            )
-            archivos = cur.fetchall() or []
-            upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
-            for a in archivos:
-                ruta = a.get('ruta_archivo') or ''
-                abs_path = os.path.join(upload_folder, ruta.lstrip('/\\'))
-                try:
-                    if os.path.exists(abs_path):
-                        os.remove(abs_path)
-                except Exception:
-                    pass
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
+        archivos = []
+
+        cur.execute(
+            "SELECT idArchivo, ruta_archivo FROM cuota_archivos WHERE cuota_id = %s",
+            (int(cuota_id),)
+        )
+        archivos = cur.fetchall() or []
+
+        # Compatibilidad con registros antiguos guardados en poliza_archivos.
+        if not archivos and poliza_id is not None:
+            if cupon_plain:
+                cur.execute(
+                    """
+                    SELECT idArchivo, ruta_archivo
+                    FROM poliza_archivos
+                    WHERE poliza_id = %s
+                      AND origen = 'CUOTA'
+                      AND (
+                          nombre_original LIKE %s
+                          OR nombre_original LIKE %s
+                      )
+                    """,
+                    (int(poliza_id), f'[CUOTA {cupon_plain}] %', f'%{cupon_plain}%')
+                )
+                archivos = cur.fetchall() or []
+
+            if not archivos:
+                cur.execute(
+                    "SELECT COUNT(*) AS total FROM cuotas WHERE poliza_id = %s AND activo = 1",
+                    (int(poliza_id),)
+                )
+                qty_row = cur.fetchone() or {}
+                total_cuotas = int(qty_row.get('total') or 0)
+                if total_cuotas <= 1:
+                    cur.execute(
+                        "SELECT idArchivo, ruta_archivo FROM poliza_archivos WHERE poliza_id = %s AND origen = 'CUOTA'",
+                        (int(poliza_id),)
+                    )
+                    archivos = cur.fetchall() or []
+
+        for a in archivos:
+            ruta = a.get('ruta_archivo') or ''
+            abs_path = os.path.join(upload_folder, ruta.lstrip('/\\'))
+            try:
+                if os.path.exists(abs_path):
+                    os.remove(abs_path)
+            except Exception:
+                pass
+            cur.execute("DELETE FROM cuota_archivos WHERE idArchivo = %s", (a['idArchivo'],))
+            if cur.rowcount == 0:
                 cur.execute("DELETE FROM poliza_archivos WHERE idArchivo = %s", (a['idArchivo'],))
+
+        if poliza_id is not None:
             # Recalcular estado de póliza
             cur.execute(
                 """
@@ -414,7 +463,7 @@ def revert_cuota_route():
 
 @bp.route('/api/cuotas/archivos/<int:cuota_id>', methods=['GET'])
 def get_cuota_archivos(cuota_id):
-    """Lista los archivos de una cuota buscando en poliza_archivos por poliza_id y origen=CUOTA."""
+    """Lista los archivos de una cuota sin mezclar documentos de otras cuotas."""
     if 'user' not in session:
         return {'ok': False, 'error': 'No autenticado'}, 401
     try:
@@ -422,43 +471,75 @@ def get_cuota_archivos(cuota_id):
         cur = cnx.cursor(dictionary=True)
         resolved_poliza_id = None
         resolved_cuota_id = None
+        resolved_cupon = ''
         try:
             cur.execute(
-                "SELECT poliza_id FROM cuotas WHERE idCuota = %s AND activo = 1",
+                """
+                SELECT
+                    poliza_id,
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR),
+                        cupon
+                    ) AS cupon_plain
+                FROM cuotas
+                WHERE idCuota = %s AND activo = 1
+                """,
                 (int(cuota_id),),
             )
             qrow = cur.fetchone() or {}
             resolved_poliza_id = qrow.get('poliza_id') or None
             if qrow:
                 resolved_cuota_id = int(cuota_id)
+                resolved_cupon = (qrow.get('cupon_plain') or '').strip()
         except Exception:
             resolved_poliza_id = None
         if resolved_poliza_id is None:
             resolved_poliza_id = int(cuota_id)
 
         cur.execute(
-            """SELECT idArchivo, ruta_archivo, nombre_original, origen, creado_en
-               FROM poliza_archivos
-               WHERE poliza_id = %s AND origen = 'CUOTA'
+            """SELECT idArchivo, ruta_archivo, nombre_original, 'CUOTA' AS origen, creado_en
+               FROM cuota_archivos
+               WHERE cuota_id = %s
                ORDER BY creado_en DESC""",
-            (int(resolved_poliza_id),)
+            (int(resolved_cuota_id or cuota_id),)
         )
         rows = cur.fetchall() or []
 
         if not rows:
-            params = [int(resolved_poliza_id)]
-            where = "poliza_id = %s"
-            if resolved_cuota_id is not None:
-                where = f"({where} OR cuota_id = %s)"
-                params.append(int(resolved_cuota_id))
+            if resolved_poliza_id is not None and resolved_cupon:
+                cur.execute(
+                    """
+                    SELECT idArchivo, ruta_archivo, nombre_original, origen, creado_en
+                    FROM poliza_archivos
+                    WHERE poliza_id = %s
+                      AND origen = 'CUOTA'
+                      AND (
+                          nombre_original LIKE %s
+                          OR nombre_original LIKE %s
+                      )
+                    ORDER BY creado_en DESC
+                    """,
+                    (int(resolved_poliza_id), f'[CUOTA {resolved_cupon}] %', f'%{resolved_cupon}%')
+                )
+                rows = cur.fetchall() or []
+
+        if not rows and resolved_poliza_id is not None:
             cur.execute(
-                f"""SELECT idArchivo, ruta_archivo, nombre_original, 'CUOTA' AS origen, creado_en
-                    FROM cuota_archivos
-                    WHERE {where}
-                    ORDER BY creado_en DESC""",
-                tuple(params),
+                "SELECT COUNT(*) AS total FROM cuotas WHERE poliza_id = %s AND activo = 1",
+                (int(resolved_poliza_id),)
             )
-            rows = cur.fetchall() or []
+            qty_row = cur.fetchone() or {}
+            total_cuotas = int(qty_row.get('total') or 0)
+            if total_cuotas <= 1:
+                cur.execute(
+                    """SELECT idArchivo, ruta_archivo, nombre_original, origen, creado_en
+                       FROM poliza_archivos
+                       WHERE poliza_id = %s AND origen = 'CUOTA'
+                       ORDER BY creado_en DESC""",
+                    (int(resolved_poliza_id),)
+                )
+                rows = cur.fetchall() or []
         cur.close()
         cnx.close()
         for r in rows:
@@ -3099,9 +3180,18 @@ def polizas_save():
         anexos = request.files.getlist('anexos')
         facturas = request.files.getlist('facturas')
         facturas_by_index = {}
+        facturas_by_cuota = {}
         try:
             for key in request.files.keys():
-                if key.startswith('facturas_'):
+                if key.startswith('facturas_cuota_'):
+                    try:
+                        _, _, row_idx, cuota_idx = key.split('_', 3)
+                        row_idx = int(row_idx)
+                        cuota_idx = int(cuota_idx)
+                        facturas_by_cuota.setdefault(row_idx, {})[cuota_idx] = request.files.getlist(key)
+                    except Exception:
+                        pass
+                elif key.startswith('facturas_'):
                     try:
                         idx = int(key.split('_', 1)[1])
                         facturas_by_index[idx] = request.files.getlist(key)
@@ -3109,11 +3199,13 @@ def polizas_save():
                         pass
         except Exception:
             facturas_by_index = {}
+            facturas_by_cuota = {}
     else:
         payload = request.get_json(silent=True) or {}
         anexos = []
         facturas = []
         facturas_by_index = {}
+        facturas_by_cuota = {}
 
     items = payload.get('items') or []
     selected = payload.get('selected') or session.get('selected_cliente') or {}
@@ -3146,7 +3238,14 @@ def polizas_save():
                 pass
 
     from controllers.addPoliza import save_polizas
-    res = save_polizas(items, selected, anexos=anexos, facturas=facturas, facturas_by_index=facturas_by_index)
+    res = save_polizas(
+        items,
+        selected,
+        anexos=anexos,
+        facturas=facturas,
+        facturas_by_index=facturas_by_index,
+        facturas_by_cuota=facturas_by_cuota,
+    )
     if not res.get('ok'):
         current_app.logger.error('polizas_save error: %s', res.get('errors'))
     status = 200 if res.get('ok') else 400

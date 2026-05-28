@@ -220,19 +220,18 @@ const Cuotas = (() => {
       }
     };
 
-    // Buscar archivos por poliza_id con origen=CUOTA en poliza_archivos
-    const polizaId = window.currentPolizaId || window.currentPrimaId || '';
-    if (!polizaId) {
+    const idCuota = data.idCuota || '';
+    if (!idCuota) {
       Swal.fire({
         ...swalConfig,
         icon: 'info',
         title: 'Aviso',
-        text: 'No hay documento asociado a esta póliza.'
+        text: 'No se pudo identificar la cuota.'
       });
       return;
     }
 
-    fetch(`/api/cuotas/archivos/${polizaId}`)
+    fetch(`/api/cuotas/archivos/${idCuota}`)
       .then(r => r.json())
       .then(res => {
         if (!res.ok || !res.archivos || res.archivos.length === 0) {
@@ -240,7 +239,7 @@ const Cuotas = (() => {
             ...swalConfig,
             icon: 'info',
             title: 'Aviso',
-            text: 'No hay archivos PDF guardados para esta póliza.'
+            text: 'No hay archivos PDF guardados para esta cuota.'
           });
           return;
         }
@@ -349,10 +348,9 @@ const Cuotas = (() => {
     const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
     modal.show();
 
-    // Consultar archivos reales desde la DB (por poliza_id con origen=CUOTA)
-    const polizaId = window.currentPolizaId || window.currentPrimaId || '';
-    if (polizaId && docEl) {
-      fetch(`/api/cuotas/archivos/${polizaId}`)
+    const idCuota = data.idCuota || '';
+    if (idCuota && docEl) {
+      fetch(`/api/cuotas/archivos/${idCuota}`)
         .then(r => r.json())
         .then(res => {
           if (!res.ok || !res.archivos || res.archivos.length === 0) {
