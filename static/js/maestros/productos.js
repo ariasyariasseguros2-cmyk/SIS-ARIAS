@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 const data = await res.json();
                 const rows = (data && data.rows) || data || [];
                 tableBody.innerHTML = '';
-                (rows||[]).forEach(r=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td>${r.id}</td><td>${r.ramo_nombre || r.ramo || ''}</td><td>${r.nombre}</td><td><button class="btn btn-sm btn-danger btn-del" data-id="${r.id}">Eliminar</button></td>`; tableBody.appendChild(tr); });
+                (rows||[]).forEach(r=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td>${r.id}</td><td>${r.ramo_nombre || r.ramo || ''}</td><td>${r.nombre}</td><td>${r.codigo || ''}</td><td>${r.grupo || ''}</td><td><button class="btn btn-sm btn-danger btn-del" data-id="${r.id}">Eliminar</button></td>`; tableBody.appendChild(tr); });
                 document.querySelectorAll('.btn-del').forEach(b=>b.addEventListener('click', async (e)=>{ try{ if(!confirm('Eliminar este registro?')) return; const id = e.target.dataset.id; await fetch('/api/maestros/productos/'+id, { method: 'DELETE' }); load(); }catch(err){ console.error(err); alert('Error eliminando'); } }));
 
                 if(data && data.ok !== undefined){
@@ -63,9 +63,30 @@ document.addEventListener('DOMContentLoaded', function(){
 
         const btnAdd = document.getElementById('btn-add');
         const saveBtn = document.getElementById('save-btn');
-        if(btnAdd) btnAdd.addEventListener('click', async ()=>{ await loadRamos(); modal.show(); });
+
+        if(btnAdd) btnAdd.addEventListener('click', async ()=>{
+            await loadRamos();
+            document.getElementById('input-nombre').value = '';
+            document.getElementById('input-codigo').value = '';
+            document.getElementById('input-grupo').value = '';
+            modal.show();
+        });
         if(saveBtn) saveBtn.addEventListener('click', async ()=>{
-            try{ const nombre = (document.getElementById('input-nombre')||{}).value||''; const idRamo = (selectRamo||{}).value; if(!nombre.trim()){ alert('Nombre requerido'); return; } if(!idRamo){ alert('Seleccione ramo'); return; } await fetch('/api/maestros/productos', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ idRamo, nombre }) }); modal.hide(); load(); }catch(err){ console.error(err); alert('Error guardando'); }
+            try{
+                const nombre = (document.getElementById('input-nombre')||{}).value||'';
+                const codigo = (document.getElementById('input-codigo')||{}).value||'';
+                const grupo = (document.getElementById('input-grupo')||{}).value||'';
+                const idRamo = (selectRamo||{}).value;
+                if(!nombre.trim()){ alert('Nombre requerido'); return; }
+                if(!idRamo){ alert('Seleccione ramo'); return; }
+                await fetch('/api/maestros/productos', {
+                    method: 'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ idRamo, nombre, codigo, grupo })
+                });
+                modal.hide();
+                load();
+            }catch(err){ console.error(err); alert('Error guardando'); }
         });
 
         load();

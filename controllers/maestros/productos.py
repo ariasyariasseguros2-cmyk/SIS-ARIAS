@@ -5,19 +5,19 @@ def get_productos():
     cnx = get_connection()
     try:
         cur = cnx.cursor(dictionary=True)
-        cur.execute("SELECT p.id_producto AS id, p.nombre, p.idRamo AS ramo_id, r.nombre AS ramo_nombre FROM productos p JOIN ramos r ON r.idRamo = p.idRamo ORDER BY p.id_producto ASC")
+        cur.execute("SELECT p.id_producto AS id, p.nombre, p.codigo, p.grupo, p.idRamo AS ramo_id, r.nombre AS ramo_nombre FROM productos p JOIN ramos r ON r.idRamo = p.idRamo ORDER BY p.id_producto ASC")
         return cur.fetchall() or []
     finally:
         cnx.close()
 
 
-def insert_producto(idRamo, nombre):
+def insert_producto(idRamo, nombre, codigo=None, grupo=None):
     cnx = None
     cur = None
     try:
         cnx = get_connection()
         cur = cnx.cursor()
-        cur.execute("CALL sp_insertar_producto(%s, %s, @p_new_id)", (idRamo, nombre or ''))
+        cur.execute("CALL sp_insertar_producto(%s, %s, %s, %s, @p_new_id)", (idRamo, nombre or '', codigo or '', grupo or ''))
         cur.execute("SELECT @p_new_id")
         res = cur.fetchone()
         new_id = None

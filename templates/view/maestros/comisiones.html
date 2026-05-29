@@ -20,8 +20,12 @@
         <tr>
           <th>Ramo</th>
           <th>Abrev.</th>
+          <th>Ramo Cod.</th>
+          <th>Ramo Grupo</th>
           <th>Producto</th>
           <th>Prod. Abrev.</th>
+          <th>Prod. Cod.</th>
+          <th>Prod. Grupo</th>
           <th>POS EPS</th>
           <th>POS VSR</th>
           <th>POS SR</th>
@@ -41,8 +45,12 @@
         <tr data-id="{{ c.id }}">
           <td>{{ c.ramo_nombre }}</td>
           <td>{{ c.ramo_abreviacion }}</td>
+          <td>{{ c.ramo_codigo }}</td>
+          <td>{{ c.ramo_grupo }}</td>
           <td>{{ c.producto }}</td>
           <td>{{ c.producto_abrev }}</td>
+          <td>{{ c.producto_codigo }}</td>
+          <td>{{ c.producto_grupo }}</td>
           <td>{{ c.pos_eps }}</td>
           <td>{{ c.pos_vsr }}</td>
           <td>{{ c.pos_sr }}</td>
@@ -60,7 +68,7 @@
         </tr>
         {% endfor %}
         {% if not rows or rows|length == 0 %}
-        <tr><td colspan="16" class="text-center text-muted">Sin datos</td></tr>
+        <tr><td colspan="20" class="text-center text-muted">Sin datos</td></tr>
         {% endif %}
       </tbody>
     </table>
@@ -86,22 +94,49 @@
               <input id="com-ramo-abrev" class="form-control">
             </div>
             <div class="col-md-3">
-              <label for="com-ramo-grupo" class="form-label">Grupo</label>
-              <input id="com-ramo-grupo" class="form-control">
+              <label for="com-ramo-codigo" class="form-label">Ramo Cod.</label>
+              <input id="com-ramo-codigo" class="form-control">
             </div>
             <div class="col-md-3">
-              <label for="com-factor" class="form-label">Factor</label>
-              <input id="com-factor" class="form-control" type="number" step="0.0001">
+              <label for="com-ramo-grupo" class="form-label">Grupo</label>
+              <select id="com-ramo-grupo" class="form-select">
+                <option value="">Seleccione Grupo</option>
+                <option value="RRHH">RRHH</option>
+                <option value="RRGG">RRGG</option>
+                <option value="VEHICULOS">VEHICULOS</option>
+                <option value="OTROS">OTROS</option>
+              </select>
             </div>
           </div>
           <div class="row g-3 mb-2">
-            <div class="col-md-6">
+            <div class="col-md-3">
               <label for="com-producto" class="form-label">Producto</label>
               <input id="com-producto" class="form-control">
             </div>
-            <div class="col-md-6">
+            <div class="col-md-3">
               <label for="com-producto-abrev" class="form-label">Prod. Abrev.</label>
               <input id="com-producto-abrev" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label for="com-producto-codigo" class="form-label">Prod. Cod.</label>
+              <input id="com-producto-codigo" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label for="com-producto-grupo" class="form-label">Prod. Grupo</label>
+              <select id="com-producto-grupo" class="form-select">
+                <option value="">Seleccione Grupo</option>
+                <option value="RRHH">RRHH</option>
+                <option value="RRGG">RRGG</option>
+                <option value="VEHICULOS">VEHICULOS</option>
+                <option value="MAQ&EQUIPO">MAQ&EQUIPO</option>
+                <option value="OTROS">OTROS</option>
+              </select>
+            </div>
+          </div>
+          <div class="row g-3 mb-2">
+            <div class="col-md-3">
+              <label for="com-factor" class="form-label">Factor</label>
+              <input id="com-factor" class="form-control" type="number" step="0.0001">
             </div>
           </div>
           <div class="row g-3">

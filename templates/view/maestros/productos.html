@@ -20,7 +20,7 @@
 
     <table class="table table-striped" id="table-productos">
         <thead>
-            <tr><th>ID</th><th>Ramo</th><th>Producto</th><th>Acciones</th></tr>
+            <tr><th>ID</th><th>Ramo</th><th>Producto</th><th>Código</th><th>Grupo</th><th>Acciones</th></tr>
         </thead>
         <tbody></tbody>
     </table>
@@ -41,6 +41,18 @@
             <select id="select-ramo" class="form-select" aria-label="Seleccionar ramo"></select>
         </div>
         <div class="mb-3"><label for="input-nombre" class="form-label">Nombre</label><input id="input-nombre" class="form-control" aria-label="Nombre del producto"></div>
+        <div class="mb-3"><label for="input-codigo" class="form-label">Código</label><input id="input-codigo" class="form-control" aria-label="Código del producto"></div>
+        <div class="mb-3">
+            <label for="input-grupo" class="form-label">Grupo</label>
+            <select id="input-grupo" class="form-select">
+                <option value="">Seleccione Grupo</option>
+                <option value="RRHH">RRHH</option>
+                <option value="RRGG">RRGG</option>
+                <option value="VEHICULOS">VEHICULOS</option>
+                <option value="MAQ&EQUIPO">MAQ&EQUIPO</option>
+                <option value="OTROS">OTROS</option>
+            </select>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>

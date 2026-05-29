@@ -2971,9 +2971,12 @@ def api_maestros_comisiones_save():
 
     ramo_nombre = (data.get('ramo_nombre') or '').strip()
     ramo_abreviacion = (data.get('ramo_abreviacion') or '').strip() or None
+    ramo_codigo = (data.get('ramo_codigo') or '').strip() or None
     ramo_grupo = (data.get('ramo_grupo') or '').strip() or None
     producto = (data.get('producto') or '').strip()
     producto_abrev = (data.get('producto_abrev') or '').strip() or None
+    producto_codigo = (data.get('producto_codigo') or '').strip() or None
+    producto_grupo = (data.get('producto_grupo') or '').strip() or None
     pos_eps = _to_decimal(data.get('pos_eps'))
     pos_vsr = _to_decimal(data.get('pos_vsr'))
     pos_sr = _to_decimal(data.get('pos_sr'))
@@ -3012,10 +3015,12 @@ def api_maestros_comisiones_save():
                     """
                     UPDATE ramos
                     SET nombre=%s,
-                        abreviacion=%s
+                        abreviacion=%s,
+                        codigo=%s,
+                        grupo=%s
                     WHERE nombre=%s
                     """,
-                    (ramo_nombre, ramo_abreviacion, prev_ramo),
+                    (ramo_nombre, ramo_abreviacion, ramo_codigo, ramo_grupo, prev_ramo),
                 )
                 cur.execute(
                     "SELECT idRamo FROM ramos WHERE nombre=%s",
@@ -3027,18 +3032,24 @@ def api_maestros_comisiones_save():
                     cur.execute(
                         """
                         UPDATE productos
-                        SET nombre=%s
+                        SET nombre=%s,
+                            codigo=%s,
+                            grupo=%s
                         WHERE idRamo=%s AND nombre=%s
                         """,
-                        (producto, ramo_id, prev_producto),
+                        (producto, producto_codigo, producto_grupo, ramo_id, prev_producto),
                     )
                 cur.execute(
                     """
                     UPDATE comisiones_temp
                     SET ramo_nombre=%s,
                         ramo_abreviacion=%s,
+                        ramo_codigo=%s,
+                        ramo_grupo=%s,
                         producto=%s,
                         producto_abrev=%s,
+                        producto_codigo=%s,
+                        producto_grupo=%s,
                         pos_eps=%s,
                         pos_vsr=%s,
                         pos_sr=%s,
@@ -3055,8 +3066,12 @@ def api_maestros_comisiones_save():
                     (
                         ramo_nombre,
                         ramo_abreviacion,
+                        ramo_codigo,
+                        ramo_grupo,
                         producto,
                         producto_abrev,
+                        producto_codigo,
+                        producto_grupo,
                         pos_eps,
                         pos_vsr,
                         pos_sr,
@@ -3076,14 +3091,15 @@ def api_maestros_comisiones_save():
                 cur.execute(
                     """
                     INSERT INTO ramos (nombre, abreviacion, codigo, grupo, estado)
-                    VALUES (%s, %s, NULL, %s, 'Activo')
+                    VALUES (%s, %s, %s, %s, 'Activo')
                     ON DUPLICATE KEY UPDATE
                         abreviacion = VALUES(abreviacion),
+                        codigo = COALESCE(VALUES(codigo), codigo),
                         grupo = COALESCE(VALUES(grupo), grupo),
                         estado = VALUES(estado),
                         idRamo = LAST_INSERT_ID(idRamo)
                     """,
-                    (ramo_nombre, ramo_abreviacion, ramo_grupo),
+                    (ramo_nombre, ramo_abreviacion, ramo_codigo, ramo_grupo),
                 )
                 cur.execute("SELECT LAST_INSERT_ID()")
                 r = cur.fetchone()
@@ -3092,19 +3108,26 @@ def api_maestros_comisiones_save():
                 if ramo_id and producto:
                     cur.execute(
                         """
-                        INSERT INTO productos (idRamo, nombre)
-                        VALUES (%s, %s)
-                        ON DUPLICATE KEY UPDATE id_producto = LAST_INSERT_ID(id_producto)
+                        INSERT INTO productos (idRamo, nombre, codigo, grupo)
+                        VALUES (%s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                            codigo = VALUES(codigo),
+                            grupo = VALUES(grupo),
+                            id_producto = LAST_INSERT_ID(id_producto)
                         """,
-                        (ramo_id, producto),
+                        (ramo_id, producto, producto_codigo, producto_grupo),
                     )
                 cur.execute(
                     """
                     INSERT INTO comisiones_temp (
                         ramo_nombre,
                         ramo_abreviacion,
+                        ramo_codigo,
+                        ramo_grupo,
                         producto,
                         producto_abrev,
+                        producto_codigo,
+                        producto_grupo,
                         pos_eps,
                         pos_vsr,
                         pos_sr,
@@ -3116,13 +3139,17 @@ def api_maestros_comisiones_save():
                         ohio_natural,
                         grandia_eps,
                         factor
-                    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     """,
                     (
                         ramo_nombre,
                         ramo_abreviacion,
+                        ramo_codigo,
+                        ramo_grupo,
                         producto,
                         producto_abrev,
+                        producto_codigo,
+                        producto_grupo,
                         pos_eps,
                         pos_vsr,
                         pos_sr,
@@ -5296,7 +5323,7 @@ def api_maestros_list_create(entidad):
             return jsonify({'ok': True, 'id': nid})
         if entidad == 'productos':
             from controllers.maestros.productos import insert_producto
-            nid = insert_producto(data.get('idRamo') or data.get('ramo_id') or data.get('ramo'), data.get('nombre'))
+            nid = insert_producto(data.get('idRamo') or data.get('ramo_id') or data.get('ramo'), data.get('nombre'), data.get('codigo'), data.get('grupo'))
             return jsonify({'ok': True, 'id': nid})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
