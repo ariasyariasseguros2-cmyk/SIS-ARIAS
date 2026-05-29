@@ -5,7 +5,7 @@ def get_productos():
     cnx = get_connection()
     try:
         cur = cnx.cursor(dictionary=True)
-        cur.execute("SELECT p.id_producto AS id, p.nombre, p.codigo, p.grupo, p.idRamo AS ramo_id, r.nombre AS ramo_nombre FROM productos p JOIN ramos r ON r.idRamo = p.idRamo ORDER BY p.id_producto ASC")
+        cur.execute("SELECT p.id_producto AS id, p.nombre, p.codigo, p.grupo, p.idRamo AS ramo_id, r.nombre AS ramo_nombre FROM productos p JOIN ramos r ON r.idRamo = p.idRamo ORDER BY p.nombre ASC")
         return cur.fetchall() or []
     finally:
         cnx.close()
