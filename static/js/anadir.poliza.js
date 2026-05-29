@@ -719,6 +719,7 @@
   function buildActions(index) {
     const item = extractedItems[index] || {};
     const cuotas = item.cuotas || [];
+    const hasCuotas = cuotas.length > 0;
     const hasMultipleCuotas = cuotas.length > 1;
     
     let cuotasHtml = '';
@@ -781,16 +782,14 @@
 
     return `
       <div class="actions-pane" data-index="${index}">
-        <div class="drop-facturas mb-2" data-index="${index}">Haz clic para seleccionar o arrastra la factura aquí</div>
-        <input type="file" class="d-none input-facturas" data-index="${index}" accept=".pdf,image/*" multiple>
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <div class="small text-muted">Archivos adjuntos</div>
-          <span class="badge text-bg-secondary facturas-count">0</span>
-        </div>
-        <div class="list-facturas"></div>
-        ${hasMultipleCuotas ? `
-          <div class="pane-cuotas-hint mb-2">Cuotas múltiples: completa Factura y Fecha Pago en cada cuota.</div>
-        ` : `
+        ${!hasCuotas ? `
+          <div class="drop-facturas mb-2" data-index="${index}">Haz clic para seleccionar o arrastra la factura aquí</div>
+          <input type="file" class="d-none input-facturas" data-index="${index}" accept=".pdf,image/*" multiple>
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="small text-muted">Archivos adjuntos</div>
+            <span class="badge text-bg-secondary facturas-count">0</span>
+          </div>
+          <div class="list-facturas"></div>
           <div class="pane-fields pane-fields-2 mb-2">
             <div class="field">
               <label class="form-label small mb-1">FACTURA</label>
@@ -801,7 +800,9 @@
               <input type="text" class="form-control form-control-sm pane-fecha" data-index="${index}" value="${item.fecha_pago || ''}" placeholder="dd/mm/aaaa">
             </div>
           </div>
-        `}
+        ` : (hasMultipleCuotas ? `
+          <div class="pane-cuotas-hint mb-2">Cuotas múltiples: completa Factura y Fecha Pago en cada cuota.</div>
+        ` : '')}
         
         <div class="cuotas-list" data-index="${index}">
           ${cuotasHtml}
