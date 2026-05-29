@@ -26,8 +26,8 @@
                 <div class="row g-3">
                     <!-- Cliente - Campo de búsqueda -->
                     <div class="col-md-6 position-relative">
-                        <label class="form-label fw-bold">* Cliente</label>
-                        <div class="input-group">
+                        <label class="form-label fw-bold small">* Cliente</label>
+                        <div class="input-group input-group-sm">
                             <input type="text"
                                    id="clienteSearchInput"
                                    name="cliente_search"
@@ -37,13 +37,13 @@
                                    autocomplete="off">
                         </div>
                         <input type="hidden" name="cliente_id" id="clienteIdInput" value="{{ cliente.idCliente if cliente else '' }}">
-                        <div id="clienteSearchResults" class="list-group mt-2 position-absolute w-100" style="z-index: 1000; display: none; max-height: 300px; overflow-y: auto; left: 0;"></div>
+                        <div id="clienteSearchResults" class="list-group mt-1 position-absolute w-100" style="z-index: 1000; display: none; max-height: 300px; overflow-y: auto; left: 0;"></div>
                     </div>
 
                     <!-- Tipo Documento -->
                     <div class="col-md-3">
-                        <label class="form-label">Tipo Documento</label>
-                        <select name="tipo_documento" class="form-select">
+                        <label class="form-label small">Tipo Documento</label>
+                        <select name="tipo_documento" class="form-select form-select-sm">
                             <option value="">Todos</option>
                             <option value="RUC" {{ 'selected' if filtros_aplicados['tipo_documento'] == 'RUC' }}>RUC</option>
                             <option value="DNI" {{ 'selected' if filtros_aplicados['tipo_documento'] == 'DNI' }}>DNI</option>
@@ -54,18 +54,18 @@
 
                     <!-- Documento -->
                     <div class="col-md-3">
-                        <label class="form-label">Documento</label>
+                        <label class="form-label small">Documento</label>
                         <input type="text"
                                name="numero_documento"
-                               class="form-control"
+                               class="form-control form-control-sm"
                                placeholder="Número de documento"
                                value="{{ cliente.numero_documento if cliente else filtros_aplicados['numero_documento'] }}">
                     </div>
 
                     <!-- Compañía -->
-                    <div class="col-md-3">
-                        <label class="form-label">Compañía</label>
-                        <select name="compania" class="form-select">
+                    <div class="col-md-2">
+                        <label class="form-label small">Compañía</label>
+                        <select name="compania" class="form-select form-select-sm">
                             <option value="">Todos</option>
                             {% for cia in filtros_options.companias %}
                             <option value="{{ cia }}" {{ 'selected' if filtros_aplicados['compania'] == cia }}>{{ cia }}</option>
@@ -75,8 +75,8 @@
 
                     <!-- Moneda -->
                     <div class="col-md-2">
-                        <label class="form-label">Moneda</label>
-                        <select name="moneda" class="form-select">
+                        <label class="form-label small">Moneda</label>
+                        <select name="moneda" class="form-select form-select-sm">
                             <option value="">Ambos</option>
                             {% for moneda in filtros_options.monedas %}
                             <option value="{{ moneda }}" {{ 'selected' if filtros_aplicados['moneda'] == moneda }}>{{ moneda }}</option>
@@ -85,9 +85,9 @@
                     </div>
 
                     <!-- Ramo -->
-                    <div class="col-md-3">
-                        <label class="form-label">Ramo</label>
-                        <select name="ramo" class="form-select">
+                    <div class="col-md-2">
+                        <label class="form-label small">Ramo</label>
+                        <select name="ramo" class="form-select form-select-sm">
                             <option value="">Todos</option>
                             {% for ramo in filtros_options.ramos %}
                             <option value="{{ ramo }}" {{ 'selected' if filtros_aplicados['ramo'] == ramo }}>{{ ramo }}</option>
@@ -97,8 +97,8 @@
 
                     <!-- Estado -->
                     <div class="col-md-2">
-                        <label class="form-label">Estado</label>
-                        <select name="estado" class="form-select">
+                        <label class="form-label small">Estado</label>
+                        <select name="estado" class="form-select form-select-sm">
                             <option value="">Todos</option>
                             {% for estado in filtros_options.estados %}
                             <option value="{{ estado }}" {{ 'selected' if filtros_aplicados['estado'] == estado }}>{{ estado }}</option>
@@ -108,30 +108,30 @@
 
                     <!-- Desde -->
                     <div class="col-md-2">
-                        <label class="form-label">Desde</label>
-                        <input type="date" name="fecha_desde" class="form-control" value="{{ filtros_aplicados['fecha_desde'] }}">
+                        <label class="form-label small">Desde</label>
+                        <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ filtros_aplicados['fecha_desde'] }}">
                     </div>
 
                     <!-- Hasta -->
                     <div class="col-md-2">
-                        <label class="form-label">Hasta</label>
-                        <input type="date" name="fecha_hasta" class="form-control" value="{{ filtros_aplicados['fecha_hasta'] }}">
+                        <label class="form-label small">Hasta</label>
+                        <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ filtros_aplicados['fecha_hasta'] }}">
                     </div>
 
                     <!-- Botones -->
-                    <div class="col-md-12 d-flex gap-2 justify-content-end flex-wrap">
-                        <a href="{{ url_for('main.menu_page', page='clientes-estado-cuenta') }}" class="btn btn-secondary">
+                    <div class="col-md-12 d-flex gap-2 justify-content-end mt-2 flex-wrap">
+                        <a href="{{ url_for('main.menu_page', page='clientes-estado-cuenta') }}" class="btn btn-sm btn-secondary">
                             <i class="bi bi-x-circle"></i> Limpiar
                         </a>
-                        <button type="submit" class="btn btn-success">
+                        <button type="submit" class="btn btn-sm btn-success">
                             <i class="bi bi-search"></i> Buscar
                         </button>
                         <div class="d-flex gap-2">
-                            <button type="button" id="btnExportPdf" class="btn btn-outline-primary">
-                                <i class="bi bi-file-earmark-pdf"></i> Descargar PDF
+                            <button type="button" id="btnExportPdf" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-file-earmark-pdf"></i> PDF
                             </button>
-                            <button type="button" id="btnExportXlsx" class="btn btn-outline-primary">
-                                <i class="bi bi-file-earmark-excel"></i> Descargar Excel
+                            <button type="button" id="btnExportXlsx" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-file-earmark-excel"></i> Excel
                             </button>
                         </div>
                     </div>

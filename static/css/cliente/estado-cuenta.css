@@ -132,13 +132,29 @@
 
 /* Filtros */
 .form-label {
-    font-size: 0.9rem;
-    margin-bottom: 0.25rem;
+    font-size: 0.8rem;
+    margin-bottom: 0.15rem;
+    color: #495057;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.form-select,
-.form-control {
-    font-size: 0.9rem;
+.form-select-sm,
+.form-control-sm {
+    font-size: 0.85rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.card-body {
+    padding: 0.75rem 1rem;
+}
+
+.g-3, .gy-3 {
+    --bs-gutter-y: 0.75rem;
+}
+
+.g-3, .gx-3 {
+    --bs-gutter-x: 0.75rem;
 }
 
 /* Responsive adjustments */
