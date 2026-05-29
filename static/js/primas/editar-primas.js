@@ -39,6 +39,15 @@ window.initEditarPrimasLogic = function(isModal = false) {
         const selectProducto = document.getElementById('ramosProducto');
         
         if (selectRamo && selectProducto) {
+            const sortSelect = (select) => {
+                const options = Array.from(select.options);
+                const firstOption = options.shift(); // Preservar "Selecciona..."
+                options.sort((a, b) => a.text.localeCompare(b.text));
+                select.innerHTML = '';
+                if (firstOption) select.appendChild(firstOption);
+                options.forEach(opt => select.appendChild(opt));
+            };
+
             const filterProducts = () => {
                 const selectedRamo = selectRamo.value;
                 const options = selectProducto.querySelectorAll('option');
@@ -56,11 +65,13 @@ window.initEditarPrimasLogic = function(isModal = false) {
             
             // Si el ramo es un select (no hidden), agregar listener
             if (selectRamo.tagName === 'SELECT') {
-                selectRamo.addEventListener('change', filterProducts);
-            }
-            
-            // Ejecutar al inicio por si ya viene con ramo seleccionado
-            filterProducts();
+                 selectRamo.addEventListener('change', filterProducts);
+                 sortSelect(selectRamo);
+             }
+             
+             sortSelect(selectProducto);
+             // Ejecutar al inicio por si ya viene con ramo seleccionado
+             filterProducts();
         }
 
         // Función auxiliar para calcular importe comisión sub agente

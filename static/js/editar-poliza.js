@@ -14,6 +14,15 @@
         const selectProducto = q('producto');
         
         if (selectRamo && selectProducto) {
+            const sortSelect = (select) => {
+                const options = Array.from(select.options);
+                const firstOption = options.shift(); // Preservar "Selecciona..."
+                options.sort((a, b) => a.text.localeCompare(b.text));
+                select.innerHTML = '';
+                if (firstOption) select.appendChild(firstOption);
+                options.forEach(opt => select.appendChild(opt));
+            };
+
             const filterProducts = () => {
                 const selectedRamo = selectRamo.value;
                 const options = selectProducto.querySelectorAll('option');
@@ -37,6 +46,8 @@
             };
             
             selectRamo.addEventListener('change', filterProducts);
+            sortSelect(selectRamo);
+            sortSelect(selectProducto);
             // Ejecutar al inicio para filtrar si ya hay un ramo seleccionado
             filterProducts();
         }

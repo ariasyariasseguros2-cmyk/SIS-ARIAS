@@ -213,7 +213,20 @@
       el.appendChild(opt);
     }
     el.value = opt.value;
+    sortSelectOptions('subAgenteTop');
   })();
+
+  function sortSelectOptions(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const options = Array.from(el.options);
+    if (options.length <= 1) return;
+    const first = options[0].value === "" ? options.shift() : null;
+    options.sort((a, b) => a.text.localeCompare(b.text));
+    el.innerHTML = "";
+    if (first) el.appendChild(first);
+    options.forEach(o => el.appendChild(o));
+  }
 
   // Preseleccionar Ejecutivo si viene del servidor
   if (ejecutivoTopEl && window.selectedCliente) {
@@ -236,11 +249,14 @@
       }
       ejecutivoTopEl.value = opt.value;
     }
+    sortSelectOptions('ejecutivoTop');
   }
 
   // Helper: construir opciones del select de Ramo
   function buildRamoOptions(selected) {
     const abbrs = (window.ramosAbbrs || []).filter(x => !!x && x.trim() !== '');
+    // Ordenar alfabéticamente
+    abbrs.sort((a, b) => a.localeCompare(b));
     const opts = [`<option value="">Selecciona...</option>`];
     abbrs.forEach(val => {
       const sel = (selected || '').trim() === val ? ' selected' : '';
@@ -3409,6 +3425,9 @@
          td.innerText = currentVal || '';
          return;
        }
+
+       // Ordenar productos alfabéticamente
+       matches.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
 
        // Construir select de productos
        const sel = document.createElement('select');
