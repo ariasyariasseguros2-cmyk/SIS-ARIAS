@@ -34,6 +34,35 @@ window.initEditarPrimasLogic = function(isModal = false) {
              updateCurrencySymbols();
         }
 
+        // Lógica para filtrar productos por ramo
+        const selectRamo = document.getElementById('ramo');
+        const selectProducto = document.getElementById('ramosProducto');
+        
+        if (selectRamo && selectProducto) {
+            const filterProducts = () => {
+                const selectedRamo = selectRamo.value;
+                const options = selectProducto.querySelectorAll('option');
+                
+                options.forEach(opt => {
+                    if (opt.value === "") return;
+                    const ramoOpt = opt.getAttribute('data-ramo');
+                    if (!selectedRamo || ramoOpt === selectedRamo) {
+                        opt.style.display = "";
+                    } else {
+                        opt.style.display = "none";
+                    }
+                });
+            };
+            
+            // Si el ramo es un select (no hidden), agregar listener
+            if (selectRamo.tagName === 'SELECT') {
+                selectRamo.addEventListener('change', filterProducts);
+            }
+            
+            // Ejecutar al inicio por si ya viene con ramo seleccionado
+            filterProducts();
+        }
+
         // Función auxiliar para calcular importe comisión sub agente
         const updateImporteSubAgente = () => {
             if (!txtPorcSubAgente || !txtImpSubAgente || !txtImpCompania) return;
@@ -150,7 +179,8 @@ window.initEditarPrimasLogic = function(isModal = false) {
                 cliente_id: document.getElementById('contratante').value,
                 contratante: document.getElementById('contratante').options[document.getElementById('contratante').selectedIndex]?.text || '',
                 cia: document.getElementById('compania').value,
-                ramo: document.getElementById('ramoProducto').value,
+                ramo: document.getElementById('ramo').value,
+                ramos_producto: document.getElementById('ramosProducto').value,
                 vig_desde: document.getElementById('vigenciaInicio').value,
                 vig_hasta: document.getElementById('vigenciaFin').value,
                 tipo_pago: document.getElementById('tipoPago').value,

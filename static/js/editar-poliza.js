@@ -9,6 +9,38 @@
 
         const q = (id) => scope.querySelector(`#${id}`);
 
+        // Lógica para filtrar productos por ramo
+        const selectRamo = q('ramo');
+        const selectProducto = q('producto');
+        
+        if (selectRamo && selectProducto) {
+            const filterProducts = () => {
+                const selectedRamo = selectRamo.value;
+                const options = selectProducto.querySelectorAll('option');
+                
+                options.forEach(opt => {
+                    if (opt.value === "") return;
+                    const ramoOpt = opt.getAttribute('data-ramo');
+                    if (!selectedRamo || ramoOpt === selectedRamo) {
+                        opt.style.display = "";
+                    } else {
+                        opt.style.display = "none";
+                    }
+                });
+                
+                // Si el producto seleccionado actualmente no es del ramo, resetear
+                const currentOption = selectProducto.options[selectProducto.selectedIndex];
+                const currentProductRamo = currentOption ? currentOption.getAttribute('data-ramo') : null;
+                if (selectedRamo && currentProductRamo && currentProductRamo !== selectedRamo) {
+                    selectProducto.value = "";
+                }
+            };
+            
+            selectRamo.addEventListener('change', filterProducts);
+            // Ejecutar al inicio para filtrar si ya hay un ramo seleccionado
+            filterProducts();
+        }
+
         const btnGuardar = q('btnGuardar');
         if (btnGuardar) {
             console.log('Button btnGuardar found');

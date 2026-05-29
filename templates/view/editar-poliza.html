@@ -66,7 +66,14 @@
                             <div class="col-md-6">
                                 <label for="producto" class="form-label">Producto <span class="text-danger">*</span></label>
                                 <select class="form-select" id="producto">
-                                    <option value="{{ poliza.ramos_producto }}" selected>{{ poliza.ramos_producto }}</option>
+                                    <option value="">Selecciona...</option>
+                                    {% if productos_rows %}
+                                        {% for p in productos_rows %}
+                                        <option value="{{ p.nombre }}" data-ramo="{{ p.ramo_nombre }}" {% if p.nombre == poliza.ramos_producto %}selected{% endif %}>{{ p.nombre }}</option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="{{ poliza.ramos_producto }}" selected>{{ poliza.ramos_producto }}</option>
+                                    {% endif %}
                                 </select>
                             </div>
                             <div class="col-md-3">

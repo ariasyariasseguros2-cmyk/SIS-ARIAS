@@ -1525,6 +1525,7 @@ def menu_page(page):
         from controllers.ejecutivos import get_ejecutivos
         from controllers.clientes.cliente import get_clientes_data
         from controllers.endosatario.endosatario import get_endosatarios # NUEVO
+        from controllers.maestros.productos import get_productos # NUEVO
 
         poliza_id = request.args.get('id')
         if not poliza_id:
@@ -1541,6 +1542,7 @@ def menu_page(page):
             is_modal=is_modal,
             poliza=poliza,
             ramos_abbrs=get_ramos(),
+            productos_rows=get_productos(), # NUEVO
             aseguradoras_rows=get_aseguradoras(),
             subagentes_abbrs=get_subagentes_abreviaciones(),
             ejecutivos_rows=get_ejecutivos(),
@@ -1556,6 +1558,7 @@ def menu_page(page):
         from controllers.subagente import get_subagentes_abreviaciones
         from controllers.clientes.cliente import get_clientes_data
         from controllers.endosatario.endosatario import get_endosatarios # NUEVO
+        from controllers.maestros.productos import get_productos # NUEVO
 
         prima_id = request.args.get('id')
         if not prima_id:
@@ -1575,6 +1578,7 @@ def menu_page(page):
             prima=prima,
             # We pass similar helpers
             ramos_abbrs=get_ramos(),
+            productos_rows=get_productos(), # NUEVO
             aseguradoras_rows=get_aseguradoras(),
             subagentes_abbrs=get_subagentes_abreviaciones(),
             clientes_data=get_clientes_data(),
@@ -1589,6 +1593,7 @@ def menu_page(page):
         from controllers.subagente import get_subagentes_abreviaciones
         from controllers.clientes.cliente import get_clientes_data
         from controllers.endosatario.endosatario import get_endosatarios
+        from controllers.maestros.productos import get_productos # NUEVO
 
         prima_id = request.args.get('id')
         # Si no hay ID, retornamos vacío o error, pero para el modal simplemente no cargará
@@ -1604,6 +1609,7 @@ def menu_page(page):
             is_modal=True,
             prima=prima,
             ramos_abbrs=get_ramos(),
+            productos_rows=get_productos(), # NUEVO
             aseguradoras_rows=get_aseguradoras(),
             subagentes_abbrs=get_subagentes_abreviaciones(),
             clientes_data=get_clientes_data(),

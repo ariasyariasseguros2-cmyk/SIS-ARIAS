@@ -88,18 +88,19 @@
                         </select>
                     </div>
                     <div class="col-md-6">
-                        <label for="ramoProducto" class="form-label">Ramo Producto</label>
-                        <select class="form-select" id="ramoProducto">
+                        <label for="ramosProducto" class="form-label">Producto</label>
+                        <select class="form-select" id="ramosProducto">
                             <option value="">Selecciona...</option>
-                             {% if ramos_abbrs %}
-                                {% for r in ramos_abbrs %}
-                                <option value="{{ r }}" {% if prima and r == prima.ramo %}selected{% endif %}>{{ r }}</option>
+                             {% if productos_rows %}
+                                {% for p in productos_rows %}
+                                <option value="{{ p.nombre }}" data-ramo="{{ p.ramo_nombre }}" {% if prima and p.nombre == prima.ramos_producto %}selected{% endif %}>{{ p.nombre }}</option>
                                 {% endfor %}
                              {% else %}
-                                <option value="{{ prima.ramo if prima else '' }}" selected>{{ prima.ramo if prima else '' }}</option>
+                                <option value="{{ prima.ramos_producto if prima else '' }}" selected>{{ prima.ramos_producto if prima else '' }}</option>
                              {% endif %}
                         </select>
                     </div>
+                    <input type="hidden" id="ramo" value="{{ prima.ramo if prima else '' }}">
                 </div>
 
                 <!-- SECCIÓN 2: VIGENCIA Y PAGO -->
