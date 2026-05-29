@@ -122,12 +122,14 @@
                     <div class="col-md-3">
                         <label for="tipoPago" class="form-label">Tipo de Pago</label>
                         <select class="form-select" id="tipoPago">
+                            <option value="">Selecciona...</option>
                             <option value="CONTADO" {% if prima and prima.forma_pago == 'CONTADO' %}selected{% endif %}>CONTADO</option>
-                            <option value="PAGO EFECTIVO" {% if prima and prima.forma_pago == 'PAGO EFECTIVO' %}selected{% endif %}>PAGO EFECTIVO</option>
-                            <option value="OTRO" {% if prima and prima.forma_pago == 'OTRO' %}selected{% endif %}>SIN PRIMA</option>
+                            <option value="FINANCIADO" {% if prima and prima.forma_pago == 'FINANCIADO' %}selected{% endif %}>FINANCIADO</option>
+                            <option value="CREDITO" {% if prima and prima.forma_pago == 'CREDITO' %}selected{% endif %}>CREDITO</option>
                             <option value="CARGO EN CUENTA" {% if prima and prima.forma_pago == 'CARGO EN CUENTA' %}selected{% endif %}>CARGO EN CUENTA</option>
-                            <option value="SFETY PAY" {% if prima and prima.forma_pago == 'SFETY PAY' %}selected{% endif %}>SFETY PAY</option>
+                            <option value="SAFETY PAY" {% if prima and prima.forma_pago == 'SAFETY PAY' %}selected{% endif %}>SAFETY PAY</option>
                             <option value="SIN PRIMA" {% if prima and prima.forma_pago == 'SIN PRIMA' %}selected{% endif %}>SIN PRIMA</option>
+                            <option value="PAGO EFECTIVO" {% if prima and prima.forma_pago == 'PAGO EFECTIVO' %}selected{% endif %}>PAGO EFECTIVO</option>
                         </select>
                     </div>
                     <div class="col-md-3">
