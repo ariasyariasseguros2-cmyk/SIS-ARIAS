@@ -66,7 +66,7 @@ window.initEditarPrimasLogic = function(isModal = false) {
         const updateFromComercial = () => {
             if (document.activeElement !== txtPrimaComercial) return;
             const val = parseFloat(txtPrimaComercial.value);
-            if (!isNaN(val) && val !== 0) {
+            if (!isNaN(val)) {
                 // Prima Neta = Comercial / 1.03
                 txtPrimaNeta.value = (val / 1.03).toFixed(2);
                 // Prima Total = Comercial * 1.18
@@ -85,7 +85,7 @@ window.initEditarPrimasLogic = function(isModal = false) {
         const updateFromNeta = () => {
             if (document.activeElement !== txtPrimaNeta) return;
             const val = parseFloat(txtPrimaNeta.value);
-            if (!isNaN(val) && val !== 0) {
+            if (!isNaN(val)) {
                 // Prima Comercial = Neta * 1.03
                 const comercial = val * 1.03;
                 txtPrimaComercial.value = comercial.toFixed(2);
@@ -168,7 +168,7 @@ window.initEditarPrimasLogic = function(isModal = false) {
                 mas_informacion: document.getElementById('masInformacion').value
             };
             const nroOperacion = document.getElementById('nroOperacion')?.value?.trim();
-            if (nroOperacion) {
+            if (nroOperacion) { 
                 data.nro_operacion = nroOperacion;
             }
 

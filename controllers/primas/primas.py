@@ -114,6 +114,15 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
         details = details
 
     # Normalización de claves a las usadas por la plantilla
+    def coalesce_nonempty(*vals):
+        for v in vals:
+            if v is None:
+                continue
+            if isinstance(v, str) and v.strip() == '':
+                continue
+            return v
+        return None
+
     normalized = []
     for r in rows:
         normalized.append({
@@ -127,13 +136,13 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
             'prima_comercial': r.get('prima_comercial'),
             'prima_neta': r.get('prima_neta'),
             # Total debe mostrar prima_comercial_igv
-            'prima_total': r.get('prima_comercial_igv') or r.get('prima_total'),
-            'vig_inicio': r.get('vig_inicio') or r.get('vig_desde'),
-            'vig_fin': r.get('vig_fin') or r.get('vig_hasta'),
-            'nro_operacion': r.get('nro_operacion') or r.get('operacion'),
+            'prima_total': coalesce_nonempty(r.get('prima_comercial_igv'), r.get('prima_total')),
+            'vig_inicio': coalesce_nonempty(r.get('vig_inicio'), r.get('vig_desde')),
+            'vig_fin': coalesce_nonempty(r.get('vig_fin'), r.get('vig_hasta')),
+            'nro_operacion': coalesce_nonempty(r.get('nro_operacion'), r.get('operacion')),
             'motivo': r.get('motivo') or '',
             'pdf_url': r.get('pdf_url') or '',
-            'idPrima': r.get('idPoliza') or r.get('idPrima') # idPoliza identifies the row
+            'idPrima': coalesce_nonempty(r.get('idPoliza'), r.get('idPrima')) # idPoliza identifies the row
         })
 
     from datetime import date, datetime

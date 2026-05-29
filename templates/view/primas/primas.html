@@ -105,9 +105,9 @@
                     <td>{{ r.compania }}</td>
                     <td>{{ r.ramo }}</td>
                     <td>{{ r.tipo }}</td>
-                    <td>{{ r.prima_neta }}</td>
-                    <td>{{ r.prima_comercial }}</td>
-                    <td>{{ r.prima_total }}</td>
+                    <td>{{ r.prima_neta if r.prima_neta is not none else '0.00' }}</td>
+                    <td>{{ r.prima_comercial if r.prima_comercial is not none else '0.00' }}</td>
+                    <td>{{ r.prima_total if r.prima_total is not none else '0.00' }}</td>
                     <td>{{ r.vig_inicio }}</td>
                     <td>{{ r.vig_fin }}</td>
                     <td>{{ r.nro_operacion or '' }}</td>
