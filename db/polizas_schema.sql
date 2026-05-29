@@ -115,7 +115,9 @@ CREATE PROCEDURE sp_listar_ramos()
 BEGIN
     SELECT
         nombre,
-        abreviacion
+        abreviacion,
+        codigo,
+        grupo
     FROM ramos
     ORDER BY idRamo ASC;
 END $$
@@ -159,6 +161,8 @@ CREATE TABLE IF NOT EXISTS productos (
     id_producto BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     idRamo      INT NOT NULL,
     nombre      VARCHAR(150) NOT NULL,
+    codigo      VARCHAR(50),
+    grupo       VARCHAR(100),
     CONSTRAINT fk_productos_ramos
     FOREIGN KEY (idRamo) REFERENCES ramos(idRamo)
     ON UPDATE CASCADE
@@ -173,7 +177,7 @@ DROP PROCEDURE IF EXISTS sp_listar_productos;
 DELIMITER $$
 CREATE PROCEDURE sp_listar_productos()
 BEGIN
-    SELECT id_producto AS id, idRamo AS ramo_id, nombre
+    SELECT id_producto AS id, idRamo AS ramo_id, nombre, codigo, grupo
     FROM productos
     ORDER BY nombre ASC;
 END$$
@@ -184,6 +188,8 @@ DELIMITER $$
 CREATE PROCEDURE sp_insertar_producto(
     IN p_idRamo INT,
     IN p_nombre VARCHAR(150),
+    IN p_codigo VARCHAR(50),
+    IN p_grupo VARCHAR(100),
     OUT p_new_id BIGINT UNSIGNED
 )
 BEGIN
@@ -194,8 +200,8 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre del producto no puede estar vacío';
     END IF;
 
-    INSERT INTO productos (idRamo, nombre)
-    VALUES (p_idRamo, TRIM(p_nombre))
+    INSERT INTO productos (idRamo, nombre, codigo, grupo)
+    VALUES (p_idRamo, TRIM(p_nombre), NULLIF(TRIM(p_codigo), ''), NULLIF(TRIM(p_grupo), ''))
     ON DUPLICATE KEY UPDATE id_producto = LAST_INSERT_ID(id_producto);
 
     SET p_new_id = LAST_INSERT_ID();
@@ -250,6 +256,7 @@ CREATE TABLE comisiones_temp (
     producto           VARCHAR(150),
     producto_abrev     VARCHAR(50),
     producto_codigo    VARCHAR(50),
+    producto_grupo     VARCHAR(100),
 
     pos_eps       DECIMAL(5,2),
     pos_vsr       DECIMAL(5,2),
