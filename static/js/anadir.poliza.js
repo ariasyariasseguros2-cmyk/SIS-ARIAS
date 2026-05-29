@@ -1536,7 +1536,7 @@
   });
 
   // Acciones por fila (Eliminar/Duplicar/Cuotas)
-  tbody.addEventListener('click', (e) => {
+  tbody.addEventListener('click', async (e) => {
     const btnRemove = e.target.closest('.action-remove');
     const btnDup = e.target.closest('.action-duplicate');
     const btnAttach = e.target.closest('.action-attach-factura');
@@ -1558,6 +1558,20 @@
     }
 
     if (btnRemoveCuota) {
+      if (window.Swal) {
+        const res = await Swal.fire({
+          title: '¿Eliminar cuota?',
+          text: 'Se eliminará la información del cupón.',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, eliminar',
+          cancelButtonText: 'Cancelar'
+        });
+        if (!res.isConfirmed) return;
+      } else {
+        if (!confirm('¿Estás seguro de eliminar esta cuota?')) return;
+      }
+
       const cuotaIdx = Number(btn.dataset.cuotaIndex);
       if (Number.isFinite(cuotaIdx) && extractedItems[idx].cuotas) {
         extractedItems[idx].cuotas.splice(cuotaIdx, 1);
@@ -1601,6 +1615,20 @@
     }
 
     if (btnRemove) {
+      if (window.Swal) {
+        const res = await Swal.fire({
+          title: '¿Eliminar fila?',
+          text: 'Esta acción no se puede deshacer.',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, eliminar',
+          cancelButtonText: 'Cancelar'
+        });
+        if (!res.isConfirmed) return;
+      } else {
+        if (!confirm('¿Estás seguro de eliminar esta fila?')) return;
+      }
+
       extractedItems.splice(idx, 1);
       const newMap = new Map();
       Array.from(rowFacturasMap.entries()).forEach(([k, v]) => {
@@ -2081,8 +2109,21 @@
   });
 
   // Limpiar tabla
-  btnClear?.addEventListener('click', (e) => {
+  btnClear?.addEventListener('click', async (e) => {
     e.preventDefault();
+    if (window.Swal) {
+      const res = await Swal.fire({
+        title: '¿Estás seguro?',
+        text: 'Se eliminarán todas las pólizas cargadas.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar todo',
+        cancelButtonText: 'Cancelar'
+      });
+      if (!res.isConfirmed) return;
+    } else {
+      if (!confirm('¿Estás seguro de eliminar todas las pólizas cargadas?')) return;
+    }
     resetAddPolizaView();
   });
 
