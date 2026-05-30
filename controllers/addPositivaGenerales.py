@@ -82,8 +82,9 @@ def _normalize_amount(s: str | None) -> Optional[str]:
 
 def extract_primas_positiva(text: str) -> dict:
     out = {}
+    # Capturar prima comercial y total con IGV, permitiendo prefijos de moneda opcionales
     m_block = re.search(
-        r"Prima\s+Comercial[\s\S]{0,120}?([0-9][0-9\.,]*)[\s\S]{0,240}?Prima\s+Comercial\s*\+\s*IGV[\s\S]{0,120}?([0-9][0-9\.,]*)",
+        r"Prima\s+Comercial[\s\S]{0,120}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*([0-9][0-9\.,]*)[\s\S]{0,240}?Prima\s+Comercial\s*\+\s*IGV[\s\S]{0,120}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*([0-9][0-9\.,]*)",
         text,
         flags=re.IGNORECASE,
     )
@@ -91,6 +92,7 @@ def extract_primas_positiva(text: str) -> dict:
         out['prima_comercial'] = _normalize_amount(m_block.group(1))
         out['prima_comercial_igv'] = _normalize_amount(m_block.group(2))
         return {k: v for k, v in out.items() if v}
+    
     m_pc = re.search(
         r"Prima\s+Comercial[\s:]*[\r\n]*[A-Z$S\/\.\s]*([0-9][0-9\.,]*)",
         text,
@@ -312,7 +314,7 @@ def extract_moneda_positiva(text: str) -> Optional[str]:
         return "S/"
 
     m = re.search(
-        r"\bmoneda\b\s*[:：]?\s*(S\s*\/\s*\.?|S\s*\/|SOLES|PEN|US\s*\$|US\$|USD|DOLARES|DÓLARES|DÓLARES|\$)(?=\s|$)",
+        r"\bmoneda\b\s*[:：]?\s*(S\s*\/\s*\.?|S\s*\/|SOLES|PEN|US\s*\$|US\$|USD|DOLARES|DÓLARES|DÓLARES|\$)",
         t,
         flags=re.IGNORECASE,
     )
@@ -324,7 +326,7 @@ def extract_moneda_positiva(text: str) -> Optional[str]:
         return "S/"
 
     m2 = re.search(
-        r"Prima\s+Comercial[\s\S]{0,200}?(US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/|SOLES|PEN)(?=\s|$)",
+        r"Prima\s+Comercial[\s\S]{0,200}?(US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/|SOLES|PEN)",
         t,
         flags=re.IGNORECASE,
     )

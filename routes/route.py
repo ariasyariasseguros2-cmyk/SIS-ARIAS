@@ -3683,22 +3683,30 @@ def _parse_positiva(text: str) -> List[Dict[str, str]]:
             from controllers.addPositivaGenerales import extract_moneda_positiva
             moneda = extract_moneda_positiva(blk)
         except Exception:
-            moneda = _find(r"Moneda\s*:\s*([A-Za-z]+)", blk)
+            moneda = _find(r"Moneda\s*:\s*([A-Za-z$]+)", blk)
+        
         emision = _find(r"Emisi[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
         ramo = _find(r"Ramo\s*:\s*(.+)", blk)
         contratante = _find(r"Contratante\s*:\s*(.+)", blk)
         asegurado = _find(r"Asegurado\s*:\s*(.+)", blk)
+        
+        # Fallback para Asegurado en Datos del Asegurado / Nombre o Razón Social
+        if not asegurado or 'Datos' in asegurado:
+             m_aseg = re.search(r"Datos\s+del\s+Asegurado[\s\S]{0,100}?Nombre\s+o\s+Raz[oó]n\s+Social\s*:\s*(.+)", blk, re.IGNORECASE)
+             if m_aseg:
+                 asegurado = m_aseg.group(1).strip()
+
         forma_pago = _find(r"Forma de Pago\s*:\s*(.+)", blk)
         ultimo_dia = _find(r"[ÚU]ltimo d[ií]a de Pago\s*:?[\s]*([0-9]{2}/[0-9]{2}/[0-9]{4})", blk)
 
-        prima_total = _money(_find(r"Prima Total\s*S?\/?\s*([0-9\.,]+)", blk))
-        igv_val = _money(_find(r"Impuesto General a las Ventas\s*S?\/?\s*([0-9\.,]+)", blk))
-        sobrevivencia = _money(_find(r"Sobrevivencia.*?S?\/?\s*([0-9\.,]+)", blk, flags=re.IGNORECASE | re.DOTALL))
-        costos_emision = _money(_find(r"Costos?\s+de\s+Emisi[oó]n.*?S?\/?\s*([0-9\.,]+)", blk, flags=re.IGNORECASE | re.DOTALL))
-        igv_val = igv_val or _money(_find(r"IGV.*?S?\/?\s*([0-9\.,]+)", blk, flags=re.IGNORECASE | re.DOTALL))
-        total_plus_igv_line = _money(_find(r"Prima\s+Comercial\s*\+\s*IGV.*?S?\/?\s*([0-9\.,]+)", blk, flags=re.IGNORECASE | re.DOTALL))
+        prima_total = _money(_find(r"Prima Total\s*(?:S\/?|US\$)?\s*([0-9\.,]+)", blk))
+        igv_val = _money(_find(r"Impuesto General a las Ventas\s*(?:S\/?|US\$)?\s*([0-9\.,]+)", blk))
+        sobrevivencia = _money(_find(r"Sobrevivencia.*?(?:S\/?|US\$)?\s*([0-9\.,]+)", blk, flags=re.IGNORECASE | re.DOTALL))
+        costos_emision = _money(_find(r"Costos?\s+de\s+Emisi[oó]n.*?(?:S\/?|US\$)?\s*([0-9\.,]+)", blk, flags=re.IGNORECASE | re.DOTALL))
+        igv_val = igv_val or _money(_find(r"IGV.*?(?:S\/?|US\$)?\s*([0-9\.,]+)", blk, flags=re.IGNORECASE | re.DOTALL))
+        total_plus_igv_line = _money(_find(r"Prima\s+Comercial\s*\+\s*IGV.*?(?:S\/?|US\$)?\s*([0-9\.,]+)", blk, flags=re.IGNORECASE | re.DOTALL))
 
-        prima_comercial = _money(_find(r"Prima Comercial\s*S?\/?\s*([0-9\.,]+)", blk)) or prima_total
+        prima_comercial = _money(_find(r"Prima Comercial\s*(?:S\/?|US\$)?\s*([0-9\.,]+)", blk)) or prima_total
         if not prima_comercial and (sobrevivencia or costos_emision):
             prima_comercial = _sum(sobrevivencia, costos_emision)
 
@@ -3920,7 +3928,10 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
 
     # Backstop: corregir proveedor si el contenido lo indica claramente
     # Evita ruta equivocada cuando el UI envió 'proctecta/protecta/positiva' erróneamente.
-    if prov in ('proctecta', 'protecta', 'positiva', 'sanitas', None):
+    # Priorizar La Positiva si aparece claramente
+    is_positiva_strong = ("la positiva" in low) or ("positiva seguros" in low)
+    
+    if prov in ('proctecta', 'protecta', 'positiva', 'sanitas', None) and not is_positiva_strong:
         if ("grandia" in low and "eps" in low):
             prov = 'grandia-eps'
         elif ('pacifico' in low or 'pacífico' in low):
@@ -4365,6 +4376,17 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
                     pass
                 print("[provider] positiva-sctr item:", item)
                 return [item] if item else []
+        
+        # Intentar con el nuevo parser robusto para Vida/Generales
+        try:
+            from controllers.addPositivaVidaGenerales import parse_positiva_vida_generales
+            item_vg = parse_positiva_vida_generales(text)
+            if item_vg and item_vg.get('numero_poliza') and item_vg.get('colectivo_asegurado'):
+                print("[provider] positiva-vida-generales item:", item_vg)
+                return [item_vg]
+        except Exception as e:
+            print(f"[provider] error en addPositivaVidaGenerales: {e}")
+
         items = _parse_positiva(text)
         try:
             from controllers.addPositivaGenerales import extract_razon_social, extract_razon_social_strict, _clean_company_name
