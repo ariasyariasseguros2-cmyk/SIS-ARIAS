@@ -37,11 +37,27 @@ def addPacificoGenerales_V2(filepath):
         return data
     
     try:
-        compact = re.sub(r"\s+", "", (text or "").upper())
-        if ("US$" in compact) or ("U$S" in compact) or ("USD" in compact) or ("DOLARES" in compact) or ("DÓLARES" in compact):
-            data["moneda"] = "US$"
-        elif ("S/." in compact) or ("S/" in compact) or ("SOLES" in compact) or ("PEN" in compact):
-            data["moneda"] = "S/."
+        # Detect currency near the total or by majority/priority labels
+        # We look for symbols near the amounts first, or specific labels
+        # For Pacifico, we look for the block containing PRIMA COMERCIAL and IGV
+        # The total is usually preceded by S/. or US$
+        
+        # Look for S/. or US$ specifically near the "TOTAL" label
+        total_block = re.search(r'(?:TOTAL|IMPORTETOTAL)[^\d\n]{0,30}(S/\.|US\$|USD|SOLES)[^\d\n]*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})', text, re.IGNORECASE)
+        if total_block:
+            curr = total_block.group(1).upper()
+            if 'US$' in curr or 'USD' in curr:
+                data["moneda"] = "US$"
+            else:
+                data["moneda"] = "S/."
+        else:
+            # Fallback: search for any S/. or US$ followed by a number that looks like a total (high amount)
+            # or just look at the most common currency symbol in the document
+             compact = re.sub(r"\s+", "", (text or "").upper())
+             if "US$" in compact and not "S/." in compact:
+                 data["moneda"] = "US$"
+             else:
+                 data["moneda"] = "S/."
     except Exception:
         pass
 
@@ -125,27 +141,48 @@ def addPacificoGenerales_V2(filepath):
         s = s.strip()
         
         if len(s) < 4: return False
+        
+        # Names in these documents are typically 2-5 words. 
+        # Sentences in the policy text are usually much longer.
+        words = s.split()
+        if len(words) > 6:
+            return False
+
+        # If it has multiple lowercase words (excluding "de", "la"), it's likely a sentence
+        lowercase_words = [w for w in words if w.islower() and w not in ['de', 'la', 'y']]
+        if len(lowercase_words) > 1:
+            return False
+
+        # Extended list of invalid terms to exclude common footer/info strings and legal phrases
         invalid_terms = ['afiliados', 'todos los', 'trabajadores', 'resumen', 'multisalud', 
                          'condiciones', 'clausula', 's, afiliados', 'estimado(a)',
-                         'pág', 'pag', 'fecha', 'representante legal', 'artículo', 'articulo', 'convenio de pago']
-        if any(term in s.lower() for term in invalid_terms):
+                         'pág', 'pag', 'fecha', 'representante legal', 'artículo', 'articulo', 'convenio de pago',
+                         'www.', 'http', 'teléfono', 'telefono', 'dirección', 'direccion', 'calle', 'avenida', 'jr.', 'av.',
+                         'defensoría', 'defensoria', 'correo electrónico', 'email', 'probabilidad', 'enfermedades',
+                         'titular', 'dependientes', 'residan', 'perú', 'derecho', 'solicitud', 'cobertura']
+        
+        lower_s = s.lower()
+        if any(term in lower_s for term in invalid_terms):
             return False
-        if s.lower().startswith('ruc'):
+        if lower_s.startswith('ruc'):
             return False
-        # Must start with Uppercase or Digit (reject "s, afiliados...")
+        # Must start with Uppercase or Digit
         if s and not s[0].isupper() and not s[0].isdigit():
+            return False
+        # Reject if it looks like a URL or has too many symbols
+        if 'www.' in lower_s or '.com' in lower_s or '@' in lower_s:
             return False
         return True
 
     # 1. Extract from "Cliente :"
-    matches_cliente = re.findall(r'Cliente\s*[:.]?\s*([^\n]+)', text, re.IGNORECASE)
+    matches_cliente = re.findall(r'^\s*Cliente\s*[:.]?\s*([^\n]+)', text, re.IGNORECASE | re.MULTILINE)
     for m in matches_cliente:
         raw = re.sub(r'\s+\d+$', '', m).strip()
         if is_valid_name(raw):
             candidates.append(raw)
             
     # 2. Extract from "Asegurado :"
-    matches_aseg = re.findall(r'Asegurado\s*[:.]?\s*([^\n]+)', text, re.IGNORECASE)
+    matches_aseg = re.findall(r'^\s*Asegurado\s*[:.]?\s*([^\n]+)', text, re.IGNORECASE | re.MULTILINE)
     for m in matches_aseg:
         raw = re.sub(r'\s+\d+$', '', m).strip()
         if is_valid_name(raw):
@@ -166,33 +203,27 @@ def addPacificoGenerales_V2(filepath):
              candidates.append(raw)
 
     # Decision Logic
-    selected = ""
-    for m in matches_aseg:
-        raw = re.sub(r'\s+\d+$', '', m).strip()
-        if is_valid_name(raw):
-            selected = raw
-            break
-    if not selected:
-        for m in matches_cliente:
-            raw = re.sub(r'\s+\d+$', '', m).strip()
-            if is_valid_name(raw):
-                selected = raw
+    # Collect all valid candidates and pick the most frequent/appropriate one
+    valid_candidates = [c for c in candidates if is_valid_name(c)]
+    
+    if valid_candidates:
+        # Count occurrences of each valid candidate to find the most frequent (likely the name)
+        from collections import Counter
+        counts = Counter(valid_candidates)
+        # Prioritize ALL UPPERCASE names among the most frequent
+        most_common = counts.most_common()
+        best_candidate = most_common[0][0]
+        
+        # If there's a tie or close second, prefer the one in all caps
+        highest_count = most_common[0][1]
+        for cand, count in most_common:
+            if count == highest_count and cand.isupper():
+                best_candidate = cand
                 break
-    if not selected and m_senor:
-        raw = m_senor.group(1).strip()
-        if is_valid_name(raw):
-            selected = raw
-    if not selected and m_ruc_before:
-        raw = m_ruc_before.group(1).strip()
-        if is_valid_name(raw):
-            selected = raw
-    if selected:
-        data["asegurado"] = selected
-    elif candidates:
-        upper_candidates = [c for c in candidates if c.isupper()]
-        data["asegurado"] = upper_candidates[0] if upper_candidates else candidates[0]
+        
+        data["asegurado"] = best_candidate
             
-    print(f"[PacificoGeneralesV2] Candidates found: {candidates}")
+    print(f"[PacificoGeneralesV2] Valid candidates found: {valid_candidates}")
     print(f"[PacificoGeneralesV2] Selected Asegurado: {data['asegurado']}")
 
     # 4. Importes
