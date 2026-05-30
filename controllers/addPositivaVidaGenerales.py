@@ -4,19 +4,42 @@ from datetime import datetime
 
 def _find(pattern: str, text: str, flags=re.IGNORECASE):
     m = re.search(pattern, text, flags)
-    return m.group(1).strip() if m else None
+    if not m: return None
+    # Si el patrón tiene un grupo, intentar capturarlo
+    try:
+        val = m.group(1).strip()
+        if val: return val
+    except:
+        pass
+    
+    # Si no hay grupo o está vacío, buscar en las líneas siguientes (fallback para etiquetas solas)
+    tail = text[m.end():]
+    for line in tail.splitlines():
+        line = re.sub(r'^[:：\s]*', '', line).strip()
+        if line: return line
+    return None
 
 def _money(s: Optional[str]) -> Optional[str]:
     if not s: return None
     # Capturar número con separadores de miles y decimales
-    m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]+)?)", s)
-    if m:
-        v = m.group(1).replace(",", "")
-        try:
-            return f"{float(v):.2f}"
-        except:
-            return v
-    return None
+    m = re.search(r"([0-9][0-9\.,\s]*)", s)
+    if not m: return None
+    
+    v = m.group(1).strip()
+    # Normalización de montos (quitar espacios, manejar coma/punto)
+    v = v.replace(" ", "")
+    if "," in v and "." in v:
+        if v.rfind(",") > v.rfind("."): # Caso 1.234,56
+            v = v.replace(".", "").replace(",", ".")
+        else: # Caso 1,234.56
+            v = v.replace(",", "")
+    elif "," in v: # Caso 1234,56
+        v = v.replace(",", ".")
+        
+    try:
+        return f"{float(v):.2f}"
+    except:
+        return v
 
 def parse_positiva_vida_generales(text: str) -> Dict[str, str]:
     item = {}
@@ -25,16 +48,33 @@ def parse_positiva_vida_generales(text: str) -> Dict[str, str]:
     poliza = (
         _find(r"P[oó]liza\s*N(?:ro\.?|[°º]|o)?\s*[:：]?\s*([0-9]{6,20})", text)
         or _find(r"\bP[oó]liza\b[\s\S]{0,100}?N(?:ro\.?|[°º]|o)\s*[:：]?\s*([0-9]{6,20})", text)
+        or _find(r"RESPONSABILIDAD\s+CIVIL\s+N[°ºo]?\s*([0-9]{6,20})", text)
     )
     item['numero_poliza'] = poliza
 
+    # Proforma / Recibo
+    proforma = (
+        _find(r"Proforma\s*N(?:ro\.?|[°º]|o)?\s*[:：]?\s*([0-9]{6,20})", text)
+        or _find(r"N[uú]mero\s+de\s+Proforma\s*[:：]?\s*([0-9A-Z\-]+)", text)
+    )
+    item['recibo'] = proforma
+
     # Ramo
-    ramo = _find(r"Ramo\s*[:：]\s*(.+)", text)
+    ramo = (
+        _find(r"Ramo\s*[:：]\s*(.+)", text)
+        or _find(r"seguro\s+de\s+(RESPONSABILIDAD\s+CIVIL|TRANSPORTES)", text)
+    )
     item['ramo'] = ramo
 
     # Vigencias
-    vig_inicio = _find(r"Vigencia-Inicio\s*[:：]\s*(\d{2}/\d{2}/\d{4})", text)
-    vig_fin = _find(r"T[ée]rmino\s*[:：]\s*(\d{2}/\d{2}/\d{4})", text)
+    vig_inicio = (
+        _find(r"Vigencia-Inicio\s*[:：]\s*(\d{2}/\d{2}/\d{4})", text)
+        or _find(r"vigencia\s+inicia\s*(\d{2}/\d{2}/\d{4})", text)
+    )
+    vig_fin = (
+        _find(r"T[ée]rmino\s*[:：]\s*(\d{2}/\d{2}/\d{4})", text)
+        or _find(r"vence\s+el\s*(\d{2}/\d{2}/\d{4})", text)
+    )
     
     if not vig_inicio:
         m_vig = re.search(r"vigencia\s*[:：]?\s*(?:del\s*)?(\d{2}/\d{2}/\d{4})\s*(?:al|a)\s*(\d{2}/\d{2}/\d{4})", text, re.IGNORECASE)
@@ -51,14 +91,27 @@ def parse_positiva_vida_generales(text: str) -> Dict[str, str]:
     # Prioridad 2: Datos del Contratante -> Nombre o Razón Social
     contratante = _find(r"Datos\s+del\s+Contratante[\s\S]{0,100}?Nombre\s+o\s+Raz[oó]n\s+Social\s*[:：]\s*(.+)", text)
     
+    # Prioridad 3: Hola [Nombre]
+    hola_name = _find(r"Hola\s+([^:：!]{2,50})[:：!]", text)
+    
     # Fallbacks generales
     if not asegurado:
         asegurado = _find(r"Asegurado\s*[:：]\s*(.+)", text)
     if not contratante:
         contratante = _find(r"Contratante\s*[:：]\s*(.+)", text)
         
-    item['colectivo_asegurado'] = asegurado or contratante
-    item['contratante'] = contratante
+    final_name = asegurado or contratante or hola_name
+    if final_name:
+        # Limpieza básica de nombres
+        final_name = re.sub(r"\s+", " ", final_name).strip()
+        
+    item['colectivo_asegurado'] = final_name
+    item['contratante'] = contratante or (final_name if not asegurado else None)
+
+    # Dirección
+    direccion = _find(r"Direcci[oó]n\s*[:：]\s*(.+)", text)
+    if direccion:
+        item['direccion'] = direccion
 
     # Moneda
     moneda = None

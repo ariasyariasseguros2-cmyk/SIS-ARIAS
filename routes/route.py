@@ -4220,6 +4220,22 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             item = parse_positiva_vidaley(text)
             print("[provider] positiva-vida-ley item:", item)
             return [item] if item else []
+        
+        # NUEVO: Si es Responsabilidad Civil o Transportes, priorizar el nuevo parser robusto
+        hint_generales = (
+            re.search(r"RESPONSABILIDAD\s+CIVIL", text, re.IGNORECASE) or
+            re.search(r"TRANSPORTES", text, re.IGNORECASE)
+        )
+        if hint_generales:
+            try:
+                from controllers.addPositivaVidaGenerales import parse_positiva_vida_generales
+                item_vg = parse_positiva_vida_generales(text)
+                if item_vg and item_vg.get('numero_poliza'):
+                    print("[provider] positiva-generales (RC/TR) item:", item_vg)
+                    return [item_vg]
+            except Exception as e:
+                print(f"[provider] error en addPositivaVidaGenerales (RC/TR): {e}")
+
         # Separar SCTR Salud vs Pensión por contenido
         hint_sctr = re.search(r"\bsctr\b", text, re.IGNORECASE)
         has_salud = re.search(r"\beps\b", text, re.IGNORECASE) or re.search(r"\bsalud\b", text, re.IGNORECASE)
