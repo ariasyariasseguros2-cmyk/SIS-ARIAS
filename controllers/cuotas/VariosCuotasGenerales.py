@@ -68,7 +68,7 @@ def extract_cronograma_cuotas_from_text(text: str | None, moneda_default: str | 
     # Patrón 1: Formato "1/12 26/01/2026 123456 1,490.89"
     row_pattern_full = re.compile(
         r"(?P<orden>\d{1,2}/\d{1,2})\s+"
-        r"(?P<fecha>\d{1,2}/\d{1,2}/\d{4})\s+"
+        r"(?P<fecha>\d{1,2}[/-]\d{1,2}[/-]\d{4})\s+"
         r"(?P<cupon>\d{6,20})\s+"
         r"(?P<importe>\d[\d\.,]*)",
         re.IGNORECASE,
@@ -78,7 +78,17 @@ def extract_cronograma_cuotas_from_text(text: str | None, moneda_default: str | 
     row_pattern_simple = re.compile(
         r"(?P<numero_cuota>\d{1,3})\s+"
         r"(?P<cupon>\d{6,20})\s+"
-        r"(?P<fecha>\d{1,2}/\d{1,2}/\d{4})\s+"
+        r"(?P<fecha>\d{1,2}[/-]\d{1,2}[/-]\d{4})\s+"
+        r"(?P<importe>\d[\d\.,]*)",
+        re.IGNORECASE,
+    )
+
+    # Patrón 3: Convenio de pago (cuponera/convenio repetido por fila)
+    # Ej: "77111697 1 21/03/2026 4,513.21"
+    row_pattern_convenio = re.compile(
+        r"(?P<convenio>\d{6,25})[\s\.\-]+"
+        r"(?P<numero_cuota>\d{1,3})\s+"
+        r"(?P<fecha>\d{1,2}[/-]\d{1,2}[/-]\d{4})\s+"
         r"(?P<importe>\d[\d\.,]*)",
         re.IGNORECASE,
     )
@@ -88,7 +98,7 @@ def extract_cronograma_cuotas_from_text(text: str | None, moneda_default: str | 
     flat = " ".join(data_lines)
 
     def _append_match(m: re.Match) -> None:
-        cupon = (m.group("cupon") or "").strip()
+        cupon = (m.groupdict().get("cupon") or "").strip()
         if not cupon or cupon in seen:
             return
         seen.add(cupon)
@@ -113,10 +123,39 @@ def extract_cronograma_cuotas_from_text(text: str | None, moneda_default: str | 
             "fecha_pago": "",
         })
 
+    def _append_convenio_match(m: re.Match) -> None:
+        convenio = (m.group("convenio") or "").strip()
+        if not convenio:
+            return
+        numero_cuota = None
+        try:
+            numero_cuota = int((m.group("numero_cuota") or "").strip())
+        except Exception:
+            numero_cuota = None
+        if numero_cuota is None:
+            return
+
+        cupon = f"{convenio}-{numero_cuota:02d}"
+        if cupon in seen:
+            return
+        seen.add(cupon)
+
+        cuotas.append({
+            "numero_cuota": numero_cuota,
+            "cupon": cupon,
+            "fecha_vencimiento": _normalize_date_token(m.group("fecha")),
+            "importe": _normalize_importe_text(m.group("importe")),
+            "moneda": moneda_default or "",
+            "factura": "",
+            "fecha_pago": "",
+        })
+
     for m in row_pattern_full.finditer(flat):
         _append_match(m)
     for m in row_pattern_simple.finditer(flat):
         _append_match(m)
+    for m in row_pattern_convenio.finditer(flat):
+        _append_convenio_match(m)
 
     if cuotas:
         return cuotas
