@@ -12,9 +12,10 @@
   const btnPdf      = document.getElementById('btnPdfDiario');
 
   // Mostrar fecha legible
-  const hoy = new Date();
+  const hoy = new Date(Date.now() - 12 * 60 * 60 * 1000);
   if (fechaHoy) {
     fechaHoy.textContent = hoy.toLocaleDateString('es-PE', {
+      timeZone: 'UTC',
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
   }
@@ -142,7 +143,8 @@
         // Intentar leer nombre desde Content-Disposition
         const cd = res.headers.get('Content-Disposition') || '';
         const match = cd.match(/filename[^;=\n]*=["']?([^"';\n]+)["']?/i);
-        const today = new Date().toLocaleDateString('es-PE', {
+        const today = new Date(Date.now() - 12 * 60 * 60 * 1000).toLocaleDateString('es-PE', {
+          timeZone: 'UTC',
           day: '2-digit', month: '2-digit', year: 'numeric'
         }).replace(/\//g, '-');
         const defaultName = `Reporte Diario ${today}.${ext}`;

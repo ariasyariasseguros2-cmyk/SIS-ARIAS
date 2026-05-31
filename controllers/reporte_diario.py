@@ -1,5 +1,5 @@
 from models.db import get_connection
-from datetime import date
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 import os
 
@@ -11,7 +11,7 @@ def get_reporte_diario_data(filters=None):
     try:
         cur = conn.cursor(dictionary=True)
         filters = filters or {}
-        today = date.today().isoformat()
+        ref_date = (datetime.utcnow() - timedelta(hours=12)).date().isoformat()
         f_reg_desde = (filters.get("f_reg_desde") or "").strip()
         f_reg_hasta = (filters.get("f_reg_hasta") or "").strip()
         usuario = (filters.get("usuario") or "").strip()
@@ -19,22 +19,22 @@ def get_reporte_diario_data(filters=None):
         where = ["p.activo = 1", "(p.anulado = 0 OR p.anulado IS NULL)"]
         params = []
 
+        created_day_expr = "DATE(p.creado_en - INTERVAL 7 HOUR)"
+
         if f_reg_desde and f_reg_hasta and f_reg_desde == f_reg_hasta:
-            where.append("DATE(p.creado_en) = %s")
+            where.append(f"{created_day_expr} = %s")
             params.append(f_reg_desde)
         else:
             if f_reg_desde:
-                where.append("DATE(p.creado_en) >= %s")
+                where.append(f"{created_day_expr} >= %s")
                 params.append(f_reg_desde)
             if f_reg_hasta:
-                where.append("DATE(p.creado_en) <= %s")
+                where.append(f"{created_day_expr} <= %s")
                 params.append(f_reg_hasta)
 
         if not f_reg_desde and not f_reg_hasta:
-            where.append("DATE(p.creado_en) = %s")
-            params.append(today)
-
-        where.append("TIME(p.creado_en) >= '07:00:00'")
+            where.append(f"{created_day_expr} = %s")
+            params.append(ref_date)
 
         if usuario:
             where.append(
@@ -163,7 +163,7 @@ def export_excel(upload_folder: str, filters=None):
     if f_reg_desde and f_reg_hasta and f_reg_desde != f_reg_hasta:
         today_str = f"{f_reg_desde} a {f_reg_hasta}"
     else:
-        ref = f_reg_desde or f_reg_hasta or date.today().isoformat()
+        ref = f_reg_desde or f_reg_hasta or (datetime.utcnow() - timedelta(hours=12)).date().isoformat()
         today_str = datetime.fromisoformat(ref).strftime("%d/%m/%Y")
 
     wb = Workbook()
@@ -226,7 +226,7 @@ def export_excel(upload_folder: str, filters=None):
 
     exports_dir = os.path.join(upload_folder, "exports")
     os.makedirs(exports_dir, exist_ok=True)
-    date_label = date.today().strftime("%d-%m-%Y")
+    date_label = (datetime.utcnow() - timedelta(hours=12)).date().strftime("%d-%m-%Y")
     filename = f"Reporte Diario {date_label}.xlsx"
     filepath = os.path.join(exports_dir, filename)
     wb.save(filepath)
@@ -249,12 +249,12 @@ def export_pdf(upload_folder: str, filters=None):
     if f_reg_desde and f_reg_hasta and f_reg_desde != f_reg_hasta:
         today_str = f"{f_reg_desde} a {f_reg_hasta}"
     else:
-        ref = f_reg_desde or f_reg_hasta or date.today().isoformat()
+        ref = f_reg_desde or f_reg_hasta or (datetime.utcnow() - timedelta(hours=12)).date().isoformat()
         today_str = datetime.fromisoformat(ref).strftime("%d/%m/%Y")
 
     exports_dir = os.path.join(upload_folder, "exports")
     os.makedirs(exports_dir, exist_ok=True)
-    date_label = date.today().strftime("%d-%m-%Y")
+    date_label = (datetime.utcnow() - timedelta(hours=12)).date().strftime("%d-%m-%Y")
     filename = f"Reporte Diario {date_label}.pdf"
     filepath = os.path.join(exports_dir, filename)
 
@@ -365,7 +365,7 @@ def export_pdf(upload_folder: str, filters=None):
 
     story = [
         Paragraph("REPORTE DIARIO DE PÓLIZAS", title_style),
-        Paragraph(f"Fecha: {today_str} — Generado: {datetime.now().strftime('%H:%M:%S')}", sub_style),
+        Paragraph(f"Fecha: {today_str} — Generado: {datetime.utcnow().strftime('%H:%M:%S')} UTC", sub_style),
         table,
         total_label,
     ]

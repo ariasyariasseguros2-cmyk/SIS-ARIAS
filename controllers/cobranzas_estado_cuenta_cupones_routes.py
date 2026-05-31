@@ -100,7 +100,7 @@ def _fetch_rows():
                 c.factura,
                 CASE
                     WHEN c.fecha_pago IS NULL AND {venc_expr} IS NOT NULL
-                        THEN GREATEST(DATEDIFF(CURDATE(), DATE({venc_expr})), 0)
+                        THEN GREATEST(DATEDIFF(DATE(UTC_TIMESTAMP() - INTERVAL 12 HOUR), DATE({venc_expr})), 0)
                     ELSE 0
                 END AS dias_vencidos,
                 c.observacion AS ult_gestion,
@@ -421,7 +421,7 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
 
     from datetime import datetime
 
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     filename = f"estado_cuenta_cupones_{ts}.xlsx"
     filepath = os.path.join(exports_dir, filename)
     wb.save(filepath)

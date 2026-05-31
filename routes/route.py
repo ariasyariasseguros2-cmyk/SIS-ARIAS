@@ -882,8 +882,8 @@ def gestion():
     # Lista de páginas para los botones numerados
     page_numbers = list(range(1, pages + 1))
 
-    from datetime import date
-    today = date.today().isoformat()
+    from datetime import datetime
+    today = datetime.utcnow().date().isoformat()
 
     return render_template(
         'view/gestion.html',

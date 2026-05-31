@@ -416,14 +416,14 @@
         function parseISODate(value) {
             const v = (value || '').trim();
             if (!v) return null;
-            const d = new Date(`${v}T00:00:00`);
+            const d = new Date(`${v}T00:00:00Z`);
             return isNaN(d.getTime()) ? null : d;
         }
 
         function toISODate(d) {
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
+            const yyyy = d.getUTCFullYear();
+            const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(d.getUTCDate()).padStart(2, '0');
             return `${yyyy}-${mm}-${dd}`;
         }
 
@@ -442,7 +442,7 @@
             const base = getBaseDate() || parseISODate(fallbackToday);
             if (!base) return;
             const d = new Date(base.getTime());
-            d.setDate(d.getDate() + delta);
+            d.setUTCDate(d.getUTCDate() + delta);
             const iso = toISODate(d);
             if (inputDesde) inputDesde.value = iso;
             if (inputHasta) inputHasta.value = iso;
