@@ -48,22 +48,40 @@ def _normalize_amount(s: str | None) -> Optional[str]:
         return val
 
 def _extract_moneda(text: str) -> Optional[str]:
-    cerca_neta = re.search(r"prima\s+neta\*?.{0,60}(US\$|USD|\$|S\/\.?|S\/|S\.)", text, flags=re.IGNORECASE | re.DOTALL)
+    t = text or ""
+
+    m_lab = re.search(r"\bmoneda\b\s*[:：]\s*([^\r\n]{1,80})", t, flags=re.IGNORECASE)
+    if m_lab:
+        tok = m_lab.group(1).strip().upper()
+        if any(x in tok for x in ("SOL", "PEN")):
+            return "S/"
+        if any(x in tok for x in ("DOL", "USD", "US$")):
+            return "US$"
+        if "$" in tok:
+            return "US$"
+
+    cerca_neta = re.search(r"prima\s+neta\*?.{0,80}(US\$|USD|DOL(?:A|Á)R(?:ES)?|S\/\.?|S\/|S\.|SOLES|PEN|NUEVOS\s+SOLES)", t, flags=re.IGNORECASE | re.DOTALL)
     if cerca_neta:
         cur = cerca_neta.group(1).upper()
-        if "US" in cur or "$" in cur:
+        if "SOL" in cur or "PEN" in cur or cur.startswith("S/") or cur == "S.":
+            return "S/"
+        if "US" in cur or "USD" in cur or "DOL" in cur:
             return "US$"
-        return "S/."
-    cerca_total = re.search(r"prima\s+total.{0,60}(US\$|USD|\$|S\/\.?|S\/|S\.)", text, flags=re.IGNORECASE | re.DOTALL)
+
+    cerca_total = re.search(r"prima\s+total.{0,80}(US\$|USD|DOL(?:A|Á)R(?:ES)?|S\/\.?|S\/|S\.|SOLES|PEN|NUEVOS\s+SOLES)", t, flags=re.IGNORECASE | re.DOTALL)
     if cerca_total:
         cur = cerca_total.group(1).upper()
-        if "US" in cur or "$" in cur:
+        if "SOL" in cur or "PEN" in cur or cur.startswith("S/") or cur == "S.":
+            return "S/"
+        if "US" in cur or "USD" in cur or "DOL" in cur:
             return "US$"
-        return "S/."
-    if re.search(r"US\$|USD|\$", text, flags=re.IGNORECASE):
+
+    if re.search(r"\b(SOLES|NUEVOS\s+SOLES|PEN)\b|S\/\.?|S\/|S\.", t, flags=re.IGNORECASE):
+        return "S/"
+    if re.search(r"US\$|USD|\bDOL(?:A|Á)R(?:ES)?\b", t, flags=re.IGNORECASE):
         return "US$"
-    if re.search(r"S\/\.?|S\.", text, flags=re.IGNORECASE):
-        return "S/."
+    if re.search(r"\$", t, flags=re.IGNORECASE):
+        return "US$"
     return None
 
 def _extract_primas(text: str) -> Dict[str, str]:
