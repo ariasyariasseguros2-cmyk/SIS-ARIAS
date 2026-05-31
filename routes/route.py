@@ -1986,7 +1986,7 @@ def upload():
             "ultimo_dia_pago": it.get("ultimo_dia_pago"),
             "prima_comercial": it.get("prima_comercial"),
             "prima_neta": it.get("prima_neta"),
-            "prima_total": it.get("prima_total") or it.get("monto"),
+            "prima_total": it.get("prima_total") or it.get("prima_comercial_igv") or it.get("monto"),
             "prima_comercial_igv": it.get("prima_comercial_igv") or it.get("prima_total") or it.get("monto"),
             "ramo": it.get("ramo") or it.get("doc_tipo"),
             "fecha_vencimiento": it.get("fecha_vecimiento") or it.get("fecha_vencimiento") or it.get("vencimiento") or it.get("vigencia_hasta") or it.get("hasta") or it.get("expiracion"),
@@ -2049,6 +2049,21 @@ def upload():
             elif has_net and not has_com:
                 val = float(str(res["prima_neta"]).replace(',', '.').replace(' ', ''))
                 res["prima_comercial"] = f"{(val * 1.03):.2f}"
+        except Exception:
+            pass
+
+        try:
+            total_igv_raw = str(res.get("prima_comercial_igv") or "").strip()
+            if total_igv_raw:
+                total_igv = float(total_igv_raw.replace(",", ".").replace(" ", ""))
+                if total_igv > 0:
+                    expected = total_igv / 1.18
+                    pc_raw = str(res.get("prima_comercial") or "").strip()
+                    pc = float(pc_raw.replace(",", ".").replace(" ", "")) if pc_raw else None
+                    rel = (abs(pc - expected) / expected) if (pc is not None and expected > 0) else None
+                    if pc is None or pc <= 0 or (rel is not None and rel > 0.20):
+                        res["prima_comercial"] = f"{expected:.2f}"
+                        res["prima_neta"] = f"{(expected / 1.03):.2f}"
         except Exception:
             pass
 

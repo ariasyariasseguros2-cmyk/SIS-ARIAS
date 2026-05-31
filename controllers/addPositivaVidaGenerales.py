@@ -41,6 +41,28 @@ def _money(s: Optional[str]) -> Optional[str]:
     except:
         return v
 
+_MONEY_2DP_RE = re.compile(r"(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})")
+
+def _money_candidates_near(label_pattern: str, text: str, window: int = 350) -> list[str]:
+    m = re.search(label_pattern, text, re.IGNORECASE)
+    if not m:
+        return []
+    seg = text[m.end(): m.end() + max(0, int(window))]
+    out: list[str] = []
+    for mm in _MONEY_2DP_RE.finditer(seg):
+        val = _money(mm.group(1))
+        if val:
+            out.append(val)
+    return out
+
+def _to_float(s: Optional[str]) -> Optional[float]:
+    if not s:
+        return None
+    try:
+        return float(s.replace(",", "."))
+    except Exception:
+        return None
+
 def parse_positiva_vida_generales(text: str) -> Dict[str, str]:
     item = {}
     
@@ -137,13 +159,53 @@ def parse_positiva_vida_generales(text: str) -> Dict[str, str]:
     item['moneda'] = moneda
 
     # Primas
-    # Prima Comercial
-    pc = _find(r"Prima\s+Comercial[\s\S]{0,50}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*([0-9][0-9\.,]*)", text)
-    item['prima_comercial'] = _money(pc)
-    
-    # Prima Comercial + IGV
-    pc_igv = _find(r"Prima\s+Comercial\s*\+\s*IGV[\s\S]{0,50}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*([0-9][0-9\.,]*)", text)
-    item['prima_comercial_igv'] = _money(pc_igv)
+    pc_igv_best: Optional[str] = None
+    igv_cands = _money_candidates_near(r"Prima\s+Comercial\s*\+\s*IGV", text)
+    if igv_cands:
+        pc_igv_best = igv_cands[0]
+    else:
+        pc_igv = _find(r"Prima\s+Comercial\s*\+\s*IGV[\s\S]{0,50}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*([0-9][0-9\.,]*)", text)
+        pc_igv_best = _money(pc_igv)
+
+    pc_best: Optional[str] = None
+    pc_cands = _money_candidates_near(r"Prima\s+Comercial(?!\s*\+)", text)
+    if pc_cands:
+        if pc_igv_best:
+            tot = _to_float(pc_igv_best)
+            expected = (tot / 1.18) if tot and tot > 0 else None
+            if expected:
+                best = None
+                best_err = None
+                for v in pc_cands:
+                    vf = _to_float(v)
+                    if vf is None:
+                        continue
+                    err = abs(vf - expected)
+                    if best_err is None or err < best_err:
+                        best_err = err
+                        best = v
+                pc_best = best or pc_cands[0]
+            else:
+                pc_best = pc_cands[0]
+        else:
+            pc_best = pc_cands[0]
+    else:
+        pc = _find(r"Prima\s+Comercial[\s\S]{0,50}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*([0-9][0-9\.,]*)", text)
+        pc_best = _money(pc)
+
+    pc_num = _to_float(pc_best)
+    tot_num = _to_float(pc_igv_best)
+    if tot_num and tot_num > 0:
+        expected = tot_num / 1.18
+        if pc_num is None:
+            pc_best = f"{expected:.2f}"
+        else:
+            rel = abs(pc_num - expected) / expected if expected > 0 else 0
+            if rel > 0.20:
+                pc_best = f"{expected:.2f}"
+
+    item['prima_comercial'] = pc_best
+    item['prima_comercial_igv'] = pc_igv_best
 
     # Fecha Emisión
     emision = _find(r"Emisi[oó]n\s*[:：]\s*(\d{2}/\d{2}/\d{4})", text)
