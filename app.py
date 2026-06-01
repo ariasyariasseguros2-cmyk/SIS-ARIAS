@@ -170,6 +170,17 @@ def login():
                     return check_password_hash(stored, plain)
             except Exception:
                 pass
+            try:
+                from models.db import load_settings
+                from utils.crypto import decrypt_password
+
+                cfg = load_settings() or {}
+                key_phrase = cfg.get("key_encrypt_bd")
+                salt = cfg.get("salt_encrypt", "SIS-ARIAS")
+                decrypted = decrypt_password(stored, key_phrase, salt)
+                return (decrypted or '').strip() == plain
+            except Exception:
+                pass
             return False
 
         stored_password = (row or {}).get('password')

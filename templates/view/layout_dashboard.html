@@ -89,6 +89,7 @@
                         <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
                             <li><a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('main.home') }}"><i class="bi-house"></i> Inicio</a></li>
                             <li><a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('main.perfil_page') }}"><i class="bi-person-badge"></i> Mi Perfil</a></li>
+                            <li><button class="dropdown-item d-flex align-items-center gap-2" type="button" data-bs-toggle="modal" data-bs-target="#changePasswordModal"><i class="bi-shield-lock"></i> Cambiar contraseña</button></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item d-flex align-items-center gap-2 text-danger" href="{{ url_for('logout') }}"><i class="bi-box-arrow-right"></i> Cerrar sesión</a></li>
                         </ul>
@@ -315,7 +316,90 @@
         });
     });
 </script>
+
+<div class="modal fade" id="changePasswordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title">Cambiar contraseña</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label small text-muted mb-1">Username</label>
+                        <input id="cpUsernameModal" type="text" class="form-control" value="{{ session.get('user') }}" readonly>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small text-muted mb-1">Nueva contraseña</label>
+                        <input id="cpNewPasswordModal" type="password" class="form-control" autocomplete="new-password" placeholder="Ingresa la nueva contraseña">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary rounded-pill" id="btnChangePasswordModal">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const modalEl = document.getElementById('changePasswordModal');
+        const btnSave = document.getElementById('btnChangePasswordModal');
+        const inputPass = document.getElementById('cpNewPasswordModal');
+        const inputUser = document.getElementById('cpUsernameModal');
+
+        if (modalEl) {
+            modalEl.addEventListener('shown.bs.modal', function() {
+                if (inputPass) {
+                    inputPass.value = '';
+                    inputPass.focus();
+                }
+            });
+        }
+
+        if (btnSave) {
+            btnSave.addEventListener('click', function() {
+                const username = (inputUser?.value || '').trim();
+                const newPassword = (inputPass?.value || '').trim();
+
+                if (!username) {
+                    alert('Username no válido.');
+                    return;
+                }
+                if (!newPassword) {
+                    alert('Ingresa una nueva contraseña.');
+                    return;
+                }
+
+                btnSave.disabled = true;
+                fetch('/api/perfil/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username, new_password: newPassword })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.ok) throw new Error(data.error || 'No se pudo cambiar la contraseña');
+                    if (modalEl) {
+                        bootstrap.Modal.getInstance(modalEl)?.hide();
+                    }
+                    alert('Contraseña actualizada correctamente.');
+                })
+                .catch(err => {
+                    alert(err.message);
+                })
+                .finally(() => {
+                    btnSave.disabled = false;
+                    if (inputPass) inputPass.value = '';
+                });
+            });
+        }
+    });
+</script>
 {% block extra_js_bottom %}
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}

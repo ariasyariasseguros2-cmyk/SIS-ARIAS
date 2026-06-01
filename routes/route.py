@@ -1109,6 +1109,48 @@ def perfil_update_color():
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
+@bp.route('/api/perfil/change-password', methods=['POST'])
+def perfil_change_password():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    username = (data.get('username') or '').strip() or session.get('user')
+    new_password = (data.get('new_password') or '').strip()
+
+    if not username:
+        return jsonify({'ok': False, 'error': 'Username no proporcionado'}), 400
+    if username != session.get('user'):
+        return jsonify({'ok': False, 'error': 'No autorizado'}), 403
+    if not new_password:
+        return jsonify({'ok': False, 'error': 'Nueva contraseña no proporcionada'}), 400
+    if len(new_password) < 6:
+        return jsonify({'ok': False, 'error': 'La contraseña debe tener al menos 6 caracteres'}), 400
+
+    try:
+        from models.db import load_settings
+        from utils.crypto import encrypt_password
+
+        cfg = load_settings() or {}
+        key_phrase = cfg.get("key_encrypt_bd")
+        salt = cfg.get("salt_encrypt", "SIS-ARIAS")
+
+        password_encrypted = encrypt_password(new_password, key_phrase, salt)
+        cnx = get_connection()
+        cur = cnx.cursor()
+        cur.execute("UPDATE usuarios SET password = %s WHERE username = %s", (password_encrypted, username))
+        cnx.commit()
+        updated = getattr(cur, "rowcount", 0) or 0
+        cur.close()
+        cnx.close()
+
+        if updated <= 0:
+            return jsonify({'ok': False, 'error': 'Usuario no encontrado'}), 404
+
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
 @bp.route('/api/clientes/search', methods=['GET'])
 def search_clientes_route():
     if 'user' not in session:
