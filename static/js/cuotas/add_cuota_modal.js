@@ -17,6 +17,121 @@
         return str + '1';
     }
 
+    function toISODate(value) {
+        const s = String(value || '').trim();
+        if (!s) return '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const parts = s.split(/[-/]/).map(p => p.trim()).filter(Boolean);
+        if (parts.length !== 3) return '';
+        if (parts[0].length === 4) {
+            const y = parts[0];
+            const m = String(parts[1] || '').padStart(2, '0');
+            const d = String(parts[2] || '').padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+        const d = String(parts[0] || '').padStart(2, '0');
+        const m = String(parts[1] || '').padStart(2, '0');
+        const y = parts[2];
+        if (!/^\d{4}$/.test(y)) return '';
+        return `${y}-${m}-${d}`;
+    }
+
+    function normalizeMoneda(value) {
+        const v = String(value || '').trim().toUpperCase();
+        if (!v) return '';
+        if (v === 'USD' || v === 'US$' || v === 'USS' || v === '$') return 'USD';
+        if (v === 'PEN' || v === 'S/.' || v === 'S/' || v === 'SOLES' || v === 'SOL') return 'S/.';
+        return value;
+    }
+
+    function normalizeImporteNumber(value) {
+        const s = String(value || '').trim();
+        if (!s) return '';
+        const clean = s.replace(/[^\d.,-]/g, '');
+        if (!clean) return '';
+        let t = clean;
+        if (t.includes('.') && t.includes(',')) {
+            if (t.lastIndexOf('.') > t.lastIndexOf(',')) t = t.replace(/,/g, '');
+            else t = t.replace(/\./g, '').replace(/,/g, '.');
+        } else if ((t.match(/\./g) || []).length > 1 && !t.includes(',')) {
+            const parts = t.split('.');
+            t = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+        } else if ((t.match(/,/g) || []).length > 1 && !t.includes('.')) {
+            const parts = t.split(',');
+            t = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+        } else if (t.includes(',')) {
+            t = t.replace(/\./g, '').replace(/,/g, '.');
+        }
+        const num = parseFloat(t);
+        return Number.isFinite(num) ? String(num) : '';
+    }
+
+    let _extractedCuotas = [];
+
+    function setExtractListMode(isListMode) {
+        const formCard = document.getElementById('addCuotaFormCard');
+        const btnSave = document.getElementById('btnSaveNewCuota');
+        if (formCard) formCard.classList.toggle('d-none', !!isListMode);
+        if (btnSave) btnSave.classList.toggle('d-none', !!isListMode);
+    }
+
+    function clearSingleCuotaFields() {
+        const ids = ['addCupon', 'addFechaVenc', 'addImporte', 'addFechaPago', 'addFactura', 'addObservacion'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+    }
+
+    function resetExtractedCuotasUI() {
+        _extractedCuotas = [];
+        const section = document.getElementById('extractCuotasSection');
+        const tbody = document.querySelector('#extractCuotasTable tbody');
+        const btnSelectAll = document.getElementById('btnExtractCuotasSelectAll');
+        if (tbody) tbody.innerHTML = '';
+        if (section) section.classList.add('d-none');
+        if (btnSelectAll) btnSelectAll.textContent = 'Seleccionar todo';
+        setExtractListMode(false);
+    }
+
+    function renderExtractedCuotasTable(cuotas) {
+        const section = document.getElementById('extractCuotasSection');
+        const tbody = document.querySelector('#extractCuotasTable tbody');
+        const btnSelectAll = document.getElementById('btnExtractCuotasSelectAll');
+        if (!section || !tbody) return;
+        tbody.innerHTML = '';
+        if (!Array.isArray(cuotas) || cuotas.length < 2) {
+            section.classList.add('d-none');
+            setExtractListMode(false);
+            return;
+        }
+        const rows = cuotas.map((c, i) => {
+            const cupon = String((c && c.cupon) || '').trim();
+            const fecha = String((c && c.fecha_vencimiento) || '').trim();
+            const importe = normalizeImporteNumber((c && c.importe) || '');
+            const moneda = normalizeMoneda((c && c.moneda) || '');
+            return `
+              <tr data-idx="${i}">
+                <td>
+                  <input class="form-check-input extract-cuota-check" type="checkbox" data-idx="${i}" checked>
+                </td>
+                <td>${i + 1}</td>
+                <td>${cupon || '—'}</td>
+                <td>${fecha || ''}</td>
+                <td class="text-end">${importe ? parseFloat(importe).toFixed(2) : ''}</td>
+                <td>${moneda || ''}</td>
+                <td class="text-end">
+                  <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 btn-use-extract" data-idx="${i}">Usar</button>
+                </td>
+              </tr>
+            `;
+        }).join('');
+        tbody.innerHTML = rows;
+        section.classList.remove('d-none');
+        if (btnSelectAll) btnSelectAll.textContent = 'Deseleccionar todo';
+        setExtractListMode(true);
+    }
+
     window.CuotaModal = {
         open: function(poliza, primaId, aviso) {
             const modalEl = document.getElementById('cuotaAddModal');
@@ -66,6 +181,7 @@
                 if (btnExtract) btnExtract.disabled = true;
                 if (fileInput) fileInput.value = '';
             }
+            resetExtractedCuotasUI();
 
             // Ocultar sección de archivos guardados
             const archivosSection = document.getElementById('cuotaArchivosSection');
@@ -232,6 +348,7 @@
             if (btnExtract) btnExtract.disabled = true;
             if (fileInput) fileInput.value = '';
             _selectedFile = null;
+            resetExtractedCuotasUI();
           });
         }
 
@@ -263,45 +380,56 @@
                  
                  if (result.ok) {
                      const data = result.data;
+                     _extractedCuotas = Array.isArray(data && data.cuotas) ? data.cuotas : [];
+                     if (_extractedCuotas.length > 0) {
+                         renderExtractedCuotasTable(_extractedCuotas);
+                     } else {
+                         resetExtractedCuotasUI();
+                     }
                      const setVal = (id, val) => {
                          const el = document.getElementById(id);
                          if (el && val) el.value = val;
                      };
                      
                      // Populate fields
-                     
-                     // 1. Número Cupón / Proforma / Recibo
-                     if (data.cupon) setVal('addCupon', data.cupon);
 
-                     // 2. Importe
-                     if (data.importe) setVal('addImporte', data.importe);
+                     if (_extractedCuotas.length >= 2) {
+                         clearSingleCuotaFields();
+                         if (data.moneda) setVal('addMoneda', data.moneda);
+                     } else {
+                         // 1. Número Cupón / Proforma / Recibo
+                         if (data.cupon) setVal('addCupon', data.cupon);
 
-                     // 3. Moneda
-                     if (data.moneda) setVal('addMoneda', data.moneda);
-                     
-                     // 4. Fecha Vencimiento
-                     if (data.fecha_vencimiento) {
-                          const parts = data.fecha_vencimiento.split(/[-/]/);
-                          if (parts.length === 3) {
-                              // Asumimos DD/MM/YYYY
-                              const d = parts[0].padStart(2, '0');
-                              const m = parts[1].padStart(2, '0');
-                              const y = parts[2];
-                              setVal('addFechaVenc', `${y}-${m}-${d}`);
-                          }
-                     }
-                     
-                     // Optional: Factura & Fecha Pago (Hidden fields)
-                     if (data.factura) setVal('addFactura', data.factura);
-                     
-                     if (data.fecha_pago) {
-                          const parts = data.fecha_pago.split(/[-/]/);
-                          if (parts.length === 3) {
-                              const d = parts[0].padStart(2, '0');
-                              const m = parts[1].padStart(2, '0');
-                              const y = parts[2];
-                              setVal('addFechaPago', `${y}-${m}-${d}`);
-                          }
+                         // 2. Importe
+                         if (data.importe) setVal('addImporte', data.importe);
+
+                         // 3. Moneda
+                         if (data.moneda) setVal('addMoneda', data.moneda);
+                         
+                         // 4. Fecha Vencimiento
+                         if (data.fecha_vencimiento) {
+                              const parts = data.fecha_vencimiento.split(/[-/]/);
+                              if (parts.length === 3) {
+                                  // Asumimos DD/MM/YYYY
+                                  const d = parts[0].padStart(2, '0');
+                                  const m = parts[1].padStart(2, '0');
+                                  const y = parts[2];
+                                  setVal('addFechaVenc', `${y}-${m}-${d}`);
+                              }
+                         }
+                         
+                         // Optional: Factura & Fecha Pago (Hidden fields)
+                         if (data.factura) setVal('addFactura', data.factura);
+                         
+                         if (data.fecha_pago) {
+                              const parts = data.fecha_pago.split(/[-/]/);
+                              if (parts.length === 3) {
+                                  const d = parts[0].padStart(2, '0');
+                                  const m = parts[1].padStart(2, '0');
+                                  const y = parts[2];
+                                  setVal('addFechaPago', `${y}-${m}-${d}`);
+                              }
+                         }
                      }
                      
                      //setVal('addObservacion', 'Datos extraídos automáticamente del PDF.');
@@ -317,6 +445,157 @@
                  btn.disabled = false;
              }
           });
+        }
+
+        const extractTbody = document.querySelector('#extractCuotasTable tbody');
+        const btnSelectAll = document.getElementById('btnExtractCuotasSelectAll');
+        const btnSaveExtracted = document.getElementById('btnSaveExtractedCuotas');
+
+        function applyExtractedToForm(idx) {
+            const c = _extractedCuotas[idx];
+            if (!c) return;
+            const cupon = String(c.cupon || '').trim();
+            const fechaIso = toISODate(c.fecha_vencimiento || '');
+            const importe = normalizeImporteNumber(c.importe || '');
+            const moneda = normalizeMoneda(c.moneda || '');
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.value = val || '';
+            };
+            if (cupon) setVal('addCupon', cupon);
+            if (fechaIso) setVal('addFechaVenc', fechaIso);
+            if (importe) setVal('addImporte', importe);
+            if (moneda) setVal('addMoneda', moneda);
+            setExtractListMode(false);
+        }
+
+        if (extractTbody) {
+            extractTbody.addEventListener('click', (e) => {
+                const btn = e.target && e.target.closest ? e.target.closest('.btn-use-extract') : null;
+                if (!btn) return;
+                const idx = parseInt(btn.dataset.idx, 10);
+                if (Number.isFinite(idx)) applyExtractedToForm(idx);
+            });
+        }
+
+        if (btnSelectAll) {
+            btnSelectAll.addEventListener('click', () => {
+                const checks = document.querySelectorAll('.extract-cuota-check');
+                const anyUnchecked = Array.from(checks).some(c => !c.checked);
+                checks.forEach(c => { c.checked = anyUnchecked; });
+                btnSelectAll.textContent = anyUnchecked ? 'Deseleccionar todo' : 'Seleccionar todo';
+            });
+        }
+
+        async function uploadFileForCuota(file, cuotaId, primaId, poliza, cupon) {
+            const fd = new FormData();
+            fd.append('archivo', file);
+            fd.append('cuota_id', cuotaId);
+            fd.append('poliza_id', primaId || '');
+            fd.append('numero_poliza', poliza || '');
+            fd.append('cupon', cupon || '');
+            const upResp = await fetch('/api/cuotas/upload-archivo', { method: 'POST', body: fd });
+            return await upResp.json().catch(() => ({}));
+        }
+
+        if (btnSaveExtracted) {
+            btnSaveExtracted.addEventListener('click', async () => {
+                const modalEl = document.getElementById('cuotaAddModal');
+                const primaId = modalEl ? (modalEl.dataset.primaId || '') : '';
+                const poliza = (document.getElementById('addPolizaContext')?.value || '').trim();
+                if (!poliza) {
+                    alert('Error: No hay póliza seleccionada en el contexto.');
+                    return;
+                }
+                const selectedIdx = Array.from(document.querySelectorAll('.extract-cuota-check'))
+                    .filter(c => c.checked)
+                    .map(c => parseInt(c.dataset.idx, 10))
+                    .filter(n => Number.isFinite(n));
+                if (selectedIdx.length === 0) {
+                    alert('Seleccione al menos una cuota.');
+                    return;
+                }
+
+                const fileInput = document.getElementById('addDocumentoFile');
+                const file = (fileInput && fileInput.files && fileInput.files[0]) || _selectedFile;
+
+                btnSaveExtracted.disabled = true;
+                if (btnSelectAll) btnSelectAll.disabled = true;
+                if (btnExtract) btnExtract.disabled = true;
+
+                const failures = [];
+                for (const idx of selectedIdx) {
+                    const c = _extractedCuotas[idx];
+                    if (!c) continue;
+                    const cupon = String(c.cupon || '').trim();
+                    const fechaIso = toISODate(c.fecha_vencimiento || '');
+                    const importe = normalizeImporteNumber(c.importe || '');
+                    const moneda = normalizeMoneda(c.moneda || '') || (document.getElementById('addMoneda')?.value || 'S/.');
+
+                    if (!fechaIso || !importe) {
+                        failures.push({ cupon, error: 'Falta vencimiento o importe' });
+                        continue;
+                    }
+
+                    const payload = {
+                        poliza,
+                        cupon,
+                        prima_id: primaId,
+                        fecha_vencimiento: fechaIso,
+                        moneda,
+                        importe,
+                        fecha_pago: '',
+                        factura: '',
+                        observacion: ''
+                    };
+
+                    try {
+                        const resp = await fetch('/cuotas/save', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const res = await resp.json().catch(() => ({}));
+                        if (!res || !res.ok) {
+                            failures.push({ cupon, error: (res && res.error) ? res.error : 'Error al guardar' });
+                            continue;
+                        }
+
+                        const newCuotaId = res.idCuota || res.cuota_id || null;
+                        let upRes = null;
+                        if (file && newCuotaId) {
+                            try {
+                                upRes = await uploadFileForCuota(file, newCuotaId, primaId, poliza, cupon);
+                            } catch (e) {
+                                upRes = null;
+                            }
+                        }
+
+                        const event = new CustomEvent('cuota:saved', {
+                            detail: {
+                                ...payload,
+                                idCuota: newCuotaId,
+                                idArchivo: upRes && upRes.ok ? (upRes.idArchivo || null) : null
+                            }
+                        });
+                        document.dispatchEvent(event);
+                    } catch (e) {
+                        failures.push({ cupon, error: 'Error de conexión' });
+                    }
+                }
+
+                btnSaveExtracted.disabled = false;
+                if (btnSelectAll) btnSelectAll.disabled = false;
+                if (btnExtract) btnExtract.disabled = false;
+
+                if (failures.length > 0) {
+                    const msg = failures.slice(0, 8).map(f => `${f.cupon || '—'}: ${f.error}`).join('\n');
+                    alert(`Algunas cuotas no se guardaron:\n${msg}${failures.length > 8 ? `\n... (${failures.length - 8} más)` : ''}`);
+                } else {
+                    const modal = window.bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+                }
+            });
         }
 
         const btnSaveNew = document.getElementById('btnSaveNewCuota');

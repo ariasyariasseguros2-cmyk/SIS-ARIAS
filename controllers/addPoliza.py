@@ -1050,6 +1050,96 @@ def save_polizas(
                                     # Solo avisar, no bloquear si es duplicado en el loop
                                     print(f"[WARNING] Factura duplicada: {c_factura}")
                                     continue
+
+                            if c_cupon:
+                                cur.execute(
+                                    """
+                                    SELECT idCuota, activo
+                                    FROM cuotas
+                                    WHERE (
+                                            (poliza_id = %s)
+                                            OR (
+                                                TRIM(
+                                                    COALESCE(
+                                                        CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4),
+                                                        poliza
+                                                    )
+                                                ) COLLATE utf8mb4_0900_ai_ci = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                                            )
+                                        )
+                                      AND TRIM(
+                                            COALESCE(
+                                                CONVERT(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) USING utf8mb4),
+                                                cupon
+                                            )
+                                        ) COLLATE utf8mb4_0900_ai_ci = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                                    ORDER BY idCuota DESC
+                                    LIMIT 1
+                                    """,
+                                    (target_poliza_id, c_poliza, c_cupon),
+                                )
+                                dup_cuota = cur.fetchone()
+                                if dup_cuota and dup_cuota[0]:
+                                    dup_id = int(dup_cuota[0])
+                                    dup_activo = int(dup_cuota[1] or 0)
+                                    if dup_activo == 1:
+                                        try:
+                                            cnx.rollback()
+                                        except Exception:
+                                            pass
+                                        try:
+                                            cur.close()
+                                        except Exception:
+                                            pass
+                                        try:
+                                            cnx.close()
+                                        except Exception:
+                                            pass
+                                        return {"ok": False, "errors": [f"El cupón ya existe para esta póliza: {c_cupon}"]}
+                                    cur.execute(
+                                        """
+                                        UPDATE cuotas
+                                        SET poliza_id = %s,
+                                            poliza = TO_BASE64(AES_ENCRYPT(%s, @SIS_KEY)),
+                                            cupon = CASE
+                                                WHEN %s IS NULL THEN NULL
+                                                ELSE TO_BASE64(AES_ENCRYPT(%s, @SIS_KEY))
+                                            END,
+                                            fecha_vencimiento = %s,
+                                            moneda = %s,
+                                            importe = %s,
+                                            fecha_pago = %s,
+                                            factura = %s,
+                                            observacion = %s,
+                                            usuario_edicion = %s,
+                                            usuario_registro = COALESCE(usuario_registro, %s),
+                                            numero_cuota = %s,
+                                            activo = 1
+                                        WHERE idCuota = %s
+                                        """,
+                                        (
+                                            target_poliza_id,
+                                            c_poliza,
+                                            c_cupon,
+                                            c_cupon,
+                                            c_fec_venc,
+                                            c_moneda,
+                                            c_importe,
+                                            c_fecha_pago,
+                                            c_factura or None,
+                                            None,
+                                            usuario_display,
+                                            usuario_display,
+                                            numero_cuota,
+                                            dup_id,
+                                        ),
+                                    )
+                                    inserted_cuotas[ci - 1] = {
+                                        'idCuota': dup_id,
+                                        'cupon': c_cupon,
+                                        'numero_poliza': c_poliza,
+                                    }
+                                    continue
                             cur.execute(
                                 """
                                 INSERT INTO cuotas (
