@@ -54,6 +54,7 @@ def get_cuotas_data(
     rows: List[Dict[str, str]] = []
     encabezado = {
         'contratante': '',
+        'numero_documento': '',
         'poliza': poliza or '',
         'compania': '',
         'ramo': ''
@@ -117,6 +118,36 @@ def get_cuotas_data(
                 resumen['concepto'] = pr.get('motivo') or resumen['concepto']
                 resumen['prima_id'] = pr.get('idPoliza') or None
                 resumen['moneda'] = pr.get('moneda') or ''
+
+                try:
+                    target_poliza_id = resumen.get('prima_id')
+                    if target_poliza_id:
+                        cur.execute(
+                            """
+                            SELECT
+                                TRIM(
+                                    COALESCE(
+                                        CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR),
+                                        CAST(AES_DECRYPT(c.numero_documento, @SIS_KEY) AS CHAR),
+                                        c.numero_documento
+                                    )
+                                ) AS numero_documento
+                            FROM polizas p
+                            INNER JOIN clientes c ON c.idCliente = p.cliente_id
+                            WHERE p.idPoliza = %s
+                            LIMIT 1
+                            """,
+                            (target_poliza_id,),
+                        )
+                        cli_row = cur.fetchone() or {}
+                        encabezado['numero_documento'] = (cli_row.get('numero_documento') or '').strip()
+                        try:
+                            while cur.nextset():
+                                pass
+                        except Exception:
+                            pass
+                except Exception:
+                    encabezado['numero_documento'] = encabezado.get('numero_documento') or ''
 
                 # No pre-filled demo row; tabla queda vacía si no hay cuotas reales
 
@@ -790,8 +821,25 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
         'factura': '',
         'fecha_pago': '',
         'observacion': '',
+        'numero_documento_contratante': '',
         'cuotas': []
     }
+
+    def extract_numero_documento() -> str:
+        patterns = [
+            r'\bRUC\s*(?:N[°ºO]?\s*)?[:\-]?\s*(\d{11})\b',
+            r'\bR\.?\s*U\.?\s*C\.?\s*(?:N[°ºO]?\s*)?[:\-]?\s*(\d{11})\b',
+        ]
+        for pat in patterns:
+            m = re.search(pat, text_fold_upper, re.IGNORECASE)
+            if m:
+                return m.group(1).strip()
+        m = re.search(r'\bDNI\s*(?:N[°ºO]?\s*)?[:\-]?\s*(\d{8})\b', text_fold_upper, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+        return ''
+
+    data['numero_documento_contratante'] = extract_numero_documento()
 
     # Regex Helpers
     def find_val(pattern, txt):

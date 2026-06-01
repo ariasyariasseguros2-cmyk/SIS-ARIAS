@@ -5,6 +5,8 @@
         currentPolizaId: null,
         _extractAbortController: null,
         _localPreviewUrl: null,
+        _docValidationOk: true,
+        _clienteDocumento: '',
 
         init: function() {
             const btnGuardar = document.getElementById('btnGuardarCuota');
@@ -85,6 +87,10 @@
                         this._extractAbortController.abort();
                         this._extractAbortController = null;
                     }
+                    this._docValidationOk = true;
+                    this._setNumeroDocumentoUI(this._clienteDocumento || window.currentClienteDocumento || '', '', null);
+                    const btnGuardar = document.getElementById('btnGuardarCuota');
+                    if (btnGuardar) btnGuardar.disabled = false;
                 });
             }
             
@@ -100,6 +106,63 @@
                     }
                     this.viewDocument(this.currentId);
                  });
+            }
+
+            const docInput = document.getElementById('editDocumentoNumeroDocumentoInput');
+            if (docInput) {
+                docInput.addEventListener('input', () => {
+                    const raw = docInput.value;
+                    const match = this._computeMatch(this._clienteDocumento || window.currentClienteDocumento || '', raw);
+                    this._setNumeroDocumentoUI(this._clienteDocumento || window.currentClienteDocumento || '', raw, match);
+                    const btnGuardar = document.getElementById('btnGuardarCuota');
+                    if (!(this._clienteDocumento || window.currentClienteDocumento)) {
+                        this._docValidationOk = true;
+                        if (btnGuardar) btnGuardar.disabled = false;
+                        return;
+                    }
+                    if (!this._normalizeDocumento(raw)) {
+                        this._docValidationOk = true;
+                        if (btnGuardar) btnGuardar.disabled = false;
+                        return;
+                    }
+                    this._docValidationOk = (match !== false);
+                    if (btnGuardar) btnGuardar.disabled = !this._docValidationOk;
+                });
+            }
+        },
+
+        _normalizeDocumento: function(value) {
+            return String(value || '').replace(/\D/g, '');
+        },
+
+        _computeMatch: function(clienteDoc, docFromFile) {
+            const c = this._normalizeDocumento(clienteDoc);
+            const d = this._normalizeDocumento(docFromFile);
+            if (!c || !d) return null;
+            return c === d;
+        },
+
+        _setNumeroDocumentoUI: function(clienteDoc, docFromFile, match) {
+            const cliEl = document.getElementById('editClienteNumeroDocumento');
+            const docInput = document.getElementById('editDocumentoNumeroDocumentoInput');
+            const badgeEl = document.getElementById('editDocumentoNumeroDocumentoBadge');
+
+            if (cliEl) cliEl.textContent = (clienteDoc && String(clienteDoc).trim()) ? String(clienteDoc).trim() : '—';
+            if (docInput) docInput.value = (docFromFile && String(docFromFile).trim()) ? String(docFromFile).trim() : '';
+
+            if (!badgeEl) return;
+            badgeEl.classList.add('d-none');
+            badgeEl.classList.remove('bg-success', 'bg-danger', 'bg-warning');
+            badgeEl.textContent = '';
+
+            if (match === true) {
+                badgeEl.textContent = 'OK';
+                badgeEl.classList.add('bg-success');
+                badgeEl.classList.remove('d-none');
+            } else if (match === false) {
+                badgeEl.textContent = 'No coincide';
+                badgeEl.classList.add('bg-danger');
+                badgeEl.classList.remove('d-none');
             }
         },
 
@@ -139,6 +202,9 @@
             try {
                 const formData = new FormData();
                 formData.append('file', file);
+                if (this.currentPoliza) formData.append('poliza', this.currentPoliza);
+                const pid = this.currentPolizaId || window.currentPolizaId || window.currentPrimaId || '';
+                if (pid) formData.append('poliza_id', String(pid));
 
                 const response = await fetch('/cuotas/extract', {
                     method: 'POST',
@@ -150,6 +216,27 @@
                 if (!result || !result.ok) return;
 
                 const data = result.data || {};
+                const valid = data && data.validacion_numero_documento ? data.validacion_numero_documento : null;
+                if (valid) {
+                    const cliDoc = valid.cliente || this._clienteDocumento || window.currentClienteDocumento || '';
+                    const docFile = valid.documento || '';
+                    const match = (valid.match === true) ? true : (valid.match === false ? false : null);
+                    this._clienteDocumento = cliDoc;
+                    this._setNumeroDocumentoUI(cliDoc, docFile, match);
+                    if (match === false) {
+                        this._docValidationOk = false;
+                        const btnGuardar = document.getElementById('btnGuardarCuota');
+                        if (btnGuardar) btnGuardar.disabled = true;
+                        alert('El RUC/DNI del documento no coincide con el RUC/DNI del cliente. Corrija el campo RUC Documento o verifique el archivo adjunto.');
+                        return;
+                    }
+                } else {
+                    const docFile = data.numero_documento_contratante || '';
+                    this._setNumeroDocumentoUI(this._clienteDocumento || window.currentClienteDocumento || '', docFile, this._computeMatch(this._clienteDocumento || window.currentClienteDocumento || '', docFile));
+                }
+                this._docValidationOk = true;
+                const btnGuardar = document.getElementById('btnGuardarCuota');
+                if (btnGuardar) btnGuardar.disabled = false;
 
                 const fechaPagoEl = document.getElementById('editFechaPago');
                 if (fechaPagoEl && data.fecha_pago) {
@@ -176,6 +263,11 @@
                 try { URL.revokeObjectURL(this._localPreviewUrl); } catch (e) {}
                 this._localPreviewUrl = null;
             }
+            this._docValidationOk = true;
+            this._clienteDocumento = window.currentClienteDocumento || '';
+            this._setNumeroDocumentoUI(this._clienteDocumento, '', null);
+            const btnGuardar = document.getElementById('btnGuardarCuota');
+            if (btnGuardar) btnGuardar.disabled = false;
 
             const setValue = (id, val) => {
                 const el = document.getElementById(id);
@@ -246,6 +338,10 @@
                 }
             }
             const isUpdate = !!this.currentId;
+            if (!this._docValidationOk) {
+                alert('No se puede guardar: el RUC/DNI del documento no coincide con el cliente.');
+                return;
+            }
 
             const getVal = (id) => {
                 const el = document.getElementById(id);

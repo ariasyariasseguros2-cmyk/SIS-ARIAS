@@ -67,6 +67,69 @@
     }
 
     let _extractedCuotas = [];
+    let _docValidationOk = true;
+    let _clienteDocumento = '';
+
+    function normalizeDocumento(value) {
+        return String(value || '').replace(/\D/g, '');
+    }
+
+    function computeMatch(clienteDoc, docFromFile) {
+        const c = normalizeDocumento(clienteDoc);
+        const d = normalizeDocumento(docFromFile);
+        if (!c || !d) return null;
+        return c === d;
+    }
+
+    function setNumeroDocumentoUI(clienteDoc, docFromFile, match) {
+        const cliEl = document.getElementById('addClienteNumeroDocumento');
+        const docInput = document.getElementById('addDocumentoNumeroDocumentoInput');
+        const badgeEl = document.getElementById('addDocumentoNumeroDocumentoBadge');
+
+        if (cliEl) cliEl.textContent = (clienteDoc && String(clienteDoc).trim()) ? String(clienteDoc).trim() : '—';
+        if (docInput) docInput.value = (docFromFile && String(docFromFile).trim()) ? String(docFromFile).trim() : '';
+
+        if (!badgeEl) return;
+        badgeEl.classList.add('d-none');
+        badgeEl.classList.remove('bg-success', 'bg-danger', 'bg-warning');
+        badgeEl.textContent = '';
+
+        if (match === true) {
+            badgeEl.textContent = 'OK';
+            badgeEl.classList.add('bg-success');
+            badgeEl.classList.remove('d-none');
+        } else if (match === false) {
+            badgeEl.textContent = 'No coincide';
+            badgeEl.classList.add('bg-danger');
+            badgeEl.classList.remove('d-none');
+        }
+    }
+
+    function setSaveEnabled(enabled) {
+        const btnSaveNew = document.getElementById('btnSaveNewCuota');
+        const btnSaveExtracted = document.getElementById('btnSaveExtractedCuotas');
+        if (btnSaveNew) btnSaveNew.disabled = !enabled;
+        if (btnSaveExtracted) btnSaveExtracted.disabled = !enabled;
+    }
+
+    function syncDocValidationFromInput() {
+        const docInput = document.getElementById('addDocumentoNumeroDocumentoInput');
+        const raw = docInput ? docInput.value : '';
+        const match = computeMatch(_clienteDocumento, raw);
+        setNumeroDocumentoUI(_clienteDocumento, raw, match);
+        if (!_clienteDocumento) {
+            _docValidationOk = true;
+            setSaveEnabled(true);
+            return;
+        }
+        if (!normalizeDocumento(raw)) {
+            _docValidationOk = true;
+            setSaveEnabled(true);
+            return;
+        }
+        _docValidationOk = (match !== false);
+        setSaveEnabled(_docValidationOk);
+    }
 
     function setExtractListMode(isListMode) {
         const formCard = document.getElementById('addCuotaFormCard');
@@ -147,6 +210,11 @@
             // Set context
             const ctx = document.getElementById('addPolizaContext');
             if (ctx) ctx.value = poliza || '';
+
+            _docValidationOk = true;
+            setSaveEnabled(true);
+            _clienteDocumento = window.currentClienteDocumento || '';
+            setNumeroDocumentoUI(_clienteDocumento, '', null);
 
             // Prefijar secuencia automáticamente según la tabla actual
             try {
@@ -349,6 +417,9 @@
             if (fileInput) fileInput.value = '';
             _selectedFile = null;
             resetExtractedCuotasUI();
+            _docValidationOk = true;
+            setSaveEnabled(true);
+            setNumeroDocumentoUI(_clienteDocumento || (window.currentClienteDocumento || ''), '', null);
           });
         }
 
@@ -370,6 +441,11 @@
              try {
                  const formData = new FormData();
                  formData.append('file', file);
+                 const modalEl = document.getElementById('cuotaAddModal');
+                 const primaId = modalEl ? (modalEl.dataset.primaId || '') : '';
+                 const poliza = (document.getElementById('addPolizaContext')?.value || '').trim();
+                 if (poliza) formData.append('poliza', poliza);
+                 if (primaId) formData.append('poliza_id', primaId);
                  
                  const response = await fetch('/cuotas/extract', {
                      method: 'POST',
@@ -380,6 +456,27 @@
                  
                  if (result.ok) {
                      const data = result.data;
+                     const valid = data && data.validacion_numero_documento ? data.validacion_numero_documento : null;
+                     if (valid) {
+                         const cliDoc = valid.cliente || _clienteDocumento || window.currentClienteDocumento || '';
+                         const docFile = valid.documento || '';
+                         const match = (valid.match === true) ? true : (valid.match === false ? false : null);
+                         _clienteDocumento = cliDoc;
+                         setNumeroDocumentoUI(cliDoc, docFile, match);
+                         if (match === false) {
+                             _docValidationOk = false;
+                             setSaveEnabled(false);
+                             alert('El RUC/DNI del documento no coincide con el RUC/DNI del cliente. Corrija el campo RUC Documento o verifique el archivo adjunto.');
+                         } else {
+                             _docValidationOk = true;
+                             setSaveEnabled(true);
+                         }
+                     } else {
+                         const docFile = data && data.numero_documento_contratante ? data.numero_documento_contratante : '';
+                         setNumeroDocumentoUI(_clienteDocumento || window.currentClienteDocumento || '', docFile, computeMatch(_clienteDocumento || window.currentClienteDocumento || '', docFile));
+                         _docValidationOk = true;
+                         setSaveEnabled(true);
+                     }
                      _extractedCuotas = Array.isArray(data && data.cuotas) ? data.cuotas : [];
                      if (_extractedCuotas.length > 0) {
                          renderExtractedCuotasTable(_extractedCuotas);
@@ -443,8 +540,16 @@
              } finally {
                  if (spinner) spinner.classList.add('d-none');
                  btn.disabled = false;
+                 if (!_docValidationOk) setSaveEnabled(false);
              }
           });
+        }
+
+        const docInput = document.getElementById('addDocumentoNumeroDocumentoInput');
+        if (docInput) {
+            docInput.addEventListener('input', () => {
+                syncDocValidationFromInput();
+            });
         }
 
         const extractTbody = document.querySelector('#extractCuotasTable tbody');

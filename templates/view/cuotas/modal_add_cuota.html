@@ -13,6 +13,18 @@
         <!-- Hidden field for context (Poliza) -->
         <input type="hidden" id="addPolizaContext">
 
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+          <div class="small text-muted">
+            RUC Cliente:
+            <span class="fw-bold text-dark" id="addClienteNumeroDocumento">—</span>
+          </div>
+          <div class="small text-muted">
+            RUC Documento:
+            <input type="text" class="form-control form-control-sm d-inline-block" style="width: 160px;" id="addDocumentoNumeroDocumentoInput" placeholder="11 dígitos">
+            <span class="badge d-none" id="addDocumentoNumeroDocumentoBadge"></span>
+          </div>
+        </div>
+
         <!-- Drag & Drop Zone -->
         <div class="card border-0 mb-4 shadow-sm">
           <div class="card-body p-0">

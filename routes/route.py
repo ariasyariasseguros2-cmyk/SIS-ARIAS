@@ -56,6 +56,114 @@ def extract_cuota():
             
             from controllers.cuotas.cuotas import extract_cuota_from_pdf
             data = extract_cuota_from_pdf(filepath)
+
+            try:
+                poliza = (request.form.get('poliza') or request.form.get('numero_poliza') or '').strip()
+                poliza_id_raw = request.form.get('poliza_id') or request.form.get('idPrima') or ''
+                poliza_id = None
+                if poliza_id_raw:
+                    try:
+                        poliza_id = int(str(poliza_id_raw).strip())
+                    except Exception:
+                        poliza_id = None
+
+                cliente_doc = ''
+                if poliza_id or poliza:
+                    cnx = get_connection()
+                    cur = cnx.cursor(dictionary=True)
+                    try:
+                        if poliza_id:
+                            cur.execute(
+                                """
+                                SELECT
+                                    TRIM(
+                                        COALESCE(
+                                            CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR),
+                                            CAST(AES_DECRYPT(c.numero_documento, @SIS_KEY) AS CHAR),
+                                            c.numero_documento
+                                        )
+                                    ) AS numero_documento
+                                FROM polizas p
+                                INNER JOIN clientes c ON c.idCliente = p.cliente_id
+                                WHERE p.idPoliza = %s
+                                LIMIT 1
+                                """,
+                                (poliza_id,),
+                            )
+                        else:
+                            cur.execute(
+                                """
+                                SELECT
+                                    TRIM(
+                                        COALESCE(
+                                            CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR),
+                                            CAST(AES_DECRYPT(c.numero_documento, @SIS_KEY) AS CHAR),
+                                            c.numero_documento
+                                        )
+                                    ) AS numero_documento
+                                FROM polizas p
+                                INNER JOIN clientes c ON c.idCliente = p.cliente_id
+                                WHERE (
+                                        CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR) COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                                     OR CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR)            COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                                     OR p.poliza COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                                )
+                                  AND p.activo = 1 AND (p.anulado = 0 OR p.anulado IS NULL)
+                                ORDER BY p.vig_desde DESC
+                                LIMIT 1
+                                """,
+                                (poliza, poliza, poliza),
+                            )
+                        row = cur.fetchone() or {}
+                        cliente_doc = (row.get('numero_documento') or '').strip()
+                    finally:
+                        cur.close()
+                        cnx.close()
+
+                doc_from_file = ''
+                if isinstance(data, dict):
+                    doc_from_file = str(data.get('numero_documento_contratante') or '').strip()
+
+                doc_exists = None
+                if doc_from_file:
+                    cnx = get_connection()
+                    cur = cnx.cursor()
+                    try:
+                        cur.execute(
+                            """
+                            SELECT 1
+                            FROM clientes
+                            WHERE activo = 1
+                              AND TRIM(
+                                    COALESCE(
+                                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR),
+                                        CAST(AES_DECRYPT(numero_documento, @SIS_KEY) AS CHAR),
+                                        numero_documento
+                                    )
+                              ) COLLATE utf8mb4_0900_ai_ci = TRIM(%s) COLLATE utf8mb4_0900_ai_ci
+                            LIMIT 1
+                            """,
+                            (doc_from_file,),
+                        )
+                        doc_exists = True if cur.fetchone() else False
+                    finally:
+                        cur.close()
+                        cnx.close()
+
+                match = None
+                if cliente_doc and doc_from_file:
+                    match = (cliente_doc.strip() == doc_from_file.strip())
+
+                if isinstance(data, dict):
+                    data['cliente_numero_documento'] = cliente_doc
+                    data['validacion_numero_documento'] = {
+                        'cliente': cliente_doc,
+                        'documento': doc_from_file,
+                        'match': match,
+                        'documento_existe_en_clientes': doc_exists,
+                    }
+            except Exception:
+                pass
             
             # Clean up
             if os.path.exists(filepath):
