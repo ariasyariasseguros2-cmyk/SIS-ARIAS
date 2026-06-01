@@ -5,7 +5,7 @@ import re
 import hashlib
 import json
 import shutil
-from utils.rbac import can_access_maestros, can_delete, can_edit, can_create, can_create_poliza, can_restore, Roles, get_role_scope, require_permission
+from utils.rbac import can_access_maestros, can_view_maestros, can_delete, can_edit, can_create, can_create_poliza, can_restore, Roles, get_role_scope, require_permission
 from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards
 from datetime import datetime, timedelta
 from controllers.reportes.vencimientos_renovaciones import bp as vencimientos_bp
@@ -1423,7 +1423,7 @@ def menu_page(page):
 
     # Ajustadores (Maestros) - aceptar singular y plural para compatibilidad de URL
     if page in ('maestros-ajustadores', 'maestros-ajustador'):
-        if not can_access_maestros(session.get('role_name')):
+        if not can_view_maestros(session.get('role_name')):
             return redirect(url_for('main.home'))
         from controllers.ajustadores.ajustadores import get_ajustadores
         rows = get_ajustadores() or []
@@ -1431,7 +1431,7 @@ def menu_page(page):
 
     # Soporte para Productos (slug correcto y con typo del menú)
     if page in ('maestros-productos', 'maestros-prodcutos'):
-        if not can_access_maestros(session.get('role_name')):
+        if not can_view_maestros(session.get('role_name')):
             return redirect(url_for('main.home'))
         # Cargamos filas si queremos pasar rows a la plantilla; la plantilla usa JS para consumo API
         from controllers.maestros.productos import get_productos
@@ -1440,7 +1440,7 @@ def menu_page(page):
 
     # Maestros: Compañías
     if page == 'maestros-companias':
-        if not can_access_maestros(session.get('role_name')):
+        if not can_view_maestros(session.get('role_name')):
             return redirect(url_for('main.home'))
         from controllers.compania import get_aseguradoras
         rows = get_aseguradoras() or []
@@ -1448,7 +1448,7 @@ def menu_page(page):
 
     # Maestros: Ejecutivos del Broker
     if page == 'maestros-ejecutivos':
-        if not can_access_maestros(session.get('role_name')):
+        if not can_view_maestros(session.get('role_name')):
             return redirect(url_for('main.home'))
         from controllers.ejecutivos import get_ejecutivos
         rows = get_ejecutivos() or []
@@ -1456,7 +1456,7 @@ def menu_page(page):
 
     # Maestros: Endosatarios
     if page == 'maestros-endosatarios':
-        if not can_access_maestros(session.get('role_name')):
+        if not can_view_maestros(session.get('role_name')):
             return redirect(url_for('main.home'))
         from controllers.endosatario.endosatario import get_endosatarios
         rows = get_endosatarios() or []
@@ -1464,7 +1464,7 @@ def menu_page(page):
 
     # Maestros: Sub Agentes
     if page == 'maestros-subagentes':
-        if not can_access_maestros(session.get('role_name')):
+        if not can_view_maestros(session.get('role_name')):
             return redirect(url_for('main.home'))
         from controllers.maestros.subagentes import get_subagentes
         rows = get_subagentes() or []
@@ -1472,14 +1472,14 @@ def menu_page(page):
 
     # Maestros: Vendedores (tabla agentes)
     if page == 'maestros-vendedores':
-        if not can_access_maestros(session.get('role_name')):
+        if not can_view_maestros(session.get('role_name')):
             return redirect(url_for('main.home'))
         from controllers.maestros.vendedores import get_vendedores
         rows = get_vendedores() or []
         return render_template('view/maestros/vendedores_list.html', page='maestros-vendedores', rows=rows)
 
     if page == 'maestros-vendedores-nuevo':
-        if not can_access_maestros(session.get('role_name')):
+        if not can_view_maestros(session.get('role_name')):
             return redirect(url_for('main.home'))
         return render_template(
             'view/maestros/vendedores_form.html',
@@ -1489,7 +1489,7 @@ def menu_page(page):
         )
 
     if page == 'maestros-vendedores-editar':
-        if not can_access_maestros(session.get('role_name')):
+        if not can_view_maestros(session.get('role_name')):
             return redirect(url_for('main.home'))
         vid = request.args.get('id')
         if not vid:
@@ -1507,7 +1507,7 @@ def menu_page(page):
 
     # Comisiones (listado, maestro)
     if page == 'maestros-comisiones':
-        if not can_access_maestros(session.get('role_name')):
+        if not can_view_maestros(session.get('role_name')):
             return redirect(url_for('main.home'))
         try:
             from controllers.maestros.comisiones import get_comisiones
@@ -5033,56 +5033,56 @@ def api_mis_contactos_search():
 # ==========================
 
 @bp.route('/menu/maestros-clases', methods=['GET'])
-@require_permission(can_access_maestros, response_mode='redirect')
+@require_permission(can_view_maestros, response_mode='redirect')
 def menu_maestros_clases():
     if 'user' not in session:
         return redirect(url_for('login'))
     return render_template('view/maestros/clases.html', page='maestros-clases')
 
 @bp.route('/menu/maestros-usos', methods=['GET'])
-@require_permission(can_access_maestros, response_mode='redirect')
+@require_permission(can_view_maestros, response_mode='redirect')
 def menu_maestros_usos():
     if 'user' not in session:
         return redirect(url_for('login'))
     return render_template('view/maestros/usos.html', page='maestros-usos')
 
 @bp.route('/menu/maestros-marcas', methods=['GET'])
-@require_permission(can_access_maestros, response_mode='redirect')
+@require_permission(can_view_maestros, response_mode='redirect')
 def menu_maestros_marcas():
     if 'user' not in session:
         return redirect(url_for('login'))
     return render_template('view/maestros/marcas.html', page='maestros-marcas')
 
 @bp.route('/menu/maestros-modelos', methods=['GET'])
-@require_permission(can_access_maestros, response_mode='redirect')
+@require_permission(can_view_maestros, response_mode='redirect')
 def menu_maestros_modelos():
     if 'user' not in session:
         return redirect(url_for('login'))
     return render_template('view/maestros/modelos.html', page='maestros-modelos')
 
 @bp.route('/menu/maestros-ramos', methods=['GET'])
-@require_permission(can_access_maestros, response_mode='redirect')
+@require_permission(can_view_maestros, response_mode='redirect')
 def menu_maestros_ramos():
     if 'user' not in session:
         return redirect(url_for('login'))
     return render_template('view/maestros/ramos.html', page='maestros-ramos')
 
 @bp.route('/menu/maestros-productos', methods=['GET'])
-@require_permission(can_access_maestros, response_mode='redirect')
+@require_permission(can_view_maestros, response_mode='redirect')
 def menu_maestros_productos():
     if 'user' not in session:
         return redirect(url_for('login'))
     return render_template('view/maestros/productos.html', page='maestros-productos')
 
 @bp.route('/menu/maestros-soat', methods=['GET'])
-@require_permission(can_access_maestros, response_mode='redirect')
+@require_permission(can_view_maestros, response_mode='redirect')
 def menu_maestros_soat():
     if 'user' not in session:
         return redirect(url_for('login'))
     return render_template('view/maestros/soat.html', page='maestros-soat')
 
 @bp.route('/api/maestros/soat', methods=['GET'])
-@require_permission(can_access_maestros, response_mode='json')
+@require_permission(can_view_maestros, response_mode='json')
 def api_maestros_soat():
     if 'user' not in session:
         return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
@@ -5156,14 +5156,14 @@ def api_maestros_soat_update():
         return jsonify({'ok': False, 'error': 'Failed to update database'}), 500
 
 @bp.route('/menu/produccion-soat', methods=['GET'])
-@require_permission(can_access_maestros, response_mode='redirect')
+@require_permission(can_view_maestros, response_mode='redirect')
 def menu_produccion_soat():
     if 'user' not in session:
         return redirect(url_for('login'))
     return render_template('view/maestros/produccion_soat.html', page='maestros-produccion-soat')
 
 @bp.route('/api/produccion-soat', methods=['GET'])
-@require_permission(can_access_maestros, response_mode='json')
+@require_permission(can_view_maestros, response_mode='json')
 def api_produccion_soat():
     if 'user' not in session:
         return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
@@ -5215,7 +5215,7 @@ def api_produccion_soat():
 
 
 @bp.route('/api/produccion-soat/export', methods=['GET'])
-@require_permission(can_access_maestros, response_mode='json')
+@require_permission(can_view_maestros, response_mode='json')
 def api_produccion_soat_export():
     if 'user' not in session:
         return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
@@ -5290,7 +5290,7 @@ def api_maestros_usuarios_ejecutivo():
         return jsonify({'ok': False, 'error': 'Failed to update ejecutivo'}), 500
 
 @bp.route('/api/maestros/<entidad>', methods=['GET', 'POST'])
-@require_permission(can_access_maestros, response_mode='json')
+@require_permission(can_view_maestros, response_mode='json')
 def api_maestros_list_create(entidad):
     """API básico para maestros: listar (GET) y crear (POST).
     Entidades soportadas: clases, usos, marcas, modelos
@@ -5357,6 +5357,8 @@ def api_maestros_list_create(entidad):
             return jsonify({'ok': False, 'error': str(e)}), 500
 
     # CREAR (POST)
+    if not can_access_maestros(session.get('role_name')):
+        return jsonify({'ok': False, 'error': 'No autorizado'}), 403
     data = request.get_json(silent=True) or {}
     try:
         if entidad == 'clases':

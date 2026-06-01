@@ -31,7 +31,13 @@ def get_usuarios():
                 break
         # Asegurar orden por id asc incluso si el SP cambia el orden
         try:
-            rows = sorted(rows, key=lambda r: (r.get('id') if isinstance(r, dict) else r[0]))
+            def _k(r):
+                if not isinstance(r, dict):
+                    return ('', 0)
+                id_ = r.get('id') or 0
+                return int(id_)
+
+            rows = sorted(rows, key=_k)
         except Exception:
             pass
         return rows

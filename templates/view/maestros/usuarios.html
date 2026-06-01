@@ -20,17 +20,17 @@
                             <strong class="text-primary">BROKER:</strong> <span class="text-dark">Todo acceso.</span>
                         </li>
                         <li class="list-group-item bg-transparent">
-                            <strong class="text-success">EJECUTIVO DE CUENTAS:</strong> <span class="text-dark">Acceso a todo (menos a maestros). Solo mira y <strong>ELIMINA</strong>.</span>
+                            <strong class="text-success">EJECUTIVO DE CUENTAS:</strong> <span class="text-dark">Acceso a todo (incluye maestros). Solo mira y <strong>ELIMINA</strong>.</span>
                         </li>
                     </ul>
                 </div>
                 <div class="col-md-6">
                     <ul class="list-group list-group-flush small">
                         <li class="list-group-item bg-transparent">
-                            <strong class="text-warning">OPERADOR:</strong> <span class="text-dark">Acceso a todo (menos a maestros). Adiciona, actualiza, <strong>NO ELIMINA</strong>. Reportes sin comisiones.</span>
+                            <strong class="text-warning">OPERADOR:</strong> <span class="text-dark">Acceso a todo (incluye maestros). Adiciona, actualiza, <strong>NO ELIMINA</strong>. Reportes sin comisiones.</span>
                         </li>
                         <li class="list-group-item bg-transparent">
-                            <strong class="text-secondary">SUB AGENTE:</strong> <span class="text-dark">Acceso a solo sus cuentas (NO maestros). Adiciona, <strong>NO ELIMINA</strong>. Reporte estado de cuenta y producción.</span>
+                            <strong class="text-secondary">SUB AGENTE:</strong> <span class="text-dark">Acceso a solo sus cuentas. Puede ver maestros. Adiciona, <strong>NO ELIMINA</strong>. Reporte estado de cuenta y producción.</span>
                         </li>
                     </ul>
                 </div>
@@ -48,7 +48,6 @@
                     <thead class="table-light">
                         <tr>
                             <th>ID</th>
-                            <th>Usuario</th>
                             <th>Nombre</th>
                             <th>Estado</th>
                             <th>Rol Actual</th>
@@ -60,7 +59,6 @@
                         {% for user in usuarios %}
                         <tr>
                             <td>{{ user.id }}</td>
-                            <td>{{ user.username }}</td>
                             <td>{{ user.nombre }}</td>
                             <td>
                                 {% set est = user.estado %}

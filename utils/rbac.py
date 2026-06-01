@@ -4,6 +4,9 @@ class Roles:
     OPERADOR = 'OPERADOR'
     SUB_AGENTE = 'SUB AGENTE'
 
+def can_view_maestros(role_name):
+    return role_name in [Roles.BROKER, Roles.EJECUTIVO, Roles.OPERADOR, Roles.SUB_AGENTE]
+
 def can_access_maestros(role_name):
     return role_name == Roles.BROKER
 
