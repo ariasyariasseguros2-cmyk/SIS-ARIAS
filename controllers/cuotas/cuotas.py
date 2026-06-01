@@ -823,10 +823,61 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
 
     # --- Detección de Proveedor ---
     is_crecer = 'CRECER' in text_upper and 'SEGUROS' in text_upper
-    is_sanitas = 'SANITAS' in text_upper
+    is_protecta = 'PROTECTA' in text_fold_upper
+    is_sanitas = ('SANITAS' in text_fold_upper) and (not is_protecta)
     is_positiva = 'LA POSITIVA' in text_upper
 
-    if is_crecer:
+    if is_protecta:
+        m_fac = re.search(r'(F\d{3}\s*-\s*\d+)', text, re.IGNORECASE)
+        if m_fac:
+            data['factura'] = m_fac.group(1).replace(' ', '')
+
+        if not data['fecha_vencimiento']:
+            data['fecha_vencimiento'] = find_val(r'Fecha\s+de\s+Vencimiento\s*[:.]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{4})', text)
+        if not data['fecha_vencimiento']:
+            data['fecha_vencimiento'] = find_val(r'(?:VENCIMIENTO|VENCE|VIGENCIA\s*HASTA)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+
+        if not data['fecha_pago']:
+            raw_emision = find_val(
+                r'Fecha\s+de\s+Emisi[óo]n\s*[:.]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{4})',
+                text,
+            )
+            if not raw_emision:
+                raw_emision = find_date_after(r'Fecha\s+de\s+Emisi\S*n', text)
+            if not raw_emision:
+                raw_emision = find_date_after(r'Fecha\s+Emisi\S*n', text)
+            if not raw_emision:
+                raw_emision = find_date_after(r'FECHA\s+DE\s+EMISI\S*N', text)
+            if not raw_emision:
+                raw_emision = find_date_after(r'FECHA\s+EMISI\S*N', text)
+            if not raw_emision:
+                m_em = re.search(r'Emisi\S*n[\s\S]{0,80}?(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})', text, re.IGNORECASE)
+                if m_em:
+                    raw_emision = m_em.group(1)
+            if raw_emision:
+                data['fecha_pago'] = normalize_date_token(raw_emision)
+        if not data['fecha_pago']:
+            raw_vig = find_date_after(r'Vigencia', text)
+            if not raw_vig:
+                raw_vig = find_date_after(r'Vigenc\S*', text)
+            if not raw_vig:
+                m_range = re.search(
+                    r'(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})\s*(?:al|a)\s*(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})',
+                    text,
+                    re.IGNORECASE,
+                )
+                if m_range:
+                    raw_vig = m_range.group(1)
+            if raw_vig:
+                data['fecha_pago'] = normalize_date_token(raw_vig)
+
+        moneda_val = find_val(r'MONEDA\s*[:.]?\s*([A-Za-z]+)', text)
+        if moneda_val:
+            data['moneda'] = 'S/.' if moneda_val.upper().startswith('SOLE') or moneda_val.upper().startswith('SOL') else moneda_val
+        else:
+            data['moneda'] = data.get('moneda') or 'S/.'
+
+    elif is_crecer:
         # Lógica específica para Crecer Seguros
         
         # Factura: F### - ########
