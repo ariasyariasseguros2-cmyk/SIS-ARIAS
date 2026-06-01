@@ -690,6 +690,9 @@ h1, h2, h3, h4, h5, h6 {
     margin-top: 5px;
     padding: 6px;
     width: 240px;
+    max-height: calc(100vh - 130px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     background: var(--submenu-bg);
     border-radius: 12px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.2);
