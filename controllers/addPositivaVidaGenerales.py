@@ -63,6 +63,41 @@ def _to_float(s: Optional[str]) -> Optional[float]:
     except Exception:
         return None
 
+def _looks_like_person_or_company_name(s: Optional[str]) -> bool:
+    if not s:
+        return False
+    v = re.sub(r"\s+", " ", (s or "")).strip()
+    if len(v) < 3 or len(v) > 180:
+        return False
+    low = v.lower()
+    if re.search(r"[a-záéíóúñ]{3,}\s+[a-záéíóúñ]{3,}", v):
+        return False
+    if any(k in low for k in [
+        "incumplimiento",
+        "obligaciones",
+        "procedimientos",
+        "proporcionalidad",
+        "en caso que",
+        "comercializada",
+        "banca seguros",
+        "cláusula",
+        "clausula",
+        "ley del contrato de seguro",
+        "art.",
+        "artículo",
+    ]):
+        return False
+    return True
+
+def _extract_name_strict(text: str) -> Optional[str]:
+    try:
+        from controllers.addPositivaGenerales import extract_razon_social_strict, extract_razon_social, _clean_company_name
+        name = extract_razon_social_strict(text) or extract_razon_social(text)
+        cleaned = _clean_company_name(name) if name else None
+        return cleaned or (name.strip() if name else None)
+    except Exception:
+        return None
+
 def parse_positiva_vida_generales(text: str) -> Dict[str, str]:
     item = {}
     
@@ -108,27 +143,45 @@ def parse_positiva_vida_generales(text: str) -> Dict[str, str]:
     item['vencimiento'] = vig_fin
 
     # Asegurado / Contratante
-    # Prioridad 1: Datos del Asegurado -> Nombre o Razón Social
-    asegurado = _find(r"Datos\s+del\s+Asegurado[\s\S]{0,100}?Nombre\s+o\s+Raz[oó]n\s+Social\s*[:：]\s*(.+)", text)
-    # Prioridad 2: Datos del Contratante -> Nombre o Razón Social
-    contratante = _find(r"Datos\s+del\s+Contratante[\s\S]{0,100}?Nombre\s+o\s+Raz[oó]n\s+Social\s*[:：]\s*(.+)", text)
-    
-    # Prioridad 3: Hola [Nombre]
-    hola_name = _find(r"Hola\s+([^:：!]{2,50})[:：!]", text)
-    
-    # Fallbacks generales
+    asegurado = _extract_name_strict(text)
     if not asegurado:
-        asegurado = _find(r"Asegurado\s*[:：]\s*(.+)", text)
+        m_blk = re.search(r"Datos\s+del\s+Asegurado\b", text, re.IGNORECASE)
+        if m_blk:
+            win = text[m_blk.end(): m_blk.end() + 900]
+            cand = (
+                _find(r"Nombres?\s+y\s+Apellidos\s*[:：]?\s*(.+)", win)
+                or _find(r"Nombre\s+o\s+Raz[oó]n\s+Social\s*[:：]?\s*(.+)", win)
+            )
+            if _looks_like_person_or_company_name(cand):
+                asegurado = re.sub(r"\s+", " ", cand).strip()
+
+    hola_name = _find(r"Hola\s+([^:：!\n\r]{2,50})[:：!]", text)
+    if hola_name:
+        hola_name = re.sub(r"\s+", " ", hola_name).strip()
+
+    contratante = None
+    m_blk_c = re.search(r"Datos\s+del\s+Contratante\b", text, re.IGNORECASE)
+    if m_blk_c:
+        win = text[m_blk_c.end(): m_blk_c.end() + 900]
+        cand_c = (
+            _find(r"Nombres?\s+y\s+Apellidos\s*[:：]?\s*(.+)", win)
+            or _find(r"Nombre\s+o\s+Raz[oó]n\s+Social\s*[:：]?\s*(.+)", win)
+        )
+        if _looks_like_person_or_company_name(cand_c):
+            contratante = re.sub(r"\s+", " ", cand_c).strip()
+
+    if not asegurado:
+        cand = _find(r"Asegurado\s*[:：]\s*(.+)", text)
+        if _looks_like_person_or_company_name(cand):
+            asegurado = re.sub(r"\s+", " ", cand).strip()
     if not contratante:
-        contratante = _find(r"Contratante\s*[:：]\s*(.+)", text)
-        
-    final_name = asegurado or contratante or hola_name
-    if final_name:
-        # Limpieza básica de nombres
-        final_name = re.sub(r"\s+", " ", final_name).strip()
-        
+        cand = _find(r"Contratante\s*[:：]\s*(.+)", text)
+        if _looks_like_person_or_company_name(cand):
+            contratante = re.sub(r"\s+", " ", cand).strip()
+
+    final_name = asegurado or contratante or (hola_name if _looks_like_person_or_company_name(hola_name) else None)
     item['colectivo_asegurado'] = final_name
-    item['contratante'] = contratante or (final_name if not asegurado else None)
+    item['contratante'] = contratante or final_name
 
     # Dirección
     direccion = _find(r"Direcci[oó]n\s*[:：]\s*(.+)", text)
