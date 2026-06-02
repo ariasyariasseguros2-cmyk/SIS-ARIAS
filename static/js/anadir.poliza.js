@@ -339,6 +339,25 @@
     const base = comp * 1;
     return (base * ratio).toFixed(2);
   }
+  function formatPctForInput(num) {
+    if (!Number.isFinite(num)) return '';
+    const rounded = Math.round(num * 100) / 100;
+    let s = rounded.toFixed(2);
+    s = s.replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+    return s;
+  }
+  function computeCompanyPctFromImport(netaStr, compImportStr) {
+    const neta = parseNumber(netaStr);
+    const imp = parseNumber(compImportStr);
+    if (!Number.isFinite(neta) || neta === 0 || !Number.isFinite(imp)) return '';
+    return formatPctForInput((imp / neta) * 100);
+  }
+  function computeSubPctFromImport(compImportStr, subImportStr) {
+    const comp = parseNumber(compImportStr);
+    const sub = parseNumber(subImportStr);
+    if (!Number.isFinite(comp) || comp === 0 || !Number.isFinite(sub)) return '';
+    return formatPctForInput((sub / comp) * 100);
+  }
   function sumCommission(items) {
     let total = 0;
     (items || []).forEach(it => {
@@ -964,13 +983,13 @@
           <input type="number" step="0.01" class="form-control form-control-sm pct-comp" value="${it.comision_compania_pct || ''}">
         </td>
         <td data-index="${idx}" data-field="comision_compania_importe">
-          <input type="number" step="0.01" class="form-control form-control-sm imp-comp" value="${it.comision_compania_importe || ''}" readonly>
+          <input type="number" step="0.01" class="form-control form-control-sm imp-comp" value="${it.comision_compania_importe || ''}">
         </td>
         <td data-index="${idx}" data-field="comision_subagente_pct">
           <input type="number" step="0.01" min="0" max="100" class="form-control form-control-sm pct-sub" value="${it.comision_subagente_pct || ''}">
         </td>
         <td data-index="${idx}" data-field="comision_subagente_importe">
-          <input type="number" step="0.01" class="form-control form-control-sm imp-sub" value="${it.comision_subagente_importe || ''}" readonly>
+          <input type="number" step="0.01" class="form-control form-control-sm imp-sub" value="${it.comision_subagente_importe || ''}">
         </td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="factura">${it.factura || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_pago">${it.fecha_pago || ''}</td>
@@ -1153,6 +1172,7 @@
         }
       }
     }
+    fetchCommissionPct(idx);
     scheduleAutoSave();
   });
 
@@ -1559,6 +1579,50 @@
     extractedItems[idx].comision_subagente_importe = subPct ? computeSubAgentCommissionAmount(compImport, subPct) : '';
     const impSubEl = input.closest('tr')?.querySelector('.imp-sub');
     if (impSubEl) impSubEl.value = extractedItems[idx].comision_subagente_importe || '';
+
+    scheduleAutoSave();
+  });
+
+  // Cambio manual en Importe Comisión Cía por fila
+  tbody.addEventListener('input', (e) => {
+    const input = e.target.closest('input.imp-comp');
+    if (!input) return;
+    const td = input.closest('td');
+    const idx = Number(td?.dataset?.index);
+    if (!Number.isFinite(idx)) return;
+
+    const imp = input.value || '';
+    extractedItems[idx].comision_compania_importe = imp;
+
+    const neta = extractedItems[idx].prima_neta || '';
+    extractedItems[idx].comision_compania_pct = imp ? computeCompanyPctFromImport(neta, imp) : '';
+    const pctEl = input.closest('tr')?.querySelector('.pct-comp');
+    if (pctEl) pctEl.value = extractedItems[idx].comision_compania_pct || '';
+
+    const subPct = extractedItems[idx].comision_subagente_pct || '';
+    extractedItems[idx].comision_subagente_importe = subPct ? computeSubAgentCommissionAmount(imp, subPct) : '';
+    const impSubEl = input.closest('tr')?.querySelector('.imp-sub');
+    if (impSubEl) impSubEl.value = extractedItems[idx].comision_subagente_importe || '';
+
+    if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+    scheduleAutoSave();
+  });
+
+  // Cambio manual en Importe Comisión Sub Agente por fila
+  tbody.addEventListener('input', (e) => {
+    const input = e.target.closest('input.imp-sub');
+    if (!input) return;
+    const td = input.closest('td');
+    const idx = Number(td?.dataset?.index);
+    if (!Number.isFinite(idx)) return;
+
+    const impSub = input.value || '';
+    extractedItems[idx].comision_subagente_importe = impSub;
+
+    const compImport = extractedItems[idx].comision_compania_importe || '';
+    extractedItems[idx].comision_subagente_pct = impSub ? computeSubPctFromImport(compImport, impSub) : '';
+    const pctSubEl = input.closest('tr')?.querySelector('.pct-sub');
+    if (pctSubEl) pctSubEl.value = extractedItems[idx].comision_subagente_pct || '';
 
     scheduleAutoSave();
   });
@@ -3497,6 +3561,7 @@
              const txt = matches[0].nombre || matches[0].id || '';
              extractedItems[index].ramos_producto = txt;
            }
+           fetchCommissionPct(index);
            scheduleAutoSave();
          }
        } else {
@@ -3523,6 +3588,7 @@
              const txt = picked.textContent || picked.value || '';
              extractedItems[index].ramos_producto = txt;
            }
+           fetchCommissionPct(index);
            scheduleAutoSave();
          }
        }

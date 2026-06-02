@@ -602,33 +602,7 @@ def save_polizas(
 
         for i, row in enumerate(normalized):
             real_poliza_id = None
-            # NUEVO: Validar cliente de la fila (por documento o nombre)
-            row_doc = row.get("numero_documento_extracted")
-            row_name = row.get("contratante") or row.get("razon_social")
-
             target_doc = numero_documento # Default: el seleccionado globalmente
-
-            if row_doc or row_name:
-                found_row_doc = find_client_doc(row_doc, row_name, cur)
-                if not found_row_doc:
-                    cur.close()
-                    cnx.close()
-                    err_ident = row_doc or row_name
-                    return {"ok": False, "errors": [f"El cliente '{err_ident}' (extraído del PDF) no existe. Debes registrar cliente nuevo."]}
-
-                # VALIDACIÓN ADICIONAL: Si se seleccionó un cliente explícito y el PDF trae otro, RECHAZAR.
-                # numero_documento viene del 'selected' global. found_row_doc es lo que hallamos en la BD para el PDF.
-                if numero_documento and found_row_doc != numero_documento:
-                    cur.close()
-                    cnx.close()
-                    return {
-                        "ok": False,
-                        "errors": [
-                            f"La proforma/cupón corresponde al cliente dni/ruc {found_row_doc}, estás intentando guardarlo en la cuenta de dni/ruc {numero_documento}. Verifica el archivo o cambia de cliente."
-                        ]
-                    }
-
-                target_doc = found_row_doc
 
             if row.get("recibo") is not None:
                 rk = normalize_dup_key(row.get("recibo"))
