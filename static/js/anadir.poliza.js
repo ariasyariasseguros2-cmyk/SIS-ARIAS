@@ -566,7 +566,7 @@
     const hasCia = headers.includes('cía') || headers.includes('cia') || headers.includes('aseguradora');
     const hasPrimaNeta = headers.includes('prima neta');
     const hasAcciones = headers.includes('acciones');
-    const expectedCount = 22; // + Factura y Fecha Pago
+    const expectedCount = 21; // + Factura y Fecha Pago
     if (!hasRamo || !hasProducto || !hasCia || !hasPrimaNeta || !hasAcciones || headers.length !== expectedCount) {
       thead.innerHTML = `
         <tr>
@@ -574,8 +574,7 @@
           <th>Proforma/Recibo</th>
           <th>Fecha Emisión</th>
           <th>Fecha Vencimiento</th>
-          <th>Documento</th>
-          <th>Colectivo Asegurado</th>
+          <th>Asegurado</th>
           <th>Cía</th>
           <th class="ramo-col">Ramo</th>
           <th>Producto</th>
@@ -951,7 +950,6 @@
         </td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vencimiento || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="numero_documento_extracted">${it.numero_documento_extracted || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="colectivo_asegurado">${it.colectivo_asegurado || ''}</td>
         <td data-index="${idx}" data-field="cia">${issuerSelHtml}</td>
         <td class="ramo-col" data-index="${idx}" data-field="ramo">${buildRamoSelect(it.ramo || '')}</td>
@@ -2496,20 +2494,6 @@
             console.error('Error extracting cronograma de cuotas:', e);
           }
 
-          try {
-            const missingDocIdx = (extractedItems || []).findIndex(it => {
-              const doc = (it && it.numero_documento_extracted != null) ? String(it.numero_documento_extracted).trim() : '';
-              return doc === '';
-            });
-            if (missingDocIdx >= 0) {
-              const msg = `Fila ${missingDocIdx + 1}: falta el número de documento (DNI/RUC) en la columna "Documento".`;
-              if (window.Swal) Swal.fire({ icon: 'warning', title: 'Documento vacío', text: msg });
-              else alert(msg);
-              const td = getTd(missingDocIdx, 'numero_documento_extracted');
-              td?.focus();
-            }
-          } catch (_) {}
-
           // Autocompletar % comisión de compañía desde la tabla comisiones_temp (servidor)
           try {
             const fillPromises = extractedItems.map(async (it, i) => {
@@ -2693,7 +2677,6 @@
     const required = [
       ['numero_poliza', 'Póliza'],
       ['fecha_emision', 'Fecha Emisión'],
-      ['numero_documento_extracted', 'Documento (DNI/RUC)'],
       ['colectivo_asegurado', 'Asegurado'],
       ['cia', 'Cía'],
       ['ramo', 'Ramo'],
@@ -3352,11 +3335,8 @@
     rows.forEach((tr, idx) => {
       if (extractedItems[idx]) {
         extractedItems[idx].cuotas = [];
-        extractedItems[idx].numero_documento_extracted = '';
       }
       refreshCuotasUI(idx);
-      const tdDoc = getTd(idx, 'numero_documento_extracted');
-      if (tdDoc) tdDoc.textContent = '';
       rowFacturasMap.set(idx, []);
       Array.from(cuotaFacturaFileMap.keys()).forEach(k => {
         if (String(k).startsWith(`${idx}:`)) cuotaFacturaFileMap.delete(k);

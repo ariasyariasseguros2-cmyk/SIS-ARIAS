@@ -528,24 +528,23 @@ body {
 .table-custom td:nth-child(2)::before { content: "Proforma/Recibo"; }
 .table-custom td:nth-child(3)::before { content: "Fecha Emisión"; }
 .table-custom td:nth-child(4)::before { content: "Fecha Vencimiento"; }
-.table-custom td:nth-child(5)::before { content: "Documento"; }
-.table-custom td:nth-child(6)::before { content: "Asegurado"; }
-.table-custom td:nth-child(7)::before { content: "Cía"; }
-.table-custom td:nth-child(8)::before { content: "Ramo"; }
-.table-custom td:nth-child(9)::before { content: "Producto"; }
-.table-custom td:nth-child(10)::before { content: "Moneda"; }
-.table-custom td:nth-child(11)::before { content: "Inicio Vigencia"; }
-.table-custom td:nth-child(12)::before { content: "Fin Vigencia"; }
-.table-custom td:nth-child(13)::before { content: "Prima Neta"; }
-.table-custom td:nth-child(14)::before { content: "Prima Comercial"; }
-.table-custom td:nth-child(15)::before { content: "Prima + IGV"; }
-.table-custom td:nth-child(16)::before { content: "% Com. Cía"; }
-.table-custom td:nth-child(17)::before { content: "Imp. Com. Cía"; }
-.table-custom td:nth-child(18)::before { content: "% Com. Sub"; }
-.table-custom td:nth-child(19)::before { content: "Imp. Com. Sub"; }
-.table-custom td:nth-child(20)::before { content: "Factura"; }
-.table-custom td:nth-child(21)::before { content: "Fecha Pago"; }
-.table-custom td:nth-child(22)::before { content: "Acciones"; }
+.table-custom td:nth-child(5)::before { content: "Asegurado"; }
+.table-custom td:nth-child(6)::before { content: "Cía"; }
+.table-custom td:nth-child(7)::before { content: "Ramo"; }
+.table-custom td:nth-child(8)::before { content: "Producto"; }
+.table-custom td:nth-child(9)::before { content: "Moneda"; }
+.table-custom td:nth-child(10)::before { content: "Inicio Vigencia"; }
+.table-custom td:nth-child(11)::before { content: "Fin Vigencia"; }
+.table-custom td:nth-child(12)::before { content: "Prima Neta"; }
+.table-custom td:nth-child(13)::before { content: "Prima Comercial"; }
+.table-custom td:nth-child(14)::before { content: "Prima + IGV"; }
+.table-custom td:nth-child(15)::before { content: "% Com. Cía"; }
+.table-custom td:nth-child(16)::before { content: "Imp. Com. Cía"; }
+.table-custom td:nth-child(17)::before { content: "% Com. Sub"; }
+.table-custom td:nth-child(18)::before { content: "Imp. Com. Sub"; }
+.table-custom td:nth-child(19)::before { content: "Factura"; }
+.table-custom td:nth-child(20)::before { content: "Fecha Pago"; }
+.table-custom td:nth-child(21)::before { content: "Acciones"; }
 
 /* Highlight Important Fields */
 .table-custom td:nth-child(1) { /* Poliza */
@@ -554,40 +553,40 @@ body {
     font-size: 1.1rem;
 }
 
-.table-custom td:nth-child(15) { /* Prima + IGV */
+.table-custom td:nth-child(14) { /* Prima + IGV */
     font-weight: 700;
     color: var(--text-main);
 }
 
 /* Full width rows within the card */
-.table-custom td:nth-child(6) { /* Asegurado */
+.table-custom td:nth-child(5) { /* Asegurado */
     grid-column: span 3;
 }
 
 /* Double width fields for long text */
-.table-custom td:nth-child(8),
-.table-custom td:nth-child(9) {
+.table-custom td:nth-child(7),
+.table-custom td:nth-child(8) {
     grid-column: span 1;
 }
 /* On small screens, force them to auto span to avoid breaking */
 @media (max-width: 600px) {
-    .table-custom td:nth-child(8), 
-    .table-custom td:nth-child(9) {
+    .table-custom td:nth-child(7), 
+    .table-custom td:nth-child(8) {
         grid-column: auto;
     }
 }
 
 /* Force a new row starting at Moneda so that RAMO-PRODUCTO stay alone */
-.table-custom td:nth-child(10) { /* Moneda */
+.table-custom td:nth-child(9) { /* Moneda */
     grid-column: 1;
 }
 
 /* Ensure the block of commissions starts on its own row */
-.table-custom td:nth-child(16) { /* % Com. Cía */
+.table-custom td:nth-child(15) { /* % Com. Cía */
     grid-column: 1;
 }
 
-.table-custom td:nth-child(22) { /* Panel de acciones abajo */
+.table-custom td:nth-child(21) { /* Panel de acciones abajo */
     grid-column: 1 / -1;
     grid-row: auto;
     border-left: none;
@@ -597,7 +596,7 @@ body {
     margin-top: .75rem;
     padding-top: 1rem;
 }
-.table-custom td:nth-child(22)::before { display: none; }
+.table-custom td:nth-child(21)::before { display: none; }
 
 /* Inputs styling in cards */
 .table-custom input.form-control {
@@ -605,70 +604,63 @@ body {
     font-size: 0.9rem;
 }
 
-.table-custom td:nth-child(6) { /* Asegurado */
+.table-custom td:nth-child(5) { /* Asegurado */
     grid-column: 1 / span 2; /* ocupa dos columnas a la izquierda, al lado de Cía/Ramo/Producto */
     grid-row: 2;
 }
-.table-custom td:nth-child(7) { /* Cía */
+.table-custom td:nth-child(6) { /* Cía */
     grid-column: 3; 
     grid-row: 2;
 }
-.table-custom td:nth-child(8) { /* Ramo */
+.table-custom td:nth-child(7) { /* Ramo */
     grid-column: 4; 
     grid-row: 2;
 }
-.table-custom td:nth-child(9) { /* Producto */
+.table-custom td:nth-child(8) { /* Producto */
     grid-column: 5; 
     grid-row: 2;
 }
 
-/* Reordenar fila superior: Documento y Inicio Vigencia */
-.table-custom td:nth-child(5) { /* Documento */
-    grid-column: 5;
-    grid-row: 1;
-}
-/* Inicio Vigencia se coloca junto a MONEDA/PRIMAS por flujo automático de la grilla */
-
 /* Fila 3: Moneda y Primas + Fin Vigencia */
-.table-custom td:nth-child(10) { /* Moneda */
+.table-custom td:nth-child(9) { /* Moneda */
     grid-column: 1;
     grid-row: 3;
 }
-.table-custom td:nth-child(11) { /* Inicio Vigencia */
+.table-custom td:nth-child(10) { /* Inicio Vigencia */
     grid-column: 2;
     grid-row: 3;
 }
-.table-custom td:nth-child(12) { /* Fin Vigencia */
+.table-custom td:nth-child(11) { /* Fin Vigencia */
     grid-column: 3;
     grid-row: 3;
 }
-.table-custom td:nth-child(13) { /* Prima Neta */
+.table-custom td:nth-child(12) { /* Prima Neta */
     grid-column: 4;
     grid-row: 3;
 }
-.table-custom td:nth-child(14) { /* Prima Comercial */
+.table-custom td:nth-child(13) { /* Prima Comercial */
     grid-column: 5;
     grid-row: 3;
 }
-.table-custom td:nth-child(15) { /* Prima + IGV */
+.table-custom td:nth-child(14) { /* Prima + IGV */
     grid-column: 6;
     grid-row: 3;
 }
 
 /* Fila 4: Comisiones */
-.table-custom td:nth-child(16) { /* % Com. Cía */
+.table-custom td:nth-child(15) { /* % Com. Cía */
     grid-column: 1;
     grid-row: 4;
 }
-.table-custom td:nth-child(17) { /* Imp. Com. Cía */
+.table-custom td:nth-child(16) { /* Imp. Com. Cía */
     grid-column: 2;
     grid-row: 4;
 }
-.table-custom td:nth-child(18) { /* % Com. Sub */
+.table-custom td:nth-child(17) { /* % Com. Sub */
     grid-column: 3;
     grid-row: 4;
 }
-.table-custom td:nth-child(19) { /* Imp. Com. Sub */
+.table-custom td:nth-child(18) { /* Imp. Com. Sub */
     grid-column: 4;
     grid-row: 4;
 }
@@ -847,9 +839,9 @@ body {
     background: #141414;
 }
 
-/* Ocultar columnas nativas de Factura y Fecha Pago (20, 21) ya que estarán en el panel derecho */
-.table-custom td:nth-child(20),
-.table-custom td:nth-child(21) {
+/* Ocultar columnas nativas de Factura y Fecha Pago (19, 20) ya que estarán en el panel derecho */
+.table-custom td:nth-child(19),
+.table-custom td:nth-child(20) {
     display: none;
 }
 /* Fecha Vencimiento vuelve a la grilla principal (no se oculta) */
