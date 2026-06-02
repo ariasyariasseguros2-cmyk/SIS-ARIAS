@@ -2,6 +2,51 @@ from typing import Dict, List, Tuple
 from datetime import date, datetime
 
 
+def _parse_decimal(value):
+    if value is None or value == '':
+        return None
+    try:
+        import re
+        txt = str(value).strip()
+        if not txt:
+            return None
+        m = re.search(r'[-+]?\d[\d.,]*', txt)
+        if not m:
+            return None
+        raw = (m.group(0) or '').strip()
+        if not raw:
+            return None
+        if raw.startswith('+'):
+            raw = raw[1:]
+
+        last_dot = raw.rfind('.')
+        last_comma = raw.rfind(',')
+        if last_dot == -1 and last_comma == -1:
+            return float(raw)
+        if last_dot > last_comma:
+            cleaned = raw.replace(',', '')
+        elif last_comma > last_dot:
+            cleaned = raw.replace('.', '').replace(',', '.')
+        else:
+            sep_idx = max(last_dot, last_comma)
+            int_part = ''.join(ch for ch in raw[:sep_idx] if (ch.isdigit() or ch == '-'))
+            dec_part = ''.join(ch for ch in raw[sep_idx + 1:] if ch.isdigit())
+            cleaned = f"{int_part}.{dec_part}" if dec_part else int_part
+
+        if cleaned.count('.') > 1:
+            sign = ''
+            if cleaned.startswith('-'):
+                sign = '-'
+                cleaned = cleaned[1:]
+            parts = cleaned.split('.')
+            int_part = ''.join(parts[:-1]).replace('.', '').replace(',', '')
+            dec_part = parts[-1]
+            cleaned = f"{sign}{int_part}.{dec_part}" if dec_part else f"{sign}{int_part}"
+        return float(cleaned)
+    except Exception:
+        return None
+
+
 def format_date_custom(d):
     """Format date to DD/MM/YYYY"""
     if not d:
@@ -422,6 +467,15 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                 cnx.close()
                 return False, "El número de factura ya existe.", None
 
+        importe_input = val_or_none(data.get('importe'))
+        importe_val = None
+        if importe_input is not None:
+            importe_val = _parse_decimal(importe_input)
+            if importe_val is None:
+                cur.close()
+                cnx.close()
+                return False, "Importe inválido.", None
+
         poliza_id = None
         prima_raw = data.get('prima_id') or data.get('poliza_id') or data.get('idPrima')
         if prima_raw is not None:
@@ -488,7 +542,7 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                 cupon,
                 (data.get('fecha_vencimiento') or date.today().strftime('%Y-%m-%d')),
                 data.get('moneda', 'S/.'),
-                data.get('importe'),
+                importe_val,
                 val_or_none(data.get('fecha_pago')),
                 factura,
                 val_or_none(data.get('observacion')),
@@ -621,7 +675,15 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
             cupon_nuevo = (str(cupon_nuevo_val) if cupon_nuevo_val is not None else '').strip() or None
 
         fecha_venc_nueva = val_or_none(data.get('fecha_vencimiento')) or fecha_venc_actual
-        importe_nuevo = val_or_none(data.get('importe')) or importe_actual
+        importe_nuevo = importe_actual
+        importe_input = data.get('importe')
+        if importe_input is not None and (not isinstance(importe_input, str) or importe_input.strip() != ''):
+            parsed = _parse_decimal(importe_input)
+            if parsed is None:
+                cur.close()
+                cnx.close()
+                return False, "Importe inválido."
+            importe_nuevo = parsed
         fecha_pago_nueva = val_or_none(data.get('fecha_pago')) or fecha_pago_actual
         factura_nueva = val_or_none(data.get('factura')) or factura_actual
         observacion_nueva = val_or_none(data.get('observacion')) or observacion_actual

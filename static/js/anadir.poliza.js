@@ -3145,7 +3145,7 @@
       const payload = await r.json().catch(() => ({}));
       const d = (payload && payload.data) ? payload.data : {};
       return {
-        factura: d.factura || d.cupon || '',
+        factura: d.factura || '',
         fecha_pago: d.fecha_pago || d.fecha_vencimiento || '',
         fecha_vencimiento: d.fecha_vencimiento || '',
         cuotas: Array.isArray(d.cuotas) ? d.cuotas : []
@@ -3157,14 +3157,58 @@
   function mergeExtractedCuotas(index, meta) {
     if (!Number.isFinite(index) || !meta || !extractedItems[index]) return;
     if (!Array.isArray(meta.cuotas) || meta.cuotas.length === 0) return;
-    extractedItems[index].cuotas = meta.cuotas.map(c => ({
-      cupon: c.cupon || '',
-      fecha_vencimiento: c.fecha_vencimiento || '',
-      importe: c.importe || '',
-      factura: c.factura || '',
-      fecha_pago: c.fecha_pago || '',
-      moneda: c.moneda || extractedItems[index].moneda || 'S/'
+    const existing = Array.isArray(extractedItems[index].cuotas) ? extractedItems[index].cuotas : [];
+    const existingHasCupon = existing.some(c => ((c?.cupon || '').toString().trim() !== ''));
+
+    const mappedMeta = meta.cuotas.map(c => ({
+      numero_cuota: (c && (c.numero_cuota ?? c.numero)) ?? null,
+      cupon: (c && c.cupon) ? String(c.cupon) : '',
+      fecha_vencimiento: (c && c.fecha_vencimiento) ? String(c.fecha_vencimiento) : '',
+      importe: (c && c.importe) ? String(c.importe) : '',
+      factura: (c && c.factura) ? String(c.factura) : '',
+      fecha_pago: (c && c.fecha_pago) ? String(c.fecha_pago) : '',
+      moneda: (c && c.moneda) ? String(c.moneda) : (extractedItems[index].moneda || 'S/')
     }));
+
+    if (!existingHasCupon || existing.length === 0) {
+      extractedItems[index].cuotas = mappedMeta.map(c => ({
+        cupon: c.cupon || '',
+        fecha_vencimiento: c.fecha_vencimiento || '',
+        importe: c.importe || '',
+        factura: c.factura || '',
+        fecha_pago: c.fecha_pago || '',
+        moneda: c.moneda || extractedItems[index].moneda || 'S/',
+        numero_cuota: c.numero_cuota ?? null
+      }));
+    } else {
+      const metaByCupon = new Map();
+      const metaByNumero = new Map();
+      mappedMeta.forEach(c => {
+        const cuponKey = (c.cupon || '').trim();
+        if (cuponKey && !metaByCupon.has(cuponKey)) metaByCupon.set(cuponKey, c);
+        const n = c.numero_cuota;
+        if (Number.isFinite(Number(n)) && !metaByNumero.has(Number(n))) metaByNumero.set(Number(n), c);
+      });
+
+      extractedItems[index].cuotas = existing.map(c0 => {
+        const cur = { ...(c0 || {}) };
+        const curCupon = (cur.cupon || '').toString().trim();
+        const curNumeroRaw = cur.numero_cuota ?? cur.numero ?? null;
+        const curNumero = Number.isFinite(Number(curNumeroRaw)) ? Number(curNumeroRaw) : null;
+        const found = (curCupon && metaByCupon.get(curCupon)) || (curNumero !== null ? metaByNumero.get(curNumero) : null);
+        if (!found) return cur;
+
+        if (!curCupon && found.cupon) cur.cupon = found.cupon;
+        if (!cur.fecha_vencimiento && found.fecha_vencimiento) cur.fecha_vencimiento = found.fecha_vencimiento;
+        if (!cur.importe && found.importe) cur.importe = found.importe;
+        if (!cur.moneda && found.moneda) cur.moneda = found.moneda;
+        if (!cur.factura && found.factura) cur.factura = found.factura;
+        if (!cur.fecha_pago && found.fecha_pago) cur.fecha_pago = found.fecha_pago;
+        if (cur.numero_cuota == null && found.numero_cuota != null) cur.numero_cuota = found.numero_cuota;
+        return cur;
+      });
+    }
+
     if (!extractedItems[index].factura && extractedItems[index].cuotas[0]) {
       extractedItems[index].factura = extractedItems[index].cuotas[0].factura || '';
       extractedItems[index].fecha_pago = extractedItems[index].cuotas[0].fecha_pago || '';

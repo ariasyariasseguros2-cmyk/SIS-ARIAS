@@ -348,12 +348,41 @@
                 return el ? el.value.trim() : '';
             };
 
+            const normalizeImporte = (value) => {
+                const txt = String(value || '').trim();
+                if (!txt) return '';
+                const m = txt.match(/[-+]?\d[\d.,]*/);
+                if (!m) return '';
+                let raw = (m[0] || '').trim();
+                if (!raw) return '';
+                if (raw.startsWith('+')) raw = raw.slice(1);
+
+                const lastDot = raw.lastIndexOf('.');
+                const lastComma = raw.lastIndexOf(',');
+                let cleaned = raw;
+                if (lastDot === -1 && lastComma === -1) {
+                    cleaned = raw;
+                } else if (lastDot > lastComma) {
+                    cleaned = raw.replace(/,/g, '');
+                } else if (lastComma > lastDot) {
+                    cleaned = raw.replace(/\./g, '').replace(/,/g, '.');
+                } else {
+                    const sepIdx = Math.max(lastDot, lastComma);
+                    const intPart = raw.slice(0, sepIdx).replace(/[^\d-]/g, '');
+                    const decPart = raw.slice(sepIdx + 1).replace(/\D/g, '');
+                    cleaned = decPart ? `${intPart}.${decPart}` : intPart;
+                }
+                const num = Number(cleaned);
+                if (!Number.isFinite(num)) return '';
+                return num.toFixed(2);
+            };
+
             const payload = {
                 idCuota: this.currentId,
                 poliza: this.currentPoliza || (window.currentPoliza || ''),
                 cupon: getVal('editCupon'),
                 fecha_vencimiento: getVal('editFechaVenc'),
-                importe: getVal('editImporte'),
+                importe: normalizeImporte(getVal('editImporte')),
                 fecha_pago: getVal('editFechaPago'),
                 factura: getVal('editFactura'),
                 observacion: getVal('editObservacion'),
