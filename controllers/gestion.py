@@ -141,7 +141,24 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC', lim
         rows = cursor.fetchall()
         
         # Formatear fechas y moneda para la vista
+        def _clean_text(value):
+            if value is None:
+                return value
+            if isinstance(value, (bytes, bytearray)):
+                try:
+                    value = value.decode('utf-8', errors='ignore')
+                except Exception:
+                    value = value.decode(errors='ignore')
+            else:
+                value = str(value)
+            return value.replace('\x00', '').strip()
+
         for row in rows:
+            row['cupon'] = _clean_text(row.get('cupon'))
+            row['poliza'] = _clean_text(row.get('poliza'))
+            row['compania'] = _clean_text(row.get('compania'))
+            row['contratante'] = _clean_text(row.get('contratante'))
+
             if row['fecha_vencimiento']:
                 row['fecha_vencimiento'] = row['fecha_vencimiento'].strftime('%d-%m-%Y')
             

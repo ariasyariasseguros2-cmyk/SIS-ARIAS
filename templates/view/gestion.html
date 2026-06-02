@@ -70,7 +70,7 @@
     }
     .table {
         color: var(--text-primary);
-        table-layout: fixed;
+        table-layout: auto;
         width: 100%;
     }
     .table th {
@@ -106,7 +106,6 @@
     .table td:nth-child(1),
     .table td:nth-child(2),
     .table td:nth-child(4),
-    .table td:nth-child(5),
     .table td:nth-child(8),
     .table td:nth-child(9),
     .table td:nth-child(10),
@@ -119,7 +118,7 @@
     }
     .table th:nth-child(1),
     .table td:nth-child(1) {
-        width: 8%;
+        min-width: 140px;
     }
     .table th:nth-child(2),
     .table td:nth-child(2) {
@@ -131,7 +130,7 @@
     }
     .table th:nth-child(5),
     .table td:nth-child(5) {
-        width: 5%;
+        min-width: 110px;
     }
     .table th:nth-child(6),
     .table td:nth-child(6) {
@@ -159,6 +158,14 @@
     }
     .table tr:hover td {
         background-color: var(--nav-active-bg) !important;
+    }
+
+    .col-cupon,
+    .col-compania {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        overflow-wrap: anywhere !important;
     }
     .btn-action {
         background: linear-gradient(135deg, #00d97e, #00b368);
@@ -273,7 +280,7 @@
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th>Cupón <i class="bi-arrow-down-up small"></i></th>
+                        <th class="col-cupon">Cupón <i class="bi-arrow-down-up small"></i></th>
                         <th>
                             <a href="{{ url_for('main.gestion', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas='DESC' if orden_fechas == 'ASC' else 'ASC', q=q, limit=limit) }}" 
                                class="text-decoration-none d-flex align-items-center gap-1" 
@@ -289,7 +296,7 @@
                         </th>
                         <th>Contratante <i class="bi-arrow-down-up small"></i></th>
                         <th>Poliza <i class="bi-arrow-down-up small"></i></th>
-                        <th>Cia <i class="bi-arrow-down-up small"></i></th>
+                        <th class="col-compania">Cia <i class="bi-arrow-down-up small"></i></th>
                         <th>Producto <i class="bi-arrow-down-up small"></i></th>
                         <th>Forma Pago <i class="bi-arrow-down-up small"></i></th>
                         <th>Num Cuota <i class="bi-arrow-down-up small"></i></th>
@@ -301,11 +308,11 @@
                 <tbody>
                     {% for row in rows %}
                     <tr>
-                        <td><span class="cell-truncate" title="{{ (row.cupon or row.numero_cuota) or '' }}">{{ row.cupon or row.numero_cuota }}</span></td>
+                        <td class="col-cupon"><span title="{{ (row.cupon or row.numero_cuota) or '' }}">{{ row.cupon or row.numero_cuota }}</span></td>
                         <td><span class="cell-truncate" title="{{ row.fecha_vencimiento or '' }}">{{ row.fecha_vencimiento }}</span></td>
                         <td>{{ row.contratante }}</td>
                         <td><span class="cell-truncate" title="{{ row.poliza or '' }}">{{ row.poliza }}</span></td>
-                        <td>{{ row.compania }}</td>
+                        <td class="col-compania">{{ row.compania }}</td>
                         <td>{{ row.producto }}</td>
                         <td>{{ row.forma_pago }}</td>
                         <td>{{ row.numero_cuota }}</td>
