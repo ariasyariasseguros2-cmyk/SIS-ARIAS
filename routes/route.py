@@ -120,48 +120,8 @@ def extract_cuota():
                         cur.close()
                         cnx.close()
 
-                doc_from_file = ''
-                if isinstance(data, dict):
-                    doc_from_file = str(data.get('numero_documento_contratante') or '').strip()
-
-                doc_exists = None
-                if doc_from_file:
-                    cnx = get_connection()
-                    cur = cnx.cursor()
-                    try:
-                        cur.execute(
-                            """
-                            SELECT 1
-                            FROM clientes
-                            WHERE activo = 1
-                              AND TRIM(
-                                    COALESCE(
-                                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR),
-                                        CAST(AES_DECRYPT(numero_documento, @SIS_KEY) AS CHAR),
-                                        numero_documento
-                                    )
-                              ) COLLATE utf8mb4_0900_ai_ci = TRIM(%s) COLLATE utf8mb4_0900_ai_ci
-                            LIMIT 1
-                            """,
-                            (doc_from_file,),
-                        )
-                        doc_exists = True if cur.fetchone() else False
-                    finally:
-                        cur.close()
-                        cnx.close()
-
-                match = None
-                if cliente_doc and doc_from_file:
-                    match = (cliente_doc.strip() == doc_from_file.strip())
-
                 if isinstance(data, dict):
                     data['cliente_numero_documento'] = cliente_doc
-                    data['validacion_numero_documento'] = {
-                        'cliente': cliente_doc,
-                        'documento': doc_from_file,
-                        'match': match,
-                        'documento_existe_en_clientes': doc_exists,
-                    }
             except Exception:
                 pass
             

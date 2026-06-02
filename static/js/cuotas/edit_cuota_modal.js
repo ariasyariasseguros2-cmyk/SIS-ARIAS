@@ -112,34 +112,12 @@
             if (docInput) {
                 docInput.addEventListener('input', () => {
                     const raw = docInput.value;
-                    const match = this._computeMatch(this._clienteDocumento || window.currentClienteDocumento || '', raw);
-                    this._setNumeroDocumentoUI(this._clienteDocumento || window.currentClienteDocumento || '', raw, match);
+                    this._setNumeroDocumentoUI(this._clienteDocumento || window.currentClienteDocumento || '', raw, null);
+                    this._docValidationOk = true;
                     const btnGuardar = document.getElementById('btnGuardarCuota');
-                    if (!(this._clienteDocumento || window.currentClienteDocumento)) {
-                        this._docValidationOk = true;
-                        if (btnGuardar) btnGuardar.disabled = false;
-                        return;
-                    }
-                    if (!this._normalizeDocumento(raw)) {
-                        this._docValidationOk = true;
-                        if (btnGuardar) btnGuardar.disabled = false;
-                        return;
-                    }
-                    this._docValidationOk = (match !== false);
-                    if (btnGuardar) btnGuardar.disabled = !this._docValidationOk;
+                    if (btnGuardar) btnGuardar.disabled = false;
                 });
             }
-        },
-
-        _normalizeDocumento: function(value) {
-            return String(value || '').replace(/\D/g, '');
-        },
-
-        _computeMatch: function(clienteDoc, docFromFile) {
-            const c = this._normalizeDocumento(clienteDoc);
-            const d = this._normalizeDocumento(docFromFile);
-            if (!c || !d) return null;
-            return c === d;
         },
 
         _setNumeroDocumentoUI: function(clienteDoc, docFromFile, match) {
@@ -154,16 +132,6 @@
             badgeEl.classList.add('d-none');
             badgeEl.classList.remove('bg-success', 'bg-danger', 'bg-warning');
             badgeEl.textContent = '';
-
-            if (match === true) {
-                badgeEl.textContent = 'OK';
-                badgeEl.classList.add('bg-success');
-                badgeEl.classList.remove('d-none');
-            } else if (match === false) {
-                badgeEl.textContent = 'No coincide';
-                badgeEl.classList.add('bg-danger');
-                badgeEl.classList.remove('d-none');
-            }
         },
 
         previewLocalFile: function(file) {
@@ -220,19 +188,11 @@
                 if (valid) {
                     const cliDoc = valid.cliente || this._clienteDocumento || window.currentClienteDocumento || '';
                     const docFile = valid.documento || '';
-                    const match = (valid.match === true) ? true : (valid.match === false ? false : null);
                     this._clienteDocumento = cliDoc;
-                    this._setNumeroDocumentoUI(cliDoc, docFile, match);
-                    if (match === false) {
-                        this._docValidationOk = false;
-                        const btnGuardar = document.getElementById('btnGuardarCuota');
-                        if (btnGuardar) btnGuardar.disabled = true;
-                        alert('El RUC/DNI del documento no coincide con el RUC/DNI del cliente. Corrija el campo RUC Documento o verifique el archivo adjunto.');
-                        return;
-                    }
+                    this._setNumeroDocumentoUI(cliDoc, docFile, null);
                 } else {
                     const docFile = data.numero_documento_contratante || '';
-                    this._setNumeroDocumentoUI(this._clienteDocumento || window.currentClienteDocumento || '', docFile, this._computeMatch(this._clienteDocumento || window.currentClienteDocumento || '', docFile));
+                    this._setNumeroDocumentoUI(this._clienteDocumento || window.currentClienteDocumento || '', docFile, null);
                 }
                 this._docValidationOk = true;
                 const btnGuardar = document.getElementById('btnGuardarCuota');
@@ -347,10 +307,6 @@
                 }
             }
             const isUpdate = !!this.currentId;
-            if (!this._docValidationOk) {
-                alert('No se puede guardar: el RUC/DNI del documento no coincide con el cliente.');
-                return;
-            }
 
             const getVal = (id) => {
                 const el = document.getElementById(id);
