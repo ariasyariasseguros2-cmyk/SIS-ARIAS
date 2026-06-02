@@ -81,8 +81,11 @@ def map_excel_columns(df: pd.DataFrame) -> pd.DataFrame:
         'departamento': 'DEPARTAMENTO',
         'provincia': 'PROVINCIA',
         'distrito': 'DISTRITO',
+        'telefono': 'TELEFONO',
         'celular': 'CELULAR',
         'email': 'EMAIL',
+        'prod': 'PRODUCTO_ABREVIACION',
+        'producto': 'PRODUCTO_ABREVIACION',
         'tipo placa': 'TIPO_PLACA',
         'tipoplaca': 'TIPO_PLACA',
         'placa': 'PLACA',
@@ -130,6 +133,8 @@ def map_excel_columns(df: pd.DataFrame) -> pd.DataFrame:
             df2['EJECUTIVO_ABREVIACION'] = df2['VENDEDOR']
     if 'VIGENCIA_FIN' in df2.columns and 'FECHA_VENCIMIENTO' not in df2.columns:
         df2['FECHA_VENCIMIENTO'] = df2['VIGENCIA_FIN']
+    if 'PRODUCTO_ABREVIACION' not in df2.columns and 'USO' in df2.columns:
+        df2['PRODUCTO_ABREVIACION'] = df2['USO']
     return df2
 
 
@@ -801,6 +806,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                         # Insertar nuevo cliente
                         tipo_persona = normalize_tipo_persona(row.get('TIPO_PERSONA', 1))
                         telefono = str(row['TELEFONO']) if pd.notna(row.get('TELEFONO')) else (str(row['CELULAR']) if pd.notna(row.get('CELULAR')) else '000000000')
+                        celular = str(row['CELULAR']) if pd.notna(row.get('CELULAR')) else telefono
                         email = str(row['EMAIL']) if pd.notna(row.get('EMAIL')) else f'cliente{numero_documento}@temp.com'
 
                         # Detectar tipo de documento si no está presente o está vacío
@@ -813,7 +819,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                             tipo_doc_excel,
                             numero_documento,
                             telefono,
-                            telefono,  # celular
+                            celular,
                             '',  # telefono_sec
                             normalize_string(row.get('SUBAGENTE_ABREVIACION', '')),
                             None,  # idProductor
@@ -962,6 +968,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 referencia_estado = normalize_numero_documento(referencia_estado_raw) if pd.notna(referencia_estado_raw) else ''
                 estado_excel = normalize_string(row.get('ESTADO', ''))
                 estado_poliza, anulado_poliza = resolver_estado_y_anulado_soat(referencia_estado, estado_excel)
+                producto_abreviacion = normalize_string(row.get('PRODUCTO_ABREVIACION', ''))
 
                 poliza_args = (
                     numero_documento,
@@ -994,7 +1001,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     imp_compania,    # calculado en Python
                     porc_subagente,  # calculado en Python desde tabla agentes
                     imp_subagente,   # calculado en Python
-                    normalize_string(row.get('PRODUCTO_ABREVIACION', 'SOAT')),
+                    producto_abreviacion,
                     estado_poliza,
                     None,  # pdf_path
                     usuario,

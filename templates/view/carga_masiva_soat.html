@@ -49,7 +49,7 @@
                             <ul class="mt-2">
                                 <li><strong>Cliente:</strong> TIPO_PERSONA, NOMBRE_RAZON_SOCIAL, TIPO_DOCUMENTO, NUMERO_DOCUMENTO, DIRECCION, etc.</li>
                                 <li><strong>Póliza:</strong> POLIZA_CERTF, COMPANIA_NOMBRE_CORTO, RAMO_ABREVIACION, VIGENCIA_INICIO/FIN, PRIMA_NETA, PRIMA_TOTAL, etc.</li>
-                                <li><strong>Vehículo:</strong> PLACA, CLASE, USO, MARCA, MODELO, SERIE, ANIO, etc.</li>
+                                <li><strong>Vehículo:</strong> PLACA, CLASE, USO, MARCA, MODELO, SERIE, ANIO, etc. (en SOAT, el campo PROD/Producto se llena con el USO si el Excel no trae una columna PROD/PRODUCTO)</li>
                             </ul>
                         </li>
                         <li>Si un cliente ya existe en la base de datos (según número de documento), no se creará uno nuevo</li>
@@ -229,14 +229,42 @@ async function processFile(preview = false) {
 
         const response = await fetch('{{ url_for("main.carga_masiva_soat_upload") }}', {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
         });
 
         clearInterval(progressInterval);
         document.getElementById('progressBar').style.width = '100%';
         document.getElementById('progressBar').textContent = '100%';
 
-        const result = await response.json();
+        const contentType = (response.headers.get('content-type') || '').toLowerCase();
+        let result = null;
+        let rawText = '';
+
+        if (contentType.includes('application/json')) {
+            result = await response.json();
+        } else {
+            rawText = await response.text();
+            try { result = JSON.parse(rawText || '{}'); } catch (e) { result = null; }
+        }
+
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = '/login';
+            return;
+        }
+
+        if (!response.ok) {
+            let errs = [];
+            if (result && Array.isArray(result.errors)) errs = result.errors;
+            else if (result && result.error) errs = [result.error];
+            else if (rawText && rawText.trim()) errs = [rawText.trim()];
+            else errs = [`Error HTTP ${response.status}`];
+            result = { ok: false, errors: errs };
+        }
 
         setTimeout(() => {
             document.getElementById('progressSection').style.display = 'none';
@@ -246,9 +274,13 @@ async function processFile(preview = false) {
     } catch (error) {
         clearInterval(progressInterval);
         document.getElementById('progressSection').style.display = 'none';
+        let msg = (error && error.message) ? error.message : String(error);
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            msg = 'No hay conexión de red. Verifica tu conexión e intenta nuevamente.';
+        }
         showResults({
             ok: false,
-            errors: ['Error al procesar el archivo: ' + error.message]
+            errors: ['Error al procesar el archivo: ' + msg]
         });
     }
 }
