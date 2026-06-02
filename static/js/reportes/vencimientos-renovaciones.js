@@ -974,6 +974,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const polizaRow = findPolizaRow(poliza);
         window.currentPoliza = poliza || '';
         window.currentPolizaId = idPoliza || '';
+        window.currentClienteDocumento = (polizaRow && (polizaRow.numero_documento || polizaRow.ruc || polizaRow.documento)) ? String(polizaRow.numero_documento || polizaRow.ruc || polizaRow.documento).trim() : '';
         setActiveRecibosPoliza(poliza);
 
         if (cuotasOffcanvasSubtitle) {
@@ -987,6 +988,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             const rows = await fetchCuotas(poliza);
+            const cliDoc = (window.currentClienteDocumento || '').toString().trim();
+            if (cliDoc) {
+                (rows || []).forEach(r => {
+                    if (!r) return;
+                    if (!r.cliente_numero_documento && !r.numero_documento_cliente) {
+                        r.cliente_numero_documento = cliDoc;
+                    }
+                });
+            }
             window.cuotasCache[poliza] = rows;
             cuotasOffcanvasContent.innerHTML = renderCuotasPanel(polizaRow, rows, poliza, idPoliza);
         } catch (err) {

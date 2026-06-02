@@ -109,15 +109,32 @@ def api_vencimientos():
                 cur = conn.cursor(dictionary=True)
                 chunk = 900
                 exec_map = {}
+                doc_map = {}
                 for i in range(0, len(ids), chunk):
                     batch = ids[i:i + chunk]
                     placeholders = ",".join(["%s"] * len(batch))
                     cur.execute(
-                        f"SELECT idPoliza, ejecutivo FROM polizas WHERE idPoliza IN ({placeholders})",
+                        f"""
+                        SELECT
+                            p.idPoliza,
+                            p.ejecutivo,
+                            TRIM(
+                                COALESCE(
+                                    CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR),
+                                    CAST(AES_DECRYPT(c.numero_documento, @SIS_KEY) AS CHAR),
+                                    c.numero_documento,
+                                    ''
+                                )
+                            ) AS numero_documento
+                        FROM polizas p
+                        LEFT JOIN clientes c ON c.idCliente = p.cliente_id
+                        WHERE p.idPoliza IN ({placeholders})
+                        """,
                         tuple(batch),
                     )
                     for row in cur.fetchall() or []:
                         exec_map[row.get('idPoliza')] = row.get('ejecutivo')
+                        doc_map[row.get('idPoliza')] = (row.get('numero_documento') or '').strip()
                 cur.close()
                 conn.close()
 
@@ -127,6 +144,10 @@ def api_vencimientos():
                     except Exception:
                         pid = None
                     r['ejecutivo'] = exec_map.get(pid) if pid is not None else None
+                    if pid is not None:
+                        doc = doc_map.get(pid) or ''
+                        if doc:
+                            r['numero_documento'] = doc
         except Exception as e:
             print(f"[vencimientos] error attach ejecutivo: {e}")
 

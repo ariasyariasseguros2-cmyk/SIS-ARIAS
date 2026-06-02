@@ -264,7 +264,16 @@
                 this._localPreviewUrl = null;
             }
             this._docValidationOk = true;
-            this._clienteDocumento = window.currentClienteDocumento || '';
+            const passedClienteDoc =
+                data.cliente_numero_documento ||
+                data.numero_documento_cliente ||
+                data.clienteDocumento ||
+                data.numero_documento ||
+                '';
+            this._clienteDocumento = passedClienteDoc || window.currentClienteDocumento || '';
+            if (passedClienteDoc) {
+                window.currentClienteDocumento = this._clienteDocumento;
+            }
             this._setNumeroDocumentoUI(this._clienteDocumento, '', null);
             const btnGuardar = document.getElementById('btnGuardarCuota');
             if (btnGuardar) btnGuardar.disabled = false;

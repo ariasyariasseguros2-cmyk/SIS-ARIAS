@@ -25,6 +25,14 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC', lim
                     cl.razon_social,
                     'Sin Contratante'
                 ) as contratante,
+                TRIM(
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(cl.numero_documento), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(cl.numero_documento, @SIS_KEY) AS CHAR),
+                        cl.numero_documento,
+                        ''
+                    )
+                ) as cliente_numero_documento,
                 COALESCE(
                     CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
                     CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
