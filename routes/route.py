@@ -952,6 +952,7 @@ def gestion():
     fecha_desde = request.args.get('fecha_desde') or request.form.get('fecha_desde')
     fecha_hasta = request.args.get('fecha_hasta') or request.form.get('fecha_hasta')
     orden_fechas = request.args.get('orden_fechas') or request.form.get('orden_fechas') or 'ASC'
+    q = (request.args.get('q') or request.form.get('q') or '').strip() or None
     limit_raw = request.args.get('limit') or request.form.get('limit') or '20'
     try:
         limit = int(limit_raw) if limit_raw and limit_raw.lower() != 'todos' else None
@@ -964,7 +965,7 @@ def gestion():
     page_num = max(1, page_num)
 
     from controllers.gestion import get_gestion_rows
-    data = get_gestion_rows(fecha_desde, fecha_hasta, orden_fechas, limit, page_num)
+    data = get_gestion_rows(fecha_desde, fecha_hasta, orden_fechas, limit, page_num, q)
     rows = data.get('rows', [])
     total = data.get('total', 0)
 
@@ -1000,6 +1001,7 @@ def gestion():
         fecha_hasta=fecha_hasta,
         orden_fechas=orden_fechas,
         limit=limit_raw,
+        q=q,
         pagination=pagination,
         page_numbers=page_numbers,
         today=today

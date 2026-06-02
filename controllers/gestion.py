@@ -1,6 +1,6 @@
 from models.db import get_connection
 
-def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC', limit=None, page=1):
+def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC', limit=None, page=1, search=None):
     try:
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
@@ -55,6 +55,7 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC', lim
         
         fecha_desde_str = str(fecha_desde).strip() if fecha_desde else ''
         fecha_hasta_str = str(fecha_hasta).strip() if fecha_hasta else ''
+        search_str = str(search).strip() if search else ''
 
         if fecha_desde_str and fecha_hasta_str and fecha_desde_str == fecha_hasta_str:
             query += " AND DATE(c.fecha_vencimiento) = %s"
@@ -66,6 +67,50 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC', lim
             if fecha_hasta_str:
                 query += " AND c.fecha_vencimiento < DATE_ADD(%s, INTERVAL 1 DAY)"
                 params.append(fecha_hasta_str)
+
+        if search_str:
+            like = f"%{search_str}%"
+            query += """
+                AND (
+                    REPLACE(
+                        TRIM(
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                                CAST(p.poliza AS CHAR),
+                                ''
+                            )
+                        ),
+                        CHAR(0),
+                        ''
+                    ) LIKE %s
+                    OR REPLACE(
+                        TRIM(
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(c.cupon, @SIS_KEY) AS CHAR),
+                                CAST(c.cupon AS CHAR),
+                                ''
+                            )
+                        ),
+                        CHAR(0),
+                        ''
+                    ) LIKE %s
+                    OR REPLACE(
+                        TRIM(
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                                CAST(p.recibo AS CHAR),
+                                ''
+                            )
+                        ),
+                        CHAR(0),
+                        ''
+                    ) LIKE %s
+                )
+            """
+            params += [like, like, like]
             
         # Ordenar
         if orden_fechas and orden_fechas.upper() == 'DESC':
