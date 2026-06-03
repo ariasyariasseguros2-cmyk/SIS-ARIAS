@@ -68,9 +68,16 @@
                                 <select class="form-select" id="producto">
                                     <option value="">Selecciona...</option>
                                     {% if productos_rows %}
+                                        {% set ns = namespace(found=false) %}
+                                        {% set poliza_producto = (poliza.ramos_producto or '')|trim %}
                                         {% for p in productos_rows %}
-                                        <option value="{{ p.nombre }}" data-ramo="{{ p.ramo_nombre }}" {% if p.nombre == poliza.ramos_producto %}selected{% endif %}>{{ p.nombre }}</option>
+                                        {% set is_selected = ((p.nombre or '')|trim == poliza_producto) %}
+                                        {% if is_selected %}{% set ns.found = true %}{% endif %}
+                                        <option value="{{ p.nombre }}" data-ramo="{{ p.ramo_nombre }}" {% if is_selected %}selected{% endif %}>{{ p.nombre }}</option>
                                         {% endfor %}
+                                        {% if poliza_producto and not ns.found %}
+                                        <option value="{{ poliza.ramos_producto }}" data-ramo="{{ poliza.ramo }}" selected>{{ poliza.ramos_producto }}</option>
+                                        {% endif %}
                                     {% else %}
                                         <option value="{{ poliza.ramos_producto }}" selected>{{ poliza.ramos_producto }}</option>
                                     {% endif %}
@@ -79,8 +86,8 @@
                             <div class="col-md-3">
                                 <label for="moneda" class="form-label">Moneda <span class="text-danger">*</span></label>
                                 <select class="form-select" id="moneda">
-                                    <option value="S/." {% if poliza.moneda == 'S/.' or poliza.moneda == 'SOLES' %}selected{% endif %}>S/.</option>
-                                    <option value="USD" {% if poliza.moneda == 'USD' or poliza.moneda == 'DOLARES' %}selected{% endif %}>USD</option>
+                                    <option value="S/." {% if poliza.moneda in ['S/.', 'S/', 'SOLES'] %}selected{% endif %}>S/</option>
+                                    <option value="USD" {% if poliza.moneda in ['USD', 'US$', 'DOLARES', 'DÓLARES'] %}selected{% endif %}>US$</option>
                                 </select>
                             </div>
                             <div class="col-md-3">

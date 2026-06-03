@@ -8,12 +8,15 @@
         console.log('editar-poliza.js loaded');
 
         const q = (id) => scope.querySelector(`#${id}`);
+        const normalize = (v) => (v ?? '').toString().trim().toLowerCase();
 
         // Lógica para filtrar productos por ramo
         const selectRamo = q('ramo');
         const selectProducto = q('producto');
         
         if (selectRamo && selectProducto) {
+            let lastRamoN = normalize(selectRamo.value);
+
             const sortSelect = (select) => {
                 const options = Array.from(select.options);
                 const firstOption = options.shift(); // Preservar "Selecciona..."
@@ -25,24 +28,27 @@
 
             const filterProducts = () => {
                 const selectedRamo = selectRamo.value;
-                const options = selectProducto.querySelectorAll('option');
-                
-                options.forEach(opt => {
-                    if (opt.value === "") return;
-                    const ramoOpt = opt.getAttribute('data-ramo');
-                    if (!selectedRamo || ramoOpt === selectedRamo) {
-                        opt.style.display = "";
-                    } else {
-                        opt.style.display = "none";
-                    }
-                });
-                
-                // Si el producto seleccionado actualmente no es del ramo, resetear
+                const selectedRamoN = normalize(selectedRamo);
+
+                // Si el usuario cambió el ramo y el producto ya no corresponde, resetear.
+                // En la carga inicial NO reseteamos para evitar "desaparecer" el producto guardado si hay inconsistencias en BD.
                 const currentOption = selectProducto.options[selectProducto.selectedIndex];
-                const currentProductRamo = currentOption ? currentOption.getAttribute('data-ramo') : null;
-                if (selectedRamo && currentProductRamo && currentProductRamo !== selectedRamo) {
+                const currentProductRamoN = normalize(currentOption ? currentOption.getAttribute('data-ramo') : '');
+                if (lastRamoN !== selectedRamoN && selectedRamoN && currentProductRamoN && currentProductRamoN !== selectedRamoN) {
                     selectProducto.value = "";
                 }
+
+                const options = selectProducto.querySelectorAll('option');
+                options.forEach(opt => {
+                    if (opt.value === "") return;
+                    const ramoOptN = normalize(opt.getAttribute('data-ramo'));
+                    const matches = !selectedRamoN || ramoOptN === selectedRamoN;
+                    const keepVisible = matches || opt.selected;
+                    opt.hidden = !keepVisible;
+                    opt.disabled = !keepVisible;
+                });
+
+                lastRamoN = selectedRamoN;
             };
             
             selectRamo.addEventListener('change', filterProducts);
@@ -112,6 +118,22 @@
                     btnGuardar.disabled = false;
                     btnGuardar.textContent = 'Guardar';
                 }
+            });
+        }
+
+        const btnCancelarEdicion = scope.querySelector('.editar-poliza-btn-cancel');
+        if (btnCancelarEdicion) {
+            btnCancelarEdicion.addEventListener('click', (e) => {
+                e.preventDefault();
+                const modalEl = btnCancelarEdicion.closest('.modal');
+                if (modalEl && window.bootstrap && typeof window.bootstrap.Modal?.getInstance === 'function') {
+                    const inst = window.bootstrap.Modal.getInstance(modalEl);
+                    if (inst && typeof inst.hide === 'function') {
+                        inst.hide();
+                        return;
+                    }
+                }
+                window.location.href = '/menu/listado-poliza';
             });
         }
 
