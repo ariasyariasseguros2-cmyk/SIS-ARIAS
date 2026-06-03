@@ -5704,6 +5704,25 @@ def api_polizas_anular():
                     pass
             except Exception:
                 pass
+            cur.execute(
+                "CALL sp_anular_cuotas_por_poliza(%s,%s)",
+                (pid, session.get('user'))
+            )
+            try:
+                for result in cur.stored_results():
+                    row = result.fetchone()
+                    if row is not None:
+                        try:
+                            int(row[0])
+                        except Exception:
+                            try:
+                                int(row.get('affected_rows', 0))
+                            except Exception:
+                                pass
+                while cur.nextset():
+                    pass
+            except Exception:
+                pass
             cnx.commit()
             if affected > 0:
                 cur.close()
@@ -5731,6 +5750,42 @@ def api_polizas_anular():
                     )
                 except Exception:
                     pass
+            pol_num = None
+            try:
+                cur.execute("""
+                    SELECT TRIM(
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                            CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                            poliza
+                        )
+                    ) AS poliza_num
+                    FROM polizas
+                    WHERE idPoliza = %s
+                    LIMIT 1
+                """, (pid,))
+                pol_row = cur.fetchone()
+                pol_num = (pol_row[0] if pol_row else None) or None
+            except Exception:
+                pol_num = None
+            if pol_num:
+                cur.execute("""
+                    UPDATE cuotas
+                    SET activo = 0,
+                        anular = 0,
+                        usuario_edicion = %s
+                    WHERE poliza_id = %s
+                       OR TRIM(COALESCE(
+                           CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                           CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                           poliza
+                       )) COLLATE utf8mb4_0900_ai_ci = TRIM(%s) COLLATE utf8mb4_0900_ai_ci
+                """, (session.get('user'), pid, pol_num))
+            else:
+                cur.execute(
+                    "UPDATE cuotas SET activo=0, anular=0, usuario_edicion=%s WHERE poliza_id=%s",
+                    (session.get('user'), pid)
+                )
             cnx.commit()
             ok = affected_update > 0
             cur.close()
@@ -5773,6 +5828,42 @@ def api_polizas_anular():
                         )
                     except Exception:
                         pass
+                pol_num = None
+                try:
+                    cur.execute("""
+                        SELECT TRIM(
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                                poliza
+                            )
+                        ) AS poliza_num
+                        FROM polizas
+                        WHERE idPoliza = %s
+                        LIMIT 1
+                    """, (pid,))
+                    pol_row = cur.fetchone()
+                    pol_num = (pol_row[0] if pol_row else None) or None
+                except Exception:
+                    pol_num = None
+                if pol_num:
+                    cur.execute("""
+                        UPDATE cuotas
+                        SET activo = 0,
+                            anular = 0,
+                            usuario_edicion = %s
+                        WHERE poliza_id = %s
+                           OR TRIM(COALESCE(
+                               CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                               CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                               poliza
+                           )) COLLATE utf8mb4_0900_ai_ci = TRIM(%s) COLLATE utf8mb4_0900_ai_ci
+                    """, (session.get('user'), pid, pol_num))
+                else:
+                    cur.execute(
+                        "UPDATE cuotas SET activo=0, anular=0, usuario_edicion=%s WHERE poliza_id=%s",
+                        (session.get('user'), pid)
+                    )
                 cnx.commit()
                 ok = affected_update > 0
                 cur.close()
@@ -5904,6 +5995,7 @@ def api_polizas_restaurar():
                         cur.execute("""
                             UPDATE cuotas
                             SET activo = 1,
+                                anular = 1,
                                 usuario_edicion = %s
                             WHERE activo = 0
                               AND (
@@ -5954,6 +6046,7 @@ def api_polizas_restaurar():
                         cur.execute("""
                             UPDATE cuotas
                             SET activo = 1,
+                                anular = 1,
                                 usuario_edicion = %s
                             WHERE activo = 0
                               AND (
@@ -6017,6 +6110,7 @@ def api_polizas_restaurar():
                             cur.execute("""
                                 UPDATE cuotas
                                 SET activo = 1,
+                                    anular = 1,
                                     usuario_edicion = %s
                                 WHERE activo = 0
                                   AND (
