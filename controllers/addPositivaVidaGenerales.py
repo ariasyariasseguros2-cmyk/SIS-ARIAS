@@ -55,6 +55,22 @@ def _money_candidates_near(label_pattern: str, text: str, window: int = 350) -> 
             out.append(val)
     return out
 
+def _extract_line(text: str, pattern: str) -> Optional[str]:
+    m = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+    if not m:
+        return None
+    line = m.group(0)
+    line = re.sub(r"[\r\n]+", " ", line).strip()
+    return line or None
+
+def _money_from_line(line: Optional[str]) -> Optional[str]:
+    if not line:
+        return None
+    cands = [mm.group(1) for mm in _MONEY_2DP_RE.finditer(line)]
+    if not cands:
+        return None
+    return _money(cands[-1])
+
 def _to_float(s: Optional[str]) -> Optional[float]:
     if not s:
         return None
@@ -213,38 +229,44 @@ def parse_positiva_vida_generales(text: str) -> Dict[str, str]:
 
     # Primas
     pc_igv_best: Optional[str] = None
-    igv_cands = _money_candidates_near(r"Prima\s+Comercial\s*\+\s*IGV", text)
-    if igv_cands:
-        pc_igv_best = igv_cands[0]
-    else:
-        pc_igv = _find(r"Prima\s+Comercial\s*\+\s*IGV[\s\S]{0,50}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*([0-9][0-9\.,]*)", text)
-        pc_igv_best = _money(pc_igv)
+    igv_line = _extract_line(text, r"^\s*Prima\s+Comercial\s*\+\s*IGV\b[^\n\r]*")
+    pc_igv_best = _money_from_line(igv_line)
+    if not pc_igv_best:
+        igv_cands = _money_candidates_near(r"Prima\s+Comercial\s*\+\s*IGV", text)
+        if igv_cands:
+            pc_igv_best = igv_cands[0]
+        else:
+            pc_igv = _find(r"Prima\s+Comercial\s*\+\s*IGV[\s\S]{0,50}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*([0-9][0-9\.,]*)", text)
+            pc_igv_best = _money(pc_igv)
 
     pc_best: Optional[str] = None
-    pc_cands = _money_candidates_near(r"Prima\s+Comercial(?!\s*\+)", text)
-    if pc_cands:
-        if pc_igv_best:
-            tot = _to_float(pc_igv_best)
-            expected = (tot / 1.18) if tot and tot > 0 else None
-            if expected:
-                best = None
-                best_err = None
-                for v in pc_cands:
-                    vf = _to_float(v)
-                    if vf is None:
-                        continue
-                    err = abs(vf - expected)
-                    if best_err is None or err < best_err:
-                        best_err = err
-                        best = v
-                pc_best = best or pc_cands[0]
+    pc_line = _extract_line(text, r"^\s*Prima\s+Comercial(?!\s*\+)\b[^\n\r]*")
+    pc_best = _money_from_line(pc_line)
+    if not pc_best:
+        pc_cands = _money_candidates_near(r"Prima\s+Comercial(?!\s*\+)", text)
+        if pc_cands:
+            if pc_igv_best:
+                tot = _to_float(pc_igv_best)
+                expected = (tot / 1.18) if tot and tot > 0 else None
+                if expected:
+                    best = None
+                    best_err = None
+                    for v in pc_cands:
+                        vf = _to_float(v)
+                        if vf is None:
+                            continue
+                        err = abs(vf - expected)
+                        if best_err is None or err < best_err:
+                            best_err = err
+                            best = v
+                    pc_best = best or pc_cands[0]
+                else:
+                    pc_best = pc_cands[0]
             else:
                 pc_best = pc_cands[0]
         else:
-            pc_best = pc_cands[0]
-    else:
-        pc = _find(r"Prima\s+Comercial[\s\S]{0,50}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*([0-9][0-9\.,]*)", text)
-        pc_best = _money(pc)
+            pc = _find(r"Prima\s+Comercial(?!\s*\+)[\s\S]{0,50}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*([0-9][0-9\.,]*)", text)
+            pc_best = _money(pc)
 
     pc_num = _to_float(pc_best)
     tot_num = _to_float(pc_igv_best)
@@ -254,7 +276,7 @@ def parse_positiva_vida_generales(text: str) -> Dict[str, str]:
             pc_best = f"{expected:.2f}"
         else:
             rel = abs(pc_num - expected) / expected if expected > 0 else 0
-            if rel > 0.20:
+            if rel > 0.02:
                 pc_best = f"{expected:.2f}"
 
     item['prima_comercial'] = pc_best
