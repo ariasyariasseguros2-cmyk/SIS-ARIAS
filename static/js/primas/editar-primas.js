@@ -2,6 +2,20 @@ window.initEditarPrimasLogic = function(isModal = false) {
     // Cálculo automático: Prima Neta = Prima Comercial / 1.03
     const txtPrimaComercial = document.getElementById('primaComercial');
     const txtPrimaNeta = document.getElementById('primaNeta');
+
+    const getElValue = (el) => {
+        if (!el) return '';
+        if (el.type === 'checkbox') return el.checked ? '1' : '0';
+        return (el.value ?? '').toString();
+    };
+
+    const parseNumber = (value) => {
+        if (value === null || value === undefined) return null;
+        const s = value.toString().replace(/,/g, '').trim();
+        if (!s) return null;
+        const n = Number(s);
+        return Number.isFinite(n) ? n : null;
+    };
     
     if (txtPrimaComercial && txtPrimaNeta) {
         // Obtenemos referencia al campo Prima Total / IGV si existe
@@ -178,9 +192,89 @@ window.initEditarPrimasLogic = function(isModal = false) {
         // Cloning the node is a trick to remove listeners
         const newBtn = btnGuardar.cloneNode(true);
         btnGuardar.parentNode.replaceChild(newBtn, btnGuardar);
+
+        const btnTextDefault = (newBtn.textContent || '').trim() || 'Guardar';
+
+        const trackedIds = [
+            'tipoDoc',
+            'contratante',
+            'compania',
+            'ramo',
+            'ramosProducto',
+            'vigenciaInicio',
+            'vigenciaFin',
+            'tipoPago',
+            'moneda',
+            'primaComercial',
+            'primaNeta',
+            'primaTotal',
+            'comisionCompania',
+            'importeComisionCompania',
+            'subAgente',
+            'comisionSubAgente',
+            'importeComisionSubAgente',
+            'nroOperacion',
+            'numPrimeraCuota',
+            'masInformacion'
+        ];
+
+        const getSnapshot = () => {
+            const snap = {};
+            for (const id of trackedIds) {
+                const el = document.getElementById(id);
+                if (!el) continue;
+                snap[id] = getElValue(el).trim();
+            }
+            return snap;
+        };
+
+        const initialSnapshot = getSnapshot();
+
+        const hasChanges = () => {
+            const current = getSnapshot();
+            const keys = new Set([...Object.keys(initialSnapshot), ...Object.keys(current)]);
+            for (const k of keys) {
+                const a = (initialSnapshot[k] ?? '').toString().trim();
+                const b = (current[k] ?? '').toString().trim();
+                if (a !== b) return true;
+            }
+            return false;
+        };
+
+        const primasChanged = () => {
+            const a = parseNumber(initialSnapshot.primaComercial);
+            const b = parseNumber(document.getElementById('primaComercial')?.value);
+            const c = parseNumber(initialSnapshot.primaNeta);
+            const d = parseNumber(document.getElementById('primaNeta')?.value);
+            const e = parseNumber(initialSnapshot.primaTotal);
+            const f = parseNumber(document.getElementById('primaTotal')?.value);
+
+            const tol = 0.005;
+            const diff = (x, y) => (x === null || y === null) ? false : Math.abs(x - y) >= tol;
+            return diff(a, b) || diff(c, d) || diff(e, f);
+        };
+
+        const refreshBtnState = () => {
+            const dirty = hasChanges();
+            newBtn.disabled = !dirty;
+            if (!dirty) {
+                newBtn.textContent = btnTextDefault;
+            }
+        };
+
+        refreshBtnState();
+
+        for (const id of trackedIds) {
+            const el = document.getElementById(id);
+            if (!el) continue;
+            el.addEventListener('input', refreshBtnState);
+            el.addEventListener('change', refreshBtnState);
+        }
         
         newBtn.addEventListener('click', async (e) => {
             e.preventDefault();
+
+            if (newBtn.disabled) return;
             
             // Collect form data
             const data = {
@@ -213,6 +307,8 @@ window.initEditarPrimasLogic = function(isModal = false) {
                 data.nro_operacion = nroOperacion;
             }
 
+            data.update_cuotas = primasChanged();
+
             // Basic validation
             if (!data.prima_neta || !data.prima_comercial_igv) {
                 Swal.fire('Atención', 'Por favor complete los campos obligatorios (Primas)', 'warning');
@@ -242,14 +338,14 @@ window.initEditarPrimasLogic = function(isModal = false) {
                     });
                 } else {
                     Swal.fire('Error', res.error || 'No se pudo actualizar', 'error');
-                    newBtn.disabled = false;
-                    newBtn.textContent = 'Guardar';
+                    newBtn.textContent = btnTextDefault;
+                    refreshBtnState();
                 }
             } catch (e) {
                 console.error(e);
                 Swal.fire('Error', 'Error de red o endpoint no encontrado', 'error');
-                newBtn.disabled = false;
-                newBtn.textContent = 'Guardar';
+                newBtn.textContent = btnTextDefault;
+                refreshBtnState();
             }
         });
     }

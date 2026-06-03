@@ -1029,6 +1029,7 @@ def api_reporte_produccion():
         'ramo': request.args.get('ramo') or None,
         'sub_agente': request.args.get('sub_agente') or None,
         'ejecutivo': request.args.get('ejecutivo') or None,
+        'moneda': request.args.get('moneda') or None,
         'usuario': request.args.get('usuario') or None,
         'f_reg_desde': request.args.get('f_reg_desde') or None,
         'f_reg_hasta': request.args.get('f_reg_hasta') or None,
@@ -1059,6 +1060,7 @@ def api_reporte_produccion_export():
         'ramo': request.args.get('ramo') or None,
         'sub_agente': request.args.get('sub_agente') or None,
         'ejecutivo': request.args.get('ejecutivo') or None,
+        'moneda': request.args.get('moneda') or None,
         'usuario': request.args.get('usuario') or None,
         'f_reg_desde': request.args.get('f_reg_desde') or None,
         'f_reg_hasta': request.args.get('f_reg_hasta') or None,
@@ -3631,6 +3633,30 @@ def primas_update():
     if 'idPrima' in data:
         data['idPoliza'] = data.pop('idPrima')
 
+    pid_pre = data.get('idPoliza')
+    pid_int_pre = None
+    try:
+        pid_int_pre = int(pid_pre) if pid_pre is not None else None
+    except Exception:
+        pid_int_pre = None
+
+    old_importe = None
+    if pid_int_pre is not None:
+        try:
+            cnx_pre = get_connection()
+            cur_pre = cnx_pre.cursor()
+            cur_pre.execute(
+                "SELECT prima_comercial_igv FROM polizas WHERE idPoliza = %s LIMIT 1",
+                (pid_int_pre,),
+            )
+            row_pre = cur_pre.fetchone()
+            if row_pre:
+                old_importe = row_pre[0]
+            cur_pre.close()
+            cnx_pre.close()
+        except Exception:
+            old_importe = None
+
     # Reutilizamos el controlador de pólizas ya que comparten tabla
     from controllers.editar_poliza import update_poliza
     res = update_poliza(data)
@@ -3647,10 +3673,40 @@ def primas_update():
             usuario = user_session.get('username') or user_session.get('user') or user_session.get('name')
         else:
             usuario = user_session
-        if pid and importe and poliza:
+
+        def _to_bool(v):
+            if isinstance(v, bool):
+                return v
+            if v is None:
+                return False
+            s = str(v).strip().lower()
+            return s in ('1', 'true', 't', 'yes', 'y', 'on')
+
+        def _parse_num(v):
+            if v is None:
+                return None
+            try:
+                s = str(v).replace(',', '').strip()
+                if not s:
+                    return None
+                return float(s)
+            except Exception:
+                return None
+
+        should_update_cuotas = None
+        if 'update_cuotas' in data:
+            should_update_cuotas = _to_bool(data.get('update_cuotas'))
+        else:
+            old_n = _parse_num(old_importe)
+            new_n = _parse_num(importe)
+            if old_n is not None and new_n is not None:
+                should_update_cuotas = abs(old_n - new_n) >= 0.005
+            else:
+                should_update_cuotas = False
+
+        if pid and importe and poliza and cupon and should_update_cuotas:
             from controllers.editar_poliza import _parse_date
             from controllers.cuotas.cuotas import update_cuota_cupon
-            from models.db import get_connection
             try:
                 pid_int = int(pid)
             except Exception:
@@ -3667,23 +3723,44 @@ def primas_update():
                 row = None
                 cur.execute(
                     """
-                    SELECT idCuota
+                    SELECT idCuota, poliza_id
                     FROM cuotas
-                    WHERE poliza_id = %s AND activo=1
+                    WHERE activo = 1
+                      AND poliza_id = %s
+                      AND TRIM(
+                            COALESCE(
+                                CONVERT(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) USING utf8mb4),
+                                CONVERT(AES_DECRYPT(cupon, @SIS_KEY) USING utf8mb4),
+                                cupon
+                            )
+                          ) COLLATE utf8mb4_0900_ai_ci = (TRIM(%s) COLLATE utf8mb4_0900_ai_ci)
                     ORDER BY fecha_vencimiento ASC, idCuota ASC
                     LIMIT 1
                     """,
-                    (pid_int,),
+                    (pid_int, cupon.strip()),
                 )
                 row = cur.fetchone()
                 if not row:
                     cur.execute(
                         """
-                        SELECT idCuota
+                        SELECT idCuota, poliza_id
                         FROM cuotas
-                        WHERE activo=1
+                        WHERE activo = 1
                           AND (poliza_id IS NULL OR poliza_id = 0)
-                          AND (TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza)) = TRIM(%s))
+                          AND TRIM(
+                                COALESCE(
+                                    CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4),
+                                    CONVERT(AES_DECRYPT(poliza, @SIS_KEY) USING utf8mb4),
+                                    poliza
+                                )
+                              ) COLLATE utf8mb4_0900_ai_ci = (TRIM(%s) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(
+                                COALESCE(
+                                    CONVERT(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) USING utf8mb4),
+                                    CONVERT(AES_DECRYPT(cupon, @SIS_KEY) USING utf8mb4),
+                                    cupon
+                                )
+                              ) COLLATE utf8mb4_0900_ai_ci = (TRIM(%s) COLLATE utf8mb4_0900_ai_ci)
                           AND (
                             %s IS NULL OR %s IS NULL
                             OR (fecha_vencimiento >= %s AND fecha_vencimiento <= %s)
@@ -3691,12 +3768,13 @@ def primas_update():
                         ORDER BY fecha_vencimiento ASC, idCuota ASC
                         LIMIT 1
                         """,
-                        (poliza, vig_desde, vig_hasta, vig_desde, vig_hasta),
+                        (poliza, cupon.strip(), vig_desde, vig_hasta, vig_desde, vig_hasta),
                     )
                     row = cur.fetchone()
                 cur.close()
-                if row and row[0]:
-                    cuota_id = row[0]
+                cuota_id = row[0] if row and row[0] else None
+                cuota_poliza_id = row[1] if row and len(row) > 1 else None
+                if cuota_id and (cuota_poliza_id is None or int(cuota_poliza_id or 0) == 0):
                     try:
                         cur2 = cnx.cursor()
                         cur2.execute(
@@ -3711,14 +3789,13 @@ def primas_update():
                         except Exception:
                             pass
                 cnx.close()
-                if row and row[0]:
+                if cuota_id:
                     payload = {
-                        'idCuota': row[0],
+                        'idCuota': cuota_id,
                         'importe': importe,
-                        'usuario': usuario
+                        'usuario': usuario,
+                        'cupon': cupon.strip(),
                     }
-                    if cupon:
-                        payload['cupon'] = cupon.strip()
                     update_cuota_cupon(payload)
             except Exception:
                 pass
