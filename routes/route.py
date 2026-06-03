@@ -2204,6 +2204,153 @@ def upload():
                 pdf_text_full = _extract_text_pypdf2(save_path, password=pdf_password) or ''
             except Exception:
                 pdf_text_full = ''
+
+        def _clean_spaces(s: str | None) -> str:
+            if not s:
+                return ''
+            try:
+                s = s.replace("\u00A0", " ")
+            except Exception:
+                pass
+            return re.sub(r"\s+", " ", str(s)).strip()
+
+        def _clean_name(s: str | None) -> str:
+            name = _clean_spaces(s)
+            if not name:
+                return ''
+            try:
+                name = re.sub(
+                    r"\s*(?:DNI\s*/?\s*RUC|DNI|RUC)\s*[:\-]?\s*\d{8,11}.*$",
+                    "",
+                    name,
+                    flags=re.IGNORECASE,
+                ).strip(" -:·.")
+            except Exception:
+                pass
+            return name
+
+        def _looks_like_contact_or_noise(s: str | None) -> bool:
+            txt = _clean_spaces(s)
+            if not txt:
+                return True
+            low = txt.lower()
+            noise_tokens = [
+                "web", "www.", "http", "@", "tel", "telf", "telefono", "teléfono",
+                "dirección", "direccion", "correo", "email",
+            ]
+            if any(t in low for t in noise_tokens):
+                return True
+            if ":" in txt and len(txt) > 12:
+                return True
+            letters = len(re.findall(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]", txt))
+            if letters < 3:
+                return True
+            if len(txt) > 140:
+                return True
+            return False
+
+        def _extract_best_name_from_pdf(txt: str | None) -> str:
+            if not txt:
+                return ''
+            t = (txt or '').replace("\u00A0", " ")
+            candidates: list[str] = []
+            try:
+                m = re.search(r"Señor\(a\)\.-\s*\n([^\n]{3,120})", t, flags=re.IGNORECASE)
+                if m:
+                    candidates.append(m.group(1))
+            except Exception:
+                pass
+            try:
+                for m in re.finditer(r"^\s*(?:Cliente|Asegurado)\s*[:.]?\s*([^\n]{3,120})", t, flags=re.IGNORECASE | re.MULTILINE):
+                    candidates.append(m.group(1))
+            except Exception:
+                pass
+            for c in candidates:
+                c2 = _clean_name(c)
+                if c2 and not _looks_like_contact_or_noise(c2):
+                    return c2.upper()
+            return ''
+
+        def _normalize_moneda_value(v: str | None) -> str | None:
+            if v is None:
+                return None
+            raw = _clean_spaces(v)
+            if not raw:
+                return None
+            up = re.sub(r"\s+", "", raw.upper())
+            if not up:
+                return None
+            if up.startswith("US$") or "USD" in up or "DOL" in up or up == "$":
+                return "US$"
+            if up.startswith("S/") or up.startswith("S/.") or "SOL" in up or up == "PEN":
+                return "S/"
+            return raw
+
+        def _infer_moneda_from_pdf_any(txt: str | None) -> str | None:
+            if not txt:
+                return None
+            t = (txt or '').replace("\u00A0", " ")
+            m = re.search(r"\bMONEDA\b[\s:：]*([A-Za-zÁÉÍÓÚÑáéíóúñ$\./\s]{1,20})", t, re.IGNORECASE | re.DOTALL)
+            if m:
+                cand = re.sub(r"\s+", "", (m.group(1) or "").upper())
+                if cand.startswith("US$") or cand.startswith("USD") or cand.startswith("$") or "DOL" in cand:
+                    return "US$"
+                if cand.startswith("S/") or cand.startswith("S/.") or cand.startswith("PEN") or "SOL" in cand:
+                    return "S/"
+
+            m2 = re.search(
+                r"(?:Prima\s+Comercial|Prima\s+Total|TOTAL|IMPORTE\s*TOTAL)[\s\S]{0,260}?(US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/|SOLES|PEN)(?=\s|$)",
+                t,
+                re.IGNORECASE | re.DOTALL,
+            )
+            if m2:
+                tok = re.sub(r"\s+", "", (m2.group(1) or "").upper())
+                if tok.startswith("US$") or tok.startswith("USD") or tok == "$" or "DOL" in tok:
+                    return "US$"
+                return "S/"
+
+            up = t.upper()
+            idx_us = up.find("US$")
+            idx_usd = re.search(r"\bUSD\b", up)
+            idx_dol = re.search(r"\bDOL", up)
+            idx_s = re.search(r"S\s*/\s*\.?|S\s*/|\bSOLES\b|\bPEN\b", up)
+            dollar_idxs = [i for i in [
+                idx_us if idx_us >= 0 else None,
+                idx_usd.start() if idx_usd else None,
+                idx_dol.start() if idx_dol else None,
+            ] if i is not None]
+            sol_idxs = [idx_s.start()] if idx_s else []
+            if not dollar_idxs and not sol_idxs:
+                return None
+            return "US$" if (min(dollar_idxs) if dollar_idxs else 10**9) <= (min(sol_idxs) if sol_idxs else 10**9) else "S/"
+
+        if pdf_text_full:
+            inferred_moneda_any = _infer_moneda_from_pdf_any(pdf_text_full)
+            inferred_name_any = _extract_best_name_from_pdf(pdf_text_full)
+            try:
+                prov_hint = str(detected_provider or '').lower()
+            except Exception:
+                prov_hint = ''
+            is_positiva_like = ('positiva' in prov_hint) or ('lpv' in prov_hint)
+            for it in items_ui:
+                # Asegurado: evitar que se cuele texto de contacto (web/teléfono/dirección)
+                current_name = _clean_name(it.get("colectivo_asegurado"))
+                alt_name = _clean_name(it.get("contratante")) or _clean_name(it.get("razon_social"))
+                best = ''
+                if current_name and not _looks_like_contact_or_noise(current_name):
+                    best = current_name
+                elif alt_name and not _looks_like_contact_or_noise(alt_name):
+                    best = alt_name
+                elif inferred_name_any:
+                    best = inferred_name_any
+                if best:
+                    it["colectivo_asegurado"] = best.upper()
+
+                cur_norm = _normalize_moneda_value(it.get("moneda"))
+                if cur_norm in {"S/", "US$"}:
+                    it["moneda"] = cur_norm
+                else:
+                    it["moneda"] = (inferred_moneda_any if is_positiva_like else None) or cur_norm or it.get("moneda")
         # Rimac: garantizar UN solo ítem y priorizar póliza en formato '#### - #######'
         try:
             issuer_low = (issuer or '').lower()

@@ -43,7 +43,7 @@ def addPacificoGenerales_V2(filepath):
         # The total is usually preceded by S/. or US$
         
         # Look for S/. or US$ specifically near the "TOTAL" label
-        total_block = re.search(r'(?:TOTAL|IMPORTETOTAL)[^\d\n]{0,30}(S/\.|US\$|USD|SOLES)[^\d\n]*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})', text, re.IGNORECASE)
+        total_block = re.search(r'(?:TOTAL|IMPORTE\s*TOTAL|IMPORTETOTAL)[^\d\n]{0,30}(S\/\.?|US\$|USD|SOLES|PEN)[^\d\n]*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})', text, re.IGNORECASE)
         if total_block:
             curr = total_block.group(1).upper()
             if 'US$' in curr or 'USD' in curr:
@@ -53,11 +53,29 @@ def addPacificoGenerales_V2(filepath):
         else:
             # Fallback: search for any S/. or US$ followed by a number that looks like a total (high amount)
             # or just look at the most common currency symbol in the document
-             compact = re.sub(r"\s+", "", (text or "").upper())
-             if "US$" in compact and not "S/." in compact:
-                 data["moneda"] = "US$"
-             else:
-                 data["moneda"] = "S/."
+            compact = re.sub(r"\s+", "", (text or "").upper())
+            has_usd = ("US$" in compact) or ("USD" in compact) or ("DOLAR" in compact) or ("DÓLAR" in compact)
+            has_sol = ("S/" in compact) or ("SOLES" in compact) or ("PEN" in compact)
+
+            if has_usd and not has_sol:
+                data["moneda"] = "US$"
+            elif has_sol and not has_usd:
+                data["moneda"] = "S/."
+            elif has_usd and has_sol:
+                near_amount = re.findall(r"(S\/\.?|US\$|USD)\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2}", text, re.IGNORECASE)
+                if near_amount:
+                    counts = {"US$": 0, "S/.": 0}
+                    for tok in near_amount:
+                        up = re.sub(r"\s+", "", (tok or "").upper())
+                        if up.startswith("S/") or "PEN" in up or "SOL" in up:
+                            counts["S/."] += 1
+                        elif up.startswith("US$") or "USD" in up or "$" == up or "DOL" in up:
+                            counts["US$"] += 1
+                    data["moneda"] = "US$" if counts["US$"] > counts["S/."] else "S/."
+                else:
+                    data["moneda"] = "S/."
+            else:
+                data["moneda"] = "S/."
     except Exception:
         pass
 
