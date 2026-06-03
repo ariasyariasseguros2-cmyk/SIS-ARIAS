@@ -1304,6 +1304,59 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
+CREATE PROCEDURE sp_anular_cuotas_por_poliza(
+    IN p_id INT,
+    IN p_usuario VARCHAR(100)
+)
+BEGIN
+    DECLARE v_usuario_nombre VARCHAR(100);
+    DECLARE v_poliza_numero VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+    SET v_usuario_nombre = NULL;
+    IF p_usuario IS NOT NULL AND TRIM(p_usuario) <> '' THEN
+        SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
+        INTO v_usuario_nombre
+        FROM usuarios
+        WHERE username = p_usuario
+        LIMIT 1;
+    END IF;
+    IF v_usuario_nombre IS NULL OR v_usuario_nombre = '' THEN
+        SET v_usuario_nombre = p_usuario;
+    END IF;
+
+    SET v_poliza_numero = NULL;
+    SELECT TRIM(
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+            CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+            poliza
+        )
+    )
+    INTO v_poliza_numero
+    FROM polizas
+    WHERE idPoliza = p_id
+    LIMIT 1;
+
+    UPDATE cuotas
+    SET activo = 0,
+        anular = 0,
+        usuario_edicion = v_usuario_nombre
+    WHERE poliza_id = p_id
+       OR (
+            v_poliza_numero IS NOT NULL
+            AND TRIM(
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                        CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                        poliza
+                    )
+                ) COLLATE utf8mb4_0900_ai_ci = (v_poliza_numero COLLATE utf8mb4_0900_ai_ci)
+       );
+
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
+DELIMITER ;
+
+DELIMITER $$
 CREATE PROCEDURE sp_delete_poliza(
     IN p_id INT,
     IN p_usuario VARCHAR(100)
@@ -1405,7 +1458,8 @@ CREATE TABLE IF NOT EXISTS cuotas (
     usuario_edicion VARCHAR(100) NULL,
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
     numero_cuota INT NULL,
-    activo TINYINT(1) DEFAULT 1
+    activo TINYINT(1) DEFAULT 1,
+    anular TINYINT(1) DEFAULT 1
 );
 
 -- Tabla para archivos de cuotas (análoga a poliza_archivos) — debe ir después de cuotas
