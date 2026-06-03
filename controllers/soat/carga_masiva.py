@@ -796,12 +796,19 @@ def _insertar_cuota_soat(cur, row, idx: int, poliza_num: str, cupon_poliza: str,
                 poliza_id, poliza, cupon, fecha_vencimiento, moneda,
                 importe, fecha_pago, factura, observacion, usuario_registro,
                 numero_cuota, activo
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, 1)
+            ) VALUES (
+                %s,
+                TO_BASE64(AES_ENCRYPT(%s, %s)),
+                TO_BASE64(AES_ENCRYPT(%s, %s)),
+                %s,%s,%s,%s,%s,%s,%s,%s, 1
+            )
             """,
             (
                 poliza_id,
                 poliza_num,
+                k,
                 cupon_poliza,
+                k,
                 fecha_emision_poliza,
                 moneda,
                 prima_mas_igv,
