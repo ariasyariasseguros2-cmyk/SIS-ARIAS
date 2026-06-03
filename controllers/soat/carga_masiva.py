@@ -64,9 +64,13 @@ def map_excel_columns(df: pd.DataFrame) -> pd.DataFrame:
         'aseguradora'           : 'COMPANIA_NOMBRE_CORTO',
         'fec emision': 'FECHA_EMISION',
         'fec. emision': 'FECHA_EMISION',
+        'fecha emision': 'FECHA_EMISION',
         'ini vigencia': 'VIGENCIA_INICIO',
         'ini.vigencia': 'VIGENCIA_INICIO',
         'fin vigencia': 'VIGENCIA_FIN',
+        'fecha vencimiento': 'FECHA_VENCIMIENTO',
+        'fec vencimiento': 'FECHA_VENCIMIENTO',
+        'fec. vencimiento': 'FECHA_VENCIMIENTO',
         'moneda': 'MONEDA_ABREVIACION',
         'prima': 'PRIMA',
         'cod agenc': 'COD_AGENTE',
@@ -101,6 +105,7 @@ def map_excel_columns(df: pd.DataFrame) -> pd.DataFrame:
         'año': 'ANIO',
         'planilla': 'PLANILLA',
         'recibo': 'RECIBO',
+        'cupon': 'CUPON',
         'formulario': 'FORMULARIO',
         'estado': 'ESTADO'
     }
@@ -126,6 +131,8 @@ def map_excel_columns(df: pd.DataFrame) -> pd.DataFrame:
         df2['AVISO_COB'] = df2['RECIBO']
     elif 'PLANILLA' in df2.columns and 'AVISO_COB' not in df2.columns:
         df2['AVISO_COB'] = df2['PLANILLA']
+    elif 'CUPON' in df2.columns and 'AVISO_COB' not in df2.columns:
+        df2['AVISO_COB'] = df2['CUPON']
     if 'VENDEDOR' in df2.columns:
         if 'SUBAGENTE_ABREVIACION' not in df2.columns:
             df2['SUBAGENTE_ABREVIACION'] = df2['VENDEDOR']
@@ -152,7 +159,8 @@ def _detect_header_row(df_raw: pd.DataFrame) -> Optional[int]:
         'nombre', 'numero documento', 'direccion', 'departamento', 'provincia', 'distrito',
         'moneda', 'prima', 'vendedor', 'cod agenc', 'placa', 'uso', 'clase', 'marca',
         'desc modelo', 'desc.modelo', 'serie', 'ano', 'año', 'anio',
-        'cia', 'cia.', 'compania', 'compañia', 'aseguradora'
+        'cia', 'cia.', 'compania', 'compañia', 'aseguradora',
+        'recibo', 'planilla', 'cupon', 'fecha vencimiento', 'telefono', 'celular', 'email', 'prod', 'producto'
     }
     max_score = 0
     best_row = None
@@ -749,6 +757,9 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
         clientes_nuevos = 0
         clientes_existentes = 0
         polizas_insertadas = 0
+        polizas_existentes = 0
+        cuotas_insertadas = 0
+        cuotas_existentes = 0
         errors_list = []
 
         # Conectar a BD
@@ -772,33 +783,61 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 print(f"Advertencia: No se pudo resetear AUTO_INCREMENT: {e}")
                 pass
 
-        # Agrupar por cliente (NUMERO_DOCUMENTO)
         clientes_procesados = set()
+        doc_map = {}
 
         for idx, row in df.iterrows():
             try:
-                numero_documento = normalize_numero_documento(row['NUMERO_DOCUMENTO'])
+                numero_documento_excel = normalize_numero_documento(row['NUMERO_DOCUMENTO'])
+                razon_social = normalize_string(row.get('NOMBRE_RAZON_SOCIAL', ''))
 
-                if not numero_documento:
+                if not numero_documento_excel:
                     errors_list.append(f"Fila {idx + 2}: Número de documento vacío")
                     continue
 
+                numero_documento = doc_map.get(numero_documento_excel) or numero_documento_excel
+
+                tipo_doc_excel = normalize_string(row.get('TIPO_DOCUMENTO', ''))
+                if not tipo_doc_excel:
+                    tipo_doc_excel = identificar_tipo_documento(numero_documento_excel)
+
                 # 1. PROCESAR CLIENTE (si no se ha procesado antes)
-                if numero_documento not in clientes_procesados:
+                if numero_documento_excel not in clientes_procesados:
                     # Verificar si existe (considerando campos cifrados)
                     k = get_encrypt_key()
                     cur.execute(
                         """
-                        SELECT idCliente FROM clientes 
+                        SELECT
+                            idCliente,
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
+                                CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
+                                numero_documento
+                            ) AS numero_documento_plain
+                        FROM clientes
                         WHERE (
                             CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) = %s
                             OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) = %s
                             OR numero_documento = %s
+                            OR (
+                                TRIM(
+                                    COALESCE(
+                                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR),
+                                        CAST(AES_DECRYPT(razon_social, %s) AS CHAR),
+                                        razon_social
+                                    )
+                                ) COLLATE utf8mb4_0900_ai_ci = TRIM(%s) COLLATE utf8mb4_0900_ai_ci
+                                AND (%s = '' OR tipo_documento = %s)
+                            )
                         )
                         AND activo = 1 
                         LIMIT 1
                         """,
-                        (k, numero_documento, k, numero_documento, numero_documento)
+                        (
+                            k, k,
+                            k, numero_documento, k, numero_documento, numero_documento,
+                            k, k, razon_social, tipo_doc_excel, tipo_doc_excel
+                        )
                     )
                     cliente_existe = cur.fetchone()
 
@@ -808,11 +847,6 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                         telefono = str(row['TELEFONO']) if pd.notna(row.get('TELEFONO')) else (str(row['CELULAR']) if pd.notna(row.get('CELULAR')) else '000000000')
                         celular = str(row['CELULAR']) if pd.notna(row.get('CELULAR')) else telefono
                         email = str(row['EMAIL']) if pd.notna(row.get('EMAIL')) else f'cliente{numero_documento}@temp.com'
-
-                        # Detectar tipo de documento si no está presente o está vacío
-                        tipo_doc_excel = normalize_string(row.get('TIPO_DOCUMENTO', ''))
-                        if not tipo_doc_excel:
-                            tipo_doc_excel = identificar_tipo_documento(numero_documento)
 
                         cliente_args = (
                             normalize_string(row['NOMBRE_RAZON_SOCIAL']),
@@ -861,6 +895,24 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                             if commit_db:
                                 cnx.commit()
                             clientes_nuevos += 1
+                            try:
+                                cur.execute(
+                                    """
+                                    SELECT idCliente
+                                    FROM clientes
+                                    WHERE (
+                                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) = %s
+                                        OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) = %s
+                                        OR numero_documento = %s
+                                    )
+                                    AND activo = 1
+                                    LIMIT 1
+                                    """,
+                                    (k, numero_documento, k, numero_documento, numero_documento),
+                                )
+                                cliente_existe = cur.fetchone()
+                            except Exception:
+                                cliente_existe = None
                         except mysql.connector.Error as err:
                             errors_list.append(f"Fila {idx + 2}: Error al insertar cliente {numero_documento}: {str(err)}")
                             cnx.rollback()
@@ -868,7 +920,13 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     else:
                         clientes_existentes += 1
 
-                    clientes_procesados.add(numero_documento)
+                    numero_doc_cliente = normalize_numero_documento((cliente_existe or {}).get('numero_documento_plain') or numero_documento)
+                    if numero_doc_cliente and numero_doc_cliente != numero_documento:
+                        errors_list.append(f"Fila {idx + 2}: Advertencia - Cliente ya existe por razón social, se usará N° doc {numero_doc_cliente} en póliza")
+                        numero_documento = numero_doc_cliente
+                    doc_map[numero_documento_excel] = numero_documento
+
+                    clientes_procesados.add(numero_documento_excel)
 
                 # 2. PROCESAR PÓLIZA
                 # Validar e insertar USO si no existe, y obtener su ID
@@ -962,7 +1020,15 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 if not compania_nombre_corto:
                     errors_list.append(f"Fila {idx + 2}: Advertencia - Compañía no encontrada (columna CIA/COMPAÑIA vacía o no detectada)")
 
+                fecha_emision_poliza = normalize_date(row.get('FECHA_EMISION')) if pd.notna(row.get('FECHA_EMISION')) else normalize_date(row.get('VIGENCIA_INICIO'))
+                if not fecha_emision_poliza:
+                    fecha_emision_poliza = datetime.today().strftime('%Y-%m-%d')
+                fecha_vencimiento_poliza = fecha_emision_poliza
+
                 recibo_poliza = normalize_numero_documento(row.get('AVISO_COB', '')) if pd.notna(row.get('AVISO_COB')) else ''
+                cupon_poliza = normalize_numero_documento(row.get('CUPON', '')) if pd.notna(row.get('CUPON')) else ''
+                if not cupon_poliza:
+                    cupon_poliza = recibo_poliza
                 # Para reglas de estado/anulado, priorizamos PLANILLA; si no viene, usamos AVISO_COB.
                 referencia_estado_raw = row.get('PLANILLA') if pd.notna(row.get('PLANILLA')) else row.get('AVISO_COB', '')
                 referencia_estado = normalize_numero_documento(referencia_estado_raw) if pd.notna(referencia_estado_raw) else ''
@@ -977,15 +1043,15 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     compania_nombre_corto,
                     normalize_string(row.get('RAMO_ABREVIACION', 'SOAT')),
                     normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',
-                    recibo_poliza,  # recibo
+                    cupon_poliza,  # recibo
                     normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',  # contrato_nro
                     normalize_numero_documento(row.get('INCISO', '')) if pd.notna(row.get('INCISO')) else '',  # nro
                     moneda,
-                    normalize_date(row.get('FECHA_EMISION')) if pd.notna(row.get('FECHA_EMISION')) else normalize_date(row.get('VIGENCIA_INICIO')),
+                    fecha_emision_poliza,
                     normalize_date(row['VIGENCIA_INICIO']),
                     normalize_date(row['VIGENCIA_FIN']),
-                    normalize_date(row.get('FECHA_VENCIMIENTO')),  # ultimo_dia_pago
-                    normalize_date(row.get('FECHA_VENCIMIENTO')),
+                    fecha_vencimiento_poliza,  # ultimo_dia_pago
+                    fecha_vencimiento_poliza,
                     normalize_string(row.get('TIPO_POLIZA', 'ANUAL')),
                     normalize_string(row.get('ENDOSATARIO', '')),
                     normalize_string(row.get('TIPO_PAGO', 'CONTADO')),
@@ -1035,13 +1101,85 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                             "UPDATE polizas SET estado = %s, anulado = %s WHERE idPoliza = %s",
                             (estado_poliza, anulado_poliza, poliza_id_insertada)
                         )
+                        if commit_db:
+                            try:
+                                cur.execute(
+                                    "CALL sp_insert_cuota(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                                    (
+                                        normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',
+                                        cupon_poliza,
+                                        fecha_vencimiento_poliza,
+                                        moneda,
+                                        prima_mas_igv,
+                                        fecha_emision_poliza,
+                                        None,
+                                        None,
+                                        usuario,
+                                        1
+                                    )
+                                )
+                                try:
+                                    cur.fetchall()
+                                except Exception:
+                                    pass
+                                while cur.nextset():
+                                    try:
+                                        cur.fetchall()
+                                    except Exception:
+                                        pass
+                                cuotas_insertadas += 1
+                            except mysql.connector.Error as err_cuota:
+                                msg = str(err_cuota)
+                                if 'ya existe' in msg.lower():
+                                    cuotas_existentes += 1
+                                    errors_list.append(f"Fila {idx + 2}: Advertencia - Cuota ya existe para póliza {row.get('POLIZA_CERTF')}: {cupon_poliza}")
+                                else:
+                                    errors_list.append(f"Fila {idx + 2}: Advertencia - Error al insertar cuota para póliza {row.get('POLIZA_CERTF')}: {msg}")
 
                     if commit_db:
                         cnx.commit()
                     polizas_insertadas += 1
                 except mysql.connector.Error as err:
                     if 'Póliza ya existe' in str(err):
-                        errors_list.append(f"Fila {idx + 2}: Póliza {row['POLIZA_CERTF']} ya existe para cliente {numero_documento}")
+                        polizas_existentes += 1
+                        if commit_db:
+                            try:
+                                cnx.rollback()
+                            except Exception:
+                                pass
+                            try:
+                                cur.execute(
+                                    "CALL sp_insert_cuota(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                                    (
+                                        normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',
+                                        cupon_poliza,
+                                        fecha_vencimiento_poliza,
+                                        moneda,
+                                        prima_mas_igv,
+                                        fecha_emision_poliza,
+                                        None,
+                                        None,
+                                        usuario,
+                                        1
+                                    )
+                                )
+                                try:
+                                    cur.fetchall()
+                                except Exception:
+                                    pass
+                                while cur.nextset():
+                                    try:
+                                        cur.fetchall()
+                                    except Exception:
+                                        pass
+                                cnx.commit()
+                                cuotas_insertadas += 1
+                            except mysql.connector.Error as err_cuota:
+                                msg = str(err_cuota)
+                                if 'ya existe' in msg.lower():
+                                    cuotas_existentes += 1
+                                else:
+                                    errors_list.append(f"Fila {idx + 2}: Advertencia - Error al insertar cuota para póliza {row.get('POLIZA_CERTF')}: {msg}")
                     else:
                         errors_list.append(f"Fila {idx + 2}: Error al insertar póliza: {str(err)}")
                     # Solo hacemos rollback si estábamos intentando commitear
@@ -1066,6 +1204,9 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
             'clientes_nuevos': clientes_nuevos,
             'clientes_existentes': clientes_existentes,
             'polizas_insertadas': polizas_insertadas,
+            'polizas_existentes': polizas_existentes,
+            'cuotas_insertadas': cuotas_insertadas,
+            'cuotas_existentes': cuotas_existentes,
             'fecha_emision_excel_min': fecha_emision_excel_min,
             'fecha_emision_excel_max': fecha_emision_excel_max,
             'errors': errors_list

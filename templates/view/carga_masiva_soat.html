@@ -55,6 +55,7 @@
                         <li>Si un cliente ya existe en la base de datos (según número de documento), no se creará uno nuevo</li>
                         <li>Un mismo cliente puede aparecer en múltiples filas si tiene varias pólizas</li>
                         <li>Todos los campos marcados como obligatorios deben estar completos</li>
+                        <li>Para recaudación: RECIBO/CUPON se toma de la columna Recibo (o Cupón si existe); se crea 1 cuota con importe=Prima y fecha_vencimiento/fecha_pago=Fecha Emisión</li>
                         <li>Fechas en formato: <strong>YYYY-MM-DD</strong> (ej: 2025-04-09)</li>
                         <li>TIPO_PERSONA: <strong>1</strong>=Natural, <strong>2</strong>=Jurídica</li>
                         <li>Sube el archivo completado usando el botón "Cargar Archivo"</li>
@@ -342,25 +343,32 @@ function showResults(result, isPreview = false) {
 
         statsHtml += '<div class="row text-center">';
         statsHtml += `
-            <div class="col-md-4 mb-3">
+            <div class="col-md-3 mb-3">
                 <div class="p-3 bg-light rounded">
                     <i class="bi bi-person-plus-fill text-success display-6"></i>
                     <h4 class="mt-2 mb-0">${result.clientes_nuevos}</h4>
                     <small class="text-muted">Clientes Nuevos</small>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
+            <div class="col-md-3 mb-3">
                 <div class="p-3 bg-light rounded">
                     <i class="bi bi-person-check-fill text-info display-6"></i>
                     <h4 class="mt-2 mb-0">${result.clientes_existentes}</h4>
                     <small class="text-muted">Clientes Existentes</small>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
+            <div class="col-md-3 mb-3">
                 <div class="p-3 bg-light rounded">
                     <i class="bi bi-file-earmark-check-fill text-primary display-6"></i>
                     <h4 class="mt-2 mb-0">${result.polizas_insertadas}</h4>
                     <small class="text-muted">Pólizas Insertadas</small>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="p-3 bg-light rounded">
+                    <i class="bi bi-receipt-cutoff text-warning display-6"></i>
+                    <h4 class="mt-2 mb-0">${result.cuotas_insertadas || 0}</h4>
+                    <small class="text-muted">Cuotas Insertadas</small>
                 </div>
             </div>
         `;
