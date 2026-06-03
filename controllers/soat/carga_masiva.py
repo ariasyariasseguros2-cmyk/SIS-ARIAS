@@ -740,7 +740,7 @@ def _poliza_recibo_existe(cur, poliza: str, recibo: str) -> bool:
 
 def _insertar_cuota_soat(cur, row, idx: int, poliza_num: str, cupon_poliza: str, recibo_poliza: str,
                          fecha_emision_poliza: str, moneda: str, prima_mas_igv: float, usuario: str,
-                         errors_list: list[str]) -> tuple[bool, bool]:
+                         cuota_activo: int, errors_list: list[str]) -> tuple[bool, bool]:
     poliza_id = _find_poliza_id_por_poliza_recibo(cur, poliza_num, cupon_poliza)
     if poliza_id is None:
         errors_list.append(
@@ -800,7 +800,7 @@ def _insertar_cuota_soat(cur, row, idx: int, poliza_num: str, cupon_poliza: str,
                 %s,
                 TO_BASE64(AES_ENCRYPT(%s, %s)),
                 TO_BASE64(AES_ENCRYPT(%s, %s)),
-                %s,%s,%s,%s,%s,%s,%s,%s, 1
+                %s,%s,%s,%s,%s,%s,%s,%s, %s
             )
             """,
             (
@@ -817,10 +817,11 @@ def _insertar_cuota_soat(cur, row, idx: int, poliza_num: str, cupon_poliza: str,
                 None,
                 usuario,
                 1,
+                cuota_activo,
             ),
         )
 
-        if fecha_emision_poliza:
+        if cuota_activo == 1 and fecha_emision_poliza:
             cur.execute("UPDATE polizas SET estado = 'PAGADO' WHERE idPoliza = %s", (poliza_id,))
 
         return True, False
@@ -1172,6 +1173,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 estado_excel = normalize_string(row.get('ESTADO', ''))
                 estado_poliza, anulado_poliza = resolver_estado_y_anulado_soat(referencia_estado, estado_excel)
                 producto_abreviacion = normalize_string(row.get('PRODUCTO_ABREVIACION', ''))
+                cuota_activo = 0 if (estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1) else 1
 
                 poliza_num = normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else ''
                 if poliza_num and cupon_poliza and _poliza_recibo_existe(cur, poliza_num, cupon_poliza):
@@ -1187,6 +1189,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                         moneda=moneda,
                         prima_mas_igv=prima_mas_igv,
                         usuario=usuario,
+                        cuota_activo=cuota_activo,
                         errors_list=errors_list,
                     )
                     if inserted:
@@ -1275,6 +1278,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                             moneda=moneda,
                             prima_mas_igv=prima_mas_igv,
                             usuario=usuario,
+                            cuota_activo=cuota_activo,
                             errors_list=errors_list,
                         )
                         if inserted:
@@ -1305,6 +1309,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                             moneda=moneda,
                             prima_mas_igv=prima_mas_igv,
                             usuario=usuario,
+                            cuota_activo=cuota_activo,
                             errors_list=errors_list,
                         )
                         if inserted:
