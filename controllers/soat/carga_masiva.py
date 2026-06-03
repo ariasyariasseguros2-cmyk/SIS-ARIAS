@@ -697,6 +697,136 @@ def get_porc_subagente(cnx, codigo_agente: str, tipo_soat_nom: str | None) -> fl
         return 0.0
 
 
+def _find_poliza_id_por_poliza_recibo(cur, poliza: str, recibo: str) -> int | None:
+    poliza = '' if poliza is None else str(poliza).strip()
+    recibo = '' if recibo is None else str(recibo).strip()
+    if not poliza or not recibo:
+        return None
+
+    k = get_encrypt_key()
+    cur.execute(
+        """
+        SELECT idPoliza
+        FROM polizas
+        WHERE activo = 1
+          AND (
+            CONVERT(TRIM(COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(poliza), %s) AS CHAR),
+                CAST(AES_DECRYPT(poliza, %s) AS CHAR),
+                poliza
+            )) USING utf8mb4) COLLATE utf8mb4_bin
+              = CONVERT(TRIM(%s) USING utf8mb4) COLLATE utf8mb4_bin
+          )
+          AND (
+            CONVERT(TRIM(COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(recibo), %s) AS CHAR),
+                CAST(AES_DECRYPT(recibo, %s) AS CHAR),
+                recibo
+            )) USING utf8mb4) COLLATE utf8mb4_bin
+              = CONVERT(TRIM(%s) USING utf8mb4) COLLATE utf8mb4_bin
+          )
+        ORDER BY creado_en DESC
+        LIMIT 1
+        """,
+        (k, k, poliza, k, k, recibo),
+    )
+    row = cur.fetchone()
+    return int(row['idPoliza']) if row and row.get('idPoliza') is not None else None
+
+
+def _poliza_recibo_existe(cur, poliza: str, recibo: str) -> bool:
+    return _find_poliza_id_por_poliza_recibo(cur, poliza, recibo) is not None
+
+
+def _insertar_cuota_soat(cur, row, idx: int, poliza_num: str, cupon_poliza: str, recibo_poliza: str,
+                         fecha_emision_poliza: str, moneda: str, prima_mas_igv: float, usuario: str,
+                         errors_list: list[str]) -> tuple[bool, bool]:
+    poliza_id = _find_poliza_id_por_poliza_recibo(cur, poliza_num, cupon_poliza)
+    if poliza_id is None:
+        errors_list.append(
+            f"Fila {idx + 2}: Advertencia - No existe combinación Póliza/Recibo en polizas (póliza={poliza_num}, recibo={cupon_poliza}). No se insertó cuota."
+        )
+        return False, False
+
+    factura = (recibo_poliza or cupon_poliza or '').strip()
+    if not factura:
+        factura = None
+
+    try:
+        k = get_encrypt_key()
+        if factura:
+            cur.execute(
+                """
+                SELECT 1
+                FROM cuotas
+                WHERE activo = 1
+                  AND CONVERT(TRIM(COALESCE(factura, '')) USING utf8mb4) COLLATE utf8mb4_bin
+                      = CONVERT(TRIM(%s) USING utf8mb4) COLLATE utf8mb4_bin
+                LIMIT 1
+                """,
+                (factura,),
+            )
+            if cur.fetchone() is not None:
+                raise mysql.connector.Error(msg=f"El número de factura ya existe: {factura}")
+
+        cur.execute(
+            """
+            SELECT 1
+            FROM cuotas
+            WHERE poliza_id = %s
+              AND activo = 1
+              AND (
+                CONVERT(TRIM(COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(cupon), %s) AS CHAR),
+                    CAST(AES_DECRYPT(cupon, %s) AS CHAR),
+                    cupon
+                )) USING utf8mb4) COLLATE utf8mb4_bin
+                  = CONVERT(TRIM(%s) USING utf8mb4) COLLATE utf8mb4_bin
+              )
+            LIMIT 1
+            """,
+            (poliza_id, k, k, cupon_poliza),
+        )
+        if cur.fetchone() is not None:
+            return False, True
+
+        cur.execute(
+            """
+            INSERT INTO cuotas (
+                poliza_id, poliza, cupon, fecha_vencimiento, moneda,
+                importe, fecha_pago, factura, observacion, usuario_registro,
+                numero_cuota, activo
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, 1)
+            """,
+            (
+                poliza_id,
+                poliza_num,
+                cupon_poliza,
+                fecha_emision_poliza,
+                moneda,
+                prima_mas_igv,
+                fecha_emision_poliza,
+                factura,
+                None,
+                usuario,
+                1,
+            ),
+        )
+
+        if fecha_emision_poliza:
+            cur.execute("UPDATE polizas SET estado = 'PAGADO' WHERE idPoliza = %s", (poliza_id,))
+
+        return True, False
+    except mysql.connector.Error as err_cuota:
+        msg = str(err_cuota)
+        if 'ya existe' in msg.lower():
+            return False, True
+        errors_list.append(
+            f"Fila {idx + 2}: Advertencia - Error al insertar cuota para póliza {row.get('POLIZA_CERTF')}: {msg}"
+        )
+        return False, False
+
+
 def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> dict:
     """
     Procesa un archivo Excel con datos de SOAT y los carga en la BD
@@ -1011,9 +1141,9 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 datos_vehiculo_json = json.dumps(datos_vehiculo)
 
                 # Normalizar moneda
-                moneda_map = {'S/.': 'S/.', 'S/': 'S/.', 'SOLES': 'S/.', 'PEN': 'S/.', '$': '$', 'USD': '$', 'DOLARES': '$', 'DÓLARES': '$'}
-                moneda_raw = normalize_string(row.get('MONEDA_ABREVIACION', 'S/.'))
-                moneda = moneda_map.get(moneda_raw, 'S/.')
+                moneda_map = {'S/.': 'S/', 'S/': 'S/', 'SOLES': 'S/', 'PEN': 'S/', '$': '$', 'USD': '$', 'DOLARES': '$', 'DÓLARES': '$'}
+                moneda_raw = normalize_string(row.get('MONEDA_ABREVIACION', 'S/'))
+                moneda = moneda_map.get(moneda_raw, 'S/')
 
                 # Validar que la compañía no venga vacía (advertencia, no bloquea)
                 compania_nombre_corto = normalize_string(row.get('COMPANIA_NOMBRE_CORTO', ''))
@@ -1036,15 +1166,41 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 estado_poliza, anulado_poliza = resolver_estado_y_anulado_soat(referencia_estado, estado_excel)
                 producto_abreviacion = normalize_string(row.get('PRODUCTO_ABREVIACION', ''))
 
+                poliza_num = normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else ''
+                if poliza_num and cupon_poliza and _poliza_recibo_existe(cur, poliza_num, cupon_poliza):
+                    polizas_existentes += 1
+                    inserted, existed = _insertar_cuota_soat(
+                        cur=cur,
+                        row=row,
+                        idx=idx,
+                        poliza_num=poliza_num,
+                        cupon_poliza=cupon_poliza,
+                        recibo_poliza=recibo_poliza,
+                        fecha_emision_poliza=fecha_emision_poliza,
+                        moneda=moneda,
+                        prima_mas_igv=prima_mas_igv,
+                        usuario=usuario,
+                        errors_list=errors_list,
+                    )
+                    if inserted:
+                        cuotas_insertadas += 1
+                    elif existed:
+                        cuotas_existentes += 1
+                        errors_list.append(f"Fila {idx + 2}: Advertencia - Cuota ya existe para póliza {row.get('POLIZA_CERTF')}: {cupon_poliza}")
+                    if preview:
+                        continue
+                    cnx.commit()
+                    continue
+
                 poliza_args = (
                     numero_documento,
                     normalize_string(row.get('TIPO_DOC', 'EMISION')),
                     normalize_string(row.get('NOMBRE_RAZON_SOCIAL', '')),  # asegurado
                     compania_nombre_corto,
                     normalize_string(row.get('RAMO_ABREVIACION', 'SOAT')),
-                    normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',
+                    poliza_num,
                     cupon_poliza,  # recibo
-                    normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',  # contrato_nro
+                    poliza_num,  # contrato_nro
                     normalize_numero_documento(row.get('INCISO', '')) if pd.notna(row.get('INCISO')) else '',  # nro
                     moneda,
                     fecha_emision_poliza,
@@ -1101,40 +1257,24 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                             "UPDATE polizas SET estado = %s, anulado = %s WHERE idPoliza = %s",
                             (estado_poliza, anulado_poliza, poliza_id_insertada)
                         )
-                        if commit_db:
-                            try:
-                                cur.execute(
-                                    "CALL sp_insert_cuota(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                                    (
-                                        normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',
-                                        cupon_poliza,
-                                        fecha_vencimiento_poliza,
-                                        moneda,
-                                        prima_mas_igv,
-                                        fecha_emision_poliza,
-                                        None,
-                                        None,
-                                        usuario,
-                                        1
-                                    )
-                                )
-                                try:
-                                    cur.fetchall()
-                                except Exception:
-                                    pass
-                                while cur.nextset():
-                                    try:
-                                        cur.fetchall()
-                                    except Exception:
-                                        pass
-                                cuotas_insertadas += 1
-                            except mysql.connector.Error as err_cuota:
-                                msg = str(err_cuota)
-                                if 'ya existe' in msg.lower():
-                                    cuotas_existentes += 1
-                                    errors_list.append(f"Fila {idx + 2}: Advertencia - Cuota ya existe para póliza {row.get('POLIZA_CERTF')}: {cupon_poliza}")
-                                else:
-                                    errors_list.append(f"Fila {idx + 2}: Advertencia - Error al insertar cuota para póliza {row.get('POLIZA_CERTF')}: {msg}")
+                        inserted, existed = _insertar_cuota_soat(
+                            cur=cur,
+                            row=row,
+                            idx=idx,
+                            poliza_num=poliza_num,
+                            cupon_poliza=cupon_poliza,
+                            recibo_poliza=recibo_poliza,
+                            fecha_emision_poliza=fecha_emision_poliza,
+                            moneda=moneda,
+                            prima_mas_igv=prima_mas_igv,
+                            usuario=usuario,
+                            errors_list=errors_list,
+                        )
+                        if inserted:
+                            cuotas_insertadas += 1
+                        elif existed:
+                            cuotas_existentes += 1
+                            errors_list.append(f"Fila {idx + 2}: Advertencia - Cuota ya existe para póliza {row.get('POLIZA_CERTF')}: {cupon_poliza}")
 
                     if commit_db:
                         cnx.commit()
@@ -1147,39 +1287,25 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                                 cnx.rollback()
                             except Exception:
                                 pass
-                            try:
-                                cur.execute(
-                                    "CALL sp_insert_cuota(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                                    (
-                                        normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else '',
-                                        cupon_poliza,
-                                        fecha_vencimiento_poliza,
-                                        moneda,
-                                        prima_mas_igv,
-                                        fecha_emision_poliza,
-                                        None,
-                                        None,
-                                        usuario,
-                                        1
-                                    )
-                                )
-                                try:
-                                    cur.fetchall()
-                                except Exception:
-                                    pass
-                                while cur.nextset():
-                                    try:
-                                        cur.fetchall()
-                                    except Exception:
-                                        pass
+                        inserted, existed = _insertar_cuota_soat(
+                            cur=cur,
+                            row=row,
+                            idx=idx,
+                            poliza_num=poliza_num,
+                            cupon_poliza=cupon_poliza,
+                            recibo_poliza=recibo_poliza,
+                            fecha_emision_poliza=fecha_emision_poliza,
+                            moneda=moneda,
+                            prima_mas_igv=prima_mas_igv,
+                            usuario=usuario,
+                            errors_list=errors_list,
+                        )
+                        if inserted:
+                            cuotas_insertadas += 1
+                            if commit_db:
                                 cnx.commit()
-                                cuotas_insertadas += 1
-                            except mysql.connector.Error as err_cuota:
-                                msg = str(err_cuota)
-                                if 'ya existe' in msg.lower():
-                                    cuotas_existentes += 1
-                                else:
-                                    errors_list.append(f"Fila {idx + 2}: Advertencia - Error al insertar cuota para póliza {row.get('POLIZA_CERTF')}: {msg}")
+                        elif existed:
+                            cuotas_existentes += 1
                     else:
                         errors_list.append(f"Fila {idx + 2}: Error al insertar póliza: {str(err)}")
                     # Solo hacemos rollback si estábamos intentando commitear
