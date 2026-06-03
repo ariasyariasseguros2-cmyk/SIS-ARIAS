@@ -407,6 +407,122 @@
     return dt;
   }
 
+  function __genCuotaKey() {
+    const a = Math.random().toString(36).slice(2, 10);
+    const b = Date.now().toString(36);
+    return `${b}-${a}`;
+  }
+
+  function ensureCuotaKey(cuota) {
+    if (!cuota || typeof cuota !== 'object') return '';
+    const k = (cuota.__key || '').toString().trim();
+    if (k) {
+      try {
+        Object.defineProperty(cuota, '__key', { value: k, enumerable: false, configurable: true, writable: true });
+      } catch (_) {}
+      return k;
+    }
+    const nk = __genCuotaKey();
+    try {
+      Object.defineProperty(cuota, '__key', { value: nk, enumerable: false, configurable: true, writable: true });
+    } catch (_) {
+      cuota.__key = nk;
+    }
+    return nk;
+  }
+
+  function ensureCuotasKeys(cuotas) {
+    if (!Array.isArray(cuotas)) return;
+    cuotas.forEach(c => ensureCuotaKey(c));
+  }
+
+  function sortCuotasArrayInPlace(cuotas) {
+    if (!Array.isArray(cuotas) || cuotas.length < 2) {
+      ensureCuotasKeys(cuotas);
+      return false;
+    }
+    ensureCuotasKeys(cuotas);
+    const before = cuotas.map(c => c.__key).join('|');
+    cuotas.sort(__compareCuotas);
+    const after = cuotas.map(c => c.__key).join('|');
+    return before !== after;
+  }
+
+  function __parseCuotaDateLoose(value) {
+    const raw = (value || '').toString().trim();
+    if (!raw) return null;
+    const dmy = parseDMYDateStrict(raw.replace(/-/g, '/'));
+    if (dmy) return dmy;
+    const m = raw.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+    if (m) {
+      const y = Number(m[1]);
+      const mo = Number(m[2]);
+      const d = Number(m[3]);
+      const dt = new Date(y, mo - 1, d);
+      if (dt.getFullYear() === y && (dt.getMonth() + 1) === mo && dt.getDate() === d) return dt;
+    }
+    return null;
+  }
+
+  function __cuotaSortKey(c) {
+    const due = __parseCuotaDateLoose(c?.fecha_vencimiento || '');
+    const cuponRaw = (c?.cupon || '').toString().trim();
+    const digits = cuponRaw.replace(/[^\d]/g, '');
+    const numeroRaw = (c?.numero_cuota ?? c?.numero ?? '').toString().trim();
+    const numero = Number.isFinite(Number(numeroRaw)) ? Number(numeroRaw) : null;
+    return {
+      dueTs: due ? due.getTime() : null,
+      numero,
+      digits,
+      cupon: cuponRaw.toLowerCase()
+    };
+  }
+
+  function __compareCuotas(a, b) {
+    const ka = __cuotaSortKey(a);
+    const kb = __cuotaSortKey(b);
+    if (ka.dueTs != null && kb.dueTs != null && ka.dueTs !== kb.dueTs) return ka.dueTs - kb.dueTs;
+    if (ka.dueTs != null && kb.dueTs == null) return -1;
+    if (ka.dueTs == null && kb.dueTs != null) return 1;
+    if (ka.numero != null && kb.numero != null && ka.numero !== kb.numero) return ka.numero - kb.numero;
+    if (ka.digits && kb.digits) {
+      if (ka.digits.length !== kb.digits.length) return ka.digits.length - kb.digits.length;
+      if (ka.digits !== kb.digits) return ka.digits < kb.digits ? -1 : 1;
+    } else if (ka.digits && !kb.digits) {
+      return -1;
+    } else if (!ka.digits && kb.digits) {
+      return 1;
+    }
+    if (ka.cupon !== kb.cupon) return ka.cupon < kb.cupon ? -1 : 1;
+    return 0;
+  }
+
+  function getCuotaFileMapKey(rowIndex, cuota) {
+    const k = ensureCuotaKey(cuota);
+    return `${rowIndex}:${k}`;
+  }
+
+  function __splitCuotaFileMapKey(key) {
+    const s = String(key || '');
+    const pos = s.indexOf(':');
+    if (pos < 0) return { rowIdx: NaN, cuotaKey: '' };
+    const rowIdx = Number(s.slice(0, pos));
+    const cuotaKey = s.slice(pos + 1);
+    return { rowIdx, cuotaKey };
+  }
+
+  function sortCuotasInPlaceForRow(index) {
+    if (!Number.isFinite(index) || !extractedItems[index]) return false;
+    const cuotas = extractedItems[index].cuotas || [];
+    if (!Array.isArray(cuotas) || cuotas.length < 2) return false;
+    const changed = sortCuotasArrayInPlace(cuotas);
+    if (changed) {
+      syncFirstCuotaToRow(index);
+      return true;
+    }
+    return false;
+  }
+
   function addMonthsClamped(baseDate, monthsToAdd) {
     if (!(baseDate instanceof Date) || Number.isNaN(baseDate.getTime())) return null;
     const y = baseDate.getFullYear();
@@ -800,7 +916,7 @@
             <div class="field">
               <label class="form-label small mb-1">ARCHIVO</label>
               ${(() => {
-                const k = `${index}:${ci}`;
+                const k = getCuotaFileMapKey(index, c);
                 const f = cuotaFacturaFileMap.get(k);
                 const has = !!f;
                 const nm = f ? (f.name || '') : '';
@@ -932,6 +1048,8 @@
       } else {
         it.moneda = 'S/';
       }
+
+      if (it.cuotas) sortCuotasArrayInPlace(it.cuotas);
 
       // Sync factura/fecha_pago from first cuota if available
       if (it.cuotas && it.cuotas.length > 0) {
@@ -1643,7 +1761,9 @@
 
     if (btnAddCuota) {
       if (!extractedItems[idx].cuotas) extractedItems[idx].cuotas = [];
-       extractedItems[idx].cuotas.push({ cupon: '', factura: '', fecha_pago: '', importe: '', fecha_vencimiento: '', moneda: 'S/' });
+      const c = { cupon: '', factura: '', fecha_pago: '', importe: '', fecha_vencimiento: '', moneda: 'S/' };
+      ensureCuotaKey(c);
+      extractedItems[idx].cuotas.push(c);
       refreshCuotasUI(idx);
       scheduleAutoSave();
       return;
@@ -1666,32 +1786,19 @@
 
       const cuotaIdx = Number(btn.dataset.cuotaIndex);
       if (Number.isFinite(cuotaIdx) && extractedItems[idx].cuotas) {
+        const cuota = extractedItems[idx].cuotas[cuotaIdx];
+        const cuotaKey = cuota ? getCuotaFileMapKey(idx, cuota) : '';
+        const prevFile = cuotaKey ? cuotaFacturaFileMap.get(cuotaKey) : null;
+        if (prevFile) {
+          cuotaFacturaFileMap.delete(cuotaKey);
+          try {
+            const arr = rowFacturasMap.get(idx) || [];
+            const newArr = arr.filter(x => keyForFile(x) !== keyForFile(prevFile));
+            rowFacturasMap.set(idx, newArr);
+          } catch (_) {}
+        }
         extractedItems[idx].cuotas.splice(cuotaIdx, 1);
-        const rebuilt = new Map();
-        Array.from(cuotaFacturaFileMap.entries()).forEach(([k, f]) => {
-          const [riRaw, ciRaw] = String(k).split(':');
-          const ri = Number(riRaw);
-          const ci = Number(ciRaw);
-          if (!Number.isFinite(ri) || !Number.isFinite(ci)) return;
-          if (ri !== idx) {
-            rebuilt.set(k, f);
-            return;
-          }
-          if (ci < cuotaIdx) {
-            rebuilt.set(k, f);
-            return;
-          }
-          if (ci === cuotaIdx) {
-            try {
-              const arr = rowFacturasMap.get(idx) || [];
-              const newArr = arr.filter(x => keyForFile(x) !== keyForFile(f));
-              rowFacturasMap.set(idx, newArr);
-            } catch (_) {}
-            return;
-          }
-          rebuilt.set(`${idx}:${ci - 1}`, f);
-        });
-        cuotaFacturaFileMap = rebuilt;
+        sortCuotasInPlaceForRow(idx);
         refreshCuotasUI(idx);
         updateRowFilesUI(idx);
         scheduleAutoSave();
@@ -1730,12 +1837,12 @@
       rowFacturasMap = newMap;
       const newCuotaMap = new Map();
       Array.from(cuotaFacturaFileMap.entries()).forEach(([k, f]) => {
-        const [riRaw, ciRaw] = String(k).split(':');
-        const ri = Number(riRaw);
-        const ci = Number(ciRaw);
-        if (!Number.isFinite(ri) || !Number.isFinite(ci)) return;
+        const parts = __splitCuotaFileMapKey(k);
+        const ri = parts.rowIdx;
+        const ck = parts.cuotaKey;
+        if (!Number.isFinite(ri) || !ck) return;
         if (ri < idx) newCuotaMap.set(k, f);
-        else if (ri > idx) newCuotaMap.set(`${ri - 1}:${ci}`, f);
+        else if (ri > idx) newCuotaMap.set(`${ri - 1}:${ck}`, f);
       });
       cuotaFacturaFileMap = newCuotaMap;
       render(extractedItems);
@@ -1750,7 +1857,27 @@
     }
 
     if (btnDup) {
-      const copy = { ...(extractedItems[idx] || {}) };
+      const src = (extractedItems[idx] || {});
+      const srcCuotas = Array.isArray(src.cuotas) ? src.cuotas : [];
+      ensureCuotasKeys(srcCuotas);
+      const cuotaFiles = new Map();
+      srcCuotas.forEach(c => {
+        const mk = getCuotaFileMapKey(idx, c);
+        const f = cuotaFacturaFileMap.get(mk);
+        if (f) cuotaFiles.set(ensureCuotaKey(c), f);
+      });
+      const copy = {
+        ...src,
+        cuotas: srcCuotas.map(c => {
+          const cc = { ...(c || {}) };
+          try {
+            Object.defineProperty(cc, '__key', { value: __genCuotaKey(), enumerable: false, configurable: true, writable: true });
+          } catch (_) {
+            cc.__key = __genCuotaKey();
+          }
+          return cc;
+        })
+      };
       extractedItems.splice(idx + 1, 0, copy);
       const files = rowFacturasMap.get(idx);
       if (files && files.length) {
@@ -1764,20 +1891,17 @@
       }
       const shiftedCuota = new Map();
       Array.from(cuotaFacturaFileMap.entries()).forEach(([k, f]) => {
-        const [riRaw, ciRaw] = String(k).split(':');
-        const ri = Number(riRaw);
-        const ci = Number(ciRaw);
-        if (!Number.isFinite(ri) || !Number.isFinite(ci)) return;
+        const parts = __splitCuotaFileMapKey(k);
+        const ri = parts.rowIdx;
+        const ck = parts.cuotaKey;
+        if (!Number.isFinite(ri) || !ck) return;
         if (ri <= idx) shiftedCuota.set(k, f);
-        else shiftedCuota.set(`${ri + 1}:${ci}`, f);
+        else shiftedCuota.set(`${ri + 1}:${ck}`, f);
       });
-      Array.from(cuotaFacturaFileMap.entries()).forEach(([k, f]) => {
-        const [riRaw, ciRaw] = String(k).split(':');
-        const ri = Number(riRaw);
-        const ci = Number(ciRaw);
-        if (ri === idx && Number.isFinite(ci)) {
-          shiftedCuota.set(`${idx + 1}:${ci}`, f);
-        }
+      (copy.cuotas || []).forEach((cNew, ci) => {
+        const cOld = srcCuotas[ci];
+        const f = cOld ? cuotaFiles.get(ensureCuotaKey(cOld)) : null;
+        if (f) shiftedCuota.set(getCuotaFileMapKey(idx + 1, cNew), f);
       });
       cuotaFacturaFileMap = shiftedCuota;
       render(extractedItems);
@@ -1826,6 +1950,7 @@
   });
 
   function refreshCuotasUI(index) {
+    sortCuotasInPlaceForRow(index);
     const tr = tbody.querySelectorAll('tr')[index];
     if (!tr) return;
     const actionsCol = tr.querySelector('.actions-col');
@@ -1861,6 +1986,21 @@
     if (pfp) pfp.value = item.fecha_pago || '';
     // Campo de fecha vencimiento se gestiona desde la tabla (no en el panel de cuota)
   }
+
+  tbody.addEventListener('change', (e) => {
+    const cc = e.target.closest('.cuota-cupon');
+    const cv = e.target.closest('.cuota-vencimiento');
+    if (!cc && !cv) return;
+    const src = (cc || cv);
+    const idx = Number(src.dataset.index);
+    if (!Number.isFinite(idx)) return;
+    const changed = sortCuotasInPlaceForRow(idx);
+    if (changed) {
+      refreshCuotasUI(idx);
+      updateRowFilesUI(idx);
+      scheduleAutoSave();
+    }
+  });
 
   tbody.addEventListener('change', async (e) => {
     const input = e.target.closest('.input-facturas');
@@ -1919,7 +2059,8 @@
     if (!Number.isFinite(index) || !Number.isFinite(cuotaIdx) || !file) return;
     if (!extractedItems[index] || !extractedItems[index].cuotas || !extractedItems[index].cuotas[cuotaIdx]) return;
 
-    const cuotaKey = `${index}:${cuotaIdx}`;
+    const cuota = extractedItems[index].cuotas[cuotaIdx];
+    const cuotaKey = getCuotaFileMapKey(index, cuota);
     const prev = cuotaFacturaFileMap.get(cuotaKey);
     if (prev) {
       try {
@@ -1940,7 +2081,6 @@
     if (/\.pdf$/i.test(file.name)) {
       const meta = await extractFacturaMetaFromFile(file);
       facturaMetaMap.set(keyForFile(file), meta);
-      const cuota = extractedItems[index].cuotas[cuotaIdx];
       if (cuota) {
         if (!cuota.factura && meta.factura) cuota.factura = meta.factura;
         if (!cuota.fecha_pago && meta.fecha_pago) cuota.fecha_pago = meta.fecha_pago;
@@ -1949,6 +2089,7 @@
       syncFirstCuotaToRow(index);
     }
 
+    sortCuotasInPlaceForRow(index);
     refreshCuotasUI(index);
     updateRowFilesUI(index);
     scheduleAutoSave();
@@ -1973,7 +2114,9 @@
       const idx = Number((btnView || btnRem).dataset.index);
       const cuotaIdx = Number((btnView || btnRem).dataset.cuotaIndex);
       if (!Number.isFinite(idx) || !Number.isFinite(cuotaIdx)) return;
-      const k = `${idx}:${cuotaIdx}`;
+      const cuota = extractedItems[idx]?.cuotas?.[cuotaIdx];
+      if (!cuota) return;
+      const k = getCuotaFileMapKey(idx, cuota);
       const file = cuotaFacturaFileMap.get(k);
       if (!file) return;
       if (btnView) {
@@ -1998,10 +2141,8 @@
           rowFacturasMap.set(idx, newArr);
         } catch (_) {}
         try {
-          if (extractedItems[idx]?.cuotas?.[cuotaIdx]) {
-            extractedItems[idx].cuotas[cuotaIdx].factura = '';
-            extractedItems[idx].cuotas[cuotaIdx].fecha_pago = '';
-          }
+          extractedItems[idx].cuotas[cuotaIdx].factura = '';
+          extractedItems[idx].cuotas[cuotaIdx].fecha_pago = '';
         } catch (_) {}
         syncFirstCuotaToRow(idx);
         refreshCuotasUI(idx);
@@ -2144,11 +2285,18 @@
         });
         if (hitKey) {
           cuotaFacturaFileMap.delete(hitKey);
-          const parts = String(hitKey).split(':');
-          const cuotaIdx = Number(parts[1]);
-          if (Number.isFinite(cuotaIdx) && extractedItems[idx]?.cuotas?.[cuotaIdx]) {
-            extractedItems[idx].cuotas[cuotaIdx].factura = '';
-            extractedItems[idx].cuotas[cuotaIdx].fecha_pago = '';
+          const parts = __splitCuotaFileMapKey(hitKey);
+          const rowIdx = parts.rowIdx;
+          const cuotaKey = parts.cuotaKey;
+          if (Number.isFinite(rowIdx) && cuotaKey && extractedItems[rowIdx]?.cuotas) {
+            const ci = extractedItems[rowIdx].cuotas.findIndex(c => (c && (c.__key || '') === cuotaKey));
+            if (ci >= 0) {
+              extractedItems[rowIdx].cuotas[ci].factura = '';
+              extractedItems[rowIdx].cuotas[ci].fecha_pago = '';
+              syncFirstCuotaToRow(rowIdx);
+              refreshCuotasUI(rowIdx);
+              updateRowFilesUI(rowIdx);
+            }
           }
         }
       } catch (_) {}
@@ -2890,12 +3038,14 @@
         });
       }
       if (cuotaFacturaFileMap && cuotaFacturaFileMap.size > 0) {
-        Array.from(cuotaFacturaFileMap.entries()).forEach(([key, file]) => {
-          const parts = String(key).split(':');
-          const rowIdx = Number(parts[0]);
-          const cuotaIdx = Number(parts[1]);
-          if (!Number.isFinite(rowIdx) || !Number.isFinite(cuotaIdx) || !file) return;
-          formData.append(`facturas_cuota_${rowIdx}_${cuotaIdx}`, file);
+        (extractedItems || []).forEach((it, rowIdx) => {
+          const cuotas = Array.isArray(it?.cuotas) ? it.cuotas : [];
+          cuotas.forEach((c, ci) => {
+            const k = getCuotaFileMapKey(rowIdx, c);
+            const file = cuotaFacturaFileMap.get(k);
+            if (!file) return;
+            formData.append(`facturas_cuota_${rowIdx}_${ci}`, file);
+          });
         });
       } else {
         if (allFacturas && allFacturas.length > 0) {
@@ -3255,6 +3405,9 @@
         return cur;
       });
     }
+
+    ensureCuotasKeys(extractedItems[index].cuotas);
+    sortCuotasInPlaceForRow(index);
 
     if (!extractedItems[index].factura && extractedItems[index].cuotas[0]) {
       extractedItems[index].factura = extractedItems[index].cuotas[0].factura || '';
