@@ -116,6 +116,23 @@ window.initEditarPrimasLogic = function(isModal = false) {
             }
         };
 
+        // Función auxiliar para calcular % comisión cía desde el Importe
+        const updatePorcCompaniaFromImporte = () => {
+            if (!txtPorcCompania || !txtImpCompania) return;
+            if (document.activeElement !== txtImpCompania) return;
+
+            const neta = parseFloat(txtPrimaNeta.value);
+            const imp = parseFloat(txtImpCompania.value);
+
+            if (!isNaN(neta) && neta !== 0 && !isNaN(imp)) {
+                txtPorcCompania.value = ((imp / neta) * 100).toFixed(2);
+                updateImporteSubAgente();
+            } else {
+                txtPorcCompania.value = '';
+                if (txtImpSubAgente) txtImpSubAgente.value = '';
+            }
+        };
+
         // Función para actualizar TODO basado en Prima Comercial
         const updateFromComercial = () => {
             if (document.activeElement !== txtPrimaComercial) return;
@@ -161,6 +178,10 @@ window.initEditarPrimasLogic = function(isModal = false) {
         
         if (txtPorcCompania) {
             txtPorcCompania.addEventListener('input', updateImporteCompania);
+        }
+
+        if (txtImpCompania) {
+            txtImpCompania.addEventListener('input', updatePorcCompaniaFromImporte);
         }
         
         if (txtPorcSubAgente) {
