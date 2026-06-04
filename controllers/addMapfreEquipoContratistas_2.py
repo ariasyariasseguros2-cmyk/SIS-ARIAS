@@ -188,30 +188,112 @@ def parse_mapfre_equipo_contratistas_2(text: str):
                 
                 if found_name:
                     break # Detener búsqueda principal tras encontrar el bloque NOMBRE
+
+    if 'colectivo_asegurado' not in item:
+        m_sen = re.search(
+            r"Señor\(a\)[^\n:]{0,60}:\s*(?:\n\s*)?([^\n]{3,120})",
+            text_norm,
+            re.IGNORECASE,
+        )
+        if m_sen:
+            cand = (m_sen.group(1) or "").strip()
+            cand = re.sub(r"\s+RUC.*$", "", cand, flags=re.IGNORECASE).strip()
+            if cand:
+                item["colectivo_asegurado"] = cand
+                item["asegurado"] = cand
     
     # 7. Primas
-    # Prima Comercial 4,259.77
-    m_pc = re.search(r'Prima Comercial\s+([\d,]+\.\d{2})', text_norm)
+    def _normalize_amount(val: str):
+        if not val:
+            return None
+        s = val.strip()
+        s = re.sub(r"[^\d,\.]", "", s)
+        if not s:
+            return None
+        if "," in s and "." in s:
+            if s.rfind(",") > s.rfind("."):
+                s = s.replace(".", "").replace(",", ".")
+            else:
+                s = s.replace(",", "")
+        else:
+            if s.count(",") == 1 and s.count(".") == 0:
+                s = s.replace(",", ".")
+            else:
+                s = s.replace(",", "")
+        return s
+
+    money = r"(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})"
+
+    m_pc = re.search(
+        r"Prima\s+Comercial(?!\s*\+)[\s\S]{0,120}?" + money,
+        text_norm,
+        re.IGNORECASE,
+    )
     if m_pc:
-        # Limpiar comas para evitar error de cálculo en JS/Backend
-        val_pc = m_pc.group(1).replace(',', '')
-        item['prima_comercial'] = val_pc
-        
-        # Calcular Prima Neta (asumiendo DE=3%: PC = PN * 1.03)
-        try:
-            pc_float = float(val_pc)
-            pn_float = pc_float / 1.03
-            item['prima_neta'] = f"{pn_float:.2f}"
-        except:
-            pass
-        
-    # Prima Comercial + I.G.V.
-    m_pigv = re.search(r'Prima Comercial\s+\+\s+I\.G\.V\.\s+([\d,]+\.\d{2})', text_norm)
+        val_pc = _normalize_amount(m_pc.group(1))
+        if val_pc:
+            item["prima_comercial"] = val_pc
+
+    if "prima_comercial" not in item or "prima_total" not in item:
+        m_tbl = re.search(
+            r"PRIMA\s+COMERCIAL[\s\S]{0,120}?TOTAL([\s\S]{0,1200})",
+            text_norm,
+            re.IGNORECASE,
+        )
+        if m_tbl:
+            block = m_tbl.group(1)
+            block = re.split(
+                r"CRONOGRAMA\s+DE\s+PAGO",
+                block,
+                maxsplit=1,
+                flags=re.IGNORECASE,
+            )[0]
+            nums = re.findall(money, block)
+            if nums:
+                if "prima_comercial" not in item:
+                    val_pc = _normalize_amount(nums[0])
+                    if val_pc:
+                        item["prima_comercial"] = val_pc
+                if len(nums) >= 3:
+                    igv_val = _normalize_amount(nums[1])
+                    tot_val = _normalize_amount(nums[2])
+                    if igv_val and "igv" not in item:
+                        item["igv"] = igv_val
+                    if tot_val and "prima_total" not in item:
+                        item["prima_total"] = tot_val
+                    if tot_val and "prima_comercial_igv" not in item:
+                        item["prima_comercial_igv"] = tot_val
+                    if tot_val and "monto" not in item:
+                        item["monto"] = tot_val
+                elif len(nums) == 2:
+                    tot_val = _normalize_amount(nums[1])
+                    if tot_val and "prima_total" not in item:
+                        item["prima_total"] = tot_val
+                    if tot_val and "prima_comercial_igv" not in item:
+                        item["prima_comercial_igv"] = tot_val
+                    if tot_val and "monto" not in item:
+                        item["monto"] = tot_val
+
+    m_pigv = re.search(
+        r"Prima\s+Comercial\s*\+\s*I\.?\s*G\.?\s*V\.?[\s\S]{0,60}?" + money,
+        text_norm,
+        re.IGNORECASE,
+    )
     if m_pigv:
-        val_pigv = m_pigv.group(1).replace(',', '')
-        item['prima_comercial_igv'] = val_pigv
-        item['prima_total'] = val_pigv
-        item['monto'] = val_pigv
+        val_pigv = _normalize_amount(m_pigv.group(1))
+        if val_pigv:
+            item["prima_comercial_igv"] = val_pigv
+            item["prima_total"] = val_pigv
+            item["monto"] = val_pigv
+
+    val_pc_for_calc = item.get("prima_comercial")
+    if val_pc_for_calc:
+        try:
+            pc_float = float(val_pc_for_calc)
+            pn_float = pc_float / 1.03
+            item["prima_neta"] = f"{pn_float:.2f}"
+        except Exception:
+            pass
 
     # 8. Comisión
     # IMPORTE DE LA COMISION 475.61
@@ -225,6 +307,15 @@ def parse_mapfre_equipo_contratistas_2(text: str):
     m_recibo = re.search(r'NRO\.?\s*RECIBO.*?(\d{7,})', text_norm, re.IGNORECASE | re.DOTALL)
     if m_recibo:
         item['recibo'] = m_recibo.group(1)
+
+    if not item.get("fecha_vecimiento"):
+        m_fv = re.search(
+            r"CRONOGRAMA\s+DE\s+PAGO[\s\S]{0,1500}?(\d{2}/\d{2}/\d{4})",
+            text_norm,
+            re.IGNORECASE,
+        )
+        if m_fv:
+            item["fecha_vecimiento"] = m_fv.group(1)
 
     # 10. Producto
     # Si no se encuentra explícito, usar el mismo del ramo o "EQUIPO DE CONTRATISTAS"

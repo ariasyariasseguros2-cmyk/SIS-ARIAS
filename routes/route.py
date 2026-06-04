@@ -2700,6 +2700,12 @@ def upload():
             cuotas_extraidas = extract_cronograma_cuotas_positiva(pdf_text_full, moneda_cuotas)
         elif ('pacifico' in prov_norm) or ('pacifico' in pdf_low):
             cuotas_extraidas = extract_cronograma_cuotas_pacifico(pdf_text_full, moneda_cuotas)
+        elif ('mapfre' in prov_norm) or ('mapfre' in pdf_low):
+            try:
+                from controllers.cuotas.VariosCuponGeneralesMapfre import extract_cronograma_cuotas_mapfre
+                cuotas_extraidas = extract_cronograma_cuotas_mapfre(pdf_text_full, moneda_cuotas)
+            except Exception:
+                cuotas_extraidas = []
         if not cuotas_extraidas:
             cuotas_extraidas = extract_cronograma_cuotas_general(pdf_text_full, moneda_cuotas)
 
@@ -2707,6 +2713,8 @@ def upload():
             extracted['cuotas'] = cuotas_extraidas
             if not extracted.get('fecha_vencimiento'):
                 extracted['fecha_vencimiento'] = cuotas_extraidas[0].get('fecha_vencimiento') or ''
+            if not extracted.get('fecha_vecimiento'):
+                extracted['fecha_vecimiento'] = cuotas_extraidas[0].get('fecha_vencimiento') or ''
     except Exception:
         pass
 

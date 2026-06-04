@@ -937,6 +937,7 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
     is_sanitas = ('SANITAS' in text_fold_upper) and (not is_protecta)
     is_positiva = 'LA POSITIVA' in text_upper
     is_qualitas = ('QUALITAS' in text_fold_upper) or ('QUÁLITAS' in text_upper) or ('QUÁLITAS' in text_fold_upper)
+    is_mapfre = 'MAPFRE' in text_fold_upper
 
     if is_protecta:
         m_fac = re.search(r'(F\d{3}\s*-\s*\d+)', text, re.IGNORECASE)
@@ -1086,6 +1087,15 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
         if obs_parts:
             data["observacion"] = " | ".join(obs_parts)
 
+    elif is_mapfre:
+        moneda_val = find_val(r"Moneda\s*[:.]?\s*([A-Za-zÁÉÍÓÚÑ$/\. ]+)", text)
+        if moneda_val:
+            m = moneda_val.upper()
+            if "DOLAR" in m or "DÓLAR" in m or "USD" in m or "US$" in m:
+                data["moneda"] = "US$"
+            elif "SOL" in m or "S/" in m:
+                data["moneda"] = "S/."
+
     elif is_sanitas:
        # Lógica específica para Sanitas
        
@@ -1198,6 +1208,7 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
             from controllers.cuotas.VariosCuotasPositiva import extract_cronograma_cuotas_positiva
             from controllers.cuotas.VariosCuotasPacifico import extract_cronograma_cuotas_pacifico
             from controllers.cuotas.VariosCuponGeneralesRimac import extract_cronograma_cuotas_rimac
+            from controllers.cuotas.VariosCuponGeneralesMapfre import extract_cronograma_cuotas_mapfre
 
             if 'LA POSITIVA' in text_upper or 'POSITIVA' in text_upper:
                 cuotas = extract_cronograma_cuotas_positiva(text, moneda_default)
@@ -1205,6 +1216,8 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
                 cuotas = extract_cronograma_cuotas_pacifico(text, moneda_default)
             elif 'RIMAC' in text_upper:
                 cuotas = extract_cronograma_cuotas_rimac(text, moneda_default)
+            elif 'MAPFRE' in text_fold_upper:
+                cuotas = extract_cronograma_cuotas_mapfre(text, moneda_default)
 
             if not cuotas:
                 cuotas = extract_general(text, moneda_default)
