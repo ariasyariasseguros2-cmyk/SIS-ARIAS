@@ -40,6 +40,50 @@ def _capture_block_after(label: str, text: str, end_labels: list[str]) -> str | 
     return blk.strip(" :.-")
 
 def parse_pacifico_vidaley(text: str) -> dict | None:
+    def _to_float_amount(s: str | None) -> float | None:
+        if not s:
+            return None
+        try:
+            txt = str(s).strip()
+            if not txt:
+                return None
+            m = re.search(r"[-+]?\d[\d.,]*", txt)
+            if not m:
+                return None
+            raw = (m.group(0) or "").strip()
+            if not raw:
+                return None
+            if raw.startswith("+"):
+                raw = raw[1:]
+            last_dot = raw.rfind(".")
+            last_comma = raw.rfind(",")
+            if last_dot == -1 and last_comma == -1:
+                return float(raw)
+            if last_dot > last_comma:
+                cleaned = raw.replace(",", "")
+            elif last_comma > last_dot:
+                cleaned = raw.replace(".", "").replace(",", ".")
+            else:
+                sep_idx = max(last_dot, last_comma)
+                int_part = "".join(ch for ch in raw[:sep_idx] if (ch.isdigit() or ch == "-"))
+                dec_part = "".join(ch for ch in raw[sep_idx + 1 :] if ch.isdigit())
+                cleaned = f"{int_part}.{dec_part}" if dec_part else int_part
+            if cleaned.count(".") > 1:
+                sign = ""
+                if cleaned.startswith("-"):
+                    sign = "-"
+                    cleaned = cleaned[1:]
+                parts = cleaned.split(".")
+                int_part = "".join(parts[:-1]).replace(".", "").replace(",", "")
+                dec_part = parts[-1]
+                cleaned = f"{sign}{int_part}.{dec_part}" if dec_part else f"{sign}{int_part}"
+            return float(cleaned)
+        except Exception:
+            return None
+
+    amount_group = r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))"
+    amount_pattern = r"\b" + amount_group + r"\b"
+
     def _canon(t: str) -> str:
         flat = re.sub(r"[\r\n]+", " ", t)
         return re.sub(r"\s{2,}", " ", flat)
@@ -94,8 +138,8 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
                         cut = j
                         break
                 search_list = candidates[:cut]
-                pattern_dot = r"\b([0-9]+\.[0-9]{2})\b"
-                pattern_any = r"\b([0-9]+(?:[.,][0-9]{2}))\b"
+                pattern_dot = r"\b([0-9]{1,3}(?:[.,][0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})\b"
+                pattern_any = amount_pattern
                 # preferir punto decimal
                 for c in search_list:
                     m = re.search(pattern_dot, c)
@@ -116,11 +160,12 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
         if not m:
             return []
         seg = t[max(0, m.start()-40): m.end() + window]
-        # Aceptar punto o coma como separador decimal
-        vals = re.findall(r"\b([0-9]+(?:[.,][0-9]{2}))\b", seg)
+        vals = re.findall(amount_pattern, seg, re.IGNORECASE | re.DOTALL)
         uniq = []
         for v in vals:
-            f = float(v.replace(",", "."))
+            f = _to_float_amount(v)
+            if f is None:
+                continue
             if all(abs(f - u) > 1e-6 for u in uniq):
                 uniq.append(f)
         print("[pacifico] montos cerca del bloque:", uniq)
@@ -128,11 +173,13 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
 
     # Nuevo fallback: deducción global (total ≈ prima + igv)
     def _deduce_amounts_global(t: str) -> tuple[str | None, str | None, str | None]:
-        vals_raw = re.findall(r"\b([0-9]+(?:[.,][0-9]{2}))\b", t)
+        vals_raw = re.findall(amount_pattern, t, re.IGNORECASE | re.DOTALL)
         vals = []
         for v in vals_raw:
             try:
-                f = float(v.replace(",", "."))
+                f = _to_float_amount(v)
+                if f is None:
+                    continue
                 # deduplicar por 2 decimales
                 if all(abs(f - u) > 1e-6 for u in vals):
                     vals.append(f)
@@ -161,7 +208,7 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
         lines = [l.strip() for l in raw_text.splitlines()]
         for i, l in enumerate(lines):
             if re.search(label_regex, l, re.IGNORECASE):
-                pattern = r"(?:S\/\s*)?([0-9]+(?:[.,][0-9]{2}))"
+                pattern = r"(?:S\/\s*)?" + amount_group
                 found = re.findall(pattern, l)
                 if found:
                     return found[-1]
@@ -299,47 +346,57 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
     # Montos: extracción por etiqueta y no sobreescribir si ya existen
     prima_comercial = (
         _first_decimal_after(r"\bPRIMA\s+COMERCIAL\b", text, lookahead_lines=4, dot_only=False)
-        or _find_after(r"\bPRIMA\s+COMERCIAL\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
-        or _find_last(r"PRIMA\s+COMERCIAL(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+        or _find_after(r"\bPRIMA\s+COMERCIAL\b", flat, r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))", window=200)
+        or _find_last(r"PRIMA\s+COMERCIAL(?:[^A-Z]|$).*?([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))", text)
     )
+    igv_label = r"(?:\bIGV\b|I\.?G\.?V\.?|\bIMPSTO\.?\s*GRA(?:L\.?)?(?:\s*A\s*VENTA)?\b|\bIMPUESTO\s+GENERAL\s+A\s+LAS\s+VENTAS\b)"
     igv_val = (
-        _first_decimal_after(r"\bIGV\b", text, lookahead_lines=4, dot_only=False)
-        or _find_after(r"\bIGV\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
-        or _find_last(r"\bIGV\b(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+        _first_decimal_after(igv_label, text, lookahead_lines=4, dot_only=False)
+        or _find_after(igv_label, flat, r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))", window=220)
+        or _find_last(igv_label + r"(?:[^A-Z]|$).*?([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))", text)
     )
+    total_a_cobrar_label = r"TOTAL\s+A\s+(?:COBRAR|PAGAR|CANCELAR)\b"
+    total_label = r"(?:TOTAL\s+A\s+(?:COBRAR|PAGAR|CANCELAR)|PRIMA\s+COMERCIAL\s*\+\s*IGV|IMPORTE\s+TOTAL)"
     total_cobrar = (
-        _first_decimal_after(r"TOTAL\s+A\s+COBRAR\b", text, lookahead_lines=4, dot_only=False)
-        or _find_after(r"TOTAL\s+A\s+COBRAR\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
-        or _find_last(r"TOTAL\s+A\s+COBRAR(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+        _first_decimal_after(total_a_cobrar_label, text, lookahead_lines=6, dot_only=False)
+        or _find_after(total_a_cobrar_label, flat, r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))", window=320)
+        or _find_last(total_a_cobrar_label + r"(?:[^A-Z]|$).*?([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))", text)
+        or _first_decimal_after(total_label, text, lookahead_lines=5, dot_only=False)
+        or _find_after(total_label, flat, r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))", window=260)
+        or _find_last(total_label + r"(?:[^A-Z]|$).*?([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))", text)
     )
     # Reforzar lectura de línea si alguna quedó vacía
     if not prima_comercial:
         prima_comercial = _label_amount(r"\bPRIMA\s+COMERCIAL\b", text, lookahead_lines=6)
     if not igv_val:
-        igv_val = _label_amount(r"\bIGV\b", text, lookahead_lines=6)
+        igv_val = _label_amount(igv_label, text, lookahead_lines=6)
     if not total_cobrar:
-        total_cobrar = _label_amount(r"TOTAL\s+A\s+COBRAR\b", text, lookahead_lines=6)
+        total_cobrar = _label_amount(total_label, text, lookahead_lines=6)
 
     # Completar triada sin heurística global: usar identidades contables
-    def _f(s: str | None) -> float | None:
-        try:
-            return float((s or "").replace(",", "."))
-        except Exception:
-            return None
+    pc_num = _to_float_amount(prima_comercial)
+    igv_num = _to_float_amount(igv_val)
+    tot_num = _to_float_amount(total_cobrar)
 
-    pc_num = _f(prima_comercial)
-    igv_num = _f(igv_val)
-    tot_num = _f(total_cobrar)
+    # Sanidad: evitar falsos positivos (ej. TCEA 2.02) cuando la prima es 1,100.31
+    if tot_num is not None and pc_num is not None:
+        if (tot_num < pc_num) or (pc_num >= 100 and tot_num < 10) or (pc_num >= 50 and tot_num > (pc_num * 5)):
+            total_cobrar = None
+            tot_num = None
+    if igv_num is not None and pc_num is not None:
+        if igv_num < 0 or (pc_num >= 100 and igv_num < 1):
+            igv_val = None
+            igv_num = None
 
     if tot_num is not None and igv_num is not None and pc_num is None:
         prima_comercial = f"{tot_num - igv_num:.2f}"
-        pc_num = _f(prima_comercial)
+        pc_num = _to_float_amount(prima_comercial)
     if pc_num is not None and igv_num is not None and tot_num is None:
         total_cobrar = f"{pc_num + igv_num:.2f}"
-        tot_num = _f(total_cobrar)
+        tot_num = _to_float_amount(total_cobrar)
     if pc_num is not None and tot_num is not None and igv_num is None:
         igv_val = f"{tot_num - pc_num:.2f}"
-        igv_num = _f(igv_val)
+        igv_num = _to_float_amount(igv_val)
 
     # NO usar deducción global si ya hay montos por etiqueta
     # Solo último recurso si los tres están vacíos
@@ -383,7 +440,11 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
         "prima_comercial": _clean(_money(prima_comercial)),
         "prima_comercial_igv": _clean(_money(total_cobrar)) or (
             _clean(prima_comercial) and _clean(igv_val) and
-            f"{float(prima_comercial.replace(',', '.')) + float(igv_val.replace(',', '.')):.2f}"
+            (
+                (lambda a, b: f"{a + b:.2f}" if (a is not None and b is not None) else None)(
+                    _to_float_amount(prima_comercial), _to_float_amount(igv_val)
+                )
+            )
         ) or None,
         "ramo": _clean(ramo_main) or _clean(ramo),
         "ramos_producto": _clean(ramos_producto),

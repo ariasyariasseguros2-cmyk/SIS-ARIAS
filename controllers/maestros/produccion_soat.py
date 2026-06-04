@@ -171,8 +171,7 @@ def export_produccion_soat_excel(search='', fecha_desde=None, fecha_hasta=None):
                     CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
                     CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
                     p.asegurado
-                ) AS asegurado,
-                p.estado
+                ) AS asegurado
             FROM polizas p
             WHERE {where_sql}
             ORDER BY p.creado_en DESC
@@ -194,7 +193,7 @@ def export_produccion_soat_excel(search='', fecha_desde=None, fecha_hasta=None):
         "Póliza", "Recibo", "Planilla", "Código", "Vendedor", 
         "Prima Neta", "Prima C. IGV", "% Cía", "Imp. Cía", 
         "% Agente", "Imp. Agente", "Producción Neta",
-        "Vigencia Desde", "Vigencia Hasta", "Cía", "Asegurado", "Estado"
+        "Vigencia Desde", "Vigencia Hasta", "Cía", "Asegurado"
     ]
 
     wb = Workbook()
@@ -206,6 +205,8 @@ def export_produccion_soat_excel(search='', fecha_desde=None, fecha_hasta=None):
         cell = ws.cell(row=1, column=col, value=h)
         cell.font = bold_font
 
+    currency_format = '"S/" #,##0.00'
+
     for r_idx, row in enumerate(rows, start=2):
         ws.cell(row=r_idx, column=1, value=row.get('poliza'))
         ws.cell(row=r_idx, column=2, value=row.get('recibo'))
@@ -214,31 +215,30 @@ def export_produccion_soat_excel(search='', fecha_desde=None, fecha_hasta=None):
         ws.cell(row=r_idx, column=5, value=row.get('vendedor'))
         
         c = ws.cell(row=r_idx, column=6, value=float(row.get('prima_neta') or 0))
-        c.number_format = '#,##0.00'
+        c.number_format = currency_format
         
         c = ws.cell(row=r_idx, column=7, value=float(row.get('prima_comercial_igv') or 0))
-        c.number_format = '#,##0.00'
+        c.number_format = currency_format
         
         c = ws.cell(row=r_idx, column=8, value=float(row.get('porc_compania') or 0))
         c.number_format = '0.00'
         
         c = ws.cell(row=r_idx, column=9, value=float(row.get('imp_compania') or 0))
-        c.number_format = '#,##0.00'
+        c.number_format = currency_format
         
         c = ws.cell(row=r_idx, column=10, value=float(row.get('porc_subagente') or 0))
         c.number_format = '0.00'
         
         c = ws.cell(row=r_idx, column=11, value=float(row.get('imp_subagente') or 0))
-        c.number_format = '#,##0.00'
+        c.number_format = currency_format
         
         c = ws.cell(row=r_idx, column=12, value=float(row.get('produccion_neta') or 0))
-        c.number_format = '#,##0.00'
+        c.number_format = currency_format
         
         ws.cell(row=r_idx, column=13, value=row.get('vig_desde'))
         ws.cell(row=r_idx, column=14, value=row.get('vig_hasta'))
         ws.cell(row=r_idx, column=15, value=row.get('cia'))
         ws.cell(row=r_idx, column=16, value=row.get('asegurado'))
-        ws.cell(row=r_idx, column=17, value=row.get('estado'))
 
     # Save file
     try:

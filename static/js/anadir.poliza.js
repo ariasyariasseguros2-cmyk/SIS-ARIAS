@@ -633,6 +633,15 @@
     const netaNum0 = parseNumber(it.prima_neta);
 
     if (Number.isFinite(totalIgvNum) && totalIgvNum > 0) {
+      const totalSeemsTooSmall = Number.isFinite(comercialNum0) && comercialNum0 > 0
+        && (totalIgvNum < (comercialNum0 * 0.50) || (comercialNum0 >= 100 && totalIgvNum < 10));
+      const totalSeemsTooBig = Number.isFinite(comercialNum0) && comercialNum0 > 0
+        && (totalIgvNum > (comercialNum0 * 5));
+      if (totalSeemsTooSmall) {
+        // ignorar total/igv inválido (ej. TCEA 2.02) si ya tenemos prima_comercial grande
+      } else if (totalSeemsTooBig) {
+        // ignorar total/igv inválido (ej. TOTAL REMUNERACIONES) si ya tenemos prima_comercial grande
+      } else {
       const comercialFromTotal = totalIgvNum / 1.18;
       const relErr = (Number.isFinite(comercialNum0) && comercialFromTotal > 0)
         ? (Math.abs(comercialNum0 - comercialFromTotal) / comercialFromTotal)
@@ -642,6 +651,7 @@
         it.prima_neta = computePrimaNetaFromComercial(it.prima_comercial);
         it.prima_comercial_igv = totalIgvNum.toFixed(2);
         return it;
+      }
       }
     }
 
@@ -1443,13 +1453,19 @@
   function sanitizeNumericText(text) {
     const s = (text || '').toString();
     let out = '';
-    let hasSep = false;
     let hasSign = false;
+    let lastWasSep = false;
     for (let i = 0; i < s.length; i++) {
       const ch = s[i];
-      if (ch >= '0' && ch <= '9') { out += ch; continue; }
-      if ((ch === '.' || ch === ',') && !hasSep) { out += ch; hasSep = true; continue; }
-      if (ch === '-' && !hasSign && out.length === 0) { out += ch; hasSign = true; continue; }
+      if (ch >= '0' && ch <= '9') { out += ch; lastWasSep = false; continue; }
+      if (ch === '-' && !hasSign && out.length === 0) { out += ch; hasSign = true; lastWasSep = false; continue; }
+      if (ch === '.' || ch === ',') {
+        if (out.length === 0 || out === '-') continue;
+        if (lastWasSep) continue;
+        out += ch;
+        lastWasSep = true;
+        continue;
+      }
       // ignorar todo lo demás
     }
     return out;
@@ -1526,8 +1542,6 @@
     if (e.key === 'Backspace' || e.key === 'Delete') return;
     if (/\d/.test(e.key)) return;
     if (e.key === '.' || e.key === ',') {
-      const cur = td.textContent || '';
-      if (cur.includes('.') || cur.includes(',')) { e.preventDefault(); return; }
       return;
     }
     if (e.key === '-') {

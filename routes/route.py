@@ -2123,6 +2123,17 @@ def upload():
         except Exception:
             pass
 
+        try:
+            for k in ("prima_comercial", "prima_neta", "prima_total", "prima_comercial_igv"):
+                raw_v = res.get(k)
+                if raw_v is None:
+                    continue
+                norm_v = _normalize_importe_text(str(raw_v))
+                if norm_v:
+                    res[k] = norm_v
+        except Exception:
+            pass
+
         def _looks_like_insurer_name(name: str | None) -> bool:
             if not name:
                 return False
@@ -2135,6 +2146,8 @@ def upload():
                 "pacifico",
                 "pacífico",
                 "mapfre",
+                "qualitas",
+                "quálitas",
                 "crecer seguros",
                 "rimac",
             ]
@@ -2158,22 +2171,28 @@ def upload():
             has_com = res.get("prima_comercial") is not None and str(res.get("prima_comercial") or "").strip() != ""
             has_net = res.get("prima_neta") is not None and str(res.get("prima_neta") or "").strip() != ""
             if has_com and not has_net:
-                val = float(str(res["prima_comercial"]).replace(',', '.').replace(' ', ''))
-                res["prima_neta"] = f"{(val / 1.03):.2f}"
+                val_txt = _normalize_importe_text(str(res.get("prima_comercial") or ""))
+                if val_txt:
+                    val = float(val_txt)
+                    res["prima_neta"] = f"{(val / 1.03):.2f}"
             elif has_net and not has_com:
-                val = float(str(res["prima_neta"]).replace(',', '.').replace(' ', ''))
-                res["prima_comercial"] = f"{(val * 1.03):.2f}"
+                val_txt = _normalize_importe_text(str(res.get("prima_neta") or ""))
+                if val_txt:
+                    val = float(val_txt)
+                    res["prima_comercial"] = f"{(val * 1.03):.2f}"
         except Exception:
             pass
 
         try:
             total_igv_raw = str(res.get("prima_comercial_igv") or "").strip()
             if total_igv_raw:
-                total_igv = float(total_igv_raw.replace(",", ".").replace(" ", ""))
+                total_igv_txt = _normalize_importe_text(total_igv_raw)
+                total_igv = float(total_igv_txt) if total_igv_txt else 0.0
                 if total_igv > 0:
                     expected = total_igv / 1.18
                     pc_raw = str(res.get("prima_comercial") or "").strip()
-                    pc = float(pc_raw.replace(",", ".").replace(" ", "")) if pc_raw else None
+                    pc_txt = _normalize_importe_text(pc_raw) if pc_raw else ""
+                    pc = float(pc_txt) if pc_txt else None
                     rel = (abs(pc - expected) / expected) if (pc is not None and expected > 0) else None
                     if pc is None or pc <= 0 or (rel is not None and rel > 0.20):
                         res["prima_comercial"] = f"{expected:.2f}"
@@ -2561,6 +2580,8 @@ def upload():
                     provider_final = 'positiva'
                 elif 'mapfre' in pdf_low:
                     provider_final = 'mapfre'
+                elif ('qualitas' in pdf_low) or ('quálitas' in pdf_low):
+                    provider_final = 'qualitas'
                 elif issuer:
                     provider_final = issuer
         except Exception:
@@ -4157,6 +4178,8 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             pnorm = prov.replace("-", "").replace("_", "")
         if "rimac" in pnorm:
             prov = "rimac"
+        elif "qualitas" in pnorm:
+            prov = "qualitas"
         elif "mapfre" in pnorm and "vidaley" in pnorm:
             prov = "mapfre-vida-ley"
         elif "pacifico" in pnorm and "salud" in pnorm:
@@ -4177,6 +4200,8 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             pnorm = prov.replace("-", "").replace("_", "")
         if "rimac" in pnorm:
             prov = "rimac"
+        elif "qualitas" in pnorm:
+            prov = "qualitas"
         elif "mapfre" in pnorm and "vidaley" in pnorm:
             prov = "mapfre-vida-ley"
         elif "pacifico" in pnorm and "salud" in pnorm:
@@ -4238,6 +4263,8 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             prov = "lpv-pension"
         elif "lpv-salud" in t:
             prov = "lpv-salud"
+        elif ("qualitas" in t) or ("quálitas" in t):
+            prov = "qualitas"
         # QUITADO: no detectar 'lpv-vida-ley', 'lpv-pension', 'lpv-salud' por contenido del PDF
         # Estos slugs deben venir desde el 'issuer' del cliente (UI).
         # NUEVO: preferir Crecer si aparece, aunque también figure 'sanitasperu'
@@ -4495,6 +4522,19 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             return []
 
     print(f"[provider] detectado: {prov}")
+
+    if prov == "qualitas":
+        try:
+            from controllers.addPolizaQualitasGenerales import parse_qualitas_generales
+            item = parse_qualitas_generales(text)
+        except Exception as e:
+            _quarantine_parser_failure(path, 'qualitas', 'exception', {'error': str(e)}, text_head=text)
+            print(f"[provider] qualitas parse error: {e}")
+            return []
+        missing = _missing_fields(item, ['numero_poliza', 'colectivo_asegurado', 'inicio_vigencia', 'vencimiento'])
+        if missing:
+            _quarantine_parser_failure(path, 'qualitas', 'missing_fields', {'missing': missing}, text_head=text)
+        return [item] if item else []
 
     if prov == "mapfre":
         if re.search(r"equipo\s+de\s+contratistas", low) or re.search(r"responsabilidad\s+civil", low) or re.search(r"hidrocarburos", low):
