@@ -70,6 +70,14 @@
                         {% endfor %}
                     </select>
                 </div>
+                <div class="col-md-3">
+                    <label class="form-label">Moneda</label>
+                    <select class="form-select" name="moneda">
+                        <option value="" {% if not request.args.get('moneda') %}selected{% endif %}>Todas</option>
+                        <option value="S/" {% if request.args.get('moneda') in ['S/','S/.','SOLES','PEN'] %}selected{% endif %}>S/</option>
+                        <option value="US$" {% if request.args.get('moneda') in ['US$','USD','$','DOLARES','DÓLARES','DOLAR'] %}selected{% endif %}>US$</option>
+                    </select>
+                </div>
 
                 <div class="col-12 d-flex justify-content-start mt-2 gap-2">
                     <button type="submit" class="btn btn-success">Buscar</button>

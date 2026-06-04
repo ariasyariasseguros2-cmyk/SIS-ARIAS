@@ -56,6 +56,20 @@ def _build_filters(filters: Dict[str, Any]) -> Tuple[str, List[Any]]:
         sql_filters.append("p.ejecutivo = %s")
         params.append(filters["ejecutivo"])
 
+    if filters.get("moneda"):
+        mon = (filters.get("moneda") or "").strip().upper()
+        if mon in {"S/", "S/.", "SOLES", "PEN"}:
+            sql_filters.append(
+                "(UPPER(TRIM(p.moneda)) LIKE 'S/%' OR UPPER(TRIM(p.moneda)) IN ('SOLES','PEN'))"
+            )
+        elif mon in {"US$", "USD", "$", "DOLARES", "DÓLARES", "DOLAR"}:
+            sql_filters.append(
+                "(UPPER(TRIM(p.moneda)) IN ('US$','USD','$','DOLARES','DÓLARES','DOLAR'))"
+            )
+        else:
+            sql_filters.append("p.moneda = %s")
+            params.append(filters["moneda"])
+
     # Filtro por rol: sub agente solo ve sus pólizas
     role = session.get("role_name")
     user = session.get("user")

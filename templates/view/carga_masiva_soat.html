@@ -373,6 +373,42 @@ function showResults(result, isPreview = false) {
             </div>
         `;
         statsHtml += '</div>';
+
+        const polSoles = Number(result.polizas_insertadas_soles || 0);
+        const polDol = Number(result.polizas_insertadas_dolares || 0);
+        const cSoles = Number(result.cuotas_insertadas_soles || 0);
+        const cDol = Number(result.cuotas_insertadas_dolares || 0);
+        const impSoles = Number(result.cuotas_importe_soles || 0).toFixed(2);
+        const impDol = Number(result.cuotas_importe_dolares || 0).toFixed(2);
+        const filasSoles = Number(result.filas_excel_soles || 0);
+        const filasDol = Number(result.filas_excel_dolares || 0);
+        const impExcelSoles = Number(result.importe_excel_soles || 0).toFixed(2);
+        const impExcelDol = Number(result.importe_excel_dolares || 0).toFixed(2);
+        const updPol = Number(result.polizas_moneda_actualizadas || 0);
+        const updCuo = Number(result.cuotas_moneda_actualizadas || 0);
+        const updPolActivo = Number(result.polizas_activo_actualizadas || 0);
+        const updCuoActivo = Number(result.cuotas_activo_actualizadas || 0);
+
+        statsHtml += `
+            <div class="row text-center mt-2">
+                <div class="col-md-6 mb-3">
+                    <div class="p-3 bg-light rounded">
+                        <div class="fw-semibold mb-1">Soles</div>
+                        <div class="small text-muted">En Excel: ${filasSoles} filas | Prima: S/. ${impExcelSoles}</div>
+                        <div class="small text-muted">Insertadas: Pólizas: ${polSoles} | Cuotas: ${cSoles} | Importe cuotas: S/. ${impSoles}</div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="p-3 bg-light rounded">
+                        <div class="fw-semibold mb-1">Dólares</div>
+                        <div class="small text-muted">En Excel: ${filasDol} filas | Prima: US$ ${impExcelDol}</div>
+                        <div class="small text-muted">Insertadas: Pólizas: ${polDol} | Cuotas: ${cDol} | Importe cuotas: US$ ${impDol}</div>
+                        ${updPol || updCuo ? `<div class="small text-muted">Moneda actualizada: Pólizas: ${updPol} | Cuotas: ${updCuo}</div>` : ``}
+                        ${updPolActivo || updCuoActivo ? `<div class="small text-muted">Anulado (activo=0): Pólizas: ${updPolActivo} | Cuotas: ${updCuoActivo}</div>` : ``}
+                    </div>
+                </div>
+            </div>
+        `;
         resultStats.innerHTML = statsHtml;
 
         if (result.errors && result.errors.length > 0) {
