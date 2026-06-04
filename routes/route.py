@@ -3115,6 +3115,8 @@ def api_comisiones_default():
         if not cia_txt:
             return None
         s = (str(cia_txt) or '').strip().lower()
+        if 'qualitas' in s or 'quálitas' in s:
+            return 'qualitas'
         if 'grandia' in s:
             return 'grandia_eps'
         if 'mapfre' in s:
@@ -3169,7 +3171,7 @@ def api_comisiones_default():
             cur.execute(
                 """
                 SELECT
-                  pos_eps, pos_vsr, pos_sr, pacifico, sanitas, protecta, mapfre, crecer, ohio_natural, grandia_eps, factor
+                  pos_eps, pos_vsr, pos_sr, pacifico, sanitas, protecta, mapfre, crecer, ohio_natural, grandia_eps, qualitas, factor
                 FROM comisiones_temp
                 WHERE UPPER(producto_abrev) = %s
                    OR UPPER(producto) = %s
@@ -3293,6 +3295,7 @@ def api_maestros_comisiones_save():
     crecer = _to_decimal(data.get('crecer'))
     ohio_natural = _to_decimal(data.get('ohio_natural'))
     grandia_eps = _to_decimal(data.get('grandia_eps'))
+    qualitas = _to_decimal(data.get('qualitas'))
     factor = _to_decimal(data.get('factor'))
 
     if not ramo_nombre or not producto:
@@ -3366,6 +3369,7 @@ def api_maestros_comisiones_save():
                         crecer=%s,
                         ohio_natural=%s,
                         grandia_eps=%s,
+                        qualitas=%s,
                         factor=%s
                     WHERE id=%s
                     """,
@@ -3388,6 +3392,7 @@ def api_maestros_comisiones_save():
                         crecer,
                         ohio_natural,
                         grandia_eps,
+                        qualitas,
                         factor,
                         row_id,
                     ),
@@ -3444,8 +3449,9 @@ def api_maestros_comisiones_save():
                         crecer,
                         ohio_natural,
                         grandia_eps,
+                        qualitas,
                         factor
-                    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     """,
                     (
                         ramo_nombre,
@@ -3466,6 +3472,7 @@ def api_maestros_comisiones_save():
                         crecer,
                         ohio_natural,
                         grandia_eps,
+                        qualitas,
                         factor,
                     ),
                 )

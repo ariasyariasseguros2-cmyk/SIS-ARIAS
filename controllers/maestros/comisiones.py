@@ -28,6 +28,7 @@ def get_comisiones():
                   crecer,
                   ohio_natural,
                   grandia_eps,
+                  qualitas,
                   factor
                 FROM comisiones_temp
                 ORDER BY id ASC

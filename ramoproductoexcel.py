@@ -205,6 +205,7 @@ def _insert_comisiones_temp(conn, df: pd.DataFrame) -> None:
                     _normalize_number(row.get("crecer")),
                     _normalize_number(row.get("ohio_natural")),
                     _normalize_number(row.get("grandia_eps") if ("grandia_eps" in row) else row.get("grandia")),
+                    _normalize_number(row.get("qualitas")),
                     _normalize_number(row.get("factor")),
                 ]
             )
@@ -228,13 +229,14 @@ def _insert_comisiones_temp(conn, df: pd.DataFrame) -> None:
                 crecer,
                 ohio_natural,
                 grandia_eps,
+                qualitas,
                 factor
             )
             VALUES (
                 %s, %s, %s, %s, %s,
                 %s, %s, %s,
                 %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s
             )
         """
         cursor.executemany(insert_sql, rows)
@@ -318,6 +320,12 @@ def _refrescar_comisiones(conn) -> None:
             JOIN productos p ON p.nombre = t.producto
             JOIN companias c ON c.nombre = 'GRANDIA EPS'
             WHERE t.grandia_eps IS NOT NULL
+            UNION ALL
+            SELECT p.id_producto, c.id_compania, t.qualitas, t.factor
+            FROM comisiones_temp t
+            JOIN productos p ON p.nombre = t.producto
+            JOIN companias c ON c.nombre = 'QUALITAS'
+            WHERE t.qualitas IS NOT NULL
         """
         cursor.execute(sql_insert)
         conn.commit()

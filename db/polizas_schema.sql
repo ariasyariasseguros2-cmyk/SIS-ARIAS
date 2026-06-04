@@ -268,6 +268,7 @@ CREATE TABLE comisiones_temp (
     crecer        DECIMAL(5,2),
     ohio_natural  DECIMAL(5,2),
     grandia_eps   DECIMAL(5,2),
+    qualitas      DECIMAL(5,2),
 
     factor        DECIMAL(10,4)
 );
@@ -4241,6 +4242,24 @@ SET @preparedStatement = (SELECT IF(
 PREPARE alterStatement FROM @preparedStatement;
 EXECUTE alterStatement;
 DEALLOCATE PREPARE alterStatement;
+
+SET @dbname = DATABASE();
+SET @tablename = 'comisiones_temp';
+SET @columnname = 'qualitas';
+SET @preparedStatement = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname)
+  ) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' DECIMAL(5,2) NULL AFTER grandia_eps;')
+));
+PREPARE alterStatement2 FROM @preparedStatement;
+EXECUTE alterStatement2;
+DEALLOCATE PREPARE alterStatement2;
 
 
 -- =============================================
