@@ -4265,6 +4265,9 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             print("DEBUG: DETECTADO MAPFRE VEHICULAR")
             prov = "mapfre-vehicular"
 
+        elif re.search(r"\bmapfre\b", t) and re.search(r"\bsuplemento\s+de\b", t) and not re.search(r"seguro\s+vehicular", t):
+            prov = "mapfre-endoso-generales"
+
         elif "la positiva" in t:
             prov = "positiva"
         elif "mapfre-vida-ley" in t:
@@ -4551,6 +4554,19 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             _quarantine_parser_failure(path, 'qualitas', 'missing_fields', {'missing': missing}, text_head=text)
         return [item] if item else []
 
+    if prov == "mapfre-endoso-generales":
+        try:
+            from controllers.addMapfreEndosoGenerales import parse_mapfre_endoso_generales
+            item = parse_mapfre_endoso_generales(text)
+        except Exception as e:
+            _quarantine_parser_failure(path, 'mapfre-endoso-generales', 'exception', {'error': str(e)}, text_head=text)
+            print(f"[provider] mapfre-endoso-generales parse error: {e}")
+            return []
+        missing = _missing_fields(item, ['numero_poliza', 'colectivo_asegurado', 'inicio_vigencia', 'vencimiento'])
+        if missing:
+            _quarantine_parser_failure(path, 'mapfre-endoso-generales', 'missing_fields', {'missing': missing}, text_head=text)
+        return [item] if item else []
+
     if prov == "mapfre":
         if re.search(r"equipo\s+de\s+contratistas", low) or re.search(r"responsabilidad\s+civil", low) or re.search(r"hidrocarburos", low):
             print("ENTRANDO A PARSER EQUIPO CONTRATISTAS (desde bloque mapfre - regex extendido)")
@@ -4580,6 +4596,15 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
 
             print("[provider] mapfre equipo contratistas item:", item)
             return [item] if item else []
+
+        if re.search(r"\bsuplemento\s+de\b", low) and not re.search(r"seguro\s+vehicular", low):
+            try:
+                from controllers.addMapfreEndosoGenerales import parse_mapfre_endoso_generales
+                it_endoso = parse_mapfre_endoso_generales(text)
+                if it_endoso and it_endoso.get("numero_poliza"):
+                    return [it_endoso]
+            except Exception:
+                pass
 
 
         from controllers.addMapfre import parse_mapfre
