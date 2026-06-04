@@ -936,6 +936,7 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
     is_protecta = 'PROTECTA' in text_fold_upper
     is_sanitas = ('SANITAS' in text_fold_upper) and (not is_protecta)
     is_positiva = 'LA POSITIVA' in text_upper
+    is_qualitas = ('QUALITAS' in text_fold_upper) or ('QUÁLITAS' in text_upper) or ('QUÁLITAS' in text_fold_upper)
 
     if is_protecta:
         m_fac = re.search(r'(F\d{3}\s*-\s*\d+)', text, re.IGNORECASE)
@@ -1032,6 +1033,58 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
         else:
             data['moneda'] = data.get('moneda') or 'S/.'
         # Importe total: deshabilitado por solicitud
+
+    elif is_qualitas:
+        # Boleta / Factura electrónica Qualitas (Ej: BA02-18416)
+        m_fac = re.search(
+            r"(?:BOLETA\s+DE\s+VENTA\s+ELECTR[ÓO]NICA|FACTURA\s+ELECTR[ÓO]NICA)[\s\S]{0,120}?\b([A-Z]{1,3}\d{2}\s*-\s*\d{4,10})\b",
+            text_fold_upper,
+            re.IGNORECASE | re.DOTALL,
+        )
+        if not m_fac:
+            m_fac = re.search(r"\b([A-Z]{1,3}\d{2}\s*-\s*\d{4,10})\b", text_fold_upper, re.IGNORECASE)
+        if m_fac:
+            data["factura"] = m_fac.group(1).replace(" ", "")
+
+        raw_emision = find_val(
+            r"Fecha\s+Emisi[óo]n\s*[:.]?\s*(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4})",
+            text,
+        )
+        if not raw_emision:
+            raw_emision = find_val(
+                r"FECHA\s+EMISI[ÓO]N\s*[:.]?\s*(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4})",
+                text,
+            )
+        if not raw_emision:
+            raw_emision = find_val(
+                r"FECHA\s+DE\s+EMISI[ÓO]N\s*[:.]?\s*(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4})",
+                text,
+            )
+        if not raw_emision:
+            raw_emision = find_date_after(r"Fecha\s+Emisi\S*n", text)
+        if raw_emision:
+            data["fecha_pago"] = format_date_custom(raw_emision)
+
+        moneda_val = find_val(r"Moneda\s*[:.]?\s*([A-Za-zÁÉÍÓÚÑ ]+)", text)
+        if moneda_val:
+            m = moneda_val.upper()
+            if "DOLAR" in m or "DÓLAR" in m or "USD" in m:
+                data["moneda"] = "US$"
+            elif "SOL" in m:
+                data["moneda"] = "S/."
+
+        poliza_ref = find_val(r"PAGO\s+DE\s+P[ÓO]LIZA\s+(\d{6,14})", text)
+        recibo_ref = find_val(r"RECIBO\s+(\d{6,20})", text)
+        cuota_ref = find_val(r"CUOTA\s+(\d{1,3})", text)
+        obs_parts = []
+        if poliza_ref:
+            obs_parts.append(f"Póliza {poliza_ref}")
+        if recibo_ref:
+            obs_parts.append(f"Recibo {recibo_ref}")
+        if cuota_ref:
+            obs_parts.append(f"Cuota {cuota_ref}")
+        if obs_parts:
+            data["observacion"] = " | ".join(obs_parts)
 
     elif is_sanitas:
        # Lógica específica para Sanitas
