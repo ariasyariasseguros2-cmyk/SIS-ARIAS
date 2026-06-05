@@ -4692,6 +4692,17 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             except Exception as e:
                 print(f"[provider] error en addPositivaVidaGenerales (RC/TR): {e}")
 
+        hint_endoso_renov = re.search(r"ENDOSO\s+DE\s+RENOVACI[ÓO]N", text, re.IGNORECASE)
+        if hint_endoso_renov:
+            try:
+                from controllers.addPolizaEndosoRenovacionGene import parse_positiva_endoso_renovacion_generales
+                item_er = parse_positiva_endoso_renovacion_generales(text)
+                if item_er and item_er.get('numero_poliza'):
+                    print("[provider] positiva-endoso-renovacion item:", item_er)
+                    return [item_er]
+            except Exception as e:
+                print(f"[provider] error en addPolizaEndosoRenovacionGene: {e}")
+
         # Separar SCTR Salud vs Pensión por contenido
         hint_sctr = re.search(r"\bsctr\b", text, re.IGNORECASE)
         has_salud = re.search(r"\beps\b", text, re.IGNORECASE) or re.search(r"\bsalud\b", text, re.IGNORECASE)
