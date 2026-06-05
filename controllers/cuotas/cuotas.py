@@ -845,9 +845,35 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
     text = ""
     try:
         import pdfplumber
+        pages_text: List[str] = []
+        ocr_page_indexes: List[int] = []
         with pdfplumber.open(filepath) as pdf:
-            for page in pdf.pages:
-                text += (page.extract_text() or "") + "\n"
+            for i, page in enumerate(pdf.pages):
+                page_text = page.extract_text() or ""
+                if page_text.strip():
+                    pages_text.append(page_text)
+                else:
+                    pages_text.append("")
+                    ocr_page_indexes.append(i)
+
+        if ocr_page_indexes:
+            try:
+                import fitz
+                import pytesseract
+                from PIL import Image
+
+                doc = fitz.open(filepath)
+                for i in ocr_page_indexes:
+                    p = doc.load_page(i)
+                    pix = p.get_pixmap(dpi=220, alpha=False)
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    ocr_text = pytesseract.image_to_string(img, lang="spa+eng") or ""
+                    pages_text[i] = ocr_text
+                doc.close()
+            except Exception:
+                pass
+
+        text = "\n".join(pages_text) + "\n"
     except ImportError:
         try:
             from PyPDF2 import PdfReader
@@ -1210,18 +1236,37 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
             from controllers.cuotas.VariosCuponGeneralesRimac import extract_cronograma_cuotas_rimac
             from controllers.cuotas.VariosCuponGeneralesMapfre import extract_cronograma_cuotas_mapfre
             from controllers.cuotas.RenovacionCuponRimac import extract_cronograma_cuotas_renovacion_rimac
+            from controllers.cuotas.VariosCuponSeguroVehicularRimac import (
+                extract_cronograma_cuotas_seguro_vehicular_rimac,
+            )
+
+            if re.search(
+                r"(Documentos\s+Generados|Detalle\s+de\s+Vencimientos|PAGO\s+FRACCIONADO|Convenio\s+de\s+Pago)",
+                text,
+                re.IGNORECASE,
+            ):
+                try:
+                    cuotas = extract_cronograma_cuotas_seguro_vehicular_rimac(text, moneda_default)
+                except Exception:
+                    cuotas = []
 
             if 'LA POSITIVA' in text_upper or 'POSITIVA' in text_upper:
                 cuotas = extract_cronograma_cuotas_positiva(text, moneda_default)
-            elif 'PACIFICO' in text_fold_upper:
-                cuotas = extract_cronograma_cuotas_pacifico(text, moneda_default)
             elif 'RIMAC' in text_upper:
                 try:
-                    cuotas = extract_cronograma_cuotas_renovacion_rimac(text, moneda_default)
+                    if not cuotas:
+                        cuotas = extract_cronograma_cuotas_seguro_vehicular_rimac(text, moneda_default)
+                except Exception:
+                    cuotas = []
+                try:
+                    if not cuotas:
+                        cuotas = extract_cronograma_cuotas_renovacion_rimac(text, moneda_default)
                 except Exception:
                     cuotas = []
                 if not cuotas:
                     cuotas = extract_cronograma_cuotas_rimac(text, moneda_default)
+            elif 'PACIFICO' in text_fold_upper:
+                cuotas = extract_cronograma_cuotas_pacifico(text, moneda_default)
             elif 'MAPFRE' in text_fold_upper:
                 cuotas = extract_cronograma_cuotas_mapfre(text, moneda_default)
 
