@@ -11,8 +11,36 @@ def _find(pattern: str, text: str, flags=re.IGNORECASE) -> Optional[str]:
 def _money(s: Optional[str]) -> Optional[str]:
     if not s:
         return None
-    m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+)", s)
-    return m.group(1) if m else s
+    raw0 = str(s).strip()
+    raw = raw0.replace("−", "-").replace("–", "-").replace("—", "-")
+    m = re.search(r"(\(?\s*(?:-\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?|\(?\s*(?:-\s*)?[0-9]+(?:[.,][0-9]{2})?\s*\)?)", raw)
+    tok = m.group(1).strip() if m else raw
+    neg = False
+    mp = re.match(r"^\((.*)\)$", tok)
+    if mp:
+        neg = True
+        tok = (mp.group(1) or "").strip()
+    if re.match(r"^\s*-\s*", tok):
+        neg = True
+    tok = re.sub(r"[^\d,\.]", "", tok)
+    if not tok:
+        return None
+    if "," in tok and "." in tok:
+        if tok.rfind(",") > tok.rfind("."):
+            tok = tok.replace(".", "").replace(",", ".")
+        else:
+            tok = tok.replace(",", "")
+    elif "," in tok and "." not in tok:
+        tok = tok.replace(".", "").replace(",", ".")
+    else:
+        tok = tok.replace(",", "")
+    try:
+        num = float(tok)
+        if neg:
+            num = -abs(num)
+        return f"{num:.2f}"
+    except Exception:
+        return f"-{tok}" if (neg and tok) else tok
 
 def _canon(text: str) -> str:
     return re.sub(r"\s+", " ", text)
@@ -60,7 +88,7 @@ def parse_crecer_vidaley(text: str) -> Dict[str, str]:
         ACTIVITY = r"(\d{4,6}\s*-\s+[A-Z0-9ÁÉÍÓÚÑ \.\-]+?)\s+(?=[A-ZÁÉÍÓÚÑ])"
         DATE     = r"([0-9]{2}/[0-9]{2}/[0-9]{4})"
         CURR     = r"\b(SOLES|USD|PEN|DOLARES|D[ÓO]LARES)\b"
-        MONEY    = r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2}))"
+        MONEY    = r"(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?)"
 
         # Condiciones particulares (orden observado en tu flat)
         poliza      = take(r"\b(\d{8,16}(?:-[A-Z0-9]+)?)\b")
@@ -146,8 +174,8 @@ def parse_crecer_vidaley(text: str) -> Dict[str, str]:
     if ramos_producto:
         item["ramos_producto"] = ramos_producto
 
-    item["prima_comercial"] = _money(cond.get("prima_resultante")) or _money(_find(r"Prima\s+Comercial\s*:\s*S?\/?\s*([0-9\.,]+)", flat))
-    item["prima_comercial_igv"] = _money(_find(r"Prima\s+Comercial\s*\+\s*IGV\s*:\s*S?\/?\s*([0-9\.,]+)", flat)) or _money(_find(r"(?:Importe\s+Total|Total)\s*:\s*S?\/?\s*([0-9\.,]+)", flat))
+    item["prima_comercial"] = _money(cond.get("prima_resultante")) or _money(_find(r"Prima\s+Comercial\s*:\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat))
+    item["prima_comercial_igv"] = _money(_find(r"Prima\s+Comercial\s*\+\s*IGV\s*:\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat)) or _money(_find(r"(?:Importe\s+Total|Total)\s*:\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat))
 
     # NUEVO: Fallbacks por etiquetas observadas en “Condiciones Particulares – Seguro Vida Ley”
     # Número de póliza con etiquetas específicas (evita capturar palabras como "bajo")

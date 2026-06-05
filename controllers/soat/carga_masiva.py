@@ -283,9 +283,48 @@ def normalize_decimal(value) -> float | None:
         return None
 
     try:
-        # Limpiar y convertir
-        value_str = str(value).replace(',', '.').replace(' ', '')
-        return float(value_str)
+        raw0 = str(value).strip().replace('\u00A0', ' ')
+        if not raw0:
+            return None
+        raw = raw0.replace('−', '-').replace('–', '-').replace('—', '-')
+        neg = False
+        m_paren = re.match(r'^\((.*)\)$', raw)
+        if m_paren:
+            neg = True
+            raw = (m_paren.group(1) or '').strip()
+        if re.match(r'^\s*-\s*', raw):
+            neg = True
+        s = re.sub(r'[^\d,.\-]', '', raw)
+        if not s:
+            return None
+        if s.startswith('-'):
+            neg = True
+        s = s.replace('-', '')
+        if not s:
+            return None
+
+        if ',' in s and '.' in s:
+            if s.rfind('.') > s.rfind(','):
+                s = s.replace(',', '')
+            else:
+                s = s.replace('.', '').replace(',', '.')
+        elif s.count('.') > 1 and ',' not in s:
+            parts = s.split('.')
+            s = ''.join(parts[:-1]) + '.' + parts[-1]
+        elif s.count(',') > 1 and '.' not in s:
+            parts = s.split(',')
+            s = ''.join(parts[:-1]) + '.' + parts[-1]
+        elif ',' in s and '.' not in s:
+            if re.search(r',\d{1,2}$', s):
+                s = s.replace('.', '').replace(',', '.')
+            else:
+                s = s.replace(',', '')
+        else:
+            if '.' in s and not re.search(r'\.\d{1,2}$', s) and re.search(r'\.\d{3}(\.|$)', s):
+                s = s.replace('.', '')
+
+        num = float(s)
+        return -abs(num) if neg else num
     except Exception:
         return None
 

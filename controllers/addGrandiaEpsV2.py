@@ -27,15 +27,33 @@ def _between(start_pat: str, end_pat: str, text: str, flags=re.IGNORECASE | re.D
 def _money(s: Optional[str]) -> Optional[str]:
     if not s:
         return None
-    m = re.search(r"(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})|\d+(?:[.,]\d{2})?)", s)
+    raw0 = str(s).strip()
+    raw = raw0.replace("−", "-").replace("–", "-").replace("—", "-")
+    m = re.search(r"(\(?\s*(?:[-−–—]\s*)?\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})\s*\)?|\(?\s*(?:[-−–—]\s*)?\d+(?:[.,]\d{2})?\s*\)?)", raw)
     if not m:
         return None
-    v = m.group(1).strip()
-    if "." in v and "," in v:
-        v = v.replace(",", "")
-    elif "," in v and "." not in v:
-        v = v.replace(",", ".")
-    return v
+    tok = m.group(1).strip()
+    neg = False
+    mp = re.match(r"^\((.*)\)$", tok)
+    if mp:
+        neg = True
+        tok = (mp.group(1) or "").strip()
+    if re.match(r"^\s*[-−–—]\s*", tok):
+        neg = True
+    tok = re.sub(r"[^\d,\.]", "", tok)
+    if not tok:
+        return None
+    if "." in tok and "," in tok:
+        tok = tok.replace(",", "")
+    elif "," in tok and "." not in tok:
+        tok = tok.replace(",", ".")
+    try:
+        num = float(tok)
+        if neg:
+            num = -abs(num)
+        return f"{num:.2f}"
+    except Exception:
+        return f"-{tok}" if (neg and tok) else tok
 
 
 def parse_grandia_eps_v2(text: str) -> Dict[str, str]:
@@ -109,7 +127,7 @@ def parse_grandia_eps_v2(text: str) -> Dict[str, str]:
     importe_total_planilla = None
     if block_primas:
         m_row = re.search(
-            r"\b(Alto|Bajo|Mediano|Medio)\s+Riesgo\b[\s:]*([0-9]+(?:[.,][0-9]+)?)\s*%?\s*\+\s*IGV[\s:]*([0-9]{1,5})[\s:]*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|\d+(?:[.,]\d{2})?)",
+            r"\b(Alto|Bajo|Mediano|Medio)\s+Riesgo\b[\s:]*([0-9]+(?:[.,][0-9]+)?)\s*%?\s*\+\s*IGV[\s:]*([0-9]{1,5})[\s:]*(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?|\(?\s*(?:[-−–—]\s*)?\d+(?:[.,]\d{2})?\s*\)?)",
             block_primas,
             re.IGNORECASE | re.DOTALL,
         )

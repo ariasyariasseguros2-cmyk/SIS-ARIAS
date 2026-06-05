@@ -8,9 +8,38 @@ def _find(pattern: str, text: str, flags=re.IGNORECASE):
     return m.group(1).strip() if m else None
 
 def _money(s: Optional[str]) -> Optional[str]:
-    if not s: return None
-    m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+)", s)
-    return m.group(1) if m else s
+    if not s:
+        return None
+    raw0 = str(s).strip()
+    raw = raw0.replace("−", "-").replace("–", "-").replace("—", "-")
+    m = re.search(r"(\(?\s*(?:-\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?|\(?\s*(?:-\s*)?[0-9]+(?:[.,][0-9]{2})?\s*\)?)", raw)
+    tok = m.group(1).strip() if m else raw
+    neg = False
+    mp = re.match(r"^\((.*)\)$", tok)
+    if mp:
+        neg = True
+        tok = (mp.group(1) or "").strip()
+    if re.match(r"^\s*-\s*", tok):
+        neg = True
+    tok = re.sub(r"[^\d,\.]", "", tok)
+    if not tok:
+        return None
+    if "," in tok and "." in tok:
+        if tok.rfind(",") > tok.rfind("."):
+            tok = tok.replace(".", "").replace(",", ".")
+        else:
+            tok = tok.replace(",", "")
+    elif "," in tok and "." not in tok:
+        tok = tok.replace(".", "").replace(",", ".")
+    else:
+        tok = tok.replace(",", "")
+    try:
+        num = float(tok)
+        if neg:
+            num = -abs(num)
+        return f"{num:.2f}"
+    except Exception:
+        return f"-{tok}" if (neg and tok) else tok
 
 # NUEVO: tomar la última coincidencia cuando hay múltiples bloques en el PDF
 def _find_last(pattern: str, text: str, flags=re.IGNORECASE):
@@ -90,7 +119,7 @@ def parse_positiva_vidaley(text: str) -> Dict[str, str]:
             ramos_producto = "EMPLEADOS"
 
     # Conceptos: “Prima” y “IGV/Impuesto”
-    prima_line = _find(r"\bPrima\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)
+    prima_line = _find(r"\bPrima\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text)
     prima_comercial = _money(prima_line)
     
     # Fallback fechas: si falta último día de pago, calcular emision + 15

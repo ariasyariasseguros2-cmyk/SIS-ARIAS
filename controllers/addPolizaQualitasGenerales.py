@@ -14,10 +14,21 @@ def _clean_spaces(s: str | None) -> str:
 def _money(s: str | None) -> str | None:
     if not s:
         return None
-    raw = _clean_spaces(s)
+    raw0 = _clean_spaces(s).replace("−", "-").replace("–", "-").replace("—", "-")
+    raw = raw0
+    neg = False
+    mp = re.match(r"^\((.*)\)$", raw)
+    if mp:
+        neg = True
+        raw = (mp.group(1) or "").strip()
+    if re.match(r"^\s*-\s*", raw):
+        neg = True
     raw = re.sub(r"[^\d,.\-]", "", raw)
     if not raw:
         return None
+    if raw.startswith("-"):
+        neg = True
+    raw = raw.replace("-", "")
     try:
         if "," in raw and "." in raw:
             raw = raw.replace(",", "")
@@ -29,9 +40,12 @@ def _money(s: str | None) -> str | None:
         elif raw.count(".") > 1 and raw.count(",") == 0:
             parts = raw.split(".")
             raw = "".join(parts[:-1]) + "." + parts[-1]
-        return f"{float(raw):.2f}"
+        num = float(raw)
+        if neg:
+            num = -abs(num)
+        return f"{num:.2f}"
     except Exception:
-        return _clean_spaces(s)
+        return raw0
 
 
 def _month_to_num(mon: str) -> str | None:
@@ -232,7 +246,7 @@ def _extract_consolidado_primas(text: str) -> dict:
 
     amounts_in_order = []
     for m in re.finditer(
-        r"(?:(?:US\s*\$?)|US\$|USD|U\$|S/\.?|S\.)\s*([0-9][0-9,\.\s]{0,25})",
+        r"(?:(?:US\s*\$?)|US\$|USD|U\$|S/\.?|S\.)\s*(\(?\s*(?:[-−–—]\s*)?[0-9][0-9,\.\s]{0,25}\s*\)?)",
         section,
         re.IGNORECASE | re.DOTALL,
     ):
@@ -244,7 +258,7 @@ def _extract_consolidado_primas(text: str) -> dict:
 
     def _find_amount(label_re: str) -> str | None:
         m = re.search(
-            label_re + r"[\s:：]*?(?:(?:US\s*\$?)|US\$|USD|U\$|S/\.?|S\.)?\s*([0-9][0-9,\.\s]{0,25})",
+            label_re + r"[\s:：]*?(?:(?:US\s*\$?)|US\$|USD|U\$|S/\.?|S\.)?\s*(\(?\s*(?:[-−–—]\s*)?[0-9][0-9,\.\s]{0,25}\s*\)?)",
             section,
             re.IGNORECASE | re.DOTALL,
         )
@@ -438,17 +452,17 @@ def parse_qualitas_generales(text: str) -> dict:
                 item[k] = v
 
     prima_comercial = None
-    m_pc = re.search(r"\bPrima\s+Comercial\b[\s:：]*([0-9][0-9,\.]{0,20})", t, re.IGNORECASE)
+    m_pc = re.search(r"\bPrima\s+Comercial\b[\s:：]*(\(?\s*(?:[-−–—]\s*)?[0-9][0-9,\.]{0,20}\s*\)?)", t, re.IGNORECASE)
     if m_pc:
         prima_comercial = _money(m_pc.group(1))
     igv = None
-    m_igv = re.search(r"\bIGV\b[\s\S]{0,30}?([0-9][0-9,\.]{0,20})", t, re.IGNORECASE)
+    m_igv = re.search(r"\bIGV\b[\s\S]{0,30}?(\(?\s*(?:[-−–—]\s*)?[0-9][0-9,\.]{0,20}\s*\)?)", t, re.IGNORECASE)
     if m_igv:
         igv = _money(m_igv.group(1))
     total = None
-    m_total = re.search(r"\bIMPORTE\s+TOTAL\b[\s:：]*([0-9][0-9,\.]{0,20})", t, re.IGNORECASE)
+    m_total = re.search(r"\bIMPORTE\s+TOTAL\b[\s:：]*(\(?\s*(?:[-−–—]\s*)?[0-9][0-9,\.]{0,20}\s*\)?)", t, re.IGNORECASE)
     if not m_total:
-        m_total = re.search(r"\bImporte\s+Total\b[\s:：]*([0-9][0-9,\.]{0,20})", t, re.IGNORECASE)
+        m_total = re.search(r"\bImporte\s+Total\b[\s:：]*(\(?\s*(?:[-−–—]\s*)?[0-9][0-9,\.]{0,20}\s*\)?)", t, re.IGNORECASE)
     if m_total:
         total = _money(m_total.group(1))
 

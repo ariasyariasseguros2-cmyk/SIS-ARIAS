@@ -8,9 +8,17 @@ def _find(pattern: str, text: str, flags=re.IGNORECASE):
     return m.group(1).strip() if m else None
 
 def _money(s: Optional[str]) -> Optional[str]:
-    if not s: return None
-    # Normalizar whitespace y currency, y unificar separadores para no perder decimales
-    s2 = re.sub(r"\s+", "", s).replace("S/", "").replace("s/", "")
+    if not s:
+        return None
+    raw0 = str(s).strip().replace("−", "-").replace("–", "-").replace("—", "-")
+    neg = False
+    mp = re.match(r"^\((.*)\)$", raw0)
+    if mp:
+        neg = True
+        raw0 = (mp.group(1) or "").strip()
+    if re.match(r"^\s*-\s*", raw0):
+        neg = True
+    s2 = re.sub(r"\s+", "", raw0).replace("S/", "").replace("s/", "")
     if "," in s2 and "." in s2:
         s3 = s2.replace(",", "")
     elif "," in s2 and "." not in s2:
@@ -18,7 +26,15 @@ def _money(s: Optional[str]) -> Optional[str]:
     else:
         s3 = s2
     m = re.search(r"([0-9]+(?:\.[0-9]{2})?)", s3)
-    return f"{float(m.group(1)):.2f}" if m else None
+    if not m:
+        return None
+    try:
+        num = float(m.group(1))
+        if neg:
+            num = -abs(num)
+        return f"{num:.2f}"
+    except Exception:
+        return f"-{m.group(1)}" if neg else m.group(1)
 
 # NUEVO: tomar la última coincidencia cuando hay múltiples bloques en el PDF
 def _find_last(pattern: str, text: str, flags=re.IGNORECASE):
@@ -127,30 +143,31 @@ def parse_positiva_Salud(text: str) -> Dict[str, str]:
                 start = max(0, m_sal.start() - 600)
                 end = min(len(text), m_sal.end() + 1200)
                 win = text[start:end]
-                m_tot = re.search(r"(?:Prima\s+Comercial\s*\+\s*IGV|Prima\s+Total|Total\s+a\s+Pagar|Total)[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", win, flags=re.IGNORECASE)
+                m_tot = re.search(r"(?:Prima\s+Comercial\s*\+\s*IGV|Prima\s+Total|Total\s+a\s+Pagar|Total)[\s\S]*?(?:S?\/)?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\., ]+\s*\)?)", win, flags=re.IGNORECASE)
                 if m_tot:
                     prima_comercial_igv = _money(m_tot.group(1))
         if not prima_total_alt and prima_comercial_igv:
             prima_total_alt = prima_comercial_igv
 
     # Conceptos: capturas y prioridades (usar última coincidencia del bloque)
-    sobrevivencia = _money(_find_last(r"Sobrevivencia[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text, flags=re.IGNORECASE))
-    costos_emision = _money(_find_last(r"Costos?\s+de\s+Emisi[oó]n[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text, flags=re.IGNORECASE)) or \
-                     _money(_find_last(r"Costos?\s+Emisi[oó]n[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text, flags=re.IGNORECASE))
-    prima_comercial_inclusive = _money(_find(r"Prima\s+Comercial[\s\S]*?Incluye[\s\S]*?Emisi[oó]n[\s\S]*?(?:[:=]|\s)?\s*(?:S?\/)?\s*([0-9\., ]+)", text))
-    igv_val = igv_val or _money(_find_last(r"(?:Impuesto\s+General\s+a\s+las\s+Ventas|IGV)[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text))
-    prima_comercial_igv = prima_comercial_igv or _money(_find_last(r"Prima\s+Comercial\s*\+\s*IGV[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text))
-    prima_total_alt = prima_total_alt or _money(_find_last(r"(?:Importe\s+Total|Total\s+a\s+Pagar|Total|Prima\s+Total)[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text))
+    amt_cap = r"(\(?\s*(?:[-−–—]\s*)?[0-9\., ]+\s*\)?)"
+    sobrevivencia = _money(_find_last(rf"Sobrevivencia[\s\S]*?(?:S?\/)?\s*{amt_cap}", text, flags=re.IGNORECASE))
+    costos_emision = _money(_find_last(rf"Costos?\s+de\s+Emisi[oó]n[\s\S]*?(?:S?\/)?\s*{amt_cap}", text, flags=re.IGNORECASE)) or \
+                     _money(_find_last(rf"Costos?\s+Emisi[oó]n[\s\S]*?(?:S?\/)?\s*{amt_cap}", text, flags=re.IGNORECASE))
+    prima_comercial_inclusive = _money(_find(rf"Prima\s+Comercial[\s\S]*?Incluye[\s\S]*?Emisi[oó]n[\s\S]*?(?:[:=]|\s)?\s*(?:S?\/)?\s*{amt_cap}", text))
+    igv_val = igv_val or _money(_find_last(rf"(?:Impuesto\s+General\s+a\s+las\s+Ventas|IGV)[\s\S]*?(?:S?\/)?\s*{amt_cap}", text))
+    prima_comercial_igv = prima_comercial_igv or _money(_find_last(rf"Prima\s+Comercial\s*\+\s*IGV[\s\S]*?(?:S?\/)?\s*{amt_cap}", text))
+    prima_total_alt = prima_total_alt or _money(_find_last(rf"(?:Importe\s+Total|Total\s+a\s+Pagar|Total|Prima\s+Total)[\s\S]*?(?:S?\/)?\s*{amt_cap}", text))
 
     # NUEVO: capturar la fila “SCTR SALUD” como Prima Comercial
-    sctr_salud_val = _money(_find_last(r"SCTR\s+SALUD[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text, flags=re.IGNORECASE))
+    sctr_salud_val = _money(_find_last(rf"SCTR\s+SALUD[\s\S]*?(?:S?\/)?\s*{amt_cap}", text, flags=re.IGNORECASE))
     if not sctr_salud_val:
         # Variante cuando 'Descripción' y 'Importes' están separados
-        sctr_salud_val = _money(_find_last(r"Descripci[oó]n[\s\S]*?SCTR\s+SALUD[\s\S]*?Importes[\s\S]*?(?:S?\/)?\s*([0-9\., ]+)", text, flags=re.IGNORECASE))
+        sctr_salud_val = _money(_find_last(rf"Descripci[oó]n[\s\S]*?SCTR\s+SALUD[\s\S]*?Importes[\s\S]*?(?:S?\/)?\s*{amt_cap}", text, flags=re.IGNORECASE))
 
     # NUEVO: captura por filas del cuadro (más robusta frente a saltos de línea/columnas)
     for m in re.finditer(
-        r"(Sobrevivencia|Costos?\s+de\s+Emisi[oó]n|Impuesto\s+General\s+a\s+las\s+Ventas|SCTR\s+SALUD)[\s:]*S?\/?\s*([0-9\., ]+)",
+        r"(Sobrevivencia|Costos?\s+de\s+Emisi[oó]n|Impuesto\s+General\s+a\s+las\s+Ventas|SCTR\s+SALUD)[\s:]*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\., ]+\s*\)?)",
         text,
         flags=re.IGNORECASE | re.DOTALL,
     ):
