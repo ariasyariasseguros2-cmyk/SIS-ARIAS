@@ -273,8 +273,15 @@
 
   // Helpers de primas
   function parseNumber(val) {
-    const raw = (val || '').toString().trim();
-    if (!raw) return NaN;
+    const raw0 = (val || '').toString().trim();
+    if (!raw0) return NaN;
+    let raw = raw0.replace(/[−–—]/g, '-');
+    let parenNeg = false;
+    const parenMatch = raw.match(/^\((.*)\)$/);
+    if (parenMatch) {
+      parenNeg = true;
+      raw = (parenMatch[1] || '').toString().trim();
+    }
     const cleaned = raw.replace(/[^\d.,-]/g, '');
     const lastDot = cleaned.lastIndexOf('.');
     const lastComma = cleaned.lastIndexOf(',');
@@ -288,7 +295,10 @@
       intPart = cleaned.slice(0, sep).replace(/[^\d-]/g, '');
       decPart = cleaned.slice(sep + 1).replace(/[^\d]/g, '');
     }
-    const combined = decPart ? `${intPart}.${decPart}` : intPart;
+    const negative = parenNeg || intPart.startsWith('-') || cleaned.startsWith('-');
+    const intDigits = intPart.replace(/-/g, '');
+    const signedInt = negative ? `-${intDigits}` : intDigits;
+    const combined = decPart ? `${signedInt}.${decPart}` : signedInt;
     const num = parseFloat(combined);
     return Number.isFinite(num) ? num : NaN;
   }
@@ -1451,10 +1461,21 @@
            field === 'prima_comercial_igv';
   }
   function sanitizeNumericText(text) {
-    const s = (text || '').toString();
+    let s = (text || '').toString();
+    s = s.replace(/[−–—]/g, '-');
+    let forceNeg = false;
+    const parenMatch = s.trim().match(/^\((.*)\)$/);
+    if (parenMatch) {
+      forceNeg = true;
+      s = (parenMatch[1] || '').toString();
+    }
     let out = '';
     let hasSign = false;
     let lastWasSep = false;
+    if (forceNeg) {
+      out = '-';
+      hasSign = true;
+    }
     for (let i = 0; i < s.length; i++) {
       const ch = s[i];
       if (ch >= '0' && ch <= '9') { out += ch; lastWasSep = false; continue; }
@@ -1951,7 +1972,9 @@
       extractedItems[idx].cuotas[cuotaIdx].fecha_vencimiento = cv.value;
     }
     if (ci) {
-      extractedItems[idx].cuotas[cuotaIdx].importe = ci.value;
+      const cleaned = sanitizeNumericText(ci.value);
+      if (ci.value !== cleaned) ci.value = cleaned;
+      extractedItems[idx].cuotas[cuotaIdx].importe = cleaned;
     }
     if (cf) {
       extractedItems[idx].cuotas[cuotaIdx].factura = cf.value;

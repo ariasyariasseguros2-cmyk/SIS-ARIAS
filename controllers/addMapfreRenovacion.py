@@ -11,8 +11,36 @@ def _find(pattern: str, text: str, flags=re.IGNORECASE) -> Optional[str]:
 def _money(s: Optional[str]) -> Optional[str]:
     if not s:
         return None
-    m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+)", s)
-    return m.group(1) if m else s
+    raw0 = str(s).strip()
+    raw = raw0.replace("−", "-").replace("–", "-").replace("—", "-")
+    m = re.search(r"(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?|\(?\s*(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2})?\s*\)?)", raw)
+    tok = (m.group(1).strip() if m else raw)
+    neg = False
+    mp = re.match(r"^\((.*)\)$", tok)
+    if mp:
+        neg = True
+        tok = (mp.group(1) or "").strip()
+    if re.match(r"^\s*-\s*", tok):
+        neg = True
+    tok = re.sub(r"[^\d,\.]", "", tok)
+    if not tok:
+        return None
+    if "," in tok and "." in tok:
+        if tok.rfind(",") > tok.rfind("."):
+            tok = tok.replace(".", "").replace(",", ".")
+        else:
+            tok = tok.replace(",", "")
+    elif "," in tok and "." not in tok:
+        tok = tok.replace(".", "").replace(",", ".")
+    else:
+        tok = tok.replace(",", "")
+    try:
+        num = float(tok)
+        if neg:
+            num = -abs(num)
+        return f"{num:.2f}"
+    except Exception:
+        return f"-{tok}" if (neg and tok) else tok
 
 # NUEVO: normalizar todos los espacios y saltos de línea a un solo espacio
 def _canon(text: str) -> str:
@@ -182,23 +210,23 @@ def parse_mapfre_renovacion(text: str) -> Dict[str, str]:
     # NUEVO: primero intentar "Prima Comercial + IGV"
     # Soporte para "Prima Comercial + I \n GV" -> flat: "Prima Comercial + I GV"
     prima_com_igv = (
-        _find(r"Prima\s+Comercial\s*\+\s*I\s*G\s*V\s*[:]*\s*S?\/?\s*([0-9\.,]+)", flat)
-        or _find(r"Prima\s+Comercial\s*\+\s*IGV\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)
-        or _find_after(r"Prima\s+Comercial\s*\+\s*I\s*G\s*V\b", text, r"([0-9\.,]+)", window=100)
+        _find(r"Prima\s+Comercial\s*\+\s*I\s*G\s*V\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat)
+        or _find(r"Prima\s+Comercial\s*\+\s*IGV\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text)
+        or _find_after(r"Prima\s+Comercial\s*\+\s*I\s*G\s*V\b", text, r"(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", window=100)
     )
     prima_com = (
-        _find(r"Prima\s+Comercial\s*[:]*\s*S?\/?\s*([0-9\.,]+)", flat)
-        or _find(r"Prima\s+Comercial\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)
-        or _find(r"Prima\s+Resultante\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)
-        or _money(_find(r"Prima\s*Total\s*[:]*\s*([0-9\.,]+)", text))
-        or _find_after(r"Prima\s+Comercial\b", text, r"([0-9\.,]+)", window=100)
+        _find(r"Prima\s+Comercial\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat)
+        or _find(r"Prima\s+Comercial\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text)
+        or _find(r"Prima\s+Resultante\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text)
+        or _money(_find(r"Prima\s*Total\s*[:]*\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text))
+        or _find_after(r"Prima\s+Comercial\b", text, r"(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", window=100)
         or prima_com_igv
     )
     item["prima_comercial"] = prima_com
 
     # Total + IGV
-    igv = _find(r"(?:Impuesto\s+Gral\.?\s+A\s+Las\s+Ventas|IGV)\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)
-    total = _find(r"(?:Importe\s+Total|Total)\s*[:]*\s*S?\/?\s*([0-9\.,]+)", text)
+    igv = _find(r"(?:Impuesto\s+Gral\.?\s+A\s+Las\s+Ventas|IGV)\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text)
+    total = _find(r"(?:Importe\s+Total|Total)\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text)
     # NUEVO: guardar "Prima Comercial + IGV" si existe, en 'prima_comercial_igv'
     item["prima_comercial_igv"] = prima_com_igv or total
 

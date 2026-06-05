@@ -158,12 +158,20 @@ def get_cuota_info():
     return {'ok': True, 'data': row}
 
 def _normalize_importe_text(raw: str | None) -> str:
-    txt = (raw or '').strip()
-    if not txt:
+    txt0 = (raw or '').strip()
+    if not txt0:
         return ''
+    txt = txt0.replace('−', '-').replace('–', '-').replace('—', '-')
+    is_paren_neg = False
+    m_paren = re.match(r'^\((.*)\)$', txt)
+    if m_paren:
+        is_paren_neg = True
+        txt = (m_paren.group(1) or '').strip()
     txt = re.sub(r'[^\d,.\-]', '', txt)
     if not txt:
         return ''
+    is_neg = is_paren_neg or txt.startswith('-')
+    txt = txt.replace('-', '')
     try:
         if '.' in txt and ',' in txt:
             if txt.rfind('.') > txt.rfind(','):
@@ -178,9 +186,12 @@ def _normalize_importe_text(raw: str | None) -> str:
             txt = ''.join(parts[:-1]) + '.' + parts[-1]
         elif ',' in txt:
             txt = txt.replace('.', '').replace(',', '.')
-        return f"{float(txt):.2f}"
+        num = float(txt)
+        if is_neg:
+            num = -abs(num)
+        return f"{num:.2f}"
     except Exception:
-        return (raw or '').strip()
+        return txt0
 
 def _extract_cronograma_cuotas(text: str | None, moneda_default: str | None = None) -> list[dict]:
     if not text:
@@ -203,7 +214,7 @@ def _extract_cronograma_cuotas(text: str | None, moneda_default: str | None = No
         r'(?P<orden>\d{1,2}/\d{1,2})\s+'
         r'(?P<fecha>\d{2}/\d{2}/\d{4})\s+'
         r'(?P<cupon>\d{6,20})\s+'
-        r'(?P<importe>\d[\d\.,]*)',
+        r'(?P<importe>\(?\s*[-−–—]?\s*\d[\d\.,]*\)?)',
         re.IGNORECASE,
     )
 

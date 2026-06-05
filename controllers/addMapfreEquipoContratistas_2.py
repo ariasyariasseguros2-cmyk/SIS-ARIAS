@@ -206,10 +206,21 @@ def parse_mapfre_equipo_contratistas_2(text: str):
     def _normalize_amount(val: str):
         if not val:
             return None
-        s = val.strip()
-        s = re.sub(r"[^\d,\.]", "", s)
+        raw0 = val.strip()
+        raw = raw0.replace("−", "-").replace("–", "-").replace("—", "-")
+        neg = False
+        mp = re.match(r"^\((.*)\)$", raw)
+        if mp:
+            neg = True
+            raw = (mp.group(1) or "").strip()
+        if re.match(r"^\s*-\s*", raw):
+            neg = True
+        s = re.sub(r"[^\d,.\-]", "", raw)
         if not s:
             return None
+        if s.startswith("-"):
+            neg = True
+        s = s.replace("-", "")
         if "," in s and "." in s:
             if s.rfind(",") > s.rfind("."):
                 s = s.replace(".", "").replace(",", ".")
@@ -220,9 +231,15 @@ def parse_mapfre_equipo_contratistas_2(text: str):
                 s = s.replace(",", ".")
             else:
                 s = s.replace(",", "")
-        return s
+        try:
+            num = float(s)
+            if neg:
+                num = -abs(num)
+            return f"{num:.2f}"
+        except Exception:
+            return f"-{s}" if (neg and s) else s
 
-    money = r"(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})"
+    money = r"(\(?\s*(?:[-−–—]\s*)?\d{1,3}(?:[.,]\d{3})*[.,]\d{2}\s*\)?)"
 
     m_pc = re.search(
         r"Prima\s+Comercial(?!\s*\+)[\s\S]{0,120}?" + money,

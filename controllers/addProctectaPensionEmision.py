@@ -12,17 +12,30 @@ def _find(pattern: str, text: str, flags=re.IGNORECASE | re.DOTALL) -> Optional[
 def _money_value(s: Optional[str]) -> Optional[str]:
     if not s:
         return None
-    m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2})?)", s)
+    raw0 = str(s).strip()
+    raw = raw0.replace("−", "-").replace("–", "-").replace("—", "-")
+    m = re.search(r"(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?|\(?\s*(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2})?\s*\)?)", raw)
     if not m:
         return None
-    raw = m.group(1)
-    if raw.count(",") == 1 and raw.count(".") == 0:
-        raw = raw.replace(",", ".")
-    raw = raw.replace(",", "")
+    tok = m.group(1).strip()
+    neg = False
+    mp = re.match(r"^\((.*)\)$", tok)
+    if mp:
+        neg = True
+        tok = (mp.group(1) or "").strip()
+    if re.match(r"^\s*-\s*", tok):
+        neg = True
+    tok = re.sub(r"[^\d,\.]", "", tok)
+    if tok.count(",") == 1 and tok.count(".") == 0:
+        tok = tok.replace(",", ".")
+    tok = tok.replace(",", "")
     try:
-        return f"{float(raw):.2f}"
+        num = float(tok)
+        if neg:
+            num = -abs(num)
+        return f"{num:.2f}"
     except Exception:
-        return m.group(1)
+        return m.group(1).strip()
 
 def _normalize_moneda(moneda_raw: Optional[str]) -> Optional[str]:
     if not moneda_raw:
@@ -52,11 +65,11 @@ def parse_protecta_pension_emision(text: str) -> Dict[str, str]:
     
     # Prima Comercial
     # Ejemplo: PRIMA COMERCIAL: \n S/. 122.04
-    prima_comercial = _money_value(_find(r"PRIMA COMERCIAL:\s*(?:S/\.)?\s*([\d\.,]+)", text))
+    prima_comercial = _money_value(_find(r"PRIMA COMERCIAL:\s*(?:S/\.)?\s*(\(?\s*(?:[-−–—]\s*)?[\d\.,]+\s*\)?)", text))
     
     # Prima Comercial Total
     # Ejemplo: PRIMA COMERCIAL TOTAL: \n S/. 144.01
-    prima_total = _money_value(_find(r"PRIMA COMERCIAL TOTAL:\s*(?:S/\.)?\s*([\d\.,]+)", text))
+    prima_total = _money_value(_find(r"PRIMA COMERCIAL TOTAL:\s*(?:S/\.)?\s*(\(?\s*(?:[-−–—]\s*)?[\d\.,]+\s*\)?)", text))
     
     # Póliza No.
     # Ejemplo: Póliza No.:   4000009113

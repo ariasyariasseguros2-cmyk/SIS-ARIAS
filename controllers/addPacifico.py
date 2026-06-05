@@ -10,8 +10,9 @@ def _find(pattern: str, text: str, flags=re.IGNORECASE | re.DOTALL) -> str | Non
 def _money(s: str | None) -> str | None:
     if not s:
         return None
-    m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+)", s)
-    return m.group(1) if m else s
+    raw = str(s).strip().replace("−", "-").replace("–", "-").replace("—", "-")
+    m = re.search(r"(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?|\(?\s*(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2})?\s*\)?)", raw)
+    return (m.group(1).strip() if m else raw)
 
 def _valid_date(s: str | None) -> str | None:
     if not s:
@@ -19,9 +20,23 @@ def _valid_date(s: str | None) -> str | None:
     return s if re.fullmatch(r"\d{2}/\d{2}/\d{4}", s) else None
 
 def _to_float(num_str: str) -> float:
-    s = (num_str or "").strip().replace(" ", "")
+    s0 = (num_str or "").strip()
+    if not s0:
+        return float("nan")
+    s0 = s0.replace("\u00A0", " ").replace("−", "-").replace("–", "-").replace("—", "-")
+    neg = False
+    mp = re.match(r"^\((.*)\)$", s0)
+    if mp:
+        neg = True
+        s0 = (mp.group(1) or "").strip()
+    if re.match(r"^\s*-\s*", s0):
+        neg = True
+    s = s0.replace(" ", "")
     if not s:
         return float("nan")
+    if s.startswith("-"):
+        neg = True
+        s = s[1:]
     has_comma = "," in s
     has_dot = "." in s
     if has_comma and has_dot:
@@ -29,20 +44,26 @@ def _to_float(num_str: str) -> float:
         dec_sep = s[last_sep_idx]
         thou_sep = "." if dec_sep == "," else ","
         normalized = s.replace(thou_sep, "").replace(dec_sep, ".")
-        return float(normalized)
+        num = float(normalized)
+        return -abs(num) if neg else num
     if has_comma:
         if re.search(r",\d{2}$", s):
-            return float(s.replace(".", "").replace(",", "."))
-        return float(s.replace(",", ""))
+            num = float(s.replace(".", "").replace(",", "."))
+            return -abs(num) if neg else num
+        num = float(s.replace(",", ""))
+        return -abs(num) if neg else num
     if has_dot:
         if re.search(r"\.\d{2}$", s):
-            return float(s)
-        return float(s.replace(".", ""))
-    return float(s)
+            num = float(s)
+            return -abs(num) if neg else num
+        num = float(s.replace(".", ""))
+        return -abs(num) if neg else num
+    num = float(s)
+    return -abs(num) if neg else num
 
 def _monto_total_pagar(text: str) -> str | None:
     m = re.search(
-        r"Monto\s+total\s+a\s+pagar\s*:?\s*[^\d]{0,40}([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))",
+        r"Monto\s+total\s+a\s+pagar\s*:?\s*[^\d\-−–—]{0,40}(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?|\(?\s*(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2})?\s*\)?)",
         text,
         re.IGNORECASE | re.DOTALL,
     )
@@ -70,7 +91,7 @@ def parse_pacifico_pension(text: str) -> dict | None:
         return re.sub(r"\s{2,}", " ", flat)
 
     money_re = re.compile(
-        r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))(?!\d)"
+        r"(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?|\(?\s*(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2})?\s*\)?)(?!\d)"
     )
 
     def _amount_after_label(label_regex: str, raw_text: str, lookahead_lines: int = 2) -> str | None:
@@ -145,8 +166,8 @@ def parse_pacifico_pension(text: str) -> dict | None:
                         cut = j
                         break
                 search_list = candidates[:cut]
-                pattern_dot = r"\b([0-9]+\.[0-9]{2})\b"
-                pattern_any = r"\b([0-9]+(?:[.,][0-9]{2}))\b"
+                pattern_dot = r"(?<!\d)(\(?\s*(?:[-−–—]\s*)?[0-9]+\.[0-9]{2}\s*\)?)(?!\d)"
+                pattern_any = r"(?<!\d)(\(?\s*(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2})\s*\)?)(?!\d)"
                 # preferir punto decimal
                 for c in search_list:
                     m = re.search(pattern_dot, c)
@@ -168,10 +189,12 @@ def parse_pacifico_pension(text: str) -> dict | None:
             return []
         seg = t[max(0, m.start()-40): m.end() + window]
         # Aceptar punto o coma como separador decimal
-        vals = re.findall(r"\b([0-9]+(?:[.,][0-9]{2}))\b", seg)
+        vals = re.findall(r"(?<!\d)(\(?\s*(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2})\s*\)?)(?!\d)", seg)
         uniq = []
         for v in vals:
-            f = float(v.replace(",", "."))
+            f = _to_float(v)
+            if not (f == f):
+                continue
             if all(abs(f - u) > 1e-6 for u in uniq):
                 uniq.append(f)
         print("[pacifico] montos cerca del bloque:", uniq)
@@ -179,30 +202,30 @@ def parse_pacifico_pension(text: str) -> dict | None:
 
     # Nuevo fallback: deducción global (total ≈ prima + igv)
     def _deduce_amounts_global(t: str) -> tuple[str | None, str | None, str | None]:
-        vals_raw = re.findall(r"\b([0-9]+(?:[.,][0-9]{2}))\b", t)
+        vals_raw = re.findall(r"(?<!\d)(\(?\s*(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2})\s*\)?)(?!\d)", t)
         vals = []
         for v in vals_raw:
             try:
-                f = float(v.replace(",", "."))
+                f = _to_float(v)
                 # deduplicar por 2 decimales
                 if all(abs(f - u) > 1e-6 for u in vals):
                     vals.append(f)
             except Exception:
                 continue
-        vals.sort()
+        vals.sort(key=lambda x: abs(x))
         if not vals:
             return None, None, None
-        # probar combinaciones buscando c ~ a + b; preferir a > b (prima > igv)
-        for c in reversed(vals):
-            for a in reversed(vals):
-                if a >= c:
+        candidates = sorted(vals, key=lambda x: abs(x), reverse=True)
+        for c in candidates:
+            for a in candidates:
+                if a == c:
                     continue
                 for b in vals:
-                    if b >= c:
+                    if b == c or b == a:
                         continue
-                    if a <= 0 or b <= 0:
+                    if abs(a) <= 0.01 or abs(b) <= 0.01:
                         continue
-                    if abs((a + b) - c) <= 0.01 and a > b:
+                    if abs((a + b) - c) <= 0.01 and abs(a) > abs(b):
                         print("[pacifico] deducción global -> prima:", f"{a:.2f}", "igv:", f"{b:.2f}", "total:", f"{c:.2f}")
                         return f"{a:.2f}", f"{b:.2f}", f"{c:.2f}"
         return None, None, None
@@ -217,7 +240,7 @@ def parse_pacifico_pension(text: str) -> dict | None:
                 for c in candidates_lines:
                     if stop_re.search(c) and c is not l:
                         break
-                    for m in re.finditer(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))", c):
+                    for m in re.finditer(r"(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?|\(?\s*(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2})?\s*\)?)", c):
                         raw_val = m.group(1)
                         try:
                             f = _to_float(raw_val)
@@ -231,7 +254,7 @@ def parse_pacifico_pension(text: str) -> dict | None:
         return None
 
     def _max_amount(raw_text: str) -> str | None:
-        vals = re.findall(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2}))", raw_text)
+        vals = re.findall(r"(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?|\(?\s*(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2})?\s*\)?)", raw_text)
         best_val = None
         best_raw = None
         for raw in vals:

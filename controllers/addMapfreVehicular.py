@@ -106,9 +106,22 @@ def parse_mapfre_vehicular(text: str):
     # 7. Primas
     # Prima Comercial 412.00
     # Prima Comercial + I.G.V. 486.16
-    m_pc = re.search(r'Prima\s+Comercial\s+([\d,]+\.\d{2})', text_norm, re.IGNORECASE)
+    m_pc = re.search(r'Prima\s+Comercial\s+(\(?\s*(?:[-−–—]\s*)?[\d,]+\.\d{2}\s*\)?)', text_norm, re.IGNORECASE)
     if m_pc:
-        val_pc = m_pc.group(1).replace(',', '')
+        val_pc = m_pc.group(1).replace('−', '-').replace('–', '-').replace('—', '-').strip()
+        neg = False
+        mp = re.match(r'^\((.*)\)$', val_pc)
+        if mp:
+            neg = True
+            val_pc = (mp.group(1) or '').strip()
+        if re.match(r'^\s*-\s*', val_pc):
+            neg = True
+        val_pc = re.sub(r'[^\d,\.]', '', val_pc).replace(',', '')
+        if neg and val_pc:
+            try:
+                val_pc = f"{-abs(float(val_pc)):.2f}"
+            except Exception:
+                val_pc = f"-{val_pc}"
         item['prima_comercial'] = val_pc
         
         # Prima Neta (Calculada o extraída)
@@ -120,9 +133,23 @@ def parse_mapfre_vehicular(text: str):
         except:
             pass
 
-    m_total = re.search(r'Prima\s+Comercial\s+\+\s+I\.?G\.?V\.?\s+([\d,]+\.\d{2})', text_norm, re.IGNORECASE)
+    m_total = re.search(r'Prima\s+Comercial\s+\+\s+I\.?G\.?V\.?\s+(\(?\s*(?:[-−–—]\s*)?[\d,]+\.\d{2}\s*\)?)', text_norm, re.IGNORECASE)
     if m_total:
-         item['prima_total'] = m_total.group(1).replace(',', '')
+         tot = m_total.group(1).replace('−', '-').replace('–', '-').replace('—', '-').strip()
+         neg = False
+         mp = re.match(r'^\((.*)\)$', tot)
+         if mp:
+             neg = True
+             tot = (mp.group(1) or '').strip()
+         if re.match(r'^\s*-\s*', tot):
+             neg = True
+         tot = re.sub(r'[^\d,\.]', '', tot).replace(',', '')
+         if neg and tot:
+             try:
+                 tot = f"{-abs(float(tot)):.2f}"
+             except Exception:
+                 tot = f"-{tot}"
+         item['prima_total'] = tot
     
     # 8. Recibo / Proforma (Opional, para mantener paridad con parser genérico)
     # Buscar patrones comunes de recibo

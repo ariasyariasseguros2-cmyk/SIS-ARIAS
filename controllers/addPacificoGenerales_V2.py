@@ -247,28 +247,41 @@ def addPacificoGenerales_V2(filepath):
     # 4. Importes
     def clean_amount(s):
         try:
-            # Remove currency symbols and whitespace
-            s = re.sub(r'[^\d.,]', '', s)
-            if not s: return 0.0
+            raw = (s or '').strip()
+            if not raw:
+                return 0.0
+            raw = raw.replace('−', '-').replace('–', '-').replace('—', '-')
+            neg = False
+            m_paren = re.match(r'^\((.*)\)$', raw)
+            if m_paren:
+                neg = True
+                raw = (m_paren.group(1) or '').strip()
+            if re.match(r'^\s*-\s*', raw):
+                neg = True
+            raw = re.sub(r'[^\d.,]', '', raw)
+            if not raw:
+                return 0.0
             
             # Robust parsing for mixed separators (e.g. 15.451.45 or 15,451.45)
             # Find the last separator (either . or ,)
-            last_dot = s.rfind('.')
-            last_comma = s.rfind(',')
+            last_dot = raw.rfind('.')
+            last_comma = raw.rfind(',')
             last_sep = max(last_dot, last_comma)
             
             if last_sep == -1:
                 # No separator, assume integer
-                return float(s)
+                num = float(raw)
+                return -abs(num) if neg else num
             
             # Check if it's a thousands separator or decimal
             # If there are multiple separators, or the last one is followed by 2 digits (standard currency), treat as decimal
             # We assume the last separator is the decimal separator
             
-            integer_part = s[:last_sep].replace('.', '').replace(',', '')
-            decimal_part = s[last_sep+1:]
+            integer_part = raw[:last_sep].replace('.', '').replace(',', '')
+            decimal_part = raw[last_sep+1:]
             
-            return float(f"{integer_part}.{decimal_part}")
+            num = float(f"{integer_part}.{decimal_part}")
+            return -abs(num) if neg else num
         except:
             return 0.0
 
@@ -280,13 +293,13 @@ def addPacificoGenerales_V2(filepath):
     # Prima Neta / Comercial
     # Buscamos específicamente "PRIMA COMERCIAL" seguido de un monto
     # Usamos search para encontrar la primera coincidencia válida en el bloque principal
-    m_prima = re.search(r'PRIMA\s+(?:COMERCIAL|NETA)[^\d\n]*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})', text, re.IGNORECASE)
+    m_prima = re.search(r'PRIMA\s+(?:COMERCIAL|NETA)[^\d\n\-−–—]{0,60}(\(?\s*[-−–—]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2}\s*\)?)', text, re.IGNORECASE)
     if m_prima:
         data["prima_neta"] = clean_amount(m_prima.group(1))
 
     # IGV
     # Buscamos IGV cercano
-    m_igv = re.search(r'I\.?G\.?V\.?[^\d\n]*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})', text, re.IGNORECASE)
+    m_igv = re.search(r'I\.?G\.?V\.?[^\d\n\-−–—]{0,60}(\(?\s*[-−–—]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2}\s*\)?)', text, re.IGNORECASE)
     if m_igv:
         val = clean_amount(m_igv.group(1))
         # Validación simple para no confundir con otros montos
@@ -295,7 +308,7 @@ def addPacificoGenerales_V2(filepath):
 
     # Total Calculation
     # Si tenemos ambos, sumamos
-    if data["prima_neta"] > 0:
+    if data["prima_neta"] != 0:
         if data["igv"] == 0:
              # Try to calculate 18%
              data["igv"] = round(data["prima_neta"] * 0.18, 2)
@@ -304,7 +317,7 @@ def addPacificoGenerales_V2(filepath):
     else:
         # Fallback: search for Total label (S/.)
         # S/. 18.232.73
-        m_total = re.search(r'(?:TOTAL|S/\.)[^\d\n]*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})', text, re.IGNORECASE)
+        m_total = re.search(r'(?:TOTAL|S/\.)[^\d\n\-−–—]{0,60}(\(?\s*[-−–—]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2}\s*\)?)', text, re.IGNORECASE)
         if m_total:
              data["total"] = clean_amount(m_total.group(1))
              # Back-calculate net

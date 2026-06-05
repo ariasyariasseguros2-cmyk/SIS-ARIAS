@@ -70,13 +70,25 @@ def extract_razon_social(text: str) -> Optional[str]:
 def _normalize_amount(s: str | None) -> Optional[str]:
     if not s:
         return None
-    v = re.sub(r"[^\d,\.]", "", s)
+    raw = (s or "").strip().replace("−", "-").replace("–", "-").replace("—", "-")
+    neg = False
+    m_paren = re.match(r'^\((.*)\)$', raw)
+    if m_paren:
+        neg = True
+        raw = (m_paren.group(1) or "").strip()
+    v = re.sub(r"[^\d,\.\-]", "", raw)
+    if v.startswith("-"):
+        neg = True
+    v = v.replace("-", "")
     if "," in v and "." in v:
         v = v.replace(",", "")
     elif "," in v and "." not in v:
         v = v.replace(".", "").replace(",", ".")
     try:
-        return f"{float(v):.2f}"
+        num = float(v)
+        if neg:
+            num = -abs(num)
+        return f"{num:.2f}"
     except Exception:
         return v or None
 
@@ -84,7 +96,7 @@ def extract_primas_positiva(text: str) -> dict:
     out = {}
     # Capturar prima comercial y total con IGV, permitiendo prefijos de moneda opcionales
     m_block = re.search(
-        r"Prima\s+Comercial[\s\S]{0,120}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*([0-9][0-9\.,]*)[\s\S]{0,240}?Prima\s+Comercial\s*\+\s*IGV[\s\S]{0,120}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*([0-9][0-9\.,]*)",
+        r"Prima\s+Comercial[\s\S]{0,120}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*(\(?\s*(?:[-−–—]\s*)?[0-9][0-9\.,]*\s*\)?)[\s\S]{0,240}?Prima\s+Comercial\s*\+\s*IGV[\s\S]{0,120}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*(\(?\s*(?:[-−–—]\s*)?[0-9][0-9\.,]*\s*\)?)",
         text,
         flags=re.IGNORECASE,
     )
@@ -94,12 +106,12 @@ def extract_primas_positiva(text: str) -> dict:
         return {k: v for k, v in out.items() if v}
     
     m_pc = re.search(
-        r"Prima\s+Comercial[\s:]*[\r\n]*[A-Z$S\/\.\s]*([0-9][0-9\.,]*)",
+        r"Prima\s+Comercial[\s:]*[\r\n]*[A-Z$S\/\.\s]*(\(?\s*(?:[-−–—]\s*)?[0-9][0-9\.,]*\s*\)?)",
         text,
         flags=re.IGNORECASE,
     )
     m_pigv = re.search(
-        r"Prima\s+Comercial\s*\+\s*IGV[\s:]*[\r\n]*[A-Z$S\/\.\s]*([0-9][0-9\.,]*)",
+        r"Prima\s+Comercial\s*\+\s*IGV[\s:]*[\r\n]*[A-Z$S\/\.\s]*(\(?\s*(?:[-−–—]\s*)?[0-9][0-9\.,]*\s*\)?)",
         text,
         flags=re.IGNORECASE,
     )

@@ -5,16 +5,31 @@ from typing import Dict, Optional
 def _money(raw: Optional[str]) -> Optional[str]:
     if raw is None:
         return None
-    s = str(raw).strip()
+    s0 = str(raw).strip()
+    s0 = s0.replace("−", "-").replace("–", "-").replace("—", "-")
+    neg = False
+    mp = re.match(r"^\((.*)\)$", s0)
+    if mp:
+        neg = True
+        s0 = (mp.group(1) or "").strip()
+    if re.match(r"^\s*-\s*", s0):
+        neg = True
+    s = s0
     if not s:
         return None
     s = re.sub(r"[^\d,.\-]", "", s)
     if not s:
         return None
+    if s.startswith("-"):
+        neg = True
+    s = s.replace("-", "")
     if "," in s and "." in s:
         s = s.replace(",", "")
     elif "," in s and "." not in s:
         s = s.replace(",", ".")
+    s = s.strip()
+    if neg and s:
+        return f"-{s}" if not s.startswith("-") else s
     return s
 
 
@@ -97,7 +112,7 @@ def parse_mapfre_endoso_generales(text: str) -> Dict[str, str]:
         item["asegurado"] = name
 
     date_pat = r"\d{2}/\d{2}/\d{4}"
-    money_pat = r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2}))"
+    money_pat = r"(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?)"
 
     m_vig_pol = _find_after(
         r"VIGENCIA\s+DE\s+P[ÓO]LIZA\b",

@@ -31,10 +31,21 @@ def _extract_recibo_documentos_generados(text: str) -> Optional[str]:
 def _normalize_amount(s: str | None) -> Optional[str]:
     if not s:
         return None
-    val = (s or "").strip()
-    val = re.sub(r"[^\d\.,]", "", val)
+    raw0 = (s or "").strip()
+    raw = raw0.replace("−", "-").replace("–", "-").replace("—", "-")
+    neg = False
+    mp = re.match(r"^\((.*)\)$", raw)
+    if mp:
+        neg = True
+        raw = (mp.group(1) or "").strip()
+    if re.match(r"^\s*-\s*", raw):
+        neg = True
+    val = re.sub(r"[^\d,\.\-]", "", raw)
     if not val:
         return None
+    if val.startswith("-"):
+        neg = True
+    val = val.replace("-", "")
     if "," in val and "." in val:
         if val.rfind(",") > val.rfind("."):
             val = val.replace(".", "").replace(",", ".")
@@ -43,9 +54,12 @@ def _normalize_amount(s: str | None) -> Optional[str]:
     elif "," in val and "." not in val:
         val = val.replace(",", ".")
     try:
-        return f"{float(val):.2f}"
+        num = float(val)
+        if neg:
+            num = -abs(num)
+        return f"{num:.2f}"
     except Exception:
-        return val
+        return raw0
 
 def _extract_moneda(text: str) -> Optional[str]:
     t = text or ""
@@ -86,7 +100,7 @@ def _extract_moneda(text: str) -> Optional[str]:
 
 def _extract_primas(text: str) -> Dict[str, str]:
     out: Dict[str, str] = {}
-    money = r"(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})"
+    money = r"(\(?\s*(?:[-−–—]\s*)?\d{1,3}(?:[.,]\d{3})*[.,]\d{2}\s*\)?)"
 
     t = text or ""
 

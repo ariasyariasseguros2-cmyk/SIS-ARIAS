@@ -21,12 +21,20 @@ def _find(pattern: str, text: str, flags=re.IGNORECASE):
 
 def _money(s: Optional[str]) -> Optional[str]:
     if not s: return None
-    # Capturar número con separadores de miles y decimales
-    m = re.search(r"([0-9][0-9\.,\s]*)", s)
+    raw0 = str(s)
+    raw = raw0.replace("−", "-").replace("–", "-").replace("—", "-")
+    m = re.search(r"(\(?\s*(?:-\s*)?[0-9][0-9\.,\s]*\s*\)?)", raw)
     if not m: return None
     
     v = m.group(1).strip()
-    # Normalización de montos (quitar espacios, manejar coma/punto)
+    neg = False
+    mp = re.match(r"^\((.*)\)$", v)
+    if mp:
+        neg = True
+        v = (mp.group(1) or "").strip()
+    if re.match(r"^\s*-\s*", v):
+        neg = True
+    v = re.sub(r"[^\d,\.]", "", v)
     v = v.replace(" ", "")
     if "," in v and "." in v:
         if v.rfind(",") > v.rfind("."): # Caso 1.234,56
@@ -37,11 +45,14 @@ def _money(s: Optional[str]) -> Optional[str]:
         v = v.replace(",", ".")
         
     try:
-        return f"{float(v):.2f}"
+        num = float(v)
+        if neg:
+            num = -abs(num)
+        return f"{num:.2f}"
     except:
         return v
 
-_MONEY_2DP_RE = re.compile(r"(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})")
+_MONEY_2DP_RE = re.compile(r"(\(?\s*(?:[-−–—]\s*)?\d{1,3}(?:[.,]\d{3})*[.,]\d{2}\s*\)?)")
 
 def _money_candidates_near(label_pattern: str, text: str, window: int = 350) -> list[str]:
     m = re.search(label_pattern, text, re.IGNORECASE)
@@ -236,7 +247,7 @@ def parse_positiva_vida_generales(text: str) -> Dict[str, str]:
         if igv_cands:
             pc_igv_best = igv_cands[0]
         else:
-            pc_igv = _find(r"Prima\s+Comercial\s*\+\s*IGV[\s\S]{0,50}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*([0-9][0-9\.,]*)", text)
+            pc_igv = _find(r"Prima\s+Comercial\s*\+\s*IGV[\s\S]{0,50}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*(\(?\s*(?:[-−–—]\s*)?[0-9][0-9\.,]*\s*\)?)", text)
             pc_igv_best = _money(pc_igv)
 
     pc_best: Optional[str] = None
@@ -265,7 +276,7 @@ def parse_positiva_vida_generales(text: str) -> Dict[str, str]:
             else:
                 pc_best = pc_cands[0]
         else:
-            pc = _find(r"Prima\s+Comercial(?!\s*\+)[\s\S]{0,50}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*([0-9][0-9\.,]*)", text)
+            pc = _find(r"Prima\s+Comercial(?!\s*\+)[\s\S]{0,50}?(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/)?\s*(\(?\s*(?:[-−–—]\s*)?[0-9][0-9\.,]*\s*\)?)", text)
             pc_best = _money(pc)
 
     pc_num = _to_float(pc_best)

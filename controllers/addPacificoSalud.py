@@ -10,7 +10,7 @@ def _find(pattern: str, text: str, flags=re.IGNORECASE | re.DOTALL) -> str | Non
 def _money(s: str | None) -> str | None:
     if not s:
         return None
-    m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+)", s)
+    m = re.search(r"(\(\s*(?:[-−–—]\s*)?\s*[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)|(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2})?)", s)
     return m.group(1) if m else s
 
 def _valid_date(s: str | None) -> str | None:
@@ -38,6 +38,42 @@ def parse_pacifico_salud(text: str) -> dict | None:
     def _canon(t: str) -> str:
         flat = re.sub(r"[\r\n]+", " ", t)
         return re.sub(r"\s{2,}", " ", flat)
+
+    def _parse_amount_text(v: str | None) -> float | None:
+        if not v:
+            return None
+        s = str(v).strip().replace('−', '-').replace('–', '-').replace('—', '-')
+        neg = False
+        m_paren = re.match(r'^\((.*)\)$', s)
+        if m_paren:
+            neg = True
+            s = (m_paren.group(1) or '').strip()
+        s = re.sub(r'[^\d,.\-]', '', s)
+        if not s:
+            return None
+        if s.startswith('-'):
+            neg = True
+        s = s.replace('-', '')
+        if not s:
+            return None
+        if '.' in s and ',' in s:
+            if s.rfind('.') > s.rfind(','):
+                s = s.replace(',', '')
+            else:
+                s = s.replace('.', '').replace(',', '.')
+        elif s.count('.') > 1 and ',' not in s:
+            parts = s.split('.')
+            s = ''.join(parts[:-1]) + '.' + parts[-1]
+        elif s.count(',') > 1 and '.' not in s:
+            parts = s.split(',')
+            s = ''.join(parts[:-1]) + '.' + parts[-1]
+        elif ',' in s:
+            s = s.replace('.', '').replace(',', '.')
+        try:
+            num = float(s)
+        except Exception:
+            return None
+        return -abs(num) if neg else num
 
     def _find_after(label_regex: str, t: str, value_regex: str, window: int = 160) -> str | None:
         m = re.search(label_regex, t, re.IGNORECASE)
@@ -105,8 +141,8 @@ def parse_pacifico_salud(text: str) -> dict | None:
                         cut = j
                         break
                 search_list = candidates[:cut]
-                pattern_dot = r"\b([0-9]+\.[0-9]{2})\b"
-                pattern_any = r"\b([0-9]+(?:[.,][0-9]{2}))\b"
+                pattern_dot = r"(?<!\d)(\(\s*(?:[-−–—]\s*)?\d+\.[0-9]{2}\s*\)|(?:[-−–—]\s*)?\d+\.[0-9]{2})(?!\d)"
+                pattern_any = r"(?<!\d)(\(\s*(?:[-−–—]\s*)?\d+(?:[.,][0-9]{2})\s*\)|(?:[-−–—]\s*)?\d+(?:[.,][0-9]{2}))(?!\d)"
                 # preferir punto decimal
                 for c in search_list:
                     m = re.search(pattern_dot, c)
@@ -127,11 +163,12 @@ def parse_pacifico_salud(text: str) -> dict | None:
         if not m:
             return []
         seg = t[max(0, m.start()-40): m.end() + window]
-        # Aceptar punto o coma como separador decimal
-        vals = re.findall(r"\b([0-9]+(?:[.,][0-9]{2}))\b", seg)
+        vals = re.findall(r"(?<!\d)(\(\s*(?:[-−–—]\s*)?\d+(?:[.,][0-9]{2})\s*\)|(?:[-−–—]\s*)?\d+(?:[.,][0-9]{2}))(?!\d)", seg)
         uniq = []
         for v in vals:
-            f = float(v.replace(",", "."))
+            f = _parse_amount_text(v)
+            if f is None:
+                continue
             if all(abs(f - u) > 1e-6 for u in uniq):
                 uniq.append(f)
         print("[pacifico] montos cerca del bloque:", uniq)
@@ -139,30 +176,28 @@ def parse_pacifico_salud(text: str) -> dict | None:
 
     # Nuevo fallback: deducción global (total ≈ prima + igv)
     def _deduce_amounts_global(t: str) -> tuple[str | None, str | None, str | None]:
-        vals_raw = re.findall(r"\b([0-9]+(?:[.,][0-9]{2}))\b", t)
+        vals_raw = re.findall(r"(?<!\d)(\(\s*(?:[-−–—]\s*)?\d+(?:[.,][0-9]{2})\s*\)|(?:[-−–—]\s*)?\d+(?:[.,][0-9]{2}))(?!\d)", t)
         vals = []
         for v in vals_raw:
-            try:
-                f = float(v.replace(",", "."))
-                # deduplicar por 2 decimales
-                if all(abs(f - u) > 1e-6 for u in vals):
-                    vals.append(f)
-            except Exception:
+            f = _parse_amount_text(v)
+            if f is None:
                 continue
-        vals.sort()
+            if all(abs(f - u) > 1e-6 for u in vals):
+                vals.append(f)
+        vals.sort(key=lambda x: abs(x))
         if not vals:
             return None, None, None
-        # probar combinaciones buscando c ~ a + b; preferir a > b (prima > igv)
-        for c in reversed(vals):
-            for a in reversed(vals):
-                if a >= c:
+        candidates = sorted(vals, key=lambda x: abs(x), reverse=True)
+        for c in candidates:
+            for a in candidates:
+                if a == c:
                     continue
                 for b in vals:
-                    if b >= c:
+                    if b == c or b == a:
                         continue
-                    if a <= 0 or b <= 0:
+                    if abs(a) < 0.01 or abs(b) < 0.01:
                         continue
-                    if abs((a + b) - c) <= 0.01 and a > b:
+                    if abs((a + b) - c) <= 0.01 and abs(a) > abs(b):
                         print("[pacifico] deducción global -> prima:", f"{a:.2f}", "igv:", f"{b:.2f}", "total:", f"{c:.2f}")
                         return f"{a:.2f}", f"{b:.2f}", f"{c:.2f}"
         return None, None, None
@@ -172,7 +207,7 @@ def parse_pacifico_salud(text: str) -> dict | None:
         lines = [l.strip() for l in raw_text.splitlines()]
         for i, l in enumerate(lines):
             if re.search(label_regex, l, re.IGNORECASE):
-                pattern = r"(?:S\/\s*)?([0-9]+(?:[.,][0-9]{2}))"
+                pattern = r"(?:S\/\s*)?(\(\s*(?:[-−–—]\s*)?\d+(?:[.,][0-9]{2})\s*\)|(?:[-−–—]\s*)?\d+(?:[.,][0-9]{2}))"
                 found = re.findall(pattern, l)
                 if found:
                     return found[-1]
@@ -401,30 +436,25 @@ def parse_pacifico_salud(text: str) -> dict | None:
     prima_label = _label_amount(r"\bPrima\b(?!\s+Comercial)", text, lookahead_lines=3)
     prima_comercial = (
         _first_decimal_after(r"\bPRIMA\s+COMERCIAL\b", text, lookahead_lines=4, dot_only=False)
-        or _find_after(r"\bPRIMA\s+COMERCIAL\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
-        or _find_last(r"PRIMA\s+COMERCIAL(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+        or _find_after(r"\bPRIMA\s+COMERCIAL\b", flat, r"((?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2}))", window=140)
+        or _find_last(r"PRIMA\s+COMERCIAL(?:[^A-Z]|$).*?((?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2}))", text)
     )
     if not prima_comercial and prima_label:
         prima_comercial = prima_label
     igv_val = (
         _first_decimal_after(r"\bIGV\b", text, lookahead_lines=4, dot_only=False)
-        or _find_after(r"\bIGV\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
-        or _find_last(r"\bIGV\b(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+        or _find_after(r"\bIGV\b", flat, r"((?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2}))", window=140)
+        or _find_last(r"\bIGV\b(?:[^A-Z]|$).*?((?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2}))", text)
     )
     total_cobrar = (
         _first_decimal_after(r"(TOTAL\s+A\s+COBRAR|IMPORTE\s+TOTAL|V\.?\s*VENTA)\b", text, lookahead_lines=4, dot_only=False)
-        or _find_after(r"(TOTAL\s+A\s+COBRAR|IMPORTE\s+TOTAL|V\.?\s*VENTA)\b", flat, r"([0-9]+(?:[.,][0-9]{2}))", window=140)
-        or _find_last(r"(TOTAL\s+A\s+COBRAR|IMPORTE\s+TOTAL|V\.?\s*VENTA)(?:[^A-Z]|$).*?([0-9]+(?:[.,][0-9]{2}))", text)
+        or _find_after(r"(TOTAL\s+A\s+COBRAR|IMPORTE\s+TOTAL|V\.?\s*VENTA)\b", flat, r"((?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2}))", window=140)
+        or _find_last(r"(TOTAL\s+A\s+COBRAR|IMPORTE\s+TOTAL|V\.?\s*VENTA)(?:[^A-Z]|$).*?((?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2}))", text)
     )
 
     # Normalizar y corregir usando la deducción por bloque si hay confusión
     def _to_float(s: str | None) -> float | None:
-        if not s:
-            return None
-        try:
-            return float(s.replace(",", "."))
-        except Exception:
-            return None
+        return _parse_amount_text(s)
 
     pc_num = _to_float(prima_comercial)
     igv_num = _to_float(igv_val)
@@ -441,10 +471,10 @@ def parse_pacifico_salud(text: str) -> dict | None:
         (pc_num is not None and tot_num is not None and abs(pc_num - tot_num) < 1e-6) or
         (igv_num is not None and tot_num is not None and abs(igv_num - tot_num) < 1e-6)):
         amts = _amounts_near(r"(PRIMA\s+COMERCIAL|IGV|TOTAL\s+A\s+COBRAR)", text, window=800)
-        amts = [a for a in amts if a > 0.01]
+        amts = [a for a in amts if abs(a) > 0.01]
         if len(amts) >= 2:
-            tot_calc = max(amts)
-            igv_calc = min(amts)
+            tot_calc = max(amts, key=lambda x: abs(x))
+            igv_calc = min(amts, key=lambda x: abs(x))
             prima_calc = round(tot_calc - igv_calc, 2)
             if not (prima_label and pc_num is not None):
                 prima_comercial = f"{prima_calc:.2f}"

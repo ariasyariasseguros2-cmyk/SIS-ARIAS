@@ -82,17 +82,30 @@ def _normalize_date_ddmmyyyy(date_str: Optional[str]) -> Optional[str]:
 def _money_value(s: Optional[str]) -> Optional[str]:
     if not s:
         return None
-    m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+(?:[.,][0-9]{2})?)", s)
+    raw0 = str(s).strip()
+    raw = raw0.replace("−", "-").replace("–", "-").replace("—", "-")
+    m = re.search(r"(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?|\(?\s*(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2})?\s*\)?)", raw)
     if not m:
         return None
-    raw = m.group(1)
-    if raw.count(",") == 1 and raw.count(".") == 0:
-        raw = raw.replace(",", ".")
-    raw = raw.replace(",", "")
+    tok = m.group(1).strip()
+    neg = False
+    mp = re.match(r"^\((.*)\)$", tok)
+    if mp:
+        neg = True
+        tok = (mp.group(1) or "").strip()
+    if re.match(r"^\s*-\s*", tok):
+        neg = True
+    tok = re.sub(r"[^\d,\.]", "", tok)
+    if tok.count(",") == 1 and tok.count(".") == 0:
+        tok = tok.replace(",", ".")
+    tok = tok.replace(",", "")
     try:
-        return f"{float(raw):.2f}"
+        num = float(tok)
+        if neg:
+            num = -abs(num)
+        return f"{num:.2f}"
     except Exception:
-        return m.group(1)
+        return m.group(1).strip()
 
 def _add_days_ddmmyyyy(date_str: Optional[str], days: int) -> Optional[str]:
     if not date_str:
@@ -245,13 +258,13 @@ def parse_protecta_vidaley(text: str) -> Dict[str, str]:
 
     prima_comercial = _money_value(
         _find(
-            r"Prima\s+Comercial\s+Total\s*[:：]?\s*(?:S\s*/\s*\.?|S\s*/|S/\.?|US\s*\$|US\$|USD)?\s*([0-9\.,]+)",
+            r"Prima\s+Comercial\s+Total\s*[:：]?\s*(?:S\s*/\s*\.?|S\s*/|S/\.?|US\s*\$|US\$|USD)?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)",
             t,
         )
     )
     prima_total_igv = _money_value(
         _find(
-            r"Prima\s+Comercial\s+Total\s+m[áa]s\s+IGV\s*[:：]?\s*(?:S\s*/\s*\.?|S\s*/|S/\.?|US\s*\$|US\$|USD)?\s*([0-9\.,]+)",
+            r"Prima\s+Comercial\s+Total\s+m[áa]s\s+IGV\s*[:：]?\s*(?:S\s*/\s*\.?|S\s*/|S/\.?|US\s*\$|US\$|USD)?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)",
             t,
         )
     )

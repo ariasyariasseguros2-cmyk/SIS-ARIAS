@@ -12,8 +12,36 @@ def _find(pattern: str, text: str, flags=re.IGNORECASE) -> Optional[str]:
 def _money(s: Optional[str]) -> Optional[str]:
     if not s:
         return None
-    m = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})|[0-9]+)", s)
-    return m.group(1) if m else s
+    raw0 = str(s).strip()
+    raw = raw0.replace("−", "-").replace("–", "-").replace("—", "-")
+    m = re.search(r"(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?|\(?\s*(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]{2})?\s*\)?)", raw)
+    tok = (m.group(1).strip() if m else raw)
+    neg = False
+    mp = re.match(r"^\((.*)\)$", tok)
+    if mp:
+        neg = True
+        tok = (mp.group(1) or "").strip()
+    if re.match(r"^\s*-\s*", tok):
+        neg = True
+    tok = re.sub(r"[^\d,\.]", "", tok)
+    if not tok:
+        return None
+    if "," in tok and "." in tok:
+        if tok.rfind(",") > tok.rfind("."):
+            tok = tok.replace(".", "").replace(",", ".")
+        else:
+            tok = tok.replace(",", "")
+    elif "," in tok and "." not in tok:
+        tok = tok.replace(".", "").replace(",", ".")
+    else:
+        tok = tok.replace(",", "")
+    try:
+        num = float(tok)
+        if neg:
+            num = -abs(num)
+        return f"{num:.2f}"
+    except Exception:
+        return f"-{tok}" if (neg and tok) else tok
 
 def _canon(text: str) -> str:
     return re.sub(r"\s+", " ", text)
@@ -64,7 +92,7 @@ def parse_mapfre_vidaley_v2(text: str) -> Dict[str, str]:
         ACTIVITY = r"(\d{4,6}\s*-\s+[A-Z0-9ÁÉÍÓÚÑ \.\-]+?)\s+(?=[A-ZÁÉÍÓÚÑ])"
         DATE     = r"([0-9]{2}/[0-9]{2}/[0-9]{4})"
         CURR     = r"\b(SOLES|USD|PEN|DOLARES|D[ÓO]LARES)\b"
-        MONEY    = r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2}))"
+        MONEY    = r"(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?)"
         poliza      = take(r"\b(\d{8,14})\b")
         recibo      = take(r"\b(\d{6,12})\b")
         contratante = take(COMPANY)
@@ -349,7 +377,7 @@ def parse_mapfre_vidaley_v2(text: str) -> Dict[str, str]:
         # Prima Comercial: capturar con máxima robustez
     base_pc = None
     total_pc = None
-    m_pc = re.search(r"Prima\s+Comercial\s*[:：]?\s*S?\/?\s*([0-9\.,]+)[\s\S]{0,200}?Prima\s+Comercial\s*\+\s*IGV\s*[:：]?\s*S?\/?\s*([0-9\.,]+)", flat, re.IGNORECASE | re.DOTALL)
+    m_pc = re.search(r"Prima\s+Comercial\s*[:：]?\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)[\s\S]{0,200}?Prima\s+Comercial\s*\+\s*IGV\s*[:：]?\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat, re.IGNORECASE | re.DOTALL)
     if m_pc:
         base_pc = m_pc.group(1)
         total_pc = m_pc.group(2)
@@ -357,10 +385,10 @@ def parse_mapfre_vidaley_v2(text: str) -> Dict[str, str]:
         # Limitar estrictamente entre la etiqueta base y la etiqueta de total
         base_area = _between(r"\bPrima\s+Comercial(?!\s*\+)\b", r"\bPrima\s+Comercial\s*\+\s*IGV\b", flat, window=400)
         if base_area:
-            nums = re.findall(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2}))", base_area)
+            nums = re.findall(r"(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?)", base_area)
             if nums:
                 try:
-                    vals = [float(n.replace(".", "").replace(",", ".")) if ("," in n and "." in n) else float(n.replace(",", ".")) for n in nums]
+                    vals = [float(str(_money(n)).replace(",", ".")) for n in nums]
                     base_pc = nums[vals.index(min(vals))]
                 except Exception:
                     base_pc = nums[-1]
@@ -369,7 +397,7 @@ def parse_mapfre_vidaley_v2(text: str) -> Dict[str, str]:
         if labels_t:
             tm = labels_t[-1]
             frag2 = flat[tm.end(): tm.end() + 150]
-            nt = re.search(r"([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2}))", frag2)
+            nt = re.search(r"(\(?\s*(?:[-−–—]\s*)?[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})\s*\)?)", frag2)
             if nt:
                 total_pc = nt.group(1)
     item["prima_comercial"] = _money(base_pc) or _money(cond.get("prima_resultante"))
