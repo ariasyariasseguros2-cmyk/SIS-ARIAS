@@ -301,4 +301,16 @@ def parse_positiva_vida_generales(text: str) -> Dict[str, str]:
     f_venc = _find(r"Fecha\s+de\s+Vencimiento\s*[:：]\s*(\d{2}/\d{2}/\d{4})", text)
     item['fecha_vencimiento'] = f_venc
 
+    m_com = re.search(
+        r"Registro\s*[:：]?\s*[A-Z0-9]{3,10}[\s\S]{0,80}?"
+        r"Monto\s*(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/|SOLES|PEN)?\s*"
+        r"([0-9]{1,3}(?:[.,][0-9]{3})*[.,][0-9]{2})\b",
+        text,
+        re.IGNORECASE,
+    )
+    if m_com:
+        val = _money(m_com.group(1))
+        if val:
+            item["comision_compania_importe"] = val
+
     return {k: v for k, v in item.items() if v}
