@@ -1212,19 +1212,26 @@ def save_polizas(
                                 nombre_doc = f"[CUOTA {cuota_cupon}] {sf['nombre']}".strip() if cuota_cupon else sf['nombre']
                                 try:
                                     cur.execute(
-                                        """INSERT INTO cuota_archivos
-                                           (cuota_id, poliza_id, numero_poliza, cupon, ruta_archivo, nombre_original, usuario)
-                                           VALUES (%s,%s,%s,%s,%s,%s,%s)""",
-                                        (
-                                            cuota_id,
-                                            pid_for_files,
-                                            cuota_poliza,
-                                            cuota_cupon or None,
-                                            sf['ruta'],
-                                            nombre_doc or sf['nombre'],
-                                            usuario_display,
-                                        )
+                                        "SELECT 1 FROM poliza_archivos WHERE poliza_id = %s AND ruta_archivo = %s AND origen = 'CUOTA' LIMIT 1",
+                                        (pid_for_files, sf['ruta']),
                                     )
+                                    exists = cur.fetchone()
+                                    if not exists:
+                                        cur.execute(
+                                            """INSERT INTO poliza_archivos
+                                               (poliza_id, numero_poliza, ruta_archivo, nombre_original, origen, ramo, producto, usuario, compania)
+                                               VALUES (%s,%s,%s,%s,'CUOTA',%s,%s,%s,%s)""",
+                                            (
+                                                pid_for_files,
+                                                cuota_poliza,
+                                                sf['ruta'],
+                                                nombre_doc or sf['nombre'],
+                                                U(row.get("ramo") or ""),
+                                                U(row.get("ramos_producto") or (selected or {}).get("ramos_producto") or ""),
+                                                usuario_display,
+                                                U(row.get("cia") or ""),
+                                            ),
+                                        )
                                 except Exception as ex_f:
                                     print(f"[save_polizas] Error linking cuota archivo: {ex_f}")
 

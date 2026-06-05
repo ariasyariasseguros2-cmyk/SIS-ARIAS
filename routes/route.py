@@ -320,7 +320,7 @@ def delete_cuota_route():
 
 @bp.route('/api/cuotas/upload-archivo', methods=['POST'])
 def upload_cuota_archivo():
-    """Guarda un archivo de cuota en uploads/cuotas/ y lo registra en cuota_archivos."""
+    """Guarda un archivo de cuota en uploads/cuotas/ y lo registra en poliza_archivos (origen='CUOTA')."""
     if 'user' not in session:
         return jsonify({'ok': False, 'error': 'No autenticado'}), 401
 
@@ -399,18 +399,18 @@ def upload_cuota_archivo():
 
         nombre_doc = f"[CUOTA {cupon}] {original_filename}" if cupon else original_filename
 
-        # Registrar el archivo directamente contra la cuota para evitar mezclar PDFs entre cuotas.
+        numero_poliza_plain = (numero_poliza or '').strip() or (p_poliza or '')
         cur.execute(
-            """INSERT INTO cuota_archivos
-               (cuota_id, poliza_id, numero_poliza, cupon, ruta_archivo, nombre_original, usuario)
-               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-            (int(cuota_id), pid, p_poliza, cupon, ruta_relativa, nombre_doc, usuario)
+            """INSERT INTO poliza_archivos
+               (poliza_id, numero_poliza, ruta_archivo, nombre_original, origen, ramo, producto, usuario, compania)
+               VALUES (%s, %s, %s, %s, 'CUOTA', %s, %s, %s, %s)""",
+            (pid, numero_poliza_plain, ruta_relativa, nombre_doc, p_ramo, p_producto, usuario, p_cia)
         )
         new_archivo_id = cur.lastrowid
         cnx.commit()
         cur.close()
         cnx.close()
-        print(f"[upload_cuota_archivo] registro en cuota_archivos idArchivo={new_archivo_id} ruta={ruta_relativa}")
+        print(f"[upload_cuota_archivo] registro en poliza_archivos(CUOTA) idArchivo={new_archivo_id} ruta={ruta_relativa}")
 
         return jsonify({'ok': True, 'ruta': ruta_relativa, 'idArchivo': new_archivo_id}), 200
 
