@@ -12,6 +12,36 @@ def parse_mapfre_equipo_contratistas_4(text: str):
 
     text_norm = re.sub(r"\r\n", "\n", text)
 
+    def _normalize_amount(val: str):
+        if not val:
+            return None
+        s = (val or "").strip()
+        s = s.replace("−", "-").replace("–", "-").replace("—", "-")
+        s = re.sub(r"[^\d,.\-]", "", s)
+        if not s:
+            return None
+        neg = False
+        if s.startswith("-"):
+            neg = True
+            s = s[1:]
+        if "," in s and "." in s:
+            if s.rfind(",") > s.rfind("."):
+                s = s.replace(".", "").replace(",", ".")
+            else:
+                s = s.replace(",", "")
+        else:
+            if s.count(",") == 1 and s.count(".") == 0:
+                s = s.replace(",", ".")
+            else:
+                s = s.replace(",", "")
+        try:
+            num = float(s)
+            if neg:
+                num = -abs(num)
+            return f"{num:.2f}"
+        except Exception:
+            return f"-{s}" if (neg and s) else s
+
     def _clean_name(name: str) -> str:
         name = (name or "").strip()
         name = re.sub(r"\s+", " ", name)
@@ -91,6 +121,17 @@ def parse_mapfre_equipo_contratistas_4(text: str):
             if razon:
                 item["colectivo_asegurado"] = item.get("colectivo_asegurado") or razon
                 item["asegurado"] = item.get("asegurado") or razon
+
+    if not item.get("comision_compania_importe"):
+        m_com = re.search(
+            r"Importe\s+comisi[oó]n\s*(?:US\$|USD|S/\.?|S/)?\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2}))",
+            text_norm,
+            re.IGNORECASE,
+        )
+        if m_com:
+            val = _normalize_amount(m_com.group(1))
+            if val:
+                item["comision_compania_importe"] = val
 
     m_fe = re.search(
         r"FECHA\s+DE\s+EMISI[ÓO]N\s*[:\-]?\s*(\d{2}/\d{2}/\d{4})",

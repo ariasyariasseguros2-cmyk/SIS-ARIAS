@@ -708,6 +708,22 @@
 
     // Mantener "Fin Vigencia" (vencimiento) tal cual PDF para la columna "Fin Vigencia"
     if (!it.cuotas) it.cuotas = [];
+
+    // Si viene el importe de comisión desde el PDF, inferir el % cuando esté vacío.
+    // Esto permite que el UI tenga cálculo automático aun sin tabla de comisiones.
+    const hasPctCC = it.comision_compania_pct !== undefined && it.comision_compania_pct !== null && String(it.comision_compania_pct).trim() !== '';
+    const hasImpCC = it.comision_compania_importe !== undefined && it.comision_compania_importe !== null && String(it.comision_compania_importe).trim() !== '';
+    if (!hasPctCC && hasImpCC) {
+      const pctCalc = computeCompanyPctFromImport(it.prima_neta || '', it.comision_compania_importe || '');
+      if (pctCalc) it.comision_compania_pct = pctCalc;
+    }
+
+    const hasPctSA = it.comision_subagente_pct !== undefined && it.comision_subagente_pct !== null && String(it.comision_subagente_pct).trim() !== '';
+    const hasImpSA = it.comision_subagente_importe !== undefined && it.comision_subagente_importe !== null && String(it.comision_subagente_importe).trim() !== '';
+    if (!hasPctSA && hasImpSA && hasImpCC) {
+      const pctSubCalc = computeSubPctFromImport(it.comision_compania_importe || '', it.comision_subagente_importe || '');
+      if (pctSubCalc) it.comision_subagente_pct = pctSubCalc;
+    }
     return it;
   }
 
@@ -1385,12 +1401,14 @@
 
     // Recalcular comisión de compañía y subagente
     const pct = item.comision_compania_pct || (pctComCompaniaEl?.value || '');
-    item.comision_compania_importe = pct ? computeCommissionAmount(item.prima_neta || '', pct) : '';
+    const prevImp = item.comision_compania_importe || '';
+    item.comision_compania_importe = pct ? computeCommissionAmount(item.prima_neta || '', pct) : prevImp;
     const impTdInput = tbody.querySelector(`td[data-index="${index}"][data-field="comision_compania_importe"] .imp-comp`);
     if (impTdInput) impTdInput.value = item.comision_compania_importe || '';
 
     const subPct = item.comision_subagente_pct || (pctComSubAgenteEl?.value || '');
-    item.comision_subagente_importe = subPct ? computeSubAgentCommissionAmount(item.comision_compania_importe || '', subPct) : '';
+    const prevSubImp = item.comision_subagente_importe || '';
+    item.comision_subagente_importe = (subPct && item.comision_compania_importe) ? computeSubAgentCommissionAmount(item.comision_compania_importe || '', subPct) : prevSubImp;
     const impSubTdInput = tbody.querySelector(`td[data-index="${index}"][data-field="comision_subagente_importe"] .imp-sub`);
     if (impSubTdInput) impSubTdInput.value = item.comision_subagente_importe || '';
 
@@ -2631,8 +2649,10 @@
           const defaultProducto = (window.selectedCliente && window.selectedCliente.ramos_producto) || '';
 
           items = items.map(it => {
-            const importeCC = pctCC ? computeCommissionAmount(it.prima_neta, pctCC) : '';
-            const importeSA = (pctSA && importeCC) ? computeSubAgentCommissionAmount(importeCC, pctSA) : impSA;
+            const pctCCFinal = pctCC || (it.comision_compania_pct || '');
+            const importeCC = pctCCFinal ? computeCommissionAmount(it.prima_neta, pctCCFinal) : (it.comision_compania_importe || '');
+            const pctSAFinal = (it.comision_subagente_pct && it.comision_subagente_pct.toString().trim() !== '') ? it.comision_subagente_pct : pctSA;
+            const importeSA = (pctSAFinal && importeCC) ? computeSubAgentCommissionAmount(importeCC, pctSAFinal) : (it.comision_subagente_importe || impSA);
             // Si no viene producto del PDF, usar el del cliente
             const rProd = (it.ramos_producto && it.ramos_producto.trim()) ? it.ramos_producto : defaultProducto;
             
@@ -2641,9 +2661,9 @@
               ramos_producto: rProd,
               forma_pago: tipoPago || it.forma_pago || '',
               estado: estado || it.estado || 'PENDIENTE',
-              comision_compania_pct: pctCC,
+              comision_compania_pct: pctCCFinal,
               comision_compania_importe: importeCC,
-              comision_subagente_pct: pctSA,
+              comision_subagente_pct: pctSAFinal,
               comision_subagente_importe: importeSA
             };
           });
@@ -2816,7 +2836,7 @@
     extractedItems = extractedItems.map(it => ({
       ...it,
       comision_compania_pct: pct,
-      comision_compania_importe: pct ? computeCommissionAmount(it.prima_neta, pct) : ''
+      comision_compania_importe: pct ? computeCommissionAmount(it.prima_neta, pct) : (it.comision_compania_importe || '')
     }));
     render(extractedItems);
     if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);

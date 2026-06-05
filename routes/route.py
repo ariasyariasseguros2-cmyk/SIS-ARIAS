@@ -2113,6 +2113,10 @@ def upload():
             "prima_neta": it.get("prima_neta"),
             "prima_total": it.get("prima_total") or it.get("prima_comercial_igv") or it.get("monto"),
             "prima_comercial_igv": it.get("prima_comercial_igv") or it.get("prima_total") or it.get("monto"),
+            "comision_compania_pct": it.get("comision_compania_pct"),
+            "comision_compania_importe": it.get("comision_compania_importe") or it.get("importe_comision") or it.get("importe_comisión"),
+            "comision_subagente_pct": it.get("comision_subagente_pct"),
+            "comision_subagente_importe": it.get("comision_subagente_importe"),
             "ramo": it.get("ramo") or it.get("doc_tipo"),
             "fecha_vencimiento": it.get("fecha_vecimiento") or it.get("fecha_vencimiento") or it.get("vencimiento") or it.get("vigencia_hasta") or it.get("hasta") or it.get("expiracion"),
             "ramos_producto": it.get("ramos_producto") or it.get("producto"),
@@ -2135,7 +2139,14 @@ def upload():
             pass
 
         try:
-            for k in ("prima_comercial", "prima_neta", "prima_total", "prima_comercial_igv"):
+            for k in (
+                "prima_comercial",
+                "prima_neta",
+                "prima_total",
+                "prima_comercial_igv",
+                "comision_compania_importe",
+                "comision_subagente_importe",
+            ):
                 raw_v = res.get(k)
                 if raw_v is None:
                     continue
