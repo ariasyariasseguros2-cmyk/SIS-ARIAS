@@ -2277,11 +2277,44 @@ def upload():
             if not txt:
                 return True
             low = txt.lower()
-            noise_tokens = [
-                "web", "www.", "http", "@", "tel", "telf", "telefono", "teléfono",
-                "dirección", "direccion", "correo", "email",
+            noise_patterns = [
+                r"\bweb\b",
+                r"www\.",
+                r"http",
+                r"@",
+                r"\btel(?:\.|:|\b)",
+                r"\btelf(?:\.|:|\b)",
+                r"\btelefono\b",
+                r"\bteléfono\b",
+                r"\bdirección\b",
+                r"\bdireccion\b",
+                r"\bcorreo\b",
+                r"\bemail\b",
             ]
-            if any(t in low for t in noise_tokens):
+            if any(re.search(p, low) for p in noise_patterns):
+                return True
+            # Evitar que se tome como "asegurado" una cláusula/aviso del PDF
+            clause_tokens = [
+                "por lo que",
+                "no cubrira",
+                "no cubrirá",
+                "no cubre",
+                "reparacion",
+                "reparación",
+                "daños",
+                "danos",
+                "preexist",
+                "inspeccion",
+                "inspección",
+                "de verificarse",
+                "exclusion",
+                "exclusión",
+                "cobertura",
+            ]
+            if any(t in low for t in clause_tokens):
+                return True
+            # Nombres rara vez son oraciones con punto; esto suele indicar texto contractual.
+            if "." in txt and len(txt) > 40:
                 return True
             if ":" in txt and len(txt) > 12:
                 return True
@@ -2299,6 +2332,12 @@ def upload():
             candidates: list[str] = []
             try:
                 m = re.search(r"Señor\(a\)\.-\s*\n([^\n]{3,120})", t, flags=re.IGNORECASE)
+                if m:
+                    candidates.append(m.group(1))
+            except Exception:
+                pass
+            try:
+                m = re.search(r"\bHola\s+([^\n:]{3,120})\s*:", t, flags=re.IGNORECASE)
                 if m:
                     candidates.append(m.group(1))
             except Exception:
