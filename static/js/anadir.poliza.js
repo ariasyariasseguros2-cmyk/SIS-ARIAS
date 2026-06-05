@@ -2939,6 +2939,27 @@
     try { el.focus(); } catch (_) {}
   }
 
+  function __focusFacturaFecha(index, kind, cuotaIndex) {
+    const trs = tbody ? tbody.querySelectorAll('tr') : null;
+    const tr = trs && trs[index] ? trs[index] : null;
+    let el = null;
+    if (tr) {
+      if (kind === 'factura') {
+        el =
+          (Number.isFinite(cuotaIndex) ? tr.querySelector(`.cuota-factura[data-index="${index}"][data-cuota-index="${cuotaIndex}"]`) : null) ||
+          tr.querySelector('.pane-factura') ||
+          getTd(index, 'factura');
+      } else {
+        el =
+          (Number.isFinite(cuotaIndex) ? tr.querySelector(`.cuota-fecha[data-index="${index}"][data-cuota-index="${cuotaIndex}"]`) : null) ||
+          tr.querySelector('.pane-fecha') ||
+          getTd(index, 'fecha_pago');
+      }
+    }
+    try { (el || {}).focus?.(); } catch (_) {}
+    if (!el) __focusRowField(index, kind === 'factura' ? 'factura' : 'fecha_pago');
+  }
+
   function __warnMissing(title, text, focusFn) {
     if (window.Swal) Swal.fire({ icon: 'warning', title, text });
     else alert(text);
@@ -3028,6 +3049,57 @@
           __warnMissing('Campo vacío', `Fila ${i + 1}: "${label}" está vacío.`, () => __focusRowField(i, field));
           return false;
         }
+      }
+    }
+
+    for (let i = 0; i < (extractedItems || []).length; i++) {
+      const it = extractedItems[i] || {};
+      const cuotas = Array.isArray(it.cuotas) ? it.cuotas : [];
+      if (cuotas.length > 0) {
+        for (let ci = 0; ci < cuotas.length; ci++) {
+          const c = cuotas[ci] || {};
+          const fac = (c.factura || '').toString().trim();
+          const fec = (c.fecha_pago || '').toString().trim();
+          if (!fac || !fec) {
+            __warnMissing(
+              'Falta completar',
+              `Fila ${i + 1} - Cuota ${ci + 1}: completa Factura y Fecha de Pago antes de guardar.`,
+              () => __focusFacturaFecha(i, !fac ? 'factura' : 'fecha_pago', ci)
+            );
+            return false;
+          }
+        }
+      } else {
+        const fac = __rowFieldValue(i, 'factura');
+        const fec = __rowFieldValue(i, 'fecha_pago');
+        if (!fac || !fec) {
+          __warnMissing(
+            'Falta completar',
+            `Fila ${i + 1}: completa Factura y Fecha de Pago antes de guardar.`,
+            () => __focusFacturaFecha(i, !fac ? 'factura' : 'fecha_pago')
+          );
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  function __autoSaveHasFacturaFecha(items) {
+    for (let i = 0; i < (items || []).length; i++) {
+      const it = items[i] || {};
+      const cuotas = Array.isArray(it.cuotas) ? it.cuotas : [];
+      if (cuotas.length > 0) {
+        for (let ci = 0; ci < cuotas.length; ci++) {
+          const c = cuotas[ci] || {};
+          const fac = (c.factura || '').toString().trim();
+          const fec = (c.fecha_pago || '').toString().trim();
+          if (!fac || !fec) return false;
+        }
+      } else {
+        const fac = (it.factura || '').toString().trim();
+        const fec = (it.fecha_pago || '').toString().trim();
+        if (!fac || !fec) return false;
       }
     }
     return true;
@@ -3684,6 +3756,7 @@
       const tipoDocSel = (tipoDocTopEl?.value || '').toString().trim();
       const tipoPagoSel = (tipoPagoTopEl?.value || '').toString().trim();
       if (!tipoDocSel || !tipoPagoSel) return;
+      if (!__autoSaveHasFacturaFecha(extractedItems)) return;
       const selected = Object.assign({}, (window.selectedCliente || {}), {
         subagente: (document.getElementById('subAgenteTop')?.value ||
                     document.getElementById('subAgente')?.value ||
