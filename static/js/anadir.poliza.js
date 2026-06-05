@@ -3052,15 +3052,37 @@
       }
     }
 
+    const rowsWithCuotaFiles = new Set();
+    try {
+      Array.from(cuotaFacturaFileMap.keys()).forEach(k => {
+        const parts = __splitCuotaFileMapKey(k);
+        if (Number.isFinite(parts.rowIdx)) rowsWithCuotaFiles.add(parts.rowIdx);
+      });
+    } catch (_) {}
+
     for (let i = 0; i < (extractedItems || []).length; i++) {
       const it = extractedItems[i] || {};
       const cuotas = Array.isArray(it.cuotas) ? it.cuotas : [];
+      const rowFilesCount = (rowFacturasMap?.get(i) || []).length;
+      const hasRowFiles = rowFilesCount > 0;
+      const hasAnyCuotaFileInRow = rowsWithCuotaFiles.has(i);
+
       if (cuotas.length > 0) {
         for (let ci = 0; ci < cuotas.length; ci++) {
           const c = cuotas[ci] || {};
           const fac = (c.factura || '').toString().trim();
           const fec = (c.fecha_pago || '').toString().trim();
-          if (!fac || !fec) {
+          const hasCuotaFile = (() => {
+            try {
+              const k = getCuotaFileMapKey(i, c);
+              return !!cuotaFacturaFileMap.get(k);
+            } catch (_) {
+              return false;
+            }
+          })();
+
+          const shouldValidate = hasCuotaFile || ((ci === 0) && hasRowFiles) || !!fac || !!fec;
+          if (shouldValidate && (!fac || !fec)) {
             __warnMissing(
               'Falta completar',
               `Fila ${i + 1} - Cuota ${ci + 1}: completa Factura y Fecha de Pago antes de guardar.`,
@@ -3072,7 +3094,8 @@
       } else {
         const fac = __rowFieldValue(i, 'factura');
         const fec = __rowFieldValue(i, 'fecha_pago');
-        if (!fac || !fec) {
+        const shouldValidate = hasRowFiles || hasAnyCuotaFileInRow || !!fac || !!fec;
+        if (shouldValidate && (!fac || !fec)) {
           __warnMissing(
             'Falta completar',
             `Fila ${i + 1}: completa Factura y Fecha de Pago antes de guardar.`,
@@ -3086,20 +3109,42 @@
   }
 
   function __autoSaveHasFacturaFecha(items) {
+    const rowsWithCuotaFiles = new Set();
+    try {
+      Array.from(cuotaFacturaFileMap.keys()).forEach(k => {
+        const parts = __splitCuotaFileMapKey(k);
+        if (Number.isFinite(parts.rowIdx)) rowsWithCuotaFiles.add(parts.rowIdx);
+      });
+    } catch (_) {}
+
     for (let i = 0; i < (items || []).length; i++) {
       const it = items[i] || {};
       const cuotas = Array.isArray(it.cuotas) ? it.cuotas : [];
+      const rowFilesCount = (rowFacturasMap?.get(i) || []).length;
+      const hasRowFiles = rowFilesCount > 0;
+      const hasAnyCuotaFileInRow = rowsWithCuotaFiles.has(i);
+
       if (cuotas.length > 0) {
         for (let ci = 0; ci < cuotas.length; ci++) {
           const c = cuotas[ci] || {};
           const fac = (c.factura || '').toString().trim();
           const fec = (c.fecha_pago || '').toString().trim();
-          if (!fac || !fec) return false;
+          const hasCuotaFile = (() => {
+            try {
+              const k = getCuotaFileMapKey(i, c);
+              return !!cuotaFacturaFileMap.get(k);
+            } catch (_) {
+              return false;
+            }
+          })();
+          const shouldValidate = hasCuotaFile || ((ci === 0) && hasRowFiles) || !!fac || !!fec;
+          if (shouldValidate && (!fac || !fec)) return false;
         }
       } else {
         const fac = (it.factura || '').toString().trim();
         const fec = (it.fecha_pago || '').toString().trim();
-        if (!fac || !fec) return false;
+        const shouldValidate = hasRowFiles || hasAnyCuotaFileInRow || !!fac || !!fec;
+        if (shouldValidate && (!fac || !fec)) return false;
       }
     }
     return true;
