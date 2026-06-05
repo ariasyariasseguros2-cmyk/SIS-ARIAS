@@ -264,6 +264,40 @@
     });
     return opts.join('');
   }
+  function __normRamoText(s) {
+    const raw = (s || '').toString().trim();
+    if (!raw) return '';
+    let out = raw.toUpperCase();
+    try { out = out.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (e) {}
+    out = out.replace(/[^\w\s\/-]+/g, ' ');
+    out = out.replace(/\s+/g, ' ').trim();
+    return out;
+  }
+  function __mapRamoToAbbr(ramo, abbrs) {
+    const r0 = (ramo || '').toString().trim();
+    if (!r0) return '';
+    if (abbrs.includes(r0)) return r0;
+    const r = __normRamoText(r0);
+    if (!r) return '';
+    const abbrsNorm = (abbrs || []).map(x => ({ raw: x, norm: __normRamoText(x) })).filter(x => x.norm);
+    const exact = abbrsNorm.find(x => x.norm === r);
+    if (exact) return exact.raw;
+    const tokens = r.split(' ').filter(Boolean);
+    let best = null;
+    let bestScore = -1;
+    for (const a of abbrsNorm) {
+      let score = 0;
+      for (const t of tokens) {
+        if (t.length < 3) continue;
+        if (a.norm.includes(t)) score += Math.min(6, t.length);
+      }
+      if ((r.includes('VEHIC') || r.includes('AUTOMOV')) && (a.norm.includes('VEHIC') || a.norm.includes('AUTOMOV'))) score += 10;
+      if (r.includes('ACCIDENT') && a.norm.includes('ACCIDENT')) score += 10;
+      if (r.includes('SCTR') && a.norm.includes('SCTR')) score += 10;
+      if (score > bestScore) { bestScore = score; best = a.raw; }
+    }
+    return bestScore > 0 ? (best || '') : '';
+  }
   function buildRamoSelect(selected) {
     const t = (selected || '').toString();
     return `<select class="form-select ramo-select" title="${t.toUpperCase()}">${buildRamoOptions(selected)}</select>`;
@@ -1037,7 +1071,7 @@
     items.forEach(it => {
       const r = (it.ramo || '').trim();
       if (r && !abbrs.includes(r)) {
-        it.ramo = '';
+        it.ramo = __mapRamoToAbbr(r, abbrs) || '';
       }
     });
 
