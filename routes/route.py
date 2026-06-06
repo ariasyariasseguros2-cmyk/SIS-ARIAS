@@ -2286,8 +2286,11 @@ def upload():
                 r"\btelf(?:\.|:|\b)",
                 r"\btelefono\b",
                 r"\bteléfono\b",
-                r"\bdirección\b",
-                r"\bdireccion\b",
+                r"\bdirección(?:es)?\b",
+                r"\bdireccion(?:es)?\b",
+                r"\bdomicilio\b",
+                r"\btelef[oó]nico\b",
+                r"\belectr[oó]nico\b",
                 r"\bcorreo\b",
                 r"\bemail\b",
             ]
@@ -2315,7 +2318,9 @@ def upload():
                 return True
             # Nombres rara vez son oraciones con punto; esto suele indicar texto contractual.
             if "." in txt and len(txt) > 40:
-                return True
+                # Permitir abreviaturas societarias comunes (p.ej. "S.A.C.") que son normales en razón social.
+                if not re.search(r"\bS\.A\.C\.?\b|\bS\.A\.A\.?\b|\bS\.A\.?\b|\bS\.R\.L\.?\b|\bE\.I\.R\.L\.?\b", txt, re.IGNORECASE):
+                    return True
             if ":" in txt and len(txt) > 12:
                 return True
             letters = len(re.findall(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]", txt))
@@ -2343,7 +2348,7 @@ def upload():
             except Exception:
                 pass
             try:
-                for m in re.finditer(r"^\s*(?:Cliente|Asegurado)\s*[:.]?\s*([^\n]{3,120})", t, flags=re.IGNORECASE | re.MULTILINE):
+                for m in re.finditer(r"^\s*(?:Cliente|Asegurado)\s*[:：]\s*([^\n]{3,120})", t, flags=re.IGNORECASE | re.MULTILINE):
                     candidates.append(m.group(1))
             except Exception:
                 pass
