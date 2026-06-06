@@ -279,7 +279,32 @@ def save_cuota_route():
         return {'ok': False, 'error': 'No data'}, 400
         
     # Add user context
-    data['usuario'] = session['user']
+    try:
+        user_session = session.get('user')
+        if isinstance(user_session, dict):
+            usuario_username = user_session.get('username') or user_session.get('user') or user_session.get('name') or ''
+        else:
+            usuario_username = user_session or ''
+        usuario_username = str(usuario_username).strip()
+        usuario = usuario_username
+        if usuario_username:
+            try:
+                cnx_u = get_connection()
+                cur_u = cnx_u.cursor()
+                cur_u.execute(
+                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1",
+                    (usuario_username,),
+                )
+                urow = cur_u.fetchone()
+                if urow and urow[0]:
+                    usuario = urow[0]
+                cur_u.close()
+                cnx_u.close()
+            except Exception:
+                usuario = usuario_username
+        data['usuario'] = usuario
+    except Exception:
+        data['usuario'] = session.get('user')
     
     from controllers.cuotas.cuotas import save_cuota
     result = save_cuota(data)
@@ -297,7 +322,32 @@ def update_cuota_cupon_route():
     if 'user' not in session:
         return {'ok': False, 'error': 'Unauthorized'}, 401
     data = request.get_json(force=True) or {}
-    data['usuario'] = session.get('user')
+    try:
+        user_session = session.get('user')
+        if isinstance(user_session, dict):
+            usuario_username = user_session.get('username') or user_session.get('user') or user_session.get('name') or ''
+        else:
+            usuario_username = user_session or ''
+        usuario_username = str(usuario_username).strip()
+        usuario = usuario_username
+        if usuario_username:
+            try:
+                cnx_u = get_connection()
+                cur_u = cnx_u.cursor()
+                cur_u.execute(
+                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1",
+                    (usuario_username,),
+                )
+                urow = cur_u.fetchone()
+                if urow and urow[0]:
+                    usuario = urow[0]
+                cur_u.close()
+                cnx_u.close()
+            except Exception:
+                usuario = usuario_username
+        data['usuario'] = usuario
+    except Exception:
+        data['usuario'] = session.get('user')
     from controllers.cuotas.cuotas import update_cuota_cupon
     success, msg = update_cuota_cupon(data)
     if not success:
@@ -623,7 +673,16 @@ def get_cuota_archivos(cuota_id):
         cnx.close()
         for r in rows:
             if r.get('creado_en'):
-                r['creado_en'] = r['creado_en'].strftime('%d/%m/%Y %H:%M')
+                try:
+                    from zoneinfo import ZoneInfo
+                    src_tz = ZoneInfo('America/Mexico_City')
+                    lima_tz = ZoneInfo('America/Lima')
+                    dt = r['creado_en']
+                    if getattr(dt, 'tzinfo', None) is None:
+                        dt = dt.replace(tzinfo=src_tz)
+                    r['creado_en'] = dt.astimezone(lima_tz).strftime('%d/%m/%Y %H:%M')
+                except Exception:
+                    r['creado_en'] = r['creado_en'].strftime('%d/%m/%Y %H:%M')
         return jsonify({'ok': True, 'archivos': rows})
     except Exception as e:
         return {'ok': False, 'error': str(e)}, 500
@@ -769,7 +828,16 @@ def get_poliza_archivos(poliza_id):
         cnx.close()
         for r in rows:
             if r.get('creado_en'):
-                r['creado_en'] = r['creado_en'].strftime('%d/%m/%Y %H:%M')
+                try:
+                    from zoneinfo import ZoneInfo
+                    src_tz = ZoneInfo('America/Mexico_City')
+                    lima_tz = ZoneInfo('America/Lima')
+                    dt = r['creado_en']
+                    if getattr(dt, 'tzinfo', None) is None:
+                        dt = dt.replace(tzinfo=src_tz)
+                    r['creado_en'] = dt.astimezone(lima_tz).strftime('%d/%m/%Y %H:%M')
+                except Exception:
+                    r['creado_en'] = r['creado_en'].strftime('%d/%m/%Y %H:%M')
         return jsonify({'ok': True, 'archivos': rows})
     except Exception as e:
         return {'ok': False, 'error': str(e)}, 500
