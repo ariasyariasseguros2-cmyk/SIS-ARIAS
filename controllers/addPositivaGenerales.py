@@ -247,6 +247,20 @@ def _clean_company_name(raw: str | None) -> Optional[str]:
 def extract_razon_social_strict(text: str) -> Optional[str]:
     """Versión estricta: busca en una ventana corta después del rótulo para evitar capturar párrafos."""
     """Versión estricta: busca en una ventana corta después del rótulo para evitar capturar párrafos."""
+    def _strip_non_name_tail(seg: str | None) -> str:
+        if not seg:
+            return ""
+        s = re.sub(r"\s+", " ", str(seg)).strip()
+        cut_re = re.compile(
+            r"\b(?:DIRECCI[ÓO]N|DIRECCION|DOMICILIO|CRONOGRAMA|DATOS\s+DEL|VIGENCIA|OFICINA|RAMO)\b\s*[:：]?",
+            re.IGNORECASE,
+        )
+        parts = cut_re.split(s, maxsplit=1)
+        s = (parts[0] if parts else s).strip(" -:·.")
+        if re.search(r",", s) and re.search(r"\bBARRIO\b$", s, re.IGNORECASE):
+            s = re.sub(r"\bBARRIO\b$", "", s, flags=re.IGNORECASE).strip(" -:·.")
+        return s
+
     patterns = [
         r"Raz[oó]n\s+Social\s*:?",
         r"Nombre\s+o\s+Raz[oó]n\s+Social\s*:?",
@@ -259,6 +273,7 @@ def extract_razon_social_strict(text: str) -> Optional[str]:
         head = " ".join([ln.strip() for ln in lines[:3] if ln.strip()])
         seg = head or (lines[0].strip() if lines else "")
         seg = seg.replace("  ", " ").strip()
+        seg = _strip_non_name_tail(seg)
         comma_idx = seg.find(",")
         if comma_idx != -1:
             left = seg[:comma_idx].strip()
@@ -278,6 +293,7 @@ def extract_razon_social_strict(text: str) -> Optional[str]:
         head = " ".join([ln.strip() for ln in lines[:3] if ln.strip()])
         seg = head or (lines[0].strip() if lines else "")
         seg = seg.replace("  ", " ").strip()
+        seg = _strip_non_name_tail(seg)
         comma_idx = seg.find(",")
         if comma_idx != -1:
             left = seg[:comma_idx].strip()
@@ -303,12 +319,14 @@ def extract_razon_social_strict(text: str) -> Optional[str]:
         # Unir las primeras líneas por si el nombre está dividido por salto de línea (ej. coma al final)
         lines = (window or "").splitlines()
         head = " ".join([ln.strip() for ln in lines[:3] if ln.strip()])
-        name = _clean_company_name(head if head else (lines[0].strip() if lines else ""))
+        pre = head if head else (lines[0].strip() if lines else "")
+        pre = _strip_non_name_tail(pre)
+        name = _clean_company_name(pre)
         if not name:
             # Buscar en la ventana el bloque en mayúsculas
             mm = re.search(r"([A-ZÁÉÍÓÚÑ0-9][A-ZÁÉÍÓÚÑ0-9&,\'\.\- /]{2,200})", head or window)
             if mm:
-                name = _clean_company_name(mm.group(1))
+                name = _clean_company_name(_strip_non_name_tail(mm.group(1)))
         if name:
             return name
 
