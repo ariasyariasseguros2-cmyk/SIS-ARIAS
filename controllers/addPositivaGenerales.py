@@ -317,46 +317,58 @@ def extract_moneda_positiva(text: str) -> Optional[str]:
         return None
     t = (text or "").replace("\u00A0", " ")
 
-    t_compact = re.sub(r"\s+", "", t).upper()
-    m0 = re.search(r"MONEDA[:：]?(US\$|USD|\$|DOLARES|DÓLARES|DÓLARES|S/\.?|S/|SOLES|PEN)", t_compact)
-    if m0:
-        v0 = (m0.group(1) or "").upper()
-        if "US" in v0 or "USD" in v0 or "DOL" in v0 or v0 == "$":
+    def _norm(v: str | None) -> str:
+        return re.sub(r"\s+", "", (v or "").upper())
+
+    def _pick(v: str | None) -> Optional[str]:
+        tok = _norm(v)
+        if not tok:
+            return None
+        if tok in {"$", "USD", "US$", "U$S", "U$"} or tok.startswith("US$") or tok.startswith("U$S") or "DOL" in tok:
             return "US$"
-        return "S/"
+        if tok.startswith("S/") or tok.startswith("S\\") or tok in {"S", "PEN", "MN", "M/N"} or "SOL" in tok:
+            return "S/"
+        return None
+
+    t_compact = re.sub(r"\s+", "", t).upper()
+    m0 = re.search(r"MONEDA[:：]?(US\$|USD|U\$S|U\$|\$|DOLARES|DÓLARES|DÓLARES|S/\.?|S/|S\\|SOLES|PEN|M/N|MN)", t_compact)
+    if m0:
+        picked = _pick(m0.group(1))
+        if picked:
+            return picked
 
     m = re.search(
-        r"\bmoneda\b\s*[:：]?\s*(S\s*\/\s*\.?|S\s*\/|SOLES|PEN|US\s*\$|US\$|USD|DOLARES|DÓLARES|DÓLARES|\$)",
+        r"\bmoneda\b\s*[:：]?\s*(S\s*\/\s*\.?|S\s*\/|S\\|SOLES|PEN|M\/N|MN|US\s*\$|US\$|USD|U\$\s*S|U\$S|U\$|DOLARES|DÓLARES|DÓLARES|\$)",
         t,
         flags=re.IGNORECASE,
     )
     if m:
-        v = (m.group(1) or "").upper()
-        v = re.sub(r"\s+", "", v)
-        if "US$" in v or "USD" in v or "DOL" in v or v == "$":
-            return "US$"
-        return "S/"
+        picked = _pick(m.group(1))
+        if picked:
+            return picked
 
     m2 = re.search(
-        r"Prima\s+Comercial[\s\S]{0,200}?(US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/|SOLES|PEN)",
+        r"Prima\s+Comercial[\s\S]{0,200}?(US\s*\$|US\$|USD|U\$\s*S|U\$S|U\$|\$|S\s*\/\s*\.?|S\s*\/|S\\|SOLES|PEN|M\/N|MN)",
         t,
         flags=re.IGNORECASE,
     )
     if m2:
-        v = (m2.group(1) or "").upper()
-        v = re.sub(r"\s+", "", v)
-        if "US$" in v or "USD" in v or "DOL" in v or v == "$":
-            return "US$"
-        return "S/"
+        picked = _pick(m2.group(1))
+        if picked:
+            return picked
 
     t_up = t.upper()
     idx_us = t_up.find("US$")
+    idx_uus = t_up.find("U$S")
+    idx_u = t_up.find("U$")
     idx_usd = re.search(r"\bUSD\b", t_up)
     idx_dol = re.search(r"\bDOL", t_up)
-    idx_s = re.search(r"S\/\.?|S\/\b|\bSOLES\b|\bPEN\b", t_up)
+    idx_s = re.search(r"S\/\.?|S\/\b|S\\|\bSOLES\b|\bPEN\b|\bM\/N\b|\bMN\b|\bSOL", t_up)
 
     dollar_idxs = [i for i in [
         idx_us if idx_us >= 0 else None,
+        idx_uus if idx_uus >= 0 else None,
+        idx_u if idx_u >= 0 else None,
         idx_usd.start() if idx_usd else None,
         idx_dol.start() if idx_dol else None,
     ] if i is not None]
