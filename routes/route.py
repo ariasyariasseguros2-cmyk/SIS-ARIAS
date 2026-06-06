@@ -4390,6 +4390,17 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
     # Evita ruta equivocada cuando el UI envió 'proctecta/protecta/positiva' erróneamente.
     # Priorizar La Positiva si aparece claramente
     is_positiva_strong = ("la positiva" in low) or ("positiva seguros" in low)
+
+    is_positiva_acc_personales = bool(
+        is_positiva_strong
+        and (
+            re.search(r"p[óo]liza\s+de\s+seguro\s+de\s+accidentes\s+personales", low)
+            or re.search(r"\baccidentes\s+personales\b", low)
+        )
+    )
+    if is_positiva_acc_personales and prov != "vida-ley-crecer":
+        prov = "positiva"
+        print("[provider] override: La Positiva Accidentes Personales -> prov=positiva")
     
     if prov in ('proctecta', 'protecta', 'positiva', 'sanitas', None) and not is_positiva_strong:
         if ("grandia" in low and "eps" in low):
@@ -4410,7 +4421,13 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
 
     # Forzar Rimac si aparecen señales claras del encabezado Rimac Generales
     # (ej.: "Web Vehiculos" y "Póliza #### - #######"), incluso si antes se clasificó erróneamente
-    if ((re.search(r"\br[íi]mac\b", t) or "rimac seguros" in t or "rímac seguros" in t or re.search(r"pol[ií]za\s*\d{2,6}\s*[-–—]\s*\d{5,12}", t)) and (re.search(r"\bContratante\b", t, re.IGNORECASE) or re.search(r"\bNro\.?\b", t, re.IGNORECASE))):
+    if (
+        (not is_positiva_acc_personales)
+        and (
+            (re.search(r"\br[íi]mac\b", t) or "rimac seguros" in t or "rímac seguros" in t or re.search(r"pol[ií]za\s*\d{2,6}\s*[-–—]\s*\d{5,12}", t))
+            and (re.search(r"\bContratante\b", t, re.IGNORECASE) or re.search(r"\bNro\.?\b", t, re.IGNORECASE))
+        )
+    ):
         prov = "rimac"
 
     # NUEVO: si vino 'pacifico' o 'positiva' desde UI pero el contenido dice 'sanitas', fuerza Sanitas
@@ -4741,6 +4758,20 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
                     return [item_er]
             except Exception as e:
                 print(f"[provider] error en addPolizaEndosoRenovacionGene: {e}")
+
+        hint_acc_personales = (
+            re.search(r"P[ÓO]LIZA\s+DE\s+SEGURO\s+DE\s+ACCIDENTES\s+PERSONALES", text, re.IGNORECASE)
+            or re.search(r"\bACCIDENTES\s+PERSONALES\b", text, re.IGNORECASE)
+        )
+        if hint_acc_personales:
+            try:
+                from controllers.addPositivaAccidentesPersonales import parse_positiva_accidentes_personales
+                item_ap = parse_positiva_accidentes_personales(text)
+                if item_ap and item_ap.get('numero_poliza'):
+                    print("[provider] positiva-accidentes-personales item:", item_ap)
+                    return [item_ap]
+            except Exception as e:
+                print(f"[provider] error en addPositivaAccidentesPersonales: {e}")
 
         # Separar SCTR Salud vs Pensión por contenido
         hint_sctr = re.search(r"\bsctr\b", text, re.IGNORECASE)

@@ -369,3 +369,34 @@ def extract_moneda_positiva(text: str) -> Optional[str]:
     if min_dollar <= min_soles:
         return "US$"
     return "S/"
+
+def extract_agenciamiento_positiva(text: str) -> dict:
+    if not text:
+        return {}
+    monto_pat = r"(\(?\s*(?:[-−–—]\s*)?[0-9][0-9\.,]*\s*\)?)"
+    m = re.search(
+        r"Cargo\s+de\s+agenciamiento[\s\S]{0,260}?"
+        r"Registro\s*[:：]\s*([A-Z0-9]{3,12})"
+        r"[\s\S]{0,120}?"
+        r"Monto\s*(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/|SOLES|PEN)?\s*" + monto_pat,
+        text,
+        flags=re.IGNORECASE,
+    )
+    if not m:
+        m = re.search(
+            r"Registro\s*[:：]\s*([A-Z0-9]{3,12})"
+            r"[\s\S]{0,120}?"
+            r"Monto\s*(?:US\s*\$|US\$|USD|\$|S\s*\/\s*\.?|S\s*\/|SOLES|PEN)?\s*" + monto_pat,
+            text,
+            flags=re.IGNORECASE,
+        )
+    if not m:
+        return {}
+    reg = (m.group(1) or "").strip()
+    monto = _normalize_amount(m.group(2))
+    out = {}
+    if reg:
+        out["registro"] = reg
+    if monto:
+        out["monto"] = monto
+    return out
