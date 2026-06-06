@@ -7,6 +7,17 @@
 
     let currentEditingClienteId = null;
 
+    function normalizeTipoDocumento(raw) {
+        const t = (raw || '').toString().trim().toUpperCase();
+        if (!t) return 'DNI';
+        if (t.includes('RUC')) return 'RUC';
+        if (t.includes('DNI')) return 'DNI';
+        if (t.includes('PAS')) return 'PAS';
+        if (t.includes('CEX')) return 'CEX';
+        if (t === 'CE' || t.includes('EXTRAN') || t.includes('CARNET')) return 'CEX';
+        return 'DNI';
+    }
+
     /**
      * Inicializar eventos al cargar el DOM
      */
@@ -76,7 +87,7 @@
         // Datos básicos
         document.getElementById('edit_idCliente').value = cliente.idCliente || cliente.id || '';
         document.getElementById('edit_tipo_persona').value = cliente.tipo_persona || cliente.tipo_persona_id || '';
-        document.getElementById('edit_tipo_documento').value = cliente.tipo_documento || '';
+        document.getElementById('edit_tipo_documento').value = normalizeTipoDocumento(cliente.tipo_documento || '');
         document.getElementById('edit_numero_documento').value = cliente.numero_documento || '';
         document.getElementById('edit_razon_social').value = cliente.razon_social || '';
         document.getElementById('edit_estado').value = cliente.estado || 'Vigente';
@@ -242,7 +253,7 @@
         });
 
         // Compatibilidad entre versiones: normalizar y enviar aliases de documento.
-        data.tipo_documento = (data.tipo_documento || data.tipoDocumento || '').trim();
+        data.tipo_documento = normalizeTipoDocumento((data.tipo_documento || data.tipoDocumento || '').trim());
         data.numero_documento = (data.numero_documento || data.nro_documento || data.numeroDocumento || '').trim();
         data.tipoDocumento = data.tipo_documento;
         data.nro_documento = data.numero_documento;

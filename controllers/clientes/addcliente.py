@@ -2,6 +2,22 @@ def validate_cliente_payload(data: dict) -> tuple[bool, list[str]]:
     import re
     errors = []
 
+    def normalize_tipo_doc(td: str) -> str:
+        t = (td or '').strip().upper()
+        if not t:
+            return 'DNI'
+        if 'RUC' in t:
+            return 'RUC'
+        if 'DNI' in t:
+            return 'DNI'
+        if 'PAS' in t:
+            return 'PAS'
+        if 'CEX' in t:
+            return 'CEX'
+        if t == 'CE' or 'EXTRAN' in t or 'CARNET' in t:
+            return 'CEX'
+        return 'DNI'
+
     # Campos requeridos
     required = [
         'tipoPersona', 'razonSocial', 'numeroDocumento', 'direccion',
@@ -76,8 +92,9 @@ def validate_cliente_payload(data: dict) -> tuple[bool, list[str]]:
 
     # Validar tipo de documento
     tipo_doc = str(data.get('tipoDocumento', '')).strip().upper()
-    valid_doc_types = ['DNI', 'DNI/CE', 'RUC', 'CEX', 'CE', 'PAS', 'PASAPORTE']
-    if tipo_doc and tipo_doc not in valid_doc_types:
+    valid_doc_types = ['DNI', 'RUC', 'CEX', 'PAS']
+    tipo_doc_norm = normalize_tipo_doc(tipo_doc)
+    if tipo_doc_norm and tipo_doc_norm not in valid_doc_types:
         errors.append('El Tipo de Documento no es válido')
 
     # Validar licencia de conducir si se proporciona (permitir formato combinado 'CATEGORIA | NUM')
@@ -143,12 +160,18 @@ def save_cliente(data: dict) -> dict:
         return {'ok': False, 'errors': errors}
 
     def normalize_tipo_doc(td: str) -> str:
-        t = (td or '').upper().strip()
+        t = (td or '').strip().upper()
+        if not t:
+            return 'DNI'
         if 'RUC' in t:
             return 'RUC'
+        if 'DNI' in t:
+            return 'DNI'
         if 'PAS' in t:
             return 'PAS'
-        if 'CEX' in t or 'CE' in t:
+        if 'CEX' in t:
+            return 'CEX'
+        if t == 'CE' or 'EXTRAN' in t or 'CARNET' in t:
             return 'CEX'
         return 'DNI'
 

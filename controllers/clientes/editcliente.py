@@ -233,6 +233,24 @@ def editar_cliente_route():
         )
         razon_social = data.get('razon_social') or data.get('razonSocial') or ''
 
+        def normalize_tipo_doc(td: str) -> str:
+            t = (td or '').strip().upper()
+            if not t:
+                return 'DNI'
+            if 'RUC' in t:
+                return 'RUC'
+            if 'DNI' in t:
+                return 'DNI'
+            if 'PAS' in t:
+                return 'PAS'
+            if 'CEX' in t:
+                return 'CEX'
+            if t == 'CE' or 'EXTRAN' in t or 'CARNET' in t:
+                return 'CEX'
+            return 'DNI'
+
+        tipo_documento = normalize_tipo_doc(tipo_documento)
+
         # RBAC: Verificar propiedad para SUB AGENTE
         from utils.rbac import Roles
         if role_name == Roles.SUB_AGENTE:
