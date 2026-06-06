@@ -39,11 +39,22 @@ def get_reporte_diario_data(filters=None):
         if usuario:
             where.append(
                 "("
-                "p.usuario_registro = %s "
-                "OR p.usuario_registro = (SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1)"
+                "TRIM(p.usuario_registro) COLLATE utf8mb4_unicode_ci = TRIM(%s) COLLATE utf8mb4_unicode_ci "
+                "OR TRIM(p.usuario_registro) COLLATE utf8mb4_unicode_ci = ("
+                "    SELECT TRIM(username) COLLATE utf8mb4_unicode_ci "
+                "    FROM usuarios "
+                "    WHERE TRIM(COALESCE(NULLIF(nombre, ''), username)) COLLATE utf8mb4_unicode_ci = TRIM(%s) COLLATE utf8mb4_unicode_ci "
+                "    LIMIT 1"
+                ") "
+                "OR TRIM(p.usuario_registro) COLLATE utf8mb4_unicode_ci = ("
+                "    SELECT TRIM(COALESCE(NULLIF(nombre, ''), username)) COLLATE utf8mb4_unicode_ci "
+                "    FROM usuarios "
+                "    WHERE TRIM(username) COLLATE utf8mb4_unicode_ci = TRIM(%s) COLLATE utf8mb4_unicode_ci "
+                "    LIMIT 1"
+                ")"
                 ")"
             )
-            params.extend([usuario, usuario])
+            params.extend([usuario, usuario, usuario])
 
         where_clause = " WHERE " + " AND ".join(where)
         sql = """
