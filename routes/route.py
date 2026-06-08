@@ -741,8 +741,9 @@ def upload_poliza_archivo():
 
     poliza_id = request.form.get('poliza_id')
     numero_poliza = request.form.get('numero_poliza', '')
-    tipo_documento = request.form.get('tipo_documento', 'ARCHIVO_EXTRA')  # PROFORMA | ARCHIVO_EXTRA
+    tipo_documento = request.form.get('tipo_documento', 'ARCHIVO_EXTRA')  # PROFORMA | ARCHIVO_EXTRA | CUOTA | CONVENIO_PAGO
     nombre_documento = request.form.get('nombre_documento', '').strip()
+    cupon = (request.form.get('cupon') or request.form.get('cupón') or '').strip()
 
     if not poliza_id:
         return jsonify({'ok': False, 'error': 'Falta poliza_id'}), 400
@@ -771,6 +772,10 @@ def upload_poliza_archivo():
         usuario_username = session.get('user', '')
         usuario = usuario_username
         nombre_final = nombre_documento or original_filename
+        if tipo_documento == 'CUOTA' and cupon and nombre_final and not nombre_final.startswith('[CUOTA'):
+            nombre_final = f"[CUOTA {cupon}] {nombre_final}"
+        if tipo_documento == 'CONVENIO_PAGO' and nombre_final and not nombre_final.startswith('[CONVENIO]'):
+            nombre_final = f"[CONVENIO] {nombre_final}"
 
         # Obtener datos de la póliza para guardar ramo, producto, compania
         cnx = get_connection()
@@ -1837,7 +1842,7 @@ def menu_page(page):
             cnx = get_connection()
             cur = cnx.cursor(dictionary=True)
             cur.execute(
-                """SELECT idArchivo, ruta_archivo, nombre_original
+                """SELECT idArchivo, ruta_archivo, nombre_original, origen
                    FROM poliza_archivos
                    WHERE poliza_id = %s
                    ORDER BY creado_en DESC""",
@@ -1847,9 +1852,15 @@ def menu_page(page):
             cur.close()
             cnx.close()
             for a in archivos:
+                origen = (a.get('origen') or '').strip().upper()
+                nombre = a['nombre_original'] or a['ruta_archivo']
+                if origen == 'CONVENIO_PAGO' and nombre and not str(nombre).startswith('[CONVENIO]'):
+                    nombre = f"[CONVENIO] {nombre}"
+                if origen == 'CUOTA' and nombre and not str(nombre).startswith('[CUOTA'):
+                    nombre = f"[CUOTA] {nombre}"
                 documents.append({
                     'idArchivo': a['idArchivo'],
-                    'name': a['nombre_original'] or a['ruta_archivo'],
+                    'name': nombre,
                     'url': url_for('main.serve_upload', filename=a['ruta_archivo'])
                 })
         except Exception:
@@ -1881,7 +1892,7 @@ def menu_page(page):
             cnx = get_connection()
             cur = cnx.cursor(dictionary=True)
             cur.execute(
-                """SELECT idArchivo, ruta_archivo, nombre_original
+                """SELECT idArchivo, ruta_archivo, nombre_original, origen
                    FROM poliza_archivos
                    WHERE poliza_id = %s
                    ORDER BY creado_en DESC""",
@@ -1891,9 +1902,15 @@ def menu_page(page):
             cur.close()
             cnx.close()
             for a in archivos:
+                origen = (a.get('origen') or '').strip().upper()
+                nombre = a['nombre_original'] or a['ruta_archivo']
+                if origen == 'CONVENIO_PAGO' and nombre and not str(nombre).startswith('[CONVENIO]'):
+                    nombre = f"[CONVENIO] {nombre}"
+                if origen == 'CUOTA' and nombre and not str(nombre).startswith('[CUOTA'):
+                    nombre = f"[CUOTA] {nombre}"
                 documents.append({
                     'idArchivo': a['idArchivo'],
-                    'name': a['nombre_original'] or a['ruta_archivo'],
+                    'name': nombre,
                     'url': url_for('main.serve_upload', filename=a['ruta_archivo'])
                 })
         except Exception:
@@ -1925,7 +1942,7 @@ def menu_page(page):
             cnx = get_connection()
             cur = cnx.cursor(dictionary=True)
             cur.execute(
-                """SELECT idArchivo, ruta_archivo, nombre_original
+                """SELECT idArchivo, ruta_archivo, nombre_original, origen
                    FROM poliza_archivos
                    WHERE poliza_id = %s
                    ORDER BY creado_en DESC""",
@@ -1935,9 +1952,15 @@ def menu_page(page):
             cur.close()
             cnx.close()
             for a in archivos:
+                origen = (a.get('origen') or '').strip().upper()
+                nombre = a['nombre_original'] or a['ruta_archivo']
+                if origen == 'CONVENIO_PAGO' and nombre and not str(nombre).startswith('[CONVENIO]'):
+                    nombre = f"[CONVENIO] {nombre}"
+                if origen == 'CUOTA' and nombre and not str(nombre).startswith('[CUOTA'):
+                    nombre = f"[CUOTA] {nombre}"
                 documents.append({
                     'idArchivo': a['idArchivo'],
-                    'name': a['nombre_original'] or a['ruta_archivo'],
+                    'name': nombre,
                     'url': url_for('main.serve_upload', filename=a['ruta_archivo'])
                 })
         except Exception:

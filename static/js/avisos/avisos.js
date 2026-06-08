@@ -110,10 +110,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const file = fileInput.files[0];
+    const n = (file && file.name) ? String(file.name).toLowerCase() : '';
+    const detectCupon = (name) => {
+      const s = String(name || '');
+      let m = s.match(/\bC[-_ ]?(\d{6,20})\b/i);
+      if (m) return m[1];
+      m = s.match(/\bCUPON[-_ ]?(\d{6,20})\b/i);
+      if (m) return m[1];
+      return '';
+    };
+    const cupon = detectCupon(file.name);
+    const isConvenio = (n.includes('convenio') || n.includes('cuponera') || n.includes('cronograma') || n.includes('plan_pago') || n.includes('plan de pago'));
+    const isFactura = (n.includes('factura') || n.includes('recibo') || n.includes('boleta'));
+    const tipoDocumento = isConvenio ? 'CONVENIO_PAGO' : (isFactura ? 'CUOTA' : 'ARCHIVO_EXTRA');
     const formData = new FormData();
     formData.append('archivo', file);
     formData.append('poliza_id', window.avisoId || '');
-    formData.append('tipo_documento', 'ARCHIVO_EXTRA');
+    formData.append('tipo_documento', tipoDocumento);
+    if (tipoDocumento === 'CUOTA' && cupon) {
+      formData.append('cupon', cupon);
+    }
     formData.append('nombre_documento', file.name);
     
     // Mostrar estado de carga
@@ -122,7 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     fetch('/api/polizas/upload-archivo', {
         method: 'POST',
-        body: formData
+        body: formData,
+        credentials: 'same-origin'
     })
     .then(response => response.json())
     .then(data => {
@@ -144,10 +161,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const downloadUrl = `/uploads/${result.ruta}`;
 
         // Añadir fila a la tabla
-        const safeName = (result.nombre || file.name || '').replace(/"/g, '&quot;');
+        const nombreUi = (result.nombre || file.name);
+        const safeName = (nombreUi || '').replace(/"/g, '&quot;');
         const newRow = `
             <tr>
-              <td class="text-break text-muted small">${result.nombre || file.name}</td>
+              <td class="text-break text-muted small">${nombreUi}</td>
               <td class="text-end">
                 <div class="action-buttons justify-content-end">
                   <a href="#" class="btn-action btn-danger btn-preview" data-url="${downloadUrl}" data-name="${safeName}" title="Ver">Ver</a>
@@ -252,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnDelete.disabled = true;
         btnDelete.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
         try {
-          const resp = await fetch(`/api/polizas/archivos/delete/${archivoId}`, { method: 'DELETE' });
+          const resp = await fetch(`/api/polizas/archivos/delete/${archivoId}`, { method: 'DELETE', credentials: 'same-origin' });
           const data = await resp.json().catch(() => ({}));
           if (!resp.ok || !data.ok) throw new Error(data.error || 'Error al eliminar');
 

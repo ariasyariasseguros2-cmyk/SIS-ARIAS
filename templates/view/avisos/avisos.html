@@ -106,8 +106,8 @@
                     <td class="text-end">
                         <div class="action-buttons justify-content-end">
                             <a href="#" class="btn-action btn-danger btn-preview" data-url="{{ doc.url }}" data-name="{{ doc.name }}" title="Ver">Ver</a>
-                            <button class="btn-action btn-primary btn-detalles" data-id="{{ prima.idPrima or prima.idPoliza }}" title="Detalles">Detalles</button>
-                             <button class="btn-action btn-success btn-editar" data-id="{{ prima.idPrima or prima.idPoliza }}" title="Editar">Editar</button>
+                            <button class="btn-action btn-primary btn-detalles" data-id="{{ prima.idPoliza }}" title="Detalles">Detalles</button>
+                             <button class="btn-action btn-success btn-editar" data-id="{{ prima.idPoliza }}" title="Editar">Editar</button>
                             <button class="btn-action btn-danger btn-delete-document" data-archivo-id="{{ doc.idArchivo }}" title="Eliminar">Eliminar</button>
                         </div>
                     </td>
@@ -265,7 +265,7 @@
 {% block extra_js_bottom %}
 {{ super() }}
 <script>
-    window.avisoId = "{{ prima.idPrima or prima.idPoliza }}";
+    window.avisoId = "{{ prima.idPoliza }}";
 </script>
 <script src="{{ url_for('static', filename='js/avisos/avisos.js') }}"></script>
 <script src="{{ url_for('static', filename='js/avisos/detalles-avisos.js') }}"></script>

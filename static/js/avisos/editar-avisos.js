@@ -46,10 +46,26 @@ document.addEventListener('DOMContentLoaded', () => {
             // Caso 1: Se seleccionó un archivo nuevo
             if (fileInput && fileInput.files.length > 0) {
                  const file = fileInput.files[0];
+                 const n = (file && file.name) ? String(file.name).toLowerCase() : '';
+                 const detectCupon = (name) => {
+                   const s = String(name || '');
+                   let m = s.match(/\bC[-_ ]?(\d{6,20})\b/i);
+                   if (m) return m[1];
+                   m = s.match(/\bCUPON[-_ ]?(\d{6,20})\b/i);
+                   if (m) return m[1];
+                   return '';
+                 };
+                 const cupon = detectCupon(file.name);
+                 const isConvenio = (n.includes('convenio') || n.includes('cuponera') || n.includes('cronograma') || n.includes('plan_pago') || n.includes('plan de pago'));
+                 const isFactura = (n.includes('factura') || n.includes('recibo') || n.includes('boleta'));
+                 const tipoDocumento = isConvenio ? 'CONVENIO_PAGO' : (isFactura ? 'CUOTA' : 'ARCHIVO_EXTRA');
                  const formData = new FormData();
                  formData.append('archivo', file);
                  formData.append('poliza_id', idInput ? idInput.value : '');
-                 formData.append('tipo_documento', 'ARCHIVO_EXTRA');
+                 formData.append('tipo_documento', tipoDocumento);
+                 if (tipoDocumento === 'CUOTA' && cupon) {
+                   formData.append('cupon', cupon);
+                 }
                  formData.append('nombre_documento', file.name);
                  
                  // UI Loading state
@@ -57,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  btnGuardar.disabled = true;
                  btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
 
-                 fetch('/api/polizas/upload-archivo', { method: 'POST', body: formData })
+                 fetch('/api/polizas/upload-archivo', { method: 'POST', body: formData, credentials: 'same-origin' })
                     .then(r => r.json())
                     .then(data => {
                         if (!data || data.ok !== true) throw new Error((data && data.error) || 'Error al guardar');
