@@ -669,6 +669,15 @@ def get_cuota_archivos(cuota_id):
                     (int(resolved_poliza_id),)
                 )
                 rows = cur.fetchall() or []
+            if not rows:
+                cur.execute(
+                    """SELECT idArchivo, ruta_archivo, nombre_original, origen, creado_en
+                       FROM poliza_archivos
+                       WHERE poliza_id = %s AND origen = 'CONVENIO_PAGO'
+                       ORDER BY creado_en DESC""",
+                    (int(resolved_poliza_id),)
+                )
+                rows = cur.fetchall() or []
         cur.close()
         cnx.close()
         for r in rows:

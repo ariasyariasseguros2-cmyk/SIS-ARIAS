@@ -1246,7 +1246,34 @@ def save_polizas(
                                 for idx_file, cuota_meta in enumerate(ordered_cuotas):
                                     _save_cuota_archivos(cuota_meta, [files_for_row[idx_file]])
                             elif ordered_cuotas and len(files_for_row) > 0:
-                                print(f"[save_polizas] Facturas ambiguas para fila {i}: se omitió asociación automática por cuota.")
+                                try:
+                                    for sf in files_for_row:
+                                        try:
+                                            cur.execute(
+                                                "SELECT 1 FROM poliza_archivos WHERE poliza_id = %s AND ruta_archivo = %s AND origen = 'CONVENIO_PAGO' LIMIT 1",
+                                                (pid_for_files, sf['ruta']),
+                                            )
+                                            exists_conv = cur.fetchone()
+                                            if not exists_conv:
+                                                cur.execute(
+                                                    """INSERT INTO poliza_archivos
+                                                       (poliza_id, numero_poliza, ruta_archivo, nombre_original, origen, ramo, producto, usuario, compania)
+                                                       VALUES (%s,%s,%s,%s,'CONVENIO_PAGO',%s,%s,%s,%s)""",
+                                                    (
+                                                        pid_for_files,
+                                                        U(row.get("numero_poliza") or row.get("poliza") or ""),
+                                                        sf['ruta'],
+                                                        f"[CONVENIO] {sf['nombre']}",
+                                                        U(row.get("ramo") or ""),
+                                                        U(row.get("ramos_producto") or (selected or {}).get("ramos_producto") or ""),
+                                                        usuario_display,
+                                                        U(row.get("cia") or ""),
+                                                    ),
+                                                )
+                                        except Exception as ex_conv:
+                                            print(f"[save_polizas] Error linking convenio pago: {ex_conv}")
+                                except Exception as _ex_conv2:
+                                    print(f"[save_polizas] Convenio pago vinculo error: {_ex_conv2}")
                 except Exception as _ex:
                     print(f"[save_polizas] Facturas vinculo error: {_ex}")
 
