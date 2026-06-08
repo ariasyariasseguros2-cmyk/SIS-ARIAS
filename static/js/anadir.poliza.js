@@ -3052,36 +3052,25 @@
       }
     }
 
-    const rowsWithCuotaFiles = new Set();
-    try {
-      Array.from(cuotaFacturaFileMap.keys()).forEach(k => {
-        const parts = __splitCuotaFileMapKey(k);
-        if (Number.isFinite(parts.rowIdx)) rowsWithCuotaFiles.add(parts.rowIdx);
-      });
-    } catch (_) {}
-
     for (let i = 0; i < (extractedItems || []).length; i++) {
       const it = extractedItems[i] || {};
       const cuotas = Array.isArray(it.cuotas) ? it.cuotas : [];
-      const rowFilesCount = (rowFacturasMap?.get(i) || []).length;
-      const hasRowFiles = rowFilesCount > 0;
-      const hasAnyCuotaFileInRow = rowsWithCuotaFiles.has(i);
 
       if (cuotas.length > 0) {
         for (let ci = 0; ci < cuotas.length; ci++) {
           const c = cuotas[ci] || {};
           const fac = (c.factura || '').toString().trim();
           const fec = (c.fecha_pago || '').toString().trim();
-          const hasCuotaFile = (() => {
+          const cuotaFile = (() => {
             try {
               const k = getCuotaFileMapKey(i, c);
-              return !!cuotaFacturaFileMap.get(k);
+              return cuotaFacturaFileMap.get(k) || null;
             } catch (_) {
-              return false;
+              return null;
             }
           })();
 
-          const shouldValidate = hasCuotaFile || ((ci === 0) && hasRowFiles) || !!fac || !!fec;
+          const shouldValidate = !!cuotaFile && isFacturaFile(cuotaFile);
           if (shouldValidate && (!fac || !fec)) {
             __warnMissing(
               'Falta completar',
@@ -3094,7 +3083,7 @@
       } else {
         const fac = __rowFieldValue(i, 'factura');
         const fec = __rowFieldValue(i, 'fecha_pago');
-        const shouldValidate = hasRowFiles || hasAnyCuotaFileInRow || !!fac || !!fec;
+        const shouldValidate = false;
         if (shouldValidate && (!fac || !fec)) {
           __warnMissing(
             'Falta completar',
@@ -3109,42 +3098,28 @@
   }
 
   function __autoSaveHasFacturaFecha(items) {
-    const rowsWithCuotaFiles = new Set();
-    try {
-      Array.from(cuotaFacturaFileMap.keys()).forEach(k => {
-        const parts = __splitCuotaFileMapKey(k);
-        if (Number.isFinite(parts.rowIdx)) rowsWithCuotaFiles.add(parts.rowIdx);
-      });
-    } catch (_) {}
-
     for (let i = 0; i < (items || []).length; i++) {
       const it = items[i] || {};
       const cuotas = Array.isArray(it.cuotas) ? it.cuotas : [];
-      const rowFilesCount = (rowFacturasMap?.get(i) || []).length;
-      const hasRowFiles = rowFilesCount > 0;
-      const hasAnyCuotaFileInRow = rowsWithCuotaFiles.has(i);
 
       if (cuotas.length > 0) {
         for (let ci = 0; ci < cuotas.length; ci++) {
           const c = cuotas[ci] || {};
           const fac = (c.factura || '').toString().trim();
           const fec = (c.fecha_pago || '').toString().trim();
-          const hasCuotaFile = (() => {
+          const cuotaFile = (() => {
             try {
               const k = getCuotaFileMapKey(i, c);
-              return !!cuotaFacturaFileMap.get(k);
+              return cuotaFacturaFileMap.get(k) || null;
             } catch (_) {
-              return false;
+              return null;
             }
           })();
-          const shouldValidate = hasCuotaFile || ((ci === 0) && hasRowFiles) || !!fac || !!fec;
+          const shouldValidate = !!cuotaFile && isFacturaFile(cuotaFile);
           if (shouldValidate && (!fac || !fec)) return false;
         }
       } else {
-        const fac = (it.factura || '').toString().trim();
-        const fec = (it.fecha_pago || '').toString().trim();
-        const shouldValidate = hasRowFiles || hasAnyCuotaFileInRow || !!fac || !!fec;
-        if (shouldValidate && (!fac || !fec)) return false;
+        continue;
       }
     }
     return true;
@@ -3534,6 +3509,14 @@
   // Aux: almacenar metadatos extraídos por archivo
   const facturaMetaMap = new Map(); // key(file) -> { factura, fecha_pago, provider }
   function keyForFile(f) { return `${f.name}:${f.size}:${f.lastModified}`; }
+  function getFileKind(file) {
+    if (!file) return '';
+    const meta = facturaMetaMap.get(keyForFile(file));
+    return (meta && meta.kind) ? String(meta.kind) : '';
+  }
+  function isFacturaFile(file) {
+    return getFileKind(file) === 'FACTURA';
+  }
   function setCellValue(index, field, value) {
     if (!Number.isFinite(index) || !field) return;
     if (!extractedItems[index]) return;
@@ -3546,17 +3529,26 @@
       const fd = new FormData();
       fd.append('file', file);
       const r = await fetch('/cuotas/extract', { method: 'POST', body: fd, credentials: 'same-origin' });
-      if (!r.ok) return { factura: '', fecha_pago: '' };
       const payload = await r.json().catch(() => ({}));
+      if (!r.ok || (payload && payload.ok === false)) {
+        const msg = (payload && (payload.error || (Array.isArray(payload.errors) ? payload.errors.join('; ') : ''))) || 'No se pudo extraer datos del PDF.';
+        if (window.Swal) Swal.fire({ icon: 'error', title: 'Extracción fallida', text: msg });
+        return { kind: '', factura: '', fecha_pago: '' };
+      }
       const d = (payload && payload.data) ? payload.data : {};
+      const cuotas = Array.isArray(d.cuotas) ? d.cuotas : [];
+      const factura = d.factura || '';
+      const fecha_pago = d.fecha_pago || d.fecha_vencimiento || '';
+      const kind = (cuotas && cuotas.length > 0 && !factura && !fecha_pago) ? 'CONVENIO' : ((factura || fecha_pago) ? 'FACTURA' : '');
       return {
-        factura: d.factura || '',
-        fecha_pago: d.fecha_pago || d.fecha_vencimiento || '',
+        kind,
+        factura,
+        fecha_pago,
         fecha_vencimiento: d.fecha_vencimiento || '',
-        cuotas: Array.isArray(d.cuotas) ? d.cuotas : []
+        cuotas
       };
     } catch (_) {
-      return { factura: '', fecha_pago: '' };
+      return { kind: '', factura: '', fecha_pago: '' };
     }
   }
   function mergeExtractedCuotas(index, meta) {
