@@ -35,7 +35,7 @@
     if (!val) return '–';
     // val: 'YYYY-MM-DDTHH:mm:ss' o 'YYYY-MM-DD HH:mm:ss'
     const t = val.replace('T', ' ');
-    return t.length >= 19 ? t.substring(11, 19) : t;
+    return t.length >= 19 ? t.substring(0, 19) : t;
   }
 
   function estadoBadge(estado) {

@@ -133,12 +133,17 @@ def get_reporte_diario_data(filters=None):
 HEADERS = [
     "N°", "Póliza", "Recibo", "Cliente", "Compañía", "Ramo", "Producto",
     "Moneda", "Prima Total", "Vig. Desde", "Vig. Hasta",
-    "Ejecutivo", "Sub Agente", "Estado", "Registrado por", "Hora registro",
+    "Ejecutivo", "Sub Agente", "Estado", "Registrado por", "Fecha/Hora registro",
 ]
 
 def _build_table_rows(rows):
     result = []
     for i, r in enumerate(rows, 1):
+        created = r.get("creado_en")
+        created_str = ""
+        if created:
+            t = str(created).replace("T", " ")
+            created_str = t[:19] if len(t) >= 19 else t
         result.append([
             i,
             r.get("poliza") or r.get("contrato_nro") or r.get("nro") or "",
@@ -155,7 +160,7 @@ def _build_table_rows(rows):
             r.get("sub_agente") or "",
             r.get("estado") or "",
             r.get("usuario_registro") or "",
-            (r.get("creado_en") or "")[11:19] if r.get("creado_en") else "",
+            created_str,
         ])
     return result
 
@@ -335,7 +340,7 @@ def export_pdf(upload_folder: str, filters=None):
 
     pdf_headers = ["N°", "Póliza", "Recibo", "Cliente", "Compañía", "Ramo", "Moneda",
                    "Prima Total", "Vig. Desde", "Vig. Hasta", "Ejecutivo",
-                   "Estado", "Reg. por", "Hora"]
+                   "Estado", "Reg. por", "Fecha/Hora"]
     pdf_col_idx = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 13, 14, 15]
 
     # Cabecera con Paragraph para wrap

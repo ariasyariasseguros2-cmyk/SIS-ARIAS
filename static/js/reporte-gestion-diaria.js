@@ -22,7 +22,7 @@ function reporteGestionDiariaInit() {
     function fmtHora(val) {
         if (!val) return '–';
         const t = String(val).replace('T', ' ');
-        return t.length >= 19 ? t.substring(11, 19) : t;
+        return t.length >= 19 ? t.substring(0, 19) : t;
     }
 
     function estadoBadge(estado) {
