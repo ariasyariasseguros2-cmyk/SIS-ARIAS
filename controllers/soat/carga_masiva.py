@@ -2,6 +2,7 @@
 Controlador para carga masiva de pólizas SOAT desde Excel
 """
 import pandas as pd
+import re
 from datetime import datetime, timedelta
 from models.db import get_connection, get_encrypt_key
 import mysql.connector
@@ -164,18 +165,21 @@ def _detect_header_row(df_raw: pd.DataFrame) -> Optional[int]:
         'moneda', 'moned', 'prima', 'vendedor', 'cod agenc', 'placa', 'uso', 'clase', 'marca',
         'desc modelo', 'desc.modelo', 'serie', 'ano', 'año', 'anio',
         'cia', 'cia.', 'compania', 'compañia', 'aseguradora',
-        'recibo', 'planilla', 'cupon', 'fecha vencimiento', 'telefono', 'celular', 'email', 'prod', 'producto'
+        'recibo', 'planilla', 'cupon', 'fecha vencimiento', 'telefono', 'celular', 'email', 'prod', 'producto',
+        'tipo persona', 'tipopersona', 'vigencia inicio', 'vigencia fin', 'moneda abreviacion',
+        'prima neta', 'prima total', 'tipo doc'
     }
     max_score = 0
     best_row = None
-    check_rows = min(len(df_raw), 15)
+    check_rows = min(len(df_raw), 30)  # Increased from 15 to 30
     for i in range(check_rows):
         vals = [_normalize_header_token(x) for x in list(df_raw.iloc[i].values)]
         score = sum(1 for v in vals if v in candidates)
         if score > max_score:
             max_score = score
             best_row = i
-    return best_row if (best_row is not None and max_score >= 5) else None
+    # Reduced threshold from 5 to 3 to be more flexible
+    return best_row if (best_row is not None and max_score >= 3) else None
 
 
 def load_excel_flexible(file_path: str) -> Tuple[pd.DataFrame, list[str]]:
@@ -227,13 +231,13 @@ def normalize_moneda_abreviacion(value) -> str:
     raw = normalize_string(value)
     compact = raw.replace('\u00A0', ' ').replace(' ', '')
     if not compact:
-        return 'S/.'
+        return 'S/'
     up = compact.upper()
     if up.startswith('S/') or up in {'S/.', 'S/', 'PEN', 'SOLES', 'SOL'} or 'SOL' in up:
-        return 'S/.'
+        return 'S/'
     if up.startswith('US$') or up in {'USD', 'USS', '$'} or 'USD' in up or 'DOL' in up:
         return 'US$'
-    return raw.strip() or 'S/.'
+    return raw.strip() or 'S/'
 
 
 def normalize_date(value) -> str | None:
@@ -422,16 +426,22 @@ def resolver_estado_y_anulado_soat(recibo: str, estado_excel: str) -> tuple[str,
     """Reglas de negocio para estado/anulado en carga masiva SOAT."""
     estado_norm = _normalize_estado_token(estado_excel)
 
+    # Si el estado explícitamente dice ANULADO, marcar como anulado
+    if estado_norm == 'ANULADO':
+        return 'ANULADO', 1
+
+    # Estados que deben marcar la póliza como inactiva (activo=0) pero NO como anulado
+    if estado_norm in {'ENVIADO PLANILLA CANAL', 'CANCELADO PTO VENTA', 'CANCELADO PTO. VENTA'}:
+        return 'EMISION', 0  # anulado=0, pero se manejará activo=0 en lógica separada
+
     # Cuando recibo tiene numero, siempre se considera pagado
     if _recibo_tiene_numero(recibo):
         return 'PAGADO', 0
 
     # Reglas especiales cuando recibo es cero
     if _is_recibo_zero(recibo):
-        if estado_norm == 'ANULADO':
-            return 'ANULADO', 0
         if estado_norm == 'CANCELADO PTO VENTA':
-            return 'EMISION', 1
+            return 'EMISION', 0  # anulado=0, pero se manejará activo=0 en lógica separada
 
     return 'EMISION', 0
 
@@ -828,8 +838,86 @@ def _find_poliza_id_por_recibo(cur, recibo: str) -> int | None:
     return int(row['idPoliza']) if row and row.get('idPoliza') is not None else None
 
 
+def _find_poliza_id_por_poliza_contrato(cur, poliza: str, contrato_nro: str) -> int | None:
+    """Busca póliza por número + contrato_nro (misma lógica de duplicados del SP)."""
+    poliza = '' if poliza is None else str(poliza).strip()
+    contrato_nro = '' if contrato_nro is None else str(contrato_nro).strip()
+    if not poliza or not contrato_nro:
+        return None
+
+    k = get_encrypt_key()
+    cur.execute(
+        """
+        SELECT idPoliza
+        FROM polizas
+        WHERE activo = 1
+          AND (
+            CONVERT(TRIM(COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(poliza), %s) AS CHAR),
+                CAST(AES_DECRYPT(poliza, %s) AS CHAR),
+                poliza
+            )) USING utf8mb4) COLLATE utf8mb4_bin
+              = CONVERT(TRIM(%s) USING utf8mb4) COLLATE utf8mb4_bin
+          )
+          AND (
+            CONVERT(TRIM(COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(contrato_nro), %s) AS CHAR),
+                CAST(AES_DECRYPT(contrato_nro, %s) AS CHAR),
+                contrato_nro
+            )) USING utf8mb4) COLLATE utf8mb4_bin
+              = CONVERT(TRIM(%s) USING utf8mb4) COLLATE utf8mb4_bin
+          )
+        ORDER BY creado_en DESC
+        LIMIT 1
+        """,
+        (k, k, poliza, k, k, contrato_nro),
+    )
+    row = cur.fetchone()
+    return int(row['idPoliza']) if row and row.get('idPoliza') is not None else None
+
+
+def _resolver_poliza_id_soat(
+    cur, poliza_num: str, cupon_poliza: str, poliza_id: int | None = None
+) -> int | None:
+    if poliza_id is not None:
+        return int(poliza_id)
+    pid = _find_poliza_id_por_poliza_recibo(cur, poliza_num, cupon_poliza)
+    if pid is not None:
+        return pid
+    return _find_poliza_id_por_poliza_contrato(cur, poliza_num, poliza_num)
+
+
+def _cuota_soat_existe(cur, poliza_id: int, cupon_poliza: str, factura: str | None) -> bool:
+    k = get_encrypt_key()
+    cur.execute(
+        """
+        SELECT 1
+        FROM cuotas
+        WHERE activo = 1
+          AND poliza_id = %s
+          AND (
+            CONVERT(TRIM(COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(cupon), %s) AS CHAR),
+                CAST(AES_DECRYPT(cupon, %s) AS CHAR),
+                cupon
+            )) USING utf8mb4) COLLATE utf8mb4_bin
+              = CONVERT(TRIM(%s) USING utf8mb4) COLLATE utf8mb4_bin
+            OR (
+              %s IS NOT NULL
+              AND %s <> ''
+              AND CONVERT(TRIM(COALESCE(factura, '')) USING utf8mb4) COLLATE utf8mb4_bin
+                = CONVERT(TRIM(%s) USING utf8mb4) COLLATE utf8mb4_bin
+            )
+          )
+        LIMIT 1
+        """,
+        (poliza_id, k, k, cupon_poliza, factura, factura, factura or ''),
+    )
+    return cur.fetchone() is not None
+
+
 def _poliza_recibo_existe(cur, poliza: str, recibo: str) -> bool:
-    return _find_poliza_id_por_poliza_recibo(cur, poliza, recibo) is not None
+    return _resolver_poliza_id_soat(cur, poliza, recibo) is not None
 
 
 def _actualizar_moneda_existente_soat(
@@ -922,8 +1010,9 @@ def _actualizar_estado_anulado_activo_existente_soat(
 
 def _insertar_cuota_soat(cur, row, idx: int, poliza_num: str, cupon_poliza: str, recibo_poliza: str,
                          fecha_emision_poliza: str, moneda: str, prima_mas_igv: float, usuario: str,
-                         cuota_activo: int, errors_list: list[str]) -> tuple[bool, bool]:
-    poliza_id = _find_poliza_id_por_poliza_recibo(cur, poliza_num, cupon_poliza)
+                         cuota_activo: int, errors_list: list[str],
+                         poliza_id: int | None = None) -> tuple[bool, bool]:
+    poliza_id = _resolver_poliza_id_soat(cur, poliza_num, cupon_poliza, poliza_id)
     if poliza_id is None:
         errors_list.append(
             f"Fila {idx + 2}: Advertencia - No existe combinación Póliza/Recibo en polizas (póliza={poliza_num}, recibo={cupon_poliza}). No se insertó cuota."
@@ -935,6 +1024,9 @@ def _insertar_cuota_soat(cur, row, idx: int, poliza_num: str, cupon_poliza: str,
         factura = None
 
     try:
+        if _cuota_soat_existe(cur, poliza_id, cupon_poliza, factura):
+            return False, True
+
         k = get_encrypt_key()
         if factura:
             cur.execute(
@@ -950,27 +1042,6 @@ def _insertar_cuota_soat(cur, row, idx: int, poliza_num: str, cupon_poliza: str,
             )
             if cur.fetchone() is not None:
                 raise mysql.connector.Error(msg=f"El número de factura ya existe: {factura}")
-
-        cur.execute(
-            """
-            SELECT 1
-            FROM cuotas
-            WHERE poliza_id = %s
-              AND activo = 1
-              AND (
-                CONVERT(TRIM(COALESCE(
-                    CAST(AES_DECRYPT(FROM_BASE64(cupon), %s) AS CHAR),
-                    CAST(AES_DECRYPT(cupon, %s) AS CHAR),
-                    cupon
-                )) USING utf8mb4) COLLATE utf8mb4_bin
-                  = CONVERT(TRIM(%s) USING utf8mb4) COLLATE utf8mb4_bin
-              )
-            LIMIT 1
-            """,
-            (poliza_id, k, k, cupon_poliza),
-        )
-        if cur.fetchone() is not None:
-            return False, True
 
         cur.execute(
             """
@@ -1073,15 +1144,18 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
         fecha_emision_excel_min = fecha_emision_min.strftime('%d/%m/%Y') if fecha_emision_min else None
         fecha_emision_excel_max = fecha_emision_max.strftime('%d/%m/%Y') if fecha_emision_max else None
 
-        # Contadores
+        #Contadores
         clientes_nuevos = 0
         clientes_existentes = 0
         polizas_insertadas = 0
+        polizas_anuladas = 0
         polizas_existentes = 0
         cuotas_insertadas = 0
         cuotas_existentes = 0
         polizas_insertadas_soles = 0
         polizas_insertadas_dolares = 0
+        polizas_anuladas_soles = 0
+        polizas_anuladas_dolares = 0
         cuotas_insertadas_soles = 0
         cuotas_insertadas_dolares = 0
         cuotas_importe_soles = 0.0
@@ -1294,10 +1368,10 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 # Validar e insertar AGENTE si no existe (solo si tiene código)
                 raw_cod = row.get('COD_AGENTE', '')
                 raw_vend = row.get('VENDEDOR', '')
-                print(f"[DEBUG] COD_AGENTE raw='{raw_cod}' | VENDEDOR raw='{raw_vend}' | cols={[c for c in row.index if 'COD' in str(c).upper() or 'AGENC' in str(c).upper() or 'VEND' in str(c).upper()]}")
+                #print(f"[DEBUG] COD_AGENTE raw='{raw_cod}' | VENDEDOR raw='{raw_vend}' | cols={[c for c in row.index if 'COD' in str(c).upper() or 'AGENC' in str(c).upper() or 'VEND' in str(c).upper()]}")
                 codigo_agente = normalize_numero_documento(raw_cod)
                 nombre_vendedor = normalize_string(raw_vend)
-                print(f"[DEBUG] codigo_agente normalizado='{codigo_agente}'")
+                #print(f"[DEBUG] codigo_agente normalizado='{codigo_agente}'")
                 if codigo_agente:
                     get_or_create_agente(cur, cnx, codigo_agente, nombre_vendedor, commit=commit_db)
 
@@ -1332,9 +1406,9 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 factor_sub = porc_subagente if porc_subagente <= 1.0 else (porc_subagente / 100.0)
                 imp_subagente  = round(factor_sub * imp_compania, 2)
 
-                print(f"[COMISION] cod={codigo_agente} tipo_soat={tipo_soat_nom} "
-                      f"porc_cia={porc_compania} imp_cia={imp_compania} "
-                      f"porc_sub={porc_subagente} imp_sub={imp_subagente}")
+                #print(f"[COMISION] cod={codigo_agente} tipo_soat={tipo_soat_nom} "
+                      #f"porc_cia={porc_compania} imp_cia={imp_compania} "
+                      #f"porc_sub={porc_subagente} imp_sub={imp_subagente}")
 
                 # Construir JSON con datos del vehículo
                 datos_vehiculo = {
@@ -1367,22 +1441,33 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 fecha_vencimiento_poliza = fecha_emision_poliza
 
                 recibo_poliza = normalize_numero_documento(row.get('AVISO_COB', '')) if pd.notna(row.get('AVISO_COB')) else ''
+                normalize_numero_documento(row.get('RECIBO', '')) if pd.notna(row.get('RECIBO')) else ''
                 cupon_poliza = normalize_numero_documento(row.get('CUPON', '')) if pd.notna(row.get('CUPON')) else ''
                 if not cupon_poliza:
                     cupon_poliza = recibo_poliza
-                # Para reglas de estado/anulado, priorizamos PLANILLA; si no viene, usamos AVISO_COB.
+                #Para reglas de estado/anulado, priorizamos PLANILLA; si no viene, usamos AVISO_COB.
                 referencia_estado_raw = row.get('PLANILLA') if pd.notna(row.get('PLANILLA')) else row.get('AVISO_COB', '')
                 referencia_estado = normalize_numero_documento(referencia_estado_raw) if pd.notna(referencia_estado_raw) else ''
                 estado_excel = normalize_string(row.get('ESTADO', ''))
                 estado_poliza, anulado_poliza = resolver_estado_y_anulado_soat(referencia_estado, estado_excel)
                 producto_abreviacion = normalize_string(row.get('PRODUCTO_ABREVIACION', ''))
-                cuota_activo = 0 if (estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1) else 1
-                poliza_activo = 0 if (estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1) else 1
+                # Estados que deben marcar activo=0 aunque anulado=0
+                estado_norm = _normalize_estado_token(estado_excel)
+                es_inactivo_por_estado = estado_norm in {'ENVIADO PLANILLA CANAL', 'CANCELADO PTO VENTA', 'CANCELADO PTO. VENTA'}
+                cuota_activo = 0 if (estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1 or es_inactivo_por_estado) else 1
+                poliza_activo = 0 if (estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1 or es_inactivo_por_estado) else 1
 
                 poliza_num = normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else ''
                 if _recibo_tiene_numero(cupon_poliza):
                     if cupon_poliza in recibos_procesados:
-                        polizas_existentes += 1
+                        if estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1:
+                            polizas_anuladas += 1
+                            if moneda == 'US$':
+                                polizas_anuladas_dolares += 1
+                            else:
+                                polizas_anuladas_soles += 1
+                        else:
+                            polizas_existentes += 1
                         cuotas_existentes += 1
                         errors_list.append(
                             f"Fila {idx + 2}: Advertencia - Recibo duplicado en el Excel: {cupon_poliza}. Se omitió la fila."
@@ -1392,7 +1477,14 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
 
                     poliza_id_exist_por_recibo = _find_poliza_id_por_recibo(cur, cupon_poliza)
                     if poliza_id_exist_por_recibo is not None:
-                        polizas_existentes += 1
+                        if estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1:
+                            polizas_anuladas += 1
+                            if moneda == 'US$':
+                                polizas_anuladas_dolares += 1
+                            else:
+                                polizas_anuladas_soles += 1
+                        else:
+                            polizas_existentes += 1
                         cuotas_existentes += 1
                         poliza_id_exist = poliza_id_exist_por_recibo
                         errors_list.append(
@@ -1425,32 +1517,41 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                         cnx.commit()
                         continue
 
-                if poliza_num and cupon_poliza and _poliza_recibo_existe(cur, poliza_num, cupon_poliza):
-                    polizas_existentes += 1
-                    poliza_id_exist = _find_poliza_id_por_poliza_recibo(cur, poliza_num, cupon_poliza)
-                    if poliza_id_exist is not None:
-                        upd_pol_estado, upd_cuo_estado = _actualizar_estado_anulado_activo_existente_soat(
-                            cur=cur,
-                            poliza_id=int(poliza_id_exist),
-                            estado_poliza=estado_poliza,
-                            anulado_poliza=anulado_poliza,
-                            activo_poliza=poliza_activo,
-                            errors_list=errors_list,
-                            idx=idx,
-                        )
-                        polizas_activo_actualizadas += upd_pol_estado
-                        cuotas_activo_actualizadas += upd_cuo_estado
-                        upd_pol, upd_cuo = _actualizar_moneda_existente_soat(
-                            cur=cur,
-                            poliza_id=int(poliza_id_exist),
-                            poliza_num=poliza_num,
-                            cupon_poliza=cupon_poliza,
-                            nueva_moneda=moneda,
-                            errors_list=errors_list,
-                            idx=idx,
-                        )
-                        polizas_moneda_actualizadas += upd_pol
-                        cuotas_moneda_actualizadas += upd_cuo
+                if poliza_num and cupon_poliza:
+                    poliza_id_exist = _resolver_poliza_id_soat(cur, poliza_num, cupon_poliza)
+                else:
+                    poliza_id_exist = None
+                if poliza_num and cupon_poliza and poliza_id_exist is not None:
+                    if estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1:
+                        polizas_anuladas += 1
+                        if moneda == 'US$':
+                            polizas_anuladas_dolares += 1
+                        else:
+                            polizas_anuladas_soles += 1
+                    else:
+                        polizas_existentes += 1
+                    upd_pol_estado, upd_cuo_estado = _actualizar_estado_anulado_activo_existente_soat(
+                        cur=cur,
+                        poliza_id=int(poliza_id_exist),
+                        estado_poliza=estado_poliza,
+                        anulado_poliza=anulado_poliza,
+                        activo_poliza=poliza_activo,
+                        errors_list=errors_list,
+                        idx=idx,
+                    )
+                    polizas_activo_actualizadas += upd_pol_estado
+                    cuotas_activo_actualizadas += upd_cuo_estado
+                    upd_pol, upd_cuo = _actualizar_moneda_existente_soat(
+                        cur=cur,
+                        poliza_id=int(poliza_id_exist),
+                        poliza_num=poliza_num,
+                        cupon_poliza=cupon_poliza,
+                        nueva_moneda=moneda,
+                        errors_list=errors_list,
+                        idx=idx,
+                    )
+                    polizas_moneda_actualizadas += upd_pol
+                    cuotas_moneda_actualizadas += upd_cuo
                     inserted, existed = _insertar_cuota_soat(
                         cur=cur,
                         row=row,
@@ -1464,6 +1565,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                         usuario=usuario,
                         cuota_activo=cuota_activo,
                         errors_list=errors_list,
+                        poliza_id=poliza_id_exist,
                     )
                     if inserted:
                         cuotas_insertadas += 1
@@ -1564,6 +1666,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                             usuario=usuario,
                             cuota_activo=cuota_activo,
                             errors_list=errors_list,
+                            poliza_id=int(poliza_id_insertada),
                         )
                         if inserted:
                             cuotas_insertadas += 1
@@ -1579,20 +1682,34 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
 
                     if commit_db:
                         cnx.commit()
-                    polizas_insertadas += 1
-                    if moneda == 'US$':
-                        polizas_insertadas_dolares += 1
+                    if estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1:
+                        polizas_anuladas += 1
+                        if moneda == 'US$':
+                            polizas_anuladas_dolares += 1
+                        else:
+                            polizas_anuladas_soles += 1
                     else:
-                        polizas_insertadas_soles += 1
+                        polizas_insertadas += 1
+                        if moneda == 'US$':
+                            polizas_insertadas_dolares += 1
+                        else:
+                            polizas_insertadas_soles += 1
                 except mysql.connector.Error as err:
                     if 'Póliza ya existe' in str(err):
-                        polizas_existentes += 1
+                        if estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1:
+                            polizas_anuladas += 1
+                            if moneda == 'US$':
+                                polizas_anuladas_dolares += 1
+                            else:
+                                polizas_anuladas_soles += 1
+                        else:
+                            polizas_existentes += 1
                         if commit_db:
                             try:
                                 cnx.rollback()
                             except Exception:
                                 pass
-                        poliza_id_exist = _find_poliza_id_por_poliza_recibo(cur, poliza_num, cupon_poliza)
+                        poliza_id_exist = _resolver_poliza_id_soat(cur, poliza_num, cupon_poliza)
                         if poliza_id_exist is not None:
                             upd_pol_estado, upd_cuo_estado = _actualizar_estado_anulado_activo_existente_soat(
                                 cur=cur,
@@ -1629,6 +1746,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                             usuario=usuario,
                             cuota_activo=cuota_activo,
                             errors_list=errors_list,
+                            poliza_id=poliza_id_exist,
                         )
                         if inserted:
                             cuotas_insertadas += 1
@@ -1666,11 +1784,14 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
             'clientes_nuevos': clientes_nuevos,
             'clientes_existentes': clientes_existentes,
             'polizas_insertadas': polizas_insertadas,
+            'polizas_anuladas': polizas_anuladas,
             'polizas_existentes': polizas_existentes,
             'cuotas_insertadas': cuotas_insertadas,
             'cuotas_existentes': cuotas_existentes,
             'polizas_insertadas_soles': polizas_insertadas_soles,
             'polizas_insertadas_dolares': polizas_insertadas_dolares,
+            'polizas_anuladas_soles': polizas_anuladas_soles,
+            'polizas_anuladas_dolares': polizas_anuladas_dolares,
             'cuotas_insertadas_soles': cuotas_insertadas_soles,
             'cuotas_insertadas_dolares': cuotas_insertadas_dolares,
             'cuotas_importe_soles': round(float(cuotas_importe_soles or 0.0), 2),

@@ -366,6 +366,13 @@ function showResults(result, isPreview = false) {
             </div>
             <div class="col-md-3 mb-3">
                 <div class="p-3 bg-light rounded">
+                    <i class="bi bi-file-earmark-x-fill text-danger display-6"></i>
+                    <h4 class="mt-2 mb-0">${result.polizas_anuladas || 0}</h4>
+                    <small class="text-muted">Pólizas Anuladas</small>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="p-3 bg-light rounded">
                     <i class="bi bi-receipt-cutoff text-warning display-6"></i>
                     <h4 class="mt-2 mb-0">${result.cuotas_insertadas || 0}</h4>
                     <small class="text-muted">Cuotas Insertadas</small>
@@ -376,6 +383,8 @@ function showResults(result, isPreview = false) {
 
         const polSoles = Number(result.polizas_insertadas_soles || 0);
         const polDol = Number(result.polizas_insertadas_dolares || 0);
+        const polAnuladasSoles = Number(result.polizas_anuladas_soles || 0);
+        const polAnuladasDol = Number(result.polizas_anuladas_dolares || 0);
         const cSoles = Number(result.cuotas_insertadas_soles || 0);
         const cDol = Number(result.cuotas_insertadas_dolares || 0);
         const impSoles = Number(result.cuotas_importe_soles || 0).toFixed(2);
@@ -395,14 +404,14 @@ function showResults(result, isPreview = false) {
                     <div class="p-3 bg-light rounded">
                         <div class="fw-semibold mb-1">Soles</div>
                         <div class="small text-muted">En Excel: ${filasSoles} filas | Prima: S/. ${impExcelSoles}</div>
-                        <div class="small text-muted">Insertadas: Pólizas: ${polSoles} | Cuotas: ${cSoles} | Importe cuotas: S/. ${impSoles}</div>
+                        <div class="small text-muted">Insertadas: Pólizas: ${polSoles} | Anuladas: ${polAnuladasSoles} | Cuotas: ${cSoles} | Importe cuotas: S/. ${impSoles}</div>
                     </div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <div class="p-3 bg-light rounded">
                         <div class="fw-semibold mb-1">Dólares</div>
                         <div class="small text-muted">En Excel: ${filasDol} filas | Prima: US$ ${impExcelDol}</div>
-                        <div class="small text-muted">Insertadas: Pólizas: ${polDol} | Cuotas: ${cDol} | Importe cuotas: US$ ${impDol}</div>
+                        <div class="small text-muted">Insertadas: Pólizas: ${polDol} | Anuladas: ${polAnuladasDol} | Cuotas: ${cDol} | Importe cuotas: US$ ${impDol}</div>
                         ${updPol || updCuo ? `<div class="small text-muted">Moneda actualizada: Pólizas: ${updPol} | Cuotas: ${updCuo}</div>` : ``}
                         ${updPolActivo || updCuoActivo ? `<div class="small text-muted">Anulado (activo=0): Pólizas: ${updPolActivo} | Cuotas: ${updCuoActivo}</div>` : ``}
                     </div>
