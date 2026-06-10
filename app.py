@@ -47,6 +47,7 @@ try:
         can_access_maestros,
         can_restore,
         get_role_scope,
+        can_view_dashboard_charts,
     )
 
     @app.context_processor
@@ -76,6 +77,7 @@ try:
             'can_access_maestros': can_access_maestros,
             'can_restore': can_restore,
             'get_role_scope': get_role_scope,
+            'can_view_dashboard_charts': can_view_dashboard_charts,
             'get_initials': get_initials,
             'notifications': notifications,
         }
@@ -188,7 +190,11 @@ def login():
             session['user'] = row['username']
             session['user_id'] = row['id']
             session['role_id'] = row['id_rol']
-            session['role_name'] = row['rol_nombre']
+            
+            # FIX: Normalizar el nombre del rol para evitar problemas de permisos por mayúsculas/minúsculas o espacios.
+            rol_nombre = (row.get('rol_nombre') or '').strip().upper()
+            session['role_name'] = rol_nombre
+
             session['user_display_name'] = (row.get('nombre') or row.get('name') or '').strip()
             
             # Fetch foto_perfil separately if not in row
