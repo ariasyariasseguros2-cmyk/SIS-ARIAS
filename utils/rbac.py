@@ -5,47 +5,35 @@ class Roles:
     SUB_AGENTE = 'SUB AGENTE'
 
 def can_view_maestros(role_name):
-    return role_name in [Roles.BROKER, Roles.EJECUTIVO, Roles.OPERADOR, Roles.SUB_AGENTE]
+    return True
 
 def can_access_maestros(role_name):
-    return role_name == Roles.BROKER
+    return True
 
 def can_delete(role_name):
-    # BROKER: Yes
-    # EJECUTIVO: Yes ("solo mira y ELIMINA")
-    # OPERADOR: No
-    # SUB AGENTE: No
-    return role_name in [Roles.BROKER, Roles.EJECUTIVO]
+    return True
 
 def can_edit(role_name):
-    # BROKER: Yes
-    # EJECUTIVO: No ("solo mira y ELIMINA" implies no edit?) - User said "solo mira". Usually means Read Only.
-    # But OPERADOR "adiciona, actualiza".
-    # So EJECUTIVO cannot edit.
-    # OPERADOR: Yes
-    # SUB AGENTE: Yes ("adiciona") - presumably updates too? "Acceso a solo sus cuentas... adiciona, NO ELIMINA". 
-    # Usually "adiciona" implies creation. Updates? Let's assume yes for own accounts.
-    return role_name in [Roles.BROKER, Roles.OPERADOR, Roles.SUB_AGENTE]
+    return True
 
 def can_create(role_name):
-    return role_name in [Roles.BROKER, Roles.OPERADOR, Roles.SUB_AGENTE]
-
+    return True
 
 def can_create_poliza(role_name):
-    # Crear/renovar pólizas habilitado para EJECUTIVO sin ampliar create global.
-    return role_name in [Roles.BROKER, Roles.OPERADOR, Roles.SUB_AGENTE, Roles.EJECUTIVO]
+    return True
 
 def get_role_scope(role_name):
     if role_name == Roles.SUB_AGENTE:
         return 'OWN'
     return 'ALL'
 
-
 def can_restore(role_name):
     """Permiso para restaurar o anular (acciones sobre estado)."""
-    # Según la política actual BROKER y OPERADOR pueden realizar restauraciones/anulaciones
-    return role_name in [Roles.BROKER, Roles.OPERADOR]
+    return True
 
+def can_view_dashboard_charts(role_name):
+    """Permiso para ver los gráficos del dashboard."""
+    return role_name == Roles.BROKER
 
 # ------------------ Decoradores y utilidades de autorización ------------------
 from functools import wraps
@@ -92,5 +80,3 @@ def require_permission(check_fn, response_mode='json', ownership_check_fn=None):
             return f(*args, **kwargs)
         return wrapper
     return decorator
-
-
