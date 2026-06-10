@@ -1,5 +1,4 @@
 {% extends 'view/layout_dashboard.html' %}
-{% set is_admin = session.get('role_name') == 'BROKER' %}
 
 {% block html_title %}Dashboard | AASNET{% endblock %}
 {% block page_title %}
@@ -174,7 +173,7 @@
     </div>
 
     <!-- Charts Section -->
-    {% if is_admin %}
+    {% if can_view_dashboard_charts(session.get('role_name')) %}
     <div class="row g-4">
         <!-- NEW: Income per Day (Wave/Soundtrack Style) -->
         <div class="col-12">
@@ -233,7 +232,7 @@
 
 {% block extra_js_bottom %}
 {{ super() }}
-{% if is_admin %}
+{% if can_view_dashboard_charts(session.get('role_name')) %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     window.dashboardData = {
