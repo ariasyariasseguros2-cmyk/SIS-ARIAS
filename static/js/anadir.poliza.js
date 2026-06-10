@@ -3171,9 +3171,9 @@
           copy.ultimo_dia_pago = copy.fecha_pago;
         }
         // Alinear factura con recibo si procede
-        if (!copy.recibo && copy.factura) {
-          copy.recibo = copy.factura;
-        }
+        //if (!copy.recibo && copy.factura) {
+          //copy.recibo = copy.factura;
+        //}
         const r = (copy.ramo || '').trim();
         if (r && !abbrs.includes(r)) {
           copy.ramo = '';
