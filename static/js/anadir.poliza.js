@@ -15,6 +15,7 @@
   const endosatarioTopEl = document.getElementById('endosatarioTop'); // NUEVO
   const tipoVigenciaTopEl = document.getElementById('tipoVigenciaTop'); // NUEVO
   const aseguradaTopEl = document.getElementById('aseguradaTop'); // Campo superior de asegurada (texto)
+  const btnEditAseguradaTopEl = document.getElementById('btnEditAseguradaTop');
   const motivoTopEl = document.getElementById('motivoTop'); // Campo superior de motivo (texto)
   const anexosFilesEl = document.getElementById('anexosFiles'); // NUEVO: Input de anexos
   const anexosListEl = document.getElementById('anexosList'); // NUEVO: Lista de anexos
@@ -405,6 +406,78 @@
     const source = String(item.__companyCommissionSource || '').trim().toLowerCase();
     if (source !== 'extraido' && source !== 'manual') return false;
     return String(item.comision_compania_importe || '').trim() !== '';
+  }
+  function syncAseguradaTopLock(forceLock = false) {
+    if (!aseguradaTopEl) return;
+    const hasValue = String(aseguradaTopEl.value || '').trim() !== '';
+
+    if (!hasValue) {
+      aseguradaTopEl.readOnly = false;
+      btnEditAseguradaTopEl?.classList.add('d-none');
+      return;
+    }
+
+    if (forceLock) {
+      aseguradaTopEl.readOnly = true;
+      btnEditAseguradaTopEl?.classList.remove('d-none');
+    }
+  }
+  function normalizePolicyLookupKey(value) {
+    return String(value || '').replace(/\s+/g, '').trim().toLowerCase();
+  }
+  async function fetchAseguradaByPoliza(numeroPoliza) {
+    const poliza = String(numeroPoliza || '').trim();
+    if (!poliza) return '';
+    try {
+      const res = await fetch(`/api/polizas/search?q=${encodeURIComponent(poliza)}&type=historica`);
+      const data = await res.json();
+      const rows = Array.isArray(data?.rows) ? data.rows : [];
+      if (!rows.length) return '';
+
+      const needle = normalizePolicyLookupKey(poliza);
+      const exact = rows.find(r => normalizePolicyLookupKey(r?.poliza) === needle);
+      const hit = exact || (rows.length === 1 ? rows[0] : null);
+      return String(hit?.asegurada || '').trim();
+    } catch (err) {
+      console.error('Error fetching asegurada by poliza:', err);
+      return '';
+    }
+  }
+  async function hydrateAseguradaFromPolizas(items) {
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) return list;
+
+    const cache = new Map();
+    let topAsegurada = (aseguradaTopEl?.value || '').trim();
+
+    for (const item of list) {
+      if (!item) continue;
+      if (String(item.asegurada || '').trim() !== '') {
+        if (!topAsegurada) topAsegurada = String(item.asegurada || '').trim();
+        continue;
+      }
+
+      const poliza = String(item.numero_poliza || item.poliza || '').trim();
+      const key = normalizePolicyLookupKey(poliza);
+      if (!key) continue;
+
+      if (!cache.has(key)) {
+        cache.set(key, await fetchAseguradaByPoliza(poliza));
+      }
+
+      const asegurada = String(cache.get(key) || '').trim();
+      if (!asegurada) continue;
+
+      item.asegurada = asegurada;
+      if (!topAsegurada) topAsegurada = asegurada;
+    }
+
+    if (aseguradaTopEl && topAsegurada && !(aseguradaTopEl.value || '').trim()) {
+      aseguradaTopEl.value = topAsegurada;
+      syncAseguradaTopLock(true);
+    }
+
+    return list;
   }
   function computeSubPctFromImport(compImportStr, subImportStr) {
     const comp = parseNumber(compImportStr);
@@ -2812,6 +2885,8 @@
             return { ...it, cia_value: val, cia: (opt ? opt.text : (it.cia || '')) || it.cia };
           });
 
+          items = await hydrateAseguradaFromPolizas(items);
+
           extractedItems = items;
           render(extractedItems);
 
@@ -2889,6 +2964,22 @@
     }
     alert(text || title || 'Aviso');
   }
+
+  btnEditAseguradaTopEl?.addEventListener('click', () => {
+    if (!aseguradaTopEl) return;
+    aseguradaTopEl.readOnly = false;
+    btnEditAseguradaTopEl.classList.add('d-none');
+    aseguradaTopEl.focus();
+    if (typeof aseguradaTopEl.select === 'function') aseguradaTopEl.select();
+  });
+
+  aseguradaTopEl?.addEventListener('input', () => {
+    if (String(aseguradaTopEl.value || '').trim() === '') {
+      syncAseguradaTopLock(false);
+    }
+  });
+
+  syncAseguradaTopLock(true);
 
   // % Comisión Cía superior → recalcular todas las filas
   pctComCompaniaEl?.addEventListener('input', () => {
@@ -3743,7 +3834,10 @@
       } else if (facturasListEl) {
         facturasListEl.innerHTML = '';
       }
-      if (aseguradaTopEl) aseguradaTopEl.value = '';
+      if (aseguradaTopEl) {
+        aseguradaTopEl.value = '';
+        syncAseguradaTopLock(false);
+      }
       if (nroOperacionTopEl) nroOperacionTopEl.value = '';
       if (endosatarioTopEl) endosatarioTopEl.value = '';
       if (tipoVigenciaTopEl) {
