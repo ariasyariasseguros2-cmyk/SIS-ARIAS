@@ -15,7 +15,7 @@
   const endosatarioTopEl = document.getElementById('endosatarioTop'); // NUEVO
   const tipoVigenciaTopEl = document.getElementById('tipoVigenciaTop'); // NUEVO
   const aseguradaTopEl = document.getElementById('aseguradaTop'); // Campo superior de asegurada (texto)
-  // const motivoTopEl = document.getElementById('motivoTop'); // Campo superior de motivo (texto)
+  const motivoTopEl = document.getElementById('motivoTop'); // Campo superior de motivo (texto)
   const anexosFilesEl = document.getElementById('anexosFiles'); // NUEVO: Input de anexos
   const anexosListEl = document.getElementById('anexosList'); // NUEVO: Lista de anexos
   const facturasFilesEl = document.getElementById('facturasFiles');
@@ -1062,7 +1062,7 @@
     const estadoTop = (estadoTopEl?.value || '').trim();
     // const ramoProductoTop = (ramoProductoTopEl?.value || '').trim(); // ELIMINADO
     const aseguradaTop = (aseguradaTopEl?.value || '').trim();
-    const motivoTop = ''; // (motivoTopEl?.value || '').trim();
+    const motivoTop = (motivoTopEl?.value || '').trim();
     const nroOpTop = (nroOperacionTopEl?.value || '').trim(); // NUEVO: Nro Operación
     const issuerText = issuerEl?.options?.[issuerEl.selectedIndex]?.text || (issuerEl?.value || '');
 
@@ -3145,7 +3145,7 @@
         subagente: (document.getElementById('subAgenteTop')?.value ||
                     document.getElementById('subAgente')?.value ||
                     (window.selectedCliente || {}).subagente || ''),
-        motivo: '', // (motivoTopEl?.value || '').trim(),
+        motivo: (motivoTopEl?.value || '').trim(),
         // ramos_producto: (ramoProductoTopEl?.value || '').trim(), // REMOVED
         tipo_doc: (tipoDocTopEl?.value || '').trim() || ((window.selectedCliente || {}).tipo_doc || (window.selectedCliente || {}).tipo_documento || ''),
         // NUEVO: ejecutivo desde el select superior
@@ -3688,7 +3688,7 @@
       if (pctComCompaniaEl) pctComCompaniaEl.value = '';
       if (pctComSubAgenteEl) pctComSubAgenteEl.value = '100';
       if (impComSubAgenteEl) impComSubAgenteEl.value = '';
-      // if (motivoTopEl) motivoTopEl.value = '';
+      if (motivoTopEl) motivoTopEl.value = '';
       // if (ramoProductoTopEl) ramoProductoTopEl.value = '';
       if (tipoDocTopEl && !keepTipoDoc) tipoDocTopEl.value = '';
       if (issuerEl) issuerEl.value = '';

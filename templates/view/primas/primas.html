@@ -92,7 +92,7 @@
                     <th>Vig Inicio</th>
                     <th>Vig Fin</th>
                     <th>Nro.Operación</th>
-                    <!-- Motivo (comentado por solicitud) -->
+                    <th>Motivo</>
                     <th class="text-end">Acción</th>
                 </tr>
             </thead>
@@ -111,7 +111,7 @@
                     <td>{{ r.vig_inicio }}</td>
                     <td>{{ r.vig_fin }}</td>
                     <td>{{ r.nro_operacion or '' }}</td>
-                    <!-- Motivo (comentado por solicitud): {{ r.motivo }} -->
+                    <td>{{ r.motivo }} </td>
                     <td class="text-end">
                         <div class="action-buttons justify-content-end">
                             <button class="btn-action btn-primary btn-cuotas"

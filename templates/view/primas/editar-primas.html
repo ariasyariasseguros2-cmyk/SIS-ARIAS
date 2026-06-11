@@ -52,7 +52,7 @@
                             <option value="RENOVACION" {% if tipo_doc_norm == 'RENOVACION' %}selected{% endif %}>RENOVACION</option>
                             <option value="DEVOLUCION" {% if tipo_doc_norm == 'DEVOLUCION' %}selected{% endif %}>DEVOLUCION</option>
                             <option value="INCLUSIÓN" {% if tipo_doc_norm == 'INCLUSION' %}selected{% endif %}>INCLUSIÓN</option>
-                            <option value="NETEO" {% if tipo_doc_norm == 'NETEO' %}selected{% endif %}>NETEO</option>
+                            <option value="NETEO" {% if tipo_doc_norm == 'NETEO' %}selected{% endif %}>NETEO - SIN PRIMA</option>
                         </select>
                     </div>
                     <div class="col-md-4">
@@ -219,12 +219,11 @@
                 <!-- SECCIÓN 4: DETALLES ADICIONALES -->
                 <h6 class="text-uppercase text-muted fw-bold fs-7 mb-3 mt-4 ls-1 border-top pt-4"><i class="bi-info-circle me-2"></i>Detalles Adicionales</h6>
                 <div class="row g-3 mb-4">
-                    <!-- Motivo (comentado por solicitud)
                     <div class="col-md-4">
                         <label for="motivo" class="form-label">Motivo <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="motivo" value="{{ prima.motivo if prima else '' }}">
                     </div>
-                    -->
+                
                     <div class="col-md-4">
                         <label for="nroOperacion" class="form-label">Número de Operación</label>
                         <input type="text" class="form-control" id="nroOperacion" value="">

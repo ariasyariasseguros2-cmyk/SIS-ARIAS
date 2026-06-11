@@ -236,7 +236,8 @@ window.initEditarPrimasLogic = function(isModal = false) {
             'importeComisionSubAgente',
             'nroOperacion',
             'numPrimeraCuota',
-            'masInformacion'
+            'masInformacion',
+            'motivo'
         ];
 
         const getSnapshot = () => {
@@ -314,7 +315,7 @@ window.initEditarPrimasLogic = function(isModal = false) {
                 prima_comercial: document.getElementById('primaComercial').value,
                 prima_neta: document.getElementById('primaNeta').value,
                 prima_comercial_igv: document.getElementById('primaTotal').value,
-                // motivo: document.getElementById('motivo').value, // comentado por solicitud
+                motivo: document.getElementById('motivo').value, // comentado por solicitud
                 porc_compania: document.getElementById('comisionCompania').value,
                 imp_compania: document.getElementById('importeComisionCompania').value,
                 sub_agente: document.getElementById('subAgente').value,
