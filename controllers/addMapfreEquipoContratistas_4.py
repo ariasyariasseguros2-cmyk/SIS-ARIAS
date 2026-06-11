@@ -45,8 +45,41 @@ def parse_mapfre_equipo_contratistas_4(text: str):
     def _clean_name(name: str) -> str:
         name = (name or "").strip()
         name = re.sub(r"\s+", " ", name)
+        name = re.split(
+            r"\b(?:C[ÓO]DIGO\s+SBS|C[ÓO]DIGO\s+INTERNO|IMPORTE\s+DE\s+LA\s+COMISION|DATOS\s+DE\s+COBRO)\b",
+            name,
+            maxsplit=1,
+            flags=re.IGNORECASE,
+        )[0].strip()
         name = re.sub(r"\s+(?:RUC\s*)?\d{11}\s*$", "", name, flags=re.IGNORECASE).strip()
         return name
+
+    def _looks_like_broker_name(name: str) -> bool:
+        up = (name or "").upper()
+        broker_markers = [
+            "CORRED",
+            "BROKER",
+            "CODIGO SBS",
+            "CÓDIGO SBS",
+            "CODIGO INTERNO",
+            "CÓDIGO INTERNO",
+            "COMISION",
+            "DATOS DE COBRO",
+            "AGENCIAMIENTO",
+            "BANCA SEGUROS",
+        ]
+        return any(marker in up for marker in broker_markers)
+
+    def _looks_like_endosatario_name(name: str) -> bool:
+        up = (name or "").upper()
+        endoso_markers = [
+            "ENDOSATARIO",
+            "SUMA ENDOSADA",
+            "MATERIA ENDOSADA",
+            "ACREEDORES DEL ASEGURADO",
+            "CESION DE DERECHOS",
+        ]
+        return any(marker in up for marker in endoso_markers)
 
     def _extract_name_from_section(section_title: str) -> str:
         m = re.search(rf"\b{section_title}\b", text_norm, re.IGNORECASE)
@@ -75,7 +108,7 @@ def parse_mapfre_equipo_contratistas_4(text: str):
                     collected = []
                     if rest:
                         rest = re.split(r"\bRUC\b", rest, maxsplit=1, flags=re.IGNORECASE)[0].strip()
-                        if rest:
+                        if rest and not _looks_like_broker_name(rest):
                             collected.append(rest)
                     for nxt in lines[i + 1:i + 15]:
                         cand = nxt.strip()
@@ -88,20 +121,37 @@ def parse_mapfre_equipo_contratistas_4(text: str):
                             continue
                         if re.match(r"^DATOS\s+DEL\s+", cand_up):
                             break
+                        if _looks_like_broker_name(cand):
+                            break
                         collected.append(cand)
                     name = _clean_name(" ".join(collected))
-                    if name:
+                    if name and not _looks_like_broker_name(name):
                         return name
         return ""
 
+    def _extract_name_from_saludo() -> str:
+        m = re.search(
+            r"Señor\(a\)[^\n:]{0,60}:\s*(?:\n\s*)?([^\n]{3,160})",
+            text_norm,
+            re.IGNORECASE,
+        )
+        if not m:
+            return ""
+        return _clean_name(m.group(1))
+
+    saludo = _extract_name_from_saludo()
     asegurado = _extract_name_from_section("DATOS\\s+DEL\\s+ASEGURADO")
     contratante = _extract_name_from_section("DATOS\\s+DEL\\s+CONTRATANTE")
 
-    if asegurado:
+    if saludo and not _looks_like_broker_name(saludo):
+        item["colectivo_asegurado"] = saludo
+        item["asegurado"] = saludo
+
+    if asegurado and not _looks_like_endosatario_name(asegurado):
         item["asegurado"] = asegurado
         if not item.get("colectivo_asegurado") or item.get("colectivo_asegurado") == item.get("asegurado"):
             item["colectivo_asegurado"] = asegurado
-    if contratante:
+    if contratante and not saludo:
         item["colectivo_asegurado"] = contratante
         if not item.get("asegurado"):
             item["asegurado"] = contratante
@@ -109,6 +159,19 @@ def parse_mapfre_equipo_contratistas_4(text: str):
             aseg_up = (item.get("asegurado") or "").upper()
             if item.get("asegurado") != contratante and ("CORRED" in aseg_up or "BROKER" in aseg_up):
                 item["asegurado"] = contratante
+
+    if _looks_like_broker_name(item.get("colectivo_asegurado", "")) and contratante:
+        item["colectivo_asegurado"] = contratante
+    if _looks_like_broker_name(item.get("asegurado", "")):
+        if saludo and not _looks_like_broker_name(saludo):
+            item["asegurado"] = saludo
+        elif contratante:
+            item["asegurado"] = contratante
+    if _looks_like_endosatario_name(item.get("asegurado", "")):
+        if saludo and not _looks_like_broker_name(saludo):
+            item["asegurado"] = saludo
+        elif contratante:
+            item["asegurado"] = contratante
 
     if not item.get("colectivo_asegurado") or not item.get("asegurado"):
         m_rs = re.search(
