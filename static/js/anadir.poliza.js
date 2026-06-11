@@ -396,6 +396,16 @@
     if (!Number.isFinite(neta) || neta === 0 || !Number.isFinite(imp)) return '';
     return formatPctForInput((imp / neta) * 100);
   }
+  function setCompanyCommissionSource(item, source) {
+    if (!item) return;
+    item.__companyCommissionSource = source || '';
+  }
+  function shouldKeepCompanyCommission(item) {
+    if (!item) return false;
+    const source = String(item.__companyCommissionSource || '').trim().toLowerCase();
+    if (source !== 'extraido' && source !== 'manual') return false;
+    return String(item.comision_compania_importe || '').trim() !== '';
+  }
   function computeSubPctFromImport(compImportStr, subImportStr) {
     const comp = parseNumber(compImportStr);
     const sub = parseNumber(subImportStr);
@@ -747,6 +757,7 @@
     // Esto permite que el UI tenga cálculo automático aun sin tabla de comisiones.
     const hasPctCC = it.comision_compania_pct !== undefined && it.comision_compania_pct !== null && String(it.comision_compania_pct).trim() !== '';
     const hasImpCC = it.comision_compania_importe !== undefined && it.comision_compania_importe !== null && String(it.comision_compania_importe).trim() !== '';
+    setCompanyCommissionSource(it, hasImpCC ? 'extraido' : '');
     if (!hasPctCC && hasImpCC) {
       const pctCalc = computeCompanyPctFromImport(it.prima_neta || '', it.comision_compania_importe || '');
       if (pctCalc) it.comision_compania_pct = pctCalc;
@@ -1285,11 +1296,28 @@
       const data = await res.json();
 
       if (data.ok && data.pct !== null) {
+        if (shouldKeepCompanyCommission(item)) {
+          const tr = tbody.children[index];
+          if (tr) {
+            const pctInput = tr.querySelector('.pct-comp');
+            if (pctInput) pctInput.value = item.comision_compania_pct || '';
+
+            const impInput = tr.querySelector('.imp-comp');
+            if (impInput) impInput.value = item.comision_compania_importe || '';
+
+            const impSubInput = tr.querySelector('.imp-sub');
+            if (impSubInput) impSubInput.value = item.comision_subagente_importe || '';
+          }
+          if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+          return;
+        }
+
         const pctVal = parseFloat(data.pct);
         if (!Number.isFinite(pctVal)) return;
 
         // Actualizar modelo
         item.comision_compania_pct = pctVal;
+        setCompanyCommissionSource(item, 'tabla');
         
         // Recalcular importe cía
         const neta = item.prima_neta || '';
@@ -1758,6 +1786,7 @@
     extractedItems[idx].comision_compania_pct = pct;
     const neta = extractedItems[idx].prima_neta || '';
     extractedItems[idx].comision_compania_importe = pct ? computeCommissionAmount(neta, pct) : '';
+    setCompanyCommissionSource(extractedItems[idx], pct ? 'manual' : '');
     const impEl = input.closest('tr')?.querySelector('.imp-comp');
     if (impEl) impEl.value = extractedItems[idx].comision_compania_importe || '';
 
@@ -1798,6 +1827,7 @@
 
     const imp = input.value || '';
     extractedItems[idx].comision_compania_importe = imp;
+    setCompanyCommissionSource(extractedItems[idx], imp ? 'manual' : '');
 
     const neta = extractedItems[idx].prima_neta || '';
     extractedItems[idx].comision_compania_pct = imp ? computeCompanyPctFromImport(neta, imp) : '';
@@ -2867,11 +2897,15 @@
       if (impComCompaniaEl) impComCompaniaEl.value = '';
       return;
     }
-    extractedItems = extractedItems.map(it => ({
-      ...it,
-      comision_compania_pct: pct,
-      comision_compania_importe: pct ? computeCommissionAmount(it.prima_neta, pct) : (it.comision_compania_importe || '')
-    }));
+    extractedItems = extractedItems.map(it => {
+      const copy = {
+        ...it,
+        comision_compania_pct: pct,
+        comision_compania_importe: pct ? computeCommissionAmount(it.prima_neta, pct) : (it.comision_compania_importe || '')
+      };
+      setCompanyCommissionSource(copy, pct ? 'manual' : '');
+      return copy;
+    });
     render(extractedItems);
     if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
     scheduleAutoSave();
