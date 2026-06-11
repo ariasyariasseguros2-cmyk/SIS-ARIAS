@@ -38,6 +38,74 @@ def _get_cuota_join_sql(poliza_alias='p', cuota_alias='q'):
           )
     """
 
+def _dedupe_clientes_por_documento(clientes):
+    """Conserva un solo cliente por tipo/nro de documento, priorizando el id mas reciente."""
+    unicos = {}
+    for cliente in clientes or []:
+        tipo_doc = (cliente.get('tipo_documento') or '').strip().upper()
+        numero_doc = (cliente.get('numero_documento') or '').strip().upper()
+        if not numero_doc:
+            key = f"ID:{cliente.get('idCliente')}"
+        else:
+            key = f"{tipo_doc}|{numero_doc}"
+
+        actual = unicos.get(key)
+        actual_id = int(actual.get('idCliente') or 0) if actual else 0
+        nuevo_id = int(cliente.get('idCliente') or 0)
+        if actual is None or nuevo_id > actual_id:
+            unicos[key] = cliente
+
+    return sorted(unicos.values(), key=lambda c: int(c.get('idCliente') or 0), reverse=True)
+
+def _get_cliente_ids_relacionados(cur, key, cliente, es_subagente=False, usuario_actual=None):
+    """Obtiene todos los idsCliente que comparten el mismo documento."""
+    if not cliente:
+        return []
+
+    numero_documento = (cliente.get('numero_documento') or '').strip()
+    tipo_documento = (cliente.get('tipo_documento') or '').strip()
+    id_cliente = cliente.get('idCliente')
+
+    if not numero_documento:
+        return [id_cliente] if id_cliente else []
+
+    query = """
+        SELECT idCliente
+        FROM clientes
+        WHERE (
+            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) = %s
+            OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) = %s
+            OR numero_documento = %s
+        )
+    """
+    params = [key, numero_documento, key, numero_documento, numero_documento]
+
+    if tipo_documento:
+        query += " AND tipo_documento = %s"
+        params.append(tipo_documento)
+
+    if es_subagente:
+        query += " AND subagente = %s"
+        params.append(usuario_actual)
+
+    query += " ORDER BY idCliente DESC"
+    cur.execute(query, params)
+    rows = cur.fetchall() or []
+
+    ids = []
+    for row in rows:
+        try:
+            rid = int(row.get('idCliente'))
+        except Exception:
+            rid = None
+        if rid and rid not in ids:
+            ids.append(rid)
+
+    if not ids and id_cliente:
+        ids = [id_cliente]
+
+    return ids
+
 def get_estado_cuenta_data(filtros_input=None):
     """
     Obtiene los datos para el estado de cuenta de un cliente con filtros aplicados.
@@ -213,6 +281,9 @@ def get_estado_cuenta_data(filtros_input=None):
                 cliente = None
 
         if cliente:
+            cliente_ids = _get_cliente_ids_relacionados(cur, key, cliente, es_subagente, usuario_actual)
+            cliente_ids = cliente_ids or [cliente['idCliente']]
+            placeholders = ', '.join(['%s'] * len(cliente_ids))
 
             query = f"""
                 SELECT 
@@ -242,11 +313,11 @@ def get_estado_cuenta_data(filtros_input=None):
                     END AS estado
                 FROM polizas p
                 {_get_cuota_join_sql('p', 'q')}
-                WHERE p.cliente_id = %%s
+                WHERE p.cliente_id IN ({placeholders})
                   AND {_get_poliza_activa_sql('p')}
             """
 
-            params = [key, key, key, key, key, key, key, key, key, key, key, key, cliente['idCliente']]
+            params = [key, key, key, key, key, key, key, key, key, key, key, key, *cliente_ids]
 
             # Aplicar filtros adicionales
             if filters['compania']:
@@ -459,7 +530,7 @@ def buscar_clientes(search_term):
                     OR numero_documento LIKE %s
                 )
                   AND subagente = %s
-                ORDER BY razon_social
+                ORDER BY idCliente DESC, razon_social
                 LIMIT 20
             """, (key, key, key, key, key, key, key, key, key, search, key, search, search, key, search, key, search, search, usuario_actual))
         else:
@@ -480,11 +551,11 @@ def buscar_clientes(search_term):
                     OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) LIKE %s
                     OR numero_documento LIKE %s
                 )
-                ORDER BY razon_social
+                ORDER BY idCliente DESC, razon_social
                 LIMIT 20
             """, (key, key, key, key, key, key, key, key, key, search, key, search, search, key, search, key, search, search))
 
-        clientes = cur.fetchall() or []
+        clientes = _dedupe_clientes_por_documento(cur.fetchall() or [])
 
         cur.close()
         cnx.close()
@@ -635,6 +706,9 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             cliente = None
 
     if cliente:
+        cliente_ids = _get_cliente_ids_relacionados(cur, key, cliente, es_subagente, usuario_actual)
+        cliente_ids = cliente_ids or [cliente['idCliente']]
+        placeholders = ', '.join(['%s'] * len(cliente_ids))
         query = f"""
             SELECT 
                 p.cia AS compania,
@@ -662,10 +736,10 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
                 END AS estado
             FROM polizas p
             {_get_cuota_join_sql('p', 'q')}
-            WHERE p.cliente_id = %%s
+            WHERE p.cliente_id IN ({placeholders})
               AND {_get_poliza_activa_sql('p')}
         """
-        params = [key, key, key, key, key, key, key, key, key, key, key, key, cliente['idCliente']]
+        params = [key, key, key, key, key, key, key, key, key, key, key, key, *cliente_ids]
 
         if filters['compania']:
             query += " AND p.cia = %%s"
