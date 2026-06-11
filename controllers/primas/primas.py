@@ -1,4 +1,23 @@
 def get_primas_data(selected: dict | None = None, numero_poliza: str | None = None) -> dict:
+    from datetime import date, datetime
+
+    def parse_sort_date(v):
+        if not v:
+            return date.min
+        if isinstance(v, datetime):
+            return v.date()
+        if isinstance(v, date):
+            return v
+        s = str(v).strip()
+        if not s:
+            return date.min
+        for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%d/%m/%y', '%Y/%m/%d', '%Y-%m-%d %H:%M:%S'):
+            try:
+                return datetime.strptime(s, fmt).date()
+            except Exception:
+                pass
+        return date.min
+
     rows = []
     details = {
         'ejecutivo': '',
@@ -88,6 +107,15 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
                 rows = rows
 
         # Si no hay poliza definida pero hay resultados, tomamos la poliza del primer resultado
+        rows.sort(
+            key=lambda r: parse_sort_date(
+                r.get('vig_desde')
+                or r.get('vig_inicio')
+                or r.get('inicio_vigencia')
+            ),
+            reverse=True,
+        )
+
         if not pol and rows:
             pol = rows[0].get('poliza') or rows[0].get('numero_poliza')
             if pol:
@@ -145,26 +173,10 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
             'idPrima': coalesce_nonempty(r.get('idPoliza'), r.get('idPrima')) # idPoliza identifies the row
         })
 
-    from datetime import date, datetime
-
-    def parse_vig_inicio(v):
-        if not v:
-            return date.min
-        if isinstance(v, datetime):
-            return v.date()
-        if isinstance(v, date):
-            return v
-        s = str(v).strip()
-        if not s:
-            return date.min
-        for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%d/%m/%y', '%Y/%m/%d'):
-            try:
-                return datetime.strptime(s, fmt).date()
-            except Exception:
-                pass
-        return date.min
-
-    normalized.sort(key=lambda x: parse_vig_inicio(x.get('vig_inicio')), reverse=True)
+    normalized.sort(
+        key=lambda x: parse_sort_date(x.get('vig_inicio') or x.get('vig_desde')),
+        reverse=True,
+    )
 
     return {
         'title': 'Primas / Plan de Pagos',
