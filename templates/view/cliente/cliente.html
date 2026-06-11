@@ -84,7 +84,7 @@
                             {% if can_edit(session.role_name) %}
                             <button type="button" class="btn btn-warning btn-sm btn-lift btn-edit-cliente" data-id="{{ r.idCliente }}"><i class="bi-pencil"></i> Editar</button>
                             {% endif %}
-                            <button type="button" class="btn btn-primary btn-sm btn-lift">Pólizas</button>
+                            <button type="button" class="btn btn-primary btn-sm btn-lift">{{ r.ramo_btn_label or 'Póliza' }}</button>
                             <button type="button" class="btn btn-success btn-sm btn-lift">Contactos</button>
                             {% if can_delete(session.role_name) %}
                             <button type="button" class="btn btn-danger btn-sm btn-lift btn-delete-cliente" data-id="{{ r.idCliente }}" data-nombre="{{ r.razon_social }}"><i class="bi-trash"></i> Eliminar</button>

@@ -10,74 +10,92 @@ def get_clientes_data():
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
         key = get_encrypt_key()
+        polizas_agg_sql = """
+            LEFT JOIN (
+                SELECT
+                    cliente_id,
+                    GROUP_CONCAT(DISTINCT NULLIF(TRIM(ramo), '') ORDER BY NULLIF(TRIM(ramo), '') SEPARATOR ', ') AS ramos,
+                    COUNT(DISTINCT NULLIF(TRIM(ramo), '')) AS ramos_count
+                FROM polizas
+                WHERE activo = 1 AND anulado = 0
+                GROUP BY cliente_id
+            ) pr ON pr.cliente_id = c.idCliente
+        """
         
         role = session.get('role_name')
         if role == Roles.SUB_AGENTE:
             user = session.get('user')
-            query = """
+            query = f"""
                 SELECT 
-                    idCliente, 
-                    fecha_registro, 
+                    c.idCliente, 
+                    c.fecha_registro, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR),
-                        CAST(AES_DECRYPT(razon_social, %s) AS CHAR),
-                        razon_social
+                        CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.razon_social, %s) AS CHAR),
+                        c.razon_social
                     ) AS razon_social,
-                    tipo_documento, 
+                    c.tipo_documento, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
-                        CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
-                        numero_documento
+                        CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.numero_documento, %s) AS CHAR),
+                        c.numero_documento
                     ) AS numero_documento, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR),
-                        CAST(AES_DECRYPT(telefono, %s) AS CHAR),
-                        telefono
+                        CAST(AES_DECRYPT(FROM_BASE64(c.telefono), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.telefono, %s) AS CHAR),
+                        c.telefono
                     ) AS telefono, 
-                    subagente, 
+                    c.subagente, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR),
-                        CAST(AES_DECRYPT(email, %s) AS CHAR),
-                        email
+                        CAST(AES_DECRYPT(FROM_BASE64(c.email), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.email, %s) AS CHAR),
+                        c.email
                     ) AS email, 
-                    direccion 
-                FROM clientes 
-                WHERE activo = 1 AND subagente = %s
-                ORDER BY idCliente DESC
+                    c.direccion,
+                    pr.ramos,
+                    pr.ramos_count
+                FROM clientes c
+                {polizas_agg_sql}
+                WHERE c.activo = 1 AND c.subagente = %s
+                ORDER BY c.idCliente DESC
             """
             cur.execute(query, (key, key, key, key, key, key, key, key, user))
         else:
-            cur.execute("""
+            query = f"""
                 SELECT 
-                    idCliente, 
-                    fecha_registro, 
+                    c.idCliente, 
+                    c.fecha_registro, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR),
-                        CAST(AES_DECRYPT(razon_social, %s) AS CHAR),
-                        razon_social
+                        CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.razon_social, %s) AS CHAR),
+                        c.razon_social
                     ) AS razon_social,
-                    tipo_documento, 
+                    c.tipo_documento, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
-                        CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
-                        numero_documento
+                        CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.numero_documento, %s) AS CHAR),
+                        c.numero_documento
                     ) AS numero_documento, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR),
-                        CAST(AES_DECRYPT(telefono, %s) AS CHAR),
-                        telefono
+                        CAST(AES_DECRYPT(FROM_BASE64(c.telefono), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.telefono, %s) AS CHAR),
+                        c.telefono
                     ) AS telefono, 
-                    subagente, 
+                    c.subagente, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR),
-                        CAST(AES_DECRYPT(email, %s) AS CHAR),
-                        email
+                        CAST(AES_DECRYPT(FROM_BASE64(c.email), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.email, %s) AS CHAR),
+                        c.email
                     ) AS email, 
-                    direccion 
-                FROM clientes 
-                WHERE activo = 1
-                ORDER BY idCliente DESC
-            """, (key, key, key, key, key, key, key, key))
+                    c.direccion,
+                    pr.ramos,
+                    pr.ramos_count
+                FROM clientes c
+                {polizas_agg_sql}
+                WHERE c.activo = 1
+                ORDER BY c.idCliente DESC
+            """
+            cur.execute(query, (key, key, key, key, key, key, key, key))
             
         db_rows = cur.fetchall()
         try:
@@ -91,6 +109,12 @@ def get_clientes_data():
         for dr in db_rows:
             fec = dr.get('fecha_registro')
             fec_str = fec.strftime('%d-%m-%Y') if hasattr(fec, 'strftime') else (str(fec) if fec else '')
+            ramos = (dr.get('ramos') or '').strip()
+            try:
+                ramos_count = int(dr.get('ramos_count') or 0)
+            except Exception:
+                ramos_count = 0
+            ramo_btn_label = 'SOAT' if (ramos_count == 1 and ramos.strip().upper() == 'SOAT') else 'Póliza'
             rows.append({
                 'idCliente': dr.get('idCliente'),
                 'fec_reg': fec_str,
@@ -101,6 +125,7 @@ def get_clientes_data():
                 'subagente': dr.get('subagente'),
                 'email': dr.get('email'),
                 'direccion': dr.get('direccion'),
+                'ramo_btn_label': ramo_btn_label,
             })
     except Exception:
         rows = []
@@ -119,50 +144,64 @@ def search_clientes_data(query):
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
         key = get_encrypt_key()
+        polizas_agg_sql = """
+            LEFT JOIN (
+                SELECT
+                    cliente_id,
+                    GROUP_CONCAT(DISTINCT NULLIF(TRIM(ramo), '') ORDER BY NULLIF(TRIM(ramo), '') SEPARATOR ', ') AS ramos,
+                    COUNT(DISTINCT NULLIF(TRIM(ramo), '')) AS ramos_count
+                FROM polizas
+                WHERE activo = 1 AND anulado = 0
+                GROUP BY cliente_id
+            ) pr ON pr.cliente_id = c.idCliente
+        """
         
         role = session.get('role_name')
         if role == Roles.SUB_AGENTE:
             user = session.get('user')
             q_like = f"%{query}%"
-            sql = """
+            sql = f"""
                 SELECT 
-                    idCliente, 
-                    fecha_registro, 
+                    c.idCliente, 
+                    c.fecha_registro, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR),
-                        CAST(AES_DECRYPT(razon_social, %s) AS CHAR),
-                        razon_social
+                        CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.razon_social, %s) AS CHAR),
+                        c.razon_social
                     ) AS razon_social,
-                    tipo_documento, 
+                    c.tipo_documento, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
-                        CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
-                        numero_documento
+                        CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.numero_documento, %s) AS CHAR),
+                        c.numero_documento
                     ) AS numero_documento, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR),
-                        CAST(AES_DECRYPT(telefono, %s) AS CHAR),
-                        telefono
+                        CAST(AES_DECRYPT(FROM_BASE64(c.telefono), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.telefono, %s) AS CHAR),
+                        c.telefono
                     ) AS telefono, 
-                    subagente, 
+                    c.subagente, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR),
-                        CAST(AES_DECRYPT(email, %s) AS CHAR),
-                        email
+                        CAST(AES_DECRYPT(FROM_BASE64(c.email), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.email, %s) AS CHAR),
+                        c.email
                     ) AS email, 
-                    direccion 
-                FROM clientes 
-                WHERE activo = 1 
-                  AND subagente = %s 
+                    c.direccion,
+                    pr.ramos,
+                    pr.ramos_count
+                FROM clientes c
+                {polizas_agg_sql}
+                WHERE c.activo = 1 
+                  AND c.subagente = %s 
                   AND (
-                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR) LIKE %s
-                        OR CAST(AES_DECRYPT(razon_social, %s) AS CHAR) LIKE %s
-                        OR razon_social LIKE %s
-                        OR CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) LIKE %s
-                        OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) LIKE %s
-                        OR numero_documento LIKE %s
+                        CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), %s) AS CHAR) LIKE %s
+                        OR CAST(AES_DECRYPT(c.razon_social, %s) AS CHAR) LIKE %s
+                        OR c.razon_social LIKE %s
+                        OR CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), %s) AS CHAR) LIKE %s
+                        OR CAST(AES_DECRYPT(c.numero_documento, %s) AS CHAR) LIKE %s
+                        OR c.numero_documento LIKE %s
                   )
-                ORDER BY idCliente DESC
+                ORDER BY c.idCliente DESC
                 LIMIT 50
             """
             cur.execute(sql, (
@@ -180,44 +219,47 @@ def search_clientes_data(query):
             ))
         else:
             q_like = f"%{query}%"
-            sql = """
+            sql = f"""
                 SELECT 
-                    idCliente, 
-                    fecha_registro, 
+                    c.idCliente, 
+                    c.fecha_registro, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR),
-                        CAST(AES_DECRYPT(razon_social, %s) AS CHAR),
-                        razon_social
+                        CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.razon_social, %s) AS CHAR),
+                        c.razon_social
                     ) AS razon_social,
-                    tipo_documento, 
+                    c.tipo_documento, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
-                        CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
-                        numero_documento
+                        CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.numero_documento, %s) AS CHAR),
+                        c.numero_documento
                     ) AS numero_documento, 
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(telefono), %s) AS CHAR),
-                        CAST(AES_DECRYPT(telefono, %s) AS CHAR),
-                        telefono
+                        CAST(AES_DECRYPT(FROM_BASE64(c.telefono), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.telefono, %s) AS CHAR),
+                        c.telefono
                     ) AS telefono, 
-                    subagente,
+                    c.subagente,
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(email), %s) AS CHAR),
-                        CAST(AES_DECRYPT(email, %s) AS CHAR),
-                        email
+                        CAST(AES_DECRYPT(FROM_BASE64(c.email), %s) AS CHAR),
+                        CAST(AES_DECRYPT(c.email, %s) AS CHAR),
+                        c.email
                     ) AS email,
-                    direccion
-                FROM clientes 
-                WHERE activo = 1 
+                    c.direccion,
+                    pr.ramos,
+                    pr.ramos_count
+                FROM clientes c
+                {polizas_agg_sql}
+                WHERE c.activo = 1 
                   AND (
-                        CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR) LIKE %s
-                        OR CAST(AES_DECRYPT(razon_social, %s) AS CHAR) LIKE %s
-                        OR razon_social LIKE %s
-                        OR CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) LIKE %s
-                        OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) LIKE %s
-                        OR numero_documento LIKE %s
+                        CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), %s) AS CHAR) LIKE %s
+                        OR CAST(AES_DECRYPT(c.razon_social, %s) AS CHAR) LIKE %s
+                        OR c.razon_social LIKE %s
+                        OR CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), %s) AS CHAR) LIKE %s
+                        OR CAST(AES_DECRYPT(c.numero_documento, %s) AS CHAR) LIKE %s
+                        OR c.numero_documento LIKE %s
                   )
-                ORDER BY idCliente DESC
+                ORDER BY c.idCliente DESC
                 LIMIT 50
             """
             cur.execute(sql, (
@@ -251,6 +293,12 @@ def search_clientes_data(query):
         for dr in db_rows:
             fec = dr.get('fecha_registro')
             fec_str = fec.strftime('%d-%m-%Y') if hasattr(fec, 'strftime') else (str(fec) if fec else '')
+            ramos = (dr.get('ramos') or '').strip()
+            try:
+                ramos_count = int(dr.get('ramos_count') or 0)
+            except Exception:
+                ramos_count = 0
+            ramo_btn_label = 'SOAT' if (ramos_count == 1 and ramos.strip().upper() == 'SOAT') else 'Póliza'
             rows.append({
                 'idCliente': dr.get('idCliente'),
                 'fec_reg': fec_str,
@@ -261,6 +309,7 @@ def search_clientes_data(query):
                 'subagente': dr.get('subagente'),
                 'email': dr.get('email'),
                 'direccion': dr.get('direccion'),
+                'ramo_btn_label': ramo_btn_label,
             })
     except Exception:
         rows = []

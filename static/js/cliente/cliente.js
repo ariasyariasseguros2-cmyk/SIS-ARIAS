@@ -102,11 +102,12 @@
                                 </td>
                                 `;
                             } else {
+                                const polizasLabel = (r.ramo_btn_label || 'Póliza');
                                 actionCellHtml = `
                                 <td class="text-end">
                                     <div class="d-flex gap-2 justify-content-end">
                                         ${canEdit ? `<button type="button" class="btn btn-warning btn-sm btn-lift btn-edit-cliente" data-id="${r.idCliente}"><i class="bi-pencil"></i> Editar</button>` : ''}
-                                        <button type="button" class="btn btn-primary btn-sm btn-lift">Pólizas</button>
+                                        <button type="button" class="btn btn-primary btn-sm btn-lift">${polizasLabel}</button>
                                         <button type="button" class="btn btn-success btn-sm btn-lift">Contactos</button>
                                         ${canDelete ? `<button type="button" class="btn btn-danger btn-sm btn-lift btn-delete-cliente" data-id="${r.idCliente}" data-nombre="${r.razon_social}"><i class="bi-trash"></i> Eliminar</button>` : ''}
                                     </div>
