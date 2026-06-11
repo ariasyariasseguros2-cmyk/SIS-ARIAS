@@ -13,34 +13,43 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC', lim
         query = """
             SELECT 
                 c.idCuota,
-                COALESCE(
-                    CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR),
-                    CAST(AES_DECRYPT(c.cupon, @SIS_KEY) AS CHAR),
-                    c.cupon
-                ) as cupon,
-                c.fecha_vencimiento,
-                COALESCE(
-                    CAST(AES_DECRYPT(FROM_BASE64(cl.razon_social), @SIS_KEY) AS CHAR),
-                    CAST(AES_DECRYPT(cl.razon_social, @SIS_KEY) AS CHAR),
-                    cl.razon_social,
-                    'Sin Contratante'
-                ) as contratante,
-                TRIM(
+                CONVERT(
                     COALESCE(
-                        CAST(AES_DECRYPT(FROM_BASE64(cl.numero_documento), @SIS_KEY) AS CHAR),
-                        CAST(AES_DECRYPT(cl.numero_documento, @SIS_KEY) AS CHAR),
-                        cl.numero_documento,
-                        ''
-                    )
+                        CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(c.cupon, @SIS_KEY) AS CHAR),
+                        c.cupon
+                    ) USING utf8mb4
+                ) COLLATE utf8mb4_0900_ai_ci as cupon,
+                c.fecha_vencimiento,
+                CONVERT(
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(cl.razon_social), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(cl.razon_social, @SIS_KEY) AS CHAR),
+                        cl.razon_social,
+                        'Sin Contratante'
+                    ) USING utf8mb4
+                ) COLLATE utf8mb4_0900_ai_ci as contratante,
+                TRIM(
+                    CONVERT(
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(cl.numero_documento), @SIS_KEY) AS CHAR),
+                            CAST(AES_DECRYPT(cl.numero_documento, @SIS_KEY) AS CHAR),
+                            cl.numero_documento,
+                            ''
+                        ) USING utf8mb4
+                    ) COLLATE utf8mb4_0900_ai_ci
                 ) as cliente_numero_documento,
-                COALESCE(
-                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
-                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
-                    p.poliza
-                ) as poliza,
+                CONVERT(
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                        p.poliza
+                    ) USING utf8mb4
+                ) COLLATE utf8mb4_0900_ai_ci as poliza,
                 p.cia as compania,
                 COALESCE(p.ramos_producto, p.ramo) as producto,
-                p.forma_pago,
+                p.vig_desde,
+                p.vig_hasta,
                 c.numero_cuota,
                 c.moneda,
                 c.importe,
@@ -72,45 +81,18 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC', lim
             like = f"%{search_str}%"
             query += """
                 AND (
-                    REPLACE(
-                        TRIM(
-                            COALESCE(
-                                CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
-                                CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
-                                CAST(p.poliza AS CHAR),
-                                ''
-                            )
-                        ),
-                        CHAR(0),
-                        ''
-                    ) LIKE %s
-                    OR REPLACE(
-                        TRIM(
-                            COALESCE(
-                                CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR),
-                                CAST(AES_DECRYPT(c.cupon, @SIS_KEY) AS CHAR),
-                                CAST(c.cupon AS CHAR),
-                                ''
-                            )
-                        ),
-                        CHAR(0),
-                        ''
-                    ) LIKE %s
-                    OR REPLACE(
-                        TRIM(
-                            COALESCE(
-                                CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
-                                CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
-                                CAST(p.recibo AS CHAR),
-                                ''
-                            )
-                        ),
-                        CHAR(0),
-                        ''
-                    ) LIKE %s
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR) LIKE %s
+                    OR CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR) LIKE %s
+                    OR p.poliza LIKE %s
+                    OR CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR) LIKE %s
+                    OR CAST(AES_DECRYPT(c.cupon, @SIS_KEY) AS CHAR) LIKE %s
+                    OR c.cupon LIKE %s
+                    OR CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR) LIKE %s
+                    OR CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR) LIKE %s
+                    OR p.recibo LIKE %s
                 )
             """
-            params += [like, like, like]
+            params += [like, like, like, like, like, like, like, like, like]
             
         # Ordenar
         if orden_fechas and orden_fechas.upper() == 'DESC':
@@ -161,6 +143,10 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC', lim
 
             if row['fecha_vencimiento']:
                 row['fecha_vencimiento'] = row['fecha_vencimiento'].strftime('%d-%m-%Y')
+            if row['vig_desde']:
+                row['vig_desde'] = row['vig_desde'].strftime('%d-%m-%Y')
+            if row['vig_hasta']:
+                row['vig_hasta'] = row['vig_hasta'].strftime('%d-%m-%Y')
             
             # Asegurar símbolo de moneda
             if row['moneda'] == 'SOLES':

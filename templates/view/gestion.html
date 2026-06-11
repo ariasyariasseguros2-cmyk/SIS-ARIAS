@@ -118,7 +118,7 @@
     }
     .table th:nth-child(1),
     .table td:nth-child(1) {
-        min-width: 140px;
+        min-width: 260px;
     }
     .table th:nth-child(2),
     .table td:nth-child(2) {
@@ -161,11 +161,16 @@
     }
 
     .col-cupon,
-    .col-compania {
+    .col-contratante {
         white-space: normal !important;
         overflow: visible !important;
         text-overflow: clip !important;
         overflow-wrap: anywhere !important;
+    }
+    .col-compania {
+        white-space: nowrap !important;
+        overflow-wrap: normal !important;
+        word-break: keep-all;
     }
     .btn-action {
         background: linear-gradient(135deg, #00d97e, #00b368);
@@ -280,26 +285,13 @@
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th class="col-cupon">Cupón <i class="bi-arrow-down-up small"></i></th>
-                        <th>
-                            <a href="{{ url_for('main.gestion', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, orden_fechas='DESC' if orden_fechas == 'ASC' else 'ASC', q=q, limit=limit) }}" 
-                               class="text-decoration-none d-flex align-items-center gap-1" 
-                               style="color: inherit;"
-                               title="Click para ordenar por fecha de vencimiento ({{ 'Descendente' if orden_fechas == 'ASC' else 'Ascendente' }})">
-                                Fecha Venc. 
-                                {% if orden_fechas == 'ASC' %}
-                                <i class="bi-sort-numeric-down text-primary" title="Orden Ascendente (Más antiguos primero)"></i>
-                                {% else %}
-                                <i class="bi-sort-numeric-up-alt text-primary" title="Orden Descendente (Más recientes primero)"></i>
-                                {% endif %}
-                            </a>
-                        </th>
-                        <th>Contratante <i class="bi-arrow-down-up small"></i></th>
-                        <th>Poliza <i class="bi-arrow-down-up small"></i></th>
+                        <th class="col-contratante">Contratante <i class="bi-arrow-down-up small"></i></th>
                         <th class="col-compania">Cia <i class="bi-arrow-down-up small"></i></th>
-                        <th>Producto <i class="bi-arrow-down-up small"></i></th>
-                        <th>Forma Pago <i class="bi-arrow-down-up small"></i></th>
-                        <th>Num Cuota <i class="bi-arrow-down-up small"></i></th>
+                        <th>Poliza <i class="bi-arrow-down-up small"></i></th>
+                        <th>Vig. Desde <i class="bi-arrow-down-up small"></i></th>
+                        <th>Vig. Hasta <i class="bi-arrow-down-up small"></i></th>
+                        <th class="col-cupon">Cupón <i class="bi-arrow-down-up small"></i></th>
+                        <th>N° Cuota <i class="bi-arrow-down-up small"></i></th>
                         <th>Mo <i class="bi-arrow-down-up small"></i></th>
                         <th>Importe <i class="bi-arrow-down-up small"></i></th>
                         <th>Acción</th>
@@ -308,13 +300,12 @@
                 <tbody>
                     {% for row in rows %}
                     <tr>
-                        <td class="col-cupon"><span title="{{ (row.cupon or row.numero_cuota) or '' }}">{{ row.cupon or row.numero_cuota }}</span></td>
-                        <td><span class="cell-truncate" title="{{ row.fecha_vencimiento or '' }}">{{ row.fecha_vencimiento }}</span></td>
-                        <td>{{ row.contratante }}</td>
-                        <td><span class="cell-truncate" title="{{ row.poliza or '' }}">{{ row.poliza }}</span></td>
+                        <td class="col-contratante">{{ row.contratante }}</td>
                         <td class="col-compania">{{ row.compania }}</td>
-                        <td>{{ row.producto }}</td>
-                        <td>{{ row.forma_pago }}</td>
+                        <td><span class="cell-truncate" title="{{ row.poliza or '' }}">{{ row.poliza }}</span></td>
+                        <td><span class="cell-truncate" title="{{ row.vig_desde or '' }}">{{ row.vig_desde }}</span></td>
+                        <td><span class="cell-truncate" title="{{ row.vig_hasta or '' }}">{{ row.vig_hasta }}</span></td>
+                        <td class="col-cupon"><span title="{{ (row.cupon or row.numero_cuota) or '' }}">{{ row.cupon or row.numero_cuota }}</span></td>
                         <td>{{ row.numero_cuota }}</td>
                         <td>{{ row.moneda_simbolo or row.moneda }}</td>
                         <td>{{ row.importe }}</td>
@@ -336,7 +327,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="11" class="text-center py-4 text-muted">No se encontraron registros de gestión</td>
+                        <td colspan="10" class="text-center py-4 text-muted">No se encontraron registros de gestión</td>
                     </tr>
                     {% endfor %}
                 </tbody>
