@@ -2660,6 +2660,20 @@ def upload():
                         if mv:
                             it['inicio_vigencia'] = mv.group(1).replace("-", "/")
                             it['vencimiento'] = mv.group(2).replace("-", "/")
+                    fe_header = None
+                    try:
+                        mh = re.search(
+                            r"FECHA\s+DE\s+EMISI[ÓO]N\s*[:：.]?\s*(?:\r?\n\s*)?(\d{1,2}[/-]\d{1,2}[/-]\d{4})",
+                            pdf_text,
+                            re.IGNORECASE | re.DOTALL,
+                        )
+                        if mh:
+                            fe_header = mh.group(1).replace("-", "/")
+                    except Exception:
+                        fe_header = None
+                    if fe_header:
+                        it['fecha_emision'] = fe_header
+
                     fe = (it.get('fecha_emision') or '').strip()
                     if not fe:
                         mwords = re.search(r"\b(\d{1,2})\s+de\s+([A-Za-zÁÉÍÓÚÑáéíóúñ]+)\s+de\s+(\d{4})\b", pdf_text, re.IGNORECASE)
@@ -4822,6 +4836,23 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
 
             print("[provider] mapfre equipo contratistas item:", item)
             return [item] if item else []
+
+        if (
+            re.search(r"\bsuplemento\s+de\s+salud\b", low)
+            and (
+                re.search(r"carta\s+de\s+renovaci[oó]n", low)
+                or re.search(r"\btipo\s+renovaci[oó]n\b", low)
+                or re.search(r"\bimporte\s+comisi[oó]n\b", low)
+            )
+        ):
+            try:
+                from controllers.addRenovacioMapfre import parse_renovacio_mapfre
+                item_renovacion = parse_renovacio_mapfre(text)
+                if item_renovacion and item_renovacion.get("numero_poliza"):
+                    print("[provider] mapfre renovacion salud item:", item_renovacion)
+                    return [item_renovacion]
+            except Exception as e:
+                print(f"[provider] mapfre renovacion salud parse error: {e}")
 
         if re.search(r"\bsuplemento\s+de\b", low) and not re.search(r"seguro\s+vehicular", low):
             try:

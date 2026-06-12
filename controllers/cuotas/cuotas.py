@@ -1236,6 +1236,9 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
             from controllers.cuotas.VariosCuponGeneralesRimac import extract_cronograma_cuotas_rimac
             from controllers.cuotas.VariosCuponGeneralesMapfre import extract_cronograma_cuotas_mapfre
             from controllers.cuotas.RenovacionCuponRimac import extract_cronograma_cuotas_renovacion_rimac
+            from controllers.cuotas.VariosCuponesRenovacionesRImac import (
+                extract_cronograma_cuotas_renovaciones_rimac,
+            )
             from controllers.cuotas.VariosCuponSeguroVehicularRimac import (
                 extract_cronograma_cuotas_seguro_vehicular_rimac,
             )
@@ -1254,6 +1257,11 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
                 cuotas = extract_cronograma_cuotas_positiva(text, moneda_default)
             elif 'RIMAC' in text_upper:
                 try:
+                    if not cuotas and re.search(r"CRONOGRAMA\s+DE\s+PAGO", text, re.IGNORECASE):
+                        cuotas = extract_cronograma_cuotas_renovaciones_rimac(text, moneda_default)
+                except Exception:
+                    cuotas = []
+                try:
                     if not cuotas:
                         cuotas = extract_cronograma_cuotas_seguro_vehicular_rimac(text, moneda_default)
                 except Exception:
@@ -1265,10 +1273,10 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
                     cuotas = []
                 if not cuotas:
                     cuotas = extract_cronograma_cuotas_rimac(text, moneda_default)
+            elif is_mapfre:
+                cuotas = extract_cronograma_cuotas_mapfre(text, moneda_default)
             elif 'PACIFICO' in text_fold_upper:
                 cuotas = extract_cronograma_cuotas_pacifico(text, moneda_default)
-            elif 'MAPFRE' in text_fold_upper:
-                cuotas = extract_cronograma_cuotas_mapfre(text, moneda_default)
 
             if not cuotas:
                 cuotas = extract_general(text, moneda_default)
