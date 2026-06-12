@@ -269,7 +269,7 @@
             if (fileInput) fileInput.value = '';
 
             // Cargar archivo existente desde la DB usando la cuota actual.
-            const lookupId = this.currentId || this.currentPolizaId || '';
+            const lookupId = this.currentId || '';
             if (lookupId) {
                 fetch(`/api/cuotas/archivos/${lookupId}`)
                     .then(r => r.json())
@@ -464,7 +464,7 @@
                 this._openPdfViewer(this._archivoActual);
                 return;
             }
-            const lookupId = idCuota || this.currentId || this.currentPolizaId || window.currentPolizaId || window.currentPrimaId || '';
+            const lookupId = idCuota || this.currentId || '';
             if (!lookupId) {
                 alert('No hay documento para visualizar.');
                 return;
