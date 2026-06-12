@@ -42,6 +42,7 @@
   let lastUploadedFilename = null;
   let productsCache = null;
   let tipoVigenciaManualOverride = false;
+  let aseguradaTopDirty = false;
   try { if (btnSave) btnSave.setAttribute('type', 'button'); } catch (e) {}
 
   function setIssuerFromProvider(provider) {
@@ -421,6 +422,16 @@
       aseguradaTopEl.readOnly = true;
       btnEditAseguradaTopEl?.classList.remove('d-none');
     }
+  }
+  function syncAseguradaTopToItems(items, force = false) {
+    if (!force && !aseguradaTopDirty) return items;
+    const list = Array.isArray(items) ? items : [];
+    const aseguradaTop = String(aseguradaTopEl?.value || '').trim();
+    list.forEach(item => {
+      if (!item) return;
+      item.asegurada = aseguradaTop;
+    });
+    return list;
   }
   function normalizePolicyLookupKey(value) {
     return String(value || '').replace(/\s+/g, '').trim().toLowerCase();
@@ -1149,6 +1160,8 @@
     const motivoTop = (motivoTopEl?.value || '').trim();
     const nroOpTop = (nroOperacionTopEl?.value || '').trim(); // NUEVO: Nro Operación
     const issuerText = issuerEl?.options?.[issuerEl.selectedIndex]?.text || (issuerEl?.value || '');
+
+    syncAseguradaTopToItems(items);
 
     // NUEVO: asegurar que 'ramo' sea vacío si no coincide con las abreviaciones disponibles
     const abbrs = (window.ramosAbbrs || []).map(s => (s || '').trim());
@@ -2974,9 +2987,12 @@
   });
 
   aseguradaTopEl?.addEventListener('input', () => {
+    aseguradaTopDirty = true;
+    syncAseguradaTopToItems(extractedItems, true);
     if (String(aseguradaTopEl.value || '').trim() === '') {
       syncAseguradaTopLock(false);
     }
+    scheduleAutoSave();
   });
 
   syncAseguradaTopLock(true);
@@ -3266,10 +3282,13 @@
 
       const tipoDocSel = (tipoDocTopEl?.value || '').toString().trim();
       const tipoVigenciaSeleccionada = resolveTipoVigenciaForSave(extractedItems);
+      const aseguradaTopSave = (aseguradaTopEl?.value || '').trim();
+      syncAseguradaTopToItems(extractedItems);
       const selected = Object.assign({}, (window.selectedCliente || {}), {
         subagente: (document.getElementById('subAgenteTop')?.value ||
                     document.getElementById('subAgente')?.value ||
                     (window.selectedCliente || {}).subagente || ''),
+        asegurada: aseguradaTopSave,
         motivo: (motivoTopEl?.value || '').trim(),
         // ramos_producto: (ramoProductoTopEl?.value || '').trim(), // REMOVED
         tipo_doc: (tipoDocTopEl?.value || '').trim() || ((window.selectedCliente || {}).tipo_doc || (window.selectedCliente || {}).tipo_documento || ''),
@@ -3922,10 +3941,13 @@
       const tipoPagoSel = (tipoPagoTopEl?.value || '').toString().trim();
       if (!tipoDocSel || !tipoPagoSel) return;
       if (!__autoSaveHasFacturaFecha(extractedItems)) return;
+      const aseguradaTopSave = (aseguradaTopEl?.value || '').trim();
+      syncAseguradaTopToItems(extractedItems);
       const selected = Object.assign({}, (window.selectedCliente || {}), {
         subagente: (document.getElementById('subAgenteTop')?.value ||
                     document.getElementById('subAgente')?.value ||
                     (window.selectedCliente || {}).subagente || ''),
+        asegurada: aseguradaTopSave,
         pdf_filename: lastUploadedFilename
       });
       try {
