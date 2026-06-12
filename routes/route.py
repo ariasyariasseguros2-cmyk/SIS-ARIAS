@@ -4826,6 +4826,25 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
 
     # La Positiva (EPS/Vida/Seguros)
     if prov in {"positiva", ""}:
+        
+                # Detectar Póliza 3D (Deshonestidad, Desaparición y Destrucción)
+        hint_3d = (
+            re.search(r"P[ÓO]LIZA\s+DE\s+SEGURO\s+DE\s+3D\b", text, re.IGNORECASE) or
+            re.search(r"deshonestidad[,\s]+desaparici[oó]n\s+y\s+destrucci[oó]n", text, re.IGNORECASE) or
+            re.search(r"\bRAMO\s*[:：]?\s*3D\b", text, re.IGNORECASE)
+        )
+        if hint_3d:
+            try:
+                from controllers.addPOLIZA_3D_EPS import parse_poliza_3d_eps
+                item_3d = parse_poliza_3d_eps(text)
+                if item_3d and item_3d.get('numero_poliza'):
+                    print("[provider] positiva-3d item:", item_3d)
+                    return [item_3d]
+            except Exception as e:
+                print(f"[provider] error en addPOLIZA_3D_EPS: {e}")
+
+
+
         # Detectar Vida Ley por contenido dentro de La Positiva
         hint_vidaley = (
             re.search(r"\bvida\s+ley\b", text, re.IGNORECASE) or
