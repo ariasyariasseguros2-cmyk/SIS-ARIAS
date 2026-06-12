@@ -116,6 +116,33 @@ def _looks_like_person_or_company_name(s: Optional[str]) -> bool:
         return False
     return True
 
+def _clean_party_name(s: Optional[str]) -> Optional[str]:
+    if not s:
+        return None
+    v = re.sub(r"\s+", " ", (s or "")).strip(" -:;,.")
+    v = re.split(
+        r"\b(?:Direcci[oó]n|Domicilio|Vigencia|Ramo|Cronograma|Datos\s+del)\b",
+        v,
+        maxsplit=1,
+        flags=re.IGNORECASE,
+    )[0].strip(" -:;,.")
+    return v or None
+
+def _extract_name_from_block(text: str, section_label: str) -> Optional[str]:
+    m_blk = re.search(section_label, text, re.IGNORECASE)
+    if not m_blk:
+        return None
+    win = text[m_blk.end(): m_blk.end() + 900]
+    cand = (
+        _find(r"Nombres?\s+y\s+Apellidos\s*[:：]?\s*(.+)", win)
+        or _find(r"Nombre\s+o\s+Raz[oó]n\s+Social\s*[:：]?\s*(.+)", win)
+        or _find(r"Raz[oó]n\s+Social\s*[:：]?\s*(.+)", win)
+    )
+    cand = _clean_party_name(cand)
+    if _looks_like_person_or_company_name(cand):
+        return cand
+    return None
+
 def _extract_name_strict(text: str) -> Optional[str]:
     try:
         from controllers.addPositivaGenerales import extract_razon_social_strict, extract_razon_social, _clean_company_name
@@ -170,41 +197,24 @@ def parse_positiva_vida_generales(text: str) -> Dict[str, str]:
     item['vencimiento'] = vig_fin
 
     # Asegurado / Contratante
-    asegurado = _extract_name_strict(text)
+    asegurado = _extract_name_from_block(text, r"Datos\s+del\s+Asegurado\b")
     if not asegurado:
-        m_blk = re.search(r"Datos\s+del\s+Asegurado\b", text, re.IGNORECASE)
-        if m_blk:
-            win = text[m_blk.end(): m_blk.end() + 900]
-            cand = (
-                _find(r"Nombres?\s+y\s+Apellidos\s*[:：]?\s*(.+)", win)
-                or _find(r"Nombre\s+o\s+Raz[oó]n\s+Social\s*[:：]?\s*(.+)", win)
-            )
-            if _looks_like_person_or_company_name(cand):
-                asegurado = re.sub(r"\s+", " ", cand).strip()
+        asegurado = _clean_party_name(_extract_name_strict(text))
 
     hola_name = _find(r"Hola\s+([^:：!\n\r]{2,50})[:：!]", text)
     if hola_name:
         hola_name = re.sub(r"\s+", " ", hola_name).strip()
 
-    contratante = None
-    m_blk_c = re.search(r"Datos\s+del\s+Contratante\b", text, re.IGNORECASE)
-    if m_blk_c:
-        win = text[m_blk_c.end(): m_blk_c.end() + 900]
-        cand_c = (
-            _find(r"Nombres?\s+y\s+Apellidos\s*[:：]?\s*(.+)", win)
-            or _find(r"Nombre\s+o\s+Raz[oó]n\s+Social\s*[:：]?\s*(.+)", win)
-        )
-        if _looks_like_person_or_company_name(cand_c):
-            contratante = re.sub(r"\s+", " ", cand_c).strip()
+    contratante = _extract_name_from_block(text, r"Datos\s+del\s+Contratante\b")
 
     if not asegurado:
-        cand = _find(r"Asegurado\s*[:：]\s*(.+)", text)
+        cand = _clean_party_name(_find(r"Asegurado\s*[:：]\s*(.+)", text))
         if _looks_like_person_or_company_name(cand):
-            asegurado = re.sub(r"\s+", " ", cand).strip()
+            asegurado = cand
     if not contratante:
-        cand = _find(r"Contratante\s*[:：]\s*(.+)", text)
+        cand = _clean_party_name(_find(r"Contratante\s*[:：]\s*(.+)", text))
         if _looks_like_person_or_company_name(cand):
-            contratante = re.sub(r"\s+", " ", cand).strip()
+            contratante = cand
 
     final_name = asegurado or contratante or (hola_name if _looks_like_person_or_company_name(hola_name) else None)
     item['colectivo_asegurado'] = final_name
