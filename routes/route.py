@@ -3061,14 +3061,16 @@ def carga_masiva_soat():
     if 'user' not in session:
         return redirect(url_for('login'))
 
-    from controllers.soat.carga_masiva import get_ultima_fecha_emision_soat
+    from controllers.soat.carga_masiva import get_soat_upload_history, get_ultima_fecha_emision_soat
     fechas = get_ultima_fecha_emision_soat()
+    historial_cargas = get_soat_upload_history(current_app.config['UPLOAD_FOLDER'], limit=20)
 
     return render_template(
         'view/carga_masiva_soat.html',
         page='carga-masiva-soat',
         ultima_fecha_emision_bd=fechas.get('ultima_fecha_emision_bd'),
-        cargar_desde_sugerido=fechas.get('cargar_desde_sugerido')
+        cargar_desde_sugerido=fechas.get('cargar_desde_sugerido'),
+        historial_cargas=historial_cargas
     )
 
 
@@ -3101,8 +3103,16 @@ def carga_masiva_soat_upload():
         file.save(temp_path)
 
         # Procesar Excel
-        from controllers.soat.carga_masiva import process_soat_excel, get_ultima_fecha_emision_soat
+        from controllers.soat.carga_masiva import process_soat_excel, get_soat_upload_history, get_ultima_fecha_emision_soat, save_soat_upload_history
         result = process_soat_excel(temp_path, session.get('user'), preview=preview)
+        historial_cargas = save_soat_upload_history(
+            upload_folder=current_app.config['UPLOAD_FOLDER'],
+            source_file_path=temp_path,
+            original_filename=file.filename,
+            usuario=session.get('user'),
+            preview=preview,
+            result=result,
+        )
 
         # Eliminar archivo temporal
         try:
@@ -3117,17 +3127,39 @@ def carga_masiva_soat_upload():
                 'clientes_nuevos': result.get('clientes_nuevos', 0),
                 'clientes_existentes': result.get('clientes_existentes', 0),
                 'polizas_insertadas': result.get('polizas_insertadas', 0),
+                'polizas_anuladas': result.get('polizas_anuladas', 0),
                 'polizas_existentes': result.get('polizas_existentes', 0),
                 'cuotas_insertadas': result.get('cuotas_insertadas', 0),
                 'cuotas_existentes': result.get('cuotas_existentes', 0),
+                'polizas_insertadas_soles': result.get('polizas_insertadas_soles', 0),
+                'polizas_insertadas_dolares': result.get('polizas_insertadas_dolares', 0),
+                'polizas_anuladas_soles': result.get('polizas_anuladas_soles', 0),
+                'polizas_anuladas_dolares': result.get('polizas_anuladas_dolares', 0),
+                'cuotas_insertadas_soles': result.get('cuotas_insertadas_soles', 0),
+                'cuotas_insertadas_dolares': result.get('cuotas_insertadas_dolares', 0),
+                'cuotas_importe_soles': result.get('cuotas_importe_soles', 0),
+                'cuotas_importe_dolares': result.get('cuotas_importe_dolares', 0),
+                'filas_excel_soles': result.get('filas_excel_soles', 0),
+                'filas_excel_dolares': result.get('filas_excel_dolares', 0),
+                'importe_excel_soles': result.get('importe_excel_soles', 0),
+                'importe_excel_dolares': result.get('importe_excel_dolares', 0),
+                'polizas_moneda_actualizadas': result.get('polizas_moneda_actualizadas', 0),
+                'cuotas_moneda_actualizadas': result.get('cuotas_moneda_actualizadas', 0),
+                'polizas_activo_actualizadas': result.get('polizas_activo_actualizadas', 0),
+                'cuotas_activo_actualizadas': result.get('cuotas_activo_actualizadas', 0),
                 'fecha_emision_excel_min': result.get('fecha_emision_excel_min'),
                 'fecha_emision_excel_max': result.get('fecha_emision_excel_max'),
                 'ultima_fecha_emision_bd': fechas.get('ultima_fecha_emision_bd'),
                 'cargar_desde_sugerido': fechas.get('cargar_desde_sugerido'),
+                'historial_cargas': historial_cargas,
                 'errors': result.get('errors', [])
             }, 200
         else:
-            return {'ok': False, 'errors': result.get('errors', ['Error desconocido'])}, 400
+            return {
+                'ok': False,
+                'errors': result.get('errors', ['Error desconocido']),
+                'historial_cargas': historial_cargas
+            }, 400
 
     except Exception as e:
         current_app.logger.error(f'Error en carga masiva SOAT: {e}')
@@ -3149,6 +3181,17 @@ def descargar_plantilla_soat():
         'plantilla_carga_masiva_soat.xls',
         as_attachment=True
     )
+
+
+@bp.route('/carga-masiva-soat/historial/<filename>', methods=['GET'])
+@require_permission(lambda r: r in [Roles.BROKER, Roles.OPERADOR], response_mode='redirect')
+def descargar_historial_carga_soat(filename):
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    safe_name = os.path.basename(secure_filename(filename))
+    history_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'soat_historial', 'files')
+    return send_from_directory(history_dir, safe_name, as_attachment=True, download_name=safe_name)
 
 # =====================================================
 # FIN RUTAS CARGA MASIVA

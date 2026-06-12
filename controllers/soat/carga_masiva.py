@@ -1,13 +1,17 @@
 """
 Controlador para carga masiva de pólizas SOAT desde Excel
 """
+import json
+import os
 import pandas as pd
 import re
+import shutil
 from datetime import datetime, timedelta
 from models.db import get_connection, get_encrypt_key
 import mysql.connector
 import unicodedata
 from typing import Optional, Tuple
+from werkzeug.utils import secure_filename
 
 
 def validate_excel_structure(df: pd.DataFrame) -> tuple[bool, list[str]]:
@@ -31,6 +35,97 @@ def validate_excel_structure(df: pd.DataFrame) -> tuple[bool, list[str]]:
         return False, errors
 
     return True, []
+
+
+def _get_soat_history_paths(upload_folder: str) -> tuple[str, str, str]:
+    base_dir = os.path.join(upload_folder, 'soat_historial')
+    files_dir = os.path.join(base_dir, 'files')
+    index_path = os.path.join(base_dir, 'index.json')
+    return base_dir, files_dir, index_path
+
+
+def get_soat_upload_history(upload_folder: str, limit: int = 20) -> list[dict]:
+    _, files_dir, index_path = _get_soat_history_paths(upload_folder)
+    if not os.path.exists(index_path):
+        return []
+
+    try:
+        with open(index_path, 'r', encoding='utf-8') as fh:
+            items = json.load(fh) or []
+    except Exception:
+        return []
+
+    history = []
+    for item in items[: max(int(limit or 0), 0) or 20]:
+        if not isinstance(item, dict):
+            continue
+        stored_filename = item.get('stored_filename') or ''
+        file_path = os.path.join(files_dir, stored_filename) if stored_filename else ''
+        history.append({
+            'id': item.get('id'),
+            'fecha': item.get('fecha') or '',
+            'usuario': item.get('usuario') or '',
+            'tipo_proceso': item.get('tipo_proceso') or '',
+            'estado': item.get('estado') or '',
+            'archivo_original': item.get('archivo_original') or '',
+            'stored_filename': stored_filename,
+            'filas_excel': int(item.get('filas_excel') or 0),
+            'polizas_insertadas': int(item.get('polizas_insertadas') or 0),
+            'polizas_anuladas': int(item.get('polizas_anuladas') or 0),
+            'cuotas_insertadas': int(item.get('cuotas_insertadas') or 0),
+            'errores_count': int(item.get('errores_count') or 0),
+            'size_label': item.get('size_label') or '',
+            'download_ready': bool(stored_filename and os.path.exists(file_path)),
+        })
+    return history
+
+
+def save_soat_upload_history(upload_folder: str, source_file_path: str, original_filename: str, usuario: str, preview: bool, result: dict) -> list[dict]:
+    base_dir, files_dir, index_path = _get_soat_history_paths(upload_folder)
+    os.makedirs(files_dir, exist_ok=True)
+
+    safe_original = secure_filename(original_filename or 'archivo_soat.xlsx') or 'archivo_soat.xlsx'
+    stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    stored_filename = f"{stamp}_{safe_original}"
+    target_path = os.path.join(files_dir, stored_filename)
+    shutil.copy2(source_file_path, target_path)
+
+    size_bytes = os.path.getsize(target_path) if os.path.exists(target_path) else 0
+    if size_bytes >= 1024 * 1024:
+        size_label = f"{round(size_bytes / (1024 * 1024), 2)} MB"
+    elif size_bytes >= 1024:
+        size_label = f"{round(size_bytes / 1024, 2)} KB"
+    else:
+        size_label = f"{size_bytes} Bytes"
+
+    try:
+        with open(index_path, 'r', encoding='utf-8') as fh:
+            items = json.load(fh) or []
+    except Exception:
+        items = []
+
+    filas_excel = int(result.get('filas_excel_soles') or 0) + int(result.get('filas_excel_dolares') or 0)
+    new_item = {
+        'id': stamp,
+        'fecha': datetime.now().strftime('%d/%m/%Y %H:%M'),
+        'usuario': usuario or '',
+        'tipo_proceso': 'Previsualizacion' if preview else 'Carga real',
+        'estado': 'Correcto' if result.get('ok') else 'Con observaciones',
+        'archivo_original': original_filename or safe_original,
+        'stored_filename': stored_filename,
+        'filas_excel': filas_excel,
+        'polizas_insertadas': int(result.get('polizas_insertadas') or 0),
+        'polizas_anuladas': int(result.get('polizas_anuladas') or 0),
+        'cuotas_insertadas': int(result.get('cuotas_insertadas') or 0),
+        'errores_count': len(result.get('errors') or []),
+        'size_label': size_label,
+    }
+    items = [new_item] + [x for x in items if isinstance(x, dict)]
+    items = items[:50]
+    with open(index_path, 'w', encoding='utf-8') as fh:
+        json.dump(items, fh, ensure_ascii=True, indent=2)
+
+    return get_soat_upload_history(upload_folder, limit=20)
 
 def map_excel_columns(df: pd.DataFrame) -> pd.DataFrame:
     def _strip_accents(s: str) -> str:
@@ -387,6 +482,19 @@ def normalize_numero_documento(value) -> str:
     return s
 
 
+def _resolver_numero_documento_excel(row, idx: int, errors_list: list[str]) -> str:
+    numero_documento_excel = normalize_numero_documento(row.get('NUMERO_DOCUMENTO'))
+    if numero_documento_excel:
+        return numero_documento_excel
+
+    # Generar un documento artificial numérico por fila usando base 0.
+    numero_documento_excel = f"0{idx + 2:05d}"
+    errors_list.append(
+        f"Fila {idx + 2}: Número de documento vacío. Se usó documento artificial {numero_documento_excel}"
+    )
+    return numero_documento_excel
+
+
 def _normalize_estado_token(value) -> str:
     if pd.isna(value) or value is None:
         return ''
@@ -427,7 +535,7 @@ def resolver_estado_y_anulado_soat(recibo: str, estado_excel: str) -> tuple[str,
     estado_norm = _normalize_estado_token(estado_excel)
 
     # Si el estado explícitamente dice ANULADO, marcar como anulado
-    if estado_norm == 'ANULADO':
+    if 'ANULAD' in estado_norm:
         return 'ANULADO', 1
 
     # Estados que deben marcar la póliza como inactiva (activo=0) pero NO como anulado
@@ -444,6 +552,66 @@ def resolver_estado_y_anulado_soat(recibo: str, estado_excel: str) -> tuple[str,
             return 'EMISION', 0  # anulado=0, pero se manejará activo=0 en lógica separada
 
     return 'EMISION', 0
+
+
+def _resolver_estado_excel_row(row) -> str:
+    """Obtiene el mejor valor de estado disponible en la fila."""
+    candidatos = []
+
+    # Buscar primero cualquier columna del Excel que normalice a "estado"
+    try:
+        for col in getattr(row, 'index', []):
+            if _normalize_header_token(col) == 'estado':
+                candidatos.append(row.get(col, ''))
+    except Exception:
+        pass
+
+    candidatos.extend([
+        row.get('ESTADO', ''),
+        row.get('PLANILLA', ''),
+        row.get('AVISO_COB', ''),
+        row.get('RECIBO', ''),
+    ])
+
+    valores_norm = [normalize_string(v) for v in candidatos if pd.notna(v) and normalize_string(v)]
+    if not valores_norm:
+        return ''
+
+    # Priorizar textos que claramente representan un estado
+    for valor in valores_norm:
+        token = _normalize_estado_token(valor)
+        if any(x in token for x in ['ANULAD', 'CANCELAD', 'ENVIAD', 'PLANILLA', 'PTO VENTA']):
+            return valor
+
+    return valores_norm[0]
+
+
+def _contar_anulados_desde_excel(df: pd.DataFrame) -> tuple[int, int, int]:
+    total = 0
+    soles = 0
+    dolares = 0
+
+    for _, row in df.iterrows():
+        try:
+            poliza_num_excel = normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else ''
+            if not poliza_num_excel or not any(ch.isdigit() for ch in poliza_num_excel):
+                continue
+
+            referencia_estado_raw = row.get('PLANILLA') if pd.notna(row.get('PLANILLA')) else row.get('AVISO_COB', '')
+            referencia_estado = normalize_numero_documento(referencia_estado_raw) if pd.notna(referencia_estado_raw) else ''
+            estado_excel = _resolver_estado_excel_row(row)
+            estado_poliza, anulado_poliza = resolver_estado_y_anulado_soat(referencia_estado, estado_excel)
+
+            if normalize_string(estado_poliza) == 'ANULADO' or int(anulado_poliza or 0) == 1:
+                total += 1
+                if normalize_moneda_abreviacion(row.get('MONEDA_ABREVIACION')) == 'US$':
+                    dolares += 1
+                else:
+                    soles += 1
+        except Exception:
+            continue
+
+    return total, soles, dolares
 
 
 def normalize_tipo_persona(value) -> int:
@@ -994,7 +1162,7 @@ def _actualizar_estado_anulado_activo_existente_soat(
         )
         pol_updated = int(cur.rowcount or 0)
         cuotas_updated = 0
-        if int(activo_poliza or 0) == 0:
+        if int(activo_poliza or 0) == 0 or int(anulado_poliza or 0) == 1 or normalize_string(estado_poliza) == 'ANULADO':
             cur.execute(
                 "UPDATE cuotas SET activo = 0 WHERE poliza_id = %s AND activo = 1",
                 (int(poliza_id),),
@@ -1088,6 +1256,226 @@ def _insertar_cuota_soat(cur, row, idx: int, poliza_num: str, cupon_poliza: str,
         return False, False
 
 
+def _process_soat_excel_preview(df: pd.DataFrame, usuario: str) -> dict:
+    clientes_nuevos = 0
+    clientes_existentes = 0
+    polizas_insertadas = 0
+    polizas_anuladas = 0
+    polizas_existentes = 0
+    cuotas_insertadas = 0
+    cuotas_existentes = 0
+    polizas_insertadas_soles = 0
+    polizas_insertadas_dolares = 0
+    polizas_anuladas_soles = 0
+    polizas_anuladas_dolares = 0
+    cuotas_insertadas_soles = 0
+    cuotas_insertadas_dolares = 0
+    cuotas_importe_soles = 0.0
+    cuotas_importe_dolares = 0.0
+    filas_excel_soles = 0
+    filas_excel_dolares = 0
+    importe_excel_soles = 0.0
+    importe_excel_dolares = 0.0
+    errors_list: list[str] = []
+
+    cnx = get_connection()
+    cur = cnx.cursor(dictionary=True)
+
+    clientes_procesados = set()
+    recibos_procesados = set()
+    doc_map: dict[str, str] = {}
+    clientes_simulados = set()
+    cache_cliente: dict[str, dict] = {}
+
+    try:
+        for idx, row in df.iterrows():
+            try:
+                moneda_excel = normalize_moneda_abreviacion(row.get('MONEDA_ABREVIACION'))
+                prima_excel = _get_prima_for_stats(row)
+                if moneda_excel == 'US$':
+                    filas_excel_dolares += 1
+                    importe_excel_dolares += float(prima_excel or 0.0)
+                else:
+                    filas_excel_soles += 1
+                    importe_excel_soles += float(prima_excel or 0.0)
+
+                poliza_num_excel = normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else ''
+                if not poliza_num_excel or not any(ch.isdigit() for ch in poliza_num_excel):
+                    errors_list.append(f"Fila {idx + 2}: Póliza vacía/no válida (POLIZA_CERTF='{row.get('POLIZA_CERTF', '')}')")
+                    continue
+
+                recibo_poliza = normalize_numero_documento(row.get('AVISO_COB', '')) if pd.notna(row.get('AVISO_COB')) else ''
+                cupon_poliza = normalize_numero_documento(row.get('CUPON', '')) if pd.notna(row.get('CUPON')) else ''
+                if not cupon_poliza:
+                    cupon_poliza = recibo_poliza
+
+                referencia_estado_raw = row.get('PLANILLA') if pd.notna(row.get('PLANILLA')) else row.get('AVISO_COB', '')
+                referencia_estado = normalize_numero_documento(referencia_estado_raw) if pd.notna(referencia_estado_raw) else ''
+                estado_excel = _resolver_estado_excel_row(row)
+                estado_poliza, anulado_poliza = resolver_estado_y_anulado_soat(referencia_estado, estado_excel)
+                es_anulada = (normalize_string(estado_poliza) == 'ANULADO') or (int(anulado_poliza or 0) == 1)
+
+                numero_documento_excel = _resolver_numero_documento_excel(row, idx, errors_list)
+                razon_social = normalize_string(row.get('NOMBRE_RAZON_SOCIAL', ''))
+
+                if es_anulada:
+                    polizas_anuladas += 1
+                    if moneda_excel == 'US$':
+                        polizas_anuladas_dolares += 1
+                    else:
+                        polizas_anuladas_soles += 1
+                else:
+                    polizas_insertadas += 1
+                    cuotas_insertadas += 1
+                    if moneda_excel == 'US$':
+                        polizas_insertadas_dolares += 1
+                        cuotas_insertadas_dolares += 1
+                        cuotas_importe_dolares += float(prima_excel or 0.0)
+                    else:
+                        polizas_insertadas_soles += 1
+                        cuotas_insertadas_soles += 1
+                        cuotas_importe_soles += float(prima_excel or 0.0)
+
+                numero_documento = doc_map.get(numero_documento_excel) or numero_documento_excel
+
+                tipo_doc_excel = normalize_string(row.get('TIPO_DOCUMENTO', ''))
+                if not tipo_doc_excel:
+                    tipo_doc_excel = identificar_tipo_documento(numero_documento_excel)
+
+                if numero_documento_excel not in clientes_procesados:
+                    if numero_documento_excel in clientes_simulados:
+                        clientes_existentes += 1
+                    else:
+                        cached = cache_cliente.get(numero_documento_excel)
+                        if cached is None:
+                            k = get_encrypt_key()
+                            cur.execute(
+                                """
+                                SELECT
+                                    idCliente,
+                                    COALESCE(
+                                        CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR),
+                                        CAST(AES_DECRYPT(numero_documento, %s) AS CHAR),
+                                        numero_documento
+                                    ) AS numero_documento_plain
+                                FROM clientes
+                                WHERE (
+                                    CAST(AES_DECRYPT(FROM_BASE64(numero_documento), %s) AS CHAR) = %s
+                                    OR CAST(AES_DECRYPT(numero_documento, %s) AS CHAR) = %s
+                                    OR numero_documento = %s
+                                    OR (
+                                        TRIM(
+                                            COALESCE(
+                                                CAST(AES_DECRYPT(FROM_BASE64(razon_social), %s) AS CHAR),
+                                                CAST(AES_DECRYPT(razon_social, %s) AS CHAR),
+                                                razon_social
+                                            )
+                                        ) COLLATE utf8mb4_0900_ai_ci = TRIM(%s) COLLATE utf8mb4_0900_ai_ci
+                                        AND (%s = '' OR tipo_documento = %s)
+                                    )
+                                )
+                                AND activo = 1
+                                LIMIT 1
+                                """,
+                                (
+                                    k, k,
+                                    k, numero_documento, k, numero_documento, numero_documento,
+                                    k, k, razon_social, tipo_doc_excel, tipo_doc_excel,
+                                ),
+                            )
+                            cached = cur.fetchone() or {}
+                            cache_cliente[numero_documento_excel] = cached
+
+                        if cached and cached.get('idCliente'):
+                            clientes_existentes += 1
+                            numero_doc_cliente = normalize_numero_documento(cached.get('numero_documento_plain') or numero_documento)
+                            if numero_doc_cliente and numero_doc_cliente != numero_documento:
+                                errors_list.append(
+                                    f"Fila {idx + 2}: Advertencia - Cliente ya existe por razón social, se usará N° doc {numero_doc_cliente} en póliza"
+                                )
+                                numero_documento = numero_doc_cliente
+                            doc_map[numero_documento_excel] = numero_documento
+                        else:
+                            clientes_nuevos += 1
+                            clientes_simulados.add(numero_documento_excel)
+
+                    clientes_procesados.add(numero_documento_excel)
+
+                moneda = moneda_excel
+                poliza_num = poliza_num_excel
+
+                if _recibo_tiene_numero(cupon_poliza):
+                    if cupon_poliza in recibos_procesados:
+                        polizas_existentes += 1
+                        if not es_anulada:
+                            cuotas_existentes += 1
+                        errors_list.append(
+                            f"Fila {idx + 2}: Advertencia - Recibo duplicado en el Excel: {cupon_poliza}. Se omitió la fila."
+                        )
+                        continue
+                    recibos_procesados.add(cupon_poliza)
+
+                    poliza_id_exist_por_recibo = _find_poliza_id_por_recibo(cur, cupon_poliza)
+                    if poliza_id_exist_por_recibo is not None:
+                        polizas_existentes += 1
+                        if not es_anulada:
+                            cuotas_existentes += 1
+                        continue
+
+                poliza_id_exist = _resolver_poliza_id_soat(cur, poliza_num, cupon_poliza) if (poliza_num and cupon_poliza) else None
+                if poliza_id_exist is not None:
+                    polizas_existentes += 1
+
+                    factura = (recibo_poliza or cupon_poliza or '').strip()
+                    if not factura or not _recibo_tiene_numero(factura):
+                        factura = None
+
+                    if not es_anulada and _cuota_soat_existe(cur, int(poliza_id_exist), cupon_poliza, factura):
+                        cuotas_existentes += 1
+                    continue
+
+            except Exception as e:
+                errors_list.append(f"Fila {idx + 2}: Error inesperado: {str(e)}")
+                continue
+
+        return {
+            'ok': True,
+            'clientes_nuevos': clientes_nuevos,
+            'clientes_existentes': clientes_existentes,
+            'polizas_insertadas': polizas_insertadas,
+            'polizas_anuladas': polizas_anuladas,
+            'polizas_existentes': polizas_existentes,
+            'cuotas_insertadas': cuotas_insertadas,
+            'cuotas_existentes': cuotas_existentes,
+            'polizas_insertadas_soles': polizas_insertadas_soles,
+            'polizas_insertadas_dolares': polizas_insertadas_dolares,
+            'polizas_anuladas_soles': polizas_anuladas_soles,
+            'polizas_anuladas_dolares': polizas_anuladas_dolares,
+            'cuotas_insertadas_soles': cuotas_insertadas_soles,
+            'cuotas_insertadas_dolares': cuotas_insertadas_dolares,
+            'cuotas_importe_soles': round(float(cuotas_importe_soles or 0.0), 2),
+            'cuotas_importe_dolares': round(float(cuotas_importe_dolares or 0.0), 2),
+            'filas_excel_soles': filas_excel_soles,
+            'filas_excel_dolares': filas_excel_dolares,
+            'importe_excel_soles': round(float(importe_excel_soles or 0.0), 2),
+            'importe_excel_dolares': round(float(importe_excel_dolares or 0.0), 2),
+            'polizas_moneda_actualizadas': 0,
+            'cuotas_moneda_actualizadas': 0,
+            'polizas_activo_actualizadas': 0,
+            'cuotas_activo_actualizadas': 0,
+            'errors': errors_list,
+        }
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+        try:
+            cnx.close()
+        except Exception:
+            pass
+
+
 def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> dict:
     """
     Procesa un archivo Excel con datos de SOAT y los carga en la BD
@@ -1143,6 +1531,16 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
 
         fecha_emision_excel_min = fecha_emision_min.strftime('%d/%m/%Y') if fecha_emision_min else None
         fecha_emision_excel_max = fecha_emision_max.strftime('%d/%m/%Y') if fecha_emision_max else None
+        anuladas_excel_total, anuladas_excel_soles, anuladas_excel_dolares = _contar_anulados_desde_excel(df)
+
+        if preview:
+            result = _process_soat_excel_preview(df=df, usuario=usuario)
+            result['polizas_anuladas'] = max(int(result.get('polizas_anuladas') or 0), int(anuladas_excel_total or 0))
+            result['polizas_anuladas_soles'] = max(int(result.get('polizas_anuladas_soles') or 0), int(anuladas_excel_soles or 0))
+            result['polizas_anuladas_dolares'] = max(int(result.get('polizas_anuladas_dolares') or 0), int(anuladas_excel_dolares or 0))
+            result['fecha_emision_excel_min'] = fecha_emision_excel_min
+            result['fecha_emision_excel_max'] = fecha_emision_excel_max
+            return result
 
         #Contadores
         clientes_nuevos = 0
@@ -1174,6 +1572,39 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
         commit_db = not preview
+        k = get_encrypt_key()
+
+        # #region debug-point A:debug-emit
+        def _dbg_emit(hypothesis_id: str, msg: str, data: dict | None = None, run_id: str = 'pre-fix'):
+            if preview:
+                return
+            try:
+                import json as _json, urllib.request as _urlreq
+                _p = '.dbg/soat-save-count.env'
+                _u, _s = 'http://127.0.0.1:7777/event', 'soat-save-count'
+                try:
+                    with open(_p, 'r', encoding='utf-8') as _f:
+                        _c = _f.read()
+                    for _line in _c.splitlines():
+                        if _line.startswith('DEBUG_SERVER_URL='):
+                            _u = _line.split('=', 1)[1].strip() or _u
+                        elif _line.startswith('DEBUG_SESSION_ID='):
+                            _s = _line.split('=', 1)[1].strip() or _s
+                except Exception:
+                    pass
+                _payload = {
+                    'sessionId': _s,
+                    'runId': run_id,
+                    'hypothesisId': hypothesis_id,
+                    'location': 'controllers/soat/carga_masiva.py:process_soat_excel',
+                    'msg': f'[DEBUG] {msg}',
+                    'data': data or {},
+                }
+                _req = _urlreq.Request(_u, data=_json.dumps(_payload).encode(), headers={'Content-Type': 'application/json'})
+                _urlreq.urlopen(_req, timeout=2).read()
+            except Exception:
+                pass
+        # #endregion
 
         if commit_db:
             try:
@@ -1194,9 +1625,30 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
         clientes_procesados = set()
         recibos_procesados = set()
         doc_map = {}
+        _dbg_emit('A', 'real-load-start', {
+            'preview': preview,
+            'rows': int(len(df.index)),
+            'anuladas_excel_total': int(anuladas_excel_total or 0),
+            'anuladas_excel_soles': int(anuladas_excel_soles or 0),
+            'anuladas_excel_dolares': int(anuladas_excel_dolares or 0),
+        })
 
         for idx, row in df.iterrows():
             try:
+                try:
+                    cnx.ping(reconnect=False, attempts=1, delay=0)
+                except Exception:
+                    try:
+                        cur.close()
+                    except Exception:
+                        pass
+                    try:
+                        cnx.close()
+                    except Exception:
+                        pass
+                    cnx = get_connection()
+                    cur = cnx.cursor(dictionary=True)
+
                 moneda_excel = normalize_moneda_abreviacion(row.get('MONEDA_ABREVIACION'))
                 prima_excel = _get_prima_for_stats(row)
                 if moneda_excel == 'US$':
@@ -1206,11 +1658,12 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     filas_excel_soles += 1
                     importe_excel_soles += float(prima_excel or 0.0)
 
-                numero_documento_excel = normalize_numero_documento(row['NUMERO_DOCUMENTO'])
+                numero_documento_excel = _resolver_numero_documento_excel(row, idx, errors_list)
                 razon_social = normalize_string(row.get('NOMBRE_RAZON_SOCIAL', ''))
 
-                if not numero_documento_excel:
-                    errors_list.append(f"Fila {idx + 2}: Número de documento vacío")
+                poliza_num_excel = normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else ''
+                if not poliza_num_excel or not any(ch.isdigit() for ch in poliza_num_excel):
+                    errors_list.append(f"Fila {idx + 2}: Póliza vacía/no válida (POLIZA_CERTF='{row.get('POLIZA_CERTF', '')}')")
                     continue
 
                 numero_documento = doc_map.get(numero_documento_excel) or numero_documento_excel
@@ -1222,7 +1675,6 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 # 1. PROCESAR CLIENTE (si no se ha procesado antes)
                 if numero_documento_excel not in clientes_procesados:
                     # Verificar si existe (considerando campos cifrados)
-                    k = get_encrypt_key()
                     cur.execute(
                         """
                         SELECT
@@ -1351,19 +1803,35 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 uso_nombre = normalize_string(row.get('USO', ''))
                 uso_id = None
                 if uso_nombre:
-                    uso_id = get_or_create_uso(cur, cnx, uso_nombre, commit=commit_db)
+                    if commit_db:
+                        uso_id = get_or_create_uso(cur, cnx, uso_nombre, commit=True)
+                    else:
+                        try:
+                            cur.execute("SELECT id FROM usos WHERE UPPER(nombre) = %s LIMIT 1", (uso_nombre,))
+                            rr = cur.fetchone() or {}
+                            uso_id = rr.get('id')
+                        except Exception:
+                            uso_id = None
 
                 # Validar e insertar MARCA y MODELO si no existen
                 marca_nombre = normalize_string(row.get('MARCA', ''))
                 modelo_nombre = normalize_string(row.get('MODELO', ''))
-                if marca_nombre and modelo_nombre:
+                if commit_db and marca_nombre and modelo_nombre:
                     get_or_create_modelo(cur, cnx, marca_nombre, modelo_nombre, commit=commit_db)
 
                 # Resolver clase_id desde nombre de clase (para cálculo de comisiones en SP)
                 clase_nombre = normalize_string(row.get('CLASE', ''))
                 clase_id = None
                 if clase_nombre:
-                    clase_id = get_or_create_clase(cur, cnx, clase_nombre, commit=commit_db)
+                    if commit_db:
+                        clase_id = get_or_create_clase(cur, cnx, clase_nombre, commit=True)
+                    else:
+                        try:
+                            cur.execute("SELECT id FROM clases WHERE UPPER(nombre) = %s LIMIT 1", (clase_nombre,))
+                            rr = cur.fetchone() or {}
+                            clase_id = rr.get('id')
+                        except Exception:
+                            clase_id = None
 
                 # Validar e insertar AGENTE si no existe (solo si tiene código)
                 raw_cod = row.get('COD_AGENTE', '')
@@ -1372,7 +1840,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 codigo_agente = normalize_numero_documento(raw_cod)
                 nombre_vendedor = normalize_string(raw_vend)
                 #print(f"[DEBUG] codigo_agente normalizado='{codigo_agente}'")
-                if codigo_agente:
+                if commit_db and codigo_agente:
                     get_or_create_agente(cur, cnx, codigo_agente, nombre_vendedor, commit=commit_db)
 
                 # Si no hay código de agente, usar cadena vacía para evitar errores
@@ -1448,19 +1916,17 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 #Para reglas de estado/anulado, priorizamos PLANILLA; si no viene, usamos AVISO_COB.
                 referencia_estado_raw = row.get('PLANILLA') if pd.notna(row.get('PLANILLA')) else row.get('AVISO_COB', '')
                 referencia_estado = normalize_numero_documento(referencia_estado_raw) if pd.notna(referencia_estado_raw) else ''
-                estado_excel = normalize_string(row.get('ESTADO', ''))
+                estado_excel = _resolver_estado_excel_row(row)
                 estado_poliza, anulado_poliza = resolver_estado_y_anulado_soat(referencia_estado, estado_excel)
                 producto_abreviacion = normalize_string(row.get('PRODUCTO_ABREVIACION', ''))
-                # Estados que deben marcar activo=0 aunque anulado=0
-                estado_norm = _normalize_estado_token(estado_excel)
-                es_inactivo_por_estado = estado_norm in {'ENVIADO PLANILLA CANAL', 'CANCELADO PTO VENTA', 'CANCELADO PTO. VENTA'}
-                cuota_activo = 0 if (estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1 or es_inactivo_por_estado) else 1
-                poliza_activo = 0 if (estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1 or es_inactivo_por_estado) else 1
+                es_anulada = (normalize_string(estado_poliza) == 'ANULADO') or (int(anulado_poliza or 0) == 1)
+                cuota_activo = 0 if es_anulada else 1
+                poliza_activo = 1
 
                 poliza_num = normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else ''
                 if _recibo_tiene_numero(cupon_poliza):
                     if cupon_poliza in recibos_procesados:
-                        if estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1:
+                        if normalize_string(estado_poliza) == 'ANULADO' or int(anulado_poliza or 0) == 1:
                             polizas_anuladas += 1
                             if moneda == 'US$':
                                 polizas_anuladas_dolares += 1
@@ -1477,7 +1943,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
 
                     poliza_id_exist_por_recibo = _find_poliza_id_por_recibo(cur, cupon_poliza)
                     if poliza_id_exist_por_recibo is not None:
-                        if estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1:
+                        if normalize_string(estado_poliza) == 'ANULADO' or int(anulado_poliza or 0) == 1:
                             polizas_anuladas += 1
                             if moneda == 'US$':
                                 polizas_anuladas_dolares += 1
@@ -1522,7 +1988,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 else:
                     poliza_id_exist = None
                 if poliza_num and cupon_poliza and poliza_id_exist is not None:
-                    if estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1:
+                    if normalize_string(estado_poliza) == 'ANULADO' or int(anulado_poliza or 0) == 1:
                         polizas_anuladas += 1
                         if moneda == 'US$':
                             polizas_anuladas_dolares += 1
@@ -1623,6 +2089,16 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 )
 
                 try:
+                    _dbg_emit('B', 'before-sp-insert-poliza', {
+                        'fila': int(idx + 2),
+                        'numero_documento_excel': numero_documento_excel,
+                        'numero_documento_final': numero_documento,
+                        'poliza_num': poliza_num,
+                        'cupon_poliza': cupon_poliza,
+                        'estado_poliza': estado_poliza,
+                        'anulado_poliza': int(anulado_poliza or 0),
+                        'moneda': moneda,
+                    })
                     cur.execute(
                         "CALL sp_insert_poliza_soat_masivo(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                         poliza_args
@@ -1644,11 +2120,18 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                             pass
 
                     if poliza_id_insertada is not None:
+                        _dbg_emit('B', 'sp-insert-poliza-success', {
+                            'fila': int(idx + 2),
+                            'poliza_id_insertada': int(poliza_id_insertada),
+                            'poliza_num': poliza_num,
+                            'cupon_poliza': cupon_poliza,
+                            'estado_poliza': estado_poliza,
+                        })
                         cur.execute(
                             "UPDATE polizas SET estado = %s, anulado = %s, activo = %s WHERE idPoliza = %s",
                             (estado_poliza, anulado_poliza, poliza_activo, poliza_id_insertada)
                         )
-                        if int(poliza_activo or 0) == 0:
+                        if int(poliza_activo or 0) == 0 or int(anulado_poliza or 0) == 1 or normalize_string(estado_poliza) == 'ANULADO':
                             cur.execute(
                                 "UPDATE cuotas SET activo = 0 WHERE poliza_id = %s AND activo = 1",
                                 (int(poliza_id_insertada),),
@@ -1682,7 +2165,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
 
                     if commit_db:
                         cnx.commit()
-                    if estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1:
+                    if normalize_string(estado_poliza) == 'ANULADO' or int(anulado_poliza or 0) == 1:
                         polizas_anuladas += 1
                         if moneda == 'US$':
                             polizas_anuladas_dolares += 1
@@ -1695,8 +2178,17 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                         else:
                             polizas_insertadas_soles += 1
                 except mysql.connector.Error as err:
+                    _dbg_emit('D', 'sp-insert-poliza-error', {
+                        'fila': int(idx + 2),
+                        'numero_documento_final': numero_documento,
+                        'poliza_num': poliza_num,
+                        'cupon_poliza': cupon_poliza,
+                        'estado_poliza': estado_poliza,
+                        'anulado_poliza': int(anulado_poliza or 0),
+                        'error': str(err),
+                    })
                     if 'Póliza ya existe' in str(err):
-                        if estado_poliza == 'ANULADO' or int(anulado_poliza or 0) == 1:
+                        if normalize_string(estado_poliza) == 'ANULADO' or int(anulado_poliza or 0) == 1:
                             polizas_anuladas += 1
                             if moneda == 'US$':
                                 polizas_anuladas_dolares += 1
@@ -1769,29 +2261,42 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                     continue
 
             except Exception as e:
+                _dbg_emit('C', 'row-unexpected-error', {
+                    'fila': int(idx + 2),
+                    'error': str(e),
+                })
                 errors_list.append(f"Fila {idx + 2}: Error inesperado: {str(e)}")
                 continue
 
         # Si estamos en modo preview, hacemos rollback de todo por si acaso
         if preview:
-            cnx.rollback()
+            try:
+                cnx.rollback()
+            except Exception:
+                pass
 
-        cur.close()
-        cnx.close()
+        try:
+            cur.close()
+        except Exception:
+            pass
+        try:
+            cnx.close()
+        except Exception:
+            pass
 
         return {
             'ok': True,
             'clientes_nuevos': clientes_nuevos,
             'clientes_existentes': clientes_existentes,
             'polizas_insertadas': polizas_insertadas,
-            'polizas_anuladas': polizas_anuladas,
+            'polizas_anuladas': max(int(polizas_anuladas or 0), int(anuladas_excel_total or 0)),
             'polizas_existentes': polizas_existentes,
             'cuotas_insertadas': cuotas_insertadas,
             'cuotas_existentes': cuotas_existentes,
             'polizas_insertadas_soles': polizas_insertadas_soles,
             'polizas_insertadas_dolares': polizas_insertadas_dolares,
-            'polizas_anuladas_soles': polizas_anuladas_soles,
-            'polizas_anuladas_dolares': polizas_anuladas_dolares,
+            'polizas_anuladas_soles': max(int(polizas_anuladas_soles or 0), int(anuladas_excel_soles or 0)),
+            'polizas_anuladas_dolares': max(int(polizas_anuladas_dolares or 0), int(anuladas_excel_dolares or 0)),
             'cuotas_insertadas_soles': cuotas_insertadas_soles,
             'cuotas_insertadas_dolares': cuotas_insertadas_dolares,
             'cuotas_importe_soles': round(float(cuotas_importe_soles or 0.0), 2),
@@ -1810,6 +2315,14 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
         }
 
     except Exception as e:
+        # #region debug-point E:outer-failure
+        try:
+            import json as _json, urllib.request as _urlreq
+            _req = _urlreq.Request('http://127.0.0.1:7777/event', data=_json.dumps({'sessionId': 'soat-save-count', 'runId': 'pre-fix', 'hypothesisId': 'E', 'location': 'controllers/soat/carga_masiva.py:process_soat_excel', 'msg': '[DEBUG] process-soat-excel-failure', 'data': {'error': str(e)}}).encode(), headers={'Content-Type': 'application/json'})
+            _urlreq.urlopen(_req, timeout=2).read()
+        except Exception:
+            pass
+        # #endregion
         return {
             'ok': False,
             'errors': [f"Error al procesar archivo: {str(e)}"]

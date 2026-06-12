@@ -51,7 +51,7 @@ def get_gestion_rows(fecha_desde=None, fecha_hasta=None, orden_fechas='ASC', lim
                 p.vig_desde,
                 p.vig_hasta,
                 c.numero_cuota,
-                c.moneda,
+                p.moneda,
                 c.importe,
                 c.fecha_pago,
                 c.factura,

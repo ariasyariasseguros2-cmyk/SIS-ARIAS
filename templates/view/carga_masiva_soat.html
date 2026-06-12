@@ -121,6 +121,76 @@
         </div>
     </div>
 
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-secondary">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Historial de Documentos Cargados
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Archivo</th>
+                                    <th>Usuario</th>
+                                    <th>Proceso</th>
+                                    <th>Resultado</th>
+                                    <th>Resumen</th>
+                                    <th class="text-end">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody">
+                                {% if historial_cargas %}
+                                    {% for item in historial_cargas %}
+                                    <tr>
+                                        <td class="text-nowrap">{{ item.fecha }}</td>
+                                        <td>
+                                            <div class="fw-semibold">{{ item.archivo_original }}</div>
+                                            <div class="small text-muted">{{ item.size_label }}</div>
+                                        </td>
+                                        <td>{{ item.usuario or '-' }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ 'info' if item.tipo_proceso == 'Previsualizacion' else 'success' }}">
+                                                {{ item.tipo_proceso }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if item.estado == 'Correcto' else 'warning text-dark' }}">
+                                                {{ item.estado }}
+                                            </span>
+                                        </td>
+                                        <td class="small text-muted">
+                                            Filas: {{ item.filas_excel }} | Pólizas: {{ item.polizas_insertadas }} | Anuladas: {{ item.polizas_anuladas }} | Cuotas: {{ item.cuotas_insertadas }}
+                                        </td>
+                                        <td class="text-end">
+                                            {% if item.download_ready %}
+                                            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.descargar_historial_carga_soat', filename=item.stored_filename) }}">
+                                                <i class="bi bi-download me-1"></i> Descargar
+                                            </a>
+                                            {% else %}
+                                            <span class="text-muted small">No disponible</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-4">Aún no hay documentos en el historial.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Barra de progreso -->
     <div id="progressSection" class="row mb-4" style="display: none;">
         <div class="col-12">
@@ -162,6 +232,49 @@
 
 <script>
 let selectedFile = null;
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function renderHistoryTable(items = []) {
+    const tbody = document.getElementById('historyTableBody');
+    if (!tbody) return;
+
+    if (!Array.isArray(items) || items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Aún no hay documentos en el historial.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = items.map(item => {
+        const isPreview = item.tipo_proceso === 'Previsualizacion';
+        const processBadge = isPreview ? 'bg-info' : 'bg-success';
+        const stateBadge = item.estado === 'Correcto' ? 'bg-success' : 'bg-warning text-dark';
+        const downloadHtml = item.download_ready
+            ? `<a class="btn btn-sm btn-outline-primary" href="/carga-masiva-soat/historial/${encodeURIComponent(item.stored_filename || '')}"><i class="bi bi-download me-1"></i> Descargar</a>`
+            : '<span class="text-muted small">No disponible</span>';
+
+        return `
+            <tr>
+                <td class="text-nowrap">${escapeHtml(item.fecha || '')}</td>
+                <td>
+                    <div class="fw-semibold">${escapeHtml(item.archivo_original || '')}</div>
+                    <div class="small text-muted">${escapeHtml(item.size_label || '')}</div>
+                </td>
+                <td>${escapeHtml(item.usuario || '-')}</td>
+                <td><span class="badge ${processBadge}">${escapeHtml(item.tipo_proceso || '')}</span></td>
+                <td><span class="badge ${stateBadge}">${escapeHtml(item.estado || '')}</span></td>
+                <td class="small text-muted">Filas: ${Number(item.filas_excel || 0)} | Pólizas: ${Number(item.polizas_insertadas || 0)} | Anuladas: ${Number(item.polizas_anuladas || 0)} | Cuotas: ${Number(item.cuotas_insertadas || 0)}</td>
+                <td class="text-end">${downloadHtml}</td>
+            </tr>
+        `;
+    }).join('');
+}
 
 function descargarPlantilla() {
     // Crear un enlace temporal y hacer clic en él
@@ -297,6 +410,9 @@ function showResults(result, isPreview = false) {
 
     // Limpiar acciones previas
     resultActions.innerHTML = '';
+    if (result && Array.isArray(result.historial_cargas)) {
+        renderHistoryTable(result.historial_cargas);
+    }
 
     if (result.ok) {
         const ultimaEl = document.getElementById('ultimaFechaEmision');
