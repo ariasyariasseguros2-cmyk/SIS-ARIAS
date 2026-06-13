@@ -4900,8 +4900,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
 
     # La Positiva (EPS/Vida/Seguros)
     if prov in {"positiva", ""}:
-        
-                # Detectar Póliza 3D (Deshonestidad, Desaparición y Destrucción)
+        # Detectar Póliza 3D (Deshonestidad, Desaparición y Destrucción)
         hint_3d = (
             re.search(r"P[ÓO]LIZA\s+DE\s+SEGURO\s+DE\s+3D\b", text, re.IGNORECASE) or
             re.search(r"deshonestidad[,\s]+desaparici[oó]n\s+y\s+destrucci[oó]n", text, re.IGNORECASE) or
@@ -4970,6 +4969,20 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
                     return [item_ap]
             except Exception as e:
                 print(f"[provider] error en addPositivaAccidentesPersonales: {e}")
+
+        # NUEVO: Endoso de Declaración — PDF combinado Pensión (LPV Vida) + Salud (LPV EPS)
+        hint_endoso_declaracion = re.search(
+            r"Endoso\s+de\s+Declaraci[oó]n\s+N[°º]", text, re.IGNORECASE
+        )
+        if hint_endoso_declaracion:
+            try:
+                from controllers.addLPVPensionDeclaracion import parse_lpv_pension_declaracion
+                items_decl = parse_lpv_pension_declaracion(text)
+                if items_decl:
+                    print("[provider] positiva-endoso-declaracion items:", items_decl)
+                    return items_decl
+            except Exception as e:
+                print(f"[provider] error en addLPVPensionDeclaracion: {e}")
 
         # Separar SCTR Salud vs Pensión por contenido
         hint_sctr = re.search(r"\bsctr\b", text, re.IGNORECASE)
