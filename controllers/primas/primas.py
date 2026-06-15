@@ -60,6 +60,7 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
                     """
                     SELECT
                         p.idPoliza,
+                        p.prima_anulada,
                         p.recibo,
                         p.recibo AS cupon,
                         COALESCE(
@@ -170,7 +171,8 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
             'nro_operacion': coalesce_nonempty(r.get('nro_operacion'), r.get('operacion')),
             'motivo': r.get('motivo') or '',
             'pdf_url': r.get('pdf_url') or '',
-            'idPrima': coalesce_nonempty(r.get('idPoliza'), r.get('idPrima')) # idPoliza identifies the row
+            'idPrima': coalesce_nonempty(r.get('idPoliza'), r.get('idPrima')),
+            'prima_anulada': int(r.get('prima_anulada') or 0),
         })
 
     normalized.sort(
