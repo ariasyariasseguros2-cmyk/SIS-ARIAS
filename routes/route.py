@@ -4633,28 +4633,36 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
         try:
             pac_pages = page_texts if page_texts else [text]
             pac_pages_low = [(p or "").lower() for p in pac_pages]
+            pac_text_low = (text or "").lower()
+            pac_detection_blocks = pac_pages_low + ([pac_text_low] if pac_text_low.strip() else [])
 
-            has_exclusion = any(
+            has_generales_v2 = any(
+                (
+                    re.search(r"aviso\s+de\s+cobranza", pl)
+                    or (
+                        re.search(r"prima\s+comercial", pl)
+                        and (re.search(r"multiriesgo", pl) or re.search(r"forma\s+de\s+pago", pl))
+                    )
+                )
+                and re.search(r"p[oó]liza", pl)
+                for pl in pac_detection_blocks
+            )
+
+            has_exclusion = (not has_generales_v2) and any(
                 re.search(r"\bvida\s+ley\b", pl)
                 or re.search(r"liquidaci[oó]n\s+de\s+prima", pl)
                 or re.search(r"factura\s+electr[óo]nica", pl)
                 or re.search(r"\bpensi[oó]n\b", pl)
                 for pl in pac_pages_low
             )
-            has_generales_v2 = (not has_exclusion) and any(
-                (
-                    re.search(r"aviso\s+de\s+cobranza", pl)
-                    or (re.search(r"\bproducto\b", pl) and re.search(r"\bprima\s+comercial\b", pl))
-                )
-                and re.search(r"\bp[oó]liza\b", pl)
-                for pl in pac_pages_low
-            )
-            if has_generales_v2:
+            if has_generales_v2 and not has_exclusion:
+                print("[provider] pacifico -> generales V3/V2")
                 from controllers.addPolizaPacificoGenerales_V3 import addPolizaPacificoGenerales_V3
                 from controllers.addPacificoGenerales_V2 import addPacificoGenerales_V2
 
                 data = addPolizaPacificoGenerales_V3(path)
                 if not data or data.get('error') or not data.get('poliza'):
+                    print("[provider] pacifico -> fallback V2")
                     data = addPacificoGenerales_V2(path)
 
                 if data and not data.get('error') and data.get('poliza'):

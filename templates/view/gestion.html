@@ -106,7 +106,7 @@
     .table td:nth-child(1),
     .table td:nth-child(2),
     .table td:nth-child(4),
-    .table td:nth-child(8),
+    .table td:nth-child(7),
     .table td:nth-child(9),
     .table td:nth-child(10),
     .table td:nth-child(11) {
@@ -134,7 +134,7 @@
     }
     .table th:nth-child(6),
     .table td:nth-child(6) {
-        width: 10%;
+        min-width: 160px;
     }
     .table th:nth-child(7),
     .table td:nth-child(7) {
@@ -142,18 +142,22 @@
     }
     .table th:nth-child(8),
     .table td:nth-child(8) {
-        width: 8%;
+        width: 10%;
     }
     .table th:nth-child(9),
     .table td:nth-child(9) {
-        width: 5%;
+        width: 8%;
     }
     .table th:nth-child(10),
     .table td:nth-child(10) {
-        width: 9%;
+        width: 5%;
     }
     .table th:nth-child(11),
     .table td:nth-child(11) {
+        width: 9%;
+    }
+    .table th:nth-child(12),
+    .table td:nth-child(12) {
         width: 6%;
     }
     .table tr:hover td {
@@ -291,6 +295,7 @@
                         <th>Vig. Desde <i class="bi-arrow-down-up small"></i></th>
                         <th>Vig. Hasta <i class="bi-arrow-down-up small"></i></th>
                         <th class="col-cupon">Cupón <i class="bi-arrow-down-up small"></i></th>
+                        <th>F. Vencimiento <i class="bi-arrow-down-up small"></i></th>
                         <th>N° Cuota <i class="bi-arrow-down-up small"></i></th>
                         <th>Mo <i class="bi-arrow-down-up small"></i></th>
                         <th>Importe <i class="bi-arrow-down-up small"></i></th>
@@ -306,6 +311,7 @@
                         <td><span class="cell-truncate" title="{{ row.vig_desde or '' }}">{{ row.vig_desde }}</span></td>
                         <td><span class="cell-truncate" title="{{ row.vig_hasta or '' }}">{{ row.vig_hasta }}</span></td>
                         <td class="col-cupon"><span title="{{ (row.cupon or row.numero_cuota) or '' }}">{{ row.cupon or row.numero_cuota }}</span></td>
+                        <td>{{ row.fecha_vencimiento or '' }}</td>
                         <td>{{ row.numero_cuota }}</td>
                         <td>{{ row.moneda_simbolo or row.moneda }}</td>
                         <td>{{ row.importe }}</td>
@@ -327,7 +333,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="10" class="text-center py-4 text-muted">No se encontraron registros de gestión</td>
+                        <td colspan="11" class="text-center py-4 text-muted">No se encontraron registros de gestión</td>
                     </tr>
                     {% endfor %}
                 </tbody>
