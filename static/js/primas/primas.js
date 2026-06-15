@@ -135,6 +135,24 @@
                 alert('No se pudo obtener el ID del registro.');
             }
         }
+        if (t.classList.contains('btn-anular-prima')) {
+            const id = t.getAttribute('data-id');
+            if (!id) { alert('No se pudo obtener el ID del registro.'); return; }
+
+            const modalEl = document.getElementById('anularPrimaModal');
+            let modal = bootstrap.Modal.getInstance(modalEl);
+            if (!modal) modal = new bootstrap.Modal(modalEl);
+
+            document.getElementById('anularPrimaId').value = id;
+            document.getElementById('anularPrimaMotivo').value = '';
+            document.getElementById('anularPrimaMotivoCount').textContent = '0';
+            document.getElementById('anularPrimaFecha').value = new Date().toISOString().slice(0, 10);
+            document.getElementById('anularPrimaError').classList.add('d-none');
+            document.getElementById('anularPrimaError').textContent = '';
+
+            modal.show();
+            return;
+        }
         if (t.classList.contains('btn-eliminar')) {
             const tr = t.closest('tr');
             const id = t.getAttribute('data-id') || tr?.querySelector('.btn-detalles')?.getAttribute('data-id') || '';
@@ -189,4 +207,81 @@
             });
         }
     });
+    // Contador de caracteres del motivo de anulación
+    const motivoTextarea = document.getElementById('anularPrimaMotivo');
+    const motivoCount = document.getElementById('anularPrimaMotivoCount');
+    if (motivoTextarea && motivoCount) {
+        motivoTextarea.addEventListener('input', () => {
+            motivoCount.textContent = motivoTextarea.value.length;
+        });
+    }
+
+    // Confirmar anulación de prima
+    const btnConfirmar = document.getElementById('btnConfirmarAnularPrima');
+    if (btnConfirmar) {
+        btnConfirmar.addEventListener('click', async () => {
+            const id = document.getElementById('anularPrimaId').value;
+            const motivo = (document.getElementById('anularPrimaMotivo').value || '').trim();
+            const fecha = document.getElementById('anularPrimaFecha').value || null;
+            const errorEl = document.getElementById('anularPrimaError');
+
+            if (!motivo) {
+                errorEl.textContent = 'El motivo es obligatorio.';
+                errorEl.classList.remove('d-none');
+                return;
+            }
+            if (motivo.length > 200) {
+                errorEl.textContent = 'El motivo supera los 200 caracteres.';
+                errorEl.classList.remove('d-none');
+                return;
+            }
+            errorEl.classList.add('d-none');
+            errorEl.textContent = '';
+
+            btnConfirmar.disabled = true;
+            try {
+                const res = await fetch('/api/primas/anular', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idPrima: id, motivo, fechaAnulacion: fecha })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data && data.ok) {
+                    const modalEl = document.getElementById('anularPrimaModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+
+                    // Marcar la fila como anulada (badge + opacidad) en lugar de eliminarla
+                    const tr = table?.querySelector(`button.btn-anular-prima[data-id="${id}"]`)?.closest('tr');
+                    if (tr) {
+                        tr.classList.add('table-secondary', 'text-muted');
+                        tr.style.opacity = '0.72';
+
+                        // Agregar badge ANULADA junto al aviso (primera celda)
+                        const firstTd = tr.querySelector('td:first-child');
+                        if (firstTd && !firstTd.querySelector('.badge')) {
+                            const badge = document.createElement('span');
+                            badge.className = 'badge bg-danger ms-1';
+                            badge.style.fontSize = '.65em';
+                            badge.textContent = 'ANULADA';
+                            firstTd.appendChild(badge);
+                        }
+
+                        // Eliminar botones de acción (editar, anular, eliminar) de la fila
+                        tr.querySelectorAll('.btn-editar, .btn-anular-prima, .btn-eliminar').forEach(btn => btn.remove());
+                    }
+                } else {
+                    const msg = (data && (data.error || (data.errors && data.errors.join(', ')))) || 'No se pudo anular';
+                    errorEl.textContent = msg;
+                    errorEl.classList.remove('d-none');
+                }
+            } catch (err) {
+                console.error(err);
+                errorEl.textContent = 'Error de conexión al anular la prima.';
+                errorEl.classList.remove('d-none');
+            } finally {
+                btnConfirmar.disabled = false;
+            }
+        });
+    }
 })();
