@@ -17,7 +17,7 @@ def get_clientes_data():
                     GROUP_CONCAT(DISTINCT NULLIF(TRIM(ramo), '') ORDER BY NULLIF(TRIM(ramo), '') SEPARATOR ', ') AS ramos,
                     COUNT(DISTINCT NULLIF(TRIM(ramo), '')) AS ramos_count
                 FROM polizas
-                WHERE activo = 1 AND anulado = 0
+                WHERE activo = 1 AND anulado = 0 AND COALESCE(prima_anulada, 0) = 0
                 GROUP BY cliente_id
             ) pr ON pr.cliente_id = c.idCliente
         """
@@ -151,7 +151,7 @@ def search_clientes_data(query):
                     GROUP_CONCAT(DISTINCT NULLIF(TRIM(ramo), '') ORDER BY NULLIF(TRIM(ramo), '') SEPARATOR ', ') AS ramos,
                     COUNT(DISTINCT NULLIF(TRIM(ramo), '')) AS ramos_count
                 FROM polizas
-                WHERE activo = 1 AND anulado = 0
+                WHERE activo = 1 AND anulado = 0 AND COALESCE(prima_anulada, 0) = 0
                 GROUP BY cliente_id
             ) pr ON pr.cliente_id = c.idCliente
         """
