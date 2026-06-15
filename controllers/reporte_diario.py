@@ -16,7 +16,7 @@ def get_reporte_diario_data(filters=None):
         f_reg_hasta = (filters.get("f_reg_hasta") or "").strip()
         usuario = (filters.get("usuario") or "").strip()
 
-        where = ["p.activo = 1", "(p.anulado = 0 OR p.anulado IS NULL)"]
+        where = ["p.activo = 1", "(p.anulado = 0 OR p.anulado IS NULL)", "COALESCE(p.prima_anulada, 0) = 0"]
         params = []
 
         created_day_expr = "DATE(p.creado_en - INTERVAL 7 HOUR)"
