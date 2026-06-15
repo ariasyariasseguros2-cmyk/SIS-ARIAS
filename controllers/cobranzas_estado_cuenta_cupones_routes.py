@@ -124,6 +124,7 @@ def _fetch_rows():
                 FROM polizas
                 WHERE activo = 1
                   AND (anulado = 0 OR anulado IS NULL)
+                  AND COALESCE(prima_anulada, 0) = 0
                 GROUP BY poliza_plain
             ) p_lookup
               ON c.poliza_id IS NULL
@@ -138,6 +139,7 @@ def _fetch_rows():
             WHERE c.activo = 1
               AND p.activo = 1
               AND (p.anulado = 0 OR p.anulado IS NULL)
+              AND COALESCE(p.prima_anulada, 0) = 0
         """
 
         params = []
