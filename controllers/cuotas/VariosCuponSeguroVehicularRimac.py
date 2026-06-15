@@ -50,37 +50,75 @@ def extract_cronograma_cuotas_seguro_vehicular_rimac(
 
     cuotas: List[Dict[str, object]] = []
     seen = set()
+    has_explicit_num = False
+
+    importe_re = r"\(?\s*(?:[-−–—]\s*)?\d[\d\.,]*\s*\)?"
+    date_re = r"\d{1,2}[/-]\d{1,2}[/-]\d{4}"
 
     patterns = [
         re.compile(
-            r"\b(?P<num>\d{1,3})[\s|¦│]+"
+            r"\b(?P<num>(?:[1-9]|[1-5]\d|60))[\s|¦│]+"
             r"(?:(?P<tipo>[A-Z]{1,6})[\s|¦│]+)?"
             r"(?P<doc>\d{6,25})[\s|¦│]+"
-            r"(?P<fecha>\d{1,2}[/-]\d{1,2}[/-]\d{4})(?!\d)[\s|¦│]+"
-            r"(?P<importe>\d[\d\.,]*)",
+            rf"(?P<fecha>{date_re})(?!\d)[\s|¦│]+"
+            rf"(?P<importe>{importe_re})",
             re.IGNORECASE,
         ),
         re.compile(
-            r"\b(?P<num>\d{1,3})[\s|¦│]+"
+            r"\b(?P<num>(?:[1-9]|[1-5]\d|60))[\s|¦│]+"
             r"(?:(?P<tipo>[A-Z]{1,6})[\s|¦│]+)?"
             r"(?P<doc>\d{6,25})[\s|¦│]+"
-            r"(?P<importe>\d[\d\.,]*)[\s|¦│]+"
-            r"(?P<fecha>\d{1,2}[/-]\d{1,2}[/-]\d{4})(?!\d)",
+            rf"(?P<importe>{importe_re})[\s|¦│]+"
+            rf"(?P<fecha>{date_re})(?!\d)",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            rf"\b(?P<doc>\d{{6,25}})[\s|¦│]+"
+            rf"(?P<fecha>{date_re})(?!\d)[\s|¦│]+"
+            rf"(?P<importe>{importe_re})",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            rf"\b(?P<doc>\d{{6,25}})[\s|¦│]+"
+            rf"(?P<importe>{importe_re})[\s|¦│]+"
+            rf"(?P<fecha>{date_re})(?!\d)",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            rf"\b(?P<doc_a>\d{{3,4}})[\s|¦│]+(?P<doc_b>\d{{4,22}})[\s|¦│]+"
+            rf"(?P<fecha>{date_re})(?!\d)[\s|¦│]+"
+            rf"(?P<importe>{importe_re})",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            rf"\b(?P<doc_a>\d{{3,4}})[\s|¦│]+(?P<doc_b>\d{{4,22}})[\s|¦│]+"
+            rf"(?P<importe>{importe_re})[\s|¦│]+"
+            rf"(?P<fecha>{date_re})(?!\d)",
             re.IGNORECASE,
         ),
     ]
 
     for pat in patterns:
         for m in pat.finditer(section):
-            doc = (m.group("doc") or "").strip()
+            doc = (m.groupdict().get("doc") or "").strip()
+            if not doc:
+                da = (m.groupdict().get("doc_a") or "").strip()
+                db = (m.groupdict().get("doc_b") or "").strip()
+                if da and db:
+                    doc = f"{da}{db}"
             if not doc or doc in seen:
                 continue
             seen.add(doc)
             numero_cuota = None
-            try:
-                numero_cuota = int((m.group("num") or "").strip())
-            except Exception:
-                numero_cuota = None
+            num_raw = (m.groupdict().get("num") or "").strip()
+            if num_raw:
+                try:
+                    numero_cuota = int(num_raw)
+                    has_explicit_num = True
+                except Exception:
+                    numero_cuota = None
+            if numero_cuota is None:
+                numero_cuota = len(cuotas) + 1
             cuotas.append(
                 {
                     "numero_cuota": numero_cuota,
@@ -93,5 +131,34 @@ def extract_cronograma_cuotas_seguro_vehicular_rimac(
                 }
             )
 
+    if cuotas:
+        filtered: List[Dict[str, object]] = []
+        for c in cuotas:
+            doc = str(c.get("cupon") or "").strip()
+            if not doc:
+                continue
+            if len(doc) >= 9:
+                filtered.append(c)
+                continue
+            same_row_has_longer = False
+            for o in cuotas:
+                odoc = str(o.get("cupon") or "").strip()
+                if len(odoc) <= len(doc):
+                    continue
+                if not odoc.endswith(doc):
+                    continue
+                if (o.get("fecha_vencimiento") or "") != (c.get("fecha_vencimiento") or ""):
+                    continue
+                if (o.get("importe") or "") != (c.get("importe") or ""):
+                    continue
+                same_row_has_longer = True
+                break
+            if not same_row_has_longer:
+                filtered.append(c)
+        cuotas = filtered
+
     cuotas.sort(key=lambda x: (x.get("numero_cuota") is None, x.get("numero_cuota") or 0))
+    if cuotas and not has_explicit_num:
+        for i, c in enumerate(cuotas, start=1):
+            c["numero_cuota"] = i
     return cuotas
