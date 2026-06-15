@@ -6,7 +6,8 @@ from utils.rbac import Roles
 def _get_poliza_activa_sql(alias='p'):
     return (
         f"COALESCE(NULLIF(TRIM(REPLACE(CONVERT({alias}.activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1' "
-        f"AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT({alias}.anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0'"
+        f"AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT({alias}.anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0' "
+        f"AND COALESCE({alias}.prima_anulada, 0) = 0"
     )
 
 def _get_cuota_join_sql(poliza_alias='p', cuota_alias='q'):
