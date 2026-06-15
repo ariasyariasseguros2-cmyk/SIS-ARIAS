@@ -28,6 +28,7 @@ def _build_filters(filters: Dict[str, Any]) -> Tuple[str, List[Any]]:
 
     sql_filters.append("p.activo = 1")
     sql_filters.append("(p.anulado = 0 OR p.anulado IS NULL)")
+    sql_filters.append("COALESCE(p.prima_anulada, 0) = 0")
 
     vig_desde = filters.get("vig_desde")
     vig_hasta = filters.get("vig_hasta")
