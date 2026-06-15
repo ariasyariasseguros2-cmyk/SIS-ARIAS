@@ -7,7 +7,7 @@ def get_produccion_soat(page=1, per_page=20, search='', fecha_desde=None, fecha_
     try:
         offset = (page - 1) * per_page
 
-        where_clauses = ["p.ramo LIKE '%SOAT%'", "p.anulado = 0"]
+        where_clauses = ["p.ramo LIKE '%SOAT%'", "p.anulado = 0", "COALESCE(p.prima_anulada, 0) = 0"]
         params = []
 
         if search:
@@ -112,7 +112,7 @@ def export_produccion_soat_excel(search='', fecha_desde=None, fecha_hasta=None):
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
     try:
-        where_clauses = ["p.ramo LIKE '%SOAT%'", "p.anulado = 0"]
+        where_clauses = ["p.ramo LIKE '%SOAT%'", "p.anulado = 0", "COALESCE(p.prima_anulada, 0) = 0"]
         params = []
 
         if search:
