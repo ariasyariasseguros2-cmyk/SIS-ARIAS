@@ -15,6 +15,7 @@ def api_usuarios():
             FROM polizas p
             WHERE p.activo = 1
               AND (p.anulado = 0 OR p.anulado IS NULL)
+              AND COALESCE(p.prima_anulada, 0) = 0
               AND p.usuario_registro IS NOT NULL
               AND TRIM(p.usuario_registro) <> ''
             ORDER BY TRIM(p.usuario_registro) ASC
