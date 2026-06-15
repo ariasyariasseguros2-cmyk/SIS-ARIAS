@@ -436,25 +436,60 @@
   function normalizePolicyLookupKey(value) {
     return String(value || '').replace(/\s+/g, '').trim().toLowerCase();
   }
-  async function fetchAseguradaByPoliza(numeroPoliza) {
+  function normalizeRamoFromPolicyHit(ramo) {
+    const raw = String(ramo || '').trim();
+    if (!raw) return '';
+    const abbrs = (window.ramosAbbrs || []).map(s => String(s || '').trim()).filter(Boolean);
+    return __mapRamoToAbbr(raw, abbrs) || raw;
+  }
+  async function fetchPolicyDataByPoliza(numeroPoliza) {
     const poliza = String(numeroPoliza || '').trim();
-    if (!poliza) return '';
+    if (!poliza) return null;
     try {
       const res = await fetch(`/api/polizas/search?q=${encodeURIComponent(poliza)}&type=historica`);
       const data = await res.json();
       const rows = Array.isArray(data?.rows) ? data.rows : [];
-      if (!rows.length) return '';
+      if (!rows.length) return null;
 
       const needle = normalizePolicyLookupKey(poliza);
       const exact = rows.find(r => normalizePolicyLookupKey(r?.poliza) === needle);
       const hit = exact || (rows.length === 1 ? rows[0] : null);
-      return String(hit?.asegurada || '').trim();
+      if (!hit) return null;
+
+      return {
+        asegurada: String(hit?.asegurada || '').trim(),
+        ramo: normalizeRamoFromPolicyHit(hit?.ramo),
+        ramos_producto: String(hit?.producto || hit?.ramos_producto || '').trim()
+      };
     } catch (err) {
-      console.error('Error fetching asegurada by poliza:', err);
-      return '';
+      console.error('Error fetching policy data by poliza:', err);
+      return null;
     }
   }
-  async function hydrateAseguradaFromPolizas(items) {
+  function applyPolicyDataToItem(item, policyData) {
+    if (!item || !policyData) return false;
+
+    let changed = false;
+    const asegurada = String(policyData.asegurada || '').trim();
+    const ramo = String(policyData.ramo || '').trim();
+    const producto = String(policyData.ramos_producto || '').trim();
+
+    if (asegurada && String(item.asegurada || '').trim() === '') {
+      item.asegurada = asegurada;
+      changed = true;
+    }
+    if (ramo && String(item.ramo || '').trim() !== ramo) {
+      item.ramo = ramo;
+      changed = true;
+    }
+    if (producto && String(item.ramos_producto || '').trim() !== producto) {
+      item.ramos_producto = producto;
+      changed = true;
+    }
+
+    return changed;
+  }
+  async function hydratePolicyDataFromPolizas(items) {
     const list = Array.isArray(items) ? items : [];
     if (!list.length) return list;
 
@@ -463,9 +498,8 @@
 
     for (const item of list) {
       if (!item) continue;
-      if (String(item.asegurada || '').trim() !== '') {
-        if (!topAsegurada) topAsegurada = String(item.asegurada || '').trim();
-        continue;
+      if (!topAsegurada && String(item.asegurada || '').trim() !== '') {
+        topAsegurada = String(item.asegurada || '').trim();
       }
 
       const poliza = String(item.numero_poliza || item.poliza || '').trim();
@@ -473,14 +507,16 @@
       if (!key) continue;
 
       if (!cache.has(key)) {
-        cache.set(key, await fetchAseguradaByPoliza(poliza));
+        cache.set(key, await fetchPolicyDataByPoliza(poliza));
       }
 
-      const asegurada = String(cache.get(key) || '').trim();
-      if (!asegurada) continue;
+      const policyData = cache.get(key);
+      if (!policyData) continue;
 
-      item.asegurada = asegurada;
-      if (!topAsegurada) topAsegurada = asegurada;
+      applyPolicyDataToItem(item, policyData);
+      if (!topAsegurada && String(policyData.asegurada || '').trim()) {
+        topAsegurada = String(policyData.asegurada || '').trim();
+      }
     }
 
     if (aseguradaTopEl && topAsegurada && !(aseguradaTopEl.value || '').trim()) {
@@ -489,6 +525,32 @@
     }
 
     return list;
+  }
+  async function hydratePolicyDataForRow(index) {
+    const item = extractedItems[index];
+    if (!item) return;
+
+    const poliza = String(item.numero_poliza || item.poliza || '').trim();
+    if (!poliza) return;
+
+    const policyData = await fetchPolicyDataByPoliza(poliza);
+    if (!policyData) return;
+
+    const changed = applyPolicyDataToItem(item, policyData);
+    const asegurada = String(policyData.asegurada || '').trim();
+    if (aseguradaTopEl && asegurada && !(aseguradaTopEl.value || '').trim()) {
+      aseguradaTopEl.value = asegurada;
+      syncAseguradaTopLock(true);
+    }
+    if (!changed) return;
+
+    const ramoTd = getTd(index, 'ramo');
+    if (ramoTd) {
+      ramoTd.innerHTML = buildRamoSelect(item.ramo || '');
+    }
+    await populateProductsForRamo(index, item.ramo || '');
+    fetchCommissionPct(index);
+    scheduleAutoSave();
   }
   function computeSubPctFromImport(compImportStr, subImportStr) {
     const comp = parseNumber(compImportStr);
@@ -1816,6 +1878,11 @@
         if (fvTd) fvTd.textContent = calc || '';
       }
     }
+    if (field === 'numero_poliza') {
+      hydratePolicyDataForRow(idx).catch(err => {
+        console.error('Error hydrating policy data for row:', err);
+      });
+    }
 
     // NUEVO: Auto-relleno de 'ramos_producto'
     // Si se edita Producto en una fila, y las demás filas tienen ese campo vacío, replicarlo.
@@ -2898,7 +2965,7 @@
             return { ...it, cia_value: val, cia: (opt ? opt.text : (it.cia || '')) || it.cia };
           });
 
-          items = await hydrateAseguradaFromPolizas(items);
+          items = await hydratePolicyDataFromPolizas(items);
 
           extractedItems = items;
           render(extractedItems);
