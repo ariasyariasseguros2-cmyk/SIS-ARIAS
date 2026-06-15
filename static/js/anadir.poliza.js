@@ -1199,8 +1199,11 @@
           ${cuotasHtml}
         </div>
 
-        <div class="top-row mt-2 d-flex justify-content-between align-items-center">
-          <button type="button" class="btn btn-sm btn-outline-primary action-add-cuota" data-index="${index}">+ Agregar Cuota</button>
+        <div class="top-row mt-2 d-flex justify-content-between align-items-center gap-2 flex-wrap">
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-sm btn-outline-primary action-add-cuota" data-index="${index}">+ Agregar Cuota</button>
+            ${hasMultipleCuotas ? `<button type="button" class="btn btn-sm btn-outline-warning action-remove-all-cuotas" data-index="${index}">Eliminar Cupones</button>` : ''}
+          </div>
           <button type="button" class="btn btn-sm btn-outline-danger action-remove" data-index="${index}">Eliminar Fila</button>
         </div>
       </div>
@@ -2022,10 +2025,11 @@
     const btnAttach = e.target.closest('.action-attach-factura');
     const btnAddCuota = e.target.closest('.action-add-cuota');
     const btnRemoveCuota = e.target.closest('.action-remove-cuota');
+    const btnRemoveAllCuotas = e.target.closest('.action-remove-all-cuotas');
     
-    if (!btnRemove && !btnDup && !btnAttach && !btnAddCuota && !btnRemoveCuota) return;
+    if (!btnRemove && !btnDup && !btnAttach && !btnAddCuota && !btnRemoveCuota && !btnRemoveAllCuotas) return;
 
-    const btn = (btnRemove || btnDup || btnAttach || btnAddCuota || btnRemoveCuota);
+    const btn = (btnRemove || btnDup || btnAttach || btnAddCuota || btnRemoveCuota || btnRemoveAllCuotas);
     const idx = Number(btn?.dataset?.index);
     if (!Number.isFinite(idx)) return;
 
@@ -2073,6 +2077,44 @@
         updateRowFilesUI(idx);
         scheduleAutoSave();
       }
+      return;
+    }
+
+    if (btnRemoveAllCuotas) {
+      const cuotas = Array.isArray(extractedItems[idx]?.cuotas) ? extractedItems[idx].cuotas : [];
+      if (!cuotas.length) return;
+
+      if (window.Swal) {
+        const res = await Swal.fire({
+          title: '¿Eliminar todos los cupones?',
+          text: 'Se eliminarán todas las cuotas y sus archivos adjuntos de esta fila.',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, eliminar todo',
+          cancelButtonText: 'Cancelar'
+        });
+        if (!res.isConfirmed) return;
+      } else {
+        if (!confirm('¿Estás seguro de eliminar todos los cupones de esta fila?')) return;
+      }
+
+      cuotas.forEach(cuota => {
+        const cuotaKey = getCuotaFileMapKey(idx, cuota);
+        const prevFile = cuotaKey ? cuotaFacturaFileMap.get(cuotaKey) : null;
+        if (!prevFile) return;
+
+        cuotaFacturaFileMap.delete(cuotaKey);
+        try {
+          const arr = rowFacturasMap.get(idx) || [];
+          const newArr = arr.filter(x => keyForFile(x) !== keyForFile(prevFile));
+          rowFacturasMap.set(idx, newArr);
+        } catch (_) {}
+      });
+
+      extractedItems[idx].cuotas = [];
+      refreshCuotasUI(idx);
+      updateRowFilesUI(idx);
+      scheduleAutoSave();
       return;
     }
 

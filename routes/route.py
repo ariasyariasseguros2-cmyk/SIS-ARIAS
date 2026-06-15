@@ -4650,8 +4650,12 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
                 for pl in pac_pages_low
             )
             if has_generales_v2:
+                from controllers.addPolizaPacificoGenerales_V3 import addPolizaPacificoGenerales_V3
                 from controllers.addPacificoGenerales_V2 import addPacificoGenerales_V2
-                data = addPacificoGenerales_V2(path)
+
+                data = addPolizaPacificoGenerales_V3(path)
+                if not data or data.get('error') or not data.get('poliza'):
+                    data = addPacificoGenerales_V2(path)
 
                 if data and not data.get('error') and data.get('poliza'):
                     it = {
@@ -4671,7 +4675,7 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
                         'comision_compania_importe': str(data.get('comision_compania_importe', '')),
                         'importe_comision': str(data.get('comision_compania_importe', '')),
                         'moneda': data.get('moneda'),
-                        'ramo': data.get('ramo') or 'SALUD',
+                        'ramo': data.get('ramo') or '',
                         'ramos_producto': data.get('producto')
                     }
 
