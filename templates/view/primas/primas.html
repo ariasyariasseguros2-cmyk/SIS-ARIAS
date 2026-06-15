@@ -98,8 +98,13 @@
             </thead>
             <tbody>
                 {% for r in rows %}
-                <tr>
-                    <td>{{ r.aviso if r.aviso and r.aviso not in ['None', 'null', 'NULL'] else '—' }}</td>
+                <tr {% if r.prima_anulada %}class="table-secondary text-muted" style="opacity:.72;"{% endif %}>
+                    <td>
+                        {{ r.aviso if r.aviso and r.aviso not in ['None', 'null', 'NULL'] else '—' }}
+                        {% if r.prima_anulada %}
+                        <span class="badge bg-danger ms-1" style="font-size:.65em;">ANULADA</span>
+                        {% endif %}
+                    </td>
                     <td>{{ r.poliza }}</td>
                     <td>{{ r.contratante }}</td>
                     <td>{{ r.compania }}</td>
@@ -111,7 +116,7 @@
                     <td>{{ r.vig_inicio }}</td>
                     <td>{{ r.vig_fin }}</td>
                     <td>{{ r.nro_operacion or '' }}</td>
-                    <td>{{ r.motivo }} </td>
+                    <td>{{ r.motivo }}</td>
                     <td class="text-end">
                         <div class="action-buttons justify-content-end">
                             <button class="btn-action btn-primary btn-cuotas"
@@ -120,11 +125,18 @@
                                     data-aviso="{{ r.aviso if r.aviso and r.aviso not in ['None', 'null', 'NULL'] else '' }}">Cuotas</button>
                             <a href="{{ url_for('main.menu_page', page='avisos') }}?id={{ r.idPrima }}" class="btn-action btn-secondary">Pdf</a>
                             <button class="btn-action btn-info btn-detalles" data-id="{{ r.idPrima }}">Detalles</button>
-                            {% if can_edit(session.role_name) %}
-                            <button class="btn-action btn-success btn-editar" data-id="{{ r.idPrima }}">Editar</button>
-                            {% endif %}
-                            {% if can_delete(session.role_name) %}
-                            <button class="btn-action btn-danger btn-eliminar" data-id="{{ r.idPrima }}">Eliminar</button>
+                            {% if not r.prima_anulada %}
+                                {% if can_edit(session.role_name) %}
+                                <button class="btn-action btn-success btn-editar" data-id="{{ r.idPrima }}">Editar</button>
+                                {% endif %}
+                                {% if can_restore(session.role_name) %}
+                                <button class="btn-action btn-warning btn-anular-prima"
+                                        data-id="{{ r.idPrima }}"
+                                        title="Anular esta prima y sus cuotas">Anular</button>
+                                {% endif %}
+                                {% if can_delete(session.role_name) %}
+                                <button class="btn-action btn-danger btn-eliminar" data-id="{{ r.idPrima }}">Eliminar</button>
+                                {% endif %}
                             {% endif %}
                         </div>
                     </td>
@@ -197,6 +209,47 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" id="btnPrimasConfirmCancel">Cancelar</button>
                 <button type="button" class="btn btn-danger btn-sm" id="btnPrimasConfirmOk">Aceptar</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal Anular Prima -->
+<div class="modal fade" id="anularPrimaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning bg-opacity-10 border-bottom">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Anular Prima
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">
+                    Esta acción anulará <strong>esta prima</strong> y todas sus cuotas asociadas.<br>
+                    La póliza y las demás primas <strong>no</strong> se verán afectadas.
+                </p>
+                <input type="hidden" id="anularPrimaId">
+                <div class="mb-3">
+                    <label for="anularPrimaMotivo" class="form-label fw-semibold">
+                        Motivo <span class="text-danger">*</span>
+                    </label>
+                    <textarea id="anularPrimaMotivo" class="form-control" rows="3"
+                              maxlength="200" placeholder="Indique el motivo de la anulación..."></textarea>
+                    <div class="form-text text-end">
+                        <span id="anularPrimaMotivoCount">0</span>/200
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label for="anularPrimaFecha" class="form-label fw-semibold">Fecha de anulación</label>
+                    <input type="date" id="anularPrimaFecha" class="form-control">
+                </div>
+                <div id="anularPrimaError" class="alert alert-danger d-none py-2 mt-2" role="alert"></div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning btn-sm fw-bold" id="btnConfirmarAnularPrima">
+                    <i class="bi bi-x-circle me-1"></i>Confirmar Anulación
+                </button>
             </div>
         </div>
     </div>
