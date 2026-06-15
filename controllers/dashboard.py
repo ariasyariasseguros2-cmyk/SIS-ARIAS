@@ -61,6 +61,7 @@ def get_expired_policy_notifications(limit: int = 10) -> List[dict]:
             FROM polizas
             WHERE COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1'
               AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0'
+              AND COALESCE(prima_anulada, 0) = 0
               AND vig_hasta IS NOT NULL
               AND (
                     vig_hasta < CURDATE()
@@ -215,7 +216,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
         # 2. Pólizas Activas (vigencia_hasta >= hoy)
         try:
             # Note: user_filter starts with AND, so we need WHERE clause first
-            sql = f"SELECT COUNT(*) FROM polizas WHERE COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1' AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0' AND vig_hasta >= CURDATE() {user_filter}"
+            sql = f"SELECT COUNT(*) FROM polizas WHERE COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1' AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0' AND COALESCE(prima_anulada, 0) = 0 AND vig_hasta >= CURDATE() {user_filter}"
             cur.execute(sql, user_filter_args)
             res = cur.fetchone()
             if res: cards['active_policies'] = res[0]
@@ -223,7 +224,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
         
         # 2b. Pólizas Registradas (no anuladas; excluye eliminadas lógicamente)
         try:
-            sql = f"SELECT COUNT(*) FROM polizas WHERE COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1' AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0' {user_filter}"
+            sql = f"SELECT COUNT(*) FROM polizas WHERE COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1' AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0' AND COALESCE(prima_anulada, 0) = 0 {user_filter}"
             cur.execute(sql, user_filter_args)
             res = cur.fetchone()
             if res: cards['total_policies'] = res[0]
@@ -233,7 +234,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
         # vigencia_hasta BETWEEN FirstDayNextMonth AND LastDayNextMonth
         try:
             # Simplificado: entre hoy y hoy+30 días
-            sql = f"SELECT COUNT(*) FROM polizas WHERE COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1' AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0' AND vig_hasta BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) {user_filter}"
+            sql = f"SELECT COUNT(*) FROM polizas WHERE COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1' AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0' AND COALESCE(prima_anulada, 0) = 0 AND vig_hasta BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) {user_filter}"
             cur.execute(sql, user_filter_args)
             res = cur.fetchone()
             if res: cards['pending_renewals'] = res[0]
@@ -248,7 +249,8 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND MONTH(vig_desde) = MONTH(CURDATE()) 
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1'
-                  AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0' {user_filter}
+                  AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0'
+                  AND COALESCE(prima_anulada, 0) = 0 {user_filter}
             """
             cur.execute(sql, user_filter_args)
             curr_res = cur.fetchone()
@@ -261,7 +263,8 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND MONTH(vig_desde) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) 
                   AND YEAR(vig_desde) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
                   AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1'
-                  AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0' {user_filter}
+                  AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0'
+                  AND COALESCE(prima_anulada, 0) = 0 {user_filter}
             """
             cur.execute(sql, user_filter_args)
             prev_res = cur.fetchone()
@@ -282,7 +285,8 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND MONTH(vig_desde) = MONTH(CURDATE()) 
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1'
-                  AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0' {user_filter}
+                  AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0'
+                  AND COALESCE(prima_anulada, 0) = 0 {user_filter}
             """
             cur.execute(sql, user_filter_args)
             curr_com_res = cur.fetchone()
@@ -295,7 +299,8 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND MONTH(vig_desde) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) 
                   AND YEAR(vig_desde) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
                   AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1'
-                  AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0' {user_filter}
+                  AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0'
+                  AND COALESCE(prima_anulada, 0) = 0 {user_filter}
             """
             cur.execute(sql, user_filter_args)
             prev_com_res = cur.fetchone()
@@ -330,6 +335,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1'
                   AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0'
+                  AND COALESCE(prima_anulada, 0) = 0
                   AND {moneda_bucket} = 'S/'
                   {user_filter}
             """
@@ -345,6 +351,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1'
                   AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0'
+                  AND COALESCE(prima_anulada, 0) = 0
                   AND {moneda_bucket} = 'US$'
                   {user_filter}
             """
@@ -360,6 +367,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1'
                   AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0'
+                  AND COALESCE(prima_anulada, 0) = 0
                   AND {moneda_bucket} = 'S/'
                   {user_filter}
             """
@@ -375,6 +383,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
                   AND YEAR(vig_desde) = YEAR(CURDATE())
                   AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1'
                   AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0'
+                  AND COALESCE(prima_anulada, 0) = 0
                   AND {moneda_bucket} = 'US$'
                   {user_filter}
             """
@@ -456,6 +465,7 @@ def get_dashboard_data() -> Dict[str, Any]:
               AND YEAR(p.vig_desde) = YEAR(CURDATE())
               AND p.activo = 1
               AND (p.anulado = 0 OR p.anulado IS NULL)
+              AND COALESCE(p.prima_anulada, 0) = 0
               {user_filter}
             GROUP BY MONTH(p.vig_desde), ({moneda_bucket})
             ORDER BY MONTH(p.vig_desde)
