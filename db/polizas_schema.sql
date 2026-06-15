@@ -606,6 +606,7 @@ CREATE TABLE IF NOT EXISTS polizas (
 
     estado VARCHAR(20) DEFAULT 'PENDIENTE',
     anulado TINYINT(1) NOT NULL DEFAULT 0,
+    prima_anulada TINYINT(1) NOT NULL DEFAULT 0,
     activo TINYINT(1) NOT NULL DEFAULT 1,
     recibo_uk VARCHAR(50) GENERATED ALWAYS AS (
         CASE
@@ -1060,11 +1061,14 @@ BEGIN
 END$$
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS sp_list_primas_por_poliza$$
+DELIMITER ;
 DELIMITER $$
 CREATE PROCEDURE sp_list_primas_por_poliza(IN p_poliza VARCHAR(50))
 BEGIN
     SELECT
-        p.idPoliza,  -- Added ID
+        p.idPoliza,
+        p.prima_anulada,
         COALESCE(
             CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
             CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
@@ -1074,7 +1078,7 @@ BEGIN
             CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
             CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
             p.recibo
-        ) AS cupon, -- Alias for consistency
+        ) AS cupon,
         COALESCE(
             CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
             CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
@@ -1087,12 +1091,11 @@ BEGIN
         ) AS contratante,
         p.cia AS compania,
         p.ramo,
-        -- aquí antes estaba: 'Emision' AS tipo,
         p.tipo_doc AS tipo,
         p.prima_comercial,
         p.prima_neta,
         p.prima_comercial_igv,
-        p.prima_comercial_igv AS importe, -- Alias for consistency
+        p.prima_comercial_igv AS importe,
         p.moneda,
         DATE_FORMAT(p.fecha_vencimiento, '%d/%m/%Y') AS fecha_vencimiento,
         DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
@@ -1116,17 +1119,21 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
+DROP PROCEDURE IF EXISTS sp_list_primas_por_cliente_id$$
+DELIMITER ;
+DELIMITER $$
 -- sp_list_primas_por_cliente_id
 CREATE PROCEDURE sp_list_primas_por_cliente_id(IN p_cliente_id INT)
 BEGIN
     SELECT
-        p.idPoliza,  -- Added ID
+        p.idPoliza,
+        p.prima_anulada,
         COALESCE(
             CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
             CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
             p.recibo
         ) AS recibo,
-        p.ejecutivo AS Ejecutivo,          -- corregido: antes p.ejecutivos
+        p.ejecutivo AS Ejecutivo,
         COALESCE(
             CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
             CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
@@ -1354,6 +1361,106 @@ BEGIN
        );
 
     SELECT ROW_COUNT() AS affected_rows;
+END$$
+DELIMITER ;
+
+-- SP: Anula UNA prima específica y solo sus cuotas ligadas.
+-- Usa prima_anulada=1 (NO anulado=1) para que la póliza padre
+-- permanezca visible en el listado de pólizas activas.
+-- El UPDATE de cuotas filtra por idCuota (PK) via subquery
+-- para no requerir SQL_SAFE_UPDATES=0.
+DELIMITER $$
+DROP PROCEDURE IF EXISTS sp_anular_prima$$
+CREATE PROCEDURE sp_anular_prima(
+    IN p_prima_id   INT,
+    IN p_usuario    VARCHAR(100),
+    IN p_motivo     VARCHAR(200),
+    IN p_fecha      DATE
+)
+BEGIN
+    DECLARE v_usuario_nombre VARCHAR(100);
+    DECLARE v_poliza_numero  VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+    DECLARE v_recibo_prima   VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+    DECLARE v_affected       INT DEFAULT 0;
+
+    -- Resolver nombre de usuario
+    SET v_usuario_nombre = NULL;
+    IF p_usuario IS NOT NULL AND TRIM(p_usuario) <> '' THEN
+        SELECT COALESCE(NULLIF(TRIM(nombre), ''), username)
+        INTO v_usuario_nombre
+        FROM usuarios
+        WHERE username = p_usuario
+        LIMIT 1;
+    END IF;
+    IF v_usuario_nombre IS NULL OR v_usuario_nombre = '' THEN
+        SET v_usuario_nombre = p_usuario;
+    END IF;
+
+    -- Obtener número de póliza y recibo (cupon) de la prima
+    SELECT
+        TRIM(COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+            CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+            poliza
+        )),
+        TRIM(COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+            CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+            recibo
+        ))
+    INTO v_poliza_numero, v_recibo_prima
+    FROM polizas
+    WHERE idPoliza = p_prima_id
+    LIMIT 1;
+
+    -- Marcar prima como anulada (prima_anulada=1, anulado permanece 0
+    -- → la póliza sigue visible en el listado de pólizas activas).
+    -- idPoliza es PK: no activa safe mode.
+    UPDATE polizas
+    SET prima_anulada   = 1,
+        estado          = 'ANULADA',
+        motivo          = p_motivo,
+        usuario_edicion = v_usuario_nombre
+    WHERE idPoliza      = p_prima_id
+      AND activo        = 1
+      AND prima_anulada = 0;
+
+    SET v_affected = ROW_COUNT();
+
+    -- Auditoría
+    IF v_affected > 0 THEN
+        INSERT INTO poliza_anulaciones (poliza_id, poliza_numero, usuario, motivo, fecha_anulacion)
+        VALUES (p_prima_id, v_poliza_numero, v_usuario_nombre, p_motivo, COALESCE(p_fecha, CURDATE()));
+    END IF;
+
+    -- Anular cuotas de esta prima filtrando por idCuota (PK) via subquery.
+    -- El doble nivel de subquery es necesario porque MySQL no permite
+    -- UPDATE sobre la misma tabla que aparece en el FROM del subquery directo.
+    UPDATE cuotas
+    SET activo          = 0,
+        anular          = 0,
+        usuario_edicion = v_usuario_nombre
+    WHERE idCuota IN (
+        SELECT id FROM (
+            SELECT idCuota AS id
+            FROM cuotas
+            WHERE activo = 1
+              AND (
+                    poliza_id = p_prima_id
+                    OR (
+                        v_recibo_prima IS NOT NULL
+                        AND TRIM(v_recibo_prima) <> ''
+                        AND TRIM(COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                cupon
+                            )) COLLATE utf8mb4_0900_ai_ci = (v_recibo_prima COLLATE utf8mb4_0900_ai_ci)
+                    )
+              )
+        ) AS _ids
+    );
+
+    SELECT v_affected AS affected_rows;
 END$$
 DELIMITER ;
 
@@ -1978,7 +2085,7 @@ BEGIN
     FROM polizas p
     INNER JOIN clientes c ON c.idCliente = p.cliente_id
     LEFT JOIN usuarios ur ON ur.username = p.usuario_registro OR ur.nombre = p.usuario_registro
-    WHERE p.activo = 1 AND p.anulado = 0
+    WHERE p.activo = 1 AND p.anulado = 0 AND COALESCE(p.prima_anulada, 0) = 0
     AND (
         p_usuarios IS NULL
         OR p_usuarios = ''
