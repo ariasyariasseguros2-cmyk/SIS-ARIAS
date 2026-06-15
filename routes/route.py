@@ -6400,6 +6400,93 @@ def api_polizas_anular():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+@bp.route('/api/primas/anular', methods=['POST'])
+@require_permission(can_restore, response_mode='json', ownership_check_fn=poliza_owner_from_request)
+def api_primas_anular():
+    """Anula una prima específica (fila en polizas) y solo sus cuotas ligadas,
+    sin anular la póliza padre ni otras primas del mismo número de póliza."""
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+    data = request.get_json(silent=True) or {}
+    pid = data.get('idPrima') or data.get('idPoliza')
+    motivo = (data.get('motivo') or '').strip()
+    fecha_anulacion = data.get('fechaAnulacion') or None
+    if not pid:
+        return jsonify({'ok': False, 'error': 'ID requerido'}), 400
+    if not motivo:
+        return jsonify({'ok': False, 'error': 'Motivo requerido'}), 400
+    if len(motivo) > 200:
+        return jsonify({'ok': False, 'error': 'El motivo supera 200 caracteres'}), 400
+    if fecha_anulacion:
+        try:
+            from datetime import datetime
+            datetime.strptime(fecha_anulacion, '%Y-%m-%d')
+        except Exception:
+            return jsonify({'ok': False, 'error': 'Fecha de anulación inválida'}), 400
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        try:
+            cur = cnx.cursor(buffered=True)
+        except TypeError:
+            cur = cnx.cursor()
+        try:
+            cur.execute(
+                "CALL sp_anular_prima(%s, %s, %s, %s)",
+                (pid, session.get('user'), motivo, fecha_anulacion)
+            )
+            affected = 0
+            try:
+                for result in cur.stored_results():
+                    row = result.fetchone()
+                    if row is not None:
+                        try:
+                            affected = int(row[0])
+                        except Exception:
+                            try:
+                                affected = int(row.get('affected_rows', 0))
+                            except Exception:
+                                affected = 0
+                while cur.nextset():
+                    pass
+            except Exception:
+                pass
+            cnx.commit()
+            if affected > 0:
+                cur.close()
+                cnx.close()
+                return jsonify({'ok': True})
+            # Fallback: verificar si ya estaba anulada (idempotente)
+            cur.execute("SELECT prima_anulada, activo FROM polizas WHERE idPoliza=%s", (pid,))
+            st = cur.fetchone()
+            if st is None:
+                cur.close()
+                cnx.close()
+                return jsonify({'ok': False, 'error': 'Prima no encontrada'}), 400
+            try:
+                already = (int(st[0]) == 1) if st is not None else False
+            except Exception:
+                try:
+                    already = (int(st.get('prima_anulada', 0)) == 1)
+                except Exception:
+                    already = False
+            cur.close()
+            cnx.close()
+            if already:
+                return jsonify({'ok': True, 'status': 'already_anulled'})
+            return jsonify({'ok': False, 'error': 'No se pudo anular la prima'}), 400
+        except Exception as e:
+            try:
+                cnx.rollback()
+                cur.close()
+                cnx.close()
+            except Exception:
+                pass
+            return jsonify({'ok': False, 'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 @bp.route('/api/maestros/<entidad>/<int:id_>', methods=['DELETE'])
 @require_permission(can_access_maestros, response_mode='json')
 def api_maestros_delete(entidad, id_):
