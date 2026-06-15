@@ -4634,8 +4634,22 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             pac_pages = page_texts if page_texts else [text]
             pac_pages_low = [(p or "").lower() for p in pac_pages]
 
-            has_multisalud = any(re.search(r"multisalud", pl) or re.search(r"aviso\s+de\s+cobranza", pl) for pl in pac_pages_low)
-            if has_multisalud:
+            has_exclusion = any(
+                re.search(r"\bvida\s+ley\b", pl)
+                or re.search(r"liquidaci[oó]n\s+de\s+prima", pl)
+                or re.search(r"factura\s+electr[óo]nica", pl)
+                or re.search(r"\bpensi[oó]n\b", pl)
+                for pl in pac_pages_low
+            )
+            has_generales_v2 = (not has_exclusion) and any(
+                (
+                    re.search(r"aviso\s+de\s+cobranza", pl)
+                    or (re.search(r"\bproducto\b", pl) and re.search(r"\bprima\s+comercial\b", pl))
+                )
+                and re.search(r"\bp[oó]liza\b", pl)
+                for pl in pac_pages_low
+            )
+            if has_generales_v2:
                 from controllers.addPacificoGenerales_V2 import addPacificoGenerales_V2
                 data = addPacificoGenerales_V2(path)
 
@@ -4654,8 +4668,10 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
                         'prima_total': str(data.get('total', '')),
                         'prima_comercial_igv': str(data.get('total', '')),
                         'prima_comercial': str(data.get('prima_neta', '')),
+                        'comision_compania_importe': str(data.get('comision_compania_importe', '')),
+                        'importe_comision': str(data.get('comision_compania_importe', '')),
                         'moneda': data.get('moneda'),
-                        'ramo': 'SALUD',
+                        'ramo': data.get('ramo') or 'SALUD',
                         'ramos_producto': data.get('producto')
                     }
 

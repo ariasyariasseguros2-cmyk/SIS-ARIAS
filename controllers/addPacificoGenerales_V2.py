@@ -7,7 +7,7 @@ def addPacificoGenerales_V2(filepath):
 
     data = {
         "aseguradora": "PACIFICO",
-        "producto": "MULTISALUD",
+        "producto": "",
         "poliza": "",
         "recibo": "",
         "inicio": "",
@@ -18,6 +18,8 @@ def addPacificoGenerales_V2(filepath):
         "prima_neta": 0.0,
         "igv": 0.0,
         "total": 0.0,
+        "comision_compania_importe": 0.0,
+        "ramo": "",
         "moneda": "S/.", 
         "error": None
     }
@@ -78,6 +80,27 @@ def addPacificoGenerales_V2(filepath):
                 data["moneda"] = "S/."
     except Exception:
         pass
+
+    low = (text or "").lower()
+    m_producto = re.search(r'^\s*Producto\s*[:.]?\s*([^\n]+)', text, re.IGNORECASE | re.MULTILINE)
+    if m_producto:
+        prod = (m_producto.group(1) or "").strip()
+        prod = re.sub(r"\s+", " ", prod)
+        prod = re.sub(r"\s*-\s*\d{6,}\s*$", "", prod).strip()
+        if prod:
+            data["producto"] = prod.upper()
+    elif re.search(r"\bcascos\s+no\s+pesqueros\b", low):
+        data["producto"] = "CASCOS"
+    elif re.search(r"\btransportes\s*-\s*carga\s+abierta\b", low):
+        data["producto"] = "CARGA ABIERTA"
+    if re.search(r"\bseguro\s+de\s+salud\s+red\s+preferente\b", low) or re.search(r"\bred\s+preferente\b", low):
+        data["producto"] = "RED PREFERENTE"
+    elif "multisalud" in low:
+        data["producto"] = "MULTISALUD"
+    elif re.search(r"\bcascos\s+no\s+pesqueros\b", low):
+        data["producto"] = "CASCOS"
+    elif re.search(r"\btransportes\s*-\s*carga\s+abierta\b", low):
+        data["producto"] = "CARGA ABIERTA"
 
     # 1. Póliza
     # Matches: Póliza : 13404419, Póliza N°: 13404419, Póliza No 13404419-65874107
@@ -323,6 +346,46 @@ def addPacificoGenerales_V2(filepath):
              # Back-calculate net
              data["prima_neta"] = round(data["total"] / 1.18, 2)
              data["igv"] = round(data["total"] - data["prima_neta"], 2)
+
+    # 5. Comisión por intermediación
+    m_comision = re.search(
+        r'Comisi[oó]n\s+por\s+Intermediaci[oó]n[\s\S]{0,80}?'
+        r'(?:S\s*\/\.?|US\$|USD|SOLES|PEN)\s*'
+        r'(\(?\s*[-−–—]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2}\s*\)?)',
+        text,
+        re.IGNORECASE,
+    )
+    if m_comision:
+        data["comision_compania_importe"] = clean_amount(m_comision.group(1))
+
+    prod_low = (data.get("producto") or "").lower()
+    if re.search(r"\bcascos\s+no\s+pesqueros\b", low) or re.search(r"\bcascos\b", prod_low):
+        data["producto"] = "CASCOS"
+        data["ramo"] = "CASCOS MARITIMOS"
+    elif re.search(r"\btransportes\s*-\s*carga\s+abierta\b", low) or re.search(r"\bcarga\s+abierta\b", prod_low):
+        data["producto"] = "CARGA ABIERTA"
+        data["ramo"] = "TRANSPORTES"
+    elif re.search(r"\bseguro\s+de\s+salud\s+red\s+preferente\b", low) or re.search(r"\bred\s+preferente\b", prod_low):
+        data["producto"] = "RED PREFERENTE"
+        data["ramo"] = "ASISTENCIA MEDICA FAMILIAR"
+    elif "multisalud" in prod_low or ("multisalud" in low):
+        data["producto"] = "MULTISALUD"
+        data["ramo"] = "ASISTENCIA MEDICA FAMILIAR"
+    elif any(k in prod_low for k in ["salud"]) or re.search(r"\bseguro\s+de\s+salud\b", low):
+        data["ramo"] = "SALUD"
+    else:
+        has_vehicle_hint = (
+            re.search(r"\bvehicular\b", low)
+            or re.search(r"\bveh[ií]cul", low)
+            or re.search(r"\bautom[oó]vil", low)
+            or re.search(r"\bmoto", low)
+            or re.search(r"\bcami[oó]n", low)
+            or re.search(r"\bpick\s*up\b", low)
+            or re.search(r"\btaxi\b", low)
+            or re.search(r"\bauto\b", prod_low)
+        )
+        if has_vehicle_hint:
+            data["ramo"] = "VEHICULOS"
 
     data["inicio"] = _valid_date(data.get("inicio"))
     data["fin"] = _valid_date(data.get("fin"))
