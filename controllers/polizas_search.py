@@ -135,7 +135,7 @@ def filter_polizas_rapido(filter_type: str) -> dict:
                 p.usuario_edicion
             FROM polizas p
             INNER JOIN clientes c ON c.idCliente = p.cliente_id
-            WHERE p.activo = 1 AND p.anulado = 0
+            WHERE p.activo = 1 AND p.anulado = 0 AND COALESCE(p.prima_anulada, 0) = 0
         """
 
         today = date.today()
@@ -243,7 +243,7 @@ def search_polizas_global(query: str, search_type: str) -> dict:
                 p.usuario_edicion
             FROM polizas p
             INNER JOIN clientes c ON c.idCliente = p.cliente_id
-            WHERE p.activo = 1 AND p.anulado = 0
+            WHERE p.activo = 1 AND p.anulado = 0 AND COALESCE(p.prima_anulada, 0) = 0
         """
         params = []
         query = (query or '').strip()
