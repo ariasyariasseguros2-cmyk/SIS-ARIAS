@@ -460,12 +460,8 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                 return False, "El cupón ya existe para esta póliza.", None
 
         factura = val_or_none(data.get('factura'))
-        if factura:
-            cur.execute("SELECT 1 FROM cuotas WHERE factura = %s AND activo = 1 LIMIT 1", (factura,))
-            if cur.fetchone():
-                cur.close()
-                cnx.close()
-                return False, "El número de factura ya existe.", None
+        if isinstance(factura, str):
+            factura = factura.strip() or None
 
         importe_input = val_or_none(data.get('importe'))
         importe_val = None
@@ -498,6 +494,102 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
             row = cur.fetchone()
             if row:
                 poliza_id = row[0]
+
+        cia = None
+        if poliza_id is not None:
+            cur.execute("SELECT cia FROM polizas WHERE idPoliza = %s LIMIT 1", (poliza_id,))
+            rcia = cur.fetchone()
+            cia = (rcia[0] if rcia else None)
+        if cia is None and poliza:
+            cur.execute(
+                """
+                SELECT cia
+                FROM polizas
+                WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci)
+                      = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                ORDER BY creado_en DESC
+                LIMIT 1
+                """,
+                (poliza,),
+            )
+            rcia2 = cur.fetchone()
+            cia = (rcia2[0] if rcia2 else None)
+
+        if factura:
+            if cupon:
+                if cia:
+                    cur.execute(
+                        """
+                        SELECT 1
+                        FROM cuotas q
+                        INNER JOIN polizas p ON p.idPoliza = q.poliza_id
+                        WHERE q.activo = 1
+                          AND TRIM(COALESCE(q.factura, '')) COLLATE utf8mb4_0900_ai_ci
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.poliza), @SIS_KEY) USING utf8mb4), q.poliza) COLLATE utf8mb4_0900_ai_ci)
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) USING utf8mb4), q.cupon) COLLATE utf8mb4_0900_ai_ci)
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(COALESCE(p.cia, '')) COLLATE utf8mb4_0900_ai_ci
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                        LIMIT 1
+                        """,
+                        (factura, poliza, cupon, cia),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT 1
+                        FROM cuotas q
+                        WHERE q.activo = 1
+                          AND TRIM(COALESCE(q.factura, '')) COLLATE utf8mb4_0900_ai_ci
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.poliza), @SIS_KEY) USING utf8mb4), q.poliza) COLLATE utf8mb4_0900_ai_ci)
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) USING utf8mb4), q.cupon) COLLATE utf8mb4_0900_ai_ci)
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                        LIMIT 1
+                        """,
+                        (factura, poliza, cupon),
+                    )
+            else:
+                if cia:
+                    cur.execute(
+                        """
+                        SELECT 1
+                        FROM cuotas q
+                        INNER JOIN polizas p ON p.idPoliza = q.poliza_id
+                        WHERE q.activo = 1
+                          AND TRIM(COALESCE(q.factura, '')) COLLATE utf8mb4_0900_ai_ci
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.poliza), @SIS_KEY) USING utf8mb4), q.poliza) COLLATE utf8mb4_0900_ai_ci)
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND (q.cupon IS NULL OR TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) USING utf8mb4), q.cupon)) = '')
+                          AND TRIM(COALESCE(p.cia, '')) COLLATE utf8mb4_0900_ai_ci
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                        LIMIT 1
+                        """,
+                        (factura, poliza, cia),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT 1
+                        FROM cuotas q
+                        WHERE q.activo = 1
+                          AND TRIM(COALESCE(q.factura, '')) COLLATE utf8mb4_0900_ai_ci
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.poliza), @SIS_KEY) USING utf8mb4), q.poliza) COLLATE utf8mb4_0900_ai_ci)
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND (q.cupon IS NULL OR TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) USING utf8mb4), q.cupon)) = '')
+                        LIMIT 1
+                        """,
+                        (factura, poliza),
+                    )
+            if cur.fetchone():
+                cur.close()
+                cnx.close()
+                return False, "El número de factura ya existe.", None
 
         # Calcular numero_cuota (basado en póliza, no cupón)
         if poliza_id:
@@ -686,6 +778,8 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
             importe_nuevo = parsed
         fecha_pago_nueva = val_or_none(data.get('fecha_pago')) or fecha_pago_actual
         factura_nueva = val_or_none(data.get('factura')) or factura_actual
+        if isinstance(factura_nueva, str):
+            factura_nueva = factura_nueva.strip() or None
         observacion_nueva = val_or_none(data.get('observacion')) or observacion_actual
 
         if cupon_nuevo and cupon_nuevo != cupon_actual:
@@ -707,10 +801,106 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
                 return False, "El nuevo cupón ya existe para esta póliza."
 
         if factura_nueva and factura_nueva != factura_actual:
-            cur.execute(
-                "SELECT 1 FROM cuotas WHERE factura = %s AND idCuota <> %s AND activo = 1 LIMIT 1",
-                (factura_nueva, cuota_id),
-            )
+            cia = None
+            if poliza_id_actual is not None:
+                cur.execute("SELECT cia FROM polizas WHERE idPoliza = %s LIMIT 1", (poliza_id_actual,))
+                rcia = cur.fetchone()
+                cia = (rcia[0] if rcia else None)
+            if cia is None:
+                try:
+                    cur.execute(
+                        """
+                        SELECT cia
+                        FROM polizas
+                        WHERE TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza)) = TRIM(%s)
+                          AND (
+                                %s IS NULL
+                                OR TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR), recibo)) = TRIM(%s)
+                              )
+                        ORDER BY creado_en DESC
+                        LIMIT 1
+                        """,
+                        (poliza_actual, cupon_nuevo, cupon_nuevo),
+                    )
+                    rcia2 = cur.fetchone()
+                    cia = (rcia2[0] if rcia2 else None)
+                except Exception:
+                    cia = None
+
+            if cupon_nuevo:
+                if cia:
+                    cur.execute(
+                        """
+                        SELECT 1
+                        FROM cuotas q
+                        INNER JOIN polizas p ON p.idPoliza = q.poliza_id
+                        WHERE q.activo = 1
+                          AND q.idCuota <> %s
+                          AND TRIM(COALESCE(q.factura, '')) COLLATE utf8mb4_0900_ai_ci
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.poliza), @SIS_KEY) USING utf8mb4), q.poliza) COLLATE utf8mb4_0900_ai_ci)
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) USING utf8mb4), q.cupon) COLLATE utf8mb4_0900_ai_ci)
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(COALESCE(p.cia, '')) COLLATE utf8mb4_0900_ai_ci
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                        LIMIT 1
+                        """,
+                        (cuota_id, factura_nueva, poliza_actual, cupon_nuevo, cia),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT 1
+                        FROM cuotas q
+                        WHERE q.activo = 1
+                          AND q.idCuota <> %s
+                          AND TRIM(COALESCE(q.factura, '')) COLLATE utf8mb4_0900_ai_ci
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.poliza), @SIS_KEY) USING utf8mb4), q.poliza) COLLATE utf8mb4_0900_ai_ci)
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) USING utf8mb4), q.cupon) COLLATE utf8mb4_0900_ai_ci)
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                        LIMIT 1
+                        """,
+                        (cuota_id, factura_nueva, poliza_actual, cupon_nuevo),
+                    )
+            else:
+                if cia:
+                    cur.execute(
+                        """
+                        SELECT 1
+                        FROM cuotas q
+                        INNER JOIN polizas p ON p.idPoliza = q.poliza_id
+                        WHERE q.activo = 1
+                          AND q.idCuota <> %s
+                          AND TRIM(COALESCE(q.factura, '')) COLLATE utf8mb4_0900_ai_ci
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.poliza), @SIS_KEY) USING utf8mb4), q.poliza) COLLATE utf8mb4_0900_ai_ci)
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND (q.cupon IS NULL OR TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) USING utf8mb4), q.cupon)) = '')
+                          AND TRIM(COALESCE(p.cia, '')) COLLATE utf8mb4_0900_ai_ci
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                        LIMIT 1
+                        """,
+                        (cuota_id, factura_nueva, poliza_actual, cia),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT 1
+                        FROM cuotas q
+                        WHERE q.activo = 1
+                          AND q.idCuota <> %s
+                          AND TRIM(COALESCE(q.factura, '')) COLLATE utf8mb4_0900_ai_ci
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.poliza), @SIS_KEY) USING utf8mb4), q.poliza) COLLATE utf8mb4_0900_ai_ci)
+                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                          AND (q.cupon IS NULL OR TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) USING utf8mb4), q.cupon)) = '')
+                        LIMIT 1
+                        """,
+                        (cuota_id, factura_nueva, poliza_actual),
+                    )
             if cur.fetchone():
                 cur.close()
                 cnx.close()

@@ -3,6 +3,7 @@
         currentId: null,
         currentPoliza: null,
         currentPolizaId: null,
+        currentMoneda: '',
         _extractAbortController: null,
         _localPreviewUrl: null,
         _docValidationOk: true,
@@ -219,6 +220,7 @@
             this.currentId = data.idCuota || data.id_cuota || data.id || null;
             this.currentPoliza = polizaContext || data.poliza; // fallback
             this.currentPolizaId = data.poliza_id || data.polizaId || window.currentPolizaId || window.currentPrimaId || null;
+            this.currentMoneda = (data.moneda || window.currentMoneda || '').toString().trim();
             if (this._localPreviewUrl) {
                 try { URL.revokeObjectURL(this._localPreviewUrl); } catch (e) {}
                 this._localPreviewUrl = null;
@@ -254,6 +256,11 @@
                 }
                 return str;
             };
+
+            const monedaLabel = document.getElementById('editMonedaLabel');
+            if (monedaLabel) {
+                monedaLabel.textContent = this.currentMoneda || 'Moneda';
+            }
 
             setValue('editSecuencia', data.numero_cuota || data.secuencia || '');
             setValue('editCupon', data.cupon);
@@ -375,7 +382,7 @@
                         poliza: payload.poliza,
                         cupon: payload.cupon,
                         fecha_vencimiento: payload.fecha_vencimiento,
-                        moneda: 'S/.',
+                        moneda: this.currentMoneda || window.currentMoneda || 'S/.',
                         importe: payload.importe,
                         fecha_pago: payload.fecha_pago,
                         factura: payload.factura,

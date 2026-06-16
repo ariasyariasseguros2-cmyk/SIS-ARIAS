@@ -1197,16 +1197,31 @@ def _insertar_cuota_soat(cur, row, idx: int, poliza_num: str, cupon_poliza: str,
 
         k = get_encrypt_key()
         if factura:
+            cia = None
+            try:
+                cur.execute("SELECT cia FROM polizas WHERE idPoliza = %s LIMIT 1", (poliza_id,))
+                rcia = cur.fetchone()
+                cia = (rcia[0] if rcia else None)
+            except Exception:
+                cia = None
+
             cur.execute(
                 """
                 SELECT 1
-                FROM cuotas
-                WHERE activo = 1
-                  AND CONVERT(TRIM(COALESCE(factura, '')) USING utf8mb4) COLLATE utf8mb4_bin
+                FROM cuotas q
+                LEFT JOIN polizas p ON p.idPoliza = q.poliza_id
+                WHERE q.activo = 1
+                  AND CONVERT(TRIM(COALESCE(q.factura, '')) USING utf8mb4) COLLATE utf8mb4_bin
                       = CONVERT(TRIM(%s) USING utf8mb4) COLLATE utf8mb4_bin
+                  AND CONVERT(TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(q.poliza), %s) AS CHAR), q.poliza)) USING utf8mb4) COLLATE utf8mb4_bin
+                      = CONVERT(TRIM(%s) USING utf8mb4) COLLATE utf8mb4_bin
+                  AND CONVERT(TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(q.cupon), %s) AS CHAR), q.cupon)) USING utf8mb4) COLLATE utf8mb4_bin
+                      = CONVERT(TRIM(%s) USING utf8mb4) COLLATE utf8mb4_bin
+                  AND (%s IS NULL OR CONVERT(TRIM(COALESCE(p.cia, '')) USING utf8mb4) COLLATE utf8mb4_bin
+                      = CONVERT(TRIM(%s) USING utf8mb4) COLLATE utf8mb4_bin)
                 LIMIT 1
                 """,
-                (factura,),
+                (factura, k, poliza_num, k, cupon_poliza, cia, cia),
             )
             if cur.fetchone() is not None:
                 raise mysql.connector.Error(msg=f"El número de factura ya existe: {factura}")
