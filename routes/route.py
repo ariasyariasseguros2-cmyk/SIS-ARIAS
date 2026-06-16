@@ -2199,6 +2199,15 @@ def upload():
             return None
 
     def _normalize_to_ui(it: dict) -> dict:
+        cia_name = str(it.get("cia") or "").strip().lower()
+        explicit_due_date = it.get("fecha_vecimiento") or it.get("fecha_vencimiento")
+        fallback_due_date = it.get("vencimiento") or it.get("vigencia_hasta") or it.get("hasta") or it.get("expiracion")
+        fecha_vencimiento_ui = explicit_due_date
+        if not fecha_vencimiento_ui:
+            # En Pacífico este campo es fecha de pago/cuota, no fin de vigencia.
+            if "pac" not in cia_name:
+                fecha_vencimiento_ui = fallback_due_date
+
         res = {
             "numero_poliza": it.get("numero_poliza") or it.get("poliza") or it.get("folio_id") or it.get("contrato_nro"),
             "recibo": it.get("recibo") or it.get("numero_proforma") or it.get("nro_tramite"),
@@ -2218,7 +2227,7 @@ def upload():
             "comision_subagente_pct": it.get("comision_subagente_pct"),
             "comision_subagente_importe": it.get("comision_subagente_importe"),
             "ramo": it.get("ramo") or it.get("doc_tipo"),
-            "fecha_vencimiento": it.get("fecha_vecimiento") or it.get("fecha_vencimiento") or it.get("vencimiento") or it.get("vigencia_hasta") or it.get("hasta") or it.get("expiracion"),
+            "fecha_vencimiento": fecha_vencimiento_ui,
             "ramos_producto": it.get("ramos_producto") or it.get("producto"),
             "fecha_vecimiento": it.get("fecha_vecimiento"),
             "numero_documento_extracted": it.get("numero_documento_extracted"),
@@ -4656,11 +4665,15 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
                 for pl in pac_pages_low
             )
             if has_generales_v2 and not has_exclusion:
-                print("[provider] pacifico -> generales V3/V2")
+                print("[provider] pacifico -> generales V4/V3/V2")
+                from controllers.addPolizaPacificoGenerales_V4 import addPolizaPacificoGenerales_V4
                 from controllers.addPolizaPacificoGenerales_V3 import addPolizaPacificoGenerales_V3
                 from controllers.addPacificoGenerales_V2 import addPacificoGenerales_V2
 
-                data = addPolizaPacificoGenerales_V3(path)
+                data = addPolizaPacificoGenerales_V4(path)
+                if not data or data.get('error') or not data.get('poliza'):
+                    print("[provider] pacifico -> fallback V3")
+                    data = addPolizaPacificoGenerales_V3(path)
                 if not data or data.get('error') or not data.get('poliza'):
                     print("[provider] pacifico -> fallback V2")
                     data = addPacificoGenerales_V2(path)
