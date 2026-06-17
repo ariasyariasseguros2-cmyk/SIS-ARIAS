@@ -2765,9 +2765,11 @@
       if (td) td.textContent = pf.value || '';
     }
     if (pfp) {
-      extractedItems[idx].fecha_pago = pfp.value;
+      const masked = maskDate(pfp.value || '');
+      if (pfp.value !== masked) pfp.value = masked;
+      extractedItems[idx].fecha_pago = masked;
       const td = getTd(idx, 'fecha_pago');
-      if (td) td.textContent = pfp.value || '';
+      if (td) td.textContent = masked || '';
     }
     scheduleAutoSave();
   });
