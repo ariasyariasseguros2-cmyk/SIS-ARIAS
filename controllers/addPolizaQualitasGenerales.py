@@ -116,6 +116,86 @@ def _strip_accents_lower(s: str) -> str:
     return s.translate(str.maketrans("áéíóúñ", "aeioun"))
 
 
+def _normalize_company_name(s: str | None) -> str:
+    if not s:
+        return ""
+    x = _clean_spaces(s).upper()
+    x = re.sub(r"[ \t]+", " ", x).strip()
+    x = re.sub(
+        r"\s+\b(S\.?\s*A\.?\s*C\.?|S\.?\s*A\.?\s*A\.?|S\.?\s*A\.?|S\.?\s*R\.?\s*L\.?|E\.?\s*I\.?\s*R\.?\s*L\.?|SAC|SRL|EIRL)\.?\s*$",
+        "",
+        x,
+    ).strip()
+    x = x.strip(" -.,;:/")
+    return x
+
+
+def _extract_asegurado_from_section(text: str, marker: str) -> str | None:
+    pos = _find_marker_pos(_strip_accents_lower(text), marker)
+    if pos == -1:
+        return None
+    start = max(0, pos - 700)
+    section = text[start: pos + 900]
+    lines = [(_clean_spaces(ln) or "").strip() for ln in section.splitlines()]
+    lines = [ln for ln in lines if ln]
+    if not lines:
+        return None
+
+    marker_low = _strip_accents_lower(marker)
+    marker_idx = 0
+    for i, ln in enumerate(lines):
+        if _strip_accents_lower(ln) == marker_low or _strip_accents_lower(ln).endswith(marker_low):
+            marker_idx = i
+            break
+
+    skip_prefix = (
+        "DOMICILIO",
+        "DEPTO",
+        "DEPARTAMENTO",
+        "PROV",
+        "PROV.",
+        "PROVINCIA",
+        "DISTRITO",
+        "TELÉFONO",
+        "TELEFONO",
+        "CORREO",
+        "EMAIL",
+        "RUC",
+        "RELACIÓN",
+        "RELACION",
+        "INFORMACIÓN",
+        "INFORMACION",
+        "IMPORTANTE",
+    )
+
+    best = None
+    scan = []
+    if marker_idx > 0:
+        scan.extend(reversed(lines[max(0, marker_idx - 18): marker_idx]))
+    scan.extend(lines[marker_idx + 1: marker_idx + 25])
+
+    for ln in scan:
+        up = ln.upper()
+        if ":" in up:
+            continue
+        if any(up.startswith(p + " ") or up.startswith(p + ".") or up.startswith(p + ":") or up == p for p in skip_prefix):
+            continue
+        if not re.search(r"[A-ZÁÉÍÓÚÑ]", up):
+            continue
+        if re.fullmatch(r"[0-9]+", up):
+            continue
+        if len(up) < 5:
+            continue
+        cand = _normalize_company_name(up)
+        if not cand or len(cand) < 5:
+            continue
+        if re.search(r"\b(S\.?\s*A\.?\s*C\.?|S\.?\s*A\.?|S\.?\s*R\.?\s*L\.?|E\.?\s*I\.?\s*R\.?\s*L\.?|SAC|SRL|EIRL)\b", up):
+            return cand
+        if best is None:
+            best = cand
+    return best
+
+
 def _looks_like_person_name(s: str | None) -> bool:
     if not s:
         return False
@@ -131,6 +211,7 @@ def _looks_like_person_name(s: str | None) -> bool:
         "TELÉFONO",
         "TELEFONO",
         "DISTRITO",
+        "CALLERIA",
         "PROV",
         "PROV.",
         "DEPTO",
@@ -317,15 +398,22 @@ def parse_qualitas_generales(text: str) -> dict:
     item: dict = {}
 
     moneda = None
-    if re.search(r"\bMONEDA\b[\s:：]*D[ÓO]LAR|DOLARES|DÓLARES", t, re.IGNORECASE):
+    if re.search(r"\bMONEDA\b[\s:：]*(?:D[ÓO]LAR(?:ES)?|DOLARES|DÓLARES)\b", t, re.IGNORECASE):
         moneda = "US$"
-    elif re.search(r"\bMONEDA\b[\s:：]*SOLES|SOL", t, re.IGNORECASE):
+    elif re.search(r"\bMONEDA\b[\s:：]*(?:SOLES|SOL)\b", t, re.IGNORECASE):
         moneda = "S/"
     item["moneda"] = moneda
 
-    m_plan = re.search(r"\bPLAN\s*:\s*([A-ZÁÉÍÓÚÑ0-9 \-]{3,40})", t, re.IGNORECASE)
+    plan_val = None
+    m_plan = re.search(r"\bPLAN\s*:\s*([^\n]{3,120})", t, re.IGNORECASE)
     if m_plan:
-        item["ramos_producto"] = _clean_spaces(m_plan.group(1)).upper()
+        plan_val = _clean_spaces(m_plan.group(1))
+    if not plan_val:
+        m_plan2 = re.search(r"\bPLAN\s*:\s*\n+\s*([^\n]{3,120})", t, re.IGNORECASE)
+        if m_plan2:
+            plan_val = _clean_spaces(m_plan2.group(1))
+    if plan_val:
+        item["ramos_producto"] = plan_val.upper()
 
     renew_nro = None
     m_ren = re.search(r"\bRENUEVA\s*A\s*:\s*([0-9]{6,14})\b", t, re.IGNORECASE)
@@ -362,12 +450,14 @@ def parse_qualitas_generales(text: str) -> dict:
         item["numero_poliza"] = poliza
 
     asegurado = None
+    asegurado = _extract_asegurado_from_section(t, "INFORMACIÓN DEL ASEGURADO") or _extract_asegurado_from_section(t, "INFORMACION DEL ASEGURADO")
+
     m_aseg = re.search(
         r"INFORMACI[ÓO]N\s+DEL\s+ASEGURADO\s*\n\s*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ \.]{5,80})",
         t,
         re.IGNORECASE,
     )
-    if m_aseg:
+    if not asegurado and m_aseg:
         cand = _clean_spaces(m_aseg.group(1)).upper()
         if _looks_like_person_name(cand):
             asegurado = cand
@@ -385,7 +475,7 @@ def parse_qualitas_generales(text: str) -> dict:
 
     if not asegurado:
         m_rep = re.search(
-            r"\n\s*([A-ZÁÉÍÓÚÑ]{3,}(?:\s+[A-ZÁÉÍÓÚÑ]{3,}){1,6})\s*\n\s*\1\s*(?:\n|$)",
+            r"\n\s*([A-ZÁÉÍÓÚÑ]{3,}(?:[ ]+[A-ZÁÉÍÓÚÑ]{3,}){1,6})\s*\n\s*\1\s*(?:\n|$)",
             t,
             re.IGNORECASE,
         )
@@ -400,7 +490,7 @@ def parse_qualitas_generales(text: str) -> dict:
             if pos == -1:
                 continue
             window = t[pos: pos + 900]
-            for m in re.finditer(r"\b([A-ZÁÉÍÓÚÑ]{3,}(?:\s+[A-ZÁÉÍÓÚÑ]{3,}){1,6})\b", window, re.IGNORECASE):
+            for m in re.finditer(r"\b([A-ZÁÉÍÓÚÑ]{3,}(?:[ ]+[A-ZÁÉÍÓÚÑ]{3,}){1,6})\b", window, re.IGNORECASE):
                 cand = _clean_spaces(m.group(1)).upper()
                 if _looks_like_person_name(cand):
                     asegurado = cand
@@ -408,9 +498,19 @@ def parse_qualitas_generales(text: str) -> dict:
             if asegurado:
                 break
 
+    if not asegurado:
+        m_legal = re.search(
+            r"\b([A-ZÁÉÍÓÚÑ0-9&][A-ZÁÉÍÓÚÑ0-9& \-\.]{3,120}?)\s+(S\.?\s*A\.?\s*C\.?|S\.?\s*A\.?|S\.?\s*R\.?\s*L\.?|E\.?\s*I\.?\s*R\.?\s*L\.?|SAC|SRL|EIRL)\b",
+            t,
+            re.IGNORECASE,
+        )
+        if m_legal:
+            asegurado = _clean_spaces(m_legal.group(1) + " " + m_legal.group(2)).upper()
+
     if asegurado:
-        item["colectivo_asegurado"] = asegurado
-        item["asegurado"] = asegurado
+        asegurado_norm = _normalize_company_name(asegurado) or asegurado
+        item["colectivo_asegurado"] = asegurado_norm
+        item["asegurado"] = asegurado_norm
 
     m_fp = re.search(r"Forma\s+de\s+Pago\s*:\s*([^\n]{3,80})", t, re.IGNORECASE)
     if m_fp:
@@ -450,6 +550,16 @@ def parse_qualitas_generales(text: str) -> dict:
         for k, v in cons.items():
             if v is not None and str(v).strip() != "":
                 item[k] = v
+
+    m_com = re.search(
+        r"Comisi[oó]n\s*:\s*(?:(?:US\s*\$?)|US\$|USD|U\$|S/\.?|S\.)?\s*(\(?\s*(?:[-−–—]\s*)?[0-9][0-9,\.\s]{0,25}\s*\)?)",
+        t,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if m_com:
+        vcom = _money(m_com.group(1))
+        if vcom is not None and str(vcom).strip() != "":
+            item["comision_compania_importe"] = vcom
 
     prima_comercial = None
     m_pc = re.search(r"\bPrima\s+Comercial\b[\s:：]*(\(?\s*(?:[-−–—]\s*)?[0-9][0-9,\.]{0,20}\s*\)?)", t, re.IGNORECASE)
