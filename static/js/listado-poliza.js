@@ -197,14 +197,61 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const response = await fetch(`/api/polizas/search?q=${encodeURIComponent(query)}&type=${encodeURIComponent(type)}`);
       const data = await response.json();
-      
+
       const rows = data.rows || [];
       renderTable(rows);
-      
+      showNuevaPolizaBtn(rows);
+
     } catch (error) {
       console.error('Error search:', error);
       showError('Error de conexión al buscar');
     }
+  }
+
+  function showNuevaPolizaBtn(rows) {
+    let existing = document.getElementById('nueva-poliza-hint');
+    if (existing) existing.remove();
+    if (rows.length !== 1) return;
+
+    const row = rows[0];
+    const contratante = row.contratante || '';
+
+    const wrapper = document.createElement('div');
+    wrapper.id = 'nueva-poliza-hint';
+    wrapper.className = 'nueva-poliza-hint';
+    wrapper.innerHTML = `
+      <span class="nueva-poliza-hint__label">
+        <i class="bi-person-check-fill"></i>
+        ${contratante}
+      </span>
+      <button id="btnNuevaPolizaDesdeCliente" type="button" class="nueva-poliza-hint__btn">
+        <i class="bi-plus-lg"></i> Nueva Póliza
+      </button>
+    `;
+
+    const btn = wrapper.querySelector('#btnNuevaPolizaDesdeCliente');
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+      try {
+        const resp = await fetch(`/api/polizas/cliente-from-poliza?id=${encodeURIComponent(row.idPoliza)}`);
+        const json = await resp.json();
+        if (json.ok && json.redirect) {
+          window.location.href = json.redirect;
+        } else {
+          alert(json.error || 'No se pudo obtener el cliente');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi-plus-lg"></i> Nueva Póliza';
+        }
+      } catch {
+        alert('Error de conexión');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi-plus-lg"></i> Nueva Póliza';
+      }
+    });
+
+    const searchContainer = document.querySelector('.search-container');
+    if (searchContainer) searchContainer.after(wrapper);
   }
 
   async function performModalSearch(q) {
