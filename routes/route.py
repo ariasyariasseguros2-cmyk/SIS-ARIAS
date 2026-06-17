@@ -2682,7 +2682,9 @@ def upload():
                     except Exception:
                         fe_header = None
                     if fe_header:
-                        it['fecha_emision'] = fe_header
+                        fe_existing = (it.get('fecha_emision') or '').strip()
+                        if not fe_existing:
+                            it['fecha_emision'] = fe_header
 
                     fe = (it.get('fecha_emision') or '').strip()
                     if not fe:
@@ -4522,6 +4524,22 @@ def _missing_fields(item: dict | None, required: list[str]) -> list[str]:
             missing.append(key)
     return missing
 
+def _load_mapfre_sap_parser():
+    import importlib.util
+
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    parser_path = os.path.join(project_root, 'controllers', 'addPolizaMapfreS-A-P.py')
+    spec = importlib.util.spec_from_file_location('controllers.addPolizaMapfreSAP_hyphen', parser_path)
+    if not spec or not spec.loader:
+        raise ImportError(f"No se pudo cargar el parser Mapfre SAP: {parser_path}")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    parser = getattr(module, 'parse_mapfre_poliza_sap', None)
+    if not callable(parser):
+        raise AttributeError("No se encontro `parse_mapfre_poliza_sap` en addPolizaMapfreS-A-P.py")
+    return parser
+
 def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password: str | None = None):
     text = _extract_text_fitz(path, password=pdf_password)
     used_ocr = False
@@ -5005,6 +5023,25 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
 
             print("[provider] mapfre equipo contratistas item:", item)
             return [item] if item else []
+
+        hint_acc_personales_mapfre = (
+            re.search(r"P[ÓO]LIZA\s+DE\s+SEGURO\s+DE\s+SEGURO\s+CONTRA\s+ACCIDENTES\s+PERSONALES", text, re.IGNORECASE)
+            or re.search(r"P[ÓO]LIZA\s+DE\s+SEGURO\s+DE\s+ACCIDENTES\s+PERSONALES", text, re.IGNORECASE)
+            or (
+                re.search(r"\bACCIDENTES\s+PERSONALES\b", text, re.IGNORECASE)
+                and re.search(r"\bMAPFRE\b", text, re.IGNORECASE)
+            )
+        )
+        if hint_acc_personales_mapfre:
+            try:
+                parse_mapfre_poliza_sap = _load_mapfre_sap_parser()
+                item_mapfre_sap = parse_mapfre_poliza_sap(text)
+                if item_mapfre_sap and item_mapfre_sap.get("numero_poliza"):
+                    print("[provider] mapfre-accidentes-personales item:", item_mapfre_sap)
+                    return [item_mapfre_sap]
+                print("[provider] mapfre-accidentes-personales sin numero_poliza, fallback a parser general")
+            except Exception as e:
+                print(f"[provider] mapfre-accidentes-personales parse error: {e}")
 
         if (
             re.search(r"\bsuplemento\s+de\s+salud\b", low)
