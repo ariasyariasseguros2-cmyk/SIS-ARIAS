@@ -2,6 +2,7 @@ from flask import Blueprint, redirect, url_for, session, render_template, reques
 from werkzeug.utils import secure_filename
 import os
 import re
+import pytesseract
 import hashlib
 import json
 import shutil
@@ -4172,6 +4173,66 @@ def allowed_file(filename: str) -> bool:
     return ext in {'pdf', 'jpg', 'jpeg', 'png'}
 
 # -------- Extracción de texto (PyMuPDF y fallback) --------
+def _looks_like_bad_pdf_text(text: str | None) -> bool:
+    if not text:
+        return True
+    sample = (text or "")[:4000]
+    if not sample.strip():
+        return True
+    control_count = sum(1 for ch in sample if ord(ch) < 32 and ch not in "\n\r\t")
+    cid_count = sample.lower().count("(cid:")
+    printable_count = sum(1 for ch in sample if ch.isalnum())
+    ratio_control = control_count / max(len(sample), 1)
+    ratio_printable = printable_count / max(len(sample), 1)
+    return ratio_control > 0.10 or cid_count >= 3 or ratio_printable < 0.20
+
+def _configure_tesseract_cmd(pytesseract_module) -> None:
+    try:
+        current_cmd = getattr(pytesseract_module.pytesseract, "tesseract_cmd", "") or ""
+        if current_cmd and os.path.exists(current_cmd):
+            return
+    except Exception:
+        pass
+
+    candidate_paths = [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Tesseract-OCR", "tesseract.exe"),
+    ]
+    for candidate in candidate_paths:
+        if candidate and os.path.exists(candidate):
+            pytesseract_module.pytesseract.tesseract_cmd = candidate
+            return
+
+def _extract_text_ocr_fitz(path: str, password: str | None = None) -> str:
+    try:
+        import fitz  # PyMuPDF
+        import pytesseract
+        from PIL import Image
+
+        _configure_tesseract_cmd(pytesseract)
+
+        text_chunks = []
+        with fitz.open(path) as doc:
+            try:
+                if getattr(doc, "is_encrypted", False):
+                    if password:
+                        ok = doc.authenticate(password)
+                        if not ok:
+                            return ""
+                    else:
+                        return ""
+            except Exception:
+                pass
+            for page in doc:
+                # Usa escala moderada y grises para bajar bastante el tiempo de OCR.
+                pix = page.get_pixmap(dpi=0, colorspace=fitz.csGRAY, alpha=False)
+                img = Image.frombytes("L", [pix.width, pix.height], pix.samples)
+                text_chunks.append(pytesseract.image_to_string(img, lang="spa+eng") or "")
+        return "\n".join(text_chunks)
+    except Exception:
+        return ""
+
 def _extract_text_fitz(path: str, password: str | None = None) -> str:
     try:
         import fitz  # PyMuPDF
@@ -4463,14 +4524,22 @@ def _missing_fields(item: dict | None, required: list[str]) -> list[str]:
 
 def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password: str | None = None):
     text = _extract_text_fitz(path, password=pdf_password)
-    if not text or not text.strip():
+    used_ocr = False
+    if _looks_like_bad_pdf_text(text):
         text = _extract_text_pypdf2(path, password=pdf_password)
         print(f"[DEBUG TEXT HEAD PYPDF2] {text[:600]!r}")
     else:
         print(f"[DEBUG TEXT HEAD] {text[:600]!r}")
+    if _looks_like_bad_pdf_text(text):
+        text = _extract_text_ocr_fitz(path, password=pdf_password)
+        used_ocr = True
+        print(f"[DEBUG TEXT HEAD OCR] {text[:600]!r}")
 
-    page_texts = _extract_text_pages_fitz(path, password=pdf_password)
-    page_texts = [p for p in (page_texts or []) if p and p.strip()]
+    if used_ocr:
+        page_texts = [text] if text and text.strip() else []
+    else:
+        page_texts = _extract_text_pages_fitz(path, password=pdf_password)
+        page_texts = [p for p in (page_texts or []) if p and p.strip()]
 
     t = text.lower()
     prov = (issuer or "").strip().lower() or None
