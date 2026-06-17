@@ -21,6 +21,27 @@ def _find(pattern: str, text: str, flags=re.IGNORECASE | re.DOTALL) -> Optional[
     return match.group(1).strip() if match else None
 
 
+def _title_name(value: Optional[str]) -> Optional[str]:
+    raw = _clean(value)
+    if not raw:
+        return None
+    words = [w for w in re.split(r"\s+", raw) if w]
+    if not words:
+        return None
+    keep_lower = {"DE", "DEL", "LA", "LAS", "LOS", "Y", "E", "DA", "DO", "DAS", "DOS"}
+    out = []
+    for w in words:
+        up = w.upper()
+        if up in keep_lower and out:
+            out.append(up.lower())
+            continue
+        if re.fullmatch(r"[A-ZÁÉÍÓÚÑÜ]+", up):
+            out.append(up[:1] + up[1:].lower())
+        else:
+            out.append(w[:1].upper() + w[1:].lower() if w else w)
+    return " ".join(out).strip()
+
+
 def _money(value: Optional[str]) -> Optional[str]:
     if not value:
         return None
@@ -277,6 +298,39 @@ def _extract_comision_compania(text: str) -> Optional[str]:
     return None
 
 
+def _extract_asegurado_relacion(text: str) -> Optional[str]:
+    if not text:
+        return None
+    t = text.replace("\r\n", "\n").replace("\r", "\n")
+    m = re.search(r"RELACION\s+DE\s+ASEGURADOS\b", t, re.IGNORECASE)
+    if not m:
+        return None
+    frag = t[m.start(): m.start() + 700]
+    frag = re.sub(r"\s+", " ", frag).strip()
+    mm = re.search(r"\bAPELLIDOS\s+Y\s+NOMBRES\b\s*(?:DNI|DOC\.?\s*IDENTIDAD)?\s*([A-ZÁÉÍÓÚÑ ]{6,}?)\s+(\d{8})\b", frag, re.IGNORECASE)
+    if mm:
+        return re.sub(r"\s+", " ", mm.group(1)).strip().upper()
+
+    mm_dni_before = re.search(
+        r"\bDNI\s*[:.]?\s*(\d{8})\s+([A-ZÁÉÍÓÚÑ ]{6,}?)\b(?=\s+CONDICIONES|\s+CL[ÁA]USULAS|\s+P[ÓO]LIZA|\s*$)",
+        frag,
+        re.IGNORECASE,
+    )
+    if mm_dni_before:
+        name = re.sub(r"\s+", " ", mm_dni_before.group(2)).strip()
+        return name.upper()
+
+    mm2 = re.search(r"\b(\d{8})\s+([A-ZÁÉÍÓÚÑ ]{6,}?)\b", frag, re.IGNORECASE)
+    if mm2:
+        name = re.sub(r"\s+", " ", mm2.group(2)).strip()
+        return name.upper()
+
+    mm2 = re.search(r"\b([A-ZÁÉÍÓÚÑ ]{6,}?)\s+(\d{8})\b", frag, re.IGNORECASE)
+    if mm2:
+        return re.sub(r"\s+", " ", mm2.group(1)).strip().upper()
+    return None
+
+
 def parse_mapfre_poliza_sap(text: str) -> Dict[str, str]:
     """
     Parser para la poliza Mapfre "Seguro contra Accidentes Personales".
@@ -294,8 +348,13 @@ def parse_mapfre_poliza_sap(text: str) -> Dict[str, str]:
     if recibo and recibo != numero_poliza:
         item["recibo"] = recibo
 
+    asegurado_rel = _extract_asegurado_relacion(text_norm)
+    if asegurado_rel:
+        item["colectivo_asegurado"] = asegurado_rel
+        item["asegurado"] = asegurado_rel
+
     nombre = _extract_nombre(text_norm)
-    if nombre:
+    if nombre and not item.get("asegurado") and not item.get("colectivo_asegurado"):
         item["colectivo_asegurado"] = nombre
         item["asegurado"] = nombre
 
