@@ -3341,6 +3341,65 @@ def api_polizas_search():
 
     return jsonify({'ok': True, 'rows': data['rows']})
 
+@bp.route('/api/polizas/cliente-from-poliza', methods=['GET'])
+def api_cliente_from_poliza():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'Unauthorized'}, 401
+
+    poliza_id = request.args.get('id', '').strip()
+    if not poliza_id:
+        return jsonify({'ok': False, 'error': 'Falta id'}), 400
+
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute("""
+            SELECT
+                c.idCliente,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                    c.razon_social
+                ) AS razon_social,
+                COALESCE(c.tipo_documento, '') AS tipo_doc,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(c.numero_documento, @SIS_KEY) AS CHAR),
+                    c.numero_documento
+                ) AS n_doc,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(c.telefono), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(c.telefono, @SIS_KEY) AS CHAR),
+                    c.telefono
+                ) AS tel,
+                COALESCE(c.subagente, p.sub_agente, '') AS subagente
+            FROM polizas p
+            INNER JOIN clientes c ON c.idCliente = p.cliente_id
+            WHERE p.idPoliza = %s AND p.activo = 1
+            LIMIT 1
+        """, (poliza_id,))
+        row = cur.fetchone()
+        cur.close()
+        cnx.close()
+
+        if not row:
+            return jsonify({'ok': False, 'error': 'Póliza no encontrada'}), 404
+
+        session['selected_cliente'] = {
+            'idCliente': row['idCliente'],
+            'nombre': row['razon_social'],
+            'razon_social': row['razon_social'],
+            'tipo_doc': row['tipo_doc'],
+            'n_doc': row['n_doc'],
+            'tel': row['tel'],
+            'subagente': row['subagente'],
+        }
+        return jsonify({'ok': True, 'redirect': '/menu/anadir-poliza'})
+    except Exception as e:
+        print(f'[api_cliente_from_poliza] {e}')
+        return jsonify({'ok': False, 'error': 'Error interno'}), 500
+
+
 @bp.route('/api/comisiones/default', methods=['GET'])
 def api_comisiones_default():
     if 'user' not in session:
