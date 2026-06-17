@@ -743,6 +743,107 @@
       && a.getDate() === b.getDate();
   }
 
+  function formatDateToDMY(dateObj) {
+    if (!(dateObj instanceof Date) || Number.isNaN(dateObj.getTime())) return '';
+    const dd = String(dateObj.getDate()).padStart(2, '0');
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const yyyy = dateObj.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  function incrementLastNumericToken(value) {
+    const raw = (value || '').toString().trim();
+    if (!raw) return '';
+    const m = raw.match(/^(.*?)(\d+)([^\d]*)$/);
+    if (!m) return '';
+    try {
+      const next = (BigInt(m[2]) + 1n).toString().padStart(m[2].length, '0');
+      return `${m[1]}${next}${m[3]}`;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function inferNextCuotaDueDate(cuotas, item) {
+    const sorted = Array.isArray(cuotas) ? cuotas.slice() : [];
+    sortCuotasArrayInPlace(sorted);
+    const last = sorted.length ? sorted[sorted.length - 1] : null;
+    const prev = sorted.length > 1 ? sorted[sorted.length - 2] : null;
+
+    let baseDate = __parseCuotaDateLoose(last?.fecha_vencimiento || '');
+    if (!baseDate) {
+      baseDate = __parseCuotaDateLoose(item?.fecha_vencimiento || item?.inicio_vigencia || '');
+    }
+    if (!baseDate) return '';
+
+    let monthsStep = 1;
+    const prevDate = __parseCuotaDateLoose(prev?.fecha_vencimiento || '');
+    if (prevDate) {
+      const diff = ((baseDate.getFullYear() - prevDate.getFullYear()) * 12)
+        + (baseDate.getMonth() - prevDate.getMonth());
+      if (Number.isFinite(diff) && diff > 0 && diff <= 12) {
+        monthsStep = diff;
+      }
+    }
+
+    const nextDate = addMonthsClamped(baseDate, monthsStep);
+    return formatDateToDMY(nextDate);
+  }
+
+  function buildAutoNextCuota(index) {
+    const item = extractedItems[index] || {};
+    const cuotas = Array.isArray(item.cuotas) ? item.cuotas : [];
+    const sorted = cuotas.slice();
+    sortCuotasArrayInPlace(sorted);
+    const last = sorted.length ? sorted[sorted.length - 1] : null;
+
+    let numeroCuota = cuotas.length + 1;
+    const lastNumeroRaw = (last?.numero_cuota ?? last?.numero ?? '').toString().trim();
+    if (lastNumeroRaw && Number.isFinite(Number(lastNumeroRaw))) {
+      numeroCuota = Number(lastNumeroRaw) + 1;
+    }
+
+    return {
+      numero_cuota: numeroCuota,
+      cupon: incrementLastNumericToken(last?.cupon || item.cupon || ''),
+      factura: '',
+      fecha_pago: '',
+      importe: (last?.importe || item.importe || '').toString().trim(),
+      fecha_vencimiento: inferNextCuotaDueDate(sorted, item),
+      moneda: (last?.moneda || item.moneda || 'S/').toString().trim() || 'S/'
+    };
+  }
+
+  function propagateCuotaDueDatesFrom(index, cuotaIdx) {
+    if (!Number.isFinite(index) || !Number.isFinite(cuotaIdx)) return;
+    const item = extractedItems[index];
+    const cuotas = item?.cuotas;
+    if (!Array.isArray(cuotas) || cuotaIdx < 0 || cuotaIdx >= cuotas.length) return;
+
+    const currentDate = __parseCuotaDateLoose(cuotas[cuotaIdx]?.fecha_vencimiento || '');
+    if (!currentDate) return;
+
+    let stepMonths = 1;
+    if (cuotaIdx > 0) {
+      const prevDate = __parseCuotaDateLoose(cuotas[cuotaIdx - 1]?.fecha_vencimiento || '');
+      if (prevDate) {
+        const diff = ((currentDate.getFullYear() - prevDate.getFullYear()) * 12)
+          + (currentDate.getMonth() - prevDate.getMonth());
+        if (Number.isFinite(diff) && diff > 0 && diff <= 12) {
+          stepMonths = diff;
+        }
+      }
+    }
+
+    let base = currentDate;
+    for (let i = cuotaIdx + 1; i < cuotas.length; i += 1) {
+      const nextDate = addMonthsClamped(base, stepMonths);
+      if (!nextDate) break;
+      cuotas[i].fecha_vencimiento = formatDateToDMY(nextDate);
+      base = nextDate;
+    }
+  }
+
   function normalizeTipoVigenciaValue(value) {
     const raw = (value || '').toString().trim();
     if (!raw) return '';
@@ -2035,9 +2136,10 @@
 
     if (btnAddCuota) {
       if (!extractedItems[idx].cuotas) extractedItems[idx].cuotas = [];
-      const c = { cupon: '', factura: '', fecha_pago: '', importe: '', fecha_vencimiento: '', moneda: 'S/' };
+      const c = buildAutoNextCuota(idx);
       ensureCuotaKey(c);
       extractedItems[idx].cuotas.push(c);
+      sortCuotasInPlaceForRow(idx);
       refreshCuotasUI(idx);
       scheduleAutoSave();
       return;
@@ -2246,7 +2348,13 @@
       extractedItems[idx].cuotas[cuotaIdx].cupon = cc.value;
     }
     if (cv) {
-      extractedItems[idx].cuotas[cuotaIdx].fecha_vencimiento = cv.value;
+      const masked = maskDate(cv.value || '');
+      if (cv.value !== masked) cv.value = masked;
+      extractedItems[idx].cuotas[cuotaIdx].fecha_vencimiento = masked;
+      if ((masked || '').replace(/[^\d]/g, '').length === 8 && parseDMYDateStrict(masked)) {
+        propagateCuotaDueDatesFrom(idx, cuotaIdx);
+        refreshCuotasUI(idx);
+      }
     }
     if (ci) {
       const cleaned = sanitizeNumericText(ci.value);
@@ -2257,7 +2365,9 @@
       extractedItems[idx].cuotas[cuotaIdx].factura = cf.value;
     }
     if (cp) {
-      extractedItems[idx].cuotas[cuotaIdx].fecha_pago = cp.value;
+      const masked = maskDate(cp.value || '');
+      if (cp.value !== masked) cp.value = masked;
+      extractedItems[idx].cuotas[cuotaIdx].fecha_pago = masked;
     }
     syncFirstCuotaToRow(idx);
     scheduleAutoSave();
