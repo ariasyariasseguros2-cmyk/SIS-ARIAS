@@ -365,6 +365,15 @@ def save_polizas(
                 pass
             return t
 
+        def build_dup_signature(row: dict, selected_: dict | None = None) -> tuple[str, str, str] | None:
+            sel = selected_ or {}
+            cia_key = normalize_dup_key(row.get("cia") or sel.get("cia") or sel.get("issuer"))
+            poliza_key = normalize_dup_key(row.get("numero_poliza") or row.get("poliza"))
+            recibo_key = normalize_dup_key(row.get("recibo"))
+            if not cia_key or not poliza_key or not recibo_key:
+                return None
+            return (U(cia_key), U(poliza_key), U(recibo_key))
+
         # Normalizador a MAYÚSCULAS para campos de texto
         def U(s):
             t = '' if s is None else str(s).strip()
@@ -424,9 +433,9 @@ def save_polizas(
             row = dict(it or {})
             # Completar desde el bloque superior si falta en la fila
             if selected:
-                # Completar asegurada si falta
-                if not row.get("asegurada") and selected.get("asegurada"):
-                    row["asegurada"] = selected["asegurada"]
+                # 'asegurada' solo se edita en el bloque superior: usarlo como fuente de verdad
+                if "asegurada" in selected:
+                    row["asegurada"] = selected.get("asegurada") or ""
                 # Completar motivo si falta
                 if not row.get("motivo") and selected.get("motivo"):
                     row["motivo"] = selected["motivo"]
@@ -569,15 +578,14 @@ def save_polizas(
 
         batch_dups = set()
         for idx, row in enumerate(normalized, start=1):
-            rk = normalize_dup_key(row.get("recibo"))
-            if not rk:
+            dup_sig = build_dup_signature(row, selected)
+            if not dup_sig:
                 continue
-            k = rk.upper()
-            if k in batch_dups:
+            if dup_sig in batch_dups:
                 cur.close()
                 cnx.close()
-                return {"ok": False, "errors": [f"Fila {idx}: el recibo está repetido en el mismo guardado: {rk}"]}
-            batch_dups.add(k)
+                return {"ok": False, "errors": [f"Fila {idx}: El recibo ya existe."]}
+            batch_dups.add(dup_sig)
 
         inserted = 0
 
@@ -608,36 +616,7 @@ def save_polizas(
             real_poliza_id = None
             target_doc = numero_documento # Default: el seleccionado globalmente
 
-            if row.get("recibo") is not None:
-                rk = normalize_dup_key(row.get("recibo"))
-            else:
-                rk = None
-            if rk:
-                try:
-                    cid = cliente_id_global if (target_doc == numero_documento) else find_client_id(target_doc, cur)
-                except Exception:
-                    cid = None
-                if cid:
-                    cur.execute(
-                        """
-                        SELECT 1
-                        FROM polizas
-                        WHERE cliente_id = %s
-                          AND TRIM(COALESCE(
-                                CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR),
-                                CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
-                                recibo
-                              )) COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
-                          AND activo = 1
-                          AND (anulado = 0 OR anulado IS NULL)
-                        LIMIT 1
-                        """,
-                        (cid, rk),
-                    )
-                    if cur.fetchone():
-                        cur.close()
-                        cnx.close()
-                        return {"ok": False, "errors": [f"El recibo ya existe para este cliente: {rk}"]}
+            dup_sig = build_dup_signature(row, selected)
 
             # AUTOCOMPLETAR % COMISIÓN COMPAÑÍA DESDE comisiones_temp (por compañía + producto/ramo)
             try:
@@ -664,46 +643,35 @@ def save_polizas(
                 # Falla silenciosa: no bloquear guardado si no se puede autocompletar
                 pass
 
-            # VALIDACION: evitar recibo duplicado para el cliente
+            # VALIDACION: evitar duplicado por cia + poliza + recibo
             try:
-                recibo_key = U(row.get("recibo") or "")
-                if recibo_key:
+                if dup_sig:
+                    cia_key, poliza_key, recibo_key = dup_sig
                     cur.execute(
                         """
-                        SELECT idCliente
-                        FROM clientes
-                        WHERE (
-                            CAST(AES_DECRYPT(FROM_BASE64(numero_documento), @SIS_KEY) AS CHAR) COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
-                                OR CAST(AES_DECRYPT(numero_documento, @SIS_KEY) AS CHAR)            COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
-                                OR numero_documento                                                 COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
-                            )
+                        SELECT 1
+                        FROM polizas
+                        WHERE TRIM(COALESCE(cia, '')) COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                          AND TRIM(COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                                poliza
+                              )) COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                          AND TRIM(COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR),
+                                CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
+                                recibo
+                              )) COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
                           AND activo = 1
-                            LIMIT 1
+                          AND (anulado = 0 OR anulado IS NULL)
+                        LIMIT 1
                         """,
-                        (target_doc, target_doc, target_doc)
+                        (cia_key, poliza_key, recibo_key)
                     )
-                    row_cli = cur.fetchone()
-                    if row_cli and row_cli[0]:
-                        cur.execute(
-                            """
-                            SELECT 1
-                            FROM polizas
-                            WHERE cliente_id = %s
-                              AND TRIM(COALESCE(
-                                    CAST(AES_DECRYPT(FROM_BASE64(recibo), @SIS_KEY) AS CHAR),
-                                    CAST(AES_DECRYPT(recibo, @SIS_KEY) AS CHAR),
-                                    recibo
-                                       )) COLLATE utf8mb4_0900_ai_ci = TRIM(%s) COLLATE utf8mb4_0900_ai_ci
-                              AND activo = 1
-                              AND (anulado = 0 OR anulado IS NULL)
-                                LIMIT 1
-                            """,
-                            (row_cli[0], recibo_key)
-                        )
-                        if cur.fetchone():
-                            cur.close()
-                            cnx.close()
-                            return {"ok": False, "errors": [f"El recibo ya existe para este cliente: {recibo_key}"]}
+                    if cur.fetchone():
+                        cur.close()
+                        cnx.close()
+                        return {"ok": False, "errors": ["El recibo ya existe."]}
             except Exception as e_dup:
                 try:
                     cur.close()
@@ -1022,12 +990,46 @@ def save_polizas(
                             target_poliza_id = real_poliza_id
                             # (Omitir búsqueda redundante si ya tenemos real_poliza_id)
 
-                            if c_factura:
-                                cur.execute("SELECT 1 FROM cuotas WHERE factura = %s AND activo = 1 LIMIT 1", (c_factura,))
+                            if c_factura and c_cupon:
+                                cia_check = U(row.get("cia") or row.get("cia_value") or (selected or {}).get("cia") or "")
+                                cia_check = cia_check.strip() or None
+                                if cia_check:
+                                    cur.execute(
+                                        """
+                                        SELECT 1
+                                        FROM cuotas q
+                                        INNER JOIN polizas p ON p.idPoliza = q.poliza_id
+                                        WHERE q.activo = 1
+                                          AND TRIM(COALESCE(q.factura, '')) COLLATE utf8mb4_0900_ai_ci
+                                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.poliza), @SIS_KEY) USING utf8mb4), q.poliza) COLLATE utf8mb4_0900_ai_ci)
+                                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) USING utf8mb4), q.cupon) COLLATE utf8mb4_0900_ai_ci)
+                                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                                          AND TRIM(COALESCE(p.cia, '')) COLLATE utf8mb4_0900_ai_ci
+                                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                                        LIMIT 1
+                                        """,
+                                        (c_factura, c_poliza, c_cupon, cia_check),
+                                    )
+                                else:
+                                    cur.execute(
+                                        """
+                                        SELECT 1
+                                        FROM cuotas q
+                                        WHERE q.activo = 1
+                                          AND TRIM(COALESCE(q.factura, '')) COLLATE utf8mb4_0900_ai_ci
+                                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.poliza), @SIS_KEY) USING utf8mb4), q.poliza) COLLATE utf8mb4_0900_ai_ci)
+                                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                                          AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) USING utf8mb4), q.cupon) COLLATE utf8mb4_0900_ai_ci)
+                                              = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
+                                        LIMIT 1
+                                        """,
+                                        (c_factura, c_poliza, c_cupon),
+                                    )
                                 if cur.fetchone():
-                                    # Solo avisar, no bloquear si es duplicado en el loop
-                                    print(f"[WARNING] Factura duplicada: {c_factura}")
-                                    continue
+                                    print(f"[WARNING] Factura ya existe (cia/poliza/cupon/factura): {c_factura} cupon={c_cupon}")
 
                             if c_cupon:
                                 cur.execute(
@@ -1293,8 +1295,8 @@ def save_polizas(
                     except Exception:
                         pass
                     msg = str(getattr(err, 'msg', err))
-                    if 'uk_polizas_cliente_recibo' in msg:
-                        return {"ok": False, "errors": ["El recibo ya existe para este cliente."]}
+                    if 'uk_polizas_cia_poliza_recibo' in msg or 'uk_polizas_cliente_recibo' in msg:
+                        return {"ok": False, "errors": ["El recibo ya existe."]}
                     return {"ok": False, "errors": [msg]}
                 if getattr(err, 'sqlstate', '') == '45000':
                     try:
