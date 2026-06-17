@@ -1426,6 +1426,7 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
             from controllers.cuotas.VariosCuponGeneralesRimac import extract_cronograma_cuotas_rimac
             from controllers.cuotas.VariosCuponGeneralesMapfre import extract_cronograma_cuotas_mapfre
             from controllers.cuotas.RenovacionCuponRimac import extract_cronograma_cuotas_renovacion_rimac
+            from controllers.cuotas.VariosCuponesQualitas import extract_cronograma_cuotas_qualitas
             from controllers.cuotas.VariosCuponesRenovacionesRImac import (
                 extract_cronograma_cuotas_renovaciones_rimac,
             )
@@ -1465,6 +1466,8 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
                     cuotas = extract_cronograma_cuotas_rimac(text, moneda_default)
             elif is_mapfre:
                 cuotas = extract_cronograma_cuotas_mapfre(text, moneda_default)
+            elif is_qualitas:
+                cuotas = extract_cronograma_cuotas_qualitas(text, moneda_default)
             elif 'PACIFICO' in text_fold_upper:
                 cuotas = extract_cronograma_cuotas_pacifico(text, moneda_default)
 
