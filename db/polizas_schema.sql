@@ -1844,14 +1844,7 @@ BEGIN
     DECLARE v_msg VARCHAR(255);
     DECLARE v_poliza_id INT;
     DECLARE v_usuario_nombre VARCHAR(100);
-
-    -- Validar factura duplicada
-    IF p_factura IS NOT NULL AND TRIM(p_factura) <> '' THEN
-        IF EXISTS (SELECT 1 FROM cuotas WHERE factura = TRIM(p_factura) AND activo = 1) THEN
-            SET v_msg = CONCAT('El número de factura ya existe: ', TRIM(p_factura));
-            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
-        END IF;
-    END IF;
+    DECLARE v_cia VARCHAR(100);
 
     -- Validar cupón duplicado por póliza
     IF p_cupon IS NOT NULL AND TRIM(p_cupon) <> '' THEN
@@ -1863,14 +1856,6 @@ BEGIN
               AND activo = 1
         ) THEN
             SET v_msg = CONCAT('El cupón ya existe para esta póliza: ', TRIM(p_cupon));
-            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
-        END IF;
-    END IF;
-
-    -- Validar factura duplicada
-    IF p_factura IS NOT NULL AND TRIM(p_factura) <> '' THEN
-        IF EXISTS (SELECT 1 FROM cuotas WHERE factura = TRIM(p_factura) AND activo = 1) THEN
-            SET v_msg = CONCAT('El número de factura ya existe: ', TRIM(p_factura));
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
         END IF;
     END IF;
@@ -1892,6 +1877,48 @@ BEGIN
         WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(p_poliza COLLATE utf8mb4_0900_ai_ci)
         ORDER BY creado_en DESC
         LIMIT 1;
+    END IF;
+
+    SET v_cia = NULL;
+    IF v_poliza_id IS NOT NULL THEN
+        SELECT cia INTO v_cia
+        FROM polizas
+        WHERE idPoliza = v_poliza_id
+        LIMIT 1;
+    END IF;
+
+    IF p_factura IS NOT NULL AND TRIM(p_factura) <> '' THEN
+        IF p_cupon IS NOT NULL AND TRIM(p_cupon) <> '' THEN
+            IF EXISTS (
+                SELECT 1
+                FROM cuotas q
+                INNER JOIN polizas p ON p.idPoliza = q.poliza_id
+                WHERE q.activo = 1
+                  AND TRIM(COALESCE(q.factura, '')) COLLATE utf8mb4_0900_ai_ci = TRIM(p_factura) COLLATE utf8mb4_0900_ai_ci
+                  AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.poliza), @SIS_KEY) USING utf8mb4), q.poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(p_poliza) COLLATE utf8mb4_0900_ai_ci
+                  AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) USING utf8mb4), q.cupon) COLLATE utf8mb4_0900_ai_ci) = TRIM(p_cupon) COLLATE utf8mb4_0900_ai_ci
+                  AND (v_cia IS NULL OR TRIM(COALESCE(p.cia, '')) COLLATE utf8mb4_0900_ai_ci = TRIM(v_cia) COLLATE utf8mb4_0900_ai_ci)
+                LIMIT 1
+            ) THEN
+                SET v_msg = CONCAT('El número de factura ya existe: ', TRIM(p_factura));
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+            END IF;
+        ELSE
+            IF EXISTS (
+                SELECT 1
+                FROM cuotas q
+                INNER JOIN polizas p ON p.idPoliza = q.poliza_id
+                WHERE q.activo = 1
+                  AND TRIM(COALESCE(q.factura, '')) COLLATE utf8mb4_0900_ai_ci = TRIM(p_factura) COLLATE utf8mb4_0900_ai_ci
+                  AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(q.poliza), @SIS_KEY) USING utf8mb4), q.poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(p_poliza) COLLATE utf8mb4_0900_ai_ci
+                  AND (q.cupon IS NULL OR q.cupon = '')
+                  AND (v_cia IS NULL OR TRIM(COALESCE(p.cia, '')) COLLATE utf8mb4_0900_ai_ci = TRIM(v_cia) COLLATE utf8mb4_0900_ai_ci)
+                LIMIT 1
+            ) THEN
+                SET v_msg = CONCAT('El número de factura ya existe: ', TRIM(p_factura));
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+            END IF;
+        END IF;
     END IF;
 
     SET v_usuario_nombre = NULL;

@@ -127,7 +127,7 @@ def get_reporte_produccion_rows(filters: Dict[str, Any], limit: int = 1000) -> L
                 c.departamento AS ciudad,
                 NULL AS factura_comision,
                 p.ejecutivo,
-                NULL AS breve_descripcion,
+                p.asegurada AS breve_descripcion,
                 p.usuario_registro AS usuario,
                 DATE(p.creado_en) AS f_reg
             FROM polizas p
