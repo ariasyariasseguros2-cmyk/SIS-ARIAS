@@ -306,10 +306,10 @@ def get_estado_cuenta_data(filtros_input=None):
                     p.prima_comercial_igv AS monto_cta_cobrar,
                     CASE 
                         WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 0 ELSE q.importe END
-                        ELSE CASE WHEN UPPER(IFNULL(p.estado,'')) = 'CANCELADO' THEN 0 ELSE p.prima_comercial_igv END
+                        ELSE CASE WHEN UPPER(IFNULL(p.estado,'')) IN ('CANCELADO', 'PAGADO') THEN 0 ELSE p.prima_comercial_igv END
                     END AS monto_cta_pagar,
                     CASE 
-                        WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 'CANCELADO' ELSE 'PENDIENTE' END
+                        WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 'PAGADO' ELSE 'PENDIENTE' END
                         ELSE p.estado
                     END AS estado
                 FROM polizas p
@@ -729,10 +729,10 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
                 p.prima_comercial_igv AS monto_cta_cobrar,
                 CASE 
                     WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 0 ELSE q.importe END
-                    ELSE CASE WHEN UPPER(IFNULL(p.estado,'')) = 'CANCELADO' THEN 0 ELSE p.prima_comercial_igv END
+                    ELSE CASE WHEN UPPER(IFNULL(p.estado,'')) IN ('CANCELADO', 'PAGADO') THEN 0 ELSE p.prima_comercial_igv END
                 END AS monto_cta_pagar,
                 CASE 
-                    WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 'CANCELADO' ELSE 'PENDIENTE' END
+                    WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 'PAGADO' ELSE 'PENDIENTE' END
                     ELSE p.estado
                 END AS estado
             FROM polizas p

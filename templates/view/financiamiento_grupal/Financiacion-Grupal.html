@@ -1,0 +1,142 @@
+{% extends 'view/layout_dashboard.html' %}
+
+{% block html_title %}Financiamiento Grupal | SIS-ARIAS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/financiamiento_grupal/Financiacion-Grupal.css') }}">
+{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block before_js %}
+<script>
+  window.currentPage = "{{ page }}";
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="fg-page">
+  <div class="fg-header">
+    <div class="fg-title-wrap">
+      <div class="page-title">
+        <i class="bi bi-people-fill"></i>
+        Financiamiento Grupal
+      </div>
+      <div class="fg-subtitle">Listado principal de convenios y cronogramas grupales</div>
+    </div>
+
+    {% if can_create(session.role_name) %}
+    <button type="button" class="btn btn-success btn-lift fg-add-btn" onclick="FinanciacionGrupal.onAdd()">
+      <i class="bi bi-plus-lg"></i> Añadir
+    </button>
+    {% endif %}
+  </div>
+
+  <div class="fg-summary-grid">
+    <div class="fg-summary-card">
+      <span class="fg-summary-label">Registros</span>
+      <span class="fg-summary-value">{{ total_registros }}</span>
+    </div>
+    <div class="fg-summary-card">
+      <span class="fg-summary-label">Importe Total</span>
+      <span class="fg-summary-value">{{ total_importe }}</span>
+    </div>
+  </div>
+
+  <div class="fg-table-card">
+    <div class="fg-toolbar">
+      <div class="fg-toolbar-left">
+        <button type="button" class="btn btn-light btn-sm fg-filter-btn" onclick="FinanciacionGrupal.onFilter()">
+          <i class="bi bi-funnel-fill"></i> Filtros y Orden
+        </button>
+      </div>
+
+      <div class="fg-toolbar-right">
+        <div class="input-group input-group-sm fg-search-box">
+          <input
+            id="fg-search"
+            type="text"
+            class="form-control"
+            placeholder="Buscar"
+            oninput="FinanciacionGrupal.onSearch(this.value)">
+          <span class="input-group-text">
+            <i class="bi bi-search"></i>
+          </span>
+        </div>
+
+        <select id="fg-page-size" class="form-select form-select-sm fg-page-size" onchange="FinanciacionGrupal.onPageSize(this.value)">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table fg-table align-middle mb-0" id="financiacion-grupal-table">
+        <thead>
+          <tr>
+            <th>Financiación Grupal <i class="bi bi-arrow-down-up"></i></th>
+            <th>Cliente <i class="bi bi-arrow-down-up"></i></th>
+            <th>Compañía <i class="bi bi-arrow-down-up"></i></th>
+            <th>Num. Cupones <i class="bi bi-arrow-down-up"></i></th>
+            <th>Moneda <i class="bi bi-arrow-down-up"></i></th>
+            <th>Importe <i class="bi bi-arrow-down-up"></i></th>
+            <th>Primer Cupón <i class="bi bi-arrow-down-up"></i></th>
+            <th>Primer Vencimiento <i class="bi bi-arrow-down-up"></i></th>
+            <th class="text-end">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows or [] %}
+          <tr data-id="{{ row.id_financiamiento_grupal }}">
+            <td>{{ row.financiamiento_grupal }}</td>
+            <td>{{ row.cliente }}</td>
+            <td>{{ row.compania }}</td>
+            <td>{{ row.numero_cupones }}</td>
+            <td>{{ row.moneda }}</td>
+            <td>{{ row.importe_formatted }}</td>
+            <td>{{ row.primer_cupon or '—' }}</td>
+            <td>{{ row.fecha_primer_vencimiento or '—' }}</td>
+            <td class="text-end">
+              <div class="fg-actions">
+                <button type="button" class="btn btn-info btn-sm" onclick="FinanciacionGrupal.onAvisos('{{ row.id_financiamiento_grupal }}')">
+                  <i class="bi bi-exclamation-triangle-fill"></i> Avisos
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="FinanciacionGrupal.onCuotas('{{ row.id_financiamiento_grupal }}')">
+                  <i class="bi bi-receipt"></i> Cuotas
+                </button>
+                <div class="dropdown">
+                  <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    Acción
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="FinanciacionGrupal.onEdit('{{ row.id_financiamiento_grupal }}')">Editar</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="FinanciacionGrupal.onDelete('{{ row.id_financiamiento_grupal }}')">Eliminar</a></li>
+                  </ul>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+
+          {% if not rows %}
+          <tr class="fg-empty-row">
+            <td colspan="9" class="text-center text-muted py-5">
+              No hay registros de financiamiento grupal.
+            </td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js_bottom %}
+<script src="{{ url_for('static', filename='js/financiamiento_grupal/Financiacion-Grupal.js') }}"></script>
+<script>
+  FinanciacionGrupal.init();
+</script>
+{% endblock %}

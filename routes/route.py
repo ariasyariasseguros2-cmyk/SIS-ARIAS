@@ -1611,6 +1611,18 @@ def menu_page(page):
             is_modal=is_modal
         )
 
+    if page == 'financiamiento-grupal':
+        from controllers.financiamiento_grupal.financiacion_grupal import get_financiamiento_grupal_data
+        data = get_financiamiento_grupal_data()
+        return render_template(
+            'view/financiamiento_grupal/Financiacion-Grupal.html',
+            page='financiamiento-grupal',
+            title=data['title'],
+            rows=data['rows'],
+            total_registros=data['total_registros'],
+            total_importe=data['total_importe']
+        )
+
     # Cuotas → plantilla dedicada
     if page == 'cuotas':
         from controllers.cuotas.cuotas import get_cuotas_data
