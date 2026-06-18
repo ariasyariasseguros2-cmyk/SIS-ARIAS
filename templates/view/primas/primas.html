@@ -130,7 +130,7 @@
                                 <button class="btn-action btn-success btn-editar" data-id="{{ r.idPrima }}">Editar</button>
                                 {% endif %}
                                 {% if can_restore(session.role_name) %}
-                                <button class="btn-action btn-warning btn-anular-prima"
+                                <button class="btn-action btn-yellow btn-anular-prima" 
                                         data-id="{{ r.idPrima }}"
                                         title="Anular esta prima y sus cuotas">Anular</button>
                                 {% endif %}

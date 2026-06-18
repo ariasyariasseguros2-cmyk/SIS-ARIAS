@@ -3,6 +3,10 @@
     --primary: #0066cc;       
     --primary-hover: #0052a3; 
     --primary-light: #e6f0fa;
+    --yellow: #f0ad4e;
+    --yellow-bg: #fff3cd;
+    --yellow-hover: #e6a23e;
+    --yellow-light: #fff8cd;
     
     /* Functional Colors - Tonos pastel saturados */
     --success: #059669;
@@ -70,6 +74,12 @@
 .btn-lift.btn-warning {
     background: linear-gradient(to right, #f0ad4e, #ec971f);
 }
+
+.btn-lift.btn-yellow {
+    background: linear-gradient(to right, #f0ad4e, #ec971f);
+}
+
+
 
 .btn-lift.btn-info {
     background: linear-gradient(to right, #17a2b8, #117a8b);
@@ -502,6 +512,17 @@
     background-color: #5a6268;
     transform: translateY(-1px);
     box-shadow: 0 4px 6px rgba(108, 117, 125, 0.3);
+}
+
+.btn-action.btn-yellow {
+    background: linear-gradient(to right, #f0ad4e, #d97706);
+    color: white;
+    box-shadow: 0 2px 4px rgba(217, 119, 6, 0.25);
+}
+.btn-action.btn-yellow:hover {
+    background: linear-gradient(to right, #d97706, #f0ad4e);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(217, 119, 6, 0.35);
 }
 
 /* Modal Confirmación Custom Styles */
