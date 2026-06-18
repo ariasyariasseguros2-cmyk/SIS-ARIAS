@@ -11,6 +11,7 @@
 {% block before_js %}
 <script>
   window.currentPage = "{{ page }}";
+  window.financiamientoGrupalOpenAdd = "{{ request.args.get('openAdd', '') }}";
 </script>
 {% endblock %}
 
@@ -129,6 +130,95 @@
           {% endif %}
         </tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="addFinanciacionGrupalModal" tabindex="-1" aria-labelledby="addFinanciacionGrupalModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <form id="addFinanciacionGrupalForm" autocomplete="off" novalidate>
+        <div class="modal-header">
+          <h5 class="modal-title" id="addFinanciacionGrupalModalLabel">
+            <i class="bi bi-people-fill me-1"></i> Añadir Financiamiento Grupal
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="mb-4">
+            <a href="#" class="text-decoration-none text-muted small fw-bold" data-bs-dismiss="modal">
+              <i class="bi bi-arrow-left"></i> Volver al listado Financiamiento Grupal
+            </a>
+          </div>
+
+          <div class="fg-form-card">
+            <div class="fg-form-card-title">
+              <i class="bi bi-person-plus-fill"></i> Añadir Financiamiento Grupal
+            </div>
+
+            <div class="row g-4 pt-3">
+              <div class="col-md-12">
+                <label for="fgNombre" class="form-label">Financiacion Grupal <span class="text-danger">*</span></label>
+                <input type="text" id="fgNombre" name="nombre" class="form-control" required>
+              </div>
+
+              <div class="col-md-12">
+                <label for="fgCliente" class="form-label">Cliente <span class="text-danger">*</span></label>
+                <select id="fgCliente" name="cliente_id" class="form-select" required>
+                  <option value="">** Selecciona un Cliente</option>
+                </select>
+              </div>
+
+              <div class="col-md-12">
+                <label for="fgCompania" class="form-label">Compañía <span class="text-danger">*</span></label>
+                <select id="fgCompania" name="compania_id" class="form-select" required>
+                  <option value="">** Selecciona un Compañía</option>
+                </select>
+              </div>
+
+              <div class="col-md-8">
+                <label for="fgMoneda" class="form-label">Moneda <span class="text-danger">*</span></label>
+                <select id="fgMoneda" name="moneda" class="form-select" required>
+                  <option value="">** Selecciona un Moneda</option>
+                </select>
+              </div>
+
+              <div class="col-md-6">
+                <label for="fgNumeroCupones" class="form-label">Numero Cupones <span class="text-danger">*</span></label>
+                <input type="number" min="1" id="fgNumeroCupones" name="numero_cupones" class="form-control" required>
+              </div>
+
+              <div class="col-md-8">
+                <label for="fgPrimerCupon" class="form-label">No. Primer Cupón <span class="text-danger">*</span></label>
+                <input type="text" id="fgPrimerCupon" name="primer_cupon" class="form-control" required>
+              </div>
+
+              <div class="col-md-8">
+                <label for="fgImporte" class="form-label">Importe <span class="text-danger">*</span></label>
+                <input type="number" min="0" step="0.01" id="fgImporte" name="importe" class="form-control" required>
+              </div>
+
+              <div class="col-md-8">
+                <label for="fgFechaPrimerVencimiento" class="form-label">Fecha Primer Vencimiento <span class="text-danger">*</span></label>
+                <input type="date" id="fgFechaPrimerVencimiento" name="fecha_primer_vencimiento" class="form-control" required>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer justify-content-start">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+            <i class="bi bi-arrow-counterclockwise"></i> Volver
+          </button>
+          <button type="button" class="btn btn-success" id="btnGuardarYAgregarOtroFG">
+            Guardar y Añadir otro
+          </button>
+          <button type="submit" class="btn btn-success" id="btnGuardarFG">
+            Guardar
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

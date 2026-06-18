@@ -7,14 +7,45 @@ const FinanciacionGrupal = (() => {
   let pagerPrevBtn = null;
   let pagerNextBtn = null;
   let pagerInfoEl = null;
+  let addModal = null;
+  let addModalEl = null;
+  let addForm = null;
+  let optionsLoaded = false;
 
   function init() {
     const tbody = document.querySelector('#financiacion-grupal-table tbody');
-    if (!tbody) return;
-    allRows = Array.from(tbody.querySelectorAll('tr')).filter((tr) => !tr.classList.contains('fg-empty-row'));
-    filteredRows = [...allRows];
-    ensurePager();
-    renderPage();
+    addModalEl = document.getElementById('addFinanciacionGrupalModal');
+    addForm = document.getElementById('addFinanciacionGrupalForm');
+
+    if (tbody) {
+      allRows = Array.from(tbody.querySelectorAll('tr')).filter((tr) => !tr.classList.contains('fg-empty-row'));
+      filteredRows = [...allRows];
+      ensurePager();
+      renderPage();
+    }
+
+    if (addModalEl && window.bootstrap) {
+      addModal = window.bootstrap.Modal.getOrCreateInstance(addModalEl);
+      addModalEl.addEventListener('show.bs.modal', async () => {
+        await loadOptions();
+      });
+    }
+
+    if (addForm) {
+      addForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        await submitForm(false);
+      });
+    }
+
+    const btnGuardarOtro = document.getElementById('btnGuardarYAgregarOtroFG');
+    btnGuardarOtro?.addEventListener('click', async () => {
+      await submitForm(true);
+    });
+
+    if (String(window.financiamientoGrupalOpenAdd || '') === '1') {
+      setTimeout(() => onAdd(), 100);
+    }
   }
 
   function ensurePager() {
@@ -96,8 +127,14 @@ const FinanciacionGrupal = (() => {
     showInfo('Los filtros avanzados todavia no estan conectados.');
   }
 
-  function onAdd() {
-    showInfo('La pantalla de registro de financiamiento grupal sera conectada en el siguiente paso.');
+  async function onAdd() {
+    if (!addModal) {
+      showInfo('No se encontro el modal de registro.');
+      return;
+    }
+    resetForm();
+    await loadOptions();
+    addModal.show();
   }
 
   function onAvisos(id) {
@@ -121,6 +158,143 @@ const FinanciacionGrupal = (() => {
       window.Swal.fire({
         icon: 'info',
         title: 'Aviso',
+        text: message,
+        confirmButtonText: 'Aceptar'
+      });
+      return;
+    }
+    window.alert(message);
+  }
+
+  async function loadOptions() {
+    if (optionsLoaded) return;
+    try {
+      const resp = await fetch('/api/financiamiento-grupal/options');
+      const result = await resp.json();
+      if (!resp.ok || !result.ok) {
+        throw new Error(result.error || 'No se pudieron cargar las opciones.');
+      }
+
+      fillSelect('fgCliente', result.clientes || [], '** Selecciona un Cliente');
+      fillSelect('fgCompania', result.companias || [], '** Selecciona un Compañía');
+      fillSelect('fgMoneda', result.monedas || [], '** Selecciona un Moneda');
+      optionsLoaded = true;
+    } catch (error) {
+      showError(error.message || 'Error cargando opciones del formulario.');
+    }
+  }
+
+  function fillSelect(id, items, placeholder) {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const currentValue = select.value;
+    select.innerHTML = '';
+
+    const first = document.createElement('option');
+    first.value = '';
+    first.textContent = placeholder;
+    select.appendChild(first);
+
+    items.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = item.nombre;
+      select.appendChild(option);
+    });
+
+    if (currentValue) {
+      select.value = currentValue;
+    }
+  }
+
+  function resetForm() {
+    if (!addForm) return;
+    addForm.reset();
+    addForm.classList.remove('was-validated');
+  }
+
+  async function submitForm(keepAdding) {
+    if (!addForm) return;
+    if (!addForm.reportValidity()) {
+      addForm.classList.add('was-validated');
+      return;
+    }
+
+    const btnGuardar = document.getElementById('btnGuardarFG');
+    const btnGuardarOtro = document.getElementById('btnGuardarYAgregarOtroFG');
+    const activeBtn = keepAdding ? btnGuardarOtro : btnGuardar;
+    const originalHtml = activeBtn ? activeBtn.innerHTML : '';
+
+    try {
+      if (btnGuardar) btnGuardar.disabled = true;
+      if (btnGuardarOtro) btnGuardarOtro.disabled = true;
+      if (activeBtn) {
+        activeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
+      }
+
+      const payload = {
+        nombre: document.getElementById('fgNombre')?.value?.trim() || '',
+        cliente_id: document.getElementById('fgCliente')?.value || '',
+        compania_id: document.getElementById('fgCompania')?.value || '',
+        moneda: document.getElementById('fgMoneda')?.value || '',
+        numero_cupones: document.getElementById('fgNumeroCupones')?.value || '',
+        primer_cupon: document.getElementById('fgPrimerCupon')?.value?.trim() || '',
+        importe: document.getElementById('fgImporte')?.value || '',
+        fecha_primer_vencimiento: document.getElementById('fgFechaPrimerVencimiento')?.value || ''
+      };
+
+      const resp = await fetch('/api/financiamiento-grupal/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await resp.json();
+      if (!resp.ok || !result.ok) {
+        throw new Error(result.error || 'No se pudo guardar el registro.');
+      }
+
+      if (keepAdding) {
+        showSuccess('Registro guardado correctamente.');
+        window.location.href = `${window.location.pathname}?openAdd=1`;
+        return;
+      }
+
+      showSuccess('Registro guardado correctamente.', () => {
+        window.location.reload();
+      });
+    } catch (error) {
+      showError(error.message || 'Error guardando el financiamiento grupal.');
+    } finally {
+      if (btnGuardar) btnGuardar.disabled = false;
+      if (btnGuardarOtro) btnGuardarOtro.disabled = false;
+      if (activeBtn) activeBtn.innerHTML = originalHtml;
+    }
+  }
+
+  function showSuccess(message, onClose) {
+    if (window.Swal) {
+      window.Swal.fire({
+        icon: 'success',
+        title: 'Correcto',
+        text: message,
+        confirmButtonText: 'Aceptar'
+      }).then(() => {
+        if (typeof onClose === 'function') onClose();
+      });
+      return;
+    }
+    window.alert(message);
+    if (typeof onClose === 'function') onClose();
+  }
+
+  function showError(message) {
+    if (window.Swal) {
+      window.Swal.fire({
+        icon: 'error',
+        title: 'Error',
         text: message,
         confirmButtonText: 'Aceptar'
       });

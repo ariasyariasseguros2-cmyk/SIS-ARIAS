@@ -586,6 +586,76 @@ CREATE INDEX idx_financiamiento_grupal_cliente ON financiamiento_grupal (cliente
 CREATE INDEX idx_financiamiento_grupal_compania ON financiamiento_grupal (compania_id);
 CREATE INDEX idx_financiamiento_grupal_activo ON financiamiento_grupal (activo);
 
+DROP PROCEDURE IF EXISTS sp_insert_financiamiento_grupal;
+DELIMITER $$
+CREATE PROCEDURE sp_insert_financiamiento_grupal(
+    IN p_nombre VARCHAR(255),
+    IN p_cliente_id INT,
+    IN p_compania_id INT,
+    IN p_moneda VARCHAR(10),
+    IN p_numero_cupones INT,
+    IN p_primer_cupon VARCHAR(50),
+    IN p_importe DECIMAL(15,2),
+    IN p_fecha_primer_vencimiento DATE,
+    OUT p_new_id INT
+)
+BEGIN
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre del financiamiento grupal es obligatorio';
+    END IF;
+
+    IF p_cliente_id IS NULL OR p_cliente_id <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El cliente es obligatorio';
+    END IF;
+
+    IF p_compania_id IS NULL OR p_compania_id <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La compania es obligatoria';
+    END IF;
+
+    IF p_moneda IS NULL OR TRIM(p_moneda) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La moneda es obligatoria';
+    END IF;
+
+    IF p_numero_cupones IS NULL OR p_numero_cupones <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El numero de cupones debe ser mayor a cero';
+    END IF;
+
+    IF p_primer_cupon IS NULL OR TRIM(p_primer_cupon) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El primer cupon es obligatorio';
+    END IF;
+
+    IF p_importe IS NULL OR p_importe <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El importe debe ser mayor a cero';
+    END IF;
+
+    IF p_fecha_primer_vencimiento IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La fecha del primer vencimiento es obligatoria';
+    END IF;
+
+    INSERT INTO financiamiento_grupal (
+        nombre,
+        cliente_id,
+        compania_id,
+        moneda,
+        numero_cupones,
+        primer_cupon,
+        importe,
+        fecha_primer_vencimiento
+    ) VALUES (
+        TRIM(p_nombre),
+        p_cliente_id,
+        p_compania_id,
+        UPPER(TRIM(p_moneda)),
+        p_numero_cupones,
+        NULLIF(TRIM(p_primer_cupon), ''),
+        p_importe,
+        p_fecha_primer_vencimiento
+    );
+
+    SET p_new_id = LAST_INSERT_ID();
+END$$
+DELIMITER ;
+
 -- Tabla polizas: quitar 'producto' y 'motivo', mantener 'cia' y 'ramos_producto'
 CREATE TABLE IF NOT EXISTS polizas (
     idPoliza INT AUTO_INCREMENT PRIMARY KEY,

@@ -3046,6 +3046,30 @@ def api_buscar_clientes():
     return jsonify({'ok': True, 'clientes': clientes}), 200
 
 
+@bp.route('/api/financiamiento-grupal/options', methods=['GET'])
+def api_financiamiento_grupal_options():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    from controllers.financiamiento_grupal.financiacion_grupal import get_financiamiento_grupal_form_options
+    data = get_financiamiento_grupal_form_options()
+    return jsonify({'ok': True, **data}), 200
+
+
+@bp.route('/api/financiamiento-grupal/create', methods=['POST'])
+def api_financiamiento_grupal_create():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    payload = request.get_json(silent=True) or {}
+    payload['usuario'] = session.get('user') or ''
+
+    from controllers.financiamiento_grupal.financiacion_grupal import insert_financiamiento_grupal
+    result = insert_financiamiento_grupal(payload)
+    status = 200 if result.get('ok') else 400
+    return jsonify(result), status
+
+
 @bp.route('/clientes/extract-pdf', methods=['POST'])
 def clientes_extract_pdf():
     """Endpoint para extraer información de cliente desde un PDF."""
