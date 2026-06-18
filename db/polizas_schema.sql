@@ -560,6 +560,32 @@ BEGIN
 END$$
 DELIMITER ;
 
+-- Tabla financiamiento grupal
+CREATE TABLE IF NOT EXISTS financiamiento_grupal (
+    id_financiamiento_grupal INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(255) NOT NULL,
+    cliente_id INT NOT NULL,
+    compania_id INT NOT NULL,
+    moneda VARCHAR(10) NOT NULL,
+    numero_cupones INT NOT NULL,
+    primer_cupon VARCHAR(50) NULL,
+    importe DECIMAL(15,2) NOT NULL,
+    fecha_primer_vencimiento DATE NOT NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
+    usuario_creacion VARCHAR(100) NULL,
+    usuario_modificacion VARCHAR(100) NULL,
+    fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+    fecha_modificacion DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_financiamiento_grupal_cliente
+        FOREIGN KEY (cliente_id) REFERENCES clientes(idCliente),
+    CONSTRAINT fk_financiamiento_grupal_compania
+        FOREIGN KEY (compania_id) REFERENCES companias(id_compania)
+);
+
+CREATE INDEX idx_financiamiento_grupal_cliente ON financiamiento_grupal (cliente_id);
+CREATE INDEX idx_financiamiento_grupal_compania ON financiamiento_grupal (compania_id);
+CREATE INDEX idx_financiamiento_grupal_activo ON financiamiento_grupal (activo);
+
 -- Tabla polizas: quitar 'producto' y 'motivo', mantener 'cia' y 'ramos_producto'
 CREATE TABLE IF NOT EXISTS polizas (
     idPoliza INT AUTO_INCREMENT PRIMARY KEY,
