@@ -104,11 +104,26 @@ def _parse_pension_vida(block: str) -> Optional[Dict]:
     # Número de proforma (solo en la sección "Proforma de Cobertura")
     recibo = _find(r"N[uú]mero\s+de\s+Proforma\s*:\s*([0-9]+)", block)
 
+    # Debug: mostrar líneas con fechas
+    fecha_lines = [l for l in block.splitlines() if any(k in l.lower() for k in ('fecha', 'vigencia', 'hasta', 'emisi'))]
+    print(f"[lpv-decl FECHAS LINEAS] {fecha_lines[:8]!r}")
+
     # Fechas
-    emision = _find(r"Emisi[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", block)
-    vig_desde = _find(r"Vigencia\s+Desde\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", block)
+    emision = (
+        _find(r"Emisi[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", block)
+        or _find(r"^Fecha\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", block, re.IGNORECASE | re.MULTILINE)
+        or _find(r"\bFecha\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", block)
+    )
+    vig_desde = (
+        _find(r"Vigencia\s+[Dd]esde\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", block)
+        or _find(r"[Dd]esde\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", block)
+        or _find(r"Vigencia\b[^\n]*?([0-9]{2}/[0-9]{2}/[0-9]{4})", block)
+    )
     # "Hasta :" puede venir junto con "Vigencia desde :" en el mismo renglón de tabla
-    vig_hasta = _find(r"\bHasta\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", block)
+    vig_hasta = (
+        _find(r"\bHasta\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", block)
+        or _find(r"Vigencia\b[^\n]*[0-9]{2}/[0-9]{2}/[0-9]{4}[^\n]*?([0-9]{2}/[0-9]{2}/[0-9]{4})", block)
+    )
 
     # fecha_vencimiento = fecha de emisión + 15 días (según las condiciones del convenio)
     fecha_vencimiento = _add_days(emision, 15) or vig_hasta
@@ -165,6 +180,8 @@ def _parse_pension_vida(block: str) -> Optional[Dict]:
             prima_comercial_igv = f"{float(prima_comercial) + float(igv_val):.2f}"
         except Exception:
             pass
+
+    print(f"[lpv-decl] emision={emision!r} vig_desde={vig_desde!r} vig_hasta={vig_hasta!r} contratante={contratante!r}")
 
     item = {
         "numero_poliza": numero_poliza,
