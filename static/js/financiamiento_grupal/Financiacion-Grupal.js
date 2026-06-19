@@ -10,6 +10,8 @@ const FinanciacionGrupal = (() => {
   let addModal = null;
   let addModalEl = null;
   let addForm = null;
+  let convenioPdfInput = null;
+  let convenioPdfStatusEl = null;
   let optionsLoaded = false;
   const searchableSelects = {};
 
@@ -17,6 +19,8 @@ const FinanciacionGrupal = (() => {
     const tbody = document.querySelector('#financiacion-grupal-table tbody');
     addModalEl = document.getElementById('addFinanciacionGrupalModal');
     addForm = document.getElementById('addFinanciacionGrupalForm');
+    convenioPdfInput = document.getElementById('fgConvenioPdf');
+    convenioPdfStatusEl = document.getElementById('fgConvenioPdfStatus');
 
     if (tbody) {
       allRows = Array.from(tbody.querySelectorAll('tr')).filter((tr) => !tr.classList.contains('fg-empty-row'));
@@ -38,6 +42,15 @@ const FinanciacionGrupal = (() => {
         await submitForm(false);
       });
     }
+
+    convenioPdfInput?.addEventListener('change', async (event) => {
+      const file = event.target?.files?.[0];
+      if (!file) {
+        setPdfStatus('');
+        return;
+      }
+      await extractPdfData(file);
+    });
 
     const btnGuardarOtro = document.getElementById('btnGuardarYAgregarOtroFG');
     btnGuardarOtro?.addEventListener('click', async () => {
@@ -84,6 +97,124 @@ const FinanciacionGrupal = (() => {
         renderPage();
       }
     });
+  }
+
+  function setPdfStatus(message, tone = 'muted') {
+    if (!convenioPdfStatusEl) return;
+    convenioPdfStatusEl.textContent = message || '';
+    convenioPdfStatusEl.className = 'small mt-1';
+    if (tone === 'success') {
+      convenioPdfStatusEl.classList.add('text-success');
+    } else if (tone === 'error') {
+      convenioPdfStatusEl.classList.add('text-danger');
+    } else {
+      convenioPdfStatusEl.classList.add('text-muted');
+    }
+  }
+
+  function normalizeDateForInput(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!match) return '';
+    return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+  }
+
+  function normalizeMonedaForSelect(value) {
+    const moneda = String(value || '').trim().toUpperCase();
+    if (['PEN', 'S/', 'S/.', 'SOLES'].includes(moneda)) return 'PEN';
+    if (['USD', 'US$', '$', 'DOLARES'].includes(moneda)) return 'USD';
+    return '';
+  }
+
+  function normalizeNumberInput(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const cleaned = raw.replace(/[^\d.,-]/g, '');
+    if (!cleaned) return '';
+    const lastDot = cleaned.lastIndexOf('.');
+    const lastComma = cleaned.lastIndexOf(',');
+    if (lastDot > -1 && lastComma > -1) {
+      return lastDot > lastComma ? cleaned.replace(/,/g, '') : cleaned.replace(/\./g, '').replace(',', '.');
+    }
+    if (lastComma > -1) {
+      return cleaned.replace(/\./g, '').replace(',', '.');
+    }
+    return cleaned;
+  }
+
+  function applyExtractedData(data) {
+    const cuotas = Array.isArray(data?.cuotas) ? data.cuotas : [];
+    const firstCuota = cuotas[0] || {};
+    const moneda = normalizeMonedaForSelect(data?.moneda || firstCuota?.moneda || '');
+    const numeroCupones = String(data?.numero_cupones || cuotas.length || '').trim();
+    const primerCupon = String(data?.primer_cupon || firstCuota?.cupon || '').trim();
+    const importe = normalizeNumberInput(data?.importe || firstCuota?.importe || '');
+    const fechaPrimerVencimiento = normalizeDateForInput(data?.fecha_vencimiento || firstCuota?.fecha_vencimiento || '');
+
+    if (moneda) {
+      const monedaSelect = document.getElementById('fgMoneda');
+      if (monedaSelect) monedaSelect.value = moneda;
+    }
+    if (numeroCupones) {
+      const el = document.getElementById('fgNumeroCupones');
+      if (el) el.value = numeroCupones;
+    }
+    if (primerCupon) {
+      const el = document.getElementById('fgPrimerCupon');
+      if (el) el.value = primerCupon;
+    }
+    if (importe) {
+      const el = document.getElementById('fgImporte');
+      if (el) el.value = importe;
+    }
+    if (fechaPrimerVencimiento) {
+      const el = document.getElementById('fgFechaPrimerVencimiento');
+      if (el) el.value = fechaPrimerVencimiento;
+    }
+  }
+
+  async function extractPdfData(file) {
+    const filename = String(file?.name || '').toLowerCase();
+    if (!filename.endsWith('.pdf')) {
+      setPdfStatus('Selecciona un archivo PDF valido.', 'error');
+      return;
+    }
+
+    try {
+      await loadOptions();
+      setPdfStatus('Extrayendo datos del PDF...', 'muted');
+      if (convenioPdfInput) convenioPdfInput.disabled = true;
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const resp = await fetch('/cuotas/extract', {
+        method: 'POST',
+        body: formData
+      });
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok || !result.ok) {
+        throw new Error(result.error || 'No se pudieron extraer los datos del PDF.');
+      }
+
+      const data = result.data || {};
+      applyExtractedData(data);
+
+      const cuotas = Array.isArray(data.cuotas) ? data.cuotas : [];
+      const convenio = String(data.convenio || '').trim();
+      let status = cuotas.length > 0 ? `Se extrajeron ${cuotas.length} cuota(s) del PDF.` : 'Se completaron datos desde el PDF.';
+      if (convenio) {
+        status += ` Convenio: ${convenio}.`;
+      }
+      setPdfStatus(status, 'success');
+    } catch (error) {
+      setPdfStatus(error.message || 'Error extrayendo datos del PDF.', 'error');
+      showError(error.message || 'Error extrayendo datos del PDF.');
+    } finally {
+      if (convenioPdfInput) convenioPdfInput.disabled = false;
+    }
   }
 
   function renderPage() {
@@ -291,6 +422,7 @@ const FinanciacionGrupal = (() => {
     if (!addForm) return;
     addForm.reset();
     addForm.classList.remove('was-validated');
+    setPdfStatus('');
     Object.values(searchableSelects).forEach((state) => {
       state.selectedValue = '';
       if (state.searchInput) {

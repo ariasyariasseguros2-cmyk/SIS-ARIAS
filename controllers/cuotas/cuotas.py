@@ -1492,7 +1492,11 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
         'fecha_pago': '',
         'observacion': '',
         'numero_documento_contratante': '',
-        'cuotas': []
+        'cuotas': [],
+        'convenio': '',
+        'numero_cupones': '',
+        'primer_cupon': '',
+        'es_convenio': False,
     }
 
     def extract_numero_documento() -> str:
@@ -1539,6 +1543,33 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
         m2 = re.search(r'(\d{1,2}\s*[/-]\s*\d{1,2}\s*[/-]\s*\d{4})', tail)
         return normalize_date_token(m2.group(1)) if m2 else ''
 
+    def extract_convenio_value() -> str:
+        patterns = [
+            r'N[°º]?\s*(?:DE\s*)?CONVENIO\s*[:\-]?\s*(\d{6,25})',
+            r'CONVENIO\s*(?:DE\s+PAGO(?:\s+DE\s+PRIMAS)?)?[\s:.\-#N°º]{0,20}(\d{6,25})',
+            r'COD(?:IGO)?\s+DE\s+CONVENIO\s*[:\-]?\s*(\d{6,25})',
+        ]
+        for pat in patterns:
+            m = re.search(pat, text_fold_upper, re.IGNORECASE)
+            if m:
+                return (m.group(1) or '').strip()
+        return ''
+
+    def infer_convenio_from_cuotas(cuotas: List[Dict[str, object]]) -> str:
+        if not cuotas:
+            return ''
+        prefijos = []
+        for cuota in cuotas:
+            cupon = str((cuota or {}).get('cupon') or '').strip()
+            if not cupon or '-' not in cupon:
+                continue
+            prefijo = cupon.split('-', 1)[0].strip()
+            if prefijo and prefijo.isdigit():
+                prefijos.append(prefijo)
+        if prefijos and len(set(prefijos)) == 1:
+            return prefijos[0]
+        return ''
+
     # --- Detección de Proveedor ---
     is_crecer = 'CRECER' in text_upper and 'SEGUROS' in text_upper
     is_protecta = 'PROTECTA' in text_fold_upper
@@ -1546,6 +1577,10 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
     is_positiva = 'LA POSITIVA' in text_upper
     is_qualitas = ('QUALITAS' in text_fold_upper) or ('QUÁLITAS' in text_upper) or ('QUÁLITAS' in text_fold_upper)
     is_mapfre = 'MAPFRE' in text_fold_upper
+    data['convenio'] = extract_convenio_value()
+    data['es_convenio'] = bool(data['convenio']) or bool(
+        re.search(r'CONVENIO\s+DE\s+PAGO|CRONOGRAMA\s+DE\s+PAGO|PAGO\s+FRACCIONADO', text_fold_upper, re.IGNORECASE)
+    )
 
     if is_protecta:
         m_fac = re.search(r'(F\d{3}\s*-\s*\d+)', text, re.IGNORECASE)
@@ -1875,6 +1910,12 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
             data['cupon'] = data['cupon'] or str(primera.get('cupon') or '')
             data['fecha_vencimiento'] = data['fecha_vencimiento'] or str(primera.get('fecha_vencimiento') or '')
             data['importe'] = data['importe'] or str(primera.get('importe') or '')
+            data['numero_cupones'] = len(cuotas)
+            data['primer_cupon'] = str(primera.get('cupon') or '')
+            if not data['convenio']:
+                data['convenio'] = infer_convenio_from_cuotas(cuotas)
+            if data['convenio']:
+                data['es_convenio'] = True
     except Exception as e:
         print(f"Error extracting multiple cuotas: {e}")
 
