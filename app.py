@@ -46,6 +46,7 @@ try:
         can_view_maestros,
         can_access_maestros,
         can_restore,
+        can_hard_delete,
         get_role_scope,
         can_view_dashboard_charts,
     )
@@ -76,6 +77,7 @@ try:
             'can_view_maestros': can_view_maestros,
             'can_access_maestros': can_access_maestros,
             'can_restore': can_restore,
+            'can_hard_delete': can_hard_delete,
             'get_role_scope': get_role_scope,
             'can_view_dashboard_charts': can_view_dashboard_charts,
             'get_initials': get_initials,
