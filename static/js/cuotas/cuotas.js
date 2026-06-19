@@ -455,7 +455,7 @@ const Cuotas = (() => {
     if (!tbody) return;
     const tr = tbody.querySelectorAll('tr')[idx];
     if (!tr) return;
-    openConfirm('¿Eliminar definitivamente esta cuota?', () => {
+    openConfirm('¿Anular esta cuota?', () => {
       const idCuota = tr.dataset.idcuota;
       if (idCuota) {
         fetch('/cuotas/delete', {
@@ -469,7 +469,7 @@ const Cuotas = (() => {
             tr.remove();
             syncRowIndices();
           } else {
-            alert('Error al eliminar: ' + (res.error || 'Desconocido'));
+            alert('Error al anular: ' + (res.error || 'Desconocido'));
           }
         })
         .catch(e => alert('Error de red: ' + e));
@@ -477,6 +477,32 @@ const Cuotas = (() => {
         tr.remove();
         syncRowIndices();
       }
+    }, 'delete');
+  }
+
+  function onHardDelete(idx) {
+    const tbody = document.querySelector('#cuotas-table tbody');
+    if (!tbody) return;
+    const tr = tbody.querySelectorAll('tr')[idx];
+    if (!tr) return;
+    openConfirm('⚠️ ELIMINAR PERMANENTEMENTE esta cuota. Esta acción es irreversible. ¿Continuar?', () => {
+      const idCuota = tr.dataset.idcuota;
+      if (!idCuota) { tr.remove(); syncRowIndices(); return; }
+      fetch('/cuotas/hard-delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({idCuota: idCuota})
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.ok) {
+          tr.remove();
+          syncRowIndices();
+        } else {
+          alert('Error al eliminar: ' + (res.error || 'Desconocido'));
+        }
+      })
+      .catch(e => alert('Error de red: ' + e));
     }, 'delete');
   }
   function onAdd() { 
@@ -542,7 +568,7 @@ const Cuotas = (() => {
                   <button class="btn-action btn-warning btn-revert" onclick="Cuotas.onRevert(${rowCount - 1})" style="${(data.fecha_pago && data.factura) ? '' : 'display:none'}">Revertir</button>
                   <button class="btn-action btn-info btn-details" onclick="Cuotas.onDetails(${rowCount - 1})">Detalles</button>
                   <button class="btn-action btn-success btn-edit" onclick="Cuotas.onEdit(${rowCount - 1})">Editar</button>
-                  <button class="btn-action btn-danger btn-delete" onclick="Cuotas.onDelete(${rowCount - 1})">Eliminar</button>
+                  <button class="btn-action btn-danger btn-delete" onclick="Cuotas.onDelete(${rowCount - 1})">Anular</button>
                 </div>
             </td>
         `;
@@ -671,5 +697,5 @@ const Cuotas = (() => {
     recalcTotal();
   }
 
-  return { init, onSearch, onPageSize, onPDF, onRevert, onDetails, onEdit, onDelete, onAdd };
+  return { init, onSearch, onPageSize, onPDF, onRevert, onDetails, onEdit, onDelete, onHardDelete, onAdd };
 })();
