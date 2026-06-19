@@ -150,7 +150,10 @@
                                         
                                         <li><a class="dropdown-item" href="/menu/detalles-poliza?id={{ r.idPoliza }}&print=true" target="_blank"><i class="bi-printer"></i> Imprimir</a></li>
                                         
-                                        <!-- Acción eliminar deshabilitada en UI; autorización backend permanece aplicada -->
+                                        {% if can_hard_delete(session.role_name) %}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash-fill"></i> Eliminar</a></li>
+                                        {% endif %}
                                     </ul>
                                 </div>
                             </div>
