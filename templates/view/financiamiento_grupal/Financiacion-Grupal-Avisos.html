@@ -92,7 +92,10 @@
       </div>
       <div class="info-item">
         <label>Moneda</label>
-        <div>{{ detail.moneda }}</div>
+        <div>
+          {% set moneda_label = (detail.moneda or '')|upper %}
+          {{ 'S/' if moneda_label in ['PEN', 'S/', 'S/.', 'SOLES'] else 'US$' if moneda_label in ['USD', 'US$', '$', 'DOLARES'] else detail.moneda }}
+        </div>
       </div>
       <div class="info-item">
         <label>Importe</label>

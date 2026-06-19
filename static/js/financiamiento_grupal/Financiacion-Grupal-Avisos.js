@@ -216,6 +216,12 @@ const FinanciamientoGrupalAvisos = (() => {
   function renderMainRow(r) {
     const safe = (v) => (v === null || v === undefined || String(v).trim() === '' ? '—' : String(v));
     const safeMoney = (v) => (v === null || v === undefined || String(v).trim() === '' ? '0.00' : String(v));
+    const formatMoneda = (v) => {
+      const moneda = String(v || '').trim().toUpperCase();
+      if (['PEN', 'S/', 'S/.', 'SOLES'].includes(moneda)) return 'S/';
+      if (['USD', 'US$', '$', 'DOLARES'].includes(moneda)) return 'US$';
+      return safe(v);
+    };
     const itemId = safe(r.id_item);
     return `
       <tr class="fg-avisos-data-row">
@@ -225,7 +231,7 @@ const FinanciamientoGrupalAvisos = (() => {
         <td>${safe(r.compania)}</td>
         <td>${safe(r.ramo)}</td>
         <td>${safe(r.tipo)}</td>
-        <td>${safe(r.moneda)}</td>
+        <td>${formatMoneda(r.moneda)}</td>
         <td>${safeMoney(r.prima_comercial)}</td>
         <td>${safeMoney(r.prima_neta)}</td>
         <td>${safeMoney(r.prima_total)}</td>
@@ -296,6 +302,12 @@ const FinanciamientoGrupalAvisos = (() => {
   function renderCandidateRow(r) {
     const safe = (v) => (v === null || v === undefined || String(v).trim() === '' ? '—' : String(v));
     const safeMoney = (v) => (v === null || v === undefined || String(v).trim() === '' ? '0.00' : String(v));
+    const formatMoneda = (v) => {
+      const moneda = String(v || '').trim().toUpperCase();
+      if (['PEN', 'S/', 'S/.', 'SOLES'].includes(moneda)) return 'S/';
+      if (['USD', 'US$', '$', 'DOLARES'].includes(moneda)) return 'US$';
+      return safe(v);
+    };
     const polizaId = safe(r.idPoliza);
     return `
       <tr>
@@ -304,7 +316,7 @@ const FinanciamientoGrupalAvisos = (() => {
         <td>${safe(r.aviso)}</td>
         <td>${safe(r.vig_inicio)}</td>
         <td>${safe(r.vig_fin)}</td>
-        <td>${safe(r.moneda)}</td>
+        <td>${formatMoneda(r.moneda)}</td>
         <td>${safeMoney(r.prima_comercial)}</td>
         <td>${safeMoney(r.prima_neta)}</td>
         <td>${safeMoney(r.prima_total)}</td>
