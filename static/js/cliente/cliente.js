@@ -451,11 +451,11 @@
                 } else if (btn.classList.contains('btn-success') || btn.classList.contains('btn-outline-success')) {
                     showContactosModal(`Abrir contactos de: ${razon}`);
                 } else if (btn.classList.contains('btn-delete-cliente')) {
-                    // Eliminar cliente (borrado lógico)
+                    // Anular cliente (borrado lógico)
                     const idCliente = btn.getAttribute('data-id');
                     const nombreCliente = btn.getAttribute('data-nombre');
 
-                    const ok = await confirmDeleteCliente(`¿Está seguro de eliminar al cliente "${nombreCliente}"?`);
+                    const ok = await confirmDeleteCliente(`¿Está seguro de anular al cliente "${nombreCliente}"?`);
                     if (!ok) {
                         return;
                     }
@@ -468,7 +468,32 @@
                     .then(r => r.json())
                     .then(data => {
                         if (data.ok) {
-                            alert('Cliente eliminado correctamente');
+                            alert('Cliente anulado correctamente');
+                            location.reload();
+                        } else {
+                            alert('Error: ' + (data.errors || ['Desconocido']).join(', '));
+                        }
+                    })
+                    .catch(err => alert('Error de red: ' + err));
+                } else if (btn.classList.contains('btn-hard-delete-cliente')) {
+                    // Eliminación física — solo BROKER
+                    const idCliente = btn.getAttribute('data-id');
+                    const nombreCliente = btn.getAttribute('data-nombre');
+
+                    const ok = await confirmDeleteCliente(`⚠️ ELIMINAR PERMANENTEMENTE al cliente "${nombreCliente}" junto con todas sus pólizas y cuotas. Esta acción es irreversible. ¿Continuar?`);
+                    if (!ok) {
+                        return;
+                    }
+
+                    fetch('/clientes/hard-delete', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({idCliente: idCliente})
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.ok) {
+                            alert('Cliente eliminado permanentemente');
                             location.reload();
                         } else {
                             alert('Error: ' + (data.errors || ['Desconocido']).join(', '));
