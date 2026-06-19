@@ -194,16 +194,30 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial load
     initIncomeDayChart();
 
-    // 3. Doughnut Chart: Distribución
+    // 3. Doughnut Chart: Distribución por ramo
     const ctxDistribution = document.getElementById('distributionChart');
     if (ctxDistribution) {
+        const dist = data.distribution || {};
+        const generales = dist.generales || 0;
+        const soat = dist.soat || 0;
+        const personales = dist.personales || 0;
+        const total = generales + soat + personales;
+
+        // Show a placeholder slice when all zeros so chart renders
+        const chartValues = total > 0
+            ? [generales, soat, personales]
+            : [1, 0, 0];
+        const chartColors = total > 0
+            ? ['#3b82f6', '#f59e0b', '#10b981']
+            : ['#e2e8f0', '#e2e8f0', '#e2e8f0'];
+
         new Chart(ctxDistribution, {
             type: 'doughnut',
             data: {
-                labels: ['Vigentes', 'Por Renovar'],
+                labels: ['Seg. Generales', 'SOAT', 'Seg. Personales'],
                 datasets: [{
-                    data: [data.activePolicies || 1, data.pendingRenewals || 0],
-                    backgroundColor: ['#3b82f6', '#f59e0b'],
+                    data: chartValues,
+                    backgroundColor: chartColors,
                     borderWidth: 0,
                     hoverOffset: 10
                 }]
@@ -211,16 +225,18 @@ document.addEventListener('DOMContentLoaded', () => {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '80%',
+                cutout: '78%',
                 plugins: {
-                    legend: { 
-                        position: 'bottom', 
-                        labels: { 
-                            color: colors.text,
-                            usePointStyle: true, 
-                            padding: 20,
-                            font: { size: 11 }
-                        } 
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                if (total === 0) return 'Sin datos';
+                                const val = context.parsed;
+                                const pct = ((val / total) * 100).toFixed(1);
+                                return `${context.label}: ${val} (${pct}%)`;
+                            }
+                        }
                     }
                 }
             }
