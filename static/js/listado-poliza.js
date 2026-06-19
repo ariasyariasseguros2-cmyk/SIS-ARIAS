@@ -377,11 +377,15 @@ document.addEventListener('DOMContentLoaded', () => {
               <button type="button" class="btn-action btn-danger" data-action="anular" title="Anular">
                   Anular
               </button>
-              
+
               <button type="button" class="btn-action btn-success" data-action="renovar" title="Renovar">
                   Renovar
               </button>
-              
+
+              <button type="button" class="btn-action btn-nueva-poliza" data-action="nueva-poliza" title="Agregar nueva póliza para este cliente">
+                  <i class="bi-plus-lg"></i>
+              </button>
+
               <a href="${primasUrlBase}?poliza=${encodeURIComponent(r.poliza)}" class="btn-action btn-primary text-decoration-none" title="Primas">
                   Primas
               </a>
@@ -580,6 +584,26 @@ document.addEventListener('DOMContentLoaded', () => {
                  console.error(e);
                  alert('Error de conexión al anular');
              }
+        } else if (action === 'nueva-poliza') {
+            const btn = actionEl;
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            try {
+                const resp = await fetch(`/api/polizas/cliente-from-poliza?id=${encodeURIComponent(idPoliza)}`);
+                const json = await resp.json();
+                if (json.ok && json.redirect) {
+                    window.location.href = json.redirect;
+                } else {
+                    alert(json.error || 'No se pudo obtener el cliente');
+                    btn.disabled = false;
+                    btn.innerHTML = originalHTML;
+                }
+            } catch {
+                alert('Error de conexión');
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
         } else if (action === 'eliminar') {
              if (confirm('¿Está seguro de eliminar esta póliza?')) {
                  alert('Funcionalidad de eliminar pendiente');
