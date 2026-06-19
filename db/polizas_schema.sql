@@ -592,8 +592,7 @@ CREATE TABLE IF NOT EXISTS financiamiento_grupal_avisos (
     poliza_id INT NOT NULL,
     activo TINYINT(1) NOT NULL DEFAULT 1,
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (financiamiento_grupal_id) REFERENCES financiamiento_grupal(id_financiamiento_grupal),
-    FOREIGN KEY (poliza_id) REFERENCES polizas(idPoliza)
+    FOREIGN KEY (financiamiento_grupal_id) REFERENCES financiamiento_grupal(id_financiamiento_grupal)
 );
 
 CREATE UNIQUE INDEX uk_fg_avisos_fin_poliza ON financiamiento_grupal_avisos (financiamiento_grupal_id, poliza_id);
@@ -732,6 +731,10 @@ CREATE TABLE IF NOT EXISTS polizas (
 );
 
 CREATE UNIQUE INDEX uk_polizas_cliente_recibo ON polizas (cliente_id, recibo_uk);
+
+ALTER TABLE financiamiento_grupal_avisos
+ADD CONSTRAINT fk_financiamiento_grupal_avisos_poliza
+FOREIGN KEY (poliza_id) REFERENCES polizas(idPoliza);
 
 -- Tabla para archivos de pólizas (separada)
 CREATE TABLE IF NOT EXISTS poliza_archivos (
@@ -1664,6 +1667,7 @@ DELIMITER ;
 CREATE TABLE IF NOT EXISTS cuotas (
     idCuota INT AUTO_INCREMENT PRIMARY KEY,
     poliza_id INT NULL,
+    financiamiento_grupal_id INT NULL,
     poliza VARCHAR(50) NOT NULL,
     cupon VARCHAR(50) NULL,
     fecha_vencimiento DATE NOT NULL,
@@ -1677,8 +1681,12 @@ CREATE TABLE IF NOT EXISTS cuotas (
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
     numero_cuota INT NULL,
     activo TINYINT(1) DEFAULT 1,
-    anular TINYINT(1) DEFAULT 1
+    anular TINYINT(1) DEFAULT 1,
+    CONSTRAINT fk_cuotas_financiamiento_grupal
+        FOREIGN KEY (financiamiento_grupal_id) REFERENCES financiamiento_grupal(id_financiamiento_grupal)
 );
+
+CREATE INDEX idx_cuotas_financiamiento_grupal ON cuotas (financiamiento_grupal_id);
 
 -- Tabla para archivos de cuotas (análoga a poliza_archivos) — debe ir después de cuotas
 CREATE TABLE IF NOT EXISTS cuota_archivos (
