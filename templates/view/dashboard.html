@@ -212,15 +212,45 @@
         <div class="col-12">
              <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-transparent border-0 pt-4 ps-4">
-                    <h5 class="mb-0">Distribución de Pólizas</h5>
+                    <h5 class="mb-0">Distribución de Pólizas por Ramo</h5>
+                    <p class="text-muted small mb-0">Pólizas activas vigentes</p>
                 </div>
-                <div class="card-body d-flex flex-column align-items-center justify-content-center">
-                    <div class="chart-distribution">
-                        <canvas id="distributionChart"></canvas>
-                    </div>
-                    <div class="mt-3 text-center">
-                        <div class="text-muted small">Total Pólizas Activas</div>
-                        <div class="h4 fw-bold mb-0">{{ cards.active_policies }}</div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-12 col-md-5 d-flex justify-content-center">
+                            <div class="chart-distribution" style="position:relative;">
+                                <canvas id="distributionChart"></canvas>
+                                <div id="distributionChartCenter" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
+                                    <div class="text-muted" style="font-size:0.7rem;">Total</div>
+                                    <div class="fw-bold h5 mb-0" id="distributionTotal">{{ cards.active_policies }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-7 mt-4 mt-md-0">
+                            <div class="d-flex flex-column gap-3">
+                                <div class="d-flex align-items-center justify-content-between p-3 rounded-3" style="background:rgba(59,130,246,0.08);">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div style="width:12px;height:12px;border-radius:3px;background:#3b82f6;flex-shrink:0;"></div>
+                                        <span class="fw-semibold">Seguros Generales</span>
+                                    </div>
+                                    <span class="fw-bold fs-5" id="countGenerales">{{ distribution.generales }}</span>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between p-3 rounded-3" style="background:rgba(245,158,11,0.08);">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div style="width:12px;height:12px;border-radius:3px;background:#f59e0b;flex-shrink:0;"></div>
+                                        <span class="fw-semibold">SOAT</span>
+                                    </div>
+                                    <span class="fw-bold fs-5" id="countSoat">{{ distribution.soat }}</span>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between p-3 rounded-3" style="background:rgba(16,185,129,0.08);">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div style="width:12px;height:12px;border-radius:3px;background:#10b981;flex-shrink:0;"></div>
+                                        <span class="fw-semibold">Seguros Personales</span>
+                                    </div>
+                                    <span class="fw-bold fs-5" id="countPersonales">{{ distribution.personales }}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -245,7 +275,12 @@
         totals_comision_usd: {{ chart.totals_comision_usd | tojson if chart.totals_comision_usd is defined else '[]' }},
         totals_prima_total_usd: {{ chart.totals_prima_total_usd | tojson if chart.totals_prima_total_usd is defined else '[]' }},
         activePolicies: {{ cards.active_policies | default(0) }},
-        pendingRenewals: {{ cards.pending_renewals | default(0) }}
+        pendingRenewals: {{ cards.pending_renewals | default(0) }},
+        distribution: {
+            generales: {{ distribution.generales | default(0) }},
+            soat: {{ distribution.soat | default(0) }},
+            personales: {{ distribution.personales | default(0) }}
+        }
     };
 </script>
 <script src="{{ url_for('static', filename='js/dashboard_home.js') }}"></script>
