@@ -16,6 +16,92 @@ window.initEditarPrimasLogic = function(isModal = false) {
         const n = Number(s);
         return Number.isFinite(n) ? n : null;
     };
+
+    const normalizeText = (value) => (value ?? '').toString().trim().toLowerCase();
+
+    const setupSearchableSelect = (select, placeholder) => {
+        if (!select || select.dataset.searchableInit === '1') return;
+        select.dataset.searchableInit = '1';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'position-relative';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control';
+        input.placeholder = placeholder;
+        input.autocomplete = 'off';
+        input.setAttribute('aria-label', placeholder);
+
+        const dropdown = document.createElement('div');
+        dropdown.className = 'list-group position-absolute w-100 shadow-sm d-none';
+        dropdown.style.top = 'calc(100% + 4px)';
+        dropdown.style.left = '0';
+        dropdown.style.maxHeight = '240px';
+        dropdown.style.overflowY = 'auto';
+        dropdown.style.zIndex = '1060';
+
+        const renderOptions = (term = '') => {
+            const filter = normalizeText(term);
+            const options = Array.from(select.options).filter(opt => opt.value !== '');
+            const matches = options.filter(opt => normalizeText(opt.text).includes(filter));
+
+            dropdown.innerHTML = '';
+
+            if (matches.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'list-group-item text-muted small';
+                empty.textContent = 'No se encontraron resultados';
+                dropdown.appendChild(empty);
+                dropdown.classList.remove('d-none');
+                return;
+            }
+
+            matches.slice(0, 100).forEach(opt => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = `list-group-item list-group-item-action${opt.selected ? ' active' : ''}`;
+                item.textContent = opt.text;
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    select.value = opt.value;
+                    input.value = opt.text;
+                    dropdown.classList.add('d-none');
+                    select.dispatchEvent(new Event('input', { bubbles: true }));
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+                dropdown.appendChild(item);
+            });
+
+            dropdown.classList.remove('d-none');
+        };
+
+        const syncInputFromSelect = () => {
+            const selectedOption = select.options[select.selectedIndex];
+            input.value = selectedOption && selectedOption.value !== '' ? selectedOption.text : '';
+        };
+
+        select.parentNode.insertBefore(wrapper, select);
+        wrapper.appendChild(input);
+        wrapper.appendChild(dropdown);
+        wrapper.appendChild(select);
+        select.classList.add('d-none');
+
+        syncInputFromSelect();
+
+        input.addEventListener('focus', () => renderOptions(input.value));
+        input.addEventListener('click', () => renderOptions(input.value));
+        input.addEventListener('input', () => renderOptions(input.value));
+        input.addEventListener('blur', () => {
+            window.setTimeout(() => {
+                dropdown.classList.add('d-none');
+                syncInputFromSelect();
+            }, 150);
+        });
+        select.addEventListener('change', syncInputFromSelect);
+    };
+
+    setupSearchableSelect(document.getElementById('contratante'), 'Buscar contratante...');
     
     if (txtPrimaComercial && txtPrimaNeta) {
         // Obtenemos referencia al campo Prima Total / IGV si existe
