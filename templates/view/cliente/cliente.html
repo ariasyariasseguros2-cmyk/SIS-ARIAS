@@ -87,7 +87,10 @@
                             <button type="button" class="btn btn-primary btn-sm btn-lift">{{ r.ramo_btn_label or 'Póliza' }}</button>
                             <button type="button" class="btn btn-success btn-sm btn-lift">Contactos</button>
                             {% if can_delete(session.role_name) %}
-                            <button type="button" class="btn btn-danger btn-sm btn-lift btn-delete-cliente" data-id="{{ r.idCliente }}" data-nombre="{{ r.razon_social }}"><i class="bi-trash"></i> Eliminar</button>
+                            <button type="button" class="btn btn-danger btn-sm btn-lift btn-delete-cliente" data-id="{{ r.idCliente }}" data-nombre="{{ r.razon_social }}"><i class="bi-slash-circle"></i> Anular</button>
+                            {% endif %}
+                            {% if can_hard_delete(session.role_name) %}
+                            <button type="button" class="btn btn-dark btn-sm btn-lift btn-hard-delete-cliente" data-id="{{ r.idCliente }}" data-nombre="{{ r.razon_social }}"><i class="bi-trash-fill"></i> Eliminar</button>
                             {% endif %}
                         </div>
                     </td>
