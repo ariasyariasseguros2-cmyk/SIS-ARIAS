@@ -1030,6 +1030,23 @@ def delete_cuota(cuota_id: int) -> Tuple[bool, str]:
         print(f"Error deleting cuota: {e}")
         return False, str(e)
 
+def hard_delete_cuota(cuota_id: int) -> Tuple[bool, str]:
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor()
+        cur.execute("DELETE FROM cuotas WHERE idCuota = %s", (cuota_id,))
+        affected = cur.rowcount
+        cnx.commit()
+        cur.close()
+        cnx.close()
+        if affected > 0:
+            return True, ""
+        return False, "Cuota no encontrada"
+    except Exception as e:
+        print(f"Error hard deleting cuota: {e}")
+        return False, str(e)
+
 def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
     import re
     text = ""
