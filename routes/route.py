@@ -7,7 +7,7 @@ import hashlib
 import json
 import shutil
 from utils.rbac import can_access_maestros, can_view_maestros, can_delete, can_edit, can_create, can_create_poliza, can_restore, can_hard_delete, Roles, get_role_scope, require_permission
-from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards
+from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards, get_distribution_by_group
 from datetime import datetime, timedelta
 from controllers.reportes.vencimientos_renovaciones import bp as vencimientos_bp
 from controllers.reportes.reporte_produccion import (
@@ -985,6 +985,7 @@ def home():
         rows = get_dashboard_rows()
         chart = get_dashboard_data()
         cards = get_dashboard_cards()
+        distribution = get_distribution_by_group()
     else:
         rows = []
         chart = {
@@ -994,8 +995,9 @@ def home():
             'daily_income': [],
         }
         cards = get_dashboard_cards()
+        distribution = {'generales': 0, 'soat': 0, 'personales': 0}
 
-    return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards)
+    return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards, distribution=distribution)
 
 
 @bp.route('/gestion', methods=['GET', 'POST'])
@@ -1079,7 +1081,8 @@ def dashboard():
     rows = get_dashboard_rows()
     chart = get_dashboard_data()
     cards = get_dashboard_cards()
-    return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards)
+    distribution = get_distribution_by_group()
+    return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards, distribution=distribution)
 
 
 @bp.route('/reportes/produccion', methods=['GET'])
