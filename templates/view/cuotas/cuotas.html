@@ -167,7 +167,10 @@
                   <button class="btn-action btn-success btn-edit" onclick="Cuotas.onEdit({{ loop.index0 }})">Editar</button>
                   {% endif %}
                   {% if can_delete(session.role_name) %}
-                  <button class="btn-action btn-danger btn-delete" onclick="Cuotas.onDelete({{ loop.index0 }})">Eliminar</button>
+                  <button class="btn-action btn-danger btn-delete" onclick="Cuotas.onDelete({{ loop.index0 }})">Anular</button>
+                  {% endif %}
+                  {% if can_hard_delete(session.role_name) %}
+                  <button class="btn-action btn-dark btn-hard-delete" onclick="Cuotas.onHardDelete({{ loop.index0 }})">Eliminar</button>
                   {% endif %}
                 </div>
               </td>
