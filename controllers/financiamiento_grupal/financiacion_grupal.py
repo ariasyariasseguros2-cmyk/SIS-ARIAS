@@ -140,7 +140,13 @@ def _load_financiamiento_grupal_cuotas_rows(cur, financiamiento_id, poliza_ref):
             """
             SELECT
                 idCuota,
+                financiamiento_grupal_id,
                 numero_cuota,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                    CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                    CAST(poliza AS CHAR CHARACTER SET utf8mb4)
+                ) AS poliza,
                 COALESCE(
                     CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR),
                     CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR),
@@ -179,7 +185,13 @@ def _load_financiamiento_grupal_cuotas_rows(cur, financiamiento_id, poliza_ref):
             """
             SELECT
                 idCuota,
+                NULL AS financiamiento_grupal_id,
                 numero_cuota,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                    CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                    CAST(poliza AS CHAR CHARACTER SET utf8mb4)
+                ) AS poliza,
                 COALESCE(
                     CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR),
                     CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR),
@@ -226,7 +238,6 @@ def _insert_financiamiento_grupal_cuotas_rows(
         moneda,
         importe,
     )
-    observacion = f"Financiamiento grupal: {nombre}"
 
     for cuota in cuotas_generadas:
         try:
@@ -258,7 +269,7 @@ def _insert_financiamiento_grupal_cuotas_rows(
                     cuota["importe"],
                     None,
                     None,
-                    observacion,
+                    None,
                     usuario,
                     cuota["numero_cuota"],
                 ),
@@ -292,7 +303,7 @@ def _insert_financiamiento_grupal_cuotas_rows(
                     cuota["importe"],
                     None,
                     None,
-                    observacion,
+                    None,
                     usuario,
                     cuota["numero_cuota"],
                 ),
@@ -355,7 +366,28 @@ def _sync_financiamiento_grupal_cuotas(cur, detail, usuario=None):
     current_signature = [normalize_current(r) for r in current_rows]
     expected_signature = [normalize_expected(r) for r in expected_rows]
 
+    def clear_observaciones(rows_to_clear):
+        ids = [
+            int(r.get("idCuota"))
+            for r in rows_to_clear
+            if r.get("idCuota") and str(r.get("observacion") or "").strip()
+        ]
+        if not ids:
+            return
+        placeholders = ",".join(["%s"] * len(ids))
+        params = [usuario] + ids
+        cur.execute(
+            f"""
+            UPDATE cuotas
+            SET observacion = NULL,
+                usuario_edicion = COALESCE(%s, usuario_edicion)
+            WHERE idCuota IN ({placeholders})
+            """,
+            tuple(params),
+        )
+
     if current_signature == expected_signature:
+        clear_observaciones(current_rows)
         return
 
     # Si ya existen las mismas cuotas del grupo, corrige importes/fechas/cupones
@@ -364,9 +396,6 @@ def _sync_financiamiento_grupal_cuotas(cur, detail, usuario=None):
         current_ids = [int(r.get("idCuota") or 0) for r in current_rows]
         if all(current_ids):
             for current_row, expected_row in zip(current_rows, expected_rows):
-                observacion_actual = str(current_row.get("observacion") or "").strip()
-                observacion_default = f"Financiamiento grupal: {detail.get('financiamiento_grupal') or ''}".strip()
-                observacion_final = observacion_actual or observacion_default
                 cur.execute(
                     """
                     UPDATE cuotas
@@ -393,7 +422,7 @@ def _sync_financiamiento_grupal_cuotas(cur, detail, usuario=None):
                         expected_row.get("moneda"),
                         expected_row.get("importe"),
                         expected_row.get("numero_cuota"),
-                        observacion_final,
+                        None,
                         usuario,
                         int(current_row.get("idCuota")),
                     ),
@@ -403,7 +432,7 @@ def _sync_financiamiento_grupal_cuotas(cur, detail, usuario=None):
     safe_to_rebuild = all(
         not (r.get("fecha_pago") or "").strip()
         and not (r.get("factura") or "").strip()
-        and "financiamiento grupal" in str(r.get("observacion") or "").lower()
+        and str(r.get("poliza") or "").strip() == poliza_ref
         for r in current_rows
     )
 
@@ -951,7 +980,7 @@ def get_financiamiento_grupal_cuotas_data(financiamiento_id):
                         "importe": _format_amount(row.get("importe")),
                         "fecha_pago": _format_date_display(row.get("fecha_pago") or "") if row.get("fecha_pago") else "",
                         "factura": row.get("factura") or "",
-                        "observacion": row.get("observacion") or "",
+                        "observacion": "",
                     }
                 )
     except Exception as exc:
