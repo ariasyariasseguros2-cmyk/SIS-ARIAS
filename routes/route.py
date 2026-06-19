@@ -3092,6 +3092,52 @@ def api_financiamiento_grupal_create():
     return jsonify(result), status
 
 
+@bp.route('/api/financiamiento-grupal/<int:financiamiento_id>/avisos', methods=['GET'])
+def api_financiamiento_grupal_avisos_list(financiamiento_id):
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    from controllers.financiamiento_grupal.financiacion_grupal import list_financiamiento_grupal_avisos
+    result = list_financiamiento_grupal_avisos(financiamiento_id)
+    status = 200 if result.get('ok') else 400
+    return jsonify(result), status
+
+
+@bp.route('/api/financiamiento-grupal/<int:financiamiento_id>/avisos/candidatos', methods=['GET'])
+def api_financiamiento_grupal_avisos_candidates(financiamiento_id):
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    from controllers.financiamiento_grupal.financiacion_grupal import list_financiamiento_grupal_avisos_candidates
+    result = list_financiamiento_grupal_avisos_candidates(financiamiento_id)
+    status = 200 if result.get('ok') else 400
+    return jsonify(result), status
+
+
+@bp.route('/api/financiamiento-grupal/<int:financiamiento_id>/avisos/add', methods=['POST'])
+def api_financiamiento_grupal_avisos_add(financiamiento_id):
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    payload = request.get_json(silent=True) or {}
+    poliza_id = payload.get('poliza_id')
+    from controllers.financiamiento_grupal.financiacion_grupal import add_financiamiento_grupal_aviso
+    result = add_financiamiento_grupal_aviso(financiamiento_id, poliza_id)
+    status = 200 if result.get('ok') else 400
+    return jsonify(result), status
+
+
+@bp.route('/api/financiamiento-grupal/<int:financiamiento_id>/avisos/remove/<int:item_id>', methods=['DELETE'])
+def api_financiamiento_grupal_avisos_remove(financiamiento_id, item_id):
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    from controllers.financiamiento_grupal.financiacion_grupal import remove_financiamiento_grupal_aviso
+    result = remove_financiamiento_grupal_aviso(financiamiento_id, item_id)
+    status = 200 if result.get('ok') else 400
+    return jsonify(result), status
+
+
 @bp.route('/clientes/extract-pdf', methods=['POST'])
 def clientes_extract_pdf():
     """Endpoint para extraer información de cliente desde un PDF."""

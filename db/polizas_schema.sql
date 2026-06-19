@@ -586,6 +586,20 @@ CREATE INDEX idx_financiamiento_grupal_cliente ON financiamiento_grupal (cliente
 CREATE INDEX idx_financiamiento_grupal_compania ON financiamiento_grupal (compania_id);
 CREATE INDEX idx_financiamiento_grupal_activo ON financiamiento_grupal (activo);
 
+CREATE TABLE IF NOT EXISTS financiamiento_grupal_avisos (
+    id_item INT AUTO_INCREMENT PRIMARY KEY,
+    financiamiento_grupal_id INT NOT NULL,
+    poliza_id INT NOT NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
+    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (financiamiento_grupal_id) REFERENCES financiamiento_grupal(id_financiamiento_grupal),
+    FOREIGN KEY (poliza_id) REFERENCES polizas(idPoliza)
+);
+
+CREATE UNIQUE INDEX uk_fg_avisos_fin_poliza ON financiamiento_grupal_avisos (financiamiento_grupal_id, poliza_id);
+CREATE INDEX idx_fg_avisos_fin ON financiamiento_grupal_avisos (financiamiento_grupal_id);
+CREATE INDEX idx_fg_avisos_poliza ON financiamiento_grupal_avisos (poliza_id);
+
 DROP PROCEDURE IF EXISTS sp_insert_financiamiento_grupal;
 DELIMITER $$
 CREATE PROCEDURE sp_insert_financiamiento_grupal(

@@ -45,6 +45,13 @@
 
 {% block page_title %}{% endblock %}
 
+{% block before_js %}
+<script>
+  window.financiamientoGrupalId = "{{ detail.id_financiamiento_grupal }}";
+  window.financiamientoGrupalOpenAdd = "{{ request.args.get('openAdd', '') }}";
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="page-header flex-column align-items-start gap-2">
   <div class="d-flex align-items-center gap-3">
@@ -150,39 +157,62 @@
         </tr>
       </thead>
       <tbody>
-        {% for row in rows %}
-        <tr class="fg-avisos-data-row">
-          <td>{{ row.aviso or '—' }}</td>
-          <td>{{ row.poliza or '—' }}</td>
-          <td>{{ row.contratante or '—' }}</td>
-          <td>{{ row.compania or '—' }}</td>
-          <td>{{ row.ramo or '—' }}</td>
-          <td>{{ row.tipo or '—' }}</td>
-          <td>{{ row.moneda or '—' }}</td>
-          <td>{{ row.prima_comercial or '0.00' }}</td>
-          <td>{{ row.prima_neta or '0.00' }}</td>
-          <td>{{ row.prima_total or '0.00' }}</td>
-          <td>{{ row.vig_inicio or '—' }}</td>
-          <td>{{ row.vig_fin or '—' }}</td>
-          <td>{{ row.nro_operacion or '—' }}</td>
-          <td>{{ row.motivo or '—' }}</td>
-          <td class="text-end">
-            <span class="text-muted small">Sin acciones</span>
-          </td>
-        </tr>
-        {% endfor %}
-
-        {% if not rows %}
         <tr class="fg-avisos-empty-row">
           <td colspan="15" class="text-center py-4">No tenemos datos disponibles</td>
         </tr>
-        {% endif %}
       </tbody>
     </table>
   </div>
 
   <div class="card-footer bg-white border-top-0 py-3">
-    <small class="text-muted" id="fgAvisosTotalRecords">Total de registros: {{ rows|length }}</small>
+    <small class="text-muted" id="fgAvisosTotalRecords">Total de registros: 0</small>
+  </div>
+</div>
+
+<div class="modal fade" id="fgAvisosAddModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-plus-circle me-2"></i> Seleccionar
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-sm table-striped align-middle mb-0" id="fgAvisosCandidatesTable">
+            <thead>
+              <tr>
+                <th style="width: 120px;">Seleccionar</th>
+                <th>Póliza</th>
+                <th>Aviso</th>
+                <th>Vig Inicio</th>
+                <th>Vig Fin</th>
+                <th>Moneda</th>
+                <th>Comercial</th>
+                <th>Neto</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="fg-avisos-candidates-empty">
+                <td colspan="9" class="text-center text-muted py-4">No tenemos datos disponibles</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-3">
+          <small class="text-muted" id="fgAvisosCandidatesInfo"></small>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="fgAvisosCandidatesPrev">Anterior</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="fgAvisosCandidatesNext">Siguiente</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}

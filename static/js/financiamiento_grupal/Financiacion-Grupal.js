@@ -268,7 +268,15 @@ const FinanciacionGrupal = (() => {
         return;
       }
 
+      const newId = result.id;
       showSuccess('Registro guardado correctamente.', () => {
+        if (newId) {
+          const params = new URLSearchParams();
+          params.set('id', newId);
+          params.set('openAdd', '1');
+          window.location.href = `/menu/financiamiento-grupal-avisos?${params.toString()}`;
+          return;
+        }
         window.location.reload();
       });
     } catch (error) {
