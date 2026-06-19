@@ -116,7 +116,7 @@ def _build_financiamiento_grupal_cuotas(financiamiento_id, primer_cupon, numero_
     if not fecha_base:
         raise ValueError("La fecha del primer vencimiento es inválida.")
 
-    importes = _split_total_amount(importe, total_cupones)
+    importe_cuota = Decimal(str(importe or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     poliza_ref = f"FG-{financiamiento_id}"
 
     for idx in range(total_cupones):
@@ -127,7 +127,7 @@ def _build_financiamiento_grupal_cuotas(financiamiento_id, primer_cupon, numero_
                 "cupon": _increment_coupon(primer_cupon, idx),
                 "fecha_vencimiento": fecha_venc.strftime("%Y-%m-%d"),
                 "moneda": (moneda or "").strip().upper() or "USD",
-                "importe": importes[idx],
+                "importe": importe_cuota,
                 "numero_cuota": idx + 1,
             }
         )

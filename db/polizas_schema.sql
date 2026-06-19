@@ -1688,6 +1688,49 @@ CREATE TABLE IF NOT EXISTS cuotas (
 
 CREATE INDEX idx_cuotas_financiamiento_grupal ON cuotas (financiamiento_grupal_id);
 
+-- Nota operativa:
+-- El importe de las cuotas de financiamiento grupal debe salir de
+-- `financiamiento_grupal.importe` y NO de la suma de avisos/pólizas agregadas.
+-- Los avisos solo vinculan pólizas al grupo; no recalculan automáticamente
+-- el importe maestro del financiamiento.
+-- Regla funcional:
+-- Si el financiamiento tiene importe 29.00 y 5 cuotas, entonces cada cuota
+-- debe quedar con importe 29.00.
+
+DELIMITER $$
+DROP PROCEDURE IF EXISTS sp_sync_financiamiento_grupal_cuotas_importe$$
+CREATE PROCEDURE sp_sync_financiamiento_grupal_cuotas_importe(
+    IN p_financiamiento_id INT
+)
+BEGIN
+    DECLARE v_importe DECIMAL(15,2) DEFAULT 0.00;
+    DECLARE v_numero_cupones INT DEFAULT 1;
+
+    IF p_financiamiento_id IS NULL OR p_financiamiento_id <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'ID de financiamiento inválido';
+    END IF;
+
+    SELECT
+        COALESCE(importe, 0),
+        GREATEST(COALESCE(numero_cupones, 1), 1)
+    INTO v_importe, v_numero_cupones
+    FROM financiamiento_grupal
+    WHERE id_financiamiento_grupal = p_financiamiento_id
+      AND activo = 1
+    LIMIT 1;
+
+    UPDATE cuotas
+    SET importe = v_importe
+    WHERE financiamiento_grupal_id = p_financiamiento_id
+      AND activo = 1;
+
+    SELECT
+        p_financiamiento_id AS financiamiento_grupal_id,
+        v_importe AS importe_financiamiento,
+        v_numero_cupones AS numero_cupones;
+END$$
+DELIMITER ;
+
 -- Tabla para archivos de cuotas (análoga a poliza_archivos) — debe ir después de cuotas
 CREATE TABLE IF NOT EXISTS cuota_archivos (
     idArchivo INT AUTO_INCREMENT PRIMARY KEY,
