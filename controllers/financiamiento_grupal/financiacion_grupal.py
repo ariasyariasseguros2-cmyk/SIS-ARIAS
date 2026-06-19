@@ -396,6 +396,52 @@ def _sync_financiamiento_grupal_cuotas(cur, detail, usuario=None):
     )
 
 
+def _set_regular_cuotas_active_by_poliza(cur, poliza_id, active_value, usuario=None):
+    try:
+        poliza_id = int(poliza_id or 0)
+    except Exception:
+        poliza_id = 0
+    if poliza_id <= 0:
+        return
+
+    active_value = 1 if int(active_value or 0) else 0
+    usuario_value = (usuario or "").strip() or None
+    cur.execute(
+        """
+        UPDATE cuotas
+        SET activo = %s,
+            usuario_edicion = COALESCE(%s, usuario_edicion)
+        WHERE poliza_id = %s
+          AND (financiamiento_grupal_id IS NULL OR financiamiento_grupal_id = 0)
+        """,
+        (active_value, usuario_value, poliza_id),
+    )
+
+
+def _sync_financiamiento_grupal_related_regular_cuotas(cur, financiamiento_id, usuario=None):
+    try:
+        financiamiento_id = int(financiamiento_id or 0)
+    except Exception:
+        financiamiento_id = 0
+    if financiamiento_id <= 0:
+        return
+
+    cur.execute(
+        """
+        SELECT poliza_id
+        FROM financiamiento_grupal_avisos
+        WHERE financiamiento_grupal_id = %s
+          AND activo = 1
+          AND poliza_id IS NOT NULL
+        """,
+        (financiamiento_id,),
+    )
+    linked_rows = cur.fetchall() or []
+    for row in linked_rows:
+        poliza_id = row.get("poliza_id") if isinstance(row, dict) else None
+        _set_regular_cuotas_active_by_poliza(cur, poliza_id, 0, usuario)
+
+
 def get_financiamiento_grupal_data():
     cnx = None
     cur = None
@@ -754,6 +800,7 @@ def get_financiamiento_grupal_cuotas_data(financiamiento_id):
             # #region debug-point F:fg-cuotas-before-sync
             _dbg_fg_cuotas('F', 'controllers/financiamiento_grupal/financiacion_grupal.py:get_financiamiento_grupal_cuotas_data', 'Antes de sincronizar cuotas FG', {"financiamiento_id": financiamiento_id})
             # #endregion
+            _sync_financiamiento_grupal_related_regular_cuotas(cur, financiamiento_id)
             _sync_financiamiento_grupal_cuotas(cur, detail)
             cnx.commit()
             poliza_ref = f"FG-{financiamiento_id}"
@@ -1120,6 +1167,12 @@ def add_financiamiento_grupal_aviso(financiamiento_id, poliza_id):
             """,
             (financiamiento_id, poliza_id),
         )
+        usuario = None
+        try:
+            usuario = cnx.user
+        except Exception:
+            usuario = None
+        _set_regular_cuotas_active_by_poliza(cur, poliza_id, 0, usuario)
         cnx.commit()
         return {"ok": True, "id_item": cur.lastrowid}
     except Exception as exc:
@@ -1161,7 +1214,18 @@ def remove_financiamiento_grupal_aviso(financiamiento_id, item_id):
 
     try:
         cnx = get_connection()
-        cur = cnx.cursor()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT poliza_id
+            FROM financiamiento_grupal_avisos
+            WHERE id_item = %s AND financiamiento_grupal_id = %s
+            LIMIT 1
+            """,
+            (item_id, financiamiento_id),
+        )
+        current_item = cur.fetchone() or {}
+        poliza_id = int(current_item.get("poliza_id") or 0)
         cur.execute(
             """
             UPDATE financiamiento_grupal_avisos
@@ -1170,9 +1234,16 @@ def remove_financiamiento_grupal_aviso(financiamiento_id, item_id):
             """,
             (item_id, financiamiento_id),
         )
-        cnx.commit()
         if cur.rowcount == 0:
+            cnx.rollback()
             return {"ok": False, "error": "Registro no encontrado."}
+        usuario = None
+        try:
+            usuario = cnx.user
+        except Exception:
+            usuario = None
+        _set_regular_cuotas_active_by_poliza(cur, poliza_id, 1, usuario)
+        cnx.commit()
         return {"ok": True}
     except Exception as exc:
         try:
