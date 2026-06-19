@@ -124,6 +124,10 @@
                                 </button>
                                 {% endif %}-->
                                 
+                                <button type="button" class="btn-action btn-nueva-poliza" data-action="nueva-poliza" title="Nueva póliza para este cliente">
+                                    <i class="bi-plus-lg"></i>
+                                </button>
+
                                 <a href="{{ url_for('main.menu_page', page='primas') }}?poliza={{ r.poliza }}" class="btn-action btn-primary text-decoration-none">
                                     Primas
                                 </a>
