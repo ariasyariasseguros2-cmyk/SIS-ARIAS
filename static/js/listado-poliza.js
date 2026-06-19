@@ -605,8 +605,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.innerHTML = originalHTML;
             }
         } else if (action === 'eliminar') {
-             if (confirm('¿Está seguro de eliminar esta póliza?')) {
-                 alert('Funcionalidad de eliminar pendiente');
+             if (!confirm(`ELIMINAR PERMANENTEMENTE la póliza "${poliza}" junto con todas sus cuotas. Esta acción es irreversible. ¿Continuar?`)) return;
+             try {
+                 const resp = await fetch('/polizas/hard-delete', {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ idPoliza })
+                 });
+                 const json = await resp.json();
+                 if (json.ok) {
+                     row.remove();
+                 } else {
+                     alert(json.errors?.[0] || json.error || 'No se pudo eliminar la póliza');
+                 }
+             } catch (e) {
+                 console.error(e);
+                 alert('Error de conexión al eliminar');
              }
         } else if (action === 'solicitudes') {
              alert(`Funcionalidad de ${action} en desarrollo`);
