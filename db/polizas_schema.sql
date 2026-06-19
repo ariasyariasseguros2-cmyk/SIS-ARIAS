@@ -2380,6 +2380,42 @@ BEGIN
 END$$
 DELIMITER ;
 
+-- =====================================================
+-- ELIMINACIÓN FÍSICA (solo BROKER) — irreversible
+-- =====================================================
+DELIMITER $$
+CREATE PROCEDURE sp_hard_delete_cuota(IN p_idCuota INT)
+BEGIN
+    DELETE FROM cuotas WHERE idCuota = p_idCuota;
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE PROCEDURE sp_hard_delete_poliza(IN p_idPoliza INT)
+BEGIN
+    DELETE FROM cuotas WHERE poliza_id = p_idPoliza;
+    DELETE FROM poliza_anulaciones WHERE poliza_id = p_idPoliza;
+    DELETE FROM polizas WHERE idPoliza = p_idPoliza;
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE PROCEDURE sp_hard_delete_cliente(IN p_idCliente INT)
+BEGIN
+    DELETE c FROM cuotas c
+        INNER JOIN polizas p ON c.poliza_id = p.idPoliza
+        WHERE p.cliente_id = p_idCliente;
+    DELETE pa FROM poliza_anulaciones pa
+        INNER JOIN polizas p ON pa.poliza_id = p.idPoliza
+        WHERE p.cliente_id = p_idCliente;
+    DELETE FROM polizas WHERE cliente_id = p_idCliente;
+    DELETE FROM clientes WHERE idCliente = p_idCliente;
+    SELECT ROW_COUNT() AS affected_rows;
+END$$
+DELIMITER ;
+
 -- Índices de auditoría para consultas de auditoría
 ALTER TABLE clientes
   ADD INDEX idx_usuario_creacion (usuario_creacion),
