@@ -1108,6 +1108,7 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
             SELECT COALESCE(CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR), poliza) AS poliza,
                    COALESCE(CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR), cupon) AS cupon,
                    poliza_id,
+                   financiamiento_grupal_id,
                    fecha_vencimiento,
                    importe,
                    fecha_pago,
@@ -1127,11 +1128,12 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
         poliza_actual = (row[0] or '').strip()
         cupon_actual = (row[1] or '').strip()
         poliza_id_actual = row[2]
-        fecha_venc_actual = row[3]
-        importe_actual = row[4]
-        fecha_pago_actual = row[5]
-        factura_actual = row[6]
-        observacion_actual = row[7]
+        financiamiento_grupal_id = row[3]
+        fecha_venc_actual = row[4]
+        importe_actual = row[5]
+        fecha_pago_actual = row[6]
+        factura_actual = row[7]
+        observacion_actual = row[8]
 
         cupon_nuevo_val = data.get('cupon')
         if cupon_nuevo_val is None:

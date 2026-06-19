@@ -411,19 +411,40 @@ def upload_cuota_archivo():
         usuario = usuario_username
         pid = int(poliza_id) if poliza_id and str(poliza_id).strip() not in ('', 'None') else None
 
-        # Obtener datos de la póliza para completar ramo, producto, compania
+        # Obtener datos de la póliza para completar metadatos; en financiamiento grupal poliza_id puede ser NULL.
         p_ramo = p_producto = p_cia = ''
         p_poliza = numero_poliza
+        fg_id = None
         cnx = get_connection()
         cur = cnx.cursor()
         if pid is None:
             try:
-                cur.execute("SELECT poliza_id FROM cuotas WHERE idCuota = %s AND activo = 1", (int(cuota_id),))
+                cur.execute(
+                    """
+                    SELECT
+                        poliza_id,
+                        financiamiento_grupal_id,
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                            CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                            poliza
+                        ) AS poliza_plain
+                    FROM cuotas
+                    WHERE idCuota = %s AND activo = 1
+                    """,
+                    (int(cuota_id),)
+                )
                 prow = cur.fetchone()
-                if prow and prow[0] not in (None, 0, ''):
-                    pid = int(prow[0])
+                if prow:
+                    if prow[0] not in (None, 0, ''):
+                        pid = int(prow[0])
+                    if len(prow) > 1 and prow[1] not in (None, 0, ''):
+                        fg_id = int(prow[1])
+                    if len(prow) > 2 and prow[2]:
+                        p_poliza = prow[2]
             except Exception:
                 pid = None
+                fg_id = None
         if usuario_username:
             try:
                 cur.execute(
@@ -443,10 +464,13 @@ def upload_cuota_archivo():
                 p_producto = prow[1] or ''
                 p_cia      = prow[2] or ''
                 p_poliza   = prow[3] or numero_poliza
+        elif fg_id:
+            if not p_poliza:
+                p_poliza = f"FG-{fg_id}"
         else:
             cur.close()
             cnx.close()
-            return jsonify({'ok': False, 'error': 'La cuota no está asociada a una póliza/prima (poliza_id).'}), 400
+            return jsonify({'ok': False, 'error': 'La cuota no está asociada a una póliza/prima ni a un financiamiento grupal.'}), 400
 
         nombre_doc = f"[CUOTA {cupon}] {original_filename}" if cupon else original_filename
 
@@ -488,6 +512,7 @@ def revert_cuota_route():
             SELECT
                 idCuota,
                 poliza_id,
+                financiamiento_grupal_id,
                 COALESCE(
                     CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR),
                     CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR),
