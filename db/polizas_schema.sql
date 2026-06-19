@@ -571,6 +571,8 @@ CREATE TABLE IF NOT EXISTS financiamiento_grupal (
     primer_cupon VARCHAR(50) NULL,
     importe DECIMAL(15,2) NOT NULL,
     fecha_primer_vencimiento DATE NOT NULL,
+    documento_ruta_archivo VARCHAR(255) NULL,
+    documento_nombre_original VARCHAR(255) NULL,
     activo TINYINT(1) NOT NULL DEFAULT 1,
     usuario_creacion VARCHAR(100) NULL,
     usuario_modificacion VARCHAR(100) NULL,
@@ -585,6 +587,12 @@ CREATE TABLE IF NOT EXISTS financiamiento_grupal (
 CREATE INDEX idx_financiamiento_grupal_cliente ON financiamiento_grupal (cliente_id);
 CREATE INDEX idx_financiamiento_grupal_compania ON financiamiento_grupal (compania_id);
 CREATE INDEX idx_financiamiento_grupal_activo ON financiamiento_grupal (activo);
+
+ALTER TABLE financiamiento_grupal
+ADD COLUMN IF NOT EXISTS documento_ruta_archivo VARCHAR(255) NULL AFTER fecha_primer_vencimiento;
+
+ALTER TABLE financiamiento_grupal
+ADD COLUMN IF NOT EXISTS documento_nombre_original VARCHAR(255) NULL AFTER documento_ruta_archivo;
 
 CREATE TABLE IF NOT EXISTS financiamiento_grupal_avisos (
     id_item INT AUTO_INCREMENT PRIMARY KEY,

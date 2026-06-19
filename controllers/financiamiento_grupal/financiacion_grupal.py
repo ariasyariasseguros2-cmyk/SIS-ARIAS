@@ -1,4 +1,7 @@
 import calendar
+import os
+import shutil
+import time
 from datetime import datetime
 from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 
@@ -513,6 +516,88 @@ def _sync_financiamiento_grupal_related_regular_cuotas(cur, financiamiento_id, u
         _set_regular_cuotas_active_by_poliza(cur, poliza_id, 0, usuario)
 
 
+def _link_financiamiento_grupal_document_to_poliza(cur, financiamiento_id, poliza_row, usuario=None):
+    try:
+        financiamiento_id = int(financiamiento_id or 0)
+    except Exception:
+        financiamiento_id = 0
+    if financiamiento_id <= 0 or not poliza_row:
+        return
+
+    cur.execute(
+        """
+        SELECT documento_ruta_archivo, documento_nombre_original
+        FROM financiamiento_grupal
+        WHERE id_financiamiento_grupal = %s
+        LIMIT 1
+        """,
+        (financiamiento_id,),
+    )
+    fg_row = cur.fetchone() or {}
+    source_rel = str(fg_row.get("documento_ruta_archivo") or "").strip()
+    source_name = str(fg_row.get("documento_nombre_original") or "").strip()
+    if not source_rel:
+        return
+
+    poliza_id = int(poliza_row.get("idPoliza") or 0)
+    if poliza_id <= 0:
+        return
+
+    display_name = source_name or os.path.basename(source_rel)
+    if display_name and not display_name.startswith("[CONVENIO]"):
+        display_name = f"[CONVENIO] {display_name}"
+
+    cur.execute(
+        """
+        SELECT 1
+        FROM poliza_archivos
+        WHERE poliza_id = %s
+          AND origen = 'CONVENIO_PAGO'
+          AND nombre_original = %s
+        LIMIT 1
+        """,
+        (poliza_id, display_name),
+    )
+    if cur.fetchone():
+        return
+
+    from flask import current_app
+    from werkzeug.utils import secure_filename
+
+    upload_root = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
+    source_abs = os.path.join(upload_root, source_rel.lstrip('/\\'))
+    if not os.path.exists(source_abs):
+        raise FileNotFoundError(f"No se encontro el documento del financiamiento grupal: {source_rel}")
+
+    target_folder = os.path.join(current_app.root_path, 'uploads', 'polizas')
+    os.makedirs(target_folder, exist_ok=True)
+
+    source_base = source_name or os.path.basename(source_rel)
+    safe_name = secure_filename(source_base) or f"convenio_fg_{financiamiento_id}.pdf"
+    disk_filename = f"{int(time.time())}_fg{financiamiento_id}_poliza{poliza_id}_{safe_name}"
+    target_abs = os.path.join(target_folder, disk_filename)
+    shutil.copy2(source_abs, target_abs)
+    target_rel = f"polizas/{disk_filename}"
+
+    cur.execute(
+        """
+        INSERT INTO poliza_archivos
+            (poliza_id, numero_poliza, ruta_archivo, nombre_original, origen, ramo, producto, usuario, compania)
+        VALUES (%s,%s,%s,%s,'CONVENIO_PAGO',%s,%s,%s,%s)
+        """,
+        (
+            poliza_id,
+            str(poliza_row.get("poliza") or "").strip(),
+            target_rel,
+            display_name,
+            str(poliza_row.get("ramo") or "").strip(),
+            str(poliza_row.get("ramos_producto") or "").strip(),
+            (usuario or "").strip() or None,
+            str(poliza_row.get("cia") or "").strip(),
+        ),
+    )
+
+
 def _recalc_financiamiento_grupal_importe_from_avisos(cur, financiamiento_id, usuario=None):
     try:
         financiamiento_id = int(financiamiento_id or 0)
@@ -816,6 +901,8 @@ def insert_financiamiento_grupal(payload):
         importe = float(payload.get("importe") or 0)
         fecha_primer_vencimiento = (payload.get("fecha_primer_vencimiento") or "").strip()
         usuario = (payload.get("usuario") or "").strip() or None
+        documento_ruta_archivo = (payload.get("documento_ruta_archivo") or "").strip() or None
+        documento_nombre_original = (payload.get("documento_nombre_original") or "").strip() or None
 
         if not nombre:
             return {"ok": False, "error": "El nombre de financiamiento es obligatorio."}
@@ -861,6 +948,21 @@ def insert_financiamiento_grupal(payload):
                     WHERE id_financiamiento_grupal = LAST_INSERT_ID()
                     """,
                     (usuario, usuario),
+                )
+            except Exception:
+                pass
+
+        if documento_ruta_archivo or documento_nombre_original:
+            try:
+                cur.execute(
+                    """
+                    UPDATE financiamiento_grupal
+                    SET documento_ruta_archivo = %s,
+                        documento_nombre_original = %s,
+                        usuario_modificacion = COALESCE(%s, usuario_modificacion)
+                    WHERE id_financiamiento_grupal = LAST_INSERT_ID()
+                    """,
+                    (documento_ruta_archivo, documento_nombre_original, usuario),
                 )
             except Exception:
                 pass
@@ -1296,7 +1398,7 @@ def add_financiamiento_grupal_aviso(financiamiento_id, poliza_id):
 
         cur.execute(
             """
-            SELECT idPoliza, cliente_id, cia
+            SELECT idPoliza, cliente_id, cia, poliza, recibo, ramo, ramos_producto
             FROM polizas
             WHERE idPoliza = %s AND activo = 1
             LIMIT 1
@@ -1332,6 +1434,7 @@ def add_financiamiento_grupal_aviso(financiamiento_id, poliza_id):
             usuario = cnx.user
         except Exception:
             usuario = None
+        _link_financiamiento_grupal_document_to_poliza(cur, financiamiento_id, p, usuario)
         _set_regular_cuotas_active_by_poliza(cur, poliza_id, 0, usuario)
         detail = _load_financiamiento_grupal_detail_for_sync(cur, financiamiento_id) or {}
         _sync_financiamiento_grupal_cuotas(cur, detail, usuario)

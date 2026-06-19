@@ -451,23 +451,23 @@ const FinanciacionGrupal = (() => {
         activeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
       }
 
-      const payload = {
-        nombre: document.getElementById('fgNombre')?.value?.trim() || '',
-        cliente_id: document.getElementById('fgCliente')?.value || '',
-        compania_id: document.getElementById('fgCompania')?.value || '',
-        moneda: document.getElementById('fgMoneda')?.value || '',
-        numero_cupones: document.getElementById('fgNumeroCupones')?.value || '',
-        primer_cupon: document.getElementById('fgPrimerCupon')?.value?.trim() || '',
-        importe: document.getElementById('fgImporte')?.value || '',
-        fecha_primer_vencimiento: document.getElementById('fgFechaPrimerVencimiento')?.value || ''
-      };
+      const formData = new FormData();
+      formData.append('nombre', document.getElementById('fgNombre')?.value?.trim() || '');
+      formData.append('cliente_id', document.getElementById('fgCliente')?.value || '');
+      formData.append('compania_id', document.getElementById('fgCompania')?.value || '');
+      formData.append('moneda', document.getElementById('fgMoneda')?.value || '');
+      formData.append('numero_cupones', document.getElementById('fgNumeroCupones')?.value || '');
+      formData.append('primer_cupon', document.getElementById('fgPrimerCupon')?.value?.trim() || '');
+      formData.append('importe', document.getElementById('fgImporte')?.value || '');
+      formData.append('fecha_primer_vencimiento', document.getElementById('fgFechaPrimerVencimiento')?.value || '');
+      const pdfFile = convenioPdfInput?.files?.[0];
+      if (pdfFile) {
+        formData.append('convenio_pdf', pdfFile);
+      }
 
       const resp = await fetch('/api/financiamiento-grupal/create', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        body: formData
       });
 
       const result = await resp.json();
