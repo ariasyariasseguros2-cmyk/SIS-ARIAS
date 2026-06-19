@@ -667,6 +667,40 @@
     opacity: 0.8;
 }
 
+/* ── Botón + nueva póliza en fila ── */
+.btn-nueva-poliza {
+    background: transparent;
+    border: 1.5px solid #2563eb;
+    color: #2563eb;
+    border-radius: 6px;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 0.85rem;
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+    flex-shrink: 0;
+}
+.btn-nueva-poliza:hover:not(:disabled) {
+    background: #2563eb;
+    color: #fff;
+    transform: scale(1.1);
+}
+.btn-nueva-poliza:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+[data-theme='dark'] .btn-nueva-poliza {
+    border-color: #60a5fa;
+    color: #60a5fa;
+}
+[data-theme='dark'] .btn-nueva-poliza:hover:not(:disabled) {
+    background: #60a5fa;
+    color: #0f172a;
+}
+
 /* ── Nueva Póliza hint bar ── */
 .nueva-poliza-hint {
     display: flex;
