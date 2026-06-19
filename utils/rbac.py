@@ -31,6 +31,10 @@ def can_restore(role_name):
     """Permiso para restaurar o anular (acciones sobre estado)."""
     return True
 
+def can_hard_delete(role_name):
+    """Eliminación física (irreversible) — solo BROKER."""
+    return role_name == Roles.BROKER
+
 def can_view_dashboard_charts(role_name):
     """Permiso para ver los gráficos del dashboard."""
     return role_name == Roles.BROKER
