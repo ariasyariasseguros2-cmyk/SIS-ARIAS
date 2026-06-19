@@ -4211,6 +4211,12 @@ def allowed_file(filename: str) -> bool:
     return ext in {'pdf', 'jpg', 'jpeg', 'png'}
 
 # -------- Extracción de texto (PyMuPDF y fallback) --------
+def _clean_cid_text(text: str | None) -> str:
+    """Convierte (cid:N) → chr(N) Latin-1. Limpia texto de PyPDF2 con fuentes no embebidas."""
+    if not text:
+        return text or ""
+    return re.sub(r"\(cid:(\d+)\)", lambda m: chr(int(m.group(1))), text)
+
 def _looks_like_bad_pdf_text(text: str | None) -> bool:
     if not text:
         return True
@@ -4579,15 +4585,24 @@ def _load_mapfre_sap_parser():
 def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password: str | None = None):
     text = _extract_text_fitz(path, password=pdf_password)
     used_ocr = False
+    pypdf2_fallback = None
     if _looks_like_bad_pdf_text(text):
-        text = _extract_text_pypdf2(path, password=pdf_password)
+        raw_pypdf2 = _extract_text_pypdf2(path, password=pdf_password)
+        text = _clean_cid_text(raw_pypdf2)
+        pypdf2_fallback = text
         print(f"[DEBUG TEXT HEAD PYPDF2] {text[:600]!r}")
     else:
         print(f"[DEBUG TEXT HEAD] {text[:600]!r}")
     if _looks_like_bad_pdf_text(text):
-        text = _extract_text_ocr_fitz(path, password=pdf_password)
-        used_ocr = True
-        print(f"[DEBUG TEXT HEAD OCR] {text[:600]!r}")
+        ocr_text = _extract_text_ocr_fitz(path, password=pdf_password)
+        print(f"[DEBUG TEXT HEAD OCR] {ocr_text[:600]!r}")
+        if ocr_text and ocr_text.strip():
+            text = ocr_text
+            used_ocr = True
+        elif pypdf2_fallback and pypdf2_fallback.strip():
+            # OCR vacío: usar texto PyPDF2 limpiado (CIDs ya resueltos)
+            text = pypdf2_fallback
+            print("[DEBUG] OCR vacío, usando PyPDF2 limpiado")
 
     if used_ocr:
         page_texts = [text] if text and text.strip() else []
@@ -5187,6 +5202,21 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
             except Exception as e:
                 print(f"[provider] error en addPositivaVidaGenerales (RC/TR): {e}")
 
+        # Endoso de Declaración tiene prioridad sobre Renovación (la palabra "renovación"
+        # puede aparecer en el cuerpo legal del PDF de declaración y causar falso positivo)
+        hint_endoso_declaracion = re.search(
+            r"Endoso\s+de\s+Declaraci[oó]n\s+N[°º]", text, re.IGNORECASE
+        )
+        if hint_endoso_declaracion:
+            try:
+                from controllers.addLPVPensionDeclaracion import parse_lpv_pension_declaracion
+                items_decl = parse_lpv_pension_declaracion(text)
+                if items_decl:
+                    print("[provider] positiva-endoso-declaracion items:", items_decl)
+                    return items_decl
+            except Exception as e:
+                print(f"[provider] error en addLPVPensionDeclaracion: {e}")
+
         hint_endoso_renov = re.search(r"ENDOSO\s+DE\s+RENOVACI[ÓO]N", text, re.IGNORECASE)
         if hint_endoso_renov:
             try:
@@ -5211,20 +5241,6 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
                     return [item_ap]
             except Exception as e:
                 print(f"[provider] error en addPositivaAccidentesPersonales: {e}")
-
-        # NUEVO: Endoso de Declaración — PDF combinado Pensión (LPV Vida) + Salud (LPV EPS)
-        hint_endoso_declaracion = re.search(
-            r"Endoso\s+de\s+Declaraci[oó]n\s+N[°º]", text, re.IGNORECASE
-        )
-        if hint_endoso_declaracion:
-            try:
-                from controllers.addLPVPensionDeclaracion import parse_lpv_pension_declaracion
-                items_decl = parse_lpv_pension_declaracion(text)
-                if items_decl:
-                    print("[provider] positiva-endoso-declaracion items:", items_decl)
-                    return items_decl
-            except Exception as e:
-                print(f"[provider] error en addLPVPensionDeclaracion: {e}")
 
         # Separar SCTR Salud vs Pensión por contenido
         hint_sctr = re.search(r"\bsctr\b", text, re.IGNORECASE)
