@@ -1626,6 +1626,25 @@ def menu_page(page):
             total_importe=data['total_importe']
         )
 
+    if page == 'financiamiento-grupal-avisos':
+        from controllers.financiamiento_grupal.financiacion_grupal import get_financiamiento_grupal_avisos_data
+
+        financiamiento_id = request.args.get('id')
+        if not financiamiento_id:
+            return redirect(url_for('main.menu_page', page='financiamiento-grupal'))
+
+        data = get_financiamiento_grupal_avisos_data(financiamiento_id)
+        if not data.get('detail'):
+            return redirect(url_for('main.menu_page', page='financiamiento-grupal'))
+
+        return render_template(
+            'view/financiamiento_grupal/Financiacion-Grupal-Avisos.html',
+            page='financiamiento-grupal-avisos',
+            title=data['title'],
+            detail=data['detail'],
+            rows=data['rows'],
+        )
+
     # Cuotas → plantilla dedicada
     if page == 'cuotas':
         from controllers.cuotas.cuotas import get_cuotas_data

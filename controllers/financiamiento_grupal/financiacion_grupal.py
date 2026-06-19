@@ -73,6 +73,79 @@ def get_financiamiento_grupal_data():
     }
 
 
+def get_financiamiento_grupal_avisos_data(financiamiento_id):
+    cnx = None
+    cur = None
+    detail = None
+
+    try:
+        financiamiento_id = int(financiamiento_id or 0)
+    except Exception:
+        financiamiento_id = 0
+
+    if financiamiento_id <= 0:
+        return {
+            "title": "Primas / Plan de Pagos",
+            "detail": None,
+            "rows": [],
+        }
+
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT
+                fg.id_financiamiento_grupal,
+                fg.nombre AS financiamiento_grupal,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                    c.razon_social
+                ) AS cliente,
+                COALESCE(NULLIF(TRIM(cp.nombre_corto), ''), cp.nombre) AS compania,
+                fg.numero_cupones,
+                fg.moneda,
+                fg.importe,
+                fg.primer_cupon,
+                DATE_FORMAT(fg.fecha_primer_vencimiento, '%%d-%%m-%%Y') AS fecha_primer_vencimiento
+            FROM financiamiento_grupal fg
+            INNER JOIN clientes c
+                ON c.idCliente = fg.cliente_id
+            INNER JOIN companias cp
+                ON cp.id_compania = fg.compania_id
+            WHERE fg.id_financiamiento_grupal = %s
+              AND fg.activo = 1
+            LIMIT 1
+            """,
+            (financiamiento_id,),
+        )
+        detail = cur.fetchone()
+    except Exception as exc:
+        print(f"Error fetching financiamiento grupal avisos data: {exc}")
+        detail = None
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if cnx:
+                cnx.close()
+        except Exception:
+            pass
+
+    if detail:
+        detail["importe_formatted"] = _format_amount(detail.get("importe"))
+
+    return {
+        "title": "Primas / Plan de Pagos",
+        "detail": detail,
+        "rows": [],
+    }
+
+
 def get_financiamiento_grupal_form_options():
     cnx = None
     cur = None

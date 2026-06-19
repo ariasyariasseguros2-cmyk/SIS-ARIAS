@@ -1,0 +1,195 @@
+{% extends 'view/layout_dashboard.html' %}
+
+{% block html_title %}Primas / Plan de Pagos | SIS-ARIAS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/primas/primas.css') }}">
+<style>
+  .fg-avisos-panel .client-info-header {
+    justify-content: space-between;
+  }
+
+  .fg-avisos-main-item {
+    grid-column: 1 / -1;
+  }
+
+  .fg-avisos-main-item div {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .fg-avisos-empty-row td {
+    color: var(--text-secondary);
+  }
+
+  @media (max-width: 768px) {
+    .fg-avisos-toolbar {
+      flex-direction: column;
+      align-items: stretch !important;
+      gap: 0.75rem;
+    }
+
+    .fg-avisos-toolbar .search-box,
+    .fg-avisos-toolbar .search-box .input-group {
+      width: 100% !important;
+    }
+
+    .fg-avisos-toolbar-right {
+      justify-content: space-between;
+      width: 100%;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block page_title %}{% endblock %}
+
+{% block content %}
+<div class="page-header flex-column align-items-start gap-2">
+  <div class="d-flex align-items-center gap-3">
+    <div class="page-title">
+      <i class="bi bi-receipt"></i>
+      Primas / Plan de Pagos
+    </div>
+    {% if can_create(session.role_name) %}
+    <button type="button" class="btn btn-success btn-lift" onclick="FinanciamientoGrupalAvisos.onAdd()">
+      <i class="bi bi-plus-lg"></i> Añadir
+    </button>
+    {% endif %}
+  </div>
+  <div>
+    <a href="{{ url_for('main.menu_page', page='financiamiento-grupal') }}" class="text-secondary text-decoration-none small fw-bold">
+      <i class="bi bi-arrow-left"></i> Volver al listado Financiamiento Grupal
+    </a>
+  </div>
+</div>
+
+<div class="client-info-card fg-avisos-panel">
+  <div class="client-info-header">
+    <span><i class="bi bi-exclamation-triangle-fill"></i> Avisos</span>
+  </div>
+  <div class="client-info-body">
+    <div class="info-grid">
+      <div class="info-item fg-avisos-main-item">
+        <label>Financiación Grupal</label>
+        <div>{{ detail.financiamiento_grupal }}</div>
+      </div>
+      <div class="info-item">
+        <label>Cliente</label>
+        <div>{{ detail.cliente }}</div>
+      </div>
+      <div class="info-item">
+        <label>Compañía</label>
+        <div>{{ detail.compania }}</div>
+      </div>
+      <div class="info-item">
+        <label>Moneda</label>
+        <div>{{ detail.moneda }}</div>
+      </div>
+      <div class="info-item">
+        <label>Importe</label>
+        <div>{{ detail.importe_formatted }}</div>
+      </div>
+      <div class="info-item">
+        <label>Núm. Cupones</label>
+        <div>{{ detail.numero_cupones }}</div>
+      </div>
+      <div class="info-item">
+        <label>Primer Cupón</label>
+        <div>{{ detail.primer_cupon or '—' }}</div>
+      </div>
+      <div class="info-item">
+        <label>Primer Vencimiento</label>
+        <div>{{ detail.fecha_primer_vencimiento or '—' }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="table-card">
+  <div class="table-toolbar d-flex justify-content-between align-items-center fg-avisos-toolbar">
+    <div class="search-box">
+      <div class="input-group input-group-sm" style="width: 300px;">
+        <input id="fgAvisosSearch" type="text" class="form-control border-end-0" placeholder="Buscar">
+        <span class="input-group-text bg-white text-secondary border-start-0"><i class="bi bi-search"></i></span>
+      </div>
+    </div>
+
+    <div class="d-flex align-items-center gap-2 fg-avisos-toolbar-right">
+      <select id="fgAvisosPageSize" class="form-select form-select-sm" style="width: auto; cursor: pointer;">
+        <option value="10">10</option>
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
+      </select>
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="fgAvisosPrev">Anterior</button>
+      <span class="small text-secondary" id="fgAvisosInfo"></span>
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="fgAvisosNext">Siguiente</button>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table id="fgAvisosTable" class="table modern-table table-hover m-0 align-middle">
+      <thead>
+        <tr>
+          <th>Aviso</th>
+          <th>Póliza</th>
+          <th>Contratante</th>
+          <th>Compañía</th>
+          <th>Ramo</th>
+          <th>Tp</th>
+          <th>Mo</th>
+          <th>Comercial</th>
+          <th>Neto</th>
+          <th>Total</th>
+          <th>Vig Inicio</th>
+          <th>Vig Fin</th>
+          <th>Nro. Operación</th>
+          <th>Motivo</th>
+          <th class="text-end">Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr class="fg-avisos-data-row">
+          <td>{{ row.aviso or '—' }}</td>
+          <td>{{ row.poliza or '—' }}</td>
+          <td>{{ row.contratante or '—' }}</td>
+          <td>{{ row.compania or '—' }}</td>
+          <td>{{ row.ramo or '—' }}</td>
+          <td>{{ row.tipo or '—' }}</td>
+          <td>{{ row.moneda or '—' }}</td>
+          <td>{{ row.prima_comercial or '0.00' }}</td>
+          <td>{{ row.prima_neta or '0.00' }}</td>
+          <td>{{ row.prima_total or '0.00' }}</td>
+          <td>{{ row.vig_inicio or '—' }}</td>
+          <td>{{ row.vig_fin or '—' }}</td>
+          <td>{{ row.nro_operacion or '—' }}</td>
+          <td>{{ row.motivo or '—' }}</td>
+          <td class="text-end">
+            <span class="text-muted small">Sin acciones</span>
+          </td>
+        </tr>
+        {% endfor %}
+
+        {% if not rows %}
+        <tr class="fg-avisos-empty-row">
+          <td colspan="15" class="text-center py-4">No tenemos datos disponibles</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-footer bg-white border-top-0 py-3">
+    <small class="text-muted" id="fgAvisosTotalRecords">Total de registros: {{ rows|length }}</small>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js_bottom %}
+<script src="{{ url_for('static', filename='js/financiamiento_grupal/Financiacion-Grupal-Avisos.js') }}"></script>
+<script>
+  FinanciamientoGrupalAvisos.init();
+</script>
+{% endblock %}

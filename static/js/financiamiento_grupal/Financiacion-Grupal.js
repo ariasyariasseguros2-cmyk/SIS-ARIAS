@@ -138,7 +138,13 @@ const FinanciacionGrupal = (() => {
   }
 
   function onAvisos(id) {
-    showInfo(`Avisos del financiamiento grupal #${id}.`);
+    if (!id) {
+      showInfo('No se encontro el financiamiento grupal seleccionado.');
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set('id', id);
+    window.location.href = `/menu/financiamiento-grupal-avisos?${params.toString()}`;
   }
 
   function onCuotas(id) {
