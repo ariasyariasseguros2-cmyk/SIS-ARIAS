@@ -267,8 +267,8 @@
                             firstTd.appendChild(badge);
                         }
 
-                        // Eliminar botones de acción (editar, anular, eliminar) de la fila
-                        tr.querySelectorAll('.btn-editar, .btn-anular-prima, .btn-eliminar').forEach(btn => btn.remove());
+                        // Eliminar botones de acción (cuotas, editar, anular, eliminar) de la fila
+                        tr.querySelectorAll('.btn-cuotas, .btn-editar, .btn-anular-prima, .btn-eliminar').forEach(btn => btn.remove());
                     }
                 } else {
                     const msg = (data && (data.error || (data.errors && data.errors.join(', ')))) || 'No se pudo anular';
