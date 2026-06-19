@@ -38,6 +38,43 @@ def _dbg_fg_cuotas(hypothesis_id: str, location: str, msg: str, data=None, run_i
         pass
 # #endregion
 
+# #region debug-point A:cuotas-slow-helper
+def _dbg_cuotas_slow(hypothesis_id: str, location: str, msg: str, data=None, run_id: str = 'pre-fix'):
+    try:
+        import json
+        import urllib.request
+        debug_url = 'http://127.0.0.1:7777/event'
+        debug_session = 'cuotas-slow-load'
+        try:
+            with open('.dbg/cuotas-slow-load.env', 'r', encoding='utf-8') as f:
+                content = f.read()
+            for line in content.splitlines():
+                if line.startswith('DEBUG_SERVER_URL='):
+                    debug_url = line.split('=', 1)[1].strip() or debug_url
+                elif line.startswith('DEBUG_SESSION_ID='):
+                    debug_session = line.split('=', 1)[1].strip() or debug_session
+        except Exception:
+            pass
+        payload = {
+            "sessionId": debug_session,
+            "runId": run_id,
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "msg": f"[DEBUG] {msg}",
+            "data": data or {},
+        }
+        urllib.request.urlopen(
+            urllib.request.Request(
+                debug_url,
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json"},
+            ),
+            timeout=1,
+        ).read()
+    except Exception:
+        pass
+# #endregion
+
 
 def _parse_decimal(value):
     if value is None or value == '':
@@ -405,7 +442,20 @@ def get_cuotas_data(
     fecha_desde: str | None = None,
     fecha_hasta: str | None = None,
     financiamiento_id: int | str | None = None,
+    allow_fg_lookup: bool = False,
 ) -> Dict[str, object]:
+    import time
+    trace_id = f"cuotas-{int(time.time() * 1000)}"
+    t0 = time.perf_counter()
+    # #region debug-point A:get-cuentas-runtime-entry
+    _dbg_cuotas_slow('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Entrada runtime get_cuotas_data', {
+        "trace_id": trace_id,
+        "numero_poliza": numero_poliza,
+        "poliza_id": poliza_id,
+        "aviso": aviso,
+        "financiamiento_id": financiamiento_id,
+    })
+    # #endregion
     # #region debug-point A:get-cuentas-entry
     _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Entrada get_cuotas_data', {"numero_poliza": numero_poliza, "poliza_id": poliza_id, "aviso": aviso, "financiamiento_id": financiamiento_id})
     # #endregion
@@ -421,49 +471,76 @@ def get_cuotas_data(
             # #endregion
             pass
 
-    fg_from_poliza = _find_financiamiento_grupal_by_poliza_id(poliza_id)
-    if fg_from_poliza:
-        try:
-            # #region debug-point A:resolved-by-poliza-id
-            _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'FG resuelto por poliza_id', {"poliza_id": poliza_id, "fg_id": fg_from_poliza})
-            # #endregion
-            return _get_financiamiento_grupal_cuotas_view_data(fg_from_poliza)
-        except Exception:
-            # #region debug-point A:resolved-by-poliza-id-error
-            _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Fallo render FG resuelto por poliza_id', {"poliza_id": poliza_id, "fg_id": fg_from_poliza})
-            # #endregion
-            pass
+    try:
+        poliza_id_int = int(poliza_id or 0)
+    except Exception:
+        poliza_id_int = 0
+
+    if allow_fg_lookup:
+        t_fg_poliza = time.perf_counter()
+        fg_from_poliza = _find_financiamiento_grupal_by_poliza_id(poliza_id)
+        # #region debug-point B:fg-poliza-id-ms
+        _dbg_cuotas_slow('B', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Tiempo de busqueda FG por poliza_id', {
+            "trace_id": trace_id,
+            "poliza_id": poliza_id,
+            "fg_id": fg_from_poliza,
+            "elapsed_ms": round((time.perf_counter() - t_fg_poliza) * 1000, 2),
+        })
+        # #endregion
+        if fg_from_poliza:
+            try:
+                # #region debug-point A:resolved-by-poliza-id
+                _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'FG resuelto por poliza_id', {"poliza_id": poliza_id, "fg_id": fg_from_poliza})
+                # #endregion
+                return _get_financiamiento_grupal_cuotas_view_data(fg_from_poliza)
+            except Exception:
+                # #region debug-point A:resolved-by-poliza-id-error
+                _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Fallo render FG resuelto por poliza_id', {"poliza_id": poliza_id, "fg_id": fg_from_poliza})
+                # #endregion
+                pass
+    else:
+        # #region debug-point B:fg-poliza-id-skipped
+        _dbg_cuotas_slow('B', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Busqueda FG deshabilitada para este flujo', {
+            "trace_id": trace_id,
+            "poliza_id": poliza_id,
+            "allow_fg_lookup": allow_fg_lookup,
+        })
+        # #endregion
 
     poliza = (numero_poliza or (selected or {}).get('poliza') or (selected or {}).get('numero_poliza') or '').strip()
     aviso_str = (str(aviso).strip() if aviso is not None else "")
     if aviso_str.lower() in ("", "null", "none"):
         aviso_str = ""
 
-    fg_from_poliza_or_aviso = _find_financiamiento_grupal_by_poliza_or_aviso(poliza, aviso_str)
-    if fg_from_poliza_or_aviso:
-        try:
-            # #region debug-point A:resolved-by-poliza-aviso
-            _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'FG resuelto por poliza o aviso', {"poliza": poliza, "aviso": aviso_str, "fg_id": fg_from_poliza_or_aviso})
-            # #endregion
-            return _get_financiamiento_grupal_cuotas_view_data(fg_from_poliza_or_aviso)
-        except Exception:
-            # #region debug-point A:resolved-by-poliza-aviso-error
-            _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Fallo render FG resuelto por poliza o aviso', {"poliza": poliza, "aviso": aviso_str, "fg_id": fg_from_poliza_or_aviso})
-            # #endregion
-            pass
+    # Cuando la vista llega desde `primas`, normalmente ya tenemos `poliza_id`.
+    # En ese caso evitamos las busquedas heuristicas por poliza/aviso, porque
+    # usan comparaciones con desencriptado y pueden volver lenta la navegacion.
+    if allow_fg_lookup and poliza_id_int <= 0:
+        fg_from_poliza_or_aviso = _find_financiamiento_grupal_by_poliza_or_aviso(poliza, aviso_str)
+        if fg_from_poliza_or_aviso:
+            try:
+                # #region debug-point A:resolved-by-poliza-aviso
+                _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'FG resuelto por poliza o aviso', {"poliza": poliza, "aviso": aviso_str, "fg_id": fg_from_poliza_or_aviso})
+                # #endregion
+                return _get_financiamiento_grupal_cuotas_view_data(fg_from_poliza_or_aviso)
+            except Exception:
+                # #region debug-point A:resolved-by-poliza-aviso-error
+                _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Fallo render FG resuelto por poliza o aviso', {"poliza": poliza, "aviso": aviso_str, "fg_id": fg_from_poliza_or_aviso})
+                # #endregion
+                pass
 
-    fg_from_context = _find_financiamiento_grupal_by_context(poliza, poliza_id, aviso_str)
-    if fg_from_context:
-        try:
-            # #region debug-point A:resolved-by-context
-            _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'FG resuelto por contexto', {"poliza": poliza, "poliza_id": poliza_id, "aviso": aviso_str, "fg_id": fg_from_context})
-            # #endregion
-            return _get_financiamiento_grupal_cuotas_view_data(fg_from_context)
-        except Exception:
-            # #region debug-point A:resolved-by-context-error
-            _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Fallo render FG resuelto por contexto', {"poliza": poliza, "poliza_id": poliza_id, "aviso": aviso_str, "fg_id": fg_from_context})
-            # #endregion
-            pass
+        fg_from_context = _find_financiamiento_grupal_by_context(poliza, poliza_id, aviso_str)
+        if fg_from_context:
+            try:
+                # #region debug-point A:resolved-by-context
+                _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'FG resuelto por contexto', {"poliza": poliza, "poliza_id": poliza_id, "aviso": aviso_str, "fg_id": fg_from_context})
+                # #endregion
+                return _get_financiamiento_grupal_cuotas_view_data(fg_from_context)
+            except Exception:
+                # #region debug-point A:resolved-by-context-error
+                _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Fallo render FG resuelto por contexto', {"poliza": poliza, "poliza_id": poliza_id, "aviso": aviso_str, "fg_id": fg_from_context})
+                # #endregion
+                pass
 
     # #region debug-point A:fallthrough-normal
     _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Sin FG resuelto, sigue flujo normal de cuotas', {"poliza": poliza, "poliza_id": poliza_id, "aviso": aviso_str})
@@ -492,8 +569,17 @@ def get_cuotas_data(
             from models.db import get_connection
             cnx = get_connection()
             cur = cnx.cursor(dictionary=True)
+            t_sp = time.perf_counter()
             cur.execute("CALL sp_list_primas_por_poliza(%s)", (poliza,))
             prima_rows = cur.fetchall() or []
+            # #region debug-point C:sp-primas-ms
+            _dbg_cuotas_slow('C', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Tiempo de sp_list_primas_por_poliza', {
+                "trace_id": trace_id,
+                "poliza": poliza,
+                "rows": len(prima_rows),
+                "elapsed_ms": round((time.perf_counter() - t_sp) * 1000, 2),
+            })
+            # #endregion
             try:
                 while cur.nextset():
                     pass
@@ -586,6 +672,7 @@ def get_cuotas_data(
                         vig_inicio_sql = None
                         vig_fin_sql = None
 
+                    t_q = time.perf_counter()
                     cur.execute(
                         """
                         SELECT
@@ -608,6 +695,14 @@ def get_cuotas_data(
                         (target_prima_id,),
                     )
                     cuota_rows = cur.fetchall() or []
+                    # #region debug-point D:cuotas-by-poliza-id-ms
+                    _dbg_cuotas_slow('D', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Tiempo de consulta cuotas por poliza_id', {
+                        "trace_id": trace_id,
+                        "target_prima_id": target_prima_id,
+                        "rows": len(cuota_rows),
+                        "elapsed_ms": round((time.perf_counter() - t_q) * 1000, 2),
+                    })
+                    # #endregion
                     try:
                         while cur.nextset():
                             pass
@@ -756,6 +851,31 @@ def get_cuotas_data(
             cnx.close()
     except Exception:
         pass
+
+    if (not rows) and financiamiento_id in (None, '', 'null', 'None') and not allow_fg_lookup:
+        fg_fallback_id = None
+        if poliza_id_int > 0:
+            fg_fallback_id = _find_financiamiento_grupal_by_poliza_id(poliza_id)
+        if not fg_fallback_id and (poliza or aviso_str):
+            fg_fallback_id = _find_financiamiento_grupal_by_poliza_or_aviso(poliza, aviso_str)
+        if not fg_fallback_id and (poliza or aviso_str or poliza_id_int > 0):
+            fg_fallback_id = _find_financiamiento_grupal_by_context(poliza, poliza_id, aviso_str)
+
+        if fg_fallback_id:
+            # #region debug-point E:fg-fallback-after-empty
+            _dbg_cuotas_slow('E', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Fallback a FG despues de flujo normal sin filas', {
+                "trace_id": trace_id,
+                "poliza": poliza,
+                "poliza_id": poliza_id,
+                "aviso": aviso_str,
+                "fg_id": fg_fallback_id,
+                "elapsed_ms_before_fallback": round((time.perf_counter() - t0) * 1000, 2),
+            })
+            # #endregion
+            try:
+                return _get_financiamiento_grupal_cuotas_view_data(fg_fallback_id)
+            except Exception:
+                pass
 
     if not encabezado['contratante']:
         encabezado = {

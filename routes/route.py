@@ -23,6 +23,42 @@ from models.db import get_connection
 
 bp = Blueprint('main', __name__)
 
+# #region debug-point A:cuotas-route-helper
+def _dbg_cuotas_route_slow(hypothesis_id: str, location: str, msg: str, data=None, run_id: str = 'pre-fix'):
+    try:
+        import urllib.request
+        debug_url = 'http://127.0.0.1:7777/event'
+        debug_session = 'cuotas-slow-load'
+        try:
+            with open('.dbg/cuotas-slow-load.env', 'r', encoding='utf-8') as f:
+                content = f.read()
+            for line in content.splitlines():
+                if line.startswith('DEBUG_SERVER_URL='):
+                    debug_url = line.split('=', 1)[1].strip() or debug_url
+                elif line.startswith('DEBUG_SESSION_ID='):
+                    debug_session = line.split('=', 1)[1].strip() or debug_session
+        except Exception:
+            pass
+        payload = {
+            "sessionId": debug_session,
+            "runId": run_id,
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "msg": f"[DEBUG] {msg}",
+            "data": data or {},
+        }
+        urllib.request.urlopen(
+            urllib.request.Request(
+                debug_url,
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json"},
+            ),
+            timeout=1,
+        ).read()
+    except Exception:
+        pass
+# #endregion
+
 @bp.route('/img/<path:filename>')
 def serve_img(filename):
     img_dir = os.path.join(current_app.root_path, 'img')
@@ -1694,13 +1730,27 @@ def menu_page(page):
 
     # Cuotas → plantilla dedicada
     if page == 'cuotas':
+        import time
         from controllers.cuotas.cuotas import get_cuotas_data
         selected = session.get('selected_cliente') or {}
         numero_poliza = request.args.get('poliza') or None
         poliza_id = request.args.get('idPrima') or request.args.get('poliza_id')
         aviso = request.args.get('aviso')
+        trace_id = f"route-cuotas-{int(time.time() * 1000)}"
+        t_data = time.perf_counter()
         data = get_cuotas_data(selected, numero_poliza, poliza_id, aviso)
-        return render_template(
+        # #region debug-point E:route-get-data-ms
+        _dbg_cuotas_route_slow('E', 'routes/route.py:menu_page(page=cuotas)', 'Tiempo de get_cuotas_data en route', {
+            "trace_id": trace_id,
+            "poliza": numero_poliza,
+            "poliza_id": poliza_id,
+            "aviso": aviso,
+            "rows": len(data.get('rows') or []),
+            "elapsed_ms": round((time.perf_counter() - t_data) * 1000, 2),
+        })
+        # #endregion
+        t_render = time.perf_counter()
+        response = render_template(
             'view/cuotas/cuotas.html',
             page='cuotas',
             title=data['title'],
@@ -1710,6 +1760,13 @@ def menu_page(page):
             total_monto=data['total_monto'],
             es_financiamiento_grupal=data.get('es_financiamiento_grupal', False),
         )
+        # #region debug-point E:route-render-ms
+        _dbg_cuotas_route_slow('E', 'routes/route.py:menu_page(page=cuotas)', 'Tiempo de render_template cuotas', {
+            "trace_id": trace_id,
+            "elapsed_ms": round((time.perf_counter() - t_render) * 1000, 2),
+        })
+        # #endregion
+        return response
 
     # Ajustadores (Maestros) - aceptar singular y plural para compatibilidad de URL
     if page in ('maestros-ajustadores', 'maestros-ajustador'):
