@@ -402,6 +402,74 @@ def get_dashboard_cards() -> Dict[str, Any]:
         
     return cards
 
+def get_distribution_by_group() -> Dict[str, int]:
+    """Count of active policies grouped by ramo.grupo (Generales / SOAT / Personales)."""
+    result = {'generales': 0, 'soat': 0, 'personales': 0}
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor()
+
+        user_filter = ""
+        user_filter_args: List[Any] = []
+
+        if session.get('role_name') == Roles.SUB_AGENTE:
+            user = session.get('user')
+            nombre_usuario = user
+            try:
+                cur.execute(
+                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1",
+                    (user,),
+                )
+                u_row = cur.fetchone()
+                if u_row and u_row[0]:
+                    nombre_usuario = u_row[0]
+            except Exception:
+                nombre_usuario = user
+
+            user_filter = (
+                " AND ("
+                "LOWER(TRIM(REPLACE(CONVERT(p.sub_agente USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(p.sub_agente USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(p.usuario_registro USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(p.usuario_registro USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s))"
+                ") "
+            )
+            user_filter_args = [user, nombre_usuario, user, nombre_usuario]
+
+        sql = f"""
+            SELECT
+                UPPER(TRIM(COALESCE(r.grupo, ''))) AS grupo,
+                COUNT(*) AS total
+            FROM polizas p
+            LEFT JOIN ramos r ON LOWER(TRIM(p.ramo)) = LOWER(TRIM(r.nombre))
+            WHERE p.activo = 1
+              AND (p.anulado = 0 OR p.anulado IS NULL)
+              AND COALESCE(p.prima_anulada, 0) = 0
+              AND p.vig_hasta >= CURDATE()
+              {user_filter}
+            GROUP BY UPPER(TRIM(COALESCE(r.grupo, '')))
+        """
+        cur.execute(sql, user_filter_args)
+        rows = cur.fetchall() or []
+        cur.close()
+        cnx.close()
+
+        for row in rows:
+            grupo = (row[0] or '').upper().strip()
+            count = int(row[1] or 0)
+            if 'SOAT' in grupo:
+                result['soat'] += count
+            elif 'PERSONAL' in grupo:
+                result['personales'] += count
+            else:
+                result['generales'] += count
+
+    except Exception as e:
+        print(f"[Dashboard] Error fetching distribution by group: {e}")
+
+    return result
+
+
 def get_dashboard_data() -> Dict[str, Any]:
     # Chart data: prima neta y comision mensual del año actual
     months_labels = []
