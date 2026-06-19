@@ -6,7 +6,7 @@ import pytesseract
 import hashlib
 import json
 import shutil
-from utils.rbac import can_access_maestros, can_view_maestros, can_delete, can_edit, can_create, can_create_poliza, can_restore, Roles, get_role_scope, require_permission
+from utils.rbac import can_access_maestros, can_view_maestros, can_delete, can_edit, can_create, can_create_poliza, can_restore, can_hard_delete, Roles, get_role_scope, require_permission
 from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards
 from datetime import datetime, timedelta
 from controllers.reportes.vencimientos_renovaciones import bp as vencimientos_bp
@@ -5834,6 +5834,35 @@ def clientes_restore():
 
     from controllers.clientes.restorecliente import restaurar_cliente_route
     return restaurar_cliente_route()
+
+@bp.route('/clientes/hard-delete', methods=['POST'])
+@require_permission(can_hard_delete, response_mode='json', ownership_check_fn=cliente_owner_from_request)
+def clientes_hard_delete():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+    from controllers.clientes.harddelete_cliente import hard_delete_cliente_route
+    return hard_delete_cliente_route()
+
+@bp.route('/polizas/hard-delete', methods=['POST'])
+@require_permission(can_hard_delete, response_mode='json', ownership_check_fn=poliza_owner_from_request)
+def polizas_hard_delete():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+    from controllers.harddelete_poliza import hard_delete_poliza_route
+    return hard_delete_poliza_route()
+
+@bp.route('/cuotas/hard-delete', methods=['POST'])
+@require_permission(can_hard_delete, response_mode='json')
+def cuotas_hard_delete():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+    from controllers.cuotas.cuotas import hard_delete_cuota
+    data = request.json or {}
+    cuota_id = data.get('idCuota')
+    success, msg = hard_delete_cuota(cuota_id)
+    if success:
+        return {'ok': True}
+    return {'ok': False, 'error': msg}, 400
 
 @bp.route('/clientes/estado-cuenta/export', methods=['GET'])
 def export_estado_cuenta():
