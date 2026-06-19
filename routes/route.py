@@ -1645,6 +1645,28 @@ def menu_page(page):
             rows=data['rows'],
         )
 
+    if page == 'financiamiento-grupal-cuotas':
+        from controllers.cuotas.cuotas import get_cuotas_data
+
+        financiamiento_id = request.args.get('id')
+        if not financiamiento_id:
+            return redirect(url_for('main.menu_page', page='financiamiento-grupal'))
+
+        data = get_cuotas_data(financiamiento_id=financiamiento_id)
+        if not data.get('encabezado', {}).get('financiamiento_grupal'):
+            return redirect(url_for('main.menu_page', page='financiamiento-grupal'))
+
+        return render_template(
+            'view/cuotas/cuotas.html',
+            page='financiamiento-grupal-cuotas',
+            title=data['title'],
+            encabezado=data['encabezado'],
+            resumen=data['resumen'],
+            rows=data['rows'],
+            total_monto=data['total_monto'],
+            es_financiamiento_grupal=data.get('es_financiamiento_grupal', False),
+        )
+
     # Cuotas → plantilla dedicada
     if page == 'cuotas':
         from controllers.cuotas.cuotas import get_cuotas_data
@@ -1660,7 +1682,8 @@ def menu_page(page):
             encabezado=data['encabezado'],
             resumen=data['resumen'],
             rows=data['rows'],
-            total_monto=data['total_monto']
+            total_monto=data['total_monto'],
+            es_financiamiento_grupal=data.get('es_financiamiento_grupal', False),
         )
 
     # Ajustadores (Maestros) - aceptar singular y plural para compatibilidad de URL

@@ -1,0 +1,170 @@
+{% extends 'view/layout_dashboard.html' %}
+
+{% block html_title %}Cuotas | SIS-ARIAS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cuotas/cuotas.css') }}">
+<style>
+  .fg-cuotas-summary {
+    max-width: 320px;
+  }
+
+  .fg-cuotas-summary .amount-value {
+    font-size: 2rem;
+  }
+
+  .fg-cuotas-header-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .fg-cuotas-header-table td {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid var(--border, #e9ecef);
+  }
+
+  .fg-cuotas-header-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .fg-cuotas-header-table td:first-child {
+    width: 220px;
+    font-weight: 700;
+  }
+</style>
+{% endblock %}
+
+{% block page_title %}{% endblock %}
+
+{% block content %}
+<div class="page-header flex-column align-items-start gap-2">
+  <div class="d-flex align-items-center gap-3">
+    <div class="page-title">
+      <i class="bi bi-credit-card"></i>
+      Cuotas - {{ detail.financiamiento_grupal }}
+    </div>
+  </div>
+  <div>
+    <a href="{{ url_for('main.menu_page', page='financiamiento-grupal') }}" class="text-secondary text-decoration-none small fw-bold">
+      <i class="bi bi-arrow-left"></i> Volver al listado Financiamiento Grupal
+    </a>
+  </div>
+</div>
+
+<div class="master-panel mb-4 fg-cuotas-summary">
+  <div class="panel-body" style="min-height: auto;">
+    <div class="financial-card w-100 border-0 shadow-none bg-transparent mb-0">
+      <div class="amount-display">
+        <span class="amount-label text-uppercase mb-2">Importe Total</span>
+        <span class="amount-value text-primary">
+          <span class="amount-currency">{{ detail.moneda or '' }}</span>{{ total_monto }}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="client-info-card mb-4">
+  <div class="client-info-header">
+    <i class="bi bi-receipt"></i>
+    <span>{{ detail.financiamiento_grupal }}</span>
+  </div>
+  <div class="client-info-body p-0">
+    <table class="fg-cuotas-header-table">
+      <tr>
+        <td>Financiación Grupal</td>
+        <td>{{ detail.financiamiento_grupal }}</td>
+      </tr>
+      <tr>
+        <td>Cliente</td>
+        <td>{{ detail.cliente }}</td>
+      </tr>
+      <tr>
+        <td>Compañía</td>
+        <td>{{ detail.compania }}</td>
+      </tr>
+      <tr>
+        <td>Núm. Cupones</td>
+        <td>{{ detail.numero_cupones }}</td>
+      </tr>
+      <tr>
+        <td>Primer Cupón</td>
+        <td>{{ detail.primer_cupon }}</td>
+      </tr>
+      <tr>
+        <td>Primer Vencimiento</td>
+        <td>{{ detail.fecha_primer_vencimiento }}</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<div class="table-card">
+  <div class="table-toolbar d-flex justify-content-between align-items-center">
+    <div class="search-box">
+      <div class="input-group input-group-sm" style="width: 300px;">
+        <input
+          id="fg-cuotas-search"
+          type="text"
+          class="form-control border-end-0"
+          placeholder="Buscar"
+          oninput="FinanciamientoGrupalCuotas.onSearch(this.value)">
+        <span class="input-group-text bg-white text-secondary border-start-0">
+          <i class="bi bi-search"></i>
+        </span>
+      </div>
+    </div>
+    <div class="page-size-selector d-flex align-items-center gap-2">
+      <span class="selector-label text-secondary small">Mostrar:</span>
+      <select id="fg-cuotas-page-size" class="form-select form-select-sm" style="width: auto; cursor: pointer;" onchange="FinanciamientoGrupalCuotas.onPageSize(this.value)">
+        <option value="10">10</option>
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table modern-table table-hover m-0 align-middle" id="fg-cuotas-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Cupón</th>
+          <th>Fecha Vencimiento</th>
+          <th>Moneda</th>
+          <th>Importe</th>
+          <th>Fecha de Pago</th>
+          <th>Factura</th>
+          <th>Observación</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.numero_cuota }}</td>
+          <td>{{ row.cupon }}</td>
+          <td>{{ row.fecha_vencimiento }}</td>
+          <td>{{ row.moneda }}</td>
+          <td>{{ row.importe }}</td>
+          <td>{{ row.fecha_pago or '' }}</td>
+          <td>{{ row.factura or '' }}</td>
+          <td>{{ row.observacion or '' }}</td>
+        </tr>
+        {% endfor %}
+        {% if not rows %}
+        <tr class="fg-cuotas-empty-row">
+          <td colspan="8" class="text-center text-muted py-4">No hay cuotas generadas para este financiamiento.</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js_bottom %}
+<script src="{{ url_for('static', filename='js/financiamiento_grupal/Financiacion-Grupal-Cuotas.js') }}"></script>
+<script>
+  FinanciamientoGrupalCuotas.init();
+</script>
+{% endblock %}

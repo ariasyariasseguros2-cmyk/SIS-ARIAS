@@ -11,6 +11,7 @@ const FinanciacionGrupal = (() => {
   let addModalEl = null;
   let addForm = null;
   let optionsLoaded = false;
+  const searchableSelects = {};
 
   function init() {
     const tbody = document.querySelector('#financiacion-grupal-table tbody');
@@ -42,6 +43,9 @@ const FinanciacionGrupal = (() => {
     btnGuardarOtro?.addEventListener('click', async () => {
       await submitForm(true);
     });
+
+    setupSearchableSelect('fgCliente', 'fgClienteSearch', 'Buscar cliente...');
+    setupSearchableSelect('fgCompania', 'fgCompaniaSearch', 'Buscar compania...');
 
     if (String(window.financiamientoGrupalOpenAdd || '') === '1') {
       setTimeout(() => onAdd(), 100);
@@ -148,7 +152,13 @@ const FinanciacionGrupal = (() => {
   }
 
   function onCuotas(id) {
-    showInfo(`Cuotas del financiamiento grupal #${id}.`);
+    if (!id) {
+      showInfo('No se encontro el financiamiento grupal seleccionado.');
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set('id', id);
+    window.location.href = `/menu/financiamiento-grupal-cuotas?${params.toString()}`;
   }
 
   function onEdit(id) {
@@ -194,6 +204,70 @@ const FinanciacionGrupal = (() => {
     const select = document.getElementById(id);
     if (!select) return;
     const currentValue = select.value;
+    const sortedItems = [...items].sort((a, b) => String(a?.nombre || '').localeCompare(String(b?.nombre || ''), 'es', {
+      sensitivity: 'base',
+      numeric: true
+    }));
+
+    if (searchableSelects[id]) {
+      searchableSelects[id].items = sortedItems;
+      searchableSelects[id].placeholder = placeholder;
+      searchableSelects[id].selectedValue = currentValue;
+      renderSearchableSelectOptions(id);
+      return;
+    }
+
+    renderPlainSelectOptions(select, sortedItems, placeholder, currentValue);
+  }
+
+  function setupSearchableSelect(id, searchInputId, searchPlaceholder) {
+    const select = document.getElementById(id);
+    const existingSearchInput = document.getElementById(searchInputId);
+    if (!select || searchableSelects[id]) return;
+
+    const searchInput = existingSearchInput || document.createElement('input');
+    if (!existingSearchInput) {
+      searchInput.type = 'text';
+      searchInput.className = 'form-control form-control-sm mb-2';
+      searchInput.placeholder = searchPlaceholder;
+      searchInput.autocomplete = 'off';
+      select.parentNode?.insertBefore(searchInput, select);
+    }
+    searchableSelects[id] = {
+      select,
+      searchInput,
+      items: [],
+      placeholder: '',
+      selectedValue: '',
+    };
+
+    searchInput.addEventListener('input', () => {
+      renderSearchableSelectOptions(id);
+    });
+
+    select.addEventListener('change', () => {
+      searchableSelects[id].selectedValue = select.value || '';
+    });
+  }
+
+  function renderSearchableSelectOptions(id) {
+    const state = searchableSelects[id];
+    if (!state) return;
+
+    const query = (state.searchInput.value || '').trim().toLowerCase();
+    const filteredItems = state.items.filter((item) => String(item?.nombre || '').toLowerCase().includes(query));
+    renderPlainSelectOptions(state.select, filteredItems, state.placeholder, state.selectedValue);
+
+    if (state.selectedValue) {
+      state.select.value = state.selectedValue;
+      if (state.select.value !== state.selectedValue) {
+        state.selectedValue = '';
+      }
+    }
+  }
+
+  function renderPlainSelectOptions(select, items, placeholder, selectedValue) {
+    if (!select) return;
     select.innerHTML = '';
 
     const first = document.createElement('option');
@@ -208,8 +282,8 @@ const FinanciacionGrupal = (() => {
       select.appendChild(option);
     });
 
-    if (currentValue) {
-      select.value = currentValue;
+    if (selectedValue) {
+      select.value = selectedValue;
     }
   }
 
@@ -217,6 +291,13 @@ const FinanciacionGrupal = (() => {
     if (!addForm) return;
     addForm.reset();
     addForm.classList.remove('was-validated');
+    Object.values(searchableSelects).forEach((state) => {
+      state.selectedValue = '';
+      if (state.searchInput) {
+        state.searchInput.value = '';
+      }
+      renderSearchableSelectOptions(state.select.id);
+    });
   }
 
   async function submitForm(keepAdding) {
@@ -273,8 +354,7 @@ const FinanciacionGrupal = (() => {
         if (newId) {
           const params = new URLSearchParams();
           params.set('id', newId);
-          params.set('openAdd', '1');
-          window.location.href = `/menu/financiamiento-grupal-avisos?${params.toString()}`;
+          window.location.href = `/menu/financiamiento-grupal-cuotas?${params.toString()}`;
           return;
         }
         window.location.reload();

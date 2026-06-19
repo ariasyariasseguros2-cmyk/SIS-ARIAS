@@ -1,4 +1,45 @@
+import calendar
+from datetime import datetime
+from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
+
 from models.db import get_connection
+
+# #region debug-point F:report-helper
+def _dbg_fg_cuotas(hypothesis_id: str, location: str, msg: str, data=None, run_id: str = 'pre'):
+    try:
+        import json
+        import urllib.request
+        debug_url = 'http://127.0.0.1:7777/event'
+        debug_session = 'fg-cuotas-routing'
+        try:
+            with open('.dbg/fg-cuotas-routing.env', 'r', encoding='utf-8') as f:
+                content = f.read()
+            for line in content.splitlines():
+                if line.startswith('DEBUG_SERVER_URL='):
+                    debug_url = line.split('=', 1)[1].strip() or debug_url
+                elif line.startswith('DEBUG_SESSION_ID='):
+                    debug_session = line.split('=', 1)[1].strip() or debug_session
+        except Exception:
+            pass
+        payload = {
+            "sessionId": debug_session,
+            "runId": run_id,
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "msg": f"[DEBUG] {msg}",
+            "data": data or {},
+        }
+        urllib.request.urlopen(
+            urllib.request.Request(
+                debug_url,
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json"},
+            ),
+            timeout=1,
+        ).read()
+    except Exception:
+        pass
+# #endregion
 
 
 def _format_amount(value):
@@ -6,6 +47,353 @@ def _format_amount(value):
         return "{:,.2f}".format(float(value or 0))
     except Exception:
         return "0.00"
+
+
+def _parse_date(value):
+    s = str(value or "").strip()
+    if not s:
+        return None
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except Exception:
+            pass
+    return None
+
+
+def _format_date_display(value):
+    parsed = _parse_date(value)
+    if parsed:
+        return parsed.strftime("%d/%m/%Y")
+    return str(value or "")
+
+
+def _add_months(base_date, months_to_add):
+    month_index = (base_date.month - 1) + months_to_add
+    year = base_date.year + month_index // 12
+    month = (month_index % 12) + 1
+    day = min(base_date.day, calendar.monthrange(year, month)[1])
+    return base_date.replace(year=year, month=month, day=day)
+
+
+def _increment_coupon(value, step):
+    s = str(value or "").strip()
+    if not s:
+        return str(step + 1)
+
+    start = len(s)
+    while start > 0 and s[start - 1].isdigit():
+        start -= 1
+
+    if start == len(s):
+        return s if step == 0 else f"{s}-{step + 1}"
+
+    prefix = s[:start]
+    numeric_part = s[start:]
+    next_value = int(numeric_part) + step
+    return f"{prefix}{str(next_value).zfill(len(numeric_part))}"
+
+
+def _split_total_amount(total_value, total_parts):
+    total_decimal = Decimal(str(total_value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    parts = max(1, int(total_parts or 1))
+    base = (total_decimal / Decimal(parts)).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+    amounts = [base for _ in range(parts)]
+    remainder = (total_decimal - (base * parts)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    cent = Decimal("0.01")
+    idx = 0
+    while remainder > Decimal("0.00"):
+        amounts[idx] = (amounts[idx] + cent).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        remainder = (remainder - cent).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        idx = (idx + 1) % parts
+    return amounts
+
+
+def _build_financiamiento_grupal_cuotas(financiamiento_id, primer_cupon, numero_cupones, fecha_primer_vencimiento, moneda, importe):
+    cuotas = []
+    total_cupones = max(1, int(numero_cupones or 1))
+    fecha_base = _parse_date(fecha_primer_vencimiento)
+    if not fecha_base:
+        raise ValueError("La fecha del primer vencimiento es inválida.")
+
+    importes = _split_total_amount(importe, total_cupones)
+    poliza_ref = f"FG-{financiamiento_id}"
+
+    for idx in range(total_cupones):
+        fecha_venc = _add_months(fecha_base, idx)
+        cuotas.append(
+            {
+                "poliza": poliza_ref,
+                "cupon": _increment_coupon(primer_cupon, idx),
+                "fecha_vencimiento": fecha_venc.strftime("%Y-%m-%d"),
+                "moneda": (moneda or "").strip().upper() or "USD",
+                "importe": importes[idx],
+                "numero_cuota": idx + 1,
+            }
+        )
+    return cuotas
+
+
+def _load_financiamiento_grupal_cuotas_rows(cur, financiamiento_id, poliza_ref):
+    try:
+        cur.execute(
+            """
+            SELECT
+                idCuota,
+                numero_cuota,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR),
+                    cupon
+                ) AS cupon,
+                DATE_FORMAT(fecha_vencimiento, '%Y-%m-%d') AS fecha_vencimiento,
+                moneda,
+                importe,
+                DATE_FORMAT(fecha_pago, '%Y-%m-%d') AS fecha_pago,
+                factura,
+                observacion
+            FROM cuotas
+            WHERE activo = 1
+              AND (
+                    financiamiento_grupal_id = %s
+                 OR (
+                        financiamiento_grupal_id IS NULL
+                    AND TRIM(
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                CAST(poliza AS CHAR CHARACTER SET utf8mb4)
+                            )
+                        ) COLLATE utf8mb4_bin = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin
+                    )
+              )
+            ORDER BY numero_cuota ASC, fecha_vencimiento ASC, idCuota ASC
+            """,
+            (financiamiento_id, poliza_ref),
+        )
+        return cur.fetchall() or []
+    except Exception as exc:
+        if "Unknown column 'financiamiento_grupal_id'" not in str(exc):
+            raise
+        cur.execute(
+            """
+            SELECT
+                idCuota,
+                numero_cuota,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR),
+                    cupon
+                ) AS cupon,
+                DATE_FORMAT(fecha_vencimiento, '%Y-%m-%d') AS fecha_vencimiento,
+                moneda,
+                importe,
+                DATE_FORMAT(fecha_pago, '%Y-%m-%d') AS fecha_pago,
+                factura,
+                observacion
+            FROM cuotas
+            WHERE activo = 1
+              AND TRIM(
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                        CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                        CAST(poliza AS CHAR CHARACTER SET utf8mb4)
+                    )
+                  ) COLLATE utf8mb4_bin = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin
+            ORDER BY numero_cuota ASC, fecha_vencimiento ASC, idCuota ASC
+            """,
+            (poliza_ref,),
+        )
+        return cur.fetchall() or []
+
+
+def _insert_financiamiento_grupal_cuotas_rows(
+    cur,
+    financiamiento_id,
+    nombre,
+    primer_cupon,
+    numero_cupones,
+    fecha_primer_vencimiento,
+    moneda,
+    importe,
+    usuario,
+):
+    cuotas_generadas = _build_financiamiento_grupal_cuotas(
+        financiamiento_id,
+        primer_cupon,
+        numero_cupones,
+        fecha_primer_vencimiento,
+        moneda,
+        importe,
+    )
+    observacion = f"Financiamiento grupal: {nombre}"
+
+    for cuota in cuotas_generadas:
+        try:
+            cur.execute(
+                """
+                INSERT INTO cuotas (
+                    poliza_id,
+                    financiamiento_grupal_id,
+                    poliza,
+                    cupon,
+                    fecha_vencimiento,
+                    moneda,
+                    importe,
+                    fecha_pago,
+                    factura,
+                    observacion,
+                    usuario_registro,
+                    numero_cuota,
+                    activo
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,1)
+                """,
+                (
+                    None,
+                    financiamiento_id,
+                    cuota["poliza"],
+                    cuota["cupon"],
+                    cuota["fecha_vencimiento"],
+                    cuota["moneda"],
+                    cuota["importe"],
+                    None,
+                    None,
+                    observacion,
+                    usuario,
+                    cuota["numero_cuota"],
+                ),
+            )
+        except Exception as exc:
+            if "Unknown column 'financiamiento_grupal_id'" not in str(exc):
+                raise
+            cur.execute(
+                """
+                INSERT INTO cuotas (
+                    poliza_id,
+                    poliza,
+                    cupon,
+                    fecha_vencimiento,
+                    moneda,
+                    importe,
+                    fecha_pago,
+                    factura,
+                    observacion,
+                    usuario_registro,
+                    numero_cuota,
+                    activo
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,1)
+                """,
+                (
+                    None,
+                    cuota["poliza"],
+                    cuota["cupon"],
+                    cuota["fecha_vencimiento"],
+                    cuota["moneda"],
+                    cuota["importe"],
+                    None,
+                    None,
+                    observacion,
+                    usuario,
+                    cuota["numero_cuota"],
+                ),
+            )
+        cuota_id = cur.lastrowid
+        try:
+            cur.execute(
+                """
+                UPDATE cuotas
+                SET poliza = TO_BASE64(AES_ENCRYPT(%s, @SIS_KEY)),
+                    cupon = CASE
+                        WHEN %s IS NULL THEN NULL
+                        ELSE TO_BASE64(AES_ENCRYPT(%s, @SIS_KEY))
+                    END
+                WHERE idCuota = %s
+                """,
+                (cuota["poliza"], cuota["cupon"], cuota["cupon"], cuota_id),
+            )
+        except Exception:
+            pass
+
+
+def _sync_financiamiento_grupal_cuotas(cur, detail, usuario=None):
+    if not detail:
+        return
+
+    financiamiento_id = int(detail.get("id_financiamiento_grupal") or 0)
+    if financiamiento_id <= 0:
+        return
+
+    poliza_ref = f"FG-{financiamiento_id}"
+    current_rows = _load_financiamiento_grupal_cuotas_rows(cur, financiamiento_id, poliza_ref)
+    expected_rows = _build_financiamiento_grupal_cuotas(
+        financiamiento_id,
+        detail.get("primer_cupon"),
+        detail.get("numero_cupones"),
+        detail.get("fecha_primer_vencimiento"),
+        detail.get("moneda"),
+        detail.get("importe"),
+    )
+
+    def normalize_current(row):
+        return {
+            "numero_cuota": int(row.get("numero_cuota") or 0),
+            "cupon": str(row.get("cupon") or "").strip(),
+            "fecha_vencimiento": str(row.get("fecha_vencimiento") or "").strip(),
+            "moneda": str(row.get("moneda") or "").strip().upper(),
+            "importe": Decimal(str(row.get("importe") or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+        }
+
+    def normalize_expected(row):
+        return {
+            "numero_cuota": int(row.get("numero_cuota") or 0),
+            "cupon": str(row.get("cupon") or "").strip(),
+            "fecha_vencimiento": str(row.get("fecha_vencimiento") or "").strip(),
+            "moneda": str(row.get("moneda") or "").strip().upper(),
+            "importe": Decimal(str(row.get("importe") or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+        }
+
+    current_signature = [normalize_current(r) for r in current_rows]
+    expected_signature = [normalize_expected(r) for r in expected_rows]
+
+    if current_signature == expected_signature:
+        return
+
+    safe_to_rebuild = all(
+        not (r.get("fecha_pago") or "").strip()
+        and not (r.get("factura") or "").strip()
+        and "financiamiento grupal" in str(r.get("observacion") or "").lower()
+        for r in current_rows
+    )
+
+    if current_rows and not safe_to_rebuild:
+        return
+
+    if current_rows:
+        ids = [int(r.get("idCuota")) for r in current_rows if r.get("idCuota")]
+        if ids:
+            placeholders = ",".join(["%s"] * len(ids))
+            params = [usuario] + ids
+            cur.execute(
+                f"""
+                UPDATE cuotas
+                SET activo = 0,
+                    usuario_edicion = %s
+                WHERE idCuota IN ({placeholders})
+                """,
+                tuple(params),
+            )
+
+    _insert_financiamiento_grupal_cuotas_rows(
+        cur,
+        financiamiento_id,
+        detail.get("financiamiento_grupal") or "",
+        detail.get("primer_cupon"),
+        detail.get("numero_cupones"),
+        detail.get("fecha_primer_vencimiento"),
+        detail.get("moneda"),
+        detail.get("importe"),
+        usuario,
+    )
 
 
 def get_financiamiento_grupal_data():
@@ -31,7 +419,7 @@ def get_financiamiento_grupal_data():
                 fg.moneda,
                 fg.importe,
                 fg.primer_cupon,
-                DATE_FORMAT(fg.fecha_primer_vencimiento, '%%d-%%m-%%Y') AS fecha_primer_vencimiento
+                DATE_FORMAT(fg.fecha_primer_vencimiento, '%d/%m/%Y') AS fecha_primer_vencimiento
             FROM financiamiento_grupal fg
             INNER JOIN clientes c
                 ON c.idCliente = fg.cliente_id
@@ -108,7 +496,7 @@ def get_financiamiento_grupal_avisos_data(financiamiento_id):
                 fg.moneda,
                 fg.importe,
                 fg.primer_cupon,
-                DATE_FORMAT(fg.fecha_primer_vencimiento, '%%d-%%m-%%Y') AS fecha_primer_vencimiento
+                DATE_FORMAT(fg.fecha_primer_vencimiento, '%d/%m/%Y') AS fecha_primer_vencimiento
             FROM financiamiento_grupal fg
             INNER JOIN clientes c
                 ON c.idCliente = fg.cliente_id
@@ -274,6 +662,22 @@ def insert_financiamiento_grupal(payload):
         cur.execute("SELECT @p_new_id")
         row = cur.fetchone()
         new_id = int(row[0]) if row and row[0] else None
+
+        if not new_id:
+            raise ValueError("No se pudo obtener el ID del financiamiento grupal.")
+
+        _insert_financiamiento_grupal_cuotas_rows(
+            cur,
+            new_id,
+            nombre,
+            primer_cupon,
+            numero_cupones,
+            fecha_primer_vencimiento,
+            moneda,
+            importe,
+            usuario,
+        )
+
         cnx.commit()
         return {"ok": True, "id": new_id}
     except Exception as exc:
@@ -296,6 +700,114 @@ def insert_financiamiento_grupal(payload):
             pass
 
 
+def get_financiamiento_grupal_cuotas_data(financiamiento_id):
+    cnx = None
+    cur = None
+    detail = None
+    rows = []
+
+    try:
+        financiamiento_id = int(financiamiento_id or 0)
+    except Exception:
+        financiamiento_id = 0
+
+    if financiamiento_id <= 0:
+        return {"title": "Cuotas", "detail": None, "rows": [], "total_monto": "0.00"}
+
+    try:
+        # #region debug-point F:fg-cuotas-entry
+        _dbg_fg_cuotas('F', 'controllers/financiamiento_grupal/financiacion_grupal.py:get_financiamiento_grupal_cuotas_data', 'Entrada get_financiamiento_grupal_cuotas_data', {"financiamiento_id": financiamiento_id})
+        # #endregion
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT
+                fg.id_financiamiento_grupal,
+                fg.nombre AS financiamiento_grupal,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                    c.razon_social
+                ) AS cliente,
+                COALESCE(NULLIF(TRIM(cp.nombre_corto), ''), cp.nombre) AS compania,
+                fg.numero_cupones,
+                fg.moneda,
+                fg.importe,
+                fg.primer_cupon,
+                DATE_FORMAT(fg.fecha_primer_vencimiento, '%d/%m/%Y') AS fecha_primer_vencimiento
+            FROM financiamiento_grupal fg
+            INNER JOIN clientes c ON c.idCliente = fg.cliente_id
+            INNER JOIN companias cp ON cp.id_compania = fg.compania_id
+            WHERE fg.id_financiamiento_grupal = %s
+              AND fg.activo = 1
+            LIMIT 1
+            """,
+            (financiamiento_id,),
+        )
+        detail = cur.fetchone()
+        # #region debug-point F:fg-cuotas-detail
+        _dbg_fg_cuotas('F', 'controllers/financiamiento_grupal/financiacion_grupal.py:get_financiamiento_grupal_cuotas_data', 'Resultado consulta cabecera FG', {"financiamiento_id": financiamiento_id, "detail_ok": bool(detail), "detail_nombre": (detail or {}).get("financiamiento_grupal"), "cliente": (detail or {}).get("cliente"), "compania": (detail or {}).get("compania")})
+        # #endregion
+
+        if detail:
+            # #region debug-point F:fg-cuotas-before-sync
+            _dbg_fg_cuotas('F', 'controllers/financiamiento_grupal/financiacion_grupal.py:get_financiamiento_grupal_cuotas_data', 'Antes de sincronizar cuotas FG', {"financiamiento_id": financiamiento_id})
+            # #endregion
+            _sync_financiamiento_grupal_cuotas(cur, detail)
+            cnx.commit()
+            poliza_ref = f"FG-{financiamiento_id}"
+            raw_rows = _load_financiamiento_grupal_cuotas_rows(cur, financiamiento_id, poliza_ref)
+            # #region debug-point F:fg-cuotas-after-load
+            _dbg_fg_cuotas('F', 'controllers/financiamiento_grupal/financiacion_grupal.py:get_financiamiento_grupal_cuotas_data', 'Cuotas FG cargadas', {"financiamiento_id": financiamiento_id, "poliza_ref": poliza_ref, "rows": len(raw_rows or [])})
+            # #endregion
+            for idx, row in enumerate(raw_rows, start=1):
+                rows.append(
+                    {
+                        "idCuota": row.get("idCuota"),
+                        "secuencia": idx,
+                        "numero_cuota": row.get("numero_cuota") or idx,
+                        "cupon": row.get("cupon") or "",
+                        "fecha_vencimiento": _format_date_display(row.get("fecha_vencimiento") or ""),
+                        "moneda": row.get("moneda") or (detail.get("moneda") or ""),
+                        "importe": _format_amount(row.get("importe")),
+                        "fecha_pago": _format_date_display(row.get("fecha_pago") or "") if row.get("fecha_pago") else "",
+                        "factura": row.get("factura") or "",
+                        "observacion": row.get("observacion") or "",
+                    }
+                )
+    except Exception as exc:
+        # #region debug-point F:fg-cuotas-error
+        _dbg_fg_cuotas('F', 'controllers/financiamiento_grupal/financiacion_grupal.py:get_financiamiento_grupal_cuotas_data', 'Error en carga de cuotas FG', {"financiamiento_id": financiamiento_id, "error": str(exc)})
+        # #endregion
+        print(f"Error fetching financiamiento grupal cuotas data: {exc}")
+        detail = None
+        rows = []
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if cnx:
+                cnx.close()
+        except Exception:
+            pass
+
+    if detail:
+        detail["importe_formatted"] = _format_amount(detail.get("importe"))
+        detail["fecha_primer_vencimiento"] = _format_date_display(detail.get("fecha_primer_vencimiento"))
+
+    total_monto = _format_amount(sum(Decimal(str(r.get("importe") or "0").replace(",", "")) for r in rows))
+    return {
+        "title": f"Cuotas - {detail.get('financiamiento_grupal')}" if detail else "Cuotas",
+        "detail": detail,
+        "rows": rows,
+        "total_monto": total_monto,
+    }
+
+
 def list_financiamiento_grupal_avisos(financiamiento_id):
     cnx = None
     cur = None
@@ -316,7 +828,11 @@ def list_financiamiento_grupal_avisos(financiamiento_id):
             SELECT
                 i.id_item,
                 p.idPoliza,
-                p.recibo AS aviso,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                    p.recibo
+                ) AS aviso,
                 COALESCE(
                     CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
                     CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
@@ -334,8 +850,8 @@ def list_financiamiento_grupal_avisos(financiamiento_id):
                 p.prima_comercial,
                 p.prima_neta,
                 COALESCE(p.prima_comercial_igv, p.prima_total) AS prima_total,
-                DATE_FORMAT(p.vig_desde, '%%d-%%m-%%Y') AS vig_inicio,
-                DATE_FORMAT(p.vig_hasta, '%%d-%%m-%%Y') AS vig_fin,
+                DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
+                DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin,
                 COALESCE(
                     CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
                     CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
@@ -437,7 +953,11 @@ def list_financiamiento_grupal_avisos_candidates(financiamiento_id):
             """
             SELECT
                 p.idPoliza,
-                p.recibo AS aviso,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                    p.recibo
+                ) AS aviso,
                 COALESCE(
                     CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
                     CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
@@ -455,8 +975,8 @@ def list_financiamiento_grupal_avisos_candidates(financiamiento_id):
                 p.prima_comercial,
                 p.prima_neta,
                 COALESCE(p.prima_comercial_igv, p.prima_total) AS prima_total,
-                DATE_FORMAT(p.vig_desde, '%%d-%%m-%%Y') AS vig_inicio,
-                DATE_FORMAT(p.vig_hasta, '%%d-%%m-%%Y') AS vig_fin
+                DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_inicio,
+                DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_fin
             FROM polizas p
             INNER JOIN clientes c ON c.idCliente = p.cliente_id
             WHERE p.activo = 1

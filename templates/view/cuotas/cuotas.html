@@ -20,6 +20,7 @@
   window.currentAviso = "{{ resumen.aviso_cob }}";
   window.currentMoneda = "{{ resumen.moneda or '' }}";
   window.currentClienteDocumento = "{{ encabezado.numero_documento or '' }}";
+  window.isFinanciamientoGrupal = "{{ 1 if es_financiamiento_grupal else 0 }}";
 </script>
 {% endblock %}
 
@@ -28,17 +29,21 @@
     <div class="d-flex align-items-center gap-3">
         <div class="page-title">
             <i class="bi bi-credit-card"></i>
+            {% if es_financiamiento_grupal %}
+            Cuotas - {{ encabezado.financiamiento_grupal }}
+            {% else %}
             Cuotas
+            {% endif %}
         </div>
-        {% if can_create(session.role_name) %}
+        {% if can_create(session.role_name) and not es_financiamiento_grupal %}
         <button type="button" class="btn btn-success btn-lift btn-add" onclick="Cuotas.onAdd()">
             <i class="bi-plus-lg"></i> Añadir
         </button>
         {% endif %}
     </div>
     <div>
-        <a href="{{ url_for('main.menu_page', page='primas', poliza=encabezado.poliza) }}" class="text-secondary text-decoration-none small fw-bold">
-            <i class="bi bi-arrow-left"></i> Volver al listado de Primas
+        <a href="{% if es_financiamiento_grupal %}{{ url_for('main.menu_page', page='financiamiento-grupal') }}{% else %}{{ url_for('main.menu_page', page='primas', poliza=encabezado.poliza) }}{% endif %}" class="text-secondary text-decoration-none small fw-bold">
+            <i class="bi bi-arrow-left"></i> {% if es_financiamiento_grupal %}Volver al listado de Financiamiento Grupal{% else %}Volver al listado de Primas{% endif %}
         </a>
     </div>
 </div>
@@ -48,47 +53,51 @@
         <div class="main-content-area py-4">
             <div class="section-heading">
                 <i class="bi bi-person-badge"></i>
+                {% if es_financiamiento_grupal %}
+                Información del Financiamiento
+                {% else %}
                 Información del Contratante
+                {% endif %}
             </div>
             <div class="info-grid">
                 <div class="info-item" style="grid-column: span 2;">
-                    <span class="label">Contratante</span>
-                    <span class="value fw-bold fs-5">{{ encabezado.contratante }}</span>
+                    <span class="label">{% if es_financiamiento_grupal %}Financiamiento Grupal{% else %}Contratante{% endif %}</span>
+                    <span class="value fw-bold fs-5">{% if es_financiamiento_grupal %}{{ encabezado.financiamiento_grupal }}{% else %}{{ encabezado.contratante }}{% endif %}</span>
                 </div>
                 <div class="info-item">
-                    <span class="label">Póliza</span>
-                    <span class="value">{{ encabezado.poliza }}</span>
+                    <span class="label">{% if es_financiamiento_grupal %}Cliente{% else %}Póliza{% endif %}</span>
+                    <span class="value">{% if es_financiamiento_grupal %}{{ encabezado.contratante }}{% else %}{{ encabezado.poliza }}{% endif %}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Compañía</span>
                     <span class="value">{{ encabezado.compania }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="label">Ramo</span>
-                    <span class="value">{{ encabezado.ramo }}</span>
+                    <span class="label">{% if es_financiamiento_grupal %}Núm. Cupones{% else %}Ramo{% endif %}</span>
+                    <span class="value">{% if es_financiamiento_grupal %}{{ resumen.numero_cupones }}{% else %}{{ encabezado.ramo }}{% endif %}</span>
                 </div>
                  <div class="info-item">
-                    <span class="label">Aviso Cob</span>
-                    <span class="value" id="header-aviso-cob">{{ resumen.aviso_cob if resumen.aviso_cob else '—' }}</span>
+                    <span class="label">{% if es_financiamiento_grupal %}Primer Cupón{% else %}Aviso Cob{% endif %}</span>
+                    <span class="value" id="header-aviso-cob">{% if es_financiamiento_grupal %}{{ resumen.primer_cupon if resumen.primer_cupon else '—' }}{% else %}{{ resumen.aviso_cob if resumen.aviso_cob else '—' }}{% endif %}</span>
                 </div>
                 <div class="info-item">
-                    <span class="label">Vigencia</span>
-                    <span class="value">{{ resumen.vig_inicio }} - {{ resumen.vig_fin }}</span>
+                    <span class="label">{% if es_financiamiento_grupal %}Cronograma{% else %}Vigencia{% endif %}</span>
+                    <span class="value">{{ resumen.vig_inicio }}{% if resumen.vig_fin %} - {{ resumen.vig_fin }}{% endif %}</span>
                 </div>
                 <div class="info-item">
-                    <span class="label">Tipo Doc</span>
-                    <span class="value">{{ resumen.tipo_doc }}</span>
+                    <span class="label">{% if es_financiamiento_grupal %}Moneda{% else %}Tipo Doc{% endif %}</span>
+                    <span class="value">{% if es_financiamiento_grupal %}{{ resumen.moneda }}{% else %}{{ resumen.tipo_doc }}{% endif %}</span>
                 </div>
                  <div class="info-item" style="grid-column: span 2;">
-                    <span class="label">Concepto</span>
-                    <span class="value">{{ resumen.concepto }}</span>
+                    <span class="label">{% if es_financiamiento_grupal %}Referencia{% else %}Concepto{% endif %}</span>
+                    <span class="value">{% if es_financiamiento_grupal %}{{ encabezado.poliza }}{% else %}{{ resumen.concepto }}{% endif %}</span>
                 </div>
             </div>
         </div>
         <div class="financial-sidebar py-4 d-flex align-items-center justify-content-center">
              <div class="financial-card w-100 border-0 shadow-none bg-transparent mb-0">
                 <div class="amount-display">
-                    <span class="amount-label text-uppercase mb-2">Prima Total</span>
+                    <span class="amount-label text-uppercase mb-2">{% if es_financiamiento_grupal %}Importe Total{% else %}Prima Total{% endif %}</span>
                     <span class="amount-value text-primary" style="font-size: 2.5rem;">
                         <span class="amount-currency" id="header-total-currency">{{ resumen.moneda or 'S/.' }}</span><span id="header-total-monto">{{ total_monto }}</span>
                     </span>
@@ -155,7 +164,7 @@
               <td class="text-end actions">
                 <div class="action-buttons justify-content-end">
                   <button class="btn-action btn-secondary btn-pdf" onclick="Cuotas.onPDF({{ loop.index0 }})">PDF</button>
-                  {% if can_restore(session.role_name) %}
+                  {% if can_restore(session.role_name) and not es_financiamiento_grupal %}
                   <button class="btn-action btn-warning btn-revert"
                           onclick="Cuotas.onRevert({{ loop.index0 }})"
                           style="{{ 'display:none' if (not r.fecha_pago or not r.factura) else '' }}">

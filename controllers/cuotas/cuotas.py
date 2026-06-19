@@ -1,6 +1,43 @@
 from typing import Dict, List, Tuple
 from datetime import date, datetime
 
+# #region debug-point A:report-helper
+def _dbg_fg_cuotas(hypothesis_id: str, location: str, msg: str, data=None, run_id: str = 'pre'):
+    try:
+        import json
+        import urllib.request
+        debug_url = 'http://127.0.0.1:7777/event'
+        debug_session = 'fg-cuotas-routing'
+        try:
+            with open('.dbg/fg-cuotas-routing.env', 'r', encoding='utf-8') as f:
+                content = f.read()
+            for line in content.splitlines():
+                if line.startswith('DEBUG_SERVER_URL='):
+                    debug_url = line.split('=', 1)[1].strip() or debug_url
+                elif line.startswith('DEBUG_SESSION_ID='):
+                    debug_session = line.split('=', 1)[1].strip() or debug_session
+        except Exception:
+            pass
+        payload = {
+            "sessionId": debug_session,
+            "runId": run_id,
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "msg": f"[DEBUG] {msg}",
+            "data": data or {},
+        }
+        urllib.request.urlopen(
+            urllib.request.Request(
+                debug_url,
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json"},
+            ),
+            timeout=1,
+        ).read()
+    except Exception:
+        pass
+# #endregion
+
 
 def _parse_decimal(value):
     if value is None or value == '':
@@ -84,6 +121,282 @@ def parse_date_input(date_str):
     # Handle YYYY-MM-DD (already correct, or needs verification)
     return s
 
+
+def _get_financiamiento_grupal_cuotas_view_data(financiamiento_id) -> Dict[str, object]:
+    from controllers.financiamiento_grupal.financiacion_grupal import get_financiamiento_grupal_cuotas_data
+
+    # #region debug-point B:view-data-entry
+    _dbg_fg_cuotas('B', 'controllers/cuotas/cuotas.py:_get_financiamiento_grupal_cuotas_view_data', 'Entrando a carga de vista FG', {"financiamiento_id": financiamiento_id})
+    # #endregion
+    data = get_financiamiento_grupal_cuotas_data(financiamiento_id)
+    detail = data.get('detail') or {}
+    # #region debug-point B:view-data-result
+    _dbg_fg_cuotas('B', 'controllers/cuotas/cuotas.py:_get_financiamiento_grupal_cuotas_view_data', 'Resultado carga vista FG', {"financiamiento_id": financiamiento_id, "detail_ok": bool(detail), "rows": len(data.get('rows') or []), "title": data.get('title')})
+    # #endregion
+    if not detail:
+        raise ValueError('No se encontro el financiamiento grupal relacionado.')
+    fg_id = detail.get('id_financiamiento_grupal')
+    poliza_ref = f"FG-{fg_id}" if fg_id else ''
+    rows = data.get('rows') or []
+
+    vig_fin = ''
+    if rows:
+        vig_fin = rows[-1].get('fecha_vencimiento') or ''
+
+    encabezado = {
+        'contratante': detail.get('cliente') or '',
+        'numero_documento': '',
+        'poliza': poliza_ref,
+        'compania': detail.get('compania') or '',
+        'ramo': detail.get('financiamiento_grupal') or '',
+        'financiamiento_grupal': detail.get('financiamiento_grupal') or '',
+    }
+    resumen = {
+        'aviso_cob': '',
+        'vig_inicio': detail.get('fecha_primer_vencimiento') or '',
+        'vig_fin': vig_fin,
+        'tipo_doc': 'Financiamiento Grupal',
+        'concepto': detail.get('financiamiento_grupal') or '',
+        'prima_id': None,
+        'moneda': detail.get('moneda') or '',
+        'numero_cupones': detail.get('numero_cupones') or '',
+        'primer_cupon': detail.get('primer_cupon') or '',
+    }
+
+    return {
+        'title': data.get('title') or 'Cuotas',
+        'encabezado': encabezado,
+        'resumen': resumen,
+        'rows': rows,
+        'total_monto': data.get('total_monto') or '0.00',
+        'es_financiamiento_grupal': True,
+    }
+
+
+def _find_financiamiento_grupal_by_poliza_id(poliza_id) -> int | None:
+    try:
+        poliza_id_int = int(poliza_id or 0)
+    except Exception:
+        return None
+
+    if poliza_id_int <= 0:
+        # #region debug-point C:find-by-poliza-id-empty
+        _dbg_fg_cuotas('C', 'controllers/cuotas/cuotas.py:_find_financiamiento_grupal_by_poliza_id', 'No hay poliza_id util para buscar FG', {"poliza_id": poliza_id})
+        # #endregion
+        return None
+
+    cnx = None
+    cur = None
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT financiamiento_grupal_id
+            FROM financiamiento_grupal_avisos
+            WHERE poliza_id = %s
+              AND activo = 1
+            ORDER BY id_item DESC
+            LIMIT 1
+            """,
+            (poliza_id_int,),
+        )
+        row = cur.fetchone() or {}
+        fg_id = row.get('financiamiento_grupal_id')
+        # #region debug-point C:find-by-poliza-id-result
+        _dbg_fg_cuotas('C', 'controllers/cuotas/cuotas.py:_find_financiamiento_grupal_by_poliza_id', 'Busqueda FG por poliza_id', {"poliza_id": poliza_id_int, "fg_id": fg_id})
+        # #endregion
+        return int(fg_id) if fg_id else None
+    except Exception:
+        # #region debug-point C:find-by-poliza-id-error
+        _dbg_fg_cuotas('C', 'controllers/cuotas/cuotas.py:_find_financiamiento_grupal_by_poliza_id', 'Error buscando FG por poliza_id', {"poliza_id": poliza_id})
+        # #endregion
+        return None
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if cnx:
+                cnx.close()
+        except Exception:
+            pass
+
+
+def _find_financiamiento_grupal_by_poliza_or_aviso(numero_poliza=None, aviso=None) -> int | None:
+    poliza = str(numero_poliza or '').strip()
+    aviso_str = str(aviso or '').strip()
+    if not poliza and not aviso_str:
+        # #region debug-point D:find-by-poliza-aviso-empty
+        _dbg_fg_cuotas('D', 'controllers/cuotas/cuotas.py:_find_financiamiento_grupal_by_poliza_or_aviso', 'No hay poliza ni aviso para buscar FG', {"poliza": poliza, "aviso": aviso_str})
+        # #endregion
+        return None
+
+    cnx = None
+    cur = None
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT i.financiamiento_grupal_id
+            FROM financiamiento_grupal_avisos i
+            INNER JOIN polizas p ON p.idPoliza = i.poliza_id
+            WHERE i.activo = 1
+              AND (
+                    (%s <> '' AND TRIM(
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                            CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                            CAST(p.poliza AS CHAR CHARACTER SET utf8mb4)
+                        )
+                    ) COLLATE utf8mb4_bin = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin)
+                 OR (%s <> '' AND TRIM(
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                            CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                            CAST(p.recibo AS CHAR CHARACTER SET utf8mb4)
+                        )
+                    ) COLLATE utf8mb4_bin = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin)
+              )
+            ORDER BY i.id_item DESC
+            LIMIT 1
+            """,
+            (poliza, poliza, aviso_str, aviso_str),
+        )
+        row = cur.fetchone() or {}
+        fg_id = row.get('financiamiento_grupal_id')
+        # #region debug-point D:find-by-poliza-aviso-result
+        _dbg_fg_cuotas('D', 'controllers/cuotas/cuotas.py:_find_financiamiento_grupal_by_poliza_or_aviso', 'Busqueda FG por poliza o aviso', {"poliza": poliza, "aviso": aviso_str, "fg_id": fg_id})
+        # #endregion
+        return int(fg_id) if fg_id else None
+    except Exception:
+        # #region debug-point D:find-by-poliza-aviso-error
+        _dbg_fg_cuotas('D', 'controllers/cuotas/cuotas.py:_find_financiamiento_grupal_by_poliza_or_aviso', 'Error buscando FG por poliza o aviso', {"poliza": poliza, "aviso": aviso_str})
+        # #endregion
+        return None
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if cnx:
+                cnx.close()
+        except Exception:
+            pass
+
+
+def _find_financiamiento_grupal_by_context(numero_poliza=None, poliza_id=None, aviso=None) -> int | None:
+    poliza = str(numero_poliza or '').strip()
+    aviso_str = str(aviso or '').strip()
+    try:
+        poliza_id_int = int(poliza_id or 0)
+    except Exception:
+        poliza_id_int = 0
+
+    cnx = None
+    cur = None
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+
+        if poliza_id_int > 0:
+            cur.execute(
+                """
+                SELECT p.cliente_id, NULLIF(TRIM(p.cia), '') AS cia
+                FROM polizas p
+                WHERE p.idPoliza = %s
+                  AND p.activo = 1
+                LIMIT 1
+                """,
+                (poliza_id_int,),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT p.cliente_id, NULLIF(TRIM(p.cia), '') AS cia
+                FROM polizas p
+                WHERE p.activo = 1
+                  AND (
+                        (%s <> '' AND TRIM(
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                CAST(p.poliza AS CHAR CHARACTER SET utf8mb4)
+                            )
+                        ) COLLATE utf8mb4_bin = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin)
+                     OR (%s <> '' AND TRIM(
+                            COALESCE(
+                                CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR CHARACTER SET utf8mb4),
+                                CAST(p.recibo AS CHAR CHARACTER SET utf8mb4)
+                            )
+                        ) COLLATE utf8mb4_bin = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin)
+                  )
+                ORDER BY p.idPoliza DESC
+                LIMIT 1
+                """,
+                (poliza, poliza, aviso_str, aviso_str),
+            )
+
+        poliza_row = cur.fetchone() or {}
+        cliente_id = int(poliza_row.get('cliente_id') or 0)
+        cia = str(poliza_row.get('cia') or '').strip()
+        if cliente_id <= 0:
+            # #region debug-point E:find-by-context-no-poliza
+            _dbg_fg_cuotas('E', 'controllers/cuotas/cuotas.py:_find_financiamiento_grupal_by_context', 'No se pudo resolver cliente/cia desde prima', {"poliza": poliza, "poliza_id": poliza_id_int, "aviso": aviso_str})
+            # #endregion
+            return None
+
+        cur.execute(
+            """
+            SELECT fg.id_financiamiento_grupal
+            FROM financiamiento_grupal fg
+            INNER JOIN companias cp ON cp.id_compania = fg.compania_id
+            WHERE fg.activo = 1
+              AND fg.cliente_id = %s
+              AND (
+                    %s = ''
+                 OR LOWER(TRIM(COALESCE(NULLIF(cp.nombre_corto, ''), cp.nombre))) = LOWER(TRIM(%s))
+                 OR LOWER(TRIM(cp.nombre)) = LOWER(TRIM(%s))
+                 OR LOWER(TRIM(cp.nombre)) LIKE LOWER(CONCAT('%%', TRIM(%s), '%%'))
+                 OR LOWER(TRIM(%s)) LIKE LOWER(CONCAT('%%', TRIM(COALESCE(NULLIF(cp.nombre_corto, ''), cp.nombre)), '%%'))
+              )
+            ORDER BY fg.id_financiamiento_grupal DESC
+            LIMIT 1
+            """,
+            (cliente_id, cia, cia, cia, cia, cia),
+        )
+        row = cur.fetchone() or {}
+        fg_id = row.get('id_financiamiento_grupal')
+        # #region debug-point E:find-by-context-result
+        _dbg_fg_cuotas('E', 'controllers/cuotas/cuotas.py:_find_financiamiento_grupal_by_context', 'Busqueda FG por contexto cliente+cia', {"poliza": poliza, "poliza_id": poliza_id_int, "aviso": aviso_str, "cliente_id": cliente_id, "cia": cia, "fg_id": fg_id})
+        # #endregion
+        return int(fg_id) if fg_id else None
+    except Exception:
+        # #region debug-point E:find-by-context-error
+        _dbg_fg_cuotas('E', 'controllers/cuotas/cuotas.py:_find_financiamiento_grupal_by_context', 'Error buscando FG por contexto', {"poliza": poliza, "poliza_id": poliza_id_int, "aviso": aviso_str})
+        # #endregion
+        return None
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if cnx:
+                cnx.close()
+        except Exception:
+            pass
+
 def get_cuotas_data(
     selected: dict | None = None,
     numero_poliza: str | None = None,
@@ -91,11 +404,70 @@ def get_cuotas_data(
     aviso: str | None = None,
     fecha_desde: str | None = None,
     fecha_hasta: str | None = None,
+    financiamiento_id: int | str | None = None,
 ) -> Dict[str, object]:
+    # #region debug-point A:get-cuentas-entry
+    _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Entrada get_cuotas_data', {"numero_poliza": numero_poliza, "poliza_id": poliza_id, "aviso": aviso, "financiamiento_id": financiamiento_id})
+    # #endregion
+    if financiamiento_id not in (None, '', 'null', 'None'):
+        try:
+            # #region debug-point A:direct-fg-route
+            _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Ruta directa de financiamiento detectada', {"financiamiento_id": financiamiento_id})
+            # #endregion
+            return _get_financiamiento_grupal_cuotas_view_data(financiamiento_id)
+        except Exception:
+            # #region debug-point A:direct-fg-route-error
+            _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Fallo ruta directa de financiamiento', {"financiamiento_id": financiamiento_id})
+            # #endregion
+            pass
+
+    fg_from_poliza = _find_financiamiento_grupal_by_poliza_id(poliza_id)
+    if fg_from_poliza:
+        try:
+            # #region debug-point A:resolved-by-poliza-id
+            _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'FG resuelto por poliza_id', {"poliza_id": poliza_id, "fg_id": fg_from_poliza})
+            # #endregion
+            return _get_financiamiento_grupal_cuotas_view_data(fg_from_poliza)
+        except Exception:
+            # #region debug-point A:resolved-by-poliza-id-error
+            _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Fallo render FG resuelto por poliza_id', {"poliza_id": poliza_id, "fg_id": fg_from_poliza})
+            # #endregion
+            pass
+
     poliza = (numero_poliza or (selected or {}).get('poliza') or (selected or {}).get('numero_poliza') or '').strip()
     aviso_str = (str(aviso).strip() if aviso is not None else "")
     if aviso_str.lower() in ("", "null", "none"):
         aviso_str = ""
+
+    fg_from_poliza_or_aviso = _find_financiamiento_grupal_by_poliza_or_aviso(poliza, aviso_str)
+    if fg_from_poliza_or_aviso:
+        try:
+            # #region debug-point A:resolved-by-poliza-aviso
+            _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'FG resuelto por poliza o aviso', {"poliza": poliza, "aviso": aviso_str, "fg_id": fg_from_poliza_or_aviso})
+            # #endregion
+            return _get_financiamiento_grupal_cuotas_view_data(fg_from_poliza_or_aviso)
+        except Exception:
+            # #region debug-point A:resolved-by-poliza-aviso-error
+            _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Fallo render FG resuelto por poliza o aviso', {"poliza": poliza, "aviso": aviso_str, "fg_id": fg_from_poliza_or_aviso})
+            # #endregion
+            pass
+
+    fg_from_context = _find_financiamiento_grupal_by_context(poliza, poliza_id, aviso_str)
+    if fg_from_context:
+        try:
+            # #region debug-point A:resolved-by-context
+            _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'FG resuelto por contexto', {"poliza": poliza, "poliza_id": poliza_id, "aviso": aviso_str, "fg_id": fg_from_context})
+            # #endregion
+            return _get_financiamiento_grupal_cuotas_view_data(fg_from_context)
+        except Exception:
+            # #region debug-point A:resolved-by-context-error
+            _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Fallo render FG resuelto por contexto', {"poliza": poliza, "poliza_id": poliza_id, "aviso": aviso_str, "fg_id": fg_from_context})
+            # #endregion
+            pass
+
+    # #region debug-point A:fallthrough-normal
+    _dbg_fg_cuotas('A', 'controllers/cuotas/cuotas.py:get_cuotas_data', 'Sin FG resuelto, sigue flujo normal de cuotas', {"poliza": poliza, "poliza_id": poliza_id, "aviso": aviso_str})
+    # #endregion
     rows: List[Dict[str, str]] = []
     encabezado = {
         'contratante': '',
@@ -421,7 +793,8 @@ def get_cuotas_data(
         'encabezado': encabezado,
         'resumen': resumen,
         'rows': rows,
-        'total_monto': total_monto
+        'total_monto': total_monto,
+        'es_financiamiento_grupal': False,
     }
 
 def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
