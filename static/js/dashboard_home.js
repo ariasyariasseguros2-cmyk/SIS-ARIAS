@@ -198,14 +198,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctxDistribution = document.getElementById('distributionChart');
     if (ctxDistribution) {
         const dist = data.distribution || {};
-        const generales = dist.generales || 0;
-        const soat = dist.soat || 0;
-        const personales = dist.personales || 0;
-        const total = generales + soat + personales;
+        const generales  = (dist.generales  || {});
+        const soat       = (dist.soat       || {});
+        const personales = (dist.personales || {});
+        const g = (generales.vigentes  || 0) + (generales.renovar  || 0);
+        const s = (soat.vigentes       || 0) + (soat.renovar       || 0);
+        const p = (personales.vigentes || 0) + (personales.renovar || 0);
+        const total = g + s + p;
 
         // Show a placeholder slice when all zeros so chart renders
         const chartValues = total > 0
-            ? [generales, soat, personales]
+            ? [g, s, p]
             : [1, 0, 0];
         const chartColors = total > 0
             ? ['#3b82f6', '#f59e0b', '#10b981']
@@ -232,9 +235,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         callbacks: {
                             label: function(context) {
                                 if (total === 0) return 'Sin datos';
-                                const val = context.parsed;
-                                const pct = ((val / total) * 100).toFixed(1);
-                                return `${context.label}: ${val} (${pct}%)`;
+                                const buckets = [generales, soat, personales];
+                                const b = buckets[context.dataIndex] || {};
+                                const vig = b.vigentes || 0;
+                                const ren = b.renovar  || 0;
+                                return [`Total: ${vig + ren}`, `Vigentes: ${vig}`, `Por renovar: ${ren}`];
                             }
                         }
                     }
