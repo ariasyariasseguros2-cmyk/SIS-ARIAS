@@ -1056,7 +1056,7 @@ def home():
             'daily_income': [],
         }
         cards = get_dashboard_cards()
-        distribution = {'generales': 0, 'soat': 0, 'personales': 0}
+        distribution = {'generales': {'vigentes': 0, 'renovar': 0}, 'soat': {'vigentes': 0, 'renovar': 0}, 'personales': {'vigentes': 0, 'renovar': 0}}
 
     return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards, distribution=distribution)
 
