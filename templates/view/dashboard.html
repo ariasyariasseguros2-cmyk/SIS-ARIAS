@@ -228,27 +228,28 @@
                         </div>
                         <div class="col-12 col-md-7 mt-4 mt-md-0">
                             <div class="d-flex flex-column gap-3">
-                                <div class="d-flex align-items-center justify-content-between p-3 rounded-3" style="background:rgba(59,130,246,0.08);">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div style="width:12px;height:12px;border-radius:3px;background:#3b82f6;flex-shrink:0;"></div>
-                                        <span class="fw-semibold">Seguros Generales</span>
+                                {% for key, label, color, bg in [
+                                    ('generales', 'Seguros Generales', '#3b82f6', 'rgba(59,130,246,0.08)'),
+                                    ('soat',      'SOAT',              '#f59e0b', 'rgba(245,158,11,0.08)'),
+                                    ('personales','Seguros Personales','#10b981', 'rgba(16,185,129,0.08)')
+                                ] %}
+                                <div class="p-3 rounded-3" style="background:{{ bg }};">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <div style="width:12px;height:12px;border-radius:3px;background:{{ color }};flex-shrink:0;"></div>
+                                        <span class="fw-semibold">{{ label }}</span>
                                     </div>
-                                    <span class="fw-bold fs-5" id="countGenerales">{{ distribution.generales }}</span>
-                                </div>
-                                <div class="d-flex align-items-center justify-content-between p-3 rounded-3" style="background:rgba(245,158,11,0.08);">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div style="width:12px;height:12px;border-radius:3px;background:#f59e0b;flex-shrink:0;"></div>
-                                        <span class="fw-semibold">SOAT</span>
+                                    <div class="d-flex gap-3 ps-4">
+                                        <div class="text-center">
+                                            <div class="fw-bold fs-5 lh-1">{{ distribution[key].vigentes }}</div>
+                                            <div class="text-muted" style="font-size:0.7rem;">Vigentes</div>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="fw-bold fs-5 lh-1 text-warning">{{ distribution[key].renovar }}</div>
+                                            <div class="text-muted" style="font-size:0.7rem;">Por renovar</div>
+                                        </div>
                                     </div>
-                                    <span class="fw-bold fs-5" id="countSoat">{{ distribution.soat }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between p-3 rounded-3" style="background:rgba(16,185,129,0.08);">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div style="width:12px;height:12px;border-radius:3px;background:#10b981;flex-shrink:0;"></div>
-                                        <span class="fw-semibold">Seguros Personales</span>
-                                    </div>
-                                    <span class="fw-bold fs-5" id="countPersonales">{{ distribution.personales }}</span>
-                                </div>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
@@ -276,11 +277,7 @@
         totals_prima_total_usd: {{ chart.totals_prima_total_usd | tojson if chart.totals_prima_total_usd is defined else '[]' }},
         activePolicies: {{ cards.active_policies | default(0) }},
         pendingRenewals: {{ cards.pending_renewals | default(0) }},
-        distribution: {
-            generales: {{ distribution.generales | default(0) }},
-            soat: {{ distribution.soat | default(0) }},
-            personales: {{ distribution.personales | default(0) }}
-        }
+        distribution: {{ distribution | tojson }}
     };
 </script>
 <script src="{{ url_for('static', filename='js/dashboard_home.js') }}"></script>
