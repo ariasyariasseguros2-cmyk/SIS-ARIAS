@@ -402,9 +402,10 @@ def get_dashboard_cards() -> Dict[str, Any]:
         
     return cards
 
-def get_distribution_by_group() -> Dict[str, int]:
-    """Count of active policies grouped by ramo.grupo (Generales / SOAT / Personales)."""
-    result = {'generales': 0, 'soat': 0, 'personales': 0}
+def get_distribution_by_group() -> Dict[str, Any]:
+    """Active policies per grupo (Generales/SOAT/Personales) split by vigente vs por renovar (próx. 30 días)."""
+    empty = lambda: {'vigentes': 0, 'renovar': 0}
+    result = {'generales': empty(), 'soat': empty(), 'personales': empty()}
     try:
         cnx = get_connection()
         cur = cnx.cursor()
@@ -439,7 +440,8 @@ def get_distribution_by_group() -> Dict[str, int]:
         sql = f"""
             SELECT
                 UPPER(TRIM(COALESCE(r.grupo, ''))) AS grupo,
-                COUNT(*) AS total
+                SUM(CASE WHEN p.vig_hasta > DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS vigentes,
+                SUM(CASE WHEN p.vig_hasta BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS renovar
             FROM polizas p
             LEFT JOIN ramos r ON LOWER(TRIM(p.ramo)) = LOWER(TRIM(r.nombre))
             WHERE p.activo = 1
@@ -456,13 +458,9 @@ def get_distribution_by_group() -> Dict[str, int]:
 
         for row in rows:
             grupo = (row[0] or '').upper().strip()
-            count = int(row[1] or 0)
-            if 'SOAT' in grupo:
-                result['soat'] += count
-            elif 'PERSONAL' in grupo:
-                result['personales'] += count
-            else:
-                result['generales'] += count
+            bucket = 'soat' if 'SOAT' in grupo else ('personales' if 'PERSONAL' in grupo else 'generales')
+            result[bucket]['vigentes'] += int(row[1] or 0)
+            result[bucket]['renovar']  += int(row[2] or 0)
 
     except Exception as e:
         print(f"[Dashboard] Error fetching distribution by group: {e}")
