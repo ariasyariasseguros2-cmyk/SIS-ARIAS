@@ -1790,6 +1790,14 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
         # Fecha de Pago: Fecha de Emisión
         if not data['fecha_pago']:
             data['fecha_pago'] = find_val(r'Fecha\s+de\s+Emisi[óo]n\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{4})', text)
+        # fecha_vencimiento = emisión + 15 días (regla negocio La Positiva)
+        if data['fecha_pago']:
+            try:
+                from datetime import datetime, timedelta
+                dt = datetime.strptime(data['fecha_pago'], "%d/%m/%Y")
+                data['fecha_vencimiento'] = (dt + timedelta(days=15)).strftime("%d/%m/%Y")
+            except Exception:
+                pass
         # Moneda
         moneda_val = find_val(r'MONEDA\s*[:.]?\s*([A-Za-z]+)', text)
         if moneda_val:
