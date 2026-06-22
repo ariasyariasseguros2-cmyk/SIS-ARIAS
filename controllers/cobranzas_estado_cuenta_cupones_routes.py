@@ -1,6 +1,7 @@
 from flask import Blueprint, request, session, jsonify, current_app, send_file
 from models.db import get_connection
 from utils.rbac import Roles
+from utils.financiamiento_grupal_reportes import enrich_rows_with_fg_metadata
 import os
 
 
@@ -59,6 +60,8 @@ def _fetch_rows():
 
         query = f"""
             SELECT
+                p.idPoliza AS idPoliza,
+                c.financiamiento_grupal_id,
                 COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR), p.asegurado) AS asegurado,
                 COALESCE(
                     CAST(AES_DECRYPT(FROM_BASE64(cl.direccion), @SIS_KEY) AS CHAR),
@@ -134,7 +137,22 @@ def _fetch_rows():
                         c.poliza
                     ) COLLATE utf8mb4_0900_ai_ci
                  ) = p_lookup.poliza_plain
-            INNER JOIN polizas p ON p.idPoliza = COALESCE(c.poliza_id, p_lookup.idPoliza)
+            LEFT JOIN (
+                SELECT
+                    i.financiamiento_grupal_id,
+                    MIN(i.poliza_id) AS poliza_id
+                FROM financiamiento_grupal_avisos i
+                INNER JOIN polizas p2 ON p2.idPoliza = i.poliza_id
+                WHERE i.activo = 1
+                  AND p2.activo = 1
+                  AND (p2.anulado = 0 OR p2.anulado IS NULL)
+                  AND COALESCE(p2.prima_anulada, 0) = 0
+                GROUP BY i.financiamiento_grupal_id
+            ) fg_lookup
+              ON c.poliza_id IS NULL
+             AND COALESCE(c.financiamiento_grupal_id, 0) > 0
+             AND fg_lookup.financiamiento_grupal_id = c.financiamiento_grupal_id
+            INNER JOIN polizas p ON p.idPoliza = COALESCE(c.poliza_id, p_lookup.idPoliza, fg_lookup.poliza_id)
             LEFT JOIN clientes cl ON p.cliente_id = cl.idCliente
             WHERE c.activo = 1
               AND p.activo = 1
@@ -166,29 +184,6 @@ def _fetch_rows():
             query += " AND p.sub_agente IN (" + ",".join(["%s"] * len(sub_agentes)) + ")"
             params.extend(sub_agentes)
 
-        if poliza_cupon:
-            like = f"%{poliza_cupon}%"
-            poliza_expr = """
-                TRIM(
-                    COALESCE(
-                        CONVERT(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) USING utf8mb4),
-                        CONVERT(AES_DECRYPT(p.poliza, @SIS_KEY) USING utf8mb4),
-                        p.poliza
-                    ) COLLATE utf8mb4_0900_ai_ci
-                )
-            """
-            cupon_expr = """
-                TRIM(
-                    COALESCE(
-                        CONVERT(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) USING utf8mb4),
-                        CONVERT(AES_DECRYPT(c.cupon, @SIS_KEY) USING utf8mb4),
-                        c.cupon
-                    ) COLLATE utf8mb4_0900_ai_ci
-                )
-            """
-            query += f" AND ({poliza_expr} LIKE %s OR {cupon_expr} LIKE %s)"
-            params.extend([like, like])
-
         estados_set = set([e for e in estados if e])
         if estados_set == {"PENDIENTE"}:
             query += " AND c.fecha_pago IS NULL"
@@ -206,7 +201,11 @@ def _fetch_rows():
         cursor.execute(query, tuple(params))
         rows = cursor.fetchall() or []
 
+        enrich_rows_with_fg_metadata(rows, poliza_id_keys=("idPoliza", "poliza_id"))
+
         for r in rows:
+            if r.get("es_financiamiento_grupal") and r.get("poliza_fg_numero"):
+                r["poliza"] = f"{r.get('poliza_fg_prefijo') or 'FG-'}{r.get('poliza_fg_numero')}"
             if r.get("fec_vencimiento_cob"):
                 try:
                     r["fec_vencimiento_cob"] = r["fec_vencimiento_cob"].strftime("%Y-%m-%d")
@@ -227,6 +226,17 @@ def _fetch_rows():
                     r["vig_al"] = r["vig_al"].strftime("%Y-%m-%d")
                 except Exception:
                     r["vig_al"] = str(r["vig_al"])[:10]
+            if r.get("es_financiamiento_grupal") and r.get("polizas_relacionadas") and not r.get("breve_descripcion"):
+                r["breve_descripcion"] = "Polizas relacionadas: " + str(r.get("polizas_relacionadas"))
+
+        if poliza_cupon:
+            needle = poliza_cupon.lower()
+            rows = [
+                r for r in rows
+                if needle in str(r.get("poliza") or "").lower()
+                or needle in str(r.get("cupon") or "").lower()
+                or needle in str(r.get("polizas_relacionadas") or "").lower()
+            ]
 
         return rows, None, None
     except Exception as e:
@@ -371,6 +381,18 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
                 cell.alignment = Alignment(horizontal="center", vertical="center")
             else:
                 cell.alignment = Alignment(horizontal="left", vertical="center")
+            if col_idx == 5 and r.get("es_financiamiento_grupal"):
+                cell.font = Font(size=9, bold=True, color="7A3DB8")
+                if r.get("polizas_relacionadas"):
+                    base_value = str(cell.value or "").strip()
+                    cell.value = f"{base_value}\nPolizas: {r.get('polizas_relacionadas')}"
+                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            if col_idx == 25 and r.get("polizas_relacionadas"):
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        try:
+            ws.row_dimensions[i].height = 28 if r.get("es_financiamiento_grupal") and r.get("polizas_relacionadas") else 18
+        except Exception:
+            pass
 
     total_row = len(rows) + 3
     ws.cell(row=total_row, column=13, value="TOTAL").font = Font(bold=True, size=9)

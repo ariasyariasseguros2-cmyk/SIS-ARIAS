@@ -27,6 +27,31 @@
     const polizaCuponInput = form ? form.querySelector('input[name="poliza_cupon"]') : null;
     let allRows = [];
 
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function renderPolizaCell(row) {
+      const poliza = (row && row.poliza) ? String(row.poliza) : '';
+      if (!row || !row.es_financiamiento_grupal || !row.poliza_fg_numero) {
+        return escapeHtml(poliza);
+      }
+      const relacionadas = row.polizas_relacionadas
+        ? `<span class="fg-poliza-rel">Polizas: ${escapeHtml(row.polizas_relacionadas)}</span>`
+        : '';
+      return (
+        `<div class="fg-poliza">` +
+        `${escapeHtml(row.poliza_fg_prefijo || 'FG-')}<span class="fg-poliza-numero">${escapeHtml(row.poliza_fg_numero)}</span>` +
+        relacionadas +
+        `</div>`
+      );
+    }
+
     function initMultiSelect(root) {
       if (!root) return null;
       const name = root.getAttribute('data-ms-name');
@@ -408,7 +433,7 @@
         return (
           '<tr>' +
           `<td>${r.contratante || ''}</td>` +
-          `<td>${r.poliza || ''}</td>` +
+          `<td>${renderPolizaCell(r)}</td>` +
           `<td>${r.ejecutivo || ''}</td>` +
           `<td>${r.cia || ''}</td>` +
           `<td>${r.cupon || ''}</td>` +
@@ -427,7 +452,7 @@
           `<td>${r.direccion || ''}</td>` +
           `<td>${r.telefono || ''}</td>` +
           `<td>${r.contratante || ''}</td>` +
-          `<td>${r.poliza || ''}</td>` +
+          `<td>${renderPolizaCell(r)}</td>` +
           `<td>${r.ejecutivo || ''}</td>` +
           `<td>${r.cia || ''}</td>` +
           `<td>${r.ram || ''}</td>` +
@@ -486,7 +511,8 @@
       const filtered = allRows.filter(function (r) {
         const poliza = (r && r.poliza) ? String(r.poliza).toLowerCase() : '';
         const cupon = (r && r.cupon) ? String(r.cupon).toLowerCase() : '';
-        return poliza.includes(needle) || cupon.includes(needle);
+        const relacionadas = (r && r.polizas_relacionadas) ? String(r.polizas_relacionadas).toLowerCase() : '';
+        return poliza.includes(needle) || cupon.includes(needle) || relacionadas.includes(needle);
       });
       renderRows(filtered);
     }
