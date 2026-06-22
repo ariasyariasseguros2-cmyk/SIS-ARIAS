@@ -176,6 +176,20 @@
         overflow-wrap: normal !important;
         word-break: keep-all;
     }
+    .fg-poliza {
+        line-height: 1.2;
+    }
+    .fg-poliza-numero {
+        color: #7a3db8;
+        font-weight: 700;
+    }
+    .fg-poliza-rel {
+        display: block;
+        margin-top: 2px;
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        white-space: normal;
+    }
     .btn-action {
         background: linear-gradient(135deg, #00d97e, #00b368);
         color: white;
@@ -307,7 +321,18 @@
                     <tr>
                         <td class="col-contratante">{{ row.contratante }}</td>
                         <td class="col-compania">{{ row.compania }}</td>
-                        <td><span class="cell-truncate" title="{{ row.poliza or '' }}">{{ row.poliza }}</span></td>
+                        <td>
+                            {% if row.es_financiamiento_grupal and row.poliza_fg_numero %}
+                                <div class="fg-poliza">
+                                    {{ row.poliza_fg_prefijo or 'FG-' }}<span class="fg-poliza-numero">{{ row.poliza_fg_numero }}</span>
+                                    {% if row.polizas_relacionadas %}
+                                        <span class="fg-poliza-rel">Pólizas: {{ row.polizas_relacionadas }}</span>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <span class="cell-truncate" title="{{ row.poliza or '' }}">{{ row.poliza }}</span>
+                            {% endif %}
+                        </td>
                         <td><span class="cell-truncate" title="{{ row.vig_desde or '' }}">{{ row.vig_desde }}</span></td>
                         <td><span class="cell-truncate" title="{{ row.vig_hasta or '' }}">{{ row.vig_hasta }}</span></td>
                         <td class="col-cupon"><span title="{{ (row.cupon or row.numero_cuota) or '' }}">{{ row.cupon or row.numero_cuota }}</span></td>
