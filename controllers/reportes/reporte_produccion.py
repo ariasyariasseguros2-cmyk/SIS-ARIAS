@@ -3,6 +3,7 @@ from typing import Dict, Any, List, Tuple
 from flask import session, current_app
 
 from models.db import get_connection
+from utils.financiamiento_grupal_reportes import enrich_rows_with_fg_metadata
 from utils.rbac import Roles
 
 
@@ -100,6 +101,7 @@ def get_reporte_produccion_rows(filters: Dict[str, Any], limit: int = 1000) -> L
 
         base_sql = """
             SELECT
+                p.idPoliza AS idPoliza,
                 COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR), c.numero_documento) AS ruc,
                 COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR), c.razon_social) AS contratante,
                 COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.direccion), @SIS_KEY) AS CHAR), c.direccion) AS direccion_contratante,
@@ -144,6 +146,7 @@ def get_reporte_produccion_rows(filters: Dict[str, Any], limit: int = 1000) -> L
 
         cursor.execute(sql, tuple(params))
         rows = cursor.fetchall() or []
+        enrich_rows_with_fg_metadata(rows, poliza_id_keys=("idPoliza", "poliza_id"))
         
         # Post-process to format dates as strings
         for row in rows:
@@ -200,6 +203,7 @@ def export_reporte_produccion(filters: Dict[str, Any]) -> Tuple[str, str]:
     for r in rows:
         table_rows.append(
             [
+                r.get("idPoliza"),
                 r.get("ruc") or "",
                 r.get("contratante") or "",
                 r.get("direccion_contratante") or "",
@@ -293,18 +297,25 @@ def export_reporte_produccion(filters: Dict[str, Any]) -> Tuple[str, str]:
     for row_idx, row in enumerate(table_rows, start=3):
         fill = PatternFill("solid", fgColor="F4F8FF") if row_idx % 2 == 0 else PatternFill("solid", fgColor="FFFFFF")
         for col_idx, value in enumerate(row, start=1):
-            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            if col_idx == 1:
+                continue
+            excel_col_idx = col_idx - 1
+            cell = ws.cell(row=row_idx, column=excel_col_idx, value=value)
             cell.border = border
             cell.fill = fill
             cell.font = Font(size=9)
-            if col_idx in money_cols:
+            if excel_col_idx in money_cols:
                 cell.number_format = '#,##0.00'
                 cell.alignment = Alignment(horizontal="right", vertical="center")
-            elif col_idx in percent_cols:
+            elif excel_col_idx in percent_cols:
                 cell.number_format = '0.00'
                 cell.alignment = Alignment(horizontal="right", vertical="center")
             else:
                 cell.alignment = Alignment(horizontal="left", vertical="center")
+            if excel_col_idx == 8:
+                fg_meta = rows[row_idx - 3] if row_idx - 3 < len(rows) else {}
+                if fg_meta.get("es_financiamiento_grupal"):
+                    cell.font = Font(size=9, bold=True, color="7A3DB8")
 
     total_row = len(table_rows) + 3
     ws.cell(row=total_row, column=1, value="TOTAL").font = Font(bold=True, size=9)

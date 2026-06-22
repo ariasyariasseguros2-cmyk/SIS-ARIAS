@@ -21,6 +21,25 @@ function reporteProduccionInit() {
         return;
     }
 
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function renderPolizaDisplay(row) {
+        const poliza = (row && row.poliza) ? String(row.poliza) : '';
+        if (!row || !row.es_financiamiento_grupal) {
+            return escapeHtml(poliza);
+        }
+        return (
+            `<span class="fg-poliza-numero">${escapeHtml(poliza)}</span>`
+        );
+    }
+
     function showAlert(message, type) {
         if (!alertEl) return;
         const finalType = type || 'warning';
@@ -126,7 +145,7 @@ function reporteProduccionInit() {
                     '<td>' + fmt(r.cia) + '</td>' +
                     '<td>' + fmt(r.ram) + '</td>' +
                     '<td>' + fmt(r.prod) + '</td>' +
-                    '<td>' + fmt(r.poliza) + '</td>' +
+                    '<td>' + renderPolizaDisplay(r) + '</td>' +
                     '<td>' + fmt(r.td) + '</td>' +
                     '<td>' + fmt(r.aviso_cob) + '</td>' +
                     '<td>' + fmt(r.estado_comision) + '</td>' +
@@ -171,7 +190,7 @@ function reporteProduccionInit() {
                     '<td>' + fmt(r.contratante) + '</td>' +
                     '<td>' + fmt(r.cia) + '</td>' +
                     '<td>' + fmt(r.ram) + '</td>' +
-                    '<td>' + fmt(r.poliza) + '</td>' +
+                    '<td>' + renderPolizaDisplay(r) + '</td>' +
                     '<td>' + fmt(r.ini_vig) + '</td>' +
                     '<td>' + fmt(r.mon) + '</td>' +
                     '<td class="text-end">' + fmtMoney(r.prim_total) + '</td>' +
