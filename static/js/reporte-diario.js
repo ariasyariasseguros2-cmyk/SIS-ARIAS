@@ -50,6 +50,23 @@
     return `<span class="badge bg-${color}">${estado || '–'}</span>`;
   }
 
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function renderPoliza(r) {
+    const poliza = r.poliza || r.contrato_nro || r.nro || '–';
+    if (!r || !r.es_financiamiento_grupal) {
+      return `<strong>${escapeHtml(poliza)}</strong>`;
+    }
+    return `<strong style="color:#7a3db8;">${escapeHtml(poliza)}</strong>`;
+  }
+
   function renderRows(rows) {
     if (!rows || rows.length === 0) {
       tbody.innerHTML = `<tr><td colspan="14" class="text-center py-5 text-muted">
@@ -84,7 +101,7 @@
 
       return `<tr>
         <td class="text-muted small">${i + 1}</td>
-        <td><strong>${r.poliza || r.contrato_nro || r.nro || '–'}</strong></td>
+        <td>${renderPoliza(r)}</td>
         <td><span class="badge bg-light text-dark border">${r.recibo || '–'}</span></td>
         <td>${r.cliente || '–'}</td>
         <td>${r.cia || '–'}</td>

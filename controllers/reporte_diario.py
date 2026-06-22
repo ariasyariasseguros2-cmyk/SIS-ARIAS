@@ -2,6 +2,7 @@ from models.db import get_connection
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 import os
+from utils.financiamiento_grupal_reportes import enrich_rows_with_fg_metadata
 
 
 def get_reporte_diario_data(filters=None):
@@ -120,6 +121,7 @@ def get_reporte_diario_data(filters=None):
                 elif v is None:
                     row[k] = None   # dejar None, jsonify lo convierte a null
             rows.append(row)
+        enrich_rows_with_fg_metadata(rows, poliza_id_keys=("idPoliza", "poliza_id"))
         cur.close()
     finally:
         conn.close()

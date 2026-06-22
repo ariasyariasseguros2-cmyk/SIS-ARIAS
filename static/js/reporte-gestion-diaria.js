@@ -37,6 +37,23 @@ function reporteGestionDiariaInit() {
         return `<span class="badge bg-${color}">${estado || '–'}</span>`;
     }
 
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function renderPoliza(row) {
+        const poliza = row.poliza || row.contrato_nro || row.nro || '–';
+        if (!row || !row.es_financiamiento_grupal) {
+            return `<strong>${escapeHtml(poliza)}</strong>`;
+        }
+        return `<strong style="color:#7a3db8;">${escapeHtml(poliza)}</strong>`;
+    }
+
     function buildPayload() {
         const fd = new FormData(form);
         const payload = {};
@@ -64,7 +81,7 @@ function reporteGestionDiariaInit() {
         const html = rows.map((r, idx) => {
             return `<tr>
                 <td class="text-muted small">${idx + 1}</td>
-                <td><strong>${r.poliza || r.contrato_nro || r.nro || '–'}</strong></td>
+                <td>${renderPoliza(r)}</td>
                 <td><span class="badge bg-light text-dark border">${r.recibo || '–'}</span></td>
                 <td>${r.cliente || '–'}</td>
                 <td>${r.cia || '–'}</td>
