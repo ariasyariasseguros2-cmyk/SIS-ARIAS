@@ -24,6 +24,41 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentPage = 1;
     let rowsPerPage = 15;
 
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function renderPolizaDisplay(row) {
+        const poliza = (row && row.poliza) ? String(row.poliza) : '';
+        if (!row || !row.es_financiamiento_grupal || !row.poliza_fg_numero) {
+            return escapeHtml(poliza || '-');
+        }
+        const relacionadas = row.polizas_relacionadas
+            ? `<span class="fg-poliza-rel">Polizas: ${escapeHtml(row.polizas_relacionadas)}</span>`
+            : '';
+        return (
+            `<div class="fg-poliza">` +
+            `${escapeHtml(row.poliza_fg_prefijo || 'FG-')}<span class="fg-poliza-numero">${escapeHtml(row.poliza_fg_numero)}</span>` +
+            relacionadas +
+            `</div>`
+        );
+    }
+
+    function getPolizaLookupKey(row) {
+        if (!row) {
+            return '';
+        }
+        if (row.es_financiamiento_grupal && row.poliza_fg_numero) {
+            return `${row.poliza_fg_prefijo || 'FG-'}${row.poliza_fg_numero}`;
+        }
+        return row.poliza ? String(row.poliza) : '';
+    }
+
     const rowsPerPageSelect = document.getElementById('rowsPerPage');
     const paginationControls = document.getElementById('paginationControls');
     const pageInfo = document.getElementById('pageInfo');
@@ -552,7 +587,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const moneda = row.moneda || '';
             const primaNeta = row.prima_neta ? parseFloat(row.prima_neta).toFixed(2) : '0.00';
             const primaTotal = row.prima_total ? parseFloat(row.prima_total).toFixed(2) : '0.00';
-            const poliza = (row.poliza || '').toString();
+            const poliza = getPolizaLookupKey(row);
             const idPoliza = (row.idPoliza || '').toString();
             const safePoliza = poliza.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
             const safeIdPoliza = idPoliza.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -567,7 +602,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${row.producto || '-'}</td>
                     <td>${row.numero_documento || '-'}</td>
                     <td>${row.contratante || '-'}</td>
-                    <td>${row.poliza || '-'}</td>
+                    <td>${renderPolizaDisplay(row)}</td>
                     <td>${row.vig_desde || '-'}</td>
                     <td>${row.vig_hasta || '-'}</td>
                     <td>${primaNeta}</td>
@@ -779,7 +814,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function findPolizaRow(poliza) {
         const key = (poliza || '').toString();
-        return (allData || []).find(r => String(r.poliza || '') === key) || null;
+        return (allData || []).find(r => getPolizaLookupKey(r) === key) || null;
     }
 
     function renderCuotasPanel(polizaRow, cuotas, poliza, idPoliza) {
@@ -798,7 +833,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="offcanvas">Ocultar</button>
                 </div>
                 <div class="poliza-resumen-grid mt-3">
-                    <div class="small"><span class="text-muted">Póliza:</span> <span class="fw-semibold">${poliza || '—'}</span></div>
+                    <div class="small"><span class="text-muted">Póliza:</span> <div class="fw-semibold d-inline-block">${renderPolizaDisplay(polizaRow || { poliza: poliza })}</div></div>
                     <div class="small"><span class="text-muted">Producto:</span> <span class="fw-semibold">${(polizaRow && polizaRow.producto) ? polizaRow.producto : '—'}</span></div>
                     <div class="small"><span class="text-muted">Vigencia:</span> <span class="fw-semibold">${(polizaRow && polizaRow.vig_desde) ? polizaRow.vig_desde : '—'} - ${(polizaRow && polizaRow.vig_hasta) ? polizaRow.vig_hasta : '—'}</span></div>
                 </div>

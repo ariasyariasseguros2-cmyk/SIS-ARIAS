@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, session
 from models.db import get_connection
 from utils.rbac import Roles
+from utils.financiamiento_grupal_reportes import enrich_rows_with_fg_metadata
 
 bp = Blueprint('reporte_vencimientos', __name__, url_prefix='/api/reportes')
 
@@ -91,6 +92,7 @@ def api_vencimientos():
     print(f"Reporte Vencimientos Params: user='{usuario}', ejecutivo='{ejecutivo}', estado='{estado}', ramo='{ramo}', desde={fecha_desde}, hasta={fecha_hasta}")
 
     data = get_vencimientos(usuario, estado, fecha_desde, fecha_hasta, ramo)
+    enrich_rows_with_fg_metadata(data, poliza_id_keys=("idPoliza", "poliza_id"))
 
     # Adjuntar ejecutivo y filtrar por ejecutivo (sin tocar el SP)
     if data:
