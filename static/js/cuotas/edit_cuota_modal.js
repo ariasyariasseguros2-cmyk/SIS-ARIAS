@@ -5,6 +5,7 @@
         currentPolizaId: null,
         currentMoneda: '',
         _extractAbortController: null,
+        _isExtracting: false,
         _localPreviewUrl: null,
         _docValidationOk: true,
         _clienteDocumento: '',
@@ -88,10 +89,9 @@
                         this._extractAbortController.abort();
                         this._extractAbortController = null;
                     }
+                    this._setExtractingState(false);
                     this._docValidationOk = true;
                     this._setNumeroDocumentoUI(this._clienteDocumento || window.currentClienteDocumento || '', '', null);
-                    const btnGuardar = document.getElementById('btnGuardarCuota');
-                    if (btnGuardar) btnGuardar.disabled = false;
                 });
             }
             
@@ -115,8 +115,7 @@
                     const raw = docInput.value;
                     this._setNumeroDocumentoUI(this._clienteDocumento || window.currentClienteDocumento || '', raw, null);
                     this._docValidationOk = true;
-                    const btnGuardar = document.getElementById('btnGuardarCuota');
-                    if (btnGuardar) btnGuardar.disabled = false;
+                    this._setSaveDisabled(this._isExtracting);
                 });
             }
         },
@@ -133,6 +132,16 @@
             badgeEl.classList.add('d-none');
             badgeEl.classList.remove('bg-success', 'bg-danger', 'bg-warning');
             badgeEl.textContent = '';
+        },
+
+        _setSaveDisabled: function(disabled) {
+            const btnGuardar = document.getElementById('btnGuardarCuota');
+            if (btnGuardar) btnGuardar.disabled = !!disabled;
+        },
+
+        _setExtractingState: function(isExtracting) {
+            this._isExtracting = !!isExtracting;
+            this._setSaveDisabled(this._isExtracting);
         },
 
         previewLocalFile: function(file) {
@@ -153,6 +162,8 @@
                 this._extractAbortController.abort();
             }
             this._extractAbortController = new AbortController();
+            const currentController = this._extractAbortController;
+            this._setExtractingState(true);
 
             const toISO = (str) => {
                 if (!str) return '';
@@ -178,7 +189,7 @@
                 const response = await fetch('/cuotas/extract', {
                     method: 'POST',
                     body: formData,
-                    signal: this._extractAbortController.signal
+                    signal: currentController.signal
                 });
 
                 const result = await response.json().catch(() => ({}));
@@ -196,8 +207,6 @@
                     this._setNumeroDocumentoUI(this._clienteDocumento || window.currentClienteDocumento || '', docFile, null);
                 }
                 this._docValidationOk = true;
-                const btnGuardar = document.getElementById('btnGuardarCuota');
-                if (btnGuardar) btnGuardar.disabled = false;
 
                 const fechaPagoEl = document.getElementById('editFechaPago');
                 if (fechaPagoEl && data.fecha_pago) {
@@ -212,6 +221,11 @@
             } catch (e) {
                 if (e && e.name === 'AbortError') return;
                 console.error('[editCuota] Error extrayendo datos del archivo:', e);
+            } finally {
+                if (this._extractAbortController === currentController) {
+                    this._extractAbortController = null;
+                    this._setExtractingState(false);
+                }
             }
         },
 
@@ -237,8 +251,7 @@
                 window.currentClienteDocumento = this._clienteDocumento;
             }
             this._setNumeroDocumentoUI(this._clienteDocumento, '', null);
-            const btnGuardar = document.getElementById('btnGuardarCuota');
-            if (btnGuardar) btnGuardar.disabled = false;
+            this._setExtractingState(false);
 
             const setValue = (id, val) => {
                 const el = document.getElementById(id);
@@ -305,6 +318,11 @@
         },
 
         save: async function() {
+            if (this._isExtracting) {
+                alert('Espere a que termine la lectura del archivo para guardar la cuota.');
+                return;
+            }
+
             // Robustez: recuperar id desde el modal si no está en memoria
             if (!this.currentId) {
                 const modalEl = document.getElementById('cuotaEditModal');
@@ -361,8 +379,7 @@
             };
 
             try {
-                const btn = document.getElementById('btnGuardarCuota');
-                if (btn) btn.disabled = true;
+                this._setSaveDisabled(true);
 
                 let ok = false;
                 let errorMsg = '';
@@ -445,7 +462,17 @@
                     }
 
                     // Dispatch event
-                    const event = new CustomEvent('cuota:saved', { detail: payload });
+                    const savedDetail = {
+                        ...payload,
+                        fecha_pago: getVal('editFechaPago'),
+                        factura: getVal('editFactura'),
+                        observacion: getVal('editObservacion')
+                    };
+                    if (this._archivoActual && this._archivoActual.idArchivo) {
+                        savedDetail.idArchivo = this._archivoActual.idArchivo;
+                        savedDetail.documento = this._archivoActual.ruta_archivo || '';
+                    }
+                    const event = new CustomEvent('cuota:saved', { detail: savedDetail });
                     document.dispatchEvent(event);
 
                     const modalEl = document.getElementById('cuotaEditModal');
@@ -460,8 +487,7 @@
                 console.error(e);
                 alert('Error de conexión.');
             } finally {
-                const btn = document.getElementById('btnGuardarCuota');
-                if (btn) btn.disabled = false;
+                this._setSaveDisabled(this._isExtracting);
             }
         },
         

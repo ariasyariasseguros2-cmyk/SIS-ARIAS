@@ -68,6 +68,8 @@
 
     let _extractedCuotas = [];
     let _clienteDocumento = '';
+    let _isExtracting = false;
+    let _extractAbortController = null;
 
     function setNumeroDocumentoUI(clienteDoc, docFromFile) {
         const cliEl = document.getElementById('addClienteNumeroDocumento');
@@ -90,11 +92,16 @@
         if (btnSaveExtracted) btnSaveExtracted.disabled = !enabled;
     }
 
+    function setExtractingState(isExtracting) {
+        _isExtracting = !!isExtracting;
+        setSaveEnabled(!_isExtracting);
+    }
+
     function syncDocValidationFromInput() {
         const docInput = document.getElementById('addDocumentoNumeroDocumentoInput');
         const raw = docInput ? docInput.value : '';
         setNumeroDocumentoUI(_clienteDocumento, raw);
-        setSaveEnabled(true);
+        setSaveEnabled(!_isExtracting);
     }
 
     function setExtractListMode(isListMode) {
@@ -177,7 +184,11 @@
             const ctx = document.getElementById('addPolizaContext');
             if (ctx) ctx.value = poliza || '';
 
-            setSaveEnabled(true);
+            if (_extractAbortController) {
+                _extractAbortController.abort();
+                _extractAbortController = null;
+            }
+            setExtractingState(false);
             _clienteDocumento = window.currentClienteDocumento || '';
             setNumeroDocumentoUI(_clienteDocumento, '');
 
@@ -380,9 +391,13 @@
             if (prev) prev.classList.add('d-none');
             if (btnExtract) btnExtract.disabled = true;
             if (fileInput) fileInput.value = '';
+            if (_extractAbortController) {
+                _extractAbortController.abort();
+                _extractAbortController = null;
+            }
             _selectedFile = null;
+            setExtractingState(false);
             resetExtractedCuotasUI();
-            setSaveEnabled(true);
             setNumeroDocumentoUI(_clienteDocumento || (window.currentClienteDocumento || ''), '');
           });
         }
@@ -399,6 +414,12 @@
                  return;
              }
 
+             if (_extractAbortController) {
+                 _extractAbortController.abort();
+             }
+             _extractAbortController = new AbortController();
+             const currentController = _extractAbortController;
+             setExtractingState(true);
              btn.disabled = true;
              if (spinner) spinner.classList.remove('d-none');
              
@@ -413,7 +434,8 @@
                  
                  const response = await fetch('/cuotas/extract', {
                      method: 'POST',
-                     body: formData
+                     body: formData,
+                     signal: currentController.signal
                  });
                  
                  const result = await response.json();
@@ -426,11 +448,9 @@
                          const docFile = valid.documento || '';
                          _clienteDocumento = cliDoc;
                          setNumeroDocumentoUI(cliDoc, docFile);
-                         setSaveEnabled(true);
                      } else {
                          const docFile = data && data.numero_documento_contratante ? data.numero_documento_contratante : '';
                          setNumeroDocumentoUI(_clienteDocumento || window.currentClienteDocumento || '', docFile);
-                         setSaveEnabled(true);
                      }
                      _extractedCuotas = Array.isArray(data && data.cuotas) ? data.cuotas : [];
                      if (_extractedCuotas.length > 0) {
@@ -490,12 +510,17 @@
                      alert('No se pudieron extraer datos: ' + (result.error || 'Revise el archivo'));
                  }
              } catch (e) {
+                 if (e && e.name === 'AbortError') return;
                  console.error(e);
                  alert('Error al procesar el archivo. Asegúrese de que sea un PDF válido.');
              } finally {
                  if (spinner) spinner.classList.add('d-none');
-                 btn.disabled = false;
-                 setSaveEnabled(true);
+                 if (_extractAbortController === currentController) {
+                     _extractAbortController = null;
+                     setExtractingState(false);
+                 }
+                 const currentFile = (fileInput && fileInput.files && fileInput.files[0]) || _selectedFile;
+                 btn.disabled = !currentFile;
              }
           });
         }
@@ -560,6 +585,10 @@
 
         if (btnSaveExtracted) {
             btnSaveExtracted.addEventListener('click', async () => {
+                if (_isExtracting) {
+                    alert('Espere a que termine la lectura del archivo antes de guardar.');
+                    return;
+                }
                 const modalEl = document.getElementById('cuotaAddModal');
                 const primaId = modalEl ? (modalEl.dataset.primaId || '') : '';
                 const poliza = (document.getElementById('addPolizaContext')?.value || '').trim();
@@ -646,7 +675,10 @@
 
                 btnSaveExtracted.disabled = false;
                 if (btnSelectAll) btnSelectAll.disabled = false;
-                if (btnExtract) btnExtract.disabled = false;
+                if (btnExtract) {
+                    const currentFile = (fileInput && fileInput.files && fileInput.files[0]) || _selectedFile;
+                    btnExtract.disabled = !currentFile;
+                }
 
                 if (failures.length > 0) {
                     const msg = failures.slice(0, 8).map(f => `${f.cupon || '—'}: ${f.error}`).join('\n');
@@ -661,6 +693,10 @@
         const btnSaveNew = document.getElementById('btnSaveNewCuota');
         if (btnSaveNew) {
           btnSaveNew.addEventListener('click', async () => {
+              if (_isExtracting) {
+                  alert('Espere a que termine la lectura del archivo antes de guardar.');
+                  return;
+              }
               const getVal = (id) => {
                  const el = document.getElementById(id);
                  return el ? el.value.trim() : '';
@@ -709,6 +745,7 @@
                       const fileInput = document.getElementById('addDocumentoFile');
                       const file = (fileInput && fileInput.files && fileInput.files[0]) || (_selectedFile || null);
                       const newCuotaId = res.idCuota || res.cuota_id || null;
+                      let upRes = null;
 
                       console.log('[cuota:save] idCuota recibido:', newCuotaId);
                       console.log('[cuota:save] archivo seleccionado:', file ? 1 : 0);
@@ -725,13 +762,13 @@
                                   fd.append('numero_poliza', poliza);
                                   fd.append('cupon', cupon);
 
-                                  console.log('[cuota:upload] Enviando archivo:', fileInput.files[0].name, 'cuota_id:', newCuotaId);
+                                  console.log('[cuota:upload] Enviando archivo:', file.name, 'cuota_id:', newCuotaId);
 
                                   const upResp = await fetch('/api/cuotas/upload-archivo', {
                                       method: 'POST',
                                       body: fd
                                   });
-                                  const upRes = await upResp.json();
+                                  upRes = await upResp.json();
                                   console.log('[cuota:upload] respuesta:', upRes);
                                   if (!upRes.ok) {
                                       alert('Cuota guardada, pero error al subir el archivo: ' + upRes.error);
@@ -748,7 +785,19 @@
 
                       // Dispatch event for listeners
                       const seqEl = document.getElementById('addSecuencia');
-                      const event = new CustomEvent('cuota:saved', { detail: { ...payload, idCuota: newCuotaId, secuencia: (seqEl && seqEl.value) || '' } });
+                      const eventDetail = {
+                          ...payload,
+                          fecha_pago: getVal('addFechaPago'),
+                          factura: getVal('addFactura'),
+                          observacion: getVal('addObservacion'),
+                          idCuota: newCuotaId,
+                          secuencia: (seqEl && seqEl.value) || ''
+                      };
+                      if (upRes && upRes.ok) {
+                          eventDetail.idArchivo = upRes.idArchivo || null;
+                          eventDetail.documento = upRes.ruta || upRes.path || '';
+                      }
+                      const event = new CustomEvent('cuota:saved', { detail: eventDetail });
                       document.dispatchEvent(event);
                   } else {
                       alert('Error al guardar: ' + (res.error || 'Error desconocido'));
