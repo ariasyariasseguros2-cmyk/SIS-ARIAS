@@ -66,6 +66,54 @@
         return Number.isFinite(num) ? String(num) : '';
     }
 
+    function addOneMonthToISODate(value) {
+        const iso = toISODate(value);
+        if (!iso) return '';
+        const parts = iso.split('-');
+        if (parts.length !== 3) return '';
+
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        const day = parseInt(parts[2], 10);
+        if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return '';
+
+        let nextYear = year;
+        let nextMonth = month + 1;
+        if (nextMonth > 12) {
+            nextMonth = 1;
+            nextYear += 1;
+        }
+
+        const maxDay = new Date(nextYear, nextMonth, 0).getDate();
+        const nextDay = Math.min(day, maxDay);
+        return `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
+    }
+
+    function getNextCuotaDefaultsFromTable() {
+        const tbody = document.querySelector('#cuotas-table tbody');
+        if (!tbody || !tbody.rows || tbody.rows.length === 0) {
+            return null;
+        }
+
+        const lastRow = tbody.rows[tbody.rows.length - 1];
+        const tds = lastRow ? lastRow.querySelectorAll('td') : [];
+        if (!tds || tds.length < 4) {
+            return null;
+        }
+
+        const secuenciaActual = parseInt((tds[0]?.textContent || '').trim(), 10);
+        const cuponActual = (tds[1]?.textContent || '').trim();
+        const fechaVencActual = (tds[2]?.textContent || '').trim();
+        const importeActual = normalizeImporteNumber((tds[3]?.textContent || '').trim());
+
+        return {
+            nextSeq: Number.isFinite(secuenciaActual) ? String(secuenciaActual + 1) : '',
+            nextCupon: cuponActual ? incrementString(cuponActual) : '',
+            nextFechaVenc: addOneMonthToISODate(fechaVencActual),
+            nextImporte: importeActual
+        };
+    }
+
     let _extractedCuotas = [];
     let _clienteDocumento = '';
     let _isExtracting = false;
@@ -192,6 +240,19 @@
             _clienteDocumento = window.currentClienteDocumento || '';
             setNumeroDocumentoUI(_clienteDocumento, '');
 
+            const tableDefaults = getNextCuotaDefaultsFromTable();
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el && val) el.value = val;
+            };
+
+            if (tableDefaults) {
+                if (tableDefaults.nextSeq) setVal('addSecuencia', tableDefaults.nextSeq);
+                if (tableDefaults.nextCupon) setVal('addCupon', tableDefaults.nextCupon);
+                if (tableDefaults.nextFechaVenc) setVal('addFechaVenc', tableDefaults.nextFechaVenc);
+                if (tableDefaults.nextImporte) setVal('addImporte', tableDefaults.nextImporte);
+            }
+
             // Prefijar secuencia automáticamente según la tabla actual
             try {
                 const tbody = document.querySelector('#cuotas-table tbody');
@@ -249,12 +310,9 @@
                     .then(res => {
                         if (res.ok && res.data) {
                             const d = res.data;
-                            const setVal = (id, val) => {
-                                 const el = document.getElementById(id);
-                                 if (el && val) el.value = val;
-                            };
+                            const tableDefaults = getNextCuotaDefaultsFromTable();
                             
-                            if (d.cupon) setVal('addCupon', d.cupon);
+                            if (!tableDefaults?.nextCupon && d.cupon) setVal('addCupon', d.cupon);
                             
                             // --- AUTO-INCREMENT LOGIC START ---
                             // Check existing rows in the table to determine the next coupon
@@ -303,11 +361,11 @@
                                 // no-op
                             }
 
-                            if (d.importe) setVal('addImporte', d.importe);
+                            if (!tableDefaults?.nextImporte && d.importe) setVal('addImporte', d.importe);
                             if (d.moneda) setVal('addMoneda', d.moneda);
                             
                             // Date conversion if needed (dd/mm/yyyy -> yyyy-mm-dd)
-                            if (d.fecha_vencimiento) {
+                            if (!tableDefaults?.nextFechaVenc && d.fecha_vencimiento) {
                                 const parts = d.fecha_vencimiento.split(/[-/]/);
                                 if (parts.length === 3) {
                                     // assume dd/mm/yyyy
