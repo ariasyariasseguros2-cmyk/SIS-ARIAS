@@ -95,7 +95,10 @@
             <td>{{ row.cliente }}</td>
             <td>{{ row.compania }}</td>
             <td>{{ row.numero_cupones }}</td>
-            <td>{{ row.moneda }}</td>
+            <td>
+              {% set moneda_label = (row.moneda or '')|upper %}
+              {{ 'S/' if moneda_label in ['PEN', 'S/', 'S/.', 'SOLES'] else 'US$' if moneda_label in ['USD', 'US$', '$', 'DOLARES'] else row.moneda }}
+            </td>
             <td>{{ row.importe_formatted }}</td>
             <td>{{ row.primer_cupon or '—' }}</td>
             <td>{{ row.fecha_primer_vencimiento or '—' }}</td>
@@ -113,7 +116,7 @@
                   </button>
                   <ul class="dropdown-menu dropdown-menu-end">
                     <li><a class="dropdown-item" href="javascript:void(0)" onclick="FinanciacionGrupal.onEdit('{{ row.id_financiamiento_grupal }}')">Editar</a></li>
-                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="FinanciacionGrupal.onDelete('{{ row.id_financiamiento_grupal }}')">Eliminar</a></li>
+                   <!-- <li><a class="dropdown-item" href="javascript:void(0)" onclick="FinanciacionGrupal.onDelete('{{ row.id_financiamiento_grupal }}')">Eliminar</a></li>-->
                   </ul>
                 </div>
               </div>

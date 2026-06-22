@@ -16,10 +16,12 @@ const FinanciamientoGrupalAvisos = (() => {
   let addModalEl = null;
   let addModal = null;
   let candidatesBody = null;
+  let candidatesSearchInput = null;
   let candidatesInfoEl = null;
   let candidatesPrevBtn = null;
   let candidatesNextBtn = null;
   let candidates = [];
+  let filteredCandidates = [];
   let candidatesPage = 1;
   const candidatesPageSize = 10;
 
@@ -40,6 +42,7 @@ const FinanciamientoGrupalAvisos = (() => {
       addModal = window.bootstrap.Modal.getOrCreateInstance(addModalEl);
     }
     candidatesBody = document.querySelector('#fgAvisosCandidatesTable tbody');
+    candidatesSearchInput = document.getElementById('fgAvisosCandidatesSearch');
     candidatesInfoEl = document.getElementById('fgAvisosCandidatesInfo');
     candidatesPrevBtn = document.getElementById('fgAvisosCandidatesPrev');
     candidatesNextBtn = document.getElementById('fgAvisosCandidatesNext');
@@ -80,11 +83,17 @@ const FinanciamientoGrupalAvisos = (() => {
     });
 
     candidatesNextBtn?.addEventListener('click', () => {
-      const totalPages = Math.max(1, Math.ceil(candidates.length / candidatesPageSize));
+      const totalPages = Math.max(1, Math.ceil(filteredCandidates.length / candidatesPageSize));
       if (candidatesPage < totalPages) {
         candidatesPage += 1;
         renderCandidates();
       }
+    });
+
+    candidatesSearchInput?.addEventListener('input', () => {
+      candidatesPage = 1;
+      applyCandidatesFilter();
+      renderCandidates();
     });
 
     document.addEventListener('click', async (e) => {
@@ -264,19 +273,31 @@ const FinanciamientoGrupalAvisos = (() => {
 
   async function loadCandidates() {
     const data = await fetchJson(`/api/financiamiento-grupal/${encodeURIComponent(financiamientoId)}/avisos/candidatos`);
-    candidates = data.rows || [];
+    candidates = (data.rows || []).map((row) => ({
+      ...row,
+      _search: `${row.poliza || ''} ${row.aviso || ''}`.toLowerCase()
+    }));
     candidatesPage = 1;
+    if (candidatesSearchInput) candidatesSearchInput.value = '';
+    applyCandidatesFilter();
     renderCandidates();
   }
 
+  function applyCandidatesFilter() {
+    const query = (candidatesSearchInput?.value || '').trim().toLowerCase();
+    filteredCandidates = query
+      ? candidates.filter((row) => row._search.includes(query))
+      : [...candidates];
+  }
+
   function renderCandidates() {
-    const total = candidates.length;
+    const total = filteredCandidates.length;
     const totalPages = Math.max(1, Math.ceil(total / candidatesPageSize));
     if (candidatesPage > totalPages) candidatesPage = totalPages;
     if (candidatesPage < 1) candidatesPage = 1;
 
     const start = (candidatesPage - 1) * candidatesPageSize;
-    const slice = candidates.slice(start, start + candidatesPageSize);
+    const slice = filteredCandidates.slice(start, start + candidatesPageSize);
 
     if (candidatesBody) {
       if (slice.length === 0) {
@@ -338,6 +359,7 @@ const FinanciamientoGrupalAvisos = (() => {
       });
       showSuccess('Agregado correctamente.');
       candidates = candidates.filter((c) => String(c.idPoliza) !== String(polizaId));
+      applyCandidatesFilter();
       renderCandidates();
       await reloadMainRows();
     } catch (err) {

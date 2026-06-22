@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List, Tuple
 from datetime import date, datetime
 
@@ -1478,45 +1479,190 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
         print(f"Error updating cuota cupon: {e}")
         return False, str(e)
 
-def delete_cuota(cuota_id: int) -> Tuple[bool, str]:
+def _clear_cuota_archivos(cur, cuota_id: int, poliza_id=None, cupon_plain: str = '') -> None:
+    from flask import current_app
+
+    cuota_id = int(cuota_id)
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
+    archivos = []
+
+    cur.execute(
+        "SELECT idArchivo, ruta_archivo FROM cuota_archivos WHERE cuota_id = %s",
+        (cuota_id,),
+    )
+    archivos = cur.fetchall() or []
+
+    # Compatibilidad con registros antiguos guardados en poliza_archivos.
+    if not archivos and poliza_id is not None:
+        if cupon_plain:
+            cur.execute(
+                """
+                SELECT idArchivo, ruta_archivo
+                FROM poliza_archivos
+                WHERE poliza_id = %s
+                  AND origen = 'CUOTA'
+                  AND (
+                      nombre_original LIKE %s
+                      OR nombre_original LIKE %s
+                  )
+                """,
+                (int(poliza_id), f'[CUOTA {cupon_plain}] %', f'%{cupon_plain}%'),
+            )
+            archivos = cur.fetchall() or []
+
+        if not archivos:
+            cur.execute(
+                "SELECT COUNT(*) FROM cuotas WHERE poliza_id = %s AND activo = 1",
+                (int(poliza_id),),
+            )
+            qty_row = cur.fetchone()
+            total_cuotas = qty_row[0] if qty_row and qty_row[0] is not None else 0
+            if int(total_cuotas) <= 1:
+                cur.execute(
+                    "SELECT idArchivo, ruta_archivo FROM poliza_archivos WHERE poliza_id = %s AND origen = 'CUOTA'",
+                    (int(poliza_id),),
+                )
+                archivos = cur.fetchall() or []
+
+    for archivo_id, ruta_archivo in archivos:
+        ruta = ruta_archivo or ''
+        abs_path = os.path.join(upload_folder, str(ruta).lstrip('/\\'))
+        try:
+            if os.path.exists(abs_path):
+                os.remove(abs_path)
+        except Exception:
+            pass
+        cur.execute("DELETE FROM cuota_archivos WHERE idArchivo = %s", (archivo_id,))
+        if cur.rowcount == 0:
+            cur.execute("DELETE FROM poliza_archivos WHERE idArchivo = %s", (archivo_id,))
+
+
+def _recalculate_poliza_estado(cur, poliza_id, estado_sin_pendientes: str = 'PAGADO') -> None:
+    if not poliza_id:
+        return
+    cur.execute(
+        """
+        SELECT COUNT(*)
+        FROM cuotas
+        WHERE poliza_id = %s
+          AND (fecha_pago IS NULL OR factura IS NULL OR factura = '')
+          AND activo = 1
+        """,
+        (poliza_id,),
+    )
+    row = cur.fetchone()
+    pendientes = row[0] if row and row[0] is not None else 0
+    nuevo_estado = 'PENDIENTE' if pendientes > 0 else estado_sin_pendientes
+    cur.execute(
+        "UPDATE polizas SET estado = %s WHERE idPoliza = %s",
+        (nuevo_estado, poliza_id),
+    )
+
+
+def revert_cuota(cuota_id: int) -> Tuple[bool, str]:
     try:
         from models.db import get_connection
         cnx = get_connection()
         cur = cnx.cursor()
-        
-        # Get poliza_id before deleting to update status later
-        cur.execute("SELECT poliza_id FROM cuotas WHERE idCuota = %s", (cuota_id,))
+
+        cur.execute(
+            """
+            SELECT
+                poliza_id,
+                financiamiento_grupal_id,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR),
+                    cupon
+                ) AS cupon_plain
+            FROM cuotas
+            WHERE idCuota = %s
+              AND activo = 1
+            """,
+            (cuota_id,),
+        )
         row = cur.fetchone()
         if not row:
             cur.close()
             cnx.close()
             return False, "Cuota no encontrada"
-            
+
         poliza_id = row[0]
-        
-        # Soft delete
-        cur.execute("UPDATE cuotas SET activo = 0 WHERE idCuota = %s", (cuota_id,))
-        
-        # Update poliza status
-        if poliza_id:
+        cupon_plain = (row[2] or '').strip()
+
+        cur.execute(
+            """
+            UPDATE cuotas
+            SET fecha_pago = NULL,
+                factura = NULL,
+                observacion = NULL
+            WHERE idCuota = %s
+            """,
+            (cuota_id,),
+        )
+        _clear_cuota_archivos(cur, cuota_id, poliza_id, cupon_plain)
+        _recalculate_poliza_estado(cur, poliza_id, 'PAGADO')
+
+        cnx.commit()
+        cur.close()
+        cnx.close()
+        return True, ""
+    except Exception as e:
+        print(f"Error reverting cuota: {e}")
+        return False, str(e)
+
+
+def delete_cuota(cuota_id: int) -> Tuple[bool, str]:
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor()
+
+        cur.execute(
+            """
+            SELECT
+                poliza_id,
+                financiamiento_grupal_id,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR),
+                    cupon
+                ) AS cupon_plain
+            FROM cuotas
+            WHERE idCuota = %s
+              AND activo = 1
+            """,
+            (cuota_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            cnx.close()
+            return False, "Cuota no encontrada"
+
+        poliza_id = row[0]
+        financiamiento_grupal_id = row[1]
+        cupon_plain = (row[2] or '').strip()
+
+        # En financiamiento grupal la cuota base forma parte del cronograma y no debe anularse.
+        # Se limpia la factura/pago/documento para conservar la estructura de cuotas.
+        if financiamiento_grupal_id not in (None, 0, ''):
             cur.execute(
                 """
-                SELECT COUNT(*)
-                FROM cuotas
-                WHERE poliza_id = %s
-                  AND (fecha_pago IS NULL OR factura IS NULL OR factura = '')
-                  AND activo = 1
+                UPDATE cuotas
+                SET fecha_pago = NULL,
+                    factura = NULL,
+                    observacion = NULL
+                WHERE idCuota = %s
                 """,
-                (poliza_id,),
+                (cuota_id,),
             )
-            r = cur.fetchone()
-            pendientes = r[0] if r else 0
-            nuevo_estado = 'PENDIENTE' if pendientes > 0 else 'PAGADO'
-            cur.execute(
-                "UPDATE polizas SET estado = %s WHERE idPoliza = %s",
-                (nuevo_estado, poliza_id),
-            )
-            
+            _clear_cuota_archivos(cur, cuota_id, poliza_id, cupon_plain)
+        else:
+            cur.execute("UPDATE cuotas SET activo = 0 WHERE idCuota = %s", (cuota_id,))
+
+        _recalculate_poliza_estado(cur, poliza_id, 'PAGADO')
+
         cnx.commit()
         cur.close()
         cnx.close()
