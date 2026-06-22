@@ -195,6 +195,15 @@
 
                         /* Label 'Por Pagar' estilo */
                         .por-pagar-label { color:#c23; font-weight:700; font-size:14px; }
+                        .fg-poliza { line-height: 1.2; }
+                        .fg-poliza-numero { color: #7a3db8; font-weight: 700; }
+                        .fg-poliza-rel {
+                            display: block;
+                            margin-top: 2px;
+                            font-size: 0.78rem;
+                            color: #6c757d;
+                            white-space: normal;
+                        }
                     </style>
                     <table class="table table-sm table-bordered table-hover mb-0 table-custom-font">
                          <thead class="table-warning">
@@ -239,7 +248,18 @@
                                         -
                                     {% endif %}
                                 </td>
-                                <td>{{ p.poliza or '-' }}</td>
+                                <td>
+                                    {% if p.es_financiamiento_grupal and p.poliza_fg_numero %}
+                                        <div class="fg-poliza">
+                                            {{ p.poliza_fg_prefijo or 'FG-' }}<span class="fg-poliza-numero">{{ p.poliza_fg_numero }}</span>
+                                            {% if p.polizas_relacionadas %}
+                                                <span class="fg-poliza-rel">Pólizas: {{ p.polizas_relacionadas }}</span>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        {{ p.poliza or '-' }}
+                                    {% endif %}
+                                </td>
                                 <td>{{ p.proforma or '-' }}</td>
                                 <td>{{ p.cupon or '-' }}</td>
                                 <td>{{ p.fecha_emision or '-' }}</td>

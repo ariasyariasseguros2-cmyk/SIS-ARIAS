@@ -2,6 +2,8 @@ from flask import request, session
 from models.db import get_connection, get_encrypt_key
 from datetime import datetime
 from utils.rbac import Roles
+from utils.financiamiento_grupal_reportes import enrich_rows_with_fg_metadata, expand_estado_cuenta_fg_rows
+
 
 def _get_poliza_activa_sql(alias='p'):
     return (
@@ -57,6 +59,17 @@ def _dedupe_clientes_por_documento(clientes):
             unicos[key] = cliente
 
     return sorted(unicos.values(), key=lambda c: int(c.get('idCliente') or 0), reverse=True)
+
+def _normalize_estado_cuenta_producto(rows):
+    """Evita mostrar el producto duplicado cuando coincide con el ramo."""
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        ramo = str(row.get('ramo') or '').strip()
+        producto = str(row.get('producto') or '').strip()
+        if ramo and producto and ramo.upper() == producto.upper():
+            row['producto'] = ''
+    return rows
 
 def _get_cliente_ids_relacionados(cur, key, cliente, es_subagente=False, usuario_actual=None):
     """Obtiene todos los idsCliente que comparten el mismo documento."""
@@ -305,11 +318,11 @@ def get_estado_cuenta_data(filtros_input=None):
                     COALESCE(q.moneda, p.moneda) AS moneda,
                     p.prima_comercial_igv AS monto_cta_cobrar,
                     CASE 
-                        WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 0 ELSE q.importe END
+                        WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL OR COALESCE(TRIM(q.factura), '') <> '' THEN 0 ELSE q.importe END
                         ELSE CASE WHEN UPPER(IFNULL(p.estado,'')) IN ('CANCELADO', 'PAGADO') THEN 0 ELSE p.prima_comercial_igv END
                     END AS monto_cta_pagar,
                     CASE 
-                        WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 'PAGADO' ELSE 'PENDIENTE' END
+                        WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL OR COALESCE(TRIM(q.factura), '') <> '' THEN 'PAGADO' ELSE 'PENDIENTE' END
                         ELSE p.estado
                     END AS estado
                 FROM polizas p
@@ -396,6 +409,9 @@ def get_estado_cuenta_data(filtros_input=None):
             query_exec = query.replace('%%', '%')
             cur.execute(query_exec, params)
             polizas = cur.fetchall() or []
+            enrich_rows_with_fg_metadata(polizas)
+            polizas = expand_estado_cuenta_fg_rows(polizas)
+            polizas = _normalize_estado_cuenta_producto(polizas)
 
             if filters['estado']:
                 est = filters['estado'].strip().upper()
@@ -728,11 +744,11 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
                 COALESCE(q.moneda, p.moneda) AS moneda,
                 p.prima_comercial_igv AS monto_cta_cobrar,
                 CASE 
-                    WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 0 ELSE q.importe END
+                    WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL OR COALESCE(TRIM(q.factura), '') <> '' THEN 0 ELSE q.importe END
                     ELSE CASE WHEN UPPER(IFNULL(p.estado,'')) IN ('CANCELADO', 'PAGADO') THEN 0 ELSE p.prima_comercial_igv END
                 END AS monto_cta_pagar,
                 CASE 
-                    WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL THEN 'PAGADO' ELSE 'PENDIENTE' END
+                    WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL OR COALESCE(TRIM(q.factura), '') <> '' THEN 'PAGADO' ELSE 'PENDIENTE' END
                     ELSE p.estado
                 END AS estado
             FROM polizas p
@@ -778,6 +794,9 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
         query_exec = query.replace('%%', '%')
         cur.execute(query_exec, params)
         polizas = cur.fetchall() or []
+        enrich_rows_with_fg_metadata(polizas)
+        polizas = expand_estado_cuenta_fg_rows(polizas)
+        polizas = _normalize_estado_cuenta_producto(polizas)
 
         if filters['estado']:
             est = filters['estado'].strip().upper()
@@ -905,7 +924,8 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             row_idx = header_row + 1
             totales_pdf = {}  # { 'S/': [cobrar, pagar], 'US$': [cobrar,pagar] }
 
-            for r in rows:
+            for row_number, r in enumerate(rows):
+                fg_meta = polizas[row_number] if row_number < len(polizas) else {}
                 for col_idx, val in enumerate(r, start=1):
                     cell = ws.cell(row=row_idx, column=col_idx)
                     # Sanitizar cadenas: colapsar espacios múltiples y eliminar saltos de línea innecesarios
@@ -926,10 +946,16 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
                         else:
                             # Wrap para evitar que el texto genere espacios vacíos; no usar shrink_to_fit
                             cell.alignment = Alignment(horizontal='left', wrap_text=True, vertical='center')
+                    if col_idx == 5 and fg_meta.get('es_financiamiento_grupal'):
+                        cell.font = Font(size=9, bold=True, color='7A3DB8')
+                        if fg_meta.get('polizas_relacionadas'):
+                            base_value = str(cell.value or '').strip()
+                            cell.value = f"{base_value}\nPolizas: {fg_meta.get('polizas_relacionadas')}"
+                            cell.alignment = Alignment(horizontal='left', wrap_text=True, vertical='center')
 
                 # Fijar altura de fila para evitar desalineaciones (p.ej. 18pt)
                 try:
-                    ws.row_dimensions[row_idx].height = 18
+                    ws.row_dimensions[row_idx].height = 28 if fg_meta.get('es_financiamiento_grupal') and fg_meta.get('polizas_relacionadas') else 18
                 except Exception:
                     pass
 
