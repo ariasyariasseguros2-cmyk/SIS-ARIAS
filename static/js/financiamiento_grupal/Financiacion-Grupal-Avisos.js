@@ -105,14 +105,6 @@ const FinanciamientoGrupalAvisos = (() => {
         return;
       }
 
-      const delBtn = e.target.closest('[data-fg-del-item]');
-      if (delBtn) {
-        e.preventDefault();
-        const itemId = delBtn.getAttribute('data-fg-del-item');
-        await deleteItem(itemId, delBtn);
-        return;
-      }
-
       const detBtn = e.target.closest('[data-fg-detalles-item]');
       if (detBtn) {
         e.preventDefault();
@@ -250,7 +242,6 @@ const FinanciamientoGrupalAvisos = (() => {
         <td>${safe(r.motivo)}</td>
         <td class="text-end">
           <div class="action-buttons justify-content-end">
-            <button type="button" class="btn-action btn-danger" data-fg-del-item="${itemId}">Eliminar</button>
             <button type="button" class="btn-action btn-info" data-fg-detalles-item="${itemId}">Detalles</button>
           </div>
         </td>
@@ -367,28 +358,6 @@ const FinanciamientoGrupalAvisos = (() => {
     } finally {
       if (triggerEl) {
         triggerEl.classList.remove('disabled');
-        triggerEl.innerHTML = originalHtml;
-      }
-    }
-  }
-
-  async function deleteItem(itemId, triggerEl) {
-    const originalHtml = triggerEl ? triggerEl.innerHTML : '';
-    try {
-      if (triggerEl) {
-        triggerEl.disabled = true;
-        triggerEl.innerHTML = 'Eliminando...';
-      }
-      await fetchJson(`/api/financiamiento-grupal/${encodeURIComponent(financiamientoId)}/avisos/remove/${encodeURIComponent(itemId)}`, {
-        method: 'DELETE'
-      });
-      showSuccess('Eliminado correctamente.');
-      await reloadMainRows();
-    } catch (err) {
-      showError(err.message || 'No se pudo eliminar.');
-    } finally {
-      if (triggerEl) {
-        triggerEl.disabled = false;
         triggerEl.innerHTML = originalHtml;
       }
     }
