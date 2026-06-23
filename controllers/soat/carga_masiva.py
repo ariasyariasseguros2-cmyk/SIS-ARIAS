@@ -865,14 +865,26 @@ def get_or_create_agente(cursor, cnx, codigo_agente: str, nombre_vendedor: str, 
         return None
 
 
-def get_tipo_soat(cnx, clase_id: int | None, uso_id: int | None) -> tuple[int | None, str | None, float]:
+def _rate_to_factor(rate: float | int | None) -> float:
+    value = float(rate or 0)
+    return value if abs(value) <= 1.0 else (value / 100.0)
+
+
+def _rate_to_percent(rate: float | int | None) -> float:
+    value = float(rate or 0)
+    if 0 < abs(value) <= 1.0:
+        value *= 100.0
+    return round(value, 2)
+
+
+def get_tipo_soat(cnx, clase_id: int | None, uso_id: int | None) -> tuple[int | None, str | None, float, float]:
     """
     Consulta configuracion_soat y tipos_soat para obtener el tipo de SOAT
     según la clase y uso del vehículo.
-    Retorna (tipo_soat_id, tipo_soat_nombre, tasa_aas)
+    Retorna (tipo_soat_id, tipo_soat_nombre, tasa_aas, tasa_vendedor)
     """
     if clase_id is None:
-        return None, None, 0.0
+        return None, None, 0.0, 0.0
 
     try:
         cur2 = cnx.cursor(dictionary=True)
@@ -880,7 +892,7 @@ def get_tipo_soat(cnx, clase_id: int | None, uso_id: int | None) -> tuple[int | 
         # Intentar con clase_id + uso_id
         if uso_id is not None:
             cur2.execute("""
-                SELECT cs.tipo_soat_id, ts.nombre, ts.tasa_aas
+                SELECT cs.tipo_soat_id, ts.nombre, ts.tasa_aas, ts.tasa_vendedor
                 FROM configuracion_soat cs
                 JOIN tipos_soat ts ON ts.id = cs.tipo_soat_id
                 WHERE cs.clase_id = %s AND cs.uso_id = %s
@@ -890,11 +902,11 @@ def get_tipo_soat(cnx, clase_id: int | None, uso_id: int | None) -> tuple[int | 
             row = cur2.fetchone()
             if row:
                 cur2.close()
-                return row['tipo_soat_id'], row['nombre'], float(row['tasa_aas'] or 0)
+                return row['tipo_soat_id'], row['nombre'], float(row['tasa_aas'] or 0), float(row.get('tasa_vendedor') or 0)
 
         # Fallback: solo clase_id
         cur2.execute("""
-            SELECT cs.tipo_soat_id, ts.nombre, ts.tasa_aas
+            SELECT cs.tipo_soat_id, ts.nombre, ts.tasa_aas, ts.tasa_vendedor
             FROM configuracion_soat cs
             JOIN tipos_soat ts ON ts.id = cs.tipo_soat_id
             WHERE cs.clase_id = %s
@@ -904,20 +916,21 @@ def get_tipo_soat(cnx, clase_id: int | None, uso_id: int | None) -> tuple[int | 
         row = cur2.fetchone()
         cur2.close()
         if row:
-            return row['tipo_soat_id'], row['nombre'], float(row['tasa_aas'] or 0)
-        return None, None, 0.0
+            return row['tipo_soat_id'], row['nombre'], float(row['tasa_aas'] or 0), float(row.get('tasa_vendedor') or 0)
+        return None, None, 0.0, 0.0
     except Exception as e:
         print(f"Error en get_tipo_soat clase_id={clase_id} uso_id={uso_id}: {e}")
-        return None, None, 0.0
+        return None, None, 0.0, 0.0
 
 
-def get_porc_subagente(cnx, codigo_agente: str, tipo_soat_nom: str | None) -> float:
+def get_porc_subagente(cnx, codigo_agente: str, tipo_soat_nom: str | None, default_rate: float = 0.0) -> float:
     """
     Consulta SELECT * FROM agentes WHERE codigo_agente = %s
     y retorna tipo_menor o tipo_regular según el tipo de SOAT.
+    Si el agente no existe o no tiene porcentaje configurado, usa la tasa general del tipo SOAT.
     """
     if not codigo_agente or codigo_agente.strip() == '':
-        return 0.0
+        return float(default_rate or 0)
 
     try:
         cur2 = cnx.cursor(dictionary=True)
@@ -930,15 +943,16 @@ def get_porc_subagente(cnx, codigo_agente: str, tipo_soat_nom: str | None) -> fl
 
         if not row:
             print(f"Agente no encontrado: codigo_agente='{codigo_agente}'")
-            return 0.0
+            return float(default_rate or 0)
 
         if tipo_soat_nom == 'Menor':
-            return float(row['tipo_menor'] or 0)
+            agent_rate = float(row['tipo_menor'] or 0)
         else:
-            return float(row['tipo_regular'] or 0)
+            agent_rate = float(row['tipo_regular'] or 0)
+        return agent_rate if agent_rate > 0 else float(default_rate or 0)
     except Exception as e:
         print(f"Error en get_porc_subagente codigo_agente='{codigo_agente}': {e}")
-        return 0.0
+        return float(default_rate or 0)
 
 
 def _find_poliza_id_por_poliza_recibo(cur, poliza: str, recibo: str) -> int | None:
@@ -1876,17 +1890,17 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
 
                 # ── Calcular comisiones en Python directamente ──────────────
                 # 1. Obtener tipo SOAT desde configuracion_soat
-                _, tipo_soat_nom, tasa_aas = get_tipo_soat(cnx, clase_id, uso_id)
+                _, tipo_soat_nom, tasa_aas, tasa_vendedor = get_tipo_soat(cnx, clase_id, uso_id)
 
                 # 2. porc_compania e imp_compania
-                # Lógica para manejar tasas: si <= 1.0 se asume factor (ej: 0.10 = 10%), si > 1.0 se asume porcentaje (ej: 10 = 10%)
-                porc_compania = round(tasa_aas, 2)
-                factor_cia = porc_compania if porc_compania <= 1.0 else (porc_compania / 100.0)
+                factor_cia = _rate_to_factor(tasa_aas)
+                porc_compania = _rate_to_percent(tasa_aas)
                 imp_compania  = round(factor_cia * prima_neta, 2)
 
-                # 3. porc_subagente desde tabla agentes directamente
-                porc_subagente = get_porc_subagente(cnx, codigo_agente, tipo_soat_nom)
-                factor_sub = porc_subagente if porc_subagente <= 1.0 else (porc_subagente / 100.0)
+                # 3. porc_subagente desde agente; si no existe usa la tasa general del tipo SOAT
+                tasa_subagente = get_porc_subagente(cnx, codigo_agente, tipo_soat_nom, tasa_vendedor)
+                factor_sub = _rate_to_factor(tasa_subagente)
+                porc_subagente = _rate_to_percent(tasa_subagente)
                 imp_subagente  = round(factor_sub * imp_compania, 2)
 
                 #print(f"[COMISION] cod={codigo_agente} tipo_soat={tipo_soat_nom} "
