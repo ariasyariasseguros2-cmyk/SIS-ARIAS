@@ -73,8 +73,6 @@ def api_vencimientos():
         return {'ok': False, 'error': 'No autenticado'}, 401
 
     role = session.get('role_name')
-    if role == Roles.SUB_AGENTE:
-        return {'ok': False, 'error': 'No autorizado'}, 403
 
     usuario = request.args.get('usuario', '').strip()
     ejecutivo = request.args.get('ejecutivo', '').strip()
