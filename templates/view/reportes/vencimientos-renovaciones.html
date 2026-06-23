@@ -33,7 +33,11 @@
     <div class="card shadow-sm">
         <div class="card-body">
             <!-- Filter Form -->
-            <form id="filterForm" class="row g-3 mb-4 align-items-end" data-current-user="{{ session.get('user', '') }}">
+            <form id="filterForm"
+                  class="row g-3 mb-4 align-items-end"
+                  data-current-user="{{ session.get('user', '') }}"
+                  data-current-role="{{ session.get('role_name', '') }}"
+                  data-current-ejecutivo="{{ current_ejecutivo or '' }}">
                 <div class="col-md-2">
                     <label class="form-label fw-bold">Usuarios</label>
                     <div class="dropdown" id="usuarioDropdownContainer">

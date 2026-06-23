@@ -17,12 +17,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const ramoValue = document.getElementById('ramoValue');
 
     const searchQueryEl = document.getElementById('searchQuery');
+    const submitButton = filterForm ? filterForm.querySelector('button[type="submit"]') : null;
 
     // Pagination state
     let allData = [];
     let rawData = [];
     let currentPage = 1;
     let rowsPerPage = 15;
+    let currentFetchController = null;
+    let currentRequestId = 0;
 
     function escapeHtml(value) {
         return String(value || '')
@@ -78,18 +81,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Load users and ramos on init
-    loadUsuarios();
-    loadEjecutivos();
-    loadRamos();
-
-    // Trigger initial load automatically
-    if (filterForm) {
-        // Small delay to ensure dropdowns might be ready (though not strictly necessary for default 'all' filter)
-        setTimeout(() => {
+    // Load filtros y luego ejecutar la primera consulta con valores ya precargados.
+    Promise.all([loadUsuarios(), loadEjecutivos(), loadRamos()]).finally(() => {
+        if (filterForm) {
             filterForm.dispatchEvent(new Event('submit'));
-        }, 100);
-    }
+        }
+    });
 
     // Listen for Cuota Saved event (from Modal)
     document.addEventListener('cuota:saved', function(e) {
@@ -276,6 +273,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch('/api/reportes/ejecutivos');
             const ejecutivos = await response.json();
+            const currentEjecutivo = ((filterForm && filterForm.getAttribute('data-current-ejecutivo')) || '').trim().toLowerCase();
 
             ejecutivoDropdownMenu.innerHTML = '';
 
@@ -305,11 +303,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const nombre = (e && (e.nombre || e.abreviacion || e.codigo || e.username)) ? (e.nombre || e.abreviacion || e.codigo || e.username) : '';
                 if (!nombre) return;
                 const safeId = `ejecutivo_${index}`;
+                const isChecked = currentEjecutivo && nombre.trim().toLowerCase() === currentEjecutivo;
                 const li = document.createElement('li');
                 li.innerHTML = `
                     <div class="dropdown-item">
                         <div class="form-check">
-                            <input class="form-check-input ejecutivo-checkbox" type="checkbox" value="${nombre}" id="${safeId}">
+                            <input class="form-check-input ejecutivo-checkbox" type="checkbox" value="${nombre}" id="${safeId}" ${isChecked ? 'checked' : ''}>
                             <label class="form-check-label w-100" style="cursor: pointer;" for="${safeId}">${nombre}</label>
                         </div>
                     </div>
@@ -322,6 +321,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 chk.addEventListener('change', handleEjecutivoCheckboxChange);
                 chk.closest('.dropdown-item').addEventListener('click', (e) => e.stopPropagation());
             });
+
+            if (currentEjecutivo) {
+                const todosCheckbox = document.getElementById('ejecutivo_todos');
+                if (todosCheckbox) {
+                    todosCheckbox.checked = false;
+                }
+            }
 
             const searchInput = liSearch.querySelector('input');
             searchInput.addEventListener('click', (e) => e.stopPropagation());
@@ -533,9 +539,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function fetchData(usuario, ejecutivo, estado, fechaDesde, fechaHasta, ramo) {
+        const requestId = ++currentRequestId;
         try {
-            tableBody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-muted">Cargando datos...</td></tr>`;
+            if (currentFetchController) {
+                currentFetchController.abort();
+            }
+            currentFetchController = new AbortController();
+
             if (paginationContainer) paginationContainer.style.display = 'none';
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Cargando...';
+            }
 
             let url = `/api/reportes/vencimientos-renovaciones?usuario=${encodeURIComponent(usuario)}&estado=${encodeURIComponent(estado)}`;
             
@@ -544,8 +559,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (ramo) url += `&ramo=${encodeURIComponent(ramo)}`;
             if (ejecutivo) url += `&ejecutivo=${encodeURIComponent(ejecutivo)}`;
 
-            const response = await fetch(url);
+            const response = await fetch(url, { signal: currentFetchController.signal });
             const data = await response.json();
+
+            if (requestId !== currentRequestId) {
+                return;
+            }
             
             if (!data || data.length === 0) {
                 rawData = [];
@@ -558,8 +577,19 @@ document.addEventListener('DOMContentLoaded', function() {
             currentPage = 1;
             applyClientFiltersAndRender();
         } catch (error) {
+            if (error && error.name === 'AbortError') {
+                return;
+            }
             console.error('Error loading data:', error);
             tableBody.innerHTML = `<tr><td colspan="11" class="text-center text-danger">Error cargando datos</td></tr>`;
+        } finally {
+            if (requestId === currentRequestId) {
+                currentFetchController = null;
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Procesar Archivo';
+                }
+            }
         }
     }
 

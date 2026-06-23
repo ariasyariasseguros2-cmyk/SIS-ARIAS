@@ -23,6 +23,40 @@ from models.db import get_connection
 
 bp = Blueprint('main', __name__)
 
+
+def _get_current_user_ejecutivo():
+    username = (session.get('user') or '').strip()
+    if not username:
+        return ''
+
+    conn = None
+    cur = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT e.nombre
+            FROM usuarios u
+            LEFT JOIN ejecutivos e ON e.idEjecutivo = u.id_ejecutivo
+            WHERE u.username = %s
+            LIMIT 1
+        """, (username,))
+        row = cur.fetchone()
+        return (row[0] or '').strip() if row and row[0] else ''
+    except Exception:
+        return ''
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+
 # #region debug-point A:cuotas-route-helper
 def _dbg_cuotas_route_slow(hypothesis_id: str, location: str, msg: str, data=None, run_id: str = 'pre-fix'):
     try:
@@ -1497,7 +1531,10 @@ def menu_page(page):
 
     # REPORTE: Vencimientos y Renovaciones
     if page == 'vencimientos-renovaciones':
-        return render_template('view/reportes/vencimientos-renovaciones.html')
+        return render_template(
+            'view/reportes/vencimientos-renovaciones.html',
+            current_ejecutivo=_get_current_user_ejecutivo(),
+        )
 
     if page == 'polizas-anuladas':
         from controllers.polizas import get_polizas_anuladas
