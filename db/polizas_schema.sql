@@ -4800,8 +4800,8 @@ CREATE TABLE IF NOT EXISTS configuracion_soat (
 -- =============================================
 
 INSERT INTO tipos_soat (nombre, tasa_aas, tasa_vendedor) VALUES
-('Menor', 10.00, 0.00),
-('Regular', 18.00, 0.00)
+('Menor', 0.10, 0.60),
+('Regular', 0.18, 0.70)
 ON DUPLICATE KEY UPDATE tasa_aas=VALUES(tasa_aas), tasa_vendedor=VALUES(tasa_vendedor);
 
 INSERT INTO configuracion_comision_extra (descripcion, porcentaje) VALUES
@@ -4926,14 +4926,16 @@ BEGIN
     DECLARE v_tipo_soat_nom     VARCHAR(50);
     DECLARE v_tasa_aas          DECIMAL(5,2)  DEFAULT 0;
     DECLARE v_tasa_vendedor     DECIMAL(10,2) DEFAULT 0;
+    DECLARE v_factor_aas        DECIMAL(10,6) DEFAULT 0;
+    DECLARE v_factor_vendedor   DECIMAL(10,6) DEFAULT 0;
     DECLARE v_comision_aas      DECIMAL(10,2);
     DECLARE v_comision_vendedor DECIMAL(10,2);
     DECLARE v_utilidad          DECIMAL(10,2);
     DECLARE v_extra_total       DECIMAL(10,2) DEFAULT 0.00;
 
-    -- 1. Obtener tasa_aas y nombre del tipo SOAT desde configuracion_soat
-    SELECT t.nombre, t.tasa_aas
-    INTO v_tipo_soat_nom, v_tasa_aas
+    -- 1. Obtener tasas del tipo SOAT desde configuracion_soat
+    SELECT t.nombre, t.tasa_aas, t.tasa_vendedor
+    INTO v_tipo_soat_nom, v_tasa_aas, v_tasa_vendedor
     FROM configuracion_soat cs
     JOIN tipos_soat t ON cs.tipo_soat_id = t.id
     WHERE cs.clase_id = p_clase_id AND cs.uso_id = p_uso_id
@@ -4943,22 +4945,31 @@ BEGIN
         SET v_tasa_aas = 0;
     END IF;
 
-    -- 2. Obtener porcentaje vendedor desde tabla agentes según tipo SOAT
+    -- 2. Obtener porcentaje vendedor desde tabla agentes según tipo SOAT.
+    -- Si el agente no tiene valor configurado, se conserva la tasa general del tipo SOAT.
     IF p_codigo_agente IS NOT NULL AND TRIM(p_codigo_agente) <> '' THEN
         IF v_tipo_soat_nom = 'Menor' THEN
-            SELECT tipo_menor INTO v_tasa_vendedor FROM agentes
+            SELECT COALESCE(NULLIF(tipo_menor, 0), v_tasa_vendedor) INTO v_tasa_vendedor FROM agentes
             WHERE codigo_agente = TRIM(p_codigo_agente) LIMIT 1;
         ELSE
-            SELECT tipo_regular INTO v_tasa_vendedor FROM agentes
+            SELECT COALESCE(NULLIF(tipo_regular, 0), v_tasa_vendedor) INTO v_tasa_vendedor FROM agentes
             WHERE codigo_agente = TRIM(p_codigo_agente) LIMIT 1;
         END IF;
     END IF;
 
     SET v_tasa_vendedor = IFNULL(v_tasa_vendedor, 0);
+    SET v_factor_aas = CASE
+        WHEN ABS(v_tasa_aas) <= 1 THEN v_tasa_aas
+        ELSE v_tasa_aas / 100
+    END;
+    SET v_factor_vendedor = CASE
+        WHEN ABS(v_tasa_vendedor) <= 1 THEN v_tasa_vendedor
+        ELSE v_tasa_vendedor / 100
+    END;
 
     -- 3. Calcular montos
-    SET v_comision_aas      = ROUND(p_precio_soat * (v_tasa_aas / 100), 2);
-    SET v_comision_vendedor = ROUND(v_comision_aas * (v_tasa_vendedor / 100), 2);
+    SET v_comision_aas      = ROUND(p_precio_soat * v_factor_aas, 2);
+    SET v_comision_vendedor = ROUND(v_comision_aas * v_factor_vendedor, 2);
 
     -- 4. Extras
     IF p_extra_ids IS NOT NULL AND LENGTH(p_extra_ids) > 0 THEN
@@ -4977,6 +4988,181 @@ BEGIN
         ROUND(v_comision_vendedor, 2) AS monto_comision_vendedor,
         ROUND(v_extra_total, 2)       AS monto_extras,
         ROUND(v_utilidad, 2)          AS utilidad_empresa;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_recalcular_comisiones_soat_masivo;
+DELIMITER $$
+CREATE PROCEDURE sp_recalcular_comisiones_soat_masivo(
+    IN p_solo_activos TINYINT
+)
+BEGIN
+    -- Alinear tasas maestras al formato factor esperado: 0.10, 0.18, 0.60, 0.70
+    UPDATE tipos_soat
+    SET tasa_aas = CASE
+                       WHEN nombre = 'Menor' THEN 0.10
+                       WHEN nombre = 'Regular' THEN 0.18
+                       ELSE tasa_aas
+                   END,
+        tasa_vendedor = CASE
+                            WHEN nombre = 'Menor' THEN 0.60
+                            WHEN nombre = 'Regular' THEN 0.70
+                            ELSE tasa_vendedor
+                        END
+    WHERE nombre IN ('Menor', 'Regular');
+
+    UPDATE polizas p
+    INNER JOIN (
+        SELECT
+            base.idPoliza,
+            base.prima_neta,
+            base.tasa_aas,
+            CASE
+                WHEN base.tipo_soat_nom = 'Menor' AND COALESCE(base.tipo_menor_agente, 0) > 0 THEN base.tipo_menor_agente
+                WHEN base.tipo_soat_nom <> 'Menor' AND COALESCE(base.tipo_regular_agente, 0) > 0 THEN base.tipo_regular_agente
+                ELSE COALESCE(base.tasa_vendedor, 0)
+            END AS tasa_subagente
+        FROM (
+            SELECT
+                p2.idPoliza,
+                COALESCE(p2.prima_neta, 0) AS prima_neta,
+                COALESCE(a.tipo_menor, 0) AS tipo_menor_agente,
+                COALESCE(a.tipo_regular, 0) AS tipo_regular_agente,
+                COALESCE(
+                    (
+                        SELECT ts1.nombre
+                        FROM configuracion_soat cs1
+                        INNER JOIN tipos_soat ts1 ON ts1.id = cs1.tipo_soat_id
+                        WHERE cs1.estado = 'Activo'
+                          AND ts1.estado = 'Activo'
+                          AND c.id IS NOT NULL
+                          AND cs1.clase_id = c.id
+                          AND u.id IS NOT NULL
+                          AND cs1.uso_id = u.id
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT ts2.nombre
+                        FROM configuracion_soat cs2
+                        INNER JOIN tipos_soat ts2 ON ts2.id = cs2.tipo_soat_id
+                        WHERE cs2.estado = 'Activo'
+                          AND ts2.estado = 'Activo'
+                          AND c.id IS NOT NULL
+                          AND cs2.clase_id = c.id
+                        LIMIT 1
+                    ),
+                    ''
+                ) AS tipo_soat_nom,
+                COALESCE(
+                    (
+                        SELECT ts1.tasa_aas
+                        FROM configuracion_soat cs1
+                        INNER JOIN tipos_soat ts1 ON ts1.id = cs1.tipo_soat_id
+                        WHERE cs1.estado = 'Activo'
+                          AND ts1.estado = 'Activo'
+                          AND c.id IS NOT NULL
+                          AND cs1.clase_id = c.id
+                          AND u.id IS NOT NULL
+                          AND cs1.uso_id = u.id
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT ts2.tasa_aas
+                        FROM configuracion_soat cs2
+                        INNER JOIN tipos_soat ts2 ON ts2.id = cs2.tipo_soat_id
+                        WHERE cs2.estado = 'Activo'
+                          AND ts2.estado = 'Activo'
+                          AND c.id IS NOT NULL
+                          AND cs2.clase_id = c.id
+                        LIMIT 1
+                    ),
+                    0
+                ) AS tasa_aas,
+                COALESCE(
+                    (
+                        SELECT ts1.tasa_vendedor
+                        FROM configuracion_soat cs1
+                        INNER JOIN tipos_soat ts1 ON ts1.id = cs1.tipo_soat_id
+                        WHERE cs1.estado = 'Activo'
+                          AND ts1.estado = 'Activo'
+                          AND c.id IS NOT NULL
+                          AND cs1.clase_id = c.id
+                          AND u.id IS NOT NULL
+                          AND cs1.uso_id = u.id
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT ts2.tasa_vendedor
+                        FROM configuracion_soat cs2
+                        INNER JOIN tipos_soat ts2 ON ts2.id = cs2.tipo_soat_id
+                        WHERE cs2.estado = 'Activo'
+                          AND ts2.estado = 'Activo'
+                          AND c.id IS NOT NULL
+                          AND cs2.clase_id = c.id
+                        LIMIT 1
+                    ),
+                    0
+                ) AS tasa_vendedor
+            FROM polizas p2
+            LEFT JOIN clases c
+                ON CONVERT(c.nombre USING utf8mb4) COLLATE utf8mb4_0900_ai_ci =
+                   CONVERT(JSON_UNQUOTE(JSON_EXTRACT(p2.datos_vehiculo, '$.clase')) USING utf8mb4) COLLATE utf8mb4_0900_ai_ci
+            LEFT JOIN usos u
+                ON CONVERT(u.nombre USING utf8mb4) COLLATE utf8mb4_0900_ai_ci =
+                   CONVERT(JSON_UNQUOTE(JSON_EXTRACT(p2.datos_vehiculo, '$.uso')) USING utf8mb4) COLLATE utf8mb4_0900_ai_ci
+            LEFT JOIN agentes a
+                ON a.codigo_agente = TRIM(COALESCE(p2.codigo_agente, ''))
+               AND a.estado = 'ACTIVO'
+            WHERE (
+                    CONVERT(COALESCE(p2.ramo, '') USING utf8mb4) COLLATE utf8mb4_0900_ai_ci LIKE '%SOAT%'
+                    OR CONVERT(COALESCE(p2.ramos_producto, '') USING utf8mb4) COLLATE utf8mb4_0900_ai_ci LIKE '%SOAT%'
+                  )
+              AND (
+                    COALESCE(p_solo_activos, 1) = 0
+                    OR (
+                        p2.activo = 1
+                        AND COALESCE(p2.anulado, 0) = 0
+                        AND COALESCE(p2.prima_anulada, 0) = 0
+                    )
+                  )
+        ) base
+    ) calc
+        ON calc.idPoliza = p.idPoliza
+    SET p.porc_compania = CASE
+                              WHEN ABS(COALESCE(calc.tasa_aas, 0)) > 0 AND ABS(COALESCE(calc.tasa_aas, 0)) <= 1
+                                  THEN ROUND(calc.tasa_aas * 100, 2)
+                              ELSE ROUND(COALESCE(calc.tasa_aas, 0), 2)
+                          END,
+        p.imp_compania = ROUND(
+            COALESCE(calc.prima_neta, 0) *
+            CASE
+                WHEN ABS(COALESCE(calc.tasa_aas, 0)) <= 1 THEN COALESCE(calc.tasa_aas, 0)
+                ELSE COALESCE(calc.tasa_aas, 0) / 100
+            END,
+            2
+        ),
+        p.porc_subagente = CASE
+                               WHEN ABS(COALESCE(calc.tasa_subagente, 0)) > 0 AND ABS(COALESCE(calc.tasa_subagente, 0)) <= 1
+                                   THEN ROUND(calc.tasa_subagente * 100, 2)
+                               ELSE ROUND(COALESCE(calc.tasa_subagente, 0), 2)
+                           END,
+        p.imp_subagente = ROUND(
+            ROUND(
+                COALESCE(calc.prima_neta, 0) *
+                CASE
+                    WHEN ABS(COALESCE(calc.tasa_aas, 0)) <= 1 THEN COALESCE(calc.tasa_aas, 0)
+                    ELSE COALESCE(calc.tasa_aas, 0) / 100
+                END,
+                2
+            ) *
+            CASE
+                WHEN ABS(COALESCE(calc.tasa_subagente, 0)) <= 1 THEN COALESCE(calc.tasa_subagente, 0)
+                ELSE COALESCE(calc.tasa_subagente, 0) / 100
+            END,
+            2
+        );
+
+    SELECT ROW_COUNT() AS polizas_actualizadas;
 END$$
 DELIMITER ;
 
