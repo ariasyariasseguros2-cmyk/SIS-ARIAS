@@ -2224,7 +2224,9 @@ BEGIN
 END$$
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS sp_reporte_vencimientos;
 DELIMITER $$
+
 CREATE PROCEDURE sp_reporte_vencimientos(
     IN p_usuarios VARCHAR(255),
     IN p_estado VARCHAR(50),
@@ -2239,12 +2241,27 @@ BEGIN
         p.ramo,
         p.ramos_producto AS producto,
         c.tipo_documento,
-        COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR), c.numero_documento) AS numero_documento,
-        COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR), c.razon_social) AS contratante,
-        COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR), p.poliza) AS poliza,
-        COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cobranza,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR),
+            c.numero_documento
+        ) AS numero_documento,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+            c.razon_social
+        ) AS contratante,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+            p.poliza
+        ) AS poliza,
+        COALESCE(
+            CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+            p.recibo
+        ) AS aviso_cobranza,
         (
-            SELECT COALESCE(CAST(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) AS CHAR), q.cupon)
+            SELECT COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) AS CHAR),
+                q.cupon
+            )
             FROM cuotas q
             WHERE q.poliza_id = p.idPoliza
               AND q.activo = 1
@@ -2273,22 +2290,49 @@ BEGIN
         p.prima_comercial_igv AS prima_total,
         p.estado
     FROM polizas p
-    INNER JOIN clientes c ON c.idCliente = p.cliente_id
-    LEFT JOIN usuarios ur ON ur.username = p.usuario_registro OR ur.nombre = p.usuario_registro
-    WHERE p.activo = 1 AND p.anulado = 0 AND COALESCE(p.prima_anulada, 0) = 0
-    AND (
-        p_usuarios IS NULL
-        OR p_usuarios = ''
-        OR FIND_IN_SET(COALESCE(ur.username, p.usuario_registro), p_usuarios)
-        OR FIND_IN_SET(COALESCE(NULLIF(TRIM(ur.nombre), ''), p.usuario_registro), p_usuarios)
-    )
-    AND (p_estado IS NULL OR p_estado = '' OR p.estado = p_estado)
-    -- Filtro por fecha de vigencia hasta (vencimiento)
-    AND (
-        (p_fecha_desde IS NULL AND p_fecha_hasta IS NULL)
-        OR (p.vig_hasta BETWEEN COALESCE(p_fecha_desde, '1900-01-01') AND COALESCE(p_fecha_hasta, '2900-12-31'))
-    )
-    AND (p_ramo IS NULL OR p_ramo = '' OR FIND_IN_SET(p.ramo, p_ramo))
+    INNER JOIN clientes c
+        ON c.idCliente = p.cliente_id
+    LEFT JOIN usuarios ur
+        ON CONVERT(ur.username USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+           CONVERT(p.usuario_registro USING utf8mb4) COLLATE utf8mb4_unicode_ci
+        OR CONVERT(ur.nombre USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+           CONVERT(p.usuario_registro USING utf8mb4) COLLATE utf8mb4_unicode_ci
+    WHERE p.activo = 1
+      AND p.anulado = 0
+      AND COALESCE(p.prima_anulada, 0) = 0
+      AND (
+            p_usuarios IS NULL
+            OR TRIM(CONVERT(p_usuarios USING utf8mb4) COLLATE utf8mb4_unicode_ci) = ''
+            OR FIND_IN_SET(
+                CONVERT(COALESCE(ur.username, p.usuario_registro) USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                CONVERT(p_usuarios USING utf8mb4) COLLATE utf8mb4_unicode_ci
+            ) > 0
+            OR FIND_IN_SET(
+                CONVERT(COALESCE(NULLIF(TRIM(ur.nombre), ''), p.usuario_registro) USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                CONVERT(p_usuarios USING utf8mb4) COLLATE utf8mb4_unicode_ci
+            ) > 0
+      )
+      AND (
+            p_estado IS NULL
+            OR TRIM(CONVERT(p_estado USING utf8mb4) COLLATE utf8mb4_unicode_ci) = ''
+            OR CONVERT(p.estado USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+               CONVERT(p_estado USING utf8mb4) COLLATE utf8mb4_unicode_ci
+      )
+      AND (
+            (p_fecha_desde IS NULL AND p_fecha_hasta IS NULL)
+            OR (
+                p.vig_hasta BETWEEN COALESCE(p_fecha_desde, '1900-01-01')
+                               AND COALESCE(p_fecha_hasta, '2900-12-31')
+            )
+      )
+      AND (
+            p_ramo IS NULL
+            OR TRIM(CONVERT(p_ramo USING utf8mb4) COLLATE utf8mb4_unicode_ci) = ''
+            OR FIND_IN_SET(
+                CONVERT(p.ramo USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                CONVERT(p_ramo USING utf8mb4) COLLATE utf8mb4_unicode_ci
+            ) > 0
+      )
     ORDER BY p.vig_hasta ASC;
 END$$
 DELIMITER ;
