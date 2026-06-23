@@ -194,57 +194,42 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial load
     initIncomeDayChart();
 
-    // 3. Doughnut Chart: Distribución por ramo
-    const ctxDistribution = document.getElementById('distributionChart');
-    if (ctxDistribution) {
-        const dist = data.distribution || {};
-        const generales  = (dist.generales  || {});
-        const soat       = (dist.soat       || {});
-        const personales = (dist.personales || {});
-        const g = (generales.vigentes  || 0) + (generales.renovar  || 0);
-        const s = (soat.vigentes       || 0) + (soat.renovar       || 0);
-        const p = (personales.vigentes || 0) + (personales.renovar || 0);
-        const total = g + s + p;
-
-        // Show a placeholder slice when all zeros so chart renders
-        const chartValues = total > 0
-            ? [g, s, p]
-            : [1, 0, 0];
-        const chartColors = total > 0
-            ? ['#3b82f6', '#f59e0b', '#10b981']
-            : ['#e2e8f0', '#e2e8f0', '#e2e8f0'];
-
-        new Chart(ctxDistribution, {
+    // 3. Doughnut Charts: uno por grupo
+    const dist = data.distribution || {};
+    function makeGroupDonut(canvasId, bucket, color) {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) return;
+        const b   = dist[bucket] || {};
+        const vig = b.vigentes || 0;
+        const ren = b.renovar  || 0;
+        const hasData = (vig + ren) > 0;
+        new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: ['Seg. Generales', 'SOAT', 'Seg. Personales'],
+                labels: ['Vigentes', 'Por renovar'],
                 datasets: [{
-                    data: chartValues,
-                    backgroundColor: chartColors,
+                    data: hasData ? [vig, ren] : [1, 0],
+                    backgroundColor: hasData ? [color, '#f59e0b'] : ['#e2e8f0', '#e2e8f0'],
                     borderWidth: 0,
-                    hoverOffset: 10
+                    hoverOffset: 8
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '78%',
+                cutout: '80%',
                 plugins: {
                     legend: { display: false },
                     tooltip: {
                         callbacks: {
-                            label: function(context) {
-                                if (total === 0) return 'Sin datos';
-                                const buckets = [generales, soat, personales];
-                                const b = buckets[context.dataIndex] || {};
-                                const vig = b.vigentes || 0;
-                                const ren = b.renovar  || 0;
-                                return [`Total: ${vig + ren}`, `Vigentes: ${vig}`, `Por renovar: ${ren}`];
-                            }
+                            label: c => hasData ? `${c.label}: ${c.parsed}` : 'Sin datos'
                         }
                     }
                 }
             }
         });
     }
+    makeGroupDonut('chartGenerales', 'generales', '#3b82f6');
+    makeGroupDonut('chartSoat',      'soat',       '#f59e0b');
+    makeGroupDonut('chartPersonales','personales', '#10b981');
 });
