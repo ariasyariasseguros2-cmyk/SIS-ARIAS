@@ -116,10 +116,14 @@ def disable_cache(response):
 
 @app.route('/')
 def index():
+    if session.get('user'):
+        return redirect(url_for('main.dashboard'))
     return render_template('view/landing.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if request.method == 'GET' and session.get('user'):
+        return redirect(url_for('main.dashboard'))
     if request.method == 'POST':
         session.clear()
 
