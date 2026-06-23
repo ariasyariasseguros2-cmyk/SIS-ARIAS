@@ -3208,7 +3208,6 @@ def clientes_extract_pdf():
 # RUTAS PARA CARGA MASIVA DE SOAT
 # =====================================================
 @bp.route('/carga-masiva-soat', methods=['GET'])
-@require_permission(lambda r: r in [Roles.BROKER, Roles.OPERADOR], response_mode='redirect')
 def carga_masiva_soat():
     """Renderiza la página de carga masiva de SOAT"""
     if 'user' not in session:
@@ -3228,7 +3227,6 @@ def carga_masiva_soat():
 
 
 @bp.route('/carga-masiva-soat/upload', methods=['POST'])
-@require_permission(lambda r: r in [Roles.BROKER, Roles.OPERADOR], response_mode='json')
 def carga_masiva_soat_upload():
     """Procesa el archivo Excel de carga masiva"""
     if 'user' not in session:
