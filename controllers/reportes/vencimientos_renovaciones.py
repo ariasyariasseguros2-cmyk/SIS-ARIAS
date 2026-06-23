@@ -9,13 +9,13 @@ from utils.financiamiento_grupal_reportes import enrich_rows_with_fg_metadata
 bp = Blueprint('reporte_vencimientos', __name__, url_prefix='/api/reportes')
 
 
-def _collect_cursor_rows(cursor):
-    rows = []
+def _collect_cursor_results(cursor):
+    results = []
     try:
         if getattr(cursor, 'with_rows', False):
-            rows = cursor.fetchall() or []
+            results.append(cursor.fetchall() or [])
     except Exception:
-        rows = []
+        results = []
 
     while True:
         try:
@@ -26,21 +26,31 @@ def _collect_cursor_rows(cursor):
             break
         try:
             if getattr(cursor, 'with_rows', False):
-                next_rows = cursor.fetchall() or []
-                if next_rows:
-                    rows = next_rows
+                results.append(cursor.fetchall() or [])
         except Exception:
             continue
 
-    return rows
+    return results
 
 
 def _run_vencimientos_call(cursor, params):
     cursor.execute(
-        "CALL sp_reporte_vencimientos(%s, %s, %s, %s, %s)",
+        "CALL sp_reporte_vencimientos(%s, %s, %s, %s, %s, %s, %s, %s, %s)",
         params,
     )
-    return _collect_cursor_rows(cursor)
+    results = _collect_cursor_results(cursor)
+    total = 0
+    rows = []
+    if results:
+        first = results[0] or []
+        if first and isinstance(first[0], dict):
+            try:
+                total = int(first[0].get('total') or 0)
+            except Exception:
+                total = 0
+    if len(results) > 1:
+        rows = results[1] or []
+    return {'rows': rows, 'total': total}
 
 
 def _get_session_ejecutivo_nombre():
@@ -156,7 +166,12 @@ def api_vencimientos():
     fecha_desde = request.args.get('fecha_desde')
     fecha_hasta = request.args.get('fecha_hasta')
     ramo = request.args.get('ramo', '').strip()
+    search = request.args.get('q', '').strip()
+    page = request.args.get('page', 1, type=int) or 1
+    limit = request.args.get('limit', 20, type=int) or 20
     session_ejecutivo = _get_session_ejecutivo_nombre()
+    page = max(1, page)
+    limit = max(1, min(limit, 200))
     
     # Handle empty strings as None for dates
     if not fecha_desde: fecha_desde = None
@@ -166,76 +181,12 @@ def api_vencimientos():
         ejecutivo = session_ejecutivo
     
     # Debug print
-    print(f"Reporte Vencimientos Params: user='{usuario}', ejecutivo='{ejecutivo}', estado='{estado}', ramo='{ramo}', desde={fecha_desde}, hasta={fecha_hasta}")
+    print(f"Reporte Vencimientos Params: user='{usuario}', ejecutivo='{ejecutivo}', estado='{estado}', ramo='{ramo}', q='{search}', page={page}, limit={limit}, desde={fecha_desde}, hasta={fecha_hasta}")
 
-    data = get_vencimientos(usuario, estado, fecha_desde, fecha_hasta, ramo)
+    result = get_vencimientos(usuario, ejecutivo, estado, fecha_desde, fecha_hasta, ramo, search, page, limit)
+    data = result.get('rows', [])
+    total = int(result.get('total') or 0)
     enrich_rows_with_fg_metadata(data, poliza_id_keys=("idPoliza", "poliza_id"))
-
-    # Adjuntar ejecutivo y filtrar por ejecutivo (sin tocar el SP)
-    if data:
-        try:
-            ids = []
-            for r in data:
-                try:
-                    pid = int(r.get('idPoliza')) if isinstance(r, dict) and r.get('idPoliza') is not None else None
-                except Exception:
-                    pid = None
-                if pid is not None:
-                    ids.append(pid)
-            ids = sorted(set(ids))
-
-            if ids:
-                conn = get_connection()
-                cur = conn.cursor(dictionary=True)
-                chunk = 900
-                exec_map = {}
-                doc_map = {}
-                for i in range(0, len(ids), chunk):
-                    batch = ids[i:i + chunk]
-                    placeholders = ",".join(["%s"] * len(batch))
-                    cur.execute(
-                        f"""
-                        SELECT
-                            p.idPoliza,
-                            p.ejecutivo,
-                            TRIM(
-                                COALESCE(
-                                    CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR),
-                                    CAST(AES_DECRYPT(c.numero_documento, @SIS_KEY) AS CHAR),
-                                    c.numero_documento,
-                                    ''
-                                )
-                            ) AS numero_documento
-                        FROM polizas p
-                        LEFT JOIN clientes c ON c.idCliente = p.cliente_id
-                        WHERE p.idPoliza IN ({placeholders})
-                        """,
-                        tuple(batch),
-                    )
-                    for row in cur.fetchall() or []:
-                        exec_map[row.get('idPoliza')] = row.get('ejecutivo')
-                        doc_map[row.get('idPoliza')] = (row.get('numero_documento') or '').strip()
-                cur.close()
-                conn.close()
-
-                for r in data:
-                    try:
-                        pid = int(r.get('idPoliza')) if r.get('idPoliza') is not None else None
-                    except Exception:
-                        pid = None
-                    r['ejecutivo'] = exec_map.get(pid) if pid is not None else None
-                    if pid is not None:
-                        doc = doc_map.get(pid) or ''
-                        if doc:
-                            r['numero_documento'] = doc
-        except Exception as e:
-            print(f"[vencimientos] error attach ejecutivo: {e}")
-
-    if ejecutivo:
-        selected = [p.strip() for p in str(ejecutivo).split(",") if p.strip()]
-        if selected:
-            sel_set = set(selected)
-            data = [r for r in (data or []) if (r.get('ejecutivo') or '') in sel_set]
 
     if role == Roles.OPERADOR:
         # Eliminar columnas de comisiones
@@ -244,10 +195,18 @@ def api_vencimientos():
             for k in keys_to_remove:
                 row.pop(k, None)
 
-    return jsonify(data)
+    pages = max(1, (total + limit - 1) // limit) if total else 1
+    return jsonify({
+        'rows': data,
+        'total': total,
+        'page': page,
+        'per_page': limit,
+        'pages': pages,
+    })
 
-def get_vencimientos(usuario, estado, fecha_desde=None, fecha_hasta=None, ramo=''):
-    params = (usuario, estado, fecha_desde, fecha_hasta, ramo)
+def get_vencimientos(usuario, ejecutivo, estado, fecha_desde=None, fecha_hasta=None, ramo='', search='', page=1, limit=20):
+    offset = max(0, (max(1, page) - 1) * max(1, limit))
+    params = (usuario, ejecutivo, estado, fecha_desde, fecha_hasta, ramo, search, limit, offset)
     conn = None
     cursor = None
     try:
@@ -303,22 +262,29 @@ def get_vencimientos(usuario, estado, fecha_desde=None, fecha_hasta=None, ramo='
                 cursor = conn.cursor(dictionary=True)
                 cursor.callproc(
                     'sp_reporte_vencimientos',
-                    (usuario, estado, fecha_desde, fecha_hasta, ramo)
+                    (usuario, ejecutivo, estado, fecha_desde, fecha_hasta, ramo, search, limit, offset)
                 )
-                results = []
-                for result in cursor.stored_results():
-                    fetched = result.fetchall() or []
-                    if fetched:
-                        results = fetched
-                return results
+                stored = [result.fetchall() or [] for result in cursor.stored_results()]
+                total = 0
+                rows = []
+                if stored:
+                    first = stored[0] or []
+                    if first and isinstance(first[0], dict):
+                        try:
+                            total = int(first[0].get('total') or 0)
+                        except Exception:
+                            total = 0
+                if len(stored) > 1:
+                    rows = stored[1] or []
+                return {'rows': rows, 'total': total}
         except Exception as fallback_error:
             print(f"[vencimientos] fallback callproc fallo: {fallback_error}")
             traceback.print_exc()
-        return []
+        return {'rows': [], 'total': 0}
     except Exception as e:
         print(f"[vencimientos] error no controlado: {e}")
         traceback.print_exc()
-        return []
+        return {'rows': [], 'total': 0}
     finally:
         if cursor is not None:
             try:

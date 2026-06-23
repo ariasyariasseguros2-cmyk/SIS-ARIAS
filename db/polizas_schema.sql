@@ -733,6 +733,10 @@ CREATE TABLE IF NOT EXISTS polizas (
 );
 
 CREATE UNIQUE INDEX uk_polizas_cliente_recibo ON polizas (cliente_id, recibo_uk);
+CREATE INDEX idx_polizas_reporte_vencimientos
+    ON polizas (activo, anulado, prima_anulada, vig_hasta, estado, ramo);
+CREATE INDEX idx_polizas_usuario_registro ON polizas (usuario_registro);
+CREATE INDEX idx_polizas_ejecutivo ON polizas (ejecutivo);
 
 ALTER TABLE financiamiento_grupal_avisos
 ADD CONSTRAINT fk_financiamiento_grupal_avisos_poliza
@@ -1689,6 +1693,8 @@ CREATE TABLE IF NOT EXISTS cuotas (
 );
 
 CREATE INDEX idx_cuotas_financiamiento_grupal ON cuotas (financiamiento_grupal_id);
+CREATE INDEX idx_cuotas_poliza_activo_venc ON cuotas (poliza_id, activo, fecha_vencimiento, idCuota);
+CREATE INDEX idx_cuotas_poliza_fecha_pago ON cuotas (poliza_id, fecha_pago);
 
 -- Nota operativa:
 -- El importe de las cuotas de financiamiento grupal debe salir de
@@ -2229,111 +2235,223 @@ DELIMITER $$
 
 CREATE PROCEDURE sp_reporte_vencimientos(
     IN p_usuarios VARCHAR(255),
+    IN p_ejecutivo TEXT,
     IN p_estado VARCHAR(50),
     IN p_fecha_desde DATE,
     IN p_fecha_hasta DATE,
-    IN p_ramo TEXT
+    IN p_ramo TEXT,
+    IN p_search TEXT,
+    IN p_limit INT,
+    IN p_offset INT
 )
 BEGIN
+    DECLARE v_limit INT DEFAULT 20;
+    DECLARE v_offset INT DEFAULT 0;
+
+    SET v_limit = GREATEST(COALESCE(p_limit, 20), 1);
+    SET v_offset = GREATEST(COALESCE(p_offset, 0), 0);
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_reporte_vencimientos;
+
+    CREATE TEMPORARY TABLE tmp_reporte_vencimientos AS
+    WITH base_rows AS (
+        SELECT
+            p.idPoliza,
+            p.cia AS compania,
+            p.ramo,
+            p.ramos_producto AS producto,
+            COALESCE(NULLIF(TRIM(p.ejecutivo), ''), '') AS ejecutivo,
+            c.tipo_documento,
+            TRIM(
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(c.numero_documento, @SIS_KEY) AS CHAR),
+                    c.numero_documento,
+                    ''
+                )
+            ) AS numero_documento,
+            COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                c.razon_social
+            ) AS contratante,
+            TRIM(
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza,
+                    ''
+                )
+            ) AS poliza,
+            COALESCE(
+                CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                p.recibo
+            ) AS aviso_cobranza,
+            (
+                SELECT COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(q.cupon, @SIS_KEY) AS CHAR),
+                    q.cupon
+                )
+                FROM cuotas q
+                WHERE q.poliza_id = p.idPoliza
+                  AND q.activo = 1
+                ORDER BY q.fecha_vencimiento DESC, q.idCuota DESC
+                LIMIT 1
+            ) AS cupon,
+            p.vig_desde,
+            p.vig_hasta,
+            (
+                SELECT DATE_FORMAT(MAX(q.fecha_pago), '%d/%m/%Y')
+                FROM cuotas q
+                WHERE q.poliza_id = p.idPoliza
+                  AND (
+                        (p.recibo IS NULL OR TRIM(p.recibo) = '')
+                        OR (q.cupon IS NOT NULL AND TRIM(q.cupon) = TRIM(p.recibo))
+                      )
+            ) AS fecha_pago,
+            (
+                SELECT COUNT(*)
+                FROM cuotas q
+                WHERE q.activo = 1
+                  AND q.poliza_id = p.idPoliza
+            ) AS cuotas_count,
+            p.moneda,
+            COALESCE(p.prima_neta, 0) AS prima_neta,
+            COALESCE(p.prima_comercial_igv, 0) AS prima_total,
+            p.estado
+        FROM polizas p
+        INNER JOIN clientes c
+            ON c.idCliente = p.cliente_id
+        LEFT JOIN usuarios ur
+            ON CONVERT(ur.username USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+               CONVERT(p.usuario_registro USING utf8mb4) COLLATE utf8mb4_unicode_ci
+            OR CONVERT(ur.nombre USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+               CONVERT(p.usuario_registro USING utf8mb4) COLLATE utf8mb4_unicode_ci
+        WHERE p.activo = 1
+          AND p.anulado = 0
+          AND COALESCE(p.prima_anulada, 0) = 0
+          AND (
+                p_usuarios IS NULL
+                OR TRIM(CONVERT(p_usuarios USING utf8mb4) COLLATE utf8mb4_unicode_ci) = ''
+                OR FIND_IN_SET(
+                    CONVERT(COALESCE(ur.username, p.usuario_registro) USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(p_usuarios USING utf8mb4) COLLATE utf8mb4_unicode_ci
+                ) > 0
+                OR FIND_IN_SET(
+                    CONVERT(COALESCE(NULLIF(TRIM(ur.nombre), ''), p.usuario_registro) USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(p_usuarios USING utf8mb4) COLLATE utf8mb4_unicode_ci
+                ) > 0
+          )
+          AND (
+                p_estado IS NULL
+                OR TRIM(CONVERT(p_estado USING utf8mb4) COLLATE utf8mb4_unicode_ci) = ''
+                OR CONVERT(p.estado USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+                   CONVERT(p_estado USING utf8mb4) COLLATE utf8mb4_unicode_ci
+          )
+          AND (
+                p_ejecutivo IS NULL
+                OR TRIM(CONVERT(p_ejecutivo USING utf8mb4) COLLATE utf8mb4_unicode_ci) = ''
+                OR FIND_IN_SET(
+                    CONVERT(COALESCE(NULLIF(TRIM(p.ejecutivo), ''), '') USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(p_ejecutivo USING utf8mb4) COLLATE utf8mb4_unicode_ci
+                ) > 0
+          )
+          AND (
+                (p_fecha_desde IS NULL AND p_fecha_hasta IS NULL)
+                OR (
+                    p.vig_hasta BETWEEN COALESCE(p_fecha_desde, '1900-01-01')
+                                   AND COALESCE(p_fecha_hasta, '2900-12-31')
+                )
+          )
+          AND (
+                p_ramo IS NULL
+                OR TRIM(CONVERT(p_ramo USING utf8mb4) COLLATE utf8mb4_unicode_ci) = ''
+                OR FIND_IN_SET(
+                    CONVERT(p.ramo USING utf8mb4) COLLATE utf8mb4_unicode_ci,
+                    CONVERT(p_ramo USING utf8mb4) COLLATE utf8mb4_unicode_ci
+                ) > 0
+          )
+    ),
+    ranked_rows AS (
+        SELECT
+            base_rows.*,
+            MIN(base_rows.vig_desde) OVER (PARTITION BY base_rows.poliza) AS min_vig_desde,
+            MAX(base_rows.vig_hasta) OVER (PARTITION BY base_rows.poliza) AS max_vig_hasta,
+            SUM(base_rows.prima_neta) OVER (PARTITION BY base_rows.poliza) AS sum_prima_neta,
+            SUM(base_rows.prima_total) OVER (PARTITION BY base_rows.poliza) AS sum_prima_total,
+            ROW_NUMBER() OVER (
+                PARTITION BY base_rows.poliza
+                ORDER BY base_rows.vig_hasta DESC, base_rows.idPoliza DESC
+            ) AS rn
+        FROM base_rows
+    )
     SELECT
-        p.idPoliza,
-        p.cia AS compania,
-        p.ramo,
-        p.ramos_producto AS producto,
-        c.tipo_documento,
-        COALESCE(
-            CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), @SIS_KEY) AS CHAR),
-            c.numero_documento
-        ) AS numero_documento,
-        COALESCE(
-            CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
-            c.razon_social
-        ) AS contratante,
-        COALESCE(
-            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
-            p.poliza
-        ) AS poliza,
-        COALESCE(
-            CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
-            p.recibo
-        ) AS aviso_cobranza,
-        (
-            SELECT COALESCE(
-                CAST(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) AS CHAR),
-                q.cupon
-            )
-            FROM cuotas q
-            WHERE q.poliza_id = p.idPoliza
-              AND q.activo = 1
-            ORDER BY q.fecha_vencimiento DESC, q.idCuota DESC
-            LIMIT 1
-        ) AS cupon,
-        DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
-        DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
-        (
-            SELECT DATE_FORMAT(MAX(q.fecha_pago), '%d/%m/%Y')
-            FROM cuotas q
-            WHERE q.poliza_id = p.idPoliza
-              AND (
-                    (p.recibo IS NULL OR TRIM(p.recibo) = '')
-                    OR (q.cupon IS NOT NULL AND TRIM(q.cupon) = TRIM(p.recibo))
-                  )
-        ) AS fecha_pago,
-        (
-            SELECT COUNT(*)
-            FROM cuotas q
-            WHERE q.activo = 1
-              AND q.poliza_id = p.idPoliza
-        ) AS cuotas_count,
-        p.moneda,
-        p.prima_neta AS prima_neta,
-        p.prima_comercial_igv AS prima_total,
-        p.estado
-    FROM polizas p
-    INNER JOIN clientes c
-        ON c.idCliente = p.cliente_id
-    LEFT JOIN usuarios ur
-        ON CONVERT(ur.username USING utf8mb4) COLLATE utf8mb4_unicode_ci =
-           CONVERT(p.usuario_registro USING utf8mb4) COLLATE utf8mb4_unicode_ci
-        OR CONVERT(ur.nombre USING utf8mb4) COLLATE utf8mb4_unicode_ci =
-           CONVERT(p.usuario_registro USING utf8mb4) COLLATE utf8mb4_unicode_ci
-    WHERE p.activo = 1
-      AND p.anulado = 0
-      AND COALESCE(p.prima_anulada, 0) = 0
-      AND (
-            p_usuarios IS NULL
-            OR TRIM(CONVERT(p_usuarios USING utf8mb4) COLLATE utf8mb4_unicode_ci) = ''
-            OR FIND_IN_SET(
-                CONVERT(COALESCE(ur.username, p.usuario_registro) USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                CONVERT(p_usuarios USING utf8mb4) COLLATE utf8mb4_unicode_ci
-            ) > 0
-            OR FIND_IN_SET(
-                CONVERT(COALESCE(NULLIF(TRIM(ur.nombre), ''), p.usuario_registro) USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                CONVERT(p_usuarios USING utf8mb4) COLLATE utf8mb4_unicode_ci
-            ) > 0
-      )
-      AND (
-            p_estado IS NULL
-            OR TRIM(CONVERT(p_estado USING utf8mb4) COLLATE utf8mb4_unicode_ci) = ''
-            OR CONVERT(p.estado USING utf8mb4) COLLATE utf8mb4_unicode_ci =
-               CONVERT(p_estado USING utf8mb4) COLLATE utf8mb4_unicode_ci
-      )
-      AND (
-            (p_fecha_desde IS NULL AND p_fecha_hasta IS NULL)
-            OR (
-                p.vig_hasta BETWEEN COALESCE(p_fecha_desde, '1900-01-01')
-                               AND COALESCE(p_fecha_hasta, '2900-12-31')
-            )
-      )
-      AND (
-            p_ramo IS NULL
-            OR TRIM(CONVERT(p_ramo USING utf8mb4) COLLATE utf8mb4_unicode_ci) = ''
-            OR FIND_IN_SET(
-                CONVERT(p.ramo USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                CONVERT(p_ramo USING utf8mb4) COLLATE utf8mb4_unicode_ci
-            ) > 0
-      )
-    ORDER BY p.vig_hasta ASC;
+        idPoliza,
+        compania,
+        ramo,
+        producto,
+        ejecutivo,
+        tipo_documento,
+        numero_documento,
+        contratante,
+        poliza,
+        aviso_cobranza,
+        cupon,
+        DATE_FORMAT(min_vig_desde, '%d/%m/%Y') AS vig_desde,
+        DATE_FORMAT(max_vig_hasta, '%d/%m/%Y') AS vig_hasta,
+        max_vig_hasta AS sort_vig_hasta,
+        fecha_pago,
+        cuotas_count,
+        moneda,
+        sum_prima_neta AS prima_neta,
+        sum_prima_total AS prima_total,
+        estado
+    FROM ranked_rows
+    WHERE rn = 1;
+
+    SELECT COUNT(*) AS total
+    FROM tmp_reporte_vencimientos t
+    WHERE (
+            p_search IS NULL
+            OR TRIM(CONVERT(p_search USING utf8mb4) COLLATE utf8mb4_unicode_ci) = ''
+            OR CONVERT(COALESCE(t.poliza, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE CONCAT('%', CONVERT(p_search USING utf8mb4) COLLATE utf8mb4_unicode_ci, '%')
+            OR CONVERT(COALESCE(t.aviso_cobranza, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE CONCAT('%', CONVERT(p_search USING utf8mb4) COLLATE utf8mb4_unicode_ci, '%')
+            OR CONVERT(COALESCE(t.cupon, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE CONCAT('%', CONVERT(p_search USING utf8mb4) COLLATE utf8mb4_unicode_ci, '%')
+          );
+
+    SELECT
+        t.idPoliza,
+        t.compania,
+        t.ramo,
+        t.producto,
+        t.ejecutivo,
+        t.tipo_documento,
+        t.numero_documento,
+        t.contratante,
+        t.poliza,
+        t.aviso_cobranza,
+        t.cupon,
+        t.vig_desde,
+        t.vig_hasta,
+        t.fecha_pago,
+        t.cuotas_count,
+        t.moneda,
+        t.prima_neta,
+        t.prima_total,
+        t.estado
+    FROM tmp_reporte_vencimientos t
+    WHERE (
+            p_search IS NULL
+            OR TRIM(CONVERT(p_search USING utf8mb4) COLLATE utf8mb4_unicode_ci) = ''
+            OR CONVERT(COALESCE(t.poliza, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE CONCAT('%', CONVERT(p_search USING utf8mb4) COLLATE utf8mb4_unicode_ci, '%')
+            OR CONVERT(COALESCE(t.aviso_cobranza, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE CONCAT('%', CONVERT(p_search USING utf8mb4) COLLATE utf8mb4_unicode_ci, '%')
+            OR CONVERT(COALESCE(t.cupon, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci LIKE CONCAT('%', CONVERT(p_search USING utf8mb4) COLLATE utf8mb4_unicode_ci, '%')
+          )
+    ORDER BY t.sort_vig_hasta ASC, t.idPoliza DESC
+    LIMIT v_limit OFFSET v_offset;
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_reporte_vencimientos;
 END$$
 DELIMITER ;
 

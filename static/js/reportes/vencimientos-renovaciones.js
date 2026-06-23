@@ -21,11 +21,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Pagination state
     let allData = [];
-    let rawData = [];
     let currentPage = 1;
     let rowsPerPage = 15;
+    let totalRows = 0;
+    let totalPages = 1;
     let currentFetchController = null;
     let currentRequestId = 0;
+    let currentFilters = {
+        usuario: '',
+        ejecutivo: '',
+        estado: '',
+        fechaDesde: '',
+        fechaHasta: '',
+        ramo: '',
+        q: '',
+    };
 
     function escapeHtml(value) {
         return String(value || '')
@@ -77,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function() {
         rowsPerPageSelect.addEventListener('change', function() {
             rowsPerPage = parseInt(this.value);
             currentPage = 1;
-            renderPaginatedTable();
+            fetchCurrentPage();
         });
     }
 
@@ -108,8 +118,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const estado = document.getElementById('estadoSelect').value;
             const fechaDesde = document.getElementById('fechaDesde').value;
             const fechaHasta = document.getElementById('fechaHasta').value;
+            const q = (searchQueryEl ? searchQueryEl.value : '').toString().trim();
 
-            fetchData(usuarios, ejecutivos, estado, fechaDesde, fechaHasta, ramos);
+            currentFilters = {
+                usuario: usuarios,
+                ejecutivo: ejecutivos,
+                estado,
+                fechaDesde,
+                fechaHasta,
+                ramo: ramos,
+                q,
+            };
+            currentPage = 1;
+            fetchCurrentPage();
         });
     }
 
@@ -119,7 +140,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (t) clearTimeout(t);
             t = setTimeout(() => {
                 currentPage = 1;
-                applyClientFiltersAndRender();
+                currentFilters.q = (searchQueryEl.value || '').toString().trim();
+                fetchCurrentPage();
             }, 150);
         });
     }
@@ -523,22 +545,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function applyClientFiltersAndRender() {
-        const q = (searchQueryEl ? searchQueryEl.value : '').toString().trim().toLowerCase();
-        const filtered = !q
-            ? (rawData || [])
-            : (rawData || []).filter(r => {
-                const poliza = (r.poliza || '').toString().toLowerCase();
-                const aviso = (r.aviso_cobranza || '').toString().toLowerCase();
-                const cupon = (r.cupon || '').toString().toLowerCase();
-                return poliza.includes(q) || aviso.includes(q) || cupon.includes(q);
-            });
-
-        allData = groupByPoliza(filtered);
-        renderPaginatedTable();
+    function fetchCurrentPage() {
+        return fetchData(
+            currentFilters.usuario || '',
+            currentFilters.ejecutivo || '',
+            currentFilters.estado || '',
+            currentFilters.fechaDesde || '',
+            currentFilters.fechaHasta || '',
+            currentFilters.ramo || '',
+            currentFilters.q || ''
+        );
     }
 
-    async function fetchData(usuario, ejecutivo, estado, fechaDesde, fechaHasta, ramo) {
+    async function fetchData(usuario, ejecutivo, estado, fechaDesde, fechaHasta, ramo, q) {
         const requestId = ++currentRequestId;
         try {
             if (currentFetchController) {
@@ -552,12 +571,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitButton.textContent = 'Cargando...';
             }
 
-            let url = `/api/reportes/vencimientos-renovaciones?usuario=${encodeURIComponent(usuario)}&estado=${encodeURIComponent(estado)}`;
+            let url = `/api/reportes/vencimientos-renovaciones?usuario=${encodeURIComponent(usuario)}&estado=${encodeURIComponent(estado)}&page=${encodeURIComponent(currentPage)}&limit=${encodeURIComponent(rowsPerPage)}`;
             
             if (fechaDesde) url += `&fecha_desde=${encodeURIComponent(fechaDesde)}`;
             if (fechaHasta) url += `&fecha_hasta=${encodeURIComponent(fechaHasta)}`;
             if (ramo) url += `&ramo=${encodeURIComponent(ramo)}`;
             if (ejecutivo) url += `&ejecutivo=${encodeURIComponent(ejecutivo)}`;
+            if (q) url += `&q=${encodeURIComponent(q)}`;
 
             const response = await fetch(url, { signal: currentFetchController.signal });
             const data = await response.json();
@@ -566,16 +586,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            if (!data || data.length === 0) {
-                rawData = [];
+            const rows = (data && Array.isArray(data.rows)) ? data.rows : [];
+            totalRows = Number((data && data.total) || 0) || 0;
+            totalPages = Math.max(1, Number((data && data.pages) || 1) || 1);
+
+            if (!rows.length) {
                 allData = [];
                 renderPaginatedTable();
                 return;
             }
 
-            rawData = data;
-            currentPage = 1;
-            applyClientFiltersAndRender();
+            allData = rows;
+            renderPaginatedTable();
         } catch (error) {
             if (error && error.name === 'AbortError') {
                 return;
@@ -601,14 +623,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (paginationContainer) paginationContainer.style.display = 'flex';
-
-        if (rowsPerPageSelect) rowsPerPage = parseInt(rowsPerPageSelect.value);
-
-        const startIndex = (currentPage - 1) * rowsPerPage;
-        const endIndex = startIndex + rowsPerPage;
-        const slicedData = allData.slice(startIndex, endIndex);
-
-        renderTableRows(slicedData);
+        renderTableRows(allData);
         renderPaginationControls();
     }
 
@@ -649,8 +664,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderPaginationControls() {
         if (!paginationControls) return;
-        
-        const totalPages = Math.ceil(allData.length / rowsPerPage);
         let html = '';
 
         // Previous
@@ -693,17 +706,16 @@ document.addEventListener('DOMContentLoaded', function() {
         paginationControls.innerHTML = html;
 
         if (pageInfo) {
-            const start = (currentPage - 1) * rowsPerPage + 1;
-            const end = Math.min(currentPage * rowsPerPage, allData.length);
-            pageInfo.textContent = `${start}-${end} de ${allData.length}`;
+            const start = totalRows > 0 ? ((currentPage - 1) * rowsPerPage) + 1 : 0;
+            const end = Math.min(currentPage * rowsPerPage, totalRows);
+            pageInfo.textContent = `${start}-${end} de ${totalRows}`;
         }
     }
 
     window.changePage = function(page) {
-        const totalPages = Math.ceil(allData.length / rowsPerPage);
         if (page < 1 || page > totalPages) return;
         currentPage = page;
-        renderPaginatedTable();
+        fetchCurrentPage();
     };
 
     // Helper: agrupar por póliza (o idPoliza si existe) y sumar primas neta y total
