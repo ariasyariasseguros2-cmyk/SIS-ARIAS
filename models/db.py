@@ -18,7 +18,7 @@ def get_encrypt_key():
     return cfg.get("key_encrypt_bd")
 
 
-def get_connection():
+def get_connection(connect_timeout=None, read_timeout=None, write_timeout=None):
     cfg = load_settings()
 
     key_phrase = cfg.get("key_encrypt_bd")
@@ -43,9 +43,30 @@ def get_connection():
     else:
         db_password = plain
 
-    connect_timeout_raw = os.environ.get("SIS_ARIAS_DB_CONNECT_TIMEOUT") or db_cfg.get("connect_timeout") or db_cfg.get("connection_timeout") or 5
-    read_timeout_raw = os.environ.get("SIS_ARIAS_DB_READ_TIMEOUT") or db_cfg.get("read_timeout") or 30
-    write_timeout_raw = os.environ.get("SIS_ARIAS_DB_WRITE_TIMEOUT") or db_cfg.get("write_timeout") or 30
+    connect_timeout_raw = connect_timeout
+    if connect_timeout_raw is None:
+        connect_timeout_raw = (
+            os.environ.get("SIS_ARIAS_DB_CONNECT_TIMEOUT")
+            or db_cfg.get("connect_timeout")
+            or db_cfg.get("connection_timeout")
+            or 5
+        )
+
+    read_timeout_raw = read_timeout
+    if read_timeout_raw is None:
+        read_timeout_raw = (
+            os.environ.get("SIS_ARIAS_DB_READ_TIMEOUT")
+            or db_cfg.get("read_timeout")
+            or 30
+        )
+
+    write_timeout_raw = write_timeout
+    if write_timeout_raw is None:
+        write_timeout_raw = (
+            os.environ.get("SIS_ARIAS_DB_WRITE_TIMEOUT")
+            or db_cfg.get("write_timeout")
+            or 30
+        )
 
     auth_plugin = os.environ.get("SIS_ARIAS_DB_AUTH_PLUGIN") or db_cfg.get("auth_plugin")
 
