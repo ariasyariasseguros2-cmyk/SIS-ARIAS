@@ -437,11 +437,24 @@ def get_distribution_by_group() -> Dict[str, Any]:
             )
             user_filter_args = [user, nombre_usuario, user, nombre_usuario]
 
+        # SOAT=1 día, resto=30 días; ajustar si cambian reglas de negocio
         sql = f"""
             SELECT
                 UPPER(TRIM(COALESCE(r.grupo, ''))) AS grupo,
-                SUM(CASE WHEN p.vig_hasta > DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS vigentes,
-                SUM(CASE WHEN p.vig_hasta BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS renovar
+                SUM(CASE
+                    WHEN UPPER(TRIM(COALESCE(r.grupo, ''))) LIKE '%SOAT%'
+                        AND p.vig_hasta > DATE_ADD(CURDATE(), INTERVAL 1 DAY)  THEN 1
+                    WHEN UPPER(TRIM(COALESCE(r.grupo, ''))) NOT LIKE '%SOAT%'
+                        AND p.vig_hasta > DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1
+                    ELSE 0
+                END) AS vigentes,
+                SUM(CASE
+                    WHEN UPPER(TRIM(COALESCE(r.grupo, ''))) LIKE '%SOAT%'
+                        AND p.vig_hasta BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 1 DAY)  THEN 1
+                    WHEN UPPER(TRIM(COALESCE(r.grupo, ''))) NOT LIKE '%SOAT%'
+                        AND p.vig_hasta BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1
+                    ELSE 0
+                END) AS renovar
             FROM polizas p
             LEFT JOIN ramos r ON LOWER(TRIM(p.ramo)) = LOWER(TRIM(r.nombre))
             WHERE p.activo = 1
