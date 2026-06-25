@@ -3317,6 +3317,7 @@ def carga_masiva_soat_upload():
                 'polizas_insertadas': result.get('polizas_insertadas', 0),
                 'polizas_anuladas': result.get('polizas_anuladas', 0),
                 'polizas_existentes': result.get('polizas_existentes', 0),
+                'polizas_recibo_existentes': result.get('polizas_recibo_existentes', 0),
                 'cuotas_insertadas': result.get('cuotas_insertadas', 0),
                 'cuotas_existentes': result.get('cuotas_existentes', 0),
                 'polizas_insertadas_soles': result.get('polizas_insertadas_soles', 0),

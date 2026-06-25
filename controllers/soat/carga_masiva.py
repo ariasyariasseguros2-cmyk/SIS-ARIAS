@@ -150,72 +150,92 @@ def map_excel_columns(df: pd.DataFrame) -> pd.DataFrame:
         key = _normalize_header(col)
         norm_to_indices.setdefault(key, []).append(idx)
 
+    normalized_headers = [_normalize_header(col) for col in list(df2.columns)]
+
+    def _find_best_column_index(*aliases: str) -> Optional[int]:
+        aliases_norm = []
+        for alias in aliases:
+            alias_norm = _normalize_header(alias)
+            if alias_norm:
+                aliases_norm.append(alias_norm)
+        if not aliases_norm:
+            return None
+
+        exact_matches = []
+        partial_matches = []
+        for idx, header_norm in enumerate(normalized_headers):
+            if not header_norm:
+                continue
+            for alias_norm in aliases_norm:
+                if header_norm == alias_norm:
+                    exact_matches.append(idx)
+                    break
+                alias_tokens = [tok for tok in alias_norm.split() if tok]
+                if alias_tokens and all(tok in header_norm for tok in alias_tokens):
+                    partial_matches.append(idx)
+                    break
+                if alias_norm in header_norm or header_norm in alias_norm:
+                    partial_matches.append(idx)
+                    break
+
+        if exact_matches:
+            return exact_matches[-1]
+        if partial_matches:
+            return partial_matches[-1]
+        return None
+
     synonyms = {
-        'poliza': 'POLIZA_CERTF',
-        'cia'                   : 'COMPANIA_NOMBRE_CORTO',
-        'cia.'                  : 'COMPANIA_NOMBRE_CORTO',
-        'compania'              : 'COMPANIA_NOMBRE_CORTO',
-        'compañia'              : 'COMPANIA_NOMBRE_CORTO',
-        'compania nombre corto' : 'COMPANIA_NOMBRE_CORTO',
-        'aseguradora'           : 'COMPANIA_NOMBRE_CORTO',
-        'fec emision': 'FECHA_EMISION',
-        'fec. emision': 'FECHA_EMISION',
-        'fecha emision': 'FECHA_EMISION',
-        'ini vigencia': 'VIGENCIA_INICIO',
-        'ini.vigencia': 'VIGENCIA_INICIO',
-        'fin vigencia': 'VIGENCIA_FIN',
-        'fecha vencimiento': 'FECHA_VENCIMIENTO',
-        'fec vencimiento': 'FECHA_VENCIMIENTO',
-        'fec. vencimiento': 'FECHA_VENCIMIENTO',
-        'moneda': 'MONEDA_ABREVIACION',
-        'moned': 'MONEDA_ABREVIACION',
-        'moneda abreviacion': 'MONEDA_ABREVIACION',
-        'moneda abrev': 'MONEDA_ABREVIACION',
-        'moneda abre': 'MONEDA_ABREVIACION',
-        'prima': 'PRIMA',
-        'cod agenc': 'COD_AGENTE',
-        'cod.agenc': 'COD_AGENTE',
-        'vendedor': 'VENDEDOR',
-        'aplicacion': 'APLICACION',
-        'tipo persona': 'TIPO_PERSONA',
-        'tipopersona': 'TIPO_PERSONA',
-        'nombre': 'NOMBRE_RAZON_SOCIAL',
-        'numero documento': 'NUMERO_DOCUMENTO',
-        'direccion': 'DIRECCION',
-        'departamento': 'DEPARTAMENTO',
-        'provincia': 'PROVINCIA',
-        'distrito': 'DISTRITO',
-        'telefono': 'TELEFONO',
-        'celular': 'CELULAR',
-        'email': 'EMAIL',
-        'prod': 'PRODUCTO_ABREVIACION',
-        'producto': 'PRODUCTO_ABREVIACION',
-        'tipo placa': 'TIPO_PLACA',
-        'tipoplaca': 'TIPO_PLACA',
-        'placa': 'PLACA',
-        'uso': 'USO',
-        'clase': 'CLASE',
-        'marca': 'MARCA',
-        'desc modelo': 'MODELO',
-        'desc.modelo': 'MODELO',
-        'serie': 'SERIE',
-        'asientos': 'ASIENTOS',
-        'anio': 'ANIO',
-        'ano': 'ANIO',
-        'año': 'ANIO',
-        'planilla': 'PLANILLA',
-        'recibo': 'RECIBO',
-        'cupon': 'CUPON',
-        'formulario': 'FORMULARIO',
-        'estado': 'ESTADO'
+        'POLIZA_CERTF': ['poliza', 'poliza certf', 'poliza cert', 'certificado poliza', 'certificado'],
+        'COMPANIA_NOMBRE_CORTO': ['cia', 'cia.', 'compania', 'compañia', 'compania nombre corto', 'aseguradora'],
+        'FECHA_EMISION': ['fec emision', 'fec. emision', 'fecha emision'],
+        'VIGENCIA_INICIO': ['ini vigencia', 'ini.vigencia', 'vigencia inicio', 'inicio vigencia'],
+        'VIGENCIA_FIN': ['fin vigencia', 'vigencia fin', 'fin de vigencia'],
+        'FECHA_VENCIMIENTO': ['fecha vencimiento', 'fec vencimiento', 'fec. vencimiento'],
+        'MONEDA_ABREVIACION': ['moneda', 'moned', 'moneda abreviacion', 'moneda abrev', 'moneda abre'],
+        'PRIMA': ['prima', 'prima comercial', 'prima comercial igv', 'prima comercial + igv'],
+        'PRIMA_NETA': ['prima neta'],
+        'PRIMA_TOTAL': ['prima total', 'prima mas igv', 'prima + igv'],
+        'COD_AGENTE': ['cod agenc', 'cod.agenc', 'codigo agente', 'cod agente'],
+        'VENDEDOR': ['vendedor', 'ejecutivo', 'subagente'],
+        'APLICACION': ['aplicacion'],
+        'TIPO_PERSONA': ['tipo persona', 'tipopersona', 'contratante tipo persona'],
+        'NOMBRE_RAZON_SOCIAL': ['nombre', 'razon social', 'nombre razon social', 'contratante nombre', 'contratante razon social'],
+        'NUMERO_DOCUMENTO': ['numero documento', 'nro documento', 'nro doc', 'documento', 'tipo doc numero documento'],
+        'DIRECCION': ['direccion', 'direccion contratante'],
+        'DEPARTAMENTO': ['departamento', 'dpto', 'depart'],
+        'PROVINCIA': ['provincia', 'prov'],
+        'DISTRITO': ['distrito', 'dist'],
+        'TELEFONO': ['telefono', 'fono'],
+        'CELULAR': ['celular', 'movil'],
+        'EMAIL': ['email', 'correo'],
+        'PRODUCTO_ABREVIACION': ['prod', 'producto'],
+        'TIPO_PLACA': ['tipo placa', 'tipoplaca'],
+        'PLACA': ['placa', 'vehiculo placa'],
+        'USO': ['uso', 'vehiculo uso'],
+        'CLASE': ['clase', 'vehiculo clase'],
+        'MARCA': ['marca', 'vehiculo marca'],
+        'MODELO': ['desc modelo', 'desc.modelo', 'modelo', 'vehiculo modelo'],
+        'SERIE': ['serie', 'serie motor', 'vehiculo serie'],
+        'ASIENTOS': ['asientos'],
+        'ANIO': ['anio', 'ano', 'año'],
+        'PLANILLA': ['planilla', 'resp de pago planilla', 'resp pago planilla'],
+        'RECIBO': ['recibo', 'resp de pago recibo', 'resp pago recibo'],
+        'CUPON': ['cupon', 'cupón'],
+        'FORMULARIO': ['formulario'],
+        'ESTADO': ['estado']
     }
 
-    for norm_key, dst in synonyms.items():
+    for dst, aliases in synonyms.items():
         if dst in df2.columns:
             continue
-        if norm_key in norm_to_indices:
-            idxs = norm_to_indices[norm_key]
-            chosen_idx = idxs[-1]  # tomar la última aparición (contratante suele ir después)
+        chosen_idx = _find_best_column_index(*aliases)
+        if chosen_idx is None:
+            # Fallback a coincidencia exacta para compatibilidad con encabezados simples.
+            idxs = []
+            for alias in aliases:
+                idxs.extend(norm_to_indices.get(_normalize_header(alias), []))
+            chosen_idx = idxs[-1] if idxs else None
+        if chosen_idx is not None:
             df2[dst] = df2.iloc[:, chosen_idx]
 
     if 'PRIMA' in df2.columns:
@@ -253,28 +273,69 @@ def _normalize_header_token(token: str) -> str:
     return token.lower()
 
 
-def _detect_header_row(df_raw: pd.DataFrame) -> Optional[int]:
-    candidates = {
-        'poliza', 'ini vigencia', 'ini.vigencia', 'fin vigencia', 'fec emision', 'fec. emision',
-        'nombre', 'numero documento', 'direccion', 'departamento', 'provincia', 'distrito',
-        'moneda', 'moned', 'prima', 'vendedor', 'cod agenc', 'placa', 'uso', 'clase', 'marca',
-        'desc modelo', 'desc.modelo', 'serie', 'ano', 'año', 'anio',
-        'cia', 'cia.', 'compania', 'compañia', 'aseguradora',
-        'recibo', 'planilla', 'cupon', 'fecha vencimiento', 'telefono', 'celular', 'email', 'prod', 'producto',
-        'tipo persona', 'tipopersona', 'vigencia inicio', 'vigencia fin', 'moneda abreviacion',
-        'prima neta', 'prima total', 'tipo doc'
-    }
+def _is_meaningful_header_value(value) -> bool:
+    token = _normalize_header_token(value)
+    if not token or token in {'nan', 'none'}:
+        return False
+    if token.startswith('unnamed'):
+        return False
+    return True
+
+
+def _compose_header_values(df_raw: pd.DataFrame, start_row: int, depth: int) -> list[str]:
+    total_rows = len(df_raw.index)
+    total_cols = df_raw.shape[1] if hasattr(df_raw, 'shape') else 0
+    values: list[str] = []
+    for col_idx in range(total_cols):
+        parts: list[str] = []
+        seen: set[str] = set()
+        for row_idx in range(start_row, min(start_row + depth, total_rows)):
+            raw_value = df_raw.iat[row_idx, col_idx]
+            if not _is_meaningful_header_value(raw_value):
+                continue
+            raw_text = ' '.join(str(raw_value).replace('\u00A0', ' ').strip().split())
+            norm_text = _normalize_header_token(raw_text)
+            if not norm_text or norm_text in seen:
+                continue
+            seen.add(norm_text)
+            parts.append(raw_text)
+        values.append(' '.join(parts).strip())
+    return values
+
+
+def _score_header_values(values: list[str]) -> int:
+    score_patterns = [
+        'tipo persona', 'nombre', 'razon social', 'numero documento', 'nro documento', 'direccion',
+        'departamento', 'provincia', 'distrito', 'poliza', 'vigencia inicio', 'vigencia fin',
+        'ini vigencia', 'fin vigencia', 'fecha emision', 'moneda', 'prima', 'placa', 'clase',
+        'uso', 'serie', 'marca', 'modelo', 'anio', 'ano', 'recibo', 'cupon', 'planilla'
+    ]
+    score = 0
+    for value in values:
+        token = _normalize_header_token(value)
+        if not token:
+            continue
+        if any(pattern in token for pattern in score_patterns):
+            score += 1
+    return score
+
+
+def _detect_header_row(df_raw: pd.DataFrame) -> Tuple[Optional[int], int]:
     max_score = 0
     best_row = None
-    check_rows = min(len(df_raw), 30)  # Increased from 15 to 30
+    best_depth = 1
+    check_rows = min(len(df_raw), 30)
     for i in range(check_rows):
-        vals = [_normalize_header_token(x) for x in list(df_raw.iloc[i].values)]
-        score = sum(1 for v in vals if v in candidates)
-        if score > max_score:
-            max_score = score
-            best_row = i
-    # Reduced threshold from 5 to 3 to be more flexible
-    return best_row if (best_row is not None and max_score >= 3) else None
+        for depth in (1, 2, 3):
+            if i + depth > len(df_raw):
+                continue
+            composed_values = _compose_header_values(df_raw, i, depth)
+            score = _score_header_values(composed_values)
+            if score > max_score:
+                max_score = score
+                best_row = i
+                best_depth = depth
+    return (best_row, best_depth) if (best_row is not None and max_score >= 3) else (None, 1)
 
 
 def load_excel_flexible(file_path: str) -> Tuple[pd.DataFrame, list[str]]:
@@ -296,10 +357,10 @@ def load_excel_flexible(file_path: str) -> Tuple[pd.DataFrame, list[str]]:
         debug_msgs.append(f'Lectura estándar falló: {e}')
     try:
         df_raw = pd.read_excel(file_path, header=None, dtype=str)
-        hdr_row = _detect_header_row(df_raw)
+        hdr_row, hdr_depth = _detect_header_row(df_raw)
         if hdr_row is not None:
-            headers = list(df_raw.iloc[hdr_row].values)
-            data = df_raw.iloc[hdr_row + 1:].reset_index(drop=True)
+            headers = _compose_header_values(df_raw, hdr_row, hdr_depth)
+            data = df_raw.iloc[hdr_row + hdr_depth:].reset_index(drop=True)
             # aplicar headers sólo hasta el número de columnas de data
             if len(headers) > data.shape[1]:
                 headers = headers[:data.shape[1]]
@@ -307,7 +368,7 @@ def load_excel_flexible(file_path: str) -> Tuple[pd.DataFrame, list[str]]:
                 headers = headers + [f'Unnamed_extra_{i}' for i in range(data.shape[1] - len(headers))]
             data.columns = headers
             df = map_excel_columns(data)
-            debug_msgs.append(f'Encabezado detectado en fila {hdr_row+1}')
+            debug_msgs.append(f'Encabezado detectado desde fila {hdr_row+1} usando {hdr_depth} fila(s)')
             return df, debug_msgs
         else:
             debug_msgs.append('No se detectó fila de encabezados compatible')
@@ -1291,6 +1352,7 @@ def _process_soat_excel_preview(df: pd.DataFrame, usuario: str) -> dict:
     polizas_insertadas = 0
     polizas_anuladas = 0
     polizas_existentes = 0
+    polizas_recibo_existentes = 0
     cuotas_insertadas = 0
     cuotas_existentes = 0
     polizas_insertadas_soles = 0
@@ -1346,24 +1408,6 @@ def _process_soat_excel_preview(df: pd.DataFrame, usuario: str) -> dict:
 
                 numero_documento_excel = _resolver_numero_documento_excel(row, idx, errors_list)
                 razon_social = normalize_string(row.get('NOMBRE_RAZON_SOCIAL', ''))
-
-                if es_anulada:
-                    polizas_anuladas += 1
-                    if moneda_excel == 'US$':
-                        polizas_anuladas_dolares += 1
-                    else:
-                        polizas_anuladas_soles += 1
-                else:
-                    polizas_insertadas += 1
-                    cuotas_insertadas += 1
-                    if moneda_excel == 'US$':
-                        polizas_insertadas_dolares += 1
-                        cuotas_insertadas_dolares += 1
-                        cuotas_importe_dolares += float(prima_excel or 0.0)
-                    else:
-                        polizas_insertadas_soles += 1
-                        cuotas_insertadas_soles += 1
-                        cuotas_importe_soles += float(prima_excel or 0.0)
 
                 numero_documento = doc_map.get(numero_documento_excel) or numero_documento_excel
 
@@ -1444,24 +1488,45 @@ def _process_soat_excel_preview(df: pd.DataFrame, usuario: str) -> dict:
                         continue
                     recibos_procesados.add(cupon_poliza)
 
+                poliza_id_exist = _resolver_poliza_id_soat(cur, poliza_num, cupon_poliza) if (poliza_num and cupon_poliza) else None
+                if poliza_id_exist is not None:
+                    polizas_existentes += 1
+                    polizas_recibo_existentes += 1
+                    if not es_anulada:
+                        cuotas_existentes += 1
+                    errors_list.append(
+                        f"Fila {idx + 2}: Advertencia - La combinación póliza/recibo ya existe en BD: {poliza_num}/{cupon_poliza}. No se guardará."
+                    )
+                    continue
+
+                if _recibo_tiene_numero(cupon_poliza):
                     poliza_id_exist_por_recibo = _find_poliza_id_por_recibo(cur, cupon_poliza)
                     if poliza_id_exist_por_recibo is not None:
                         polizas_existentes += 1
                         if not es_anulada:
                             cuotas_existentes += 1
+                        errors_list.append(
+                            f"Fila {idx + 2}: Advertencia - Recibo ya existe en BD: {cupon_poliza}. No se guardará."
+                        )
                         continue
 
-                poliza_id_exist = _resolver_poliza_id_soat(cur, poliza_num, cupon_poliza) if (poliza_num and cupon_poliza) else None
-                if poliza_id_exist is not None:
-                    polizas_existentes += 1
-
-                    factura = (recibo_poliza or cupon_poliza or '').strip()
-                    if not factura or not _recibo_tiene_numero(factura):
-                        factura = None
-
-                    if not es_anulada and _cuota_soat_existe(cur, int(poliza_id_exist), cupon_poliza, factura):
-                        cuotas_existentes += 1
-                    continue
+                if es_anulada:
+                    polizas_anuladas += 1
+                    if moneda_excel == 'US$':
+                        polizas_anuladas_dolares += 1
+                    else:
+                        polizas_anuladas_soles += 1
+                else:
+                    polizas_insertadas += 1
+                    cuotas_insertadas += 1
+                    if moneda_excel == 'US$':
+                        polizas_insertadas_dolares += 1
+                        cuotas_insertadas_dolares += 1
+                        cuotas_importe_dolares += float(prima_excel or 0.0)
+                    else:
+                        polizas_insertadas_soles += 1
+                        cuotas_insertadas_soles += 1
+                        cuotas_importe_soles += float(prima_excel or 0.0)
 
             except Exception as e:
                 errors_list.append(f"Fila {idx + 2}: Error inesperado: {str(e)}")
@@ -1474,6 +1539,7 @@ def _process_soat_excel_preview(df: pd.DataFrame, usuario: str) -> dict:
             'polizas_insertadas': polizas_insertadas,
             'polizas_anuladas': polizas_anuladas,
             'polizas_existentes': polizas_existentes,
+            'polizas_recibo_existentes': polizas_recibo_existentes,
             'cuotas_insertadas': cuotas_insertadas,
             'cuotas_existentes': cuotas_existentes,
             'polizas_insertadas_soles': polizas_insertadas_soles,
@@ -1577,6 +1643,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
         polizas_insertadas = 0
         polizas_anuladas = 0
         polizas_existentes = 0
+        polizas_recibo_existentes = 0
         cuotas_insertadas = 0
         cuotas_existentes = 0
         polizas_insertadas_soles = 0
@@ -1955,128 +2022,39 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 poliza_num = normalize_numero_documento(row.get('POLIZA_CERTF', '')) if pd.notna(row.get('POLIZA_CERTF')) else ''
                 if _recibo_tiene_numero(cupon_poliza):
                     if cupon_poliza in recibos_procesados:
-                        if normalize_string(estado_poliza) == 'ANULADO' or int(anulado_poliza or 0) == 1:
-                            polizas_anuladas += 1
-                            if moneda == 'US$':
-                                polizas_anuladas_dolares += 1
-                            else:
-                                polizas_anuladas_soles += 1
-                        else:
-                            polizas_existentes += 1
-                        cuotas_existentes += 1
+                        polizas_existentes += 1
+                        if not es_anulada:
+                            cuotas_existentes += 1
                         errors_list.append(
                             f"Fila {idx + 2}: Advertencia - Recibo duplicado en el Excel: {cupon_poliza}. Se omitió la fila."
                         )
                         continue
                     recibos_procesados.add(cupon_poliza)
 
-                    poliza_id_exist_por_recibo = _find_poliza_id_por_recibo(cur, cupon_poliza)
-                    if poliza_id_exist_por_recibo is not None:
-                        if normalize_string(estado_poliza) == 'ANULADO' or int(anulado_poliza or 0) == 1:
-                            polizas_anuladas += 1
-                            if moneda == 'US$':
-                                polizas_anuladas_dolares += 1
-                            else:
-                                polizas_anuladas_soles += 1
-                        else:
-                            polizas_existentes += 1
-                        cuotas_existentes += 1
-                        poliza_id_exist = poliza_id_exist_por_recibo
-                        errors_list.append(
-                            f"Fila {idx + 2}: Advertencia - Recibo ya existe en BD: {cupon_poliza}. Se omitió insertar una nueva póliza/cuota."
-                        )
-                        upd_pol_estado, upd_cuo_estado = _actualizar_estado_anulado_activo_existente_soat(
-                            cur=cur,
-                            poliza_id=int(poliza_id_exist),
-                            estado_poliza=estado_poliza,
-                            anulado_poliza=anulado_poliza,
-                            activo_poliza=poliza_activo,
-                            errors_list=errors_list,
-                            idx=idx,
-                        )
-                        polizas_activo_actualizadas += upd_pol_estado
-                        cuotas_activo_actualizadas += upd_cuo_estado
-                        upd_pol, upd_cuo = _actualizar_moneda_existente_soat(
-                            cur=cur,
-                            poliza_id=int(poliza_id_exist),
-                            poliza_num=poliza_num,
-                            cupon_poliza=cupon_poliza,
-                            nueva_moneda=moneda,
-                            errors_list=errors_list,
-                            idx=idx,
-                        )
-                        polizas_moneda_actualizadas += upd_pol
-                        cuotas_moneda_actualizadas += upd_cuo
-                        if preview:
-                            continue
-                        cnx.commit()
-                        continue
-
                 if poliza_num and cupon_poliza:
                     poliza_id_exist = _resolver_poliza_id_soat(cur, poliza_num, cupon_poliza)
                 else:
                     poliza_id_exist = None
                 if poliza_num and cupon_poliza and poliza_id_exist is not None:
-                    if normalize_string(estado_poliza) == 'ANULADO' or int(anulado_poliza or 0) == 1:
-                        polizas_anuladas += 1
-                        if moneda == 'US$':
-                            polizas_anuladas_dolares += 1
-                        else:
-                            polizas_anuladas_soles += 1
-                    else:
-                        polizas_existentes += 1
-                    upd_pol_estado, upd_cuo_estado = _actualizar_estado_anulado_activo_existente_soat(
-                        cur=cur,
-                        poliza_id=int(poliza_id_exist),
-                        estado_poliza=estado_poliza,
-                        anulado_poliza=anulado_poliza,
-                        activo_poliza=poliza_activo,
-                        errors_list=errors_list,
-                        idx=idx,
-                    )
-                    polizas_activo_actualizadas += upd_pol_estado
-                    cuotas_activo_actualizadas += upd_cuo_estado
-                    upd_pol, upd_cuo = _actualizar_moneda_existente_soat(
-                        cur=cur,
-                        poliza_id=int(poliza_id_exist),
-                        poliza_num=poliza_num,
-                        cupon_poliza=cupon_poliza,
-                        nueva_moneda=moneda,
-                        errors_list=errors_list,
-                        idx=idx,
-                    )
-                    polizas_moneda_actualizadas += upd_pol
-                    cuotas_moneda_actualizadas += upd_cuo
-                    inserted, existed = _insertar_cuota_soat(
-                        cur=cur,
-                        row=row,
-                        idx=idx,
-                        poliza_num=poliza_num,
-                        cupon_poliza=cupon_poliza,
-                        recibo_poliza=recibo_poliza,
-                        fecha_emision_poliza=fecha_emision_poliza,
-                        moneda=moneda,
-                        prima_mas_igv=prima_mas_igv,
-                        usuario=usuario,
-                        cuota_activo=cuota_activo,
-                        errors_list=errors_list,
-                        poliza_id=poliza_id_exist,
-                    )
-                    if inserted:
-                        cuotas_insertadas += 1
-                        if moneda == 'US$':
-                            cuotas_insertadas_dolares += 1
-                            cuotas_importe_dolares += float(prima_mas_igv or 0.0)
-                        else:
-                            cuotas_insertadas_soles += 1
-                            cuotas_importe_soles += float(prima_mas_igv or 0.0)
-                    elif existed:
+                    polizas_existentes += 1
+                    polizas_recibo_existentes += 1
+                    if not es_anulada:
                         cuotas_existentes += 1
-                        errors_list.append(f"Fila {idx + 2}: Advertencia - Cuota ya existe para póliza {row.get('POLIZA_CERTF')}: {cupon_poliza}")
-                    if preview:
-                        continue
-                    cnx.commit()
+                    errors_list.append(
+                        f"Fila {idx + 2}: Advertencia - La combinación póliza/recibo ya existe en BD: {poliza_num}/{cupon_poliza}. No se guardará."
+                    )
                     continue
+
+                if _recibo_tiene_numero(cupon_poliza):
+                    poliza_id_exist_por_recibo = _find_poliza_id_por_recibo(cur, cupon_poliza)
+                    if poliza_id_exist_por_recibo is not None:
+                        polizas_existentes += 1
+                        if not es_anulada:
+                            cuotas_existentes += 1
+                        errors_list.append(
+                            f"Fila {idx + 2}: Advertencia - Recibo ya existe en BD: {cupon_poliza}. No se guardará."
+                        )
+                        continue
 
                 poliza_args = (
                     numero_documento,
@@ -2217,14 +2195,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                         'error': str(err),
                     })
                     if 'Póliza ya existe' in str(err):
-                        if normalize_string(estado_poliza) == 'ANULADO' or int(anulado_poliza or 0) == 1:
-                            polizas_anuladas += 1
-                            if moneda == 'US$':
-                                polizas_anuladas_dolares += 1
-                            else:
-                                polizas_anuladas_soles += 1
-                        else:
-                            polizas_existentes += 1
+                        polizas_existentes += 1
                         if commit_db:
                             try:
                                 cnx.rollback()
@@ -2232,55 +2203,12 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                                 pass
                         poliza_id_exist = _resolver_poliza_id_soat(cur, poliza_num, cupon_poliza)
                         if poliza_id_exist is not None:
-                            upd_pol_estado, upd_cuo_estado = _actualizar_estado_anulado_activo_existente_soat(
-                                cur=cur,
-                                poliza_id=int(poliza_id_exist),
-                                estado_poliza=estado_poliza,
-                                anulado_poliza=anulado_poliza,
-                                activo_poliza=poliza_activo,
-                                errors_list=errors_list,
-                                idx=idx,
-                            )
-                            polizas_activo_actualizadas += upd_pol_estado
-                            cuotas_activo_actualizadas += upd_cuo_estado
-                            upd_pol, upd_cuo = _actualizar_moneda_existente_soat(
-                                cur=cur,
-                                poliza_id=int(poliza_id_exist),
-                                poliza_num=poliza_num,
-                                cupon_poliza=cupon_poliza,
-                                nueva_moneda=moneda,
-                                errors_list=errors_list,
-                                idx=idx,
-                            )
-                            polizas_moneda_actualizadas += upd_pol
-                            cuotas_moneda_actualizadas += upd_cuo
-                        inserted, existed = _insertar_cuota_soat(
-                            cur=cur,
-                            row=row,
-                            idx=idx,
-                            poliza_num=poliza_num,
-                            cupon_poliza=cupon_poliza,
-                            recibo_poliza=recibo_poliza,
-                            fecha_emision_poliza=fecha_emision_poliza,
-                            moneda=moneda,
-                            prima_mas_igv=prima_mas_igv,
-                            usuario=usuario,
-                            cuota_activo=cuota_activo,
-                            errors_list=errors_list,
-                            poliza_id=poliza_id_exist,
-                        )
-                        if inserted:
-                            cuotas_insertadas += 1
-                            if moneda == 'US$':
-                                cuotas_insertadas_dolares += 1
-                                cuotas_importe_dolares += float(prima_mas_igv or 0.0)
-                            else:
-                                cuotas_insertadas_soles += 1
-                                cuotas_importe_soles += float(prima_mas_igv or 0.0)
-                            if commit_db:
-                                cnx.commit()
-                        elif existed:
+                            polizas_recibo_existentes += 1
+                        if not es_anulada:
                             cuotas_existentes += 1
+                        errors_list.append(
+                            f"Fila {idx + 2}: Advertencia - La combinación póliza/recibo ya existe en BD: {poliza_num}/{cupon_poliza}. No se guardará."
+                        )
                     else:
                         errors_list.append(f"Fila {idx + 2}: Error al insertar póliza: {str(err)}")
                     # Solo hacemos rollback si estábamos intentando commitear
@@ -2320,6 +2248,7 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
             'polizas_insertadas': polizas_insertadas,
             'polizas_anuladas': max(int(polizas_anuladas or 0), int(anuladas_excel_total or 0)),
             'polizas_existentes': polizas_existentes,
+            'polizas_recibo_existentes': polizas_recibo_existentes,
             'cuotas_insertadas': cuotas_insertadas,
             'cuotas_existentes': cuotas_existentes,
             'polizas_insertadas_soles': polizas_insertadas_soles,
