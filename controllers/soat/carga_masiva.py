@@ -150,92 +150,72 @@ def map_excel_columns(df: pd.DataFrame) -> pd.DataFrame:
         key = _normalize_header(col)
         norm_to_indices.setdefault(key, []).append(idx)
 
-    normalized_headers = [_normalize_header(col) for col in list(df2.columns)]
-
-    def _find_best_column_index(*aliases: str) -> Optional[int]:
-        aliases_norm = []
-        for alias in aliases:
-            alias_norm = _normalize_header(alias)
-            if alias_norm:
-                aliases_norm.append(alias_norm)
-        if not aliases_norm:
-            return None
-
-        exact_matches = []
-        partial_matches = []
-        for idx, header_norm in enumerate(normalized_headers):
-            if not header_norm:
-                continue
-            for alias_norm in aliases_norm:
-                if header_norm == alias_norm:
-                    exact_matches.append(idx)
-                    break
-                alias_tokens = [tok for tok in alias_norm.split() if tok]
-                if alias_tokens and all(tok in header_norm for tok in alias_tokens):
-                    partial_matches.append(idx)
-                    break
-                if alias_norm in header_norm or header_norm in alias_norm:
-                    partial_matches.append(idx)
-                    break
-
-        if exact_matches:
-            return exact_matches[-1]
-        if partial_matches:
-            return partial_matches[-1]
-        return None
-
     synonyms = {
-        'POLIZA_CERTF': ['poliza', 'poliza certf', 'poliza cert', 'certificado poliza', 'certificado'],
-        'COMPANIA_NOMBRE_CORTO': ['cia', 'cia.', 'compania', 'compañia', 'compania nombre corto', 'aseguradora'],
-        'FECHA_EMISION': ['fec emision', 'fec. emision', 'fecha emision'],
-        'VIGENCIA_INICIO': ['ini vigencia', 'ini.vigencia', 'vigencia inicio', 'inicio vigencia'],
-        'VIGENCIA_FIN': ['fin vigencia', 'vigencia fin', 'fin de vigencia'],
-        'FECHA_VENCIMIENTO': ['fecha vencimiento', 'fec vencimiento', 'fec. vencimiento'],
-        'MONEDA_ABREVIACION': ['moneda', 'moned', 'moneda abreviacion', 'moneda abrev', 'moneda abre'],
-        'PRIMA': ['prima', 'prima comercial', 'prima comercial igv', 'prima comercial + igv'],
-        'PRIMA_NETA': ['prima neta'],
-        'PRIMA_TOTAL': ['prima total', 'prima mas igv', 'prima + igv'],
-        'COD_AGENTE': ['cod agenc', 'cod.agenc', 'codigo agente', 'cod agente'],
-        'VENDEDOR': ['vendedor', 'ejecutivo', 'subagente'],
-        'APLICACION': ['aplicacion'],
-        'TIPO_PERSONA': ['tipo persona', 'tipopersona', 'contratante tipo persona'],
-        'NOMBRE_RAZON_SOCIAL': ['nombre', 'razon social', 'nombre razon social', 'contratante nombre', 'contratante razon social'],
-        'NUMERO_DOCUMENTO': ['numero documento', 'nro documento', 'nro doc', 'documento', 'tipo doc numero documento'],
-        'DIRECCION': ['direccion', 'direccion contratante'],
-        'DEPARTAMENTO': ['departamento', 'dpto', 'depart'],
-        'PROVINCIA': ['provincia', 'prov'],
-        'DISTRITO': ['distrito', 'dist'],
-        'TELEFONO': ['telefono', 'fono'],
-        'CELULAR': ['celular', 'movil'],
-        'EMAIL': ['email', 'correo'],
-        'PRODUCTO_ABREVIACION': ['prod', 'producto'],
-        'TIPO_PLACA': ['tipo placa', 'tipoplaca'],
-        'PLACA': ['placa', 'vehiculo placa'],
-        'USO': ['uso', 'vehiculo uso'],
-        'CLASE': ['clase', 'vehiculo clase'],
-        'MARCA': ['marca', 'vehiculo marca'],
-        'MODELO': ['desc modelo', 'desc.modelo', 'modelo', 'vehiculo modelo'],
-        'SERIE': ['serie', 'serie motor', 'vehiculo serie'],
-        'ASIENTOS': ['asientos'],
-        'ANIO': ['anio', 'ano', 'año'],
-        'PLANILLA': ['planilla', 'resp de pago planilla', 'resp pago planilla'],
-        'RECIBO': ['recibo', 'resp de pago recibo', 'resp pago recibo'],
-        'CUPON': ['cupon', 'cupón'],
-        'FORMULARIO': ['formulario'],
-        'ESTADO': ['estado']
+        'poliza': 'POLIZA_CERTF',
+        'cia'                   : 'COMPANIA_NOMBRE_CORTO',
+        'cia.'                  : 'COMPANIA_NOMBRE_CORTO',
+        'compania'              : 'COMPANIA_NOMBRE_CORTO',
+        'compañia'              : 'COMPANIA_NOMBRE_CORTO',
+        'compania nombre corto' : 'COMPANIA_NOMBRE_CORTO',
+        'aseguradora'           : 'COMPANIA_NOMBRE_CORTO',
+        'fec emision': 'FECHA_EMISION',
+        'fec. emision': 'FECHA_EMISION',
+        'fecha emision': 'FECHA_EMISION',
+        'ini vigencia': 'VIGENCIA_INICIO',
+        'ini.vigencia': 'VIGENCIA_INICIO',
+        'fin vigencia': 'VIGENCIA_FIN',
+        'fecha vencimiento': 'FECHA_VENCIMIENTO',
+        'fec vencimiento': 'FECHA_VENCIMIENTO',
+        'fec. vencimiento': 'FECHA_VENCIMIENTO',
+        'moneda': 'MONEDA_ABREVIACION',
+        'moned': 'MONEDA_ABREVIACION',
+        'moneda abreviacion': 'MONEDA_ABREVIACION',
+        'moneda abrev': 'MONEDA_ABREVIACION',
+        'moneda abre': 'MONEDA_ABREVIACION',
+        'prima': 'PRIMA',
+        'cod agenc': 'COD_AGENTE',
+        'cod.agenc': 'COD_AGENTE',
+        'vendedor': 'VENDEDOR',
+        'aplicacion': 'APLICACION',
+        'tipo persona': 'TIPO_PERSONA',
+        'tipopersona': 'TIPO_PERSONA',
+        'nombre': 'NOMBRE_RAZON_SOCIAL',
+        'numero documento': 'NUMERO_DOCUMENTO',
+        'direccion': 'DIRECCION',
+        'departamento': 'DEPARTAMENTO',
+        'provincia': 'PROVINCIA',
+        'distrito': 'DISTRITO',
+        'telefono': 'TELEFONO',
+        'celular': 'CELULAR',
+        'email': 'EMAIL',
+        'prod': 'PRODUCTO_ABREVIACION',
+        'producto': 'PRODUCTO_ABREVIACION',
+        'tipo placa': 'TIPO_PLACA',
+        'tipoplaca': 'TIPO_PLACA',
+        'placa': 'PLACA',
+        'uso': 'USO',
+        'clase': 'CLASE',
+        'marca': 'MARCA',
+        'desc modelo': 'MODELO',
+        'desc.modelo': 'MODELO',
+        'serie': 'SERIE',
+        'asientos': 'ASIENTOS',
+        'anio': 'ANIO',
+        'ano': 'ANIO',
+        'año': 'ANIO',
+        'planilla': 'PLANILLA',
+        'recibo': 'RECIBO',
+        'cupon': 'CUPON',
+        'formulario': 'FORMULARIO',
+        'estado': 'ESTADO'
     }
 
-    for dst, aliases in synonyms.items():
+    for norm_key, dst in synonyms.items():
         if dst in df2.columns:
             continue
-        chosen_idx = _find_best_column_index(*aliases)
-        if chosen_idx is None:
-            # Fallback a coincidencia exacta para compatibilidad con encabezados simples.
-            idxs = []
-            for alias in aliases:
-                idxs.extend(norm_to_indices.get(_normalize_header(alias), []))
-            chosen_idx = idxs[-1] if idxs else None
-        if chosen_idx is not None:
+        if norm_key in norm_to_indices:
+            idxs = norm_to_indices[norm_key]
+            chosen_idx = idxs[-1]  # tomar la última aparición (contratante suele ir después)
             df2[dst] = df2.iloc[:, chosen_idx]
 
     if 'PRIMA' in df2.columns:
@@ -273,69 +253,28 @@ def _normalize_header_token(token: str) -> str:
     return token.lower()
 
 
-def _is_meaningful_header_value(value) -> bool:
-    token = _normalize_header_token(value)
-    if not token or token in {'nan', 'none'}:
-        return False
-    if token.startswith('unnamed'):
-        return False
-    return True
-
-
-def _compose_header_values(df_raw: pd.DataFrame, start_row: int, depth: int) -> list[str]:
-    total_rows = len(df_raw.index)
-    total_cols = df_raw.shape[1] if hasattr(df_raw, 'shape') else 0
-    values: list[str] = []
-    for col_idx in range(total_cols):
-        parts: list[str] = []
-        seen: set[str] = set()
-        for row_idx in range(start_row, min(start_row + depth, total_rows)):
-            raw_value = df_raw.iat[row_idx, col_idx]
-            if not _is_meaningful_header_value(raw_value):
-                continue
-            raw_text = ' '.join(str(raw_value).replace('\u00A0', ' ').strip().split())
-            norm_text = _normalize_header_token(raw_text)
-            if not norm_text or norm_text in seen:
-                continue
-            seen.add(norm_text)
-            parts.append(raw_text)
-        values.append(' '.join(parts).strip())
-    return values
-
-
-def _score_header_values(values: list[str]) -> int:
-    score_patterns = [
-        'tipo persona', 'nombre', 'razon social', 'numero documento', 'nro documento', 'direccion',
-        'departamento', 'provincia', 'distrito', 'poliza', 'vigencia inicio', 'vigencia fin',
-        'ini vigencia', 'fin vigencia', 'fecha emision', 'moneda', 'prima', 'placa', 'clase',
-        'uso', 'serie', 'marca', 'modelo', 'anio', 'ano', 'recibo', 'cupon', 'planilla'
-    ]
-    score = 0
-    for value in values:
-        token = _normalize_header_token(value)
-        if not token:
-            continue
-        if any(pattern in token for pattern in score_patterns):
-            score += 1
-    return score
-
-
-def _detect_header_row(df_raw: pd.DataFrame) -> Tuple[Optional[int], int]:
+def _detect_header_row(df_raw: pd.DataFrame) -> Optional[int]:
+    candidates = {
+        'poliza', 'ini vigencia', 'ini.vigencia', 'fin vigencia', 'fec emision', 'fec. emision',
+        'nombre', 'numero documento', 'direccion', 'departamento', 'provincia', 'distrito',
+        'moneda', 'moned', 'prima', 'vendedor', 'cod agenc', 'placa', 'uso', 'clase', 'marca',
+        'desc modelo', 'desc.modelo', 'serie', 'ano', 'año', 'anio',
+        'cia', 'cia.', 'compania', 'compañia', 'aseguradora',
+        'recibo', 'planilla', 'cupon', 'fecha vencimiento', 'telefono', 'celular', 'email', 'prod', 'producto',
+        'tipo persona', 'tipopersona', 'vigencia inicio', 'vigencia fin', 'moneda abreviacion',
+        'prima neta', 'prima total', 'tipo doc'
+    }
     max_score = 0
     best_row = None
-    best_depth = 1
-    check_rows = min(len(df_raw), 30)
+    check_rows = min(len(df_raw), 30)  # Increased from 15 to 30
     for i in range(check_rows):
-        for depth in (1, 2, 3):
-            if i + depth > len(df_raw):
-                continue
-            composed_values = _compose_header_values(df_raw, i, depth)
-            score = _score_header_values(composed_values)
-            if score > max_score:
-                max_score = score
-                best_row = i
-                best_depth = depth
-    return (best_row, best_depth) if (best_row is not None and max_score >= 3) else (None, 1)
+        vals = [_normalize_header_token(x) for x in list(df_raw.iloc[i].values)]
+        score = sum(1 for v in vals if v in candidates)
+        if score > max_score:
+            max_score = score
+            best_row = i
+    # Reduced threshold from 5 to 3 to be more flexible
+    return best_row if (best_row is not None and max_score >= 3) else None
 
 
 def load_excel_flexible(file_path: str) -> Tuple[pd.DataFrame, list[str]]:
@@ -357,10 +296,10 @@ def load_excel_flexible(file_path: str) -> Tuple[pd.DataFrame, list[str]]:
         debug_msgs.append(f'Lectura estándar falló: {e}')
     try:
         df_raw = pd.read_excel(file_path, header=None, dtype=str)
-        hdr_row, hdr_depth = _detect_header_row(df_raw)
+        hdr_row = _detect_header_row(df_raw)
         if hdr_row is not None:
-            headers = _compose_header_values(df_raw, hdr_row, hdr_depth)
-            data = df_raw.iloc[hdr_row + hdr_depth:].reset_index(drop=True)
+            headers = list(df_raw.iloc[hdr_row].values)
+            data = df_raw.iloc[hdr_row + 1:].reset_index(drop=True)
             # aplicar headers sólo hasta el número de columnas de data
             if len(headers) > data.shape[1]:
                 headers = headers[:data.shape[1]]
@@ -368,7 +307,7 @@ def load_excel_flexible(file_path: str) -> Tuple[pd.DataFrame, list[str]]:
                 headers = headers + [f'Unnamed_extra_{i}' for i in range(data.shape[1] - len(headers))]
             data.columns = headers
             df = map_excel_columns(data)
-            debug_msgs.append(f'Encabezado detectado desde fila {hdr_row+1} usando {hdr_depth} fila(s)')
+            debug_msgs.append(f'Encabezado detectado en fila {hdr_row+1}')
             return df, debug_msgs
         else:
             debug_msgs.append('No se detectó fila de encabezados compatible')
