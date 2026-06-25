@@ -148,14 +148,25 @@ def update_poliza(data):
         except Exception:
             pass
         
-        # Helper: si la clave está en data, usar su valor (None si vacío).
-        # Si no está, usar valor actual de DB.
-        def val(key, default=None):
-            if key in data:
-                v = data[key]
-                # Convertir cadena vacía a None para la BD
-                return v if v != '' else None
-            return current.get(key, default)
+        # Helper: usa la clave principal o un alias tanto en el payload como en los
+        # datos actuales. Evita enviar literales como "nro" o "forma_pago" cuando
+        # el campo no vino en la solicitud.
+        def val(key, alias=None):
+            keys = [key]
+            if alias and alias != key:
+                keys.append(alias)
+
+            for lookup_key in keys:
+                if lookup_key in data:
+                    v = data[lookup_key]
+                    # Convertir cadena vacía a None para la BD
+                    return v if v != '' else None
+
+            for lookup_key in keys:
+                if lookup_key in current:
+                    return current.get(lookup_key)
+
+            return None
 
         def date_val(key_data, key_curr):
             if key_data in data:

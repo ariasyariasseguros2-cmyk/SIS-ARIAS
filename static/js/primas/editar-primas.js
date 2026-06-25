@@ -320,10 +320,8 @@ window.initEditarPrimasLogic = function(isModal = false) {
             'subAgente',
             'comisionSubAgente',
             'importeComisionSubAgente',
-            'nroOperacion',
             'numPrimeraCuota',
-            'masInformacion',
-            'motivo'
+            'masInformacion'
         ];
 
         const getSnapshot = () => {
@@ -401,7 +399,6 @@ window.initEditarPrimasLogic = function(isModal = false) {
                 prima_comercial: document.getElementById('primaComercial').value,
                 prima_neta: document.getElementById('primaNeta').value,
                 prima_comercial_igv: document.getElementById('primaTotal').value,
-                motivo: document.getElementById('motivo').value, // comentado por solicitud
                 porc_compania: document.getElementById('comisionCompania').value,
                 imp_compania: document.getElementById('importeComisionCompania').value,
                 sub_agente: document.getElementById('subAgente').value,
@@ -410,11 +407,6 @@ window.initEditarPrimasLogic = function(isModal = false) {
                 recibo: document.getElementById('numPrimeraCuota').value,
                 mas_informacion: document.getElementById('masInformacion').value
             };
-            const nroOperacion = document.getElementById('nroOperacion')?.value?.trim();
-            if (nroOperacion) { 
-                data.nro_operacion = nroOperacion;
-            }
-
             data.update_cuotas = primasChanged();
 
             // Basic validation
