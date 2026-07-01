@@ -296,8 +296,32 @@ const FinanciacionGrupal = (() => {
     showInfo(`Editar financiamiento grupal #${id}.`);
   }
 
-  function onDelete(id) {
-    showInfo(`Eliminar financiamiento grupal #${id}.`);
+  async function onDelete(id) {
+    if (!id) {
+      showInfo('No se encontro el financiamiento grupal seleccionado.');
+      return;
+    }
+
+    const confirmed = await confirmDelete(
+      '¿Eliminar financiamiento grupal?',
+      'Se desactivaran sus avisos y cuotas relacionadas.'
+    );
+    if (!confirmed) return;
+
+    try {
+      const resp = await fetch(`/api/financiamiento-grupal/${encodeURIComponent(id)}/remove`, {
+        method: 'DELETE'
+      });
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok || !result.ok) {
+        throw new Error(result.error || 'No se pudo eliminar el financiamiento grupal.');
+      }
+      showSuccess('Financiamiento grupal eliminado correctamente.', () => {
+        window.location.reload();
+      });
+    } catch (error) {
+      showError(error.message || 'No se pudo eliminar el financiamiento grupal.');
+    }
   }
 
   function showInfo(message) {
@@ -514,6 +538,22 @@ const FinanciacionGrupal = (() => {
     }
     window.alert(message);
     if (typeof onClose === 'function') onClose();
+  }
+
+  async function confirmDelete(title, text) {
+    if (window.Swal) {
+      const result = await window.Swal.fire({
+        icon: 'warning',
+        title,
+        text,
+        showCancelButton: true,
+        confirmButtonText: 'Eliminar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#dc3545'
+      });
+      return Boolean(result?.isConfirmed);
+    }
+    return window.confirm(text || title);
   }
 
   function showError(message) {

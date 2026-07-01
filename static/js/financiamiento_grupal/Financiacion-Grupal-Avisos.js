@@ -110,6 +110,14 @@ const FinanciamientoGrupalAvisos = (() => {
         e.preventDefault();
         const itemId = detBtn.getAttribute('data-fg-detalles-item');
         showInfo(`Detalles del aviso #${itemId}.`);
+        return;
+      }
+
+      const removeBtn = e.target.closest('[data-fg-remove-item]');
+      if (removeBtn) {
+        e.preventDefault();
+        const itemId = removeBtn.getAttribute('data-fg-remove-item');
+        await removeAviso(itemId, removeBtn);
       }
     });
 
@@ -242,6 +250,7 @@ const FinanciamientoGrupalAvisos = (() => {
         <td>${safe(r.motivo)}</td>
         <td class="text-end">
           <div class="action-buttons justify-content-end">
+            <button type="button" class="btn-action btn-danger" data-fg-remove-item="${itemId}">Eliminar</button>
             <button type="button" class="btn-action btn-info" data-fg-detalles-item="${itemId}">Detalles</button>
           </div>
         </td>
@@ -361,6 +370,56 @@ const FinanciamientoGrupalAvisos = (() => {
         triggerEl.innerHTML = originalHtml;
       }
     }
+  }
+
+  async function removeAviso(itemId, triggerEl) {
+    if (!itemId) {
+      showError('No se encontro el aviso seleccionado.');
+      return;
+    }
+
+    const confirmed = await confirmDelete(
+      '¿Eliminar aviso?',
+      'Si es el ultimo aviso del grupo, las cuotas quedaran en 0.'
+    );
+    if (!confirmed) return;
+
+    const originalHtml = triggerEl ? triggerEl.innerHTML : '';
+    try {
+      if (triggerEl) {
+        triggerEl.disabled = true;
+        triggerEl.innerHTML = 'Eliminando...';
+      }
+      await fetchJson(`/api/financiamiento-grupal/${encodeURIComponent(financiamientoId)}/avisos/remove/${encodeURIComponent(itemId)}`, {
+        method: 'DELETE'
+      });
+      showSuccess('Eliminado correctamente.', () => {
+        window.location.reload();
+      });
+    } catch (err) {
+      showError(err.message || 'No se pudo eliminar.');
+    } finally {
+      if (triggerEl) {
+        triggerEl.disabled = false;
+        triggerEl.innerHTML = originalHtml;
+      }
+    }
+  }
+
+  async function confirmDelete(title, text) {
+    if (window.Swal) {
+      const result = await window.Swal.fire({
+        icon: 'warning',
+        title,
+        text,
+        showCancelButton: true,
+        confirmButtonText: 'Eliminar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#dc3545'
+      });
+      return Boolean(result?.isConfirmed);
+    }
+    return window.confirm(text || title);
   }
 
   return {

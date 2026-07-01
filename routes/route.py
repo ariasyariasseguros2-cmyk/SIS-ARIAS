@@ -3152,6 +3152,17 @@ def api_financiamiento_grupal_create():
     return jsonify(result), status
 
 
+@bp.route('/api/financiamiento-grupal/<int:financiamiento_id>/remove', methods=['DELETE'])
+def api_financiamiento_grupal_remove(financiamiento_id):
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    from controllers.financiamiento_grupal.financiacion_grupal import remove_financiamiento_grupal
+    result = remove_financiamiento_grupal(financiamiento_id)
+    status = 200 if result.get('ok') else 400
+    return jsonify(result), status
+
+
 @bp.route('/api/financiamiento-grupal/<int:financiamiento_id>/avisos', methods=['GET'])
 def api_financiamiento_grupal_avisos_list(financiamiento_id):
     if 'user' not in session:
