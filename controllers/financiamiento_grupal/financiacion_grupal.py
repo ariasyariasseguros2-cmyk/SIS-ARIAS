@@ -923,6 +923,59 @@ def get_financiamiento_grupal_form_options():
     }
 
 
+def get_financiamiento_grupal_item(financiamiento_id):
+    cnx = None
+    cur = None
+    try:
+        financiamiento_id = int(financiamiento_id or 0)
+    except Exception:
+        financiamiento_id = 0
+
+    if financiamiento_id <= 0:
+        return {"ok": False, "error": "ID de financiamiento inválido."}
+
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT
+                id_financiamiento_grupal,
+                nombre,
+                cliente_id,
+                compania_id,
+                moneda,
+                numero_cupones,
+                primer_cupon,
+                importe,
+                DATE_FORMAT(fecha_primer_vencimiento, '%Y-%m-%d') AS fecha_primer_vencimiento,
+                documento_nombre_original
+            FROM financiamiento_grupal
+            WHERE id_financiamiento_grupal = %s
+              AND activo = 1
+            LIMIT 1
+            """,
+            (financiamiento_id,),
+        )
+        row = cur.fetchone() or {}
+        if not row:
+            return {"ok": False, "error": "Registro no encontrado."}
+        return {"ok": True, "row": row}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if cnx:
+                cnx.close()
+        except Exception:
+            pass
+
+
 def insert_financiamiento_grupal(payload):
     cnx = None
     cur = None
@@ -1023,6 +1076,130 @@ def insert_financiamiento_grupal(payload):
 
         cnx.commit()
         return {"ok": True, "id": new_id}
+    except Exception as exc:
+        try:
+            if cnx:
+                cnx.rollback()
+        except Exception:
+            pass
+        return {"ok": False, "error": str(exc)}
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if cnx:
+                cnx.close()
+        except Exception:
+            pass
+
+
+def update_financiamiento_grupal(financiamiento_id, payload):
+    cnx = None
+    cur = None
+    try:
+        financiamiento_id = int(financiamiento_id or 0)
+        nombre = (payload.get("nombre") or "").strip()
+        cliente_id = int(payload.get("cliente_id") or 0)
+        compania_id = int(payload.get("compania_id") or 0)
+        moneda = (payload.get("moneda") or "").strip().upper()
+        numero_cupones = int(payload.get("numero_cupones") or 0)
+        primer_cupon = (payload.get("primer_cupon") or "").strip() or None
+        importe = float(payload.get("importe") or 0)
+        fecha_primer_vencimiento = (payload.get("fecha_primer_vencimiento") or "").strip()
+        usuario = (payload.get("usuario") or "").strip() or None
+        documento_ruta_archivo = (payload.get("documento_ruta_archivo") or "").strip() or None
+        documento_nombre_original = (payload.get("documento_nombre_original") or "").strip() or None
+    except Exception:
+        return {"ok": False, "error": "Parámetros inválidos."}
+
+    if financiamiento_id <= 0:
+        return {"ok": False, "error": "Parámetros inválidos."}
+    if not nombre:
+        return {"ok": False, "error": "El nombre de financiamiento es obligatorio."}
+    if cliente_id <= 0:
+        return {"ok": False, "error": "Debe seleccionar un cliente."}
+    if compania_id <= 0:
+        return {"ok": False, "error": "Debe seleccionar una compañía."}
+    if not moneda:
+        return {"ok": False, "error": "Debe seleccionar una moneda."}
+    if numero_cupones <= 0:
+        return {"ok": False, "error": "El número de cupones debe ser mayor a cero."}
+    if not primer_cupon:
+        return {"ok": False, "error": "El primer cupón es obligatorio."}
+    if importe <= 0:
+        return {"ok": False, "error": "El importe debe ser mayor a cero."}
+    if not fecha_primer_vencimiento:
+        return {"ok": False, "error": "La fecha del primer vencimiento es obligatoria."}
+
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT id_financiamiento_grupal
+            FROM financiamiento_grupal
+            WHERE id_financiamiento_grupal = %s
+              AND activo = 1
+            LIMIT 1
+            """,
+            (financiamiento_id,),
+        )
+        current_row = cur.fetchone() or {}
+        if not current_row:
+            return {"ok": False, "error": "Registro no encontrado."}
+
+        cur.execute(
+            """
+            UPDATE financiamiento_grupal
+            SET nombre = %s,
+                cliente_id = %s,
+                compania_id = %s,
+                moneda = %s,
+                numero_cupones = %s,
+                primer_cupon = %s,
+                importe = %s,
+                fecha_primer_vencimiento = %s,
+                usuario_modificacion = COALESCE(%s, usuario_modificacion)
+            WHERE id_financiamiento_grupal = %s
+              AND activo = 1
+            """,
+            (
+                nombre,
+                cliente_id,
+                compania_id,
+                moneda,
+                numero_cupones,
+                primer_cupon,
+                importe,
+                fecha_primer_vencimiento,
+                usuario,
+                financiamiento_id,
+            ),
+        )
+        if cur.rowcount == 0:
+            cnx.rollback()
+            return {"ok": False, "error": "Registro no encontrado."}
+
+        if documento_ruta_archivo or documento_nombre_original:
+            cur.execute(
+                """
+                UPDATE financiamiento_grupal
+                SET documento_ruta_archivo = %s,
+                    documento_nombre_original = %s,
+                    usuario_modificacion = COALESCE(%s, usuario_modificacion)
+                WHERE id_financiamiento_grupal = %s
+                  AND activo = 1
+                """,
+                (documento_ruta_archivo, documento_nombre_original, usuario, financiamiento_id),
+            )
+
+        detail = _load_financiamiento_grupal_detail_for_sync(cur, financiamiento_id) or {}
+        _sync_financiamiento_grupal_cuotas(cur, detail, usuario)
+        cnx.commit()
+        return {"ok": True, "id": financiamiento_id}
     except Exception as exc:
         try:
             if cnx:

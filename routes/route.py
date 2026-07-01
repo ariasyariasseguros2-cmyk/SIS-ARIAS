@@ -3113,6 +3113,17 @@ def api_financiamiento_grupal_options():
     return jsonify({'ok': True, **data}), 200
 
 
+@bp.route('/api/financiamiento-grupal/<int:financiamiento_id>', methods=['GET'])
+def api_financiamiento_grupal_detail(financiamiento_id):
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    from controllers.financiamiento_grupal.financiacion_grupal import get_financiamiento_grupal_item
+    result = get_financiamiento_grupal_item(financiamiento_id)
+    status = 200 if result.get('ok') else 400
+    return jsonify(result), status
+
+
 @bp.route('/api/financiamiento-grupal/create', methods=['POST'])
 def api_financiamiento_grupal_create():
     if 'user' not in session:
@@ -3142,6 +3153,45 @@ def api_financiamiento_grupal_create():
 
     from controllers.financiamiento_grupal.financiacion_grupal import insert_financiamiento_grupal
     result = insert_financiamiento_grupal(payload)
+    if not result.get('ok') and saved_abs_path:
+        try:
+            if os.path.exists(saved_abs_path):
+                os.remove(saved_abs_path)
+        except Exception:
+            pass
+    status = 200 if result.get('ok') else 400
+    return jsonify(result), status
+
+
+@bp.route('/api/financiamiento-grupal/<int:financiamiento_id>/update', methods=['POST'])
+def api_financiamiento_grupal_update(financiamiento_id):
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    payload = request.get_json(silent=True) or {}
+    saved_abs_path = ''
+    if not payload:
+        payload = request.form.to_dict() or {}
+    file = request.files.get('convenio_pdf')
+    if file and file.filename:
+        try:
+            import time
+
+            original_filename = file.filename
+            safe_name = secure_filename(original_filename)
+            disk_filename = f"{int(time.time())}_fg_{safe_name}"
+            upload_folder = os.path.join(current_app.root_path, 'uploads', 'financiamiento_grupal')
+            os.makedirs(upload_folder, exist_ok=True)
+            saved_abs_path = os.path.join(upload_folder, disk_filename)
+            file.save(saved_abs_path)
+            payload['documento_ruta_archivo'] = f"financiamiento_grupal/{disk_filename}"
+            payload['documento_nombre_original'] = original_filename
+        except Exception as exc:
+            return jsonify({'ok': False, 'error': f'No se pudo guardar el PDF del financiamiento: {exc}'}), 400
+    payload['usuario'] = session.get('user') or ''
+
+    from controllers.financiamiento_grupal.financiacion_grupal import update_financiamiento_grupal
+    result = update_financiamiento_grupal(financiamiento_id, payload)
     if not result.get('ok') and saved_abs_path:
         try:
             if os.path.exists(saved_abs_path):

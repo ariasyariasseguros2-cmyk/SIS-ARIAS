@@ -12,6 +12,10 @@ const FinanciacionGrupal = (() => {
   let addForm = null;
   let convenioPdfInput = null;
   let convenioPdfStatusEl = null;
+  let editIdInput = null;
+  let modalTitleEl = null;
+  let formCardTitleEl = null;
+  let isEditMode = false;
   let optionsLoaded = false;
   const searchableSelects = {};
 
@@ -21,6 +25,9 @@ const FinanciacionGrupal = (() => {
     addForm = document.getElementById('addFinanciacionGrupalForm');
     convenioPdfInput = document.getElementById('fgConvenioPdf');
     convenioPdfStatusEl = document.getElementById('fgConvenioPdfStatus');
+    editIdInput = document.getElementById('fgEditId');
+    modalTitleEl = document.getElementById('addFinanciacionGrupalModalLabel');
+    formCardTitleEl = document.getElementById('fgFormCardTitle');
 
     if (tbody) {
       allRows = Array.from(tbody.querySelectorAll('tr')).filter((tr) => !tr.classList.contains('fg-empty-row'));
@@ -268,6 +275,7 @@ const FinanciacionGrupal = (() => {
       return;
     }
     resetForm();
+    setModalMode(false);
     await loadOptions();
     addModal.show();
   }
@@ -292,8 +300,31 @@ const FinanciacionGrupal = (() => {
     window.location.href = `/menu/financiamiento-grupal-cuotas?${params.toString()}`;
   }
 
-  function onEdit(id) {
-    showInfo(`Editar financiamiento grupal #${id}.`);
+  async function onEdit(id) {
+    if (!addModal) {
+      showInfo('No se encontro el modal de registro.');
+      return;
+    }
+    if (!id) {
+      showInfo('No se encontro el financiamiento grupal seleccionado.');
+      return;
+    }
+
+    try {
+      resetForm();
+      setModalMode(true, id);
+      await loadOptions();
+      const resp = await fetch(`/api/financiamiento-grupal/${encodeURIComponent(id)}`);
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok || !result.ok) {
+        throw new Error(result.error || 'No se pudo cargar el financiamiento grupal.');
+      }
+      fillForm(result.row || {});
+      addModal.show();
+    } catch (error) {
+      setModalMode(false);
+      showError(error.message || 'No se pudo cargar el financiamiento grupal.');
+    }
   }
 
   async function onDelete(id) {
@@ -442,8 +473,64 @@ const FinanciacionGrupal = (() => {
     }
   }
 
+  function setModalMode(editMode, editId = '') {
+    isEditMode = Boolean(editMode);
+    if (editIdInput) editIdInput.value = editId ? String(editId) : '';
+    if (modalTitleEl) {
+      modalTitleEl.innerHTML = isEditMode
+        ? '<i class="bi bi-pencil-square me-1"></i> Editar Financiamiento Grupal'
+        : '<i class="bi bi-people-fill me-1"></i> Añadir Financiamiento Grupal';
+    }
+    if (formCardTitleEl) {
+      formCardTitleEl.innerHTML = isEditMode
+        ? '<i class="bi bi-pencil-square"></i> Editar Financiamiento Grupal'
+        : '<i class="bi bi-person-plus-fill"></i> Añadir Financiamiento Grupal';
+    }
+    const btnGuardarOtro = document.getElementById('btnGuardarYAgregarOtroFG');
+    if (btnGuardarOtro) {
+      btnGuardarOtro.style.display = isEditMode ? 'none' : '';
+    }
+    const btnGuardar = document.getElementById('btnGuardarFG');
+    if (btnGuardar) {
+      btnGuardar.textContent = isEditMode ? 'Guardar cambios' : 'Guardar';
+    }
+  }
+
+  function fillForm(row) {
+    const setValue = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.value = value == null ? '' : String(value);
+    };
+
+    setValue('fgNombre', row?.nombre || '');
+    setValue('fgMoneda', row?.moneda || '');
+    setValue('fgNumeroCupones', row?.numero_cupones || '');
+    setValue('fgPrimerCupon', row?.primer_cupon || '');
+    setValue('fgImporte', row?.importe || '');
+    setValue('fgFechaPrimerVencimiento', row?.fecha_primer_vencimiento || '');
+    setSearchableSelectValue('fgCliente', row?.cliente_id || '');
+    setSearchableSelectValue('fgCompania', row?.compania_id || '');
+    if (row?.documento_nombre_original) {
+      setPdfStatus(`PDF actual: ${row.documento_nombre_original}`, 'muted');
+    }
+  }
+
+  function setSearchableSelectValue(id, value) {
+    const state = searchableSelects[id];
+    const stringValue = value == null ? '' : String(value);
+    if (!state) {
+      const select = document.getElementById(id);
+      if (select) select.value = stringValue;
+      return;
+    }
+    state.selectedValue = stringValue;
+    renderSearchableSelectOptions(id);
+    state.select.value = stringValue;
+  }
+
   function resetForm() {
     if (!addForm) return;
+    setModalMode(false);
     addForm.reset();
     addForm.classList.remove('was-validated');
     setPdfStatus('');
@@ -458,6 +545,7 @@ const FinanciacionGrupal = (() => {
 
   async function submitForm(keepAdding) {
     if (!addForm) return;
+    if (isEditMode) keepAdding = false;
     if (!addForm.reportValidity()) {
       addForm.classList.add('was-validated');
       return;
@@ -489,7 +577,11 @@ const FinanciacionGrupal = (() => {
         formData.append('convenio_pdf', pdfFile);
       }
 
-      const resp = await fetch('/api/financiamiento-grupal/create', {
+      const editId = editIdInput?.value || '';
+      const endpoint = isEditMode && editId
+        ? `/api/financiamiento-grupal/${encodeURIComponent(editId)}/update`
+        : '/api/financiamiento-grupal/create';
+      const resp = await fetch(endpoint, {
         method: 'POST',
         body: formData
       });
@@ -505,11 +597,11 @@ const FinanciacionGrupal = (() => {
         return;
       }
 
-      const newId = result.id;
-      showSuccess('Registro guardado correctamente.', () => {
-        if (newId) {
+      const savedId = result.id;
+      showSuccess(isEditMode ? 'Registro actualizado correctamente.' : 'Registro guardado correctamente.', () => {
+        if (!isEditMode && savedId) {
           const params = new URLSearchParams();
-          params.set('id', newId);
+          params.set('id', savedId);
           window.location.href = `/menu/financiamiento-grupal-cuotas?${params.toString()}`;
           return;
         }
