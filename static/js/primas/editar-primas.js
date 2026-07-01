@@ -320,6 +320,8 @@ window.initEditarPrimasLogic = function(isModal = false) {
             'subAgente',
             'comisionSubAgente',
             'importeComisionSubAgente',
+            'motivo',
+            'nroOperacion',
             'numPrimeraCuota',
             'masInformacion'
         ];
@@ -404,6 +406,8 @@ window.initEditarPrimasLogic = function(isModal = false) {
                 sub_agente: document.getElementById('subAgente').value,
                 porc_subagente: document.getElementById('comisionSubAgente').value,
                 imp_subagente: document.getElementById('importeComisionSubAgente').value,
+                motivo: document.getElementById('motivo')?.value || '',
+                nro_operacion: document.getElementById('nroOperacion')?.value || '',
                 recibo: document.getElementById('numPrimeraCuota').value,
                 mas_informacion: document.getElementById('masInformacion').value
             };

@@ -221,7 +221,11 @@
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
                         <label for="motivo" class="form-label">Motivo</label>
-                        <input type="text" class="form-control" id="motivo" value="{{ prima.motivo if prima else '' }}" readonly>
+                        <input type="text" class="form-control" id="motivo" value="{{ prima.motivo if prima else '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="nroOperacion" class="form-label">Nro. Operación</label>
+                        <input type="text" class="form-control" id="nroOperacion" value="{{ prima.nro_operacion if prima and prima.nro_operacion is not none else (prima.nro if prima else '') }}">
                     </div>
                     <div class="col-md-4">
                         <label for="numPrimeraCuota" class="form-label">Num. de la primera cuota</label>
