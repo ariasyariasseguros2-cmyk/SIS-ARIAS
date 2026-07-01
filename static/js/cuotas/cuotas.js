@@ -12,6 +12,8 @@ const Cuotas = (() => {
   let pagerPrevBtn = null;
   let pagerNextBtn = null;
   let pagerInfoEl = null;
+  let saveListenerBound = false;
+  let confirmButtonBound = false;
 
   function init() {
     const tbody = document.querySelector('#cuotas-table tbody');
@@ -27,6 +29,8 @@ const Cuotas = (() => {
       confirmMessageEl = msgEl;
       confirmOkBtn = document.getElementById('btnCuotaConfirmOk');
     }
+
+    bindSharedListeners();
 
     const params = new URLSearchParams(window.location.search);
     if (params.get('action') === 'add') {
@@ -199,6 +203,91 @@ const Cuotas = (() => {
     }
     
     confirmModal.show();
+  }
+
+  function bindSharedListeners() {
+    if (!saveListenerBound) {
+      document.addEventListener('cuota:saved', onCuotaSaved);
+      saveListenerBound = true;
+    }
+
+    if (!confirmButtonBound) {
+      const btnConfirmOk = document.getElementById('btnCuotaConfirmOk');
+      if (btnConfirmOk) {
+        btnConfirmOk.addEventListener('click', () => {
+          if (confirmCallback) {
+            const fn = confirmCallback;
+            confirmCallback = null;
+            fn();
+          }
+          if (confirmModal) confirmModal.hide();
+        });
+        confirmButtonBound = true;
+      }
+    }
+  }
+
+  function onCuotaSaved(e) {
+    const data = e.detail || {};
+    const tbody = document.querySelector('#cuotas-table tbody');
+    if (!tbody) return;
+
+    if (window.currentPoliza && data.poliza && window.currentPoliza !== data.poliza) return;
+
+    let tr = null;
+    if (data.idCuota) {
+      tr = Array.from(tbody.querySelectorAll('tr')).find(row => row.dataset.idcuota == data.idCuota);
+    }
+    if (!tr && editIndex !== null) {
+      tr = getRow(editIndex);
+    }
+
+    const isNew = !tr;
+    if (isNew) {
+      tr = document.createElement('tr');
+      tbody.appendChild(tr);
+      allRows.push(tr);
+    }
+
+    const documentoActual = (data.documento ?? '').toString().trim() || (tr.dataset.documento || '');
+    const importe = Number.parseFloat(data.importe || 0);
+    const importeTexto = Number.isFinite(importe) ? importe.toFixed(2) : '0.00';
+
+    tr.dataset.idcuota = data.idCuota || '';
+    tr.dataset.fechaPago = data.fecha_pago || '';
+    tr.dataset.factura = data.factura || '';
+    tr.dataset.observacion = data.observacion || '';
+    tr.dataset.documento = documentoActual;
+
+    const rowCount = isNew ? tbody.rows.length : (Array.from(tbody.rows).indexOf(tr) + 1);
+
+    tr.innerHTML = `
+        <td>${rowCount}</td>
+        <td>${data.cupon || '—'}</td>
+        <td>${fromISODate(data.fecha_vencimiento) || ''}</td>
+        <td>${importeTexto}</td>
+        <td>${fromISODate(data.fecha_pago) || ''}</td>
+        <td>${data.factura || ''}</td>
+        <td>${data.observacion || ''}</td>
+        <td class="text-end actions">
+            <div class="action-buttons justify-content-end">
+              <button class="btn-action btn-secondary btn-pdf" onclick="Cuotas.onPDF(${rowCount - 1})">PDF</button>
+              <button class="btn-action btn-warning btn-revert" onclick="Cuotas.onRevert(${rowCount - 1})" style="${(data.fecha_pago && data.factura) ? '' : 'display:none'}">Revertir</button>
+              <button class="btn-action btn-info btn-details" onclick="Cuotas.onDetails(${rowCount - 1})">Detalles</button>
+              <button class="btn-action btn-success btn-edit" onclick="Cuotas.onEdit(${rowCount - 1})">Editar</button>
+              <button class="btn-action btn-danger btn-delete" onclick="Cuotas.onDelete(${rowCount - 1})">Anular</button>
+            </div>
+        </td>
+    `;
+
+    const pdfBtn = tr.querySelector('.btn-pdf');
+    if (pdfBtn) {
+      const hasDocumento = !!(data.idArchivo || documentoActual);
+      pdfBtn.style.display = hasDocumento ? '' : 'none';
+    }
+
+    syncRowIndices();
+    editIndex = null;
   }
 
   // Acción PDF: consulta la ruta real en cuota_archivos y abre el visualizador
@@ -515,77 +604,6 @@ const Cuotas = (() => {
 
   // Eventos adicionales del modal de edición
   document.addEventListener('DOMContentLoaded', () => {
-    // Note: Add Modal logic is handled by add_cuota_modal.js
-
-    // Listen for shared modal save event (Add or Edit)
-    document.addEventListener('cuota:saved', (e) => {
-        const data = e.detail;
-        const tbody = document.querySelector('#cuotas-table tbody');
-        if (!tbody) return;
-        
-        // Check if we are on the page for this poliza (if poliza context is active)
-        if (window.currentPoliza && data.poliza && window.currentPoliza !== data.poliza) return;
-
-        // Try to find existing row
-        let tr = null;
-        if (data.idCuota) {
-            tr = Array.from(tbody.querySelectorAll('tr')).find(row => row.dataset.idcuota == data.idCuota);
-        }
-        if (!tr && editIndex !== null) {
-            tr = getRow(editIndex);
-        }
-
-        const isNew = !tr;
-        if (isNew) {
-            tr = document.createElement('tr');
-            tbody.appendChild(tr);
-            allRows.push(tr);
-        }
-
-        // Update dataset
-        tr.dataset.idcuota = data.idCuota || ''; // important for new rows
-        tr.dataset.fechaPago = data.fecha_pago || '';
-        tr.dataset.factura = data.factura || '';
-        tr.dataset.observacion = data.observacion || '';
-        // If file was uploaded, we might want to update this, but usually handled by reload or just assuming
-        // For now, if we saved via edit modal, we can assume document exists if file was selected, 
-        // but the event doesn't carry file info directly.
-        // However, edit_cuota_modal sets data.documento if needed, or we rely on user refresh for perfect sync.
-        
-        const rowCount = isNew ? tbody.rows.length : (Array.from(tbody.rows).indexOf(tr) + 1);
-
-        tr.innerHTML = `
-            <td>${rowCount}</td>
-            <td>${data.cupon || '—'}</td>
-            <td>${fromISODate(data.fecha_vencimiento) || ''}</td>
-            <td>${parseFloat(data.importe || 0).toFixed(2)}</td>
-            <td>${fromISODate(data.fecha_pago) || ''}</td>
-            <td>${data.factura || ''}</td>
-            <td>${data.observacion || ''}</td>
-            <td class="text-end actions">
-                <div class="action-buttons justify-content-end">
-                  <button class="btn-action btn-secondary btn-pdf" onclick="Cuotas.onPDF(${rowCount - 1})">PDF</button>
-                  <button class="btn-action btn-warning btn-revert" onclick="Cuotas.onRevert(${rowCount - 1})" style="${(data.fecha_pago && data.factura) ? '' : 'display:none'}">Revertir</button>
-                  <button class="btn-action btn-info btn-details" onclick="Cuotas.onDetails(${rowCount - 1})">Detalles</button>
-                  <button class="btn-action btn-success btn-edit" onclick="Cuotas.onEdit(${rowCount - 1})">Editar</button>
-                  <button class="btn-action btn-danger btn-delete" onclick="Cuotas.onDelete(${rowCount - 1})">Anular</button>
-                </div>
-            </td>
-        `;
-        
-        // Ocultar botón PDF si no hay archivo asociado tras el guardado (cuando no se subió archivo)
-        if (!data.idArchivo && !(data.documento && data.documento.length > 0)) {
-            const pdfBtn = tr.querySelector('.btn-pdf');
-            if (pdfBtn && !(data.fecha_pago && data.factura)) {
-                // conservador: ocultar si no está completo; el viewer validará de todas formas
-                pdfBtn.style.display = 'none';
-            }
-        }
-        
-        syncRowIndices();
-        editIndex = null;
-    });
-
     // Removed duplicate btnGuardarCuota listener as it is handled by CuotaEditModal
 
     // Logic for edit modal listeners is now handled in edit_cuota_modal.js
@@ -655,17 +673,7 @@ const Cuotas = (() => {
     }
     */
 
-    const btnConfirmOk = document.getElementById('btnCuotaConfirmOk');
-    if (btnConfirmOk) {
-      btnConfirmOk.addEventListener('click', () => {
-        if (confirmCallback) {
-          const fn = confirmCallback;
-          confirmCallback = null;
-          fn();
-        }
-        if (confirmModal) confirmModal.hide();
-      });
-    }
+    bindSharedListeners();
   });
 
   function syncRowIndices() {
