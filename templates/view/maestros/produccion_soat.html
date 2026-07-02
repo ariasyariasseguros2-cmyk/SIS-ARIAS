@@ -8,21 +8,123 @@
 
 {% block content %}
 <div class="container-fluid p-4">
+    <style>
+        #produccionTable {
+            table-layout: fixed;
+            border-collapse: collapse;
+            min-width: 1650px;
+            font-size: 0.82rem;
+        }
+
+        #produccionTable th,
+        #produccionTable td {
+            border: 1px solid #c9c9c9;
+            padding: 4px 6px;
+            vertical-align: middle;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #produccionTable thead th {
+            color: #000;
+            border-color: #4c4c4c;
+        }
+
+        #produccionTable .head-title {
+            background: #bfbfbf;
+            font-size: 1.15rem;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        #produccionTable .head-vendedor {
+            background: #92d050;
+            font-size: 1rem;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        #produccionTable .group-pagos {
+            background: #6fa8dc;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        #produccionTable .group-comercial {
+            background: #92d050;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        #produccionTable .group-arias {
+            background: #d9b8d8;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        #produccionTable .subhead-base {
+            background: #f8cbad;
+            font-weight: 700;
+        }
+
+        #produccionTable .subhead-pagos {
+            background: #6fa8dc;
+            font-weight: 700;
+        }
+
+        #produccionTable .subhead-comercial {
+            background: #92d050;
+            font-weight: 700;
+        }
+
+        #produccionTable .subhead-arias {
+            background: #d9b8d8;
+            font-weight: 700;
+        }
+
+        #produccionTable tbody td:nth-child(12),
+        #produccionTable tbody td:nth-child(13),
+        #produccionTable tfoot td:nth-child(12),
+        #produccionTable tfoot td:nth-child(13) {
+            background: #9ebcdf;
+        }
+
+        #produccionTable tbody td:nth-child(14),
+        #produccionTable tbody td:nth-child(15),
+        #produccionTable tfoot td:nth-child(14),
+        #produccionTable tfoot td:nth-child(15) {
+            background: #8ed16f;
+        }
+
+        #produccionTable tbody td:nth-child(16),
+        #produccionTable tfoot td:nth-child(16) {
+            background: #dcc0da;
+        }
+
+        #produccionTable tbody tr:hover td {
+            filter: brightness(0.98);
+        }
+
+        #produccionTable tfoot td {
+            font-weight: 700;
+        }
+    </style>
 
     <!-- Filtros -->
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body py-3">
             <div class="row g-2 align-items-end">
                 <div class="col-md-3">
-                    <label class="form-label small fw-bold text-muted mb-1">Buscar (póliza / recibo / planilla / código / vendedor)</label>
+                    <label class="form-label small fw-bold text-muted mb-1">Buscar (póliza / certif. / placa / contratante / uso / clase / vendedor)</label>
                     <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Buscar...">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small fw-bold text-muted mb-1">Venc. desde</label>
+                    <label class="form-label small fw-bold text-muted mb-1">Venta desde</label>
                     <input type="date" id="fechaDesde" class="form-control form-control-sm">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small fw-bold text-muted mb-1">Venc. hasta</label>
+                    <label class="form-label small fw-bold text-muted mb-1">Venta hasta</label>
                     <input type="date" id="fechaHasta" class="form-control form-control-sm">
                 </div>
                 <div class="col-md-2">
@@ -55,36 +157,73 @@
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0 small" id="produccionTable">
-                    <thead class="table-dark">
+                    <colgroup>
+                        <col style="width:55px">
+                        <col style="width:90px">
+                        <col style="width:90px">
+                        <col style="width:45px">
+                        <col style="width:80px">
+                        <col style="width:80px">
+                        <col style="width:95px">
+                        <col style="width:100px">
+                        <col style="width:230px">
+                        <col style="width:140px">
+                        <col style="width:85px">
+                        <col style="width:95px">
+                        <col style="width:85px">
+                        <col style="width:105px">
+                        <col style="width:95px">
+                        <col style="width:95px">
+                    </colgroup>
+                    <thead>
+                        <tr class="align-middle">
+                            <th colspan="11" class="head-title" id="reportTitle">Ventas realizadas</th>
+                            <th colspan="2" rowspan="2" class="group-pagos">PAGOS GENERALES</th>
+                            <th colspan="2" rowspan="2" class="group-comercial">PAGO A COMERCIALIZADOR</th>
+                            <th rowspan="2" class="group-arias">ARIAS</th>
+                        </tr>
+                        <tr class="align-middle">
+                            <th colspan="11" class="head-vendedor" id="reportSeller">COMERCIALIZADOR</th>
+                        </tr>
                         <tr>
-                            <th class="ps-3">Póliza</th>
-                            <th>Recibo</th>
-                            <th>Planilla</th>
-                            <th>Código</th>
-                            <th>Vendedor</th>
-                            <th class="text-end">Prima Neta</th>
-                            <th class="text-end">Prima C. IGV</th>
-                            <th class="text-end">% Cía</th>
-                            <th class="text-end">Imp. Cía</th>
-                            <th class="text-end">% Agente</th>
-                            <th class="text-end">Imp. Agente</th>
-                            <th class="text-end fw-bold text-warning">Producción Neta</th>
+                            <th class="ps-3 subhead-base">CIA</th>
+                            <th class="subhead-base">TIPO</th>
+                            <th class="subhead-base">CERTIF.</th>
+                            <th class="subhead-base">Mo</th>
+                            <th class="text-end subhead-base">COSTO</th>
+                            <th class="text-end subhead-base">P. NETA</th>
+                            <th class="subhead-base">PLACA</th>
+                            <th class="subhead-base">VIG.INI</th>
+                            <th class="subhead-base">POLIZA</th>
+                            <th class="subhead-base">CONTRATANTE</th>
+                            <th class="subhead-base">TIPO DE VEHICULOS</th>
+                            <th class="text-end subhead-pagos">% TOTAL</th>
+                            <th class="text-end subhead-pagos">PROD.TOTAL</th>
+                            <th class="text-end subhead-comercial">% COMERC.</th>
+                            <th class="text-end subhead-comercial" id="prodMonicaHeader">PROD. MONICA</th>
+                            <th class="text-end subhead-arias">PROD. ARIAS</th>
                         </tr>
                     </thead>
                     <tbody id="produccionBody">
-                        <tr><td colspan="12" class="text-center py-5">
+                        <tr><td colspan="16" class="text-center py-5">
                             <div class="spinner-border text-primary" role="status"></div>
                         </td></tr>
                     </tbody>
-                    <!-- Fila de totales -->
                     <tfoot class="table-secondary fw-bold" id="produccionTotales" style="display:none;">
                         <tr>
-                            <td colspan="5" class="ps-3 text-end">TOTALES</td>
+                            <td colspan="4" class="ps-3 text-end">TOTALES</td>
+                            <td class="text-end" id="tot_costo">-</td>
                             <td class="text-end" id="tot_prima_neta">-</td>
-                            <td class="text-end" id="tot_prima_igv">-</td>
-                            <td class="text-end" colspan="2" id="tot_imp_compania">-</td>
-                            <td class="text-end" colspan="2" id="tot_imp_subagente">-</td>
-                            <td class="text-end text-warning" id="tot_produccion_neta">-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td class="text-end" id="tot_prod_total">-</td>
+                            <td>-</td>
+                            <td class="text-end" id="tot_prod_monica">-</td>
+                            <td class="text-end text-danger" id="tot_prod_arias">-</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -144,6 +283,50 @@ document.addEventListener('DOMContentLoaded', () => {
         return parseFloat(val).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    function fmtDate(val) {
+        if (!val) return '-';
+        const d = new Date(val);
+        if (Number.isNaN(d.getTime())) return val;
+        return d.toLocaleDateString('es-PE');
+    }
+
+    function formatHeaderDate(value) {
+        if (!value) return '__/__/____';
+        const [year, month, day] = value.split('-');
+        if (!year || !month || !day) return value;
+        return `${day}/${month}/${year}`;
+    }
+
+    function updateReportHeader(rows, fDesde, fHasta) {
+        const title = document.getElementById('reportTitle');
+        const seller = document.getElementById('reportSeller');
+        const prodMonicaHeader = document.getElementById('prodMonicaHeader');
+        title.textContent = `Ventas realizadas del ${formatHeaderDate(fDesde)} al ${formatHeaderDate(fHasta)}`;
+
+        const vendedores = [...new Set(
+            (rows || [])
+                .map(row => (row.vendedor || '').trim().toUpperCase())
+                .filter(Boolean)
+        )];
+
+        if (vendedores.length === 1) {
+            const vendedor = vendedores[0];
+            seller.textContent = vendedor;
+            const vendedorCorto = vendedor.includes(',')
+                ? vendedor.split(',').pop().trim()
+                : vendedor.split(' ').filter(Boolean).pop() || 'MONICA';
+            prodMonicaHeader.textContent = `PROD. ${vendedorCorto}`;
+            return;
+        }
+        if (vendedores.length > 1) {
+            seller.textContent = 'COMERCIALIZADORES';
+            prodMonicaHeader.textContent = 'PROD. COMERCIAL';
+            return;
+        }
+        seller.textContent = 'COMERCIALIZADOR';
+        prodMonicaHeader.textContent = 'PROD. MONICA';
+    }
+
     function loadData() {
         const tbody   = document.getElementById('produccionBody');
         const tfoot   = document.getElementById('produccionTotales');
@@ -151,7 +334,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const fDesde  = document.getElementById('fechaDesde').value;
         const fHasta  = document.getElementById('fechaHasta').value;
 
-        tbody.innerHTML = '<tr><td colspan="12" class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></td></tr>';
+        updateReportHeader([], fDesde, fHasta);
+        tbody.innerHTML = '<tr><td colspan="16" class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></td></tr>';
         tfoot.style.display = 'none';
 
         const params = new URLSearchParams({
@@ -167,51 +351,56 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
                 tbody.innerHTML = '';
                 if (!data.ok || data.rows.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="12" class="text-center py-5 text-muted">No se encontraron registros.</td></tr>';
+                    updateReportHeader([], fDesde, fHasta);
+                    tbody.innerHTML = '<tr><td colspan="16" class="text-center py-5 text-muted">No se encontraron registros.</td></tr>';
                     document.getElementById('paginationInfo').textContent = '0 registros';
                     document.getElementById('paginationControls').innerHTML = '';
                     return;
                 }
 
+                updateReportHeader(data.rows, fDesde, fHasta);
                 data.rows.forEach(row => {
                     const tr = document.createElement('tr');
-                    const prodNeta = parseFloat(row.produccion_neta || 0);
-                    const netaClass = prodNeta >= 0 ? 'text-success' : 'text-danger';
+                    const prodArias = parseFloat(row.prod_arias || 0);
+                    const ariasClass = prodArias >= 0 ? 'text-success' : 'text-danger';
                     tr.innerHTML = `
-                        <td class="ps-3 fw-bold text-primary">${row.poliza || '-'}</td>
-                        <td>${row.recibo || '-'}</td>
-                        <td>${row.planilla || '-'}</td>
-                        <td><span class="badge bg-secondary">${row.codigo || '-'}</span></td>
-                        <td>${row.vendedor || '-'}</td>
+                        <td class="ps-3">${row.cia || '-'}</td>
+                        <td>${row.tipo || '-'}</td>
+                        <td>${row.certif || '-'}</td>
+                        <td>${row.moneda || '-'}</td>
+                        <td class="text-end">S/ ${fmt(row.costo)}</td>
                         <td class="text-end">S/ ${fmt(row.prima_neta)}</td>
-                        <td class="text-end">S/ ${fmt(row.prima_comercial_igv)}</td>
-                        <td class="text-end text-muted small">${fmt(row.porc_compania)}%</td>
-                        <td class="text-end">S/ ${fmt(row.imp_compania)}</td>
-                        <td class="text-end text-muted small">${fmt(row.porc_subagente)}%</td>
-                        <td class="text-end">S/ ${fmt(row.imp_subagente)}</td>
-                        <td class="text-end fw-bold ${netaClass}">S/ ${fmt(row.produccion_neta)}</td>
+                        <td>${row.placa || '-'}</td>
+                        <td>${fmtDate(row.vig_desde)}</td>
+                        <td class="fw-bold text-primary">${row.poliza || '-'}</td>
+                        <td>${row.contratante || '-'}</td>
+                        <td>${row.tipo_vehiculo || '-'}</td>
+                        <td class="text-end text-muted small">${fmt(row.pct_total)}%</td>
+                        <td class="text-end">S/ ${fmt(row.prod_total)}</td>
+                        <td class="text-end text-muted small">${fmt(row.pct_comerc)}%</td>
+                        <td class="text-end">S/ ${fmt(row.prod_monica)}</td>
+                        <td class="text-end fw-bold ${ariasClass}">S/ ${fmt(row.prod_arias)}</td>
                     `;
                     tbody.appendChild(tr);
                 });
 
-                // Totales
                 const t = data.totales || {};
+                document.getElementById('tot_costo').textContent           = `S/ ${fmt(t.total_costo)}`;
                 document.getElementById('tot_prima_neta').textContent      = `S/ ${fmt(t.total_prima_neta)}`;
-                document.getElementById('tot_prima_igv').textContent       = `S/ ${fmt(t.total_prima_igv)}`;
-                document.getElementById('tot_imp_compania').textContent    = `S/ ${fmt(t.total_imp_compania)}`;
-                document.getElementById('tot_imp_subagente').textContent   = `S/ ${fmt(t.total_imp_subagente)}`;
-                document.getElementById('tot_produccion_neta').textContent = `S/ ${fmt(t.total_produccion_neta)}`;
+                document.getElementById('tot_prod_total').textContent      = `S/ ${fmt(t.total_prod_total)}`;
+                document.getElementById('tot_prod_monica').textContent     = `S/ ${fmt(t.total_prod_monica)}`;
+                document.getElementById('tot_prod_arias').textContent      = `S/ ${fmt(t.total_prod_arias)}`;
                 tfoot.style.display = '';
 
-                // Info y paginación
-                const start = (data.page - 1) * data.per_page + 1;
+                const effectivePerPage = data.per_page > 0 ? data.per_page : data.total;
+                const start = data.total ? ((data.page - 1) * effectivePerPage + 1) : 0;
                 const end   = Math.min(start + data.rows.length - 1, data.total);
                 document.getElementById('paginationInfo').textContent = `Mostrando ${start}–${end} de ${data.total} registros`;
                 renderPagination(data.page, data.pages, data.per_page);
             })
             .catch(err => {
                 console.error(err);
-                tbody.innerHTML = '<tr><td colspan="12" class="text-center py-4 text-danger">Error al cargar datos.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="16" class="text-center py-4 text-danger">Error al cargar datos.</td></tr>';
             });
     }
 
