@@ -5,49 +5,37 @@ from flask import session, url_for
 from utils.rbac import Roles
 
 
-def get_expired_policy_notifications(limit: int = 10) -> List[dict]:
-    """Retorna notificaciones de polizas vencidas para la campana del layout."""
+def get_expired_policy_notifications(limit: int = 50) -> List[dict]:
+    """Retorna notificaciones de polizas vencidas/por vencer del usuario actual, agrupadas por ramo."""
     if not session.get('user'):
         return []
 
-    safe_limit = max(1, min(int(limit or 10), 50))
+    safe_limit = max(1, min(int(limit or 50), 200))
     notifications: List[dict] = []
 
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
 
-        user_filter = ""
-        user_filter_args: List[Any] = []
+        current_user = session.get('user', '')
 
-        if session.get('role_name') == Roles.SUB_AGENTE:
-            user = session.get('user')
-            nombre_usuario = user
-            try:
-                cur.execute(
-                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s LIMIT 1",
-                    (user,),
-                )
-                u_row = cur.fetchone() or {}
-                if u_row.get('nombre'):
-                    nombre_usuario = u_row['nombre']
-            except Exception:
-                nombre_usuario = user
-
-            user_filter = (
-                " AND ("
-                "LOWER(TRIM(REPLACE(CONVERT(sub_agente USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
-                "OR LOWER(TRIM(REPLACE(CONVERT(sub_agente USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
-                "OR LOWER(TRIM(REPLACE(CONVERT(usuario_registro USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
-                "OR LOWER(TRIM(REPLACE(CONVERT(usuario_registro USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s))"
-                ") "
-            )
-            user_filter_args = [user, nombre_usuario, user, nombre_usuario]
+        # Muestra las polizas donde el usuario_registro es el usuario actual,
+        # o donde el creador ya no existe en usuarios (polizas huerfanas → visibles para todos).
+        user_filter = (
+            " AND ("
+            "  LOWER(TRIM(COALESCE(usuario_registro, ''))) = LOWER(TRIM(%s))"
+            "  OR COALESCE(TRIM(usuario_registro), '') = ''"
+            "  OR NOT EXISTS ("
+            "    SELECT 1 FROM usuarios u2"
+            "    WHERE LOWER(TRIM(u2.username)) = LOWER(TRIM(usuario_registro))"
+            "  )"
+            ") "
+        )
 
         sql = f"""
             SELECT
                 idPoliza,
-                cliente_id,
+                COALESCE(NULLIF(TRIM(ramo), ''), 'Sin Ramo') AS ramo,
                 COALESCE(
                     CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
                     CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
@@ -73,11 +61,12 @@ def get_expired_policy_notifications(limit: int = 10) -> List[dict]:
                   )
               {user_filter}
             ORDER BY
+                ramo ASC,
                 CASE WHEN vig_hasta < CURDATE() THEN 0 ELSE 1 END,
                 vig_hasta ASC
             LIMIT %s
         """
-        cur.execute(sql, [*user_filter_args, safe_limit])
+        cur.execute(sql, [current_user, safe_limit])
         rows = cur.fetchall() or []
         cur.close()
         cnx.close()
@@ -87,6 +76,7 @@ def get_expired_policy_notifications(limit: int = 10) -> List[dict]:
             poliza_num = (r.get('poliza') or '').strip() or f"ID {r.get('idPoliza')}"
             vig_hasta = r.get('vig_hasta')
             notif_tipo = (r.get('notif_tipo') or 'VENCIDA').upper()
+            ramo = (r.get('ramo') or 'Sin Ramo').strip()
 
             vig_date = None
             if isinstance(vig_hasta, datetime):
@@ -117,6 +107,7 @@ def get_expired_policy_notifications(limit: int = 10) -> List[dict]:
                 'message': message_txt,
                 'time': time_txt,
                 'poliza_num': poliza_num,
+                'ramo': ramo,
                 'notif_tipo': 'por_vencer' if notif_tipo == 'POR_VENCER' else 'vencida',
                 'url': url_for('main.open_polizas_from_notification', poliza_id=r.get('idPoliza')),
             })
@@ -437,22 +428,25 @@ def get_distribution_by_group() -> Dict[str, Any]:
             )
             user_filter_args = [user, nombre_usuario, user, nombre_usuario]
 
-        # SOAT=1 día, resto=30 días; ajustar si cambian reglas de negocio
+        # ANUAL=1 día, resto=30 días, NO RENOVABLE/EVENTUAL/FLOTANTE=nunca renovar
+        # grupos: RRHH→personales, VEHICULOS→soat, RRGG+OTROS+resto→generales
         sql = f"""
             SELECT
                 UPPER(TRIM(COALESCE(r.grupo, ''))) AS grupo,
                 SUM(CASE
-                    WHEN UPPER(TRIM(COALESCE(r.grupo, ''))) LIKE '%SOAT%'
+                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) IN ('NO RENOVABLE','EVENTUAL','FLOTANTE') THEN 1
+                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) = 'ANUAL'
                         AND p.vig_hasta > DATE_ADD(CURDATE(), INTERVAL 1 DAY)  THEN 1
-                    WHEN UPPER(TRIM(COALESCE(r.grupo, ''))) NOT LIKE '%SOAT%'
+                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) NOT IN ('ANUAL','NO RENOVABLE','EVENTUAL','FLOTANTE')
                         AND p.vig_hasta > DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1
                     ELSE 0
                 END) AS vigentes,
                 SUM(CASE
-                    WHEN UPPER(TRIM(COALESCE(r.grupo, ''))) LIKE '%SOAT%'
-                        AND p.vig_hasta BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 1 DAY)  THEN 1
-                    WHEN UPPER(TRIM(COALESCE(r.grupo, ''))) NOT LIKE '%SOAT%'
-                        AND p.vig_hasta BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1
+                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) IN ('NO RENOVABLE','EVENTUAL','FLOTANTE') THEN 0
+                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) = 'ANUAL'
+                        AND p.vig_hasta <= DATE_ADD(CURDATE(), INTERVAL 1 DAY)  THEN 1
+                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) NOT IN ('ANUAL','NO RENOVABLE','EVENTUAL','FLOTANTE')
+                        AND p.vig_hasta <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1
                     ELSE 0
                 END) AS renovar
             FROM polizas p
@@ -471,7 +465,12 @@ def get_distribution_by_group() -> Dict[str, Any]:
 
         for row in rows:
             grupo = (row[0] or '').upper().strip()
-            bucket = 'soat' if 'SOAT' in grupo else ('personales' if 'PERSONAL' in grupo else 'generales')
+            if 'RRHH' in grupo:
+                bucket = 'personales'
+            elif 'VEHICULOS' in grupo:
+                bucket = 'soat'
+            else:  # RRGG, OTROS, vacío → generales
+                bucket = 'generales'
             result[bucket]['vigentes'] += int(row[1] or 0)
             result[bucket]['renovar']  += int(row[2] or 0)
 
