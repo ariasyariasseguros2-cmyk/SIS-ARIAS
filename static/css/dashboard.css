@@ -39,6 +39,10 @@
   --notif-due-border: #fed7aa;
   --notif-due-text: #9a3412;
   --notif-separator: linear-gradient(to right, #399ad6, #1f59a3);
+  --notif-ramo-header-bg: #f1f5f9;
+  --notif-ramo-label-color: #64748b;
+  --notif-panel-header-bg: #f8fafc;
+  --notif-panel-border: rgba(0,0,0,0.08);
 }
 
 [data-theme='dark'] {
@@ -75,6 +79,10 @@
   --notif-due-border: rgba(251, 191, 36, 0.5);
   --notif-due-text: #fde68a;
   --notif-separator: linear-gradient(to right, rgba(59, 130, 246, 0.55), rgba(6, 182, 212, 0.55));
+  --notif-ramo-header-bg: rgba(255,255,255,0.05);
+  --notif-ramo-label-color: #94a3b8;
+  --notif-panel-header-bg: rgba(255,255,255,0.03);
+  --notif-panel-border: rgba(255,255,255,0.06);
 }
 
 .notification-item.notif-vencida {
@@ -100,6 +108,24 @@
 .notification-separator {
   height: 1px;
   background: var(--notif-separator);
+}
+
+.notif-ramo-header {
+  background-color: var(--notif-ramo-header-bg);
+  border-bottom: 1px solid var(--notif-panel-border);
+  border-top: 1px solid var(--notif-panel-border);
+}
+
+.notif-ramo-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--notif-ramo-label-color);
+}
+
+/* Panel header "NOTIFICACIONES" */
+#notificationBtn ~ .dropdown-menu > div:first-child {
+  background-color: var(--notif-panel-header-bg);
+  border-bottom-color: var(--notif-panel-border) !important;
 }
 
 [data-theme='dark'] .submenu li {
