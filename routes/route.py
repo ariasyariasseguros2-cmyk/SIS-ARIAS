@@ -3478,27 +3478,7 @@ def open_polizas_from_notification(poliza_id):
     try:
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
-
-        rls_filter = ""
-        rls_args = []
-        if session.get('role_name') == Roles.SUB_AGENTE:
-            user = session.get('user')
-            nombre_usuario = user
-            try:
-                cur.execute(
-                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s LIMIT 1",
-                    (user,),
-                )
-                u_row = cur.fetchone() or {}
-                if u_row.get('nombre'):
-                    nombre_usuario = u_row['nombre']
-            except Exception:
-                nombre_usuario = user
-
-            rls_filter = " AND (LOWER(TRIM(p.sub_agente)) = LOWER(TRIM(%s)) OR LOWER(TRIM(p.sub_agente)) = LOWER(TRIM(%s))) "
-            rls_args = [user, nombre_usuario]
-
-        sql = """
+        cur.execute("""
             SELECT
                 c.idCliente,
                 COALESCE(
@@ -3506,26 +3486,15 @@ def open_polizas_from_notification(poliza_id):
                     CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
                     c.razon_social
                 ) AS razon_social,
-                COALESCE(c.doc, '') AS tipo_doc,
-                COALESCE(
-                    CAST(AES_DECRYPT(FROM_BASE64(c.n_doc), @SIS_KEY) AS CHAR),
-                    CAST(AES_DECRYPT(c.n_doc, @SIS_KEY) AS CHAR),
-                    c.n_doc
-                ) AS n_doc,
-                COALESCE(
-                    CAST(AES_DECRYPT(FROM_BASE64(c.tel), @SIS_KEY) AS CHAR),
-                    CAST(AES_DECRYPT(c.tel, @SIS_KEY) AS CHAR),
-                    c.tel
-                ) AS tel,
+                c.tipo_documento,
+                c.numero_documento,
+                c.telefono,
                 COALESCE(c.subagente, p.sub_agente, '') AS subagente
             FROM polizas p
             INNER JOIN clientes c ON c.idCliente = p.cliente_id
-            WHERE p.idPoliza = %s
-              AND p.activo = 1
-              AND p.anulado = 0
-        """ + rls_filter + " LIMIT 1"
-
-        cur.execute(sql, [poliza_id, *rls_args])
+            WHERE p.idPoliza = %s AND p.activo = 1 AND p.anulado = 0
+            LIMIT 1
+        """, (poliza_id,))
         row = cur.fetchone() or {}
         cur.close()
         cnx.close()
@@ -3534,15 +3503,14 @@ def open_polizas_from_notification(poliza_id):
             return redirect(url_for('main.menu_page', page='listado-poliza'))
 
         session['selected_cliente'] = {
-            'idCliente': row.get('idCliente'),
-            'nombre': row.get('razon_social'),
+            'idCliente':   row.get('idCliente'),
+            'nombre':      row.get('razon_social'),
             'razon_social': row.get('razon_social'),
-            'tipo_doc': row.get('tipo_doc'),
-            'n_doc': row.get('n_doc'),
-            'tel': row.get('tel'),
-            'subagente': row.get('subagente'),
+            'tipo_doc':    row.get('tipo_documento'),
+            'n_doc':       row.get('numero_documento'),
+            'tel':         row.get('telefono'),
+            'subagente':   row.get('subagente'),
         }
-
         return redirect(url_for('main.menu_page', page='polizas'))
     except Exception as e:
         print(f"[notifications.open_polizas] {e}")
