@@ -865,6 +865,28 @@ def get_or_create_agente(cursor, cnx, codigo_agente: str, nombre_vendedor: str, 
         return None
 
 
+def _validar_codigos_agente(df: pd.DataFrame, cnx) -> list[str]:
+    """Verifica que todo COD_AGENTE presente en el Excel exista en la tabla agentes."""
+    cur = cnx.cursor(dictionary=True)
+    existe_cache: dict[str, bool] = {}
+    filas_por_codigo: dict[str, list[int]] = {}
+    for idx, row in df.iterrows():
+        codigo_agente = normalize_numero_documento(row.get('COD_AGENTE', ''))
+        if not codigo_agente:
+            continue
+        if codigo_agente not in existe_cache:
+            cur.execute("SELECT 1 FROM agentes WHERE codigo_agente = %s LIMIT 1", (codigo_agente,))
+            existe_cache[codigo_agente] = cur.fetchone() is not None
+        if not existe_cache[codigo_agente]:
+            filas_por_codigo.setdefault(codigo_agente, []).append(idx + 2)
+    cur.close()
+    return [
+        f"Código de agente '{codigo}' no existe en la tabla agentes (fila(s): {', '.join(map(str, filas))}). "
+        "No se puede realizar la carga masiva."
+        for codigo, filas in filas_por_codigo.items()
+    ]
+
+
 def _rate_to_factor(rate: float | int | None) -> float:
     value = float(rate or 0)
     return value if abs(value) <= 1.0 else (value / 100.0)
@@ -1540,6 +1562,14 @@ def process_soat_excel(file_path: str, usuario: str, preview: bool = False) -> d
                 errors.append("Encabezados leídos: " + ", ".join([str(c) for c in head_cols]))
             errors.extend(load_debug)
             return {'ok': False, 'errors': errors}
+
+        cnx_val = get_connection()
+        try:
+            agente_errors = _validar_codigos_agente(df, cnx_val)
+        finally:
+            cnx_val.close()
+        if agente_errors:
+            return {'ok': False, 'errors': agente_errors}
 
         fecha_emision_min = None
         fecha_emision_max = None
