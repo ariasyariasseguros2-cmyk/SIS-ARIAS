@@ -230,6 +230,27 @@
     </div>
 </div>
 
+<!-- Modal de error al no poder realizar la carga -->
+<div class="modal fade" id="errorCargaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    No se pudo realizar la carga
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="mb-0" id="errorCargaList"></ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 let selectedFile = null;
 
@@ -557,22 +578,19 @@ function showResults(result, isPreview = false) {
         }
 
     } else {
-        resultCard.className = 'card border-danger';
-        resultCard.querySelector('.card-header').className = 'card-header bg-danger text-white';
-        resultIcon.className = 'bi bi-x-circle-fill me-2';
-        resultTitle.textContent = 'Error en la Carga';
-
-        resultStats.innerHTML = '';
-
-        let errorsHtml = '<div class="alert alert-danger"><h6><i class="bi bi-exclamation-triangle me-2"></i>Errores:</h6><ul class="mb-0">';
-        (result.errors || ['Error desconocido']).forEach(error => {
-            errorsHtml += `<li>${error}</li>`;
-        });
-        errorsHtml += '</ul></div>';
-        resultErrors.innerHTML = errorsHtml;
+        showErrorModal(result.errors && result.errors.length ? result.errors : ['Error desconocido']);
+        resultSection.style.display = 'none';
+        return;
     }
 
     resultSection.style.display = 'block';
+}
+
+function showErrorModal(errors) {
+    const list = document.getElementById('errorCargaList');
+    list.innerHTML = errors.map(error => `<li>${escapeHtml(error)}</li>`).join('');
+    const modalEl = document.getElementById('errorCargaModal');
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
 }
 </script>
 {% endblock %}
