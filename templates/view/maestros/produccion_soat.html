@@ -116,7 +116,7 @@
         <div class="card-body py-3">
             <div class="row g-2 align-items-end">
                 <div class="col-md-3">
-                    <label class="form-label small fw-bold text-muted mb-1">Buscar (póliza / certif. / placa / contratante / uso / clase / vendedor)</label>
+                    <label class="form-label small fw-bold text-muted mb-1">Buscar (póliza / placa / contratante / uso / clase / vendedor)</label>
                     <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Buscar...">
                 </div>
                 <div class="col-md-2">
@@ -188,7 +188,7 @@
                         <tr>
                             <th class="ps-3 subhead-base">CIA</th>
                             <th class="subhead-base">TIPO</th>
-                            <th class="subhead-base">CERTIF.</th>
+                            <th class="subhead-base">F. EMISION</th>
                             <th class="subhead-base">Mo</th>
                             <th class="text-end subhead-base">COSTO</th>
                             <th class="text-end subhead-base">P. NETA</th>
@@ -366,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     tr.innerHTML = `
                         <td class="ps-3">${row.cia || '-'}</td>
                         <td>${row.tipo || '-'}</td>
-                        <td>${row.certif || '-'}</td>
+                        <td>${fmtDate(row.fecha_emision)}</td>
                         <td>${row.moneda || '-'}</td>
                         <td class="text-end">S/ ${fmt(row.costo)}</td>
                         <td class="text-end">S/ ${fmt(row.prima_neta)}</td>

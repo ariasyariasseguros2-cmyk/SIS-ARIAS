@@ -68,6 +68,7 @@ def _build_where(search='', fecha_desde=None, fecha_hasta=None):
     where_clauses = [
         "(p.ramo LIKE '%SOAT%' OR COALESCE(p.ramos_producto, '') LIKE '%SOAT%')",
         "COALESCE(p.activo, 1) = 1",
+        "COALESCE(p.anulado, 0) = 0",
     ]
     params = []
 
@@ -138,7 +139,6 @@ def _get_reporte_rows(cur, where_sql, params, per_page=None, offset=0):
             {POLIZA_EXPR} AS poliza,
             {RECIBO_EXPR} AS recibo,
             {PLANILLA_EXPR} AS planilla,
-            {CERTIF_EXPR} AS certif,
             p.codigo_agente AS codigo,
             p.ejecutivo AS vendedor,
             p.moneda,
@@ -236,7 +236,7 @@ def export_produccion_soat_excel(search='', fecha_desde=None, fecha_hasta=None):
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
     headers = [
-        "CIA", "TIPO", "CERTIF.", "Mo", "COSTO", "P. NETA", "PLACA", "VIG.INI",
+        "CIA", "TIPO", "F. EMISION", "Mo", "COSTO", "P. NETA", "PLACA", "VIG.INI",
         "POLIZA", "CONTRATANTE", "TIPO DE VEHICULOS", "% TOTAL", "PROD.TOTAL",
         "% COMERC.", "", "PROD. ARIAS"
     ]
@@ -332,7 +332,7 @@ def export_produccion_soat_excel(search='', fecha_desde=None, fecha_hasta=None):
     date_format = 'DD/MM/YYYY'
 
     widths = {
-        'A': 10, 'B': 14, 'C': 12, 'D': 7, 'E': 12, 'F': 12, 'G': 12, 'H': 12,
+        'A': 10, 'B': 14, 'C': 14, 'D': 7, 'E': 12, 'F': 12, 'G': 12, 'H': 12,
         'I': 14, 'J': 34, 'K': 20, 'L': 10, 'M': 12, 'N': 10, 'O': 14, 'P': 14
     }
     for col_letter, width in widths.items():
@@ -341,7 +341,8 @@ def export_produccion_soat_excel(search='', fecha_desde=None, fecha_hasta=None):
     for r_idx, row in enumerate(rows, start=5):
         ws.cell(row=r_idx, column=1, value=row.get('cia'))
         ws.cell(row=r_idx, column=2, value=row.get('tipo'))
-        ws.cell(row=r_idx, column=3, value=row.get('certif'))
+        c = ws.cell(row=r_idx, column=3, value=row.get('fecha_emision'))
+        c.number_format = date_format
         ws.cell(row=r_idx, column=4, value=row.get('moneda'))
 
         c = ws.cell(row=r_idx, column=5, value=float(row.get('costo') or 0))
