@@ -350,6 +350,32 @@ def save_polizas(
             except Exception:
                 return None
 
+        def is_devolucion_tipo_doc(value: str | None) -> bool:
+            txt = (value or '').strip()
+            if not txt:
+                return False
+            normalized = unicodedata.normalize('NFD', txt)
+            normalized = ''.join(ch for ch in normalized if unicodedata.category(ch) != 'Mn')
+            normalized = normalized.replace(' ', '').upper()
+            return normalized == 'DEVOLUCION'
+
+        def normalize_devolucion_amount_fields(row: dict) -> dict:
+            if not row:
+                return row
+            amount_fields = (
+                "prima_comercial",
+                "prima_neta",
+                "prima_comercial_igv",
+                "prima_total",
+                "comision_compania_importe",
+                "comision_subagente_importe",
+            )
+            for field in amount_fields:
+                val = parse_decimal(row.get(field))
+                if val is not None:
+                    row[field] = round(-abs(val), 2)
+            return row
+
         def normalize_dup_key(value: str | None) -> str | None:
             if value is None:
                 return None
@@ -587,6 +613,9 @@ def save_polizas(
                 return {"ok": False, "errors": [f"Fila {idx}: El recibo ya existe."]}
             batch_dups.add(dup_sig)
 
+        selected_tipo_doc = U((selected or {}).get("tipo_doc") or (selected or {}).get("tipo_documento") or "")
+        is_devolucion_selected = is_devolucion_tipo_doc(selected_tipo_doc)
+
         inserted = 0
 
         errors: list[str] = []
@@ -642,6 +671,9 @@ def save_polizas(
             except Exception as _e:
                 # Falla silenciosa: no bloquear guardado si no se puede autocompletar
                 pass
+
+            if is_devolucion_selected:
+                normalize_devolucion_amount_fields(row)
 
             # VALIDACION: evitar duplicado por cia + poliza + recibo
             try:

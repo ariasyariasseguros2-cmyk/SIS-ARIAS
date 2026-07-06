@@ -346,25 +346,66 @@
     if (up.includes('DOLAR') || up.includes('DÓLAR') || up.includes('DÓLARES') || up.includes('USD') || up.includes('US$') || up === '$') return 'US$';
     return raw;
   }
+  function normalizeTipoDocKey(val) {
+    return (val || '')
+      .toString()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '')
+      .trim()
+      .toUpperCase();
+  }
+  function isDevolucionSelected() {
+    return normalizeTipoDocKey(tipoDocTopEl?.value || '') === 'DEVOLUCION';
+  }
+  function formatSignedAmount(value, digits = 2) {
+    const num = parseNumber(value);
+    if (!Number.isFinite(num)) return '';
+    const signed = isDevolucionSelected() ? -Math.abs(num) : Math.abs(num);
+    return signed.toFixed(digits);
+  }
+  function normalizeSignedEditableText(text) {
+    const cleaned = sanitizeNumericText(text);
+    if (!isDevolucionSelected() || !cleaned || cleaned === '-') return cleaned;
+    return `-${cleaned.replace(/^-/, '')}`;
+  }
+  function normalizeFinancialSigns(item) {
+    if (!item) return item;
+    const amountFields = [
+      'prima_comercial',
+      'prima_neta',
+      'prima_comercial_igv',
+      'prima_total',
+      'comision_compania_importe',
+      'comision_subagente_importe'
+    ];
+    amountFields.forEach(field => {
+      const raw = item[field];
+      if (raw === undefined || raw === null || raw === '') return;
+      const signed = formatSignedAmount(raw);
+      if (signed !== '') item[field] = signed;
+    });
+    return item;
+  }
   function computePrimaNetaFromComercial(val) {
     const num = parseNumber(val);
     if (!Number.isFinite(num)) return '';
-    return (num / 1.03).toFixed(2);
+    return formatSignedAmount(num / 1.03);
   }
   function computePrimaComercialFromNeta(val) {
     const num = parseNumber(val);
     if (!Number.isFinite(num)) return '';
-    return (num * 1.03).toFixed(2);
+    return formatSignedAmount(num * 1.03);
   }
   function computePrimaIGVFromComercial(val) {
     const num = parseNumber(val);
     if (!Number.isFinite(num)) return '';
-    return (num * 1.18).toFixed(2);
+    return formatSignedAmount(num * 1.18);
   }
   function computePrimaComercialFromTotal(val) {
     const num = parseNumber(val);
     if (!Number.isFinite(num)) return '';
-    return (num / 1.18).toFixed(2);
+    return formatSignedAmount(num / 1.18);
   }
 
   // Números y comisiones
@@ -373,7 +414,7 @@
     const pctVal = parseNumber(pctStr);
     if (!Number.isFinite(neta) || !Number.isFinite(pctVal)) return '';
     const ratio = pctVal <= 1 ? pctVal : (pctVal / 100);
-    return (neta * ratio).toFixed(2);
+    return formatSignedAmount(neta * ratio);
   }
   // NUEVO: cálculo de Importe Comisión Sub Agente desde Importe Cía y % Sub Agente
   function computeSubAgentCommissionAmount(compImportStr, subPctStr) {
@@ -383,7 +424,7 @@
     const ratio = pctVal <= 1 ? pctVal : (pctVal / 100);
     // Lógica solicitada: dividir entre * 1 antes de aplicar el porcentaje
     const base = comp * 1;
-    return (base * ratio).toFixed(2);
+    return formatSignedAmount(base * ratio);
   }
   function formatPctForInput(num) {
     if (!Number.isFinite(num)) return '';
@@ -951,7 +992,7 @@
         it.prima_comercial = comercialFromTotal.toFixed(2);
         it.prima_neta = computePrimaNetaFromComercial(it.prima_comercial);
         it.prima_comercial_igv = totalIgvNum.toFixed(2);
-        return it;
+        return normalizeFinancialSigns(it);
       }
       }
     }
@@ -961,7 +1002,7 @@
       it.prima_comercial = comercialFromTotal.toFixed(2);
       it.prima_neta = computePrimaNetaFromComercial(it.prima_comercial);
       it.prima_comercial_igv = totalIgvNum.toFixed(2);
-      return it;
+      return normalizeFinancialSigns(it);
     }
     let comercial = (it.prima_comercial || '').toString().trim();
     let neta = (it.prima_neta || '').toString().trim();
@@ -1016,7 +1057,7 @@
       const pctSubCalc = computeSubPctFromImport(it.comision_compania_importe || '', it.comision_subagente_importe || '');
       if (pctSubCalc) it.comision_subagente_pct = pctSubCalc;
     }
-    return it;
+    return normalizeFinancialSigns(it);
   }
 
   // Encabezado de la tabla
@@ -1941,7 +1982,7 @@
       extractedItems[idx][field] = masked;
     } else if (isNumericField(field)) {
       const cur = td.textContent || '';
-      const cleaned = sanitizeNumericText(cur);
+      const cleaned = normalizeSignedEditableText(cur);
       if (cur !== cleaned) td.textContent = cleaned;
       extractedItems[idx][field] = cleaned;
     } else {
@@ -1964,8 +2005,7 @@
     if (!Number.isFinite(idx) || !field) return;
 
     if (field === 'prima_comercial' || field === 'prima_neta' || field === 'prima_comercial_igv') {
-      const num = parseNumber(td.textContent);
-      const formatted = Number.isFinite(num) ? num.toFixed(2) : '';
+      const formatted = formatSignedAmount(td.textContent);
       td.textContent = formatted;
       extractedItems[idx][field] = formatted;
     } else {
@@ -2082,7 +2122,8 @@
     const idx = Number(td?.dataset?.index);
     if (!Number.isFinite(idx)) return;
 
-    const imp = input.value || '';
+    const imp = formatSignedAmount(input.value);
+    input.value = imp;
     extractedItems[idx].comision_compania_importe = imp;
     setCompanyCommissionSource(extractedItems[idx], imp ? 'manual' : '');
 
@@ -2108,7 +2149,8 @@
     const idx = Number(td?.dataset?.index);
     if (!Number.isFinite(idx)) return;
 
-    const impSub = input.value || '';
+    const impSub = formatSignedAmount(input.value);
+    input.value = impSub;
     extractedItems[idx].comision_subagente_importe = impSub;
 
     const compImport = extractedItems[idx].comision_compania_importe || '';
@@ -3555,7 +3597,7 @@
           copy.estado = 'SIN PRIMA';
           copy.forma_pago = 'SIN PRIMA';
         }
-        return copy;
+        return normalizeFinancialSigns(copy);
       });
 
       // NUEVO: Log para verificar lo que se envía
@@ -3696,6 +3738,11 @@
         });
         render(extractedItems);
       }
+    }
+    if ((extractedItems || []).length) {
+      extractedItems = (extractedItems || []).map(it => normalizeFinancialSigns({ ...it }));
+      render(extractedItems);
+      if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
     }
     if (btnSave) {
       btnSave.disabled = (extractedItems || []).length === 0;
