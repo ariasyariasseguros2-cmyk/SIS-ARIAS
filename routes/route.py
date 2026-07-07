@@ -1162,6 +1162,39 @@ def api_reporte_produccion_export():
         current_app.logger.error(f"Error exportando reporte produccion: {e}")
         return jsonify({'ok': False, 'error': f"Error generando Excel: {str(e)}"}), 500
 
+
+@bp.route('/api/reportes/produccion/export-pro', methods=['GET'])
+@require_permission(lambda r: r in [Roles.BROKER, Roles.OPERADOR], response_mode='json')
+def api_reporte_produccion_export_pro():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+
+    filters = {
+        'vig_desde': request.args.get('vig_desde') or None,
+        'vig_hasta': request.args.get('vig_hasta') or None,
+        'cia': request.args.get('cia') or None,
+        'ramo': request.args.get('ramo') or None,
+        'sub_agente': request.args.get('sub_agente') or None,
+        'ejecutivo': request.args.get('ejecutivo') or None,
+        'moneda': request.args.get('moneda') or None,
+        'usuario': request.args.get('usuario') or None,
+        'f_reg_desde': request.args.get('f_reg_desde') or None,
+        'f_reg_hasta': request.args.get('f_reg_hasta') or None,
+    }
+
+    error = _validate_reporte_produccion_dates(filters)
+    if error:
+        return jsonify({'ok': False, 'error': error}), 400
+
+    try:
+        from controllers.reportes.reporte_produccion import export_reporte_produccion_pro
+
+        filepath, filename = export_reporte_produccion_pro(filters)
+        return send_file(filepath, as_attachment=True, download_name=filename)
+    except Exception as e:
+        current_app.logger.error(f"Error exportando reporte produccion pro: {e}")
+        return jsonify({'ok': False, 'error': f"Error generando Excel Pro: {str(e)}"}), 500
+
 @bp.route('/perfil')
 def perfil_page():
     if 'user' not in session:

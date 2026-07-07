@@ -3,6 +3,7 @@ function reporteProduccionInit() {
     const tableBodySummary = document.querySelector('#reporteProduccionTableSummary tbody');
     const tableBodyFull = document.querySelector('#reporteProduccionTableFull tbody');
     const btnExport = document.getElementById('btnExportProduccionExcel');
+    const btnExportPro = document.getElementById('btnExportProduccionExcelPro');
     const btnClear = document.getElementById('btnClearProduccion');
     const alertEl = document.getElementById('reporteProduccionAlert');
 
@@ -375,6 +376,18 @@ function reporteProduccionInit() {
             if (!validateRequiredDates()) return;
             var query = buildQueryFromForm();
             var url = '/api/reportes/produccion/export';
+            if (query) {
+                url += '?' + query;
+            }
+            window.open(url, '_blank');
+        });
+    }
+
+    if (btnExportPro) {
+        btnExportPro.addEventListener('click', function () {
+            if (!validateRequiredDates()) return;
+            var query = buildQueryFromForm();
+            var url = '/api/reportes/produccion/export-pro';
             if (query) {
                 url += '?' + query;
             }
