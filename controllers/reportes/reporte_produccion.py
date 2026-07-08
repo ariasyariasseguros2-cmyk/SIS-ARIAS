@@ -939,9 +939,12 @@ def export_reporte_produccion_pro(filters: Dict[str, Any]) -> Tuple[str, str]:
         for item in pivots["contratante_rows"]:
             first_row = True
             for ramo_item in item["ramos"]:
-                contratante_value = item["contratante"] if first_row else ""
-                contratante_cell = sheet.cell(row=row_num, column=1, value=contratante_value)
+                contratante_cell = sheet.cell(row=row_num, column=1, value=item["contratante"])
                 style_matrix_cell(contratante_cell)
+                if not first_row:
+                    # Conserva el valor para el autofiltro, pero oculta visualmente los
+                    # repetidos para que el bloque del contratante se vea agrupado.
+                    contratante_cell.font = Font(color="FFFFFF")
                 ramo_cell = sheet.cell(row=row_num, column=2, value=ramo_item["ramo"])
                 style_matrix_cell(ramo_cell)
                 write_year_values(sheet, row_num, 3, years, ramo_item["years"])
