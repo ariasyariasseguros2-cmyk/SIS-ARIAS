@@ -598,6 +598,8 @@ def _build_year_month_pivots(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         years_set.add(year)
 
         value = _safe_float(row.get("prim_neta"))
+        # Las matrices anio-mes deben reflejar la prima comercial con IGV.
+        #value = _safe_float(row.get("prim_total") or row.get("prim_neta"))
         contratante = (row.get("contratante") or "SIN CONTRATANTE").strip() or "SIN CONTRATANTE"
         ramo = (row.get("ram") or "SIN RAMO").strip() or "SIN RAMO"
 
