@@ -235,10 +235,10 @@
                             <div class="fw-bold fs-5 lh-1" style="color:{{ color }}">{{ distribution[key].vigentes }}</div>
                             <div class="text-muted" style="font-size:0.7rem;">Vigentes</div>
                         </div>
-                        <div class="text-center">
-                            <div class="fw-bold fs-5 lh-1 text-warning">{{ distribution[key].renovar }}</div>
-                            <div class="text-muted" style="font-size:0.7rem;">{{ renovar_label }}</div>
-                        </div>
+                        <button type="button" class="btn renovar-trigger text-center border-0 px-3 py-2 rounded-3" data-bucket="{{ key }}" data-label="{{ label }}" title="Click para ver el detalle" style="background:#fee2e2;color:#ef4444;transition:filter .15s;" onmouseover="this.style.filter='brightness(0.95)'" onmouseout="this.style.filter='none'">
+                            <div class="fw-bold fs-5 lh-1">{{ distribution[key].renovar }} <i class="bi-eye" style="font-size:0.75rem;"></i></div>
+                            <div style="font-size:0.7rem;">{{ renovar_label }}</div>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -246,6 +246,37 @@
         {% endfor %}
     </div>
     {% endif %}
+</div>
+
+<div class="modal fade" id="modalRenovaciones" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Pendientes de renovación &mdash; <span id="modalRenovacionesLabel"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="modalRenovacionesLoading" class="text-center py-5 text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div> Cargando...
+                </div>
+                <div id="modalRenovacionesEmpty" class="text-center py-5 text-muted d-none">Sin pólizas pendientes de renovación.</div>
+                <table class="table table-sm align-middle mb-0 d-none" id="modalRenovacionesTabla">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Póliza</th>
+                            <th>Recibo</th>
+                            <th>Vigencia desde</th>
+                            <th>Vigencia hasta</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
