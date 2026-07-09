@@ -685,12 +685,15 @@ def get_cuotas_data(
                             DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
                             c.factura,
                             c.observacion,
+                            c.activo,
+                            c.motivo_anulacion,
+                            c.usuario_anulacion,
+                            DATE_FORMAT(c.fecha_anulacion, '%d-%m-%Y %H:%i') AS fecha_anulacion,
                             COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cobranza,
                             p.tipo_doc
                         FROM cuotas c
                         LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
-                        WHERE c.activo = 1
-                          AND c.poliza_id = %s
+                        WHERE c.poliza_id = %s
                         ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
                         """,
                         (target_prima_id,),
@@ -722,12 +725,15 @@ def get_cuotas_data(
                                 DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
                                 c.factura,
                                 c.observacion,
+                                c.activo,
+                                c.motivo_anulacion,
+                                c.usuario_anulacion,
+                                DATE_FORMAT(c.fecha_anulacion, '%d-%m-%Y %H:%i') AS fecha_anulacion,
                                 COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cobranza,
                                 p.tipo_doc
                             FROM cuotas c
                             LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
-                            WHERE c.activo = 1
-                              AND (c.poliza_id IS NULL OR c.poliza_id = 0)
+                            WHERE (c.poliza_id IS NULL OR c.poliza_id = 0)
                               AND (
                                 CAST(AES_DECRYPT(FROM_BASE64(c.poliza), @SIS_KEY) AS CHAR) = %s
                                 OR c.poliza = %s
@@ -760,6 +766,10 @@ def get_cuotas_data(
                             DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
                             c.factura,
                             c.observacion,
+                            c.activo,
+                            c.motivo_anulacion,
+                            c.usuario_anulacion,
+                            DATE_FORMAT(c.fecha_anulacion, '%d-%m-%Y %H:%i') AS fecha_anulacion,
                             COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cobranza,
                             p.tipo_doc
                         FROM cuotas c
@@ -768,7 +778,6 @@ def get_cuotas_data(
                           CAST(AES_DECRYPT(FROM_BASE64(c.poliza), @SIS_KEY) AS CHAR) = %s
                           OR c.poliza = %s
                         )
-                          AND c.activo = 1
                     """
                     params = [poliza, poliza]
 
@@ -807,12 +816,15 @@ def get_cuotas_data(
                                     DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
                                     c.factura,
                                     c.observacion,
+                                    c.activo,
+                                    c.motivo_anulacion,
+                                    c.usuario_anulacion,
+                                    DATE_FORMAT(c.fecha_anulacion, '%d-%m-%Y %H:%i') AS fecha_anulacion,
                                     COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR), p.recibo) AS aviso_cobranza,
                                     p.tipo_doc
                                 FROM cuotas c
                                 LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
-                                WHERE c.activo = 1
-                                  AND (
+                                WHERE (
                                         TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR), c.cupon)) = TRIM(%s)
                                         OR TRIM(c.factura) = TRIM(%s)
                                       )
@@ -842,6 +854,10 @@ def get_cuotas_data(
                             'fecha_pago': format_date_custom(c.get('fecha_pago')),
                             'factura': c.get('factura') or '',
                             'observacion': c.get('observacion') or '',
+                            'activo': c.get('activo'),
+                            'motivo_anulacion': c.get('motivo_anulacion') or '',
+                            'usuario_anulacion': c.get('usuario_anulacion') or '',
+                            'fecha_anulacion': format_date_custom(c.get('fecha_anulacion')),
                             'aviso_cobranza': c.get('aviso_cobranza') or '',
                             'tipo_doc': c.get('tipo_doc') or '',
                         })

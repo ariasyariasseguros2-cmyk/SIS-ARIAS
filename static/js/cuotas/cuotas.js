@@ -152,6 +152,78 @@ const Cuotas = (() => {
     };
   }
 
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function updateObservationCell(tr) {
+    if (!tr) return;
+    const cell = tr.querySelector('td:nth-child(7)');
+    if (!cell) return;
+    const observacion = escapeHtml(tr.dataset.observacion || '');
+    const motivo = escapeHtml(tr.dataset.motivoAnulacion || '');
+    const anulada = String(tr.dataset.activo || '1') === '0';
+    cell.innerHTML = `
+      <div>${observacion}</div>
+      ${anulada ? `<div class="small text-danger fw-semibold">ANULADA${motivo ? `: ${motivo}` : ''}</div>` : ''}
+    `;
+  }
+
+  function updateActionState(tr) {
+    if (!tr) return;
+    const anulada = String(tr.dataset.activo || '1') === '0';
+    const actionsWrap = tr.querySelector('.action-buttons');
+    if (!actionsWrap) return;
+
+    const toggle = (selector, visible) => {
+      const btn = actionsWrap.querySelector(selector);
+      if (btn) btn.style.display = visible ? '' : 'none';
+    };
+
+    toggle('.btn-revert', !anulada && !!(tr.dataset.fechaPago && tr.dataset.factura));
+    toggle('.btn-edit', !anulada);
+    toggle('.btn-delete', !anulada);
+    toggle('.btn-hard-delete', !anulada);
+
+    let badge = actionsWrap.querySelector('.cuota-status-badge');
+    if (anulada) {
+      tr.classList.add('table-danger');
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'badge text-bg-danger cuota-status-badge';
+        badge.textContent = 'Anulada';
+        actionsWrap.appendChild(badge);
+      }
+      badge.style.display = '';
+    } else {
+      tr.classList.remove('table-danger');
+      if (badge) badge.style.display = 'none';
+    }
+  }
+
+  function markRowAsActive(tr) {
+    if (!tr) return;
+    tr.dataset.activo = '1';
+    tr.dataset.motivoAnulacion = '';
+    tr.dataset.usuarioAnulacion = '';
+    tr.dataset.fechaAnulacion = '';
+    updateObservationCell(tr);
+    updateActionState(tr);
+  }
+
+  function markRowAsAnulada(tr, motivo) {
+    if (!tr) return;
+    tr.dataset.activo = '0';
+    tr.dataset.motivoAnulacion = (motivo || '').trim();
+    updateObservationCell(tr);
+    updateActionState(tr);
+  }
+
   function recalcTotal() {
     const tbody = document.querySelector('#cuotas-table tbody');
     // Elemento para mostrar el total de la prima
@@ -163,6 +235,7 @@ const Cuotas = (() => {
     let total = 0;
     // Seleccionamos todas las filas, incluyendo las ocultas por el filtro
     tbody.querySelectorAll('tr').forEach(tr => {
+      if (String(tr.dataset.activo || '1') === '0') return;
       const td = tr.querySelector('td:nth-child(4)');
       if (!td) return;
       
@@ -258,6 +331,10 @@ const Cuotas = (() => {
     tr.dataset.factura = data.factura || '';
     tr.dataset.observacion = data.observacion || '';
     tr.dataset.documento = documentoActual;
+    tr.dataset.activo = '1';
+    tr.dataset.motivoAnulacion = '';
+    tr.dataset.usuarioAnulacion = '';
+    tr.dataset.fechaAnulacion = '';
 
     const rowCount = isNew ? tbody.rows.length : (Array.from(tbody.rows).indexOf(tr) + 1);
 
@@ -285,6 +362,9 @@ const Cuotas = (() => {
       const hasDocumento = !!(data.idArchivo || documentoActual);
       pdfBtn.style.display = hasDocumento ? '' : 'none';
     }
+
+    updateObservationCell(tr);
+    updateActionState(tr);
 
     syncRowIndices();
     editIndex = null;
@@ -654,7 +734,7 @@ const Cuotas = (() => {
       .then(r => r.json())
       .then(res => {
         if (res.ok) {
-          tr.remove();
+          markRowAsAnulada(tr, motivo);
           syncRowIndices();
         } else {
           alert('Error al anular: ' + (res.error || 'Desconocido'));
@@ -780,6 +860,9 @@ const Cuotas = (() => {
       if (tr.cells && tr.cells[0]) {
         tr.cells[0].textContent = String(idx + 1);
       }
+
+      updateObservationCell(tr);
+      updateActionState(tr);
 
       const pdfBtn = tr.querySelector('.btn-pdf');
       if (pdfBtn) pdfBtn.setAttribute('onclick', `Cuotas.onPDF(${idx})`);

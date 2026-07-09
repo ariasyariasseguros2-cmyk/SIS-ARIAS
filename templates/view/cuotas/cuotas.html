@@ -149,7 +149,12 @@
           </thead>
           <tbody>
             {% for r in rows %}
-            <tr data-idcuota="{{ r.idCuota or '' }}"
+            <tr class="{{ 'table-danger' if r.activo == 0 else '' }}"
+                data-idcuota="{{ r.idCuota or '' }}"
+                data-activo="{{ r.activo if r.activo is not none else 1 }}"
+                data-motivo-anulacion="{{ r.motivo_anulacion or '' }}"
+                data-usuario-anulacion="{{ r.usuario_anulacion or '' }}"
+                data-fecha-anulacion="{{ r.fecha_anulacion or '' }}"
                 data-documento="{{ r.documento or '' }}" 
                 data-fecha-pago="{{ r.fecha_pago or '' }}"
                 data-factura="{{ r.factura or '' }}"
@@ -160,10 +165,21 @@
               <td>{{ r.importe }}</td>
               <td>{{ r.fecha_pago or '' }}</td>
               <td>{{ r.factura or '' }}</td>
-              <td>{{ r.observacion or '' }}</td>
+              <td>
+                <div>{{ r.observacion or '' }}</div>
+                {% if r.activo == 0 %}
+                <div class="small text-danger fw-semibold">
+                  ANULADA{% if r.motivo_anulacion %}: {{ r.motivo_anulacion }}{% endif %}
+                </div>
+                {% endif %}
+              </td>
               <td class="text-end actions">
                 <div class="action-buttons justify-content-end">
                   <button class="btn-action btn-secondary btn-pdf" onclick="Cuotas.onPDF({{ loop.index0 }})">PDF</button>
+                  <button class="btn-action btn-info btn-details" onclick="Cuotas.onDetails({{ loop.index0 }})">Detalles</button>
+                  {% if r.activo == 0 %}
+                  <span class="badge text-bg-danger cuota-status-badge">Anulada</span>
+                  {% else %}
                   {% if can_restore(session.role_name) and not es_financiamiento_grupal %}
                   <button class="btn-action btn-warning btn-revert"
                           onclick="Cuotas.onRevert({{ loop.index0 }})"
@@ -171,7 +187,6 @@
                           Revertir
                   </button>
                   {% endif %}
-                  <button class="btn-action btn-info btn-details" onclick="Cuotas.onDetails({{ loop.index0 }})">Detalles</button>
                   {% if can_edit(session.role_name) %}
                   <button class="btn-action btn-success btn-edit" onclick="Cuotas.onEdit({{ loop.index0 }})">Editar</button>
                   {% endif %}
@@ -180,6 +195,7 @@
                   {% endif %}
                   {% if can_hard_delete(session.role_name) %}
                   <button class="btn-action btn-dark btn-hard-delete" onclick="Cuotas.onHardDelete({{ loop.index0 }})">Eliminar</button>
+                  {% endif %}
                   {% endif %}
                 </div>
               </td>
