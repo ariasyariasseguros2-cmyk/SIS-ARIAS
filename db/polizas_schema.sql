@@ -1688,6 +1688,9 @@ CREATE TABLE IF NOT EXISTS cuotas (
     numero_cuota INT NULL,
     activo TINYINT(1) DEFAULT 1,
     anular TINYINT(1) DEFAULT 1,
+    motivo_anulacion VARCHAR(200) NULL,
+    usuario_anulacion VARCHAR(100) NULL,
+    fecha_anulacion DATETIME NULL,
     CONSTRAINT fk_cuotas_financiamiento_grupal
         FOREIGN KEY (financiamiento_grupal_id) REFERENCES financiamiento_grupal(id_financiamiento_grupal)
 );
