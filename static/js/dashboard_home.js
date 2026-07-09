@@ -232,4 +232,58 @@ document.addEventListener('DOMContentLoaded', () => {
     makeGroupDonut('chartGenerales', 'generales', '#3b82f6');
     makeGroupDonut('chartSoat',      'soat',       '#f59e0b');
     makeGroupDonut('chartPersonales','personales', '#10b981');
+
+    // 4. Modal: pólizas pendientes de renovación por grupo
+    const modalRenovacionesEl = document.getElementById('modalRenovaciones');
+    const modalRenovaciones = modalRenovacionesEl ? new bootstrap.Modal(modalRenovacionesEl) : null;
+    const modalLoading = document.getElementById('modalRenovacionesLoading');
+    const modalEmpty = document.getElementById('modalRenovacionesEmpty');
+    const modalTabla = document.getElementById('modalRenovacionesTabla');
+    const modalTbody = modalTabla ? modalTabla.querySelector('tbody') : null;
+    const modalLabel = document.getElementById('modalRenovacionesLabel');
+
+    document.querySelectorAll('.renovar-trigger').forEach(el => {
+        el.addEventListener('click', () => {
+            const bucket = el.getAttribute('data-bucket');
+            if (!bucket || !modalRenovaciones) return;
+
+            modalLabel.textContent = el.getAttribute('data-label') || '';
+            modalLoading.classList.remove('d-none');
+            modalEmpty.classList.add('d-none');
+            modalTabla.classList.add('d-none');
+            modalTbody.innerHTML = '';
+            modalRenovaciones.show();
+
+            fetch(`/dashboard/renovaciones/${encodeURIComponent(bucket)}`)
+                .then(r => r.json())
+                .then(res => {
+                    modalLoading.classList.add('d-none');
+                    const rows = (res && res.ok) ? (res.rows || []) : [];
+                    if (rows.length === 0) {
+                        modalEmpty.classList.remove('d-none');
+                        return;
+                    }
+                    modalTbody.innerHTML = rows.map(r => `
+                        <tr>
+                            <td>${escapeHtml(r.poliza)}</td>
+                            <td>${escapeHtml(r.recibo)}</td>
+                            <td>${escapeHtml(r.vig_desde)}</td>
+                            <td>${escapeHtml(r.vig_hasta)}</td>
+                        </tr>
+                    `).join('');
+                    modalTabla.classList.remove('d-none');
+                })
+                .catch(() => {
+                    modalLoading.classList.add('d-none');
+                    modalEmpty.textContent = 'Error al cargar las pólizas pendientes.';
+                    modalEmpty.classList.remove('d-none');
+                });
+        });
+    });
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str == null ? '' : String(str);
+        return div.innerHTML;
+    }
 });
