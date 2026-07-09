@@ -179,6 +179,9 @@
                     <ul class="submenu">
                         <li class="{% if _p == 'reporte-gestion-diaria' %}active{% endif %}"><a data-page="reporte-gestion-diaria" href="{{ url_for('main.menu_page', page='reporte-gestion-diaria') }}"><i class="bi-download"></i> Reporte Gestión Diaria</a></li>
                         <li class="{% if _p == 'reporte-polizas-anuladas' %}active{% endif %}"><a data-page="reporte-polizas-anuladas" href="{{ url_for('main.menu_page', page='polizas-anuladas') }}"><i class="bi-download"></i> Reporte Pólizas Anuladas</a></li>
+                        {% if session.role_name == Roles.BROKER %}
+                        <li class="{% if _p == 'cuotas-anuladas' %}active{% endif %}"><a data-page="cuotas-anuladas" href="{{ url_for('main.menu_page', page='cuotas-anuladas') }}"><i class="bi-download"></i> Reporte Cuotas Anuladas</a></li>
+                        {% endif %}
                         <!--<li class="{% if _p == 'cobranzas-reporte-primas' %}active{% endif %}"><a data-page="cobranzas-reporte-primas" href="{{ url_for('main.menu_page', page='cobranzas-reporte-primas') }}"><i class="bi-download"></i> Reporte de Primas con sus Cuotas</a></li>-->
                         <li class="{% if _p == 'reporte-siniestros' %}active{% endif %}"><a data-page="reporte-siniestros" href="{{ url_for('main.menu_page', page='reporte-siniestros') }}"><i class="bi-download"></i> Reporte de Siniestros</a></li>
                         <li class="{% if _p == 'reporte-produccion' %}active{% endif %}"><a data-page="reporte-produccion" href="{{ url_for('main.menu_page', page='reporte-produccion') }}"><i class="bi-download"></i> Reporte de Producción</a></li>
