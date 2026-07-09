@@ -480,6 +480,111 @@ def get_distribution_by_group() -> Dict[str, Any]:
     return result
 
 
+def get_pending_renewals_list(bucket: str, limit: int = 500) -> List[dict]:
+    """Pólizas 'por renovar' (mismo criterio que get_distribution_by_group) para un grupo dado."""
+    if bucket not in ('generales', 'soat', 'personales'):
+        return []
+
+    safe_limit = max(1, min(int(limit or 500), 2000))
+    rows_out: List[dict] = []
+    try:
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+
+        user_filter = ""
+        user_filter_args: List[Any] = []
+
+        if session.get('role_name') == Roles.SUB_AGENTE:
+            user = session.get('user')
+            nombre_usuario = user
+            try:
+                cur.execute(
+                    "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s LIMIT 1",
+                    (user,),
+                )
+                u_row = cur.fetchone()
+                if u_row and u_row.get('nombre'):
+                    nombre_usuario = u_row['nombre']
+            except Exception:
+                nombre_usuario = user
+
+            user_filter = (
+                " AND ("
+                "LOWER(TRIM(REPLACE(CONVERT(p.sub_agente USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(p.sub_agente USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(p.usuario_registro USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s)) "
+                "OR LOWER(TRIM(REPLACE(CONVERT(p.usuario_registro USING latin1), _latin1 0xA0, ' '))) = LOWER(TRIM(%s))"
+                ") "
+            )
+            user_filter_args = [user, nombre_usuario, user, nombre_usuario]
+
+        if bucket == 'personales':
+            grupo_filter = " AND UPPER(TRIM(COALESCE(r.grupo, ''))) LIKE '%%RRHH%%' "
+        elif bucket == 'soat':
+            grupo_filter = " AND UPPER(TRIM(COALESCE(r.grupo, ''))) LIKE '%%VEHICULOS%%' "
+        else:
+            grupo_filter = (
+                " AND UPPER(TRIM(COALESCE(r.grupo, ''))) NOT LIKE '%%RRHH%%' "
+                " AND UPPER(TRIM(COALESCE(r.grupo, ''))) NOT LIKE '%%VEHICULOS%%' "
+            )
+
+        renovar_filter = """
+            AND UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) NOT IN ('NO RENOVABLE','EVENTUAL','FLOTANTE')
+            AND (
+                (UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) = 'ANUAL' AND p.vig_hasta <= DATE_ADD(CURDATE(), INTERVAL 1 DAY))
+                OR
+                (UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) NOT IN ('ANUAL','NO RENOVABLE','EVENTUAL','FLOTANTE') AND p.vig_hasta <= DATE_ADD(CURDATE(), INTERVAL 30 DAY))
+            )
+        """
+
+        sql = f"""
+            SELECT
+                p.idPoliza,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza
+                ) AS poliza,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                    p.recibo
+                ) AS recibo,
+                p.vig_desde,
+                p.vig_hasta
+            FROM polizas p
+            LEFT JOIN ramos r ON LOWER(TRIM(p.ramo)) = LOWER(TRIM(r.nombre))
+            WHERE p.activo = 1
+              AND (p.anulado = 0 OR p.anulado IS NULL)
+              AND COALESCE(p.prima_anulada, 0) = 0
+              AND p.vig_hasta >= CURDATE()
+              {grupo_filter}
+              {renovar_filter}
+              {user_filter}
+            ORDER BY p.vig_hasta ASC
+            LIMIT %s
+        """
+        cur.execute(sql, user_filter_args + [safe_limit])
+        rows = cur.fetchall() or []
+        cur.close()
+        cnx.close()
+
+        for r in rows:
+            vig_desde = r.get('vig_desde')
+            vig_hasta = r.get('vig_hasta')
+            rows_out.append({
+                'idPoliza': r.get('idPoliza'),
+                'poliza': (r.get('poliza') or '').strip() or f"ID {r.get('idPoliza')}",
+                'recibo': (r.get('recibo') or '').strip(),
+                'vig_desde': vig_desde.strftime('%d/%m/%Y') if isinstance(vig_desde, (date, datetime)) else (str(vig_desde) if vig_desde else ''),
+                'vig_hasta': vig_hasta.strftime('%d/%m/%Y') if isinstance(vig_hasta, (date, datetime)) else (str(vig_hasta) if vig_hasta else ''),
+            })
+    except Exception as e:
+        print(f"[Dashboard] Error fetching pending renewals list: {e}")
+
+    return rows_out
+
+
 def get_dashboard_data() -> Dict[str, Any]:
     # Chart data: prima neta y comision mensual del año actual
     months_labels = []
