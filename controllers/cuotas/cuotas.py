@@ -1612,7 +1612,7 @@ def revert_cuota(cuota_id: int) -> Tuple[bool, str]:
         return False, str(e)
 
 
-def delete_cuota(cuota_id: int) -> Tuple[bool, str]:
+def delete_cuota(cuota_id: int, motivo: str = '', usuario: str = '') -> Tuple[bool, str]:
     try:
         from models.db import get_connection
         cnx = get_connection()
@@ -1659,7 +1659,17 @@ def delete_cuota(cuota_id: int) -> Tuple[bool, str]:
             )
             _clear_cuota_archivos(cur, cuota_id, poliza_id, cupon_plain)
         else:
-            cur.execute("UPDATE cuotas SET activo = 0 WHERE idCuota = %s", (cuota_id,))
+            cur.execute(
+                """
+                UPDATE cuotas
+                SET activo = 0,
+                    motivo_anulacion = %s,
+                    usuario_anulacion = %s,
+                    fecha_anulacion = NOW()
+                WHERE idCuota = %s
+                """,
+                (motivo or None, usuario or None, cuota_id),
+            )
 
         _recalculate_poliza_estado(cur, poliza_id, 'PAGADO')
 
@@ -1670,6 +1680,145 @@ def delete_cuota(cuota_id: int) -> Tuple[bool, str]:
     except Exception as e:
         print(f"Error deleting cuota: {e}")
         return False, str(e)
+
+def get_cuotas_anuladas_filtered(
+    q: str = None,
+    desde: str = None,
+    hasta: str = None,
+    page: int = 1,
+    per_page: int = 15,
+) -> dict:
+    rows: List[dict] = []
+    total = 0
+    page_num = 1
+    per_page_num = 15
+    pages = 1
+    try:
+        from models.db import get_connection
+
+        try:
+            page_num = max(1, int(page or 1))
+        except Exception:
+            page_num = 1
+        try:
+            per_page_num = int(per_page or 15)
+        except Exception:
+            per_page_num = 15
+        per_page_num = min(200, max(1, per_page_num))
+        offset = (page_num - 1) * per_page_num
+
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+
+        where_sql = " WHERE q.activo = 0 "
+        params: list = []
+        if q:
+            like = f"%{q}%"
+            where_sql += """
+              AND (
+                TRIM(COALESCE(
+                  CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                  CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                  p.poliza
+                )) LIKE %s OR
+                TRIM(COALESCE(
+                  CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                  CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                  p.recibo
+                )) LIKE %s OR
+                TRIM(COALESCE(
+                  CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                  CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                  c.razon_social
+                )) LIKE %s OR
+                TRIM(COALESCE(
+                  CAST(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) AS CHAR),
+                  CAST(AES_DECRYPT(q.cupon, @SIS_KEY) AS CHAR),
+                  q.cupon
+                )) LIKE %s OR
+                q.motivo_anulacion LIKE %s OR
+                q.usuario_anulacion LIKE %s OR
+                p.cia LIKE %s OR
+                p.ramo LIKE %s
+              )
+            """
+            params.extend([like, like, like, like, like, like, like, like])
+        if desde:
+            where_sql += " AND q.fecha_anulacion >= %s "
+            params.append(desde)
+        if hasta:
+            where_sql += " AND q.fecha_anulacion < DATE_ADD(%s, INTERVAL 1 DAY) "
+            params.append(hasta)
+
+        from_sql = """
+            FROM cuotas q
+            LEFT JOIN polizas p ON p.idPoliza = q.poliza_id
+            LEFT JOIN clientes c ON c.idCliente = p.cliente_id
+        """
+
+        cur.execute("SELECT COUNT(*) AS total " + from_sql + where_sql, tuple(params))
+        total = int((cur.fetchone() or {}).get('total', 0) or 0)
+        pages = max(1, (total + per_page_num - 1) // per_page_num)
+        if page_num > pages:
+            page_num = pages
+            offset = (page_num - 1) * per_page_num
+
+        sql = """
+            SELECT
+                q.idCuota,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza
+                ) AS poliza,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.recibo), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.recibo, @SIS_KEY) AS CHAR),
+                    p.recibo
+                ) AS prima,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                    c.razon_social
+                ) AS contratante,
+                p.cia,
+                p.ramo,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(q.cupon), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(q.cupon, @SIS_KEY) AS CHAR),
+                    q.cupon
+                ) AS cupon,
+                q.moneda,
+                q.importe,
+                DATE_FORMAT(q.fecha_vencimiento, '%d/%m/%Y') AS fecha_vencimiento,
+                q.motivo_anulacion AS motivo,
+                q.usuario_anulacion AS usuario,
+                DATE_FORMAT(q.fecha_anulacion, '%d/%m/%Y %H:%i') AS fecha_anulacion
+        """ + from_sql + where_sql + " ORDER BY q.fecha_anulacion DESC, q.idCuota DESC LIMIT %s OFFSET %s"
+
+        page_params = list(params)
+        page_params.extend([per_page_num, offset])
+        cur.execute(sql, tuple(page_params))
+        rows = cur.fetchall() or []
+
+        cur.close()
+        cnx.close()
+    except Exception as e:
+        print(f"Error listando cuotas anuladas: {e}")
+        rows = []
+        total = 0
+        page_num = 1
+        per_page_num = 15
+        pages = 1
+
+    return {
+        'rows': rows,
+        'total': total,
+        'page': page_num,
+        'per_page': per_page_num,
+        'pages': pages,
+    }
+
 
 def hard_delete_cuota(cuota_id: int) -> Tuple[bool, str]:
     try:
