@@ -539,34 +539,129 @@ const Cuotas = (() => {
     }
   }
 
+  let anularCuotaModalEl = null;
+  let anularCuotaModalInstance = null;
+  let anularCuotaFields = null;
+
+  function initAnularCuotaModal() {
+    if (anularCuotaModalEl) return;
+    anularCuotaModalEl = document.getElementById('anularCuotaModal');
+    if (!anularCuotaModalEl || !window.bootstrap) return;
+    anularCuotaModalInstance = window.bootstrap.Modal.getOrCreateInstance(anularCuotaModalEl, { backdrop: 'static' });
+    anularCuotaFields = {
+      cupon: document.getElementById('anularCuotaCupon'),
+      importe: document.getElementById('anularCuotaImporte'),
+      motivo: document.getElementById('anularCuotaMotivo'),
+      motivoError: document.getElementById('anularCuotaMotivoError'),
+      btnOk: document.getElementById('anularCuotaConfirm'),
+      btnCancel: document.getElementById('anularCuotaCancel')
+    };
+  }
+
+  function setAnularCuotaMotivoError(message) {
+    if (!anularCuotaFields || !anularCuotaFields.motivo) return;
+    if (message) {
+      anularCuotaFields.motivo.classList.add('is-invalid');
+      if (anularCuotaFields.motivoError) anularCuotaFields.motivoError.textContent = message;
+    } else {
+      anularCuotaFields.motivo.classList.remove('is-invalid');
+    }
+  }
+
+  function openAnularCuotaModal(data) {
+    initAnularCuotaModal();
+    if (!anularCuotaModalEl || !anularCuotaModalInstance || !anularCuotaFields.motivo || !anularCuotaFields.btnOk) {
+      const motivo = window.prompt('Motivo de la anulación de la cuota:');
+      if (!motivo || !motivo.trim()) return Promise.resolve(null);
+      return Promise.resolve(motivo.trim());
+    }
+
+    if (anularCuotaFields.cupon) anularCuotaFields.cupon.value = data.cupon || '';
+    if (anularCuotaFields.importe) anularCuotaFields.importe.value = data.importe || '';
+    anularCuotaFields.motivo.value = '';
+    setAnularCuotaMotivoError('');
+
+    return new Promise((resolve) => {
+      let decided = false;
+
+      const cleanup = () => {
+        anularCuotaFields.btnOk.removeEventListener('click', onOk);
+        anularCuotaFields.btnCancel?.removeEventListener('click', onCancel);
+        anularCuotaModalEl.removeEventListener('hidden.bs.modal', onHidden);
+        anularCuotaFields.motivo.removeEventListener('input', onInput);
+      };
+
+      const onInput = () => setAnularCuotaMotivoError('');
+
+      const onOk = () => {
+        const motivo = anularCuotaFields.motivo.value.trim();
+        if (!motivo) {
+          setAnularCuotaMotivoError('Ingrese el motivo de la anulación.');
+          return;
+        }
+        if (motivo.length > 200) {
+          setAnularCuotaMotivoError('El motivo no puede exceder 200 caracteres.');
+          return;
+        }
+        decided = true;
+        cleanup();
+        anularCuotaModalInstance.hide();
+        resolve(motivo);
+      };
+
+      const onCancel = () => {
+        decided = true;
+        cleanup();
+        anularCuotaModalInstance.hide();
+        resolve(null);
+      };
+
+      const onHidden = () => {
+        if (decided) return;
+        cleanup();
+        resolve(null);
+      };
+
+      anularCuotaFields.btnOk.addEventListener('click', onOk);
+      anularCuotaFields.btnCancel?.addEventListener('click', onCancel);
+      anularCuotaModalEl.addEventListener('hidden.bs.modal', onHidden);
+      anularCuotaFields.motivo.addEventListener('input', onInput);
+
+      anularCuotaModalInstance.show();
+      anularCuotaFields.motivo.focus();
+    });
+  }
+
   function onDelete(idx) {
     const tbody = document.querySelector('#cuotas-table tbody');
     if (!tbody) return;
     const tr = tbody.querySelectorAll('tr')[idx];
     if (!tr) return;
-    openConfirm('¿Anular esta cuota?', () => {
-      const idCuota = tr.dataset.idcuota;
-      if (idCuota) {
-        fetch('/cuotas/delete', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({idCuota: idCuota})
-        })
-        .then(r => r.json())
-        .then(res => {
-          if (res.ok) {
-            tr.remove();
-            syncRowIndices();
-          } else {
-            alert('Error al anular: ' + (res.error || 'Desconocido'));
-          }
-        })
-        .catch(e => alert('Error de red: ' + e));
-      } else {
-        tr.remove();
-        syncRowIndices();
-      }
-    }, 'delete');
+    const idCuota = tr.dataset.idcuota;
+    if (!idCuota) {
+      tr.remove();
+      syncRowIndices();
+      return;
+    }
+    const data = getCellsData(tr, idx) || {};
+    openAnularCuotaModal(data).then(motivo => {
+      if (!motivo) return;
+      fetch('/cuotas/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({idCuota: idCuota, motivo: motivo})
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.ok) {
+          tr.remove();
+          syncRowIndices();
+        } else {
+          alert('Error al anular: ' + (res.error || 'Desconocido'));
+        }
+      })
+      .catch(e => alert('Error de red: ' + e));
+    });
   }
 
   function onHardDelete(idx) {
