@@ -7,7 +7,7 @@ import hashlib
 import json
 import shutil
 from utils.rbac import can_access_maestros, can_view_maestros, can_delete, can_edit, can_create, can_create_poliza, can_restore, can_hard_delete, Roles, get_role_scope, require_permission
-from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards, get_distribution_by_group
+from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards, get_distribution_by_group, get_pending_renewals_list
 from datetime import datetime, timedelta
 from controllers.reportes.vencimientos_renovaciones import bp as vencimientos_bp
 from controllers.reportes.reporte_produccion import (
@@ -429,12 +429,39 @@ def update_cuota_cupon_route():
 def delete_cuota_route():
     if 'user' not in session:
         return {'ok': False, 'error': 'Unauthorized'}, 401
-    data = request.json
+    data = request.json or {}
     cuota_id = data.get('idCuota')
-    
+    motivo = (data.get('motivo') or '').strip()
+    if not motivo:
+        return {'ok': False, 'error': 'El motivo de anulación es obligatorio'}, 400
+    if len(motivo) > 200:
+        return {'ok': False, 'error': 'El motivo supera 200 caracteres'}, 400
+
+    user_session = session.get('user')
+    if isinstance(user_session, dict):
+        usuario = user_session.get('username') or user_session.get('user') or user_session.get('name') or ''
+    else:
+        usuario = user_session or ''
+    usuario = str(usuario).strip()
+    if usuario:
+        try:
+            cnx_u = get_connection()
+            cur_u = cnx_u.cursor()
+            cur_u.execute(
+                "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1",
+                (usuario,),
+            )
+            urow = cur_u.fetchone()
+            if urow and urow[0]:
+                usuario = urow[0]
+            cur_u.close()
+            cnx_u.close()
+        except Exception:
+            pass
+
     from controllers.cuotas.cuotas import delete_cuota
-    success, msg = delete_cuota(cuota_id)
-    
+    success, msg = delete_cuota(cuota_id, motivo, usuario)
+
     if success:
         return {'ok': True}
     return {'ok': False, 'error': msg}, 400
@@ -1073,6 +1100,14 @@ def dashboard():
     return render_template('view/dashboard.html', rows=rows, chart=chart, cards=cards, distribution=distribution)
 
 
+@bp.route('/dashboard/renovaciones/<bucket>')
+def dashboard_renovaciones(bucket):
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 401
+    rows = get_pending_renewals_list(bucket)
+    return jsonify({'ok': True, 'rows': rows})
+
+
 @bp.route('/reportes/produccion', methods=['GET'])
 @require_permission(lambda r: r in [Roles.BROKER, Roles.OPERADOR], response_mode='redirect')
 def reporte_produccion_page():
@@ -1576,6 +1611,14 @@ def menu_page(page):
             'view/reportes/polizas-anuladas.html',
             page='polizas-anuladas',
             rows=data['rows']
+        )
+
+    if page == 'cuotas-anuladas':
+        if session.get('role_name') != Roles.BROKER:
+            return redirect(url_for('main.home'))
+        return render_template(
+            'view/reportes/cuotas-anuladas.html',
+            page='cuotas-anuladas',
         )
 
     # Primas → plantilla dedicada
@@ -7202,6 +7245,29 @@ def api_polizas_anuladas_list():
     try:
         from controllers.polizas import get_polizas_anuladas_filtered
         data = get_polizas_anuladas_filtered(q, desde, hasta, page=page, per_page=per_page)
+        return jsonify({
+            'ok': True,
+            'rows': data.get('rows', []),
+            'total': data.get('total', 0),
+            'page': data.get('page', 1),
+            'per_page': data.get('per_page', 15),
+            'pages': data.get('pages', 1),
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/cuotas/anuladas', methods=['GET'])
+@require_permission(lambda r: r == Roles.BROKER, response_mode='json')
+def api_cuotas_anuladas_list():
+    q = request.args.get('q') or None
+    desde = request.args.get('desde') or None
+    hasta = request.args.get('hasta') or None
+    page = request.args.get('page') or 1
+    per_page = request.args.get('per_page') or 15
+    try:
+        from controllers.cuotas.cuotas import get_cuotas_anuladas_filtered
+        data = get_cuotas_anuladas_filtered(q, desde, hasta, page=page, per_page=per_page)
         return jsonify({
             'ok': True,
             'rows': data.get('rows', []),
