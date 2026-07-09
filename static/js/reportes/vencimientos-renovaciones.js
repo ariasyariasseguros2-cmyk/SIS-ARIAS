@@ -854,6 +854,26 @@ document.addEventListener('DOMContentLoaded', function() {
         return hasFactura && hasFechaPago;
     }
 
+    function isCuotaAnulada(r) {
+        if (!r) return false;
+
+        const activo = Number(r.activo);
+        if (!Number.isNaN(activo) && activo === 0) {
+            return true;
+        }
+
+        if (r.fecha_anulacion && String(r.fecha_anulacion).trim() && r.fecha_anulacion !== '-') {
+            return true;
+        }
+
+        if (r.motivo_anulacion && String(r.motivo_anulacion).trim()) {
+            return true;
+        }
+
+        const obs = String(r.observacion || '').toLowerCase();
+        return obs.includes('anulad');
+    }
+
     function findPolizaRow(poliza) {
         const key = (poliza || '').toString();
         return (allData || []).find(r => getPolizaLookupKey(r) === key) || null;
@@ -861,8 +881,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderCuotasPanel(polizaRow, cuotas, poliza, idPoliza) {
         const total = cuotas.length;
-        const pagadas = cuotas.reduce((acc, r) => acc + (isCuotaPagada(r) ? 1 : 0), 0);
-        const pendientes = Math.max(0, total - pagadas);
+        const anuladas = cuotas.reduce((acc, r) => acc + (isCuotaAnulada(r) ? 1 : 0), 0);
+        const pagadas = cuotas.reduce((acc, r) => acc + (!isCuotaAnulada(r) && isCuotaPagada(r) ? 1 : 0), 0);
         const moneda = (polizaRow && polizaRow.moneda) ? polizaRow.moneda : '';
 
         const resumen = `
@@ -893,8 +913,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="kpi-value text-success">${pagadas}</div>
                 </div>
                 <div class="kpi-card p-3">
-                    <div class="kpi-label">Pendientes</div>
-                    <div class="kpi-value text-warning">${pendientes}</div>
+                    <div class="kpi-label">Anuladas</div>
+                    <div class="kpi-value text-danger">${anuladas}</div>
                 </div>
             </div>
         `;
@@ -902,9 +922,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const list = total === 0
             ? `<div class="text-muted small">No hay cuotas registradas.</div>`
             : cuotas.map((r, index) => {
-                const pagada = isCuotaPagada(r);
-                const statusClass = pagada ? 'status-paid' : 'status-pending';
-                const statusLabel = pagada ? 'Pagado' : 'Pendiente';
+                const anulada = isCuotaAnulada(r);
+                const pagada = !anulada && isCuotaPagada(r);
+                const statusClass = anulada ? 'status-annulled' : (pagada ? 'status-paid' : 'status-pending');
+                const statusLabel = anulada ? 'Anulada' : (pagada ? 'Pagado' : 'Pendiente');
                 const numero = r.numero_cuota || r.secuencia || (index + 1);
                 const proforma = r.aviso_cobranza || String(r.cupon || '').replace(/-\d+$/, '') || '-';
                 const cupon = r.cupon || '-';
@@ -912,6 +933,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const fechaPago = r.fecha_pago || '-';
                 const factura = r.factura || '-';
                 const importe = formatAmount(r.importe, moneda);
+                const observacion = String(r.observacion || '').trim();
 
                 const safePolizaKey = String(poliza || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
                 const cuotaId = (r && (r.idCuota || r.id_cuota || r.id)) ? (r.idCuota || r.id_cuota || r.id) : '';
@@ -919,11 +941,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 const lookupId = cuotaId || resolvedPolizaId || '';
                 const safeLookupId = String(lookupId || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
                 const hasLookupId = !!String(lookupId || '').trim();
-                const pdfBtn = (pagada && hasLookupId)
+                const pdfBtn = (!anulada && pagada && hasLookupId)
                     ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="openCuotaPdf('${safeLookupId}')">PDF</button>`
                     : '';
 
-                const actions = pagada
+                const actions = anulada
+                    ? ''
+                    : pagada
                     ? `
                         <div class="cuota-actions d-flex justify-content-end gap-2">
                             ${pdfBtn}
@@ -940,6 +964,15 @@ document.addEventListener('DOMContentLoaded', function() {
                             </button>
                         </div>
                     `;
+
+                const observacionHtml = observacion
+                    ? `
+                        <div class="col-12">
+                            <div class="cuota-meta">Observacion</div>
+                            <div class="fw-semibold ${anulada ? 'text-danger' : ''}">${escapeHtml(observacion)}</div>
+                        </div>
+                    `
+                    : '';
 
                 return `
                     <div class="cuota-card p-3 mb-3">
@@ -975,6 +1008,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="cuota-meta">Factura</div>
                                 <div class="fw-semibold">${factura}</div>
                             </div>
+                            ${observacionHtml}
                         </div>
                         <div class="mt-3">
                             ${actions}
