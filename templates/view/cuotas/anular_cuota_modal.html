@@ -1,0 +1,33 @@
+<div class="modal fade" id="anularCuotaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Anular Cuota</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <form id="anularCuotaForm" novalidate>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="anularCuotaCupon">Cupón</label>
+                            <input type="text" class="form-control" id="anularCuotaCupon" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="anularCuotaImporte">Importe</label>
+                            <input type="text" class="form-control" id="anularCuotaImporte" readonly>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="anularCuotaMotivo">Motivo</label>
+                            <textarea class="form-control" id="anularCuotaMotivo" rows="3" maxlength="200" required></textarea>
+                            <div class="invalid-feedback" id="anularCuotaMotivoError">Ingrese el motivo de la anulación.</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="anularCuotaCancel" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-danger" id="anularCuotaConfirm">Anular</button>
+            </div>
+        </div>
+    </div>
+</div>
