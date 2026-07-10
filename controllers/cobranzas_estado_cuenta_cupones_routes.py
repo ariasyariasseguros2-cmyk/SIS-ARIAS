@@ -79,6 +79,11 @@ def _fetch_rows():
                     cl.razon_social
                 ) AS contratante,
                 COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(cl.numero_documento), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(cl.numero_documento, @SIS_KEY) AS CHAR),
+                    cl.numero_documento
+                ) AS ruc,
+                COALESCE(
                     CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
                     CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
                     p.poliza
@@ -102,11 +107,21 @@ def _fetch_rows():
                 c.fecha_pago AS fec_pago,
                 c.factura,
                 CASE
-                    WHEN c.fecha_pago IS NULL AND {venc_expr} IS NOT NULL
+                    WHEN COALESCE(c.activo, 1) = 1
+                     AND COALESCE(p.anulado, 0) = 0
+                     AND COALESCE(p.prima_anulada, 0) = 0
+                     AND c.fecha_pago IS NULL
+                     AND {venc_expr} IS NOT NULL
                         THEN GREATEST(DATEDIFF(DATE(UTC_TIMESTAMP() - INTERVAL 12 HOUR), DATE({venc_expr})), 0)
                     ELSE 0
                 END AS dias_vencidos,
                 c.observacion AS ult_gestion,
+                c.activo AS cuota_activa,
+                c.motivo_anulacion,
+                c.usuario_anulacion,
+                c.fecha_anulacion,
+                COALESCE(p.prima_anulada, 0) AS prima_anulada,
+                COALESCE(p.anulado, 0) AS poliza_anulada,
                 p.tipo_doc AS tp,
                 p.vig_desde AS vig_del,
                 p.vig_hasta AS vig_al,
@@ -126,8 +141,6 @@ def _fetch_rows():
                     ) AS poliza_plain
                 FROM polizas
                 WHERE activo = 1
-                  AND (anulado = 0 OR anulado IS NULL)
-                  AND COALESCE(prima_anulada, 0) = 0
                 GROUP BY poliza_plain
             ) p_lookup
               ON c.poliza_id IS NULL
@@ -145,8 +158,6 @@ def _fetch_rows():
                 INNER JOIN polizas p2 ON p2.idPoliza = i.poliza_id
                 WHERE i.activo = 1
                   AND p2.activo = 1
-                  AND (p2.anulado = 0 OR p2.anulado IS NULL)
-                  AND COALESCE(p2.prima_anulada, 0) = 0
                 GROUP BY i.financiamiento_grupal_id
             ) fg_lookup
               ON c.poliza_id IS NULL
@@ -154,10 +165,7 @@ def _fetch_rows():
              AND fg_lookup.financiamiento_grupal_id = c.financiamiento_grupal_id
             INNER JOIN polizas p ON p.idPoliza = COALESCE(c.poliza_id, p_lookup.idPoliza, fg_lookup.poliza_id)
             LEFT JOIN clientes cl ON p.cliente_id = cl.idCliente
-            WHERE c.activo = 1
-              AND p.activo = 1
-              AND (p.anulado = 0 OR p.anulado IS NULL)
-              AND COALESCE(p.prima_anulada, 0) = 0
+            WHERE p.activo = 1
         """
 
         params = []
@@ -185,10 +193,6 @@ def _fetch_rows():
             params.extend(sub_agentes)
 
         estados_set = set([e for e in estados if e])
-        if estados_set == {"PENDIENTE"}:
-            query += " AND c.fecha_pago IS NULL"
-        elif estados_set == {"PAGADO"}:
-            query += " AND c.fecha_pago IS NOT NULL"
 
         role = session.get("role_name")
         user = session.get("user")
@@ -226,8 +230,51 @@ def _fetch_rows():
                     r["vig_al"] = r["vig_al"].strftime("%Y-%m-%d")
                 except Exception:
                     r["vig_al"] = str(r["vig_al"])[:10]
-            if r.get("es_financiamiento_grupal") and r.get("polizas_relacionadas") and not r.get("breve_descripcion"):
-                r["breve_descripcion"] = "Polizas relacionadas: " + str(r.get("polizas_relacionadas"))
+
+            cuota_activa = 1 if r.get("cuota_activa") in (None, "") else int(r.get("cuota_activa") or 0)
+            prima_anulada = int(r.get("prima_anulada") or 0)
+            poliza_anulada = int(r.get("poliza_anulada") or 0)
+
+            if prima_anulada:
+                estado_key = "PRIMA_ANULADA"
+                estado_label = "PRIMA ANULADA"
+            elif cuota_activa == 0 or poliza_anulada:
+                estado_key = "CUPON_ANULADO"
+                estado_label = "CUPON ANULADO"
+            elif r.get("fec_pago"):
+                estado_key = "PAGADO"
+                estado_label = "PAGADO"
+            else:
+                estado_key = "PENDIENTE"
+                estado_label = "PENDIENTE"
+
+            r["estado_key"] = estado_key
+            r["estado_cobranza"] = estado_label
+
+            desc_parts = []
+            if r.get("es_financiamiento_grupal") and r.get("polizas_relacionadas"):
+                desc_parts.append("Polizas relacionadas: " + str(r.get("polizas_relacionadas")))
+            if prima_anulada:
+                motivo_prima = str(r.get("motivo") or "").strip()
+                desc_parts.append("Prima anulada" + (f": {motivo_prima}" if motivo_prima else ""))
+            elif cuota_activa == 0 or poliza_anulada:
+                motivo_cuota = str(r.get("motivo_anulacion") or "").strip()
+                fecha_anulacion = r.get("fecha_anulacion")
+                detalle_anulacion = "Cupon anulado"
+                if motivo_cuota:
+                    detalle_anulacion += f": {motivo_cuota}"
+                if fecha_anulacion:
+                    try:
+                        detalle_anulacion += f" ({str(fecha_anulacion)[:10]})"
+                    except Exception:
+                        pass
+                desc_parts.append(detalle_anulacion)
+
+            if desc_parts:
+                r["breve_descripcion"] = " | ".join([p for p in desc_parts if p])
+
+        if estados_set:
+            rows = [r for r in rows if (r.get("estado_key") or "").upper() in estados_set]
 
         if poliza_cupon:
             needle = poliza_cupon.lower()
@@ -237,6 +284,15 @@ def _fetch_rows():
                 or needle in str(r.get("cupon") or "").lower()
                 or needle in str(r.get("polizas_relacionadas") or "").lower()
             ]
+
+        for r in rows:
+            r.pop("estado_key", None)
+            r.pop("cuota_activa", None)
+            r.pop("motivo_anulacion", None)
+            r.pop("usuario_anulacion", None)
+            r.pop("fecha_anulacion", None)
+            r.pop("prima_anulada", None)
+            r.pop("poliza_anulada", None)
 
         return rows, None, None
     except Exception as e:
@@ -287,6 +343,7 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
         "DIRECCION",
         "TELEFONO",
         "CONTRATANTE",
+        "RUC",
         "POLIZA",
         "EJECUTIVO",
         "CIA",
@@ -308,6 +365,7 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
         "MOTIVO",
         "TP_PAGO",
         "BREVE_DESCRIPCION",
+        "ESTADO",
     ]
     fecha_desde = (request.args.get("fecha_desde") or "").strip()
     fecha_hasta = (request.args.get("fecha_hasta") or "").strip()
@@ -335,8 +393,12 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
         cell.border = border
     ws.row_dimensions[2].height = 22
 
-    money_cols = {14, 22}
-    int_cols = {11, 17}
+    money_cols = {15, 23}
+    int_cols = {12, 18}
+
+    fill_even = PatternFill("solid", fgColor="F4F8FF")
+    fill_odd = PatternFill("solid", fgColor="FFFFFF")
+    fill_anulado = PatternFill("solid", fgColor="F8D7DA")
 
     for i, r in enumerate(rows, start=3):
         row_vals = [
@@ -344,6 +406,7 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
             r.get("direccion") or "",
             r.get("telefono") or "",
             r.get("contratante") or "",
+            r.get("ruc") or "",
             r.get("poliza") or "",
             r.get("ejecutivo") or "",
             r.get("cia") or "",
@@ -365,9 +428,12 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
             r.get("motivo") or "",
             r.get("tp_pago") or "",
             r.get("breve_descripcion") or "",
+            r.get("estado_cobranza") or "",
         ]
 
-        fill = PatternFill("solid", fgColor="F4F8FF") if i % 2 == 0 else PatternFill("solid", fgColor="FFFFFF")
+        estado_normalizado = str(r.get("estado_cobranza") or "").strip().upper()
+        es_anulado = estado_normalizado in ("CUPON ANULADO", "PRIMA ANULADA")
+        fill = fill_anulado if es_anulado else (fill_even if i % 2 == 0 else fill_odd)
         for col_idx, val in enumerate(row_vals, start=1):
             cell = ws.cell(row=i, column=col_idx, value=val)
             cell.border = border
@@ -381,13 +447,13 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
                 cell.alignment = Alignment(horizontal="center", vertical="center")
             else:
                 cell.alignment = Alignment(horizontal="left", vertical="center")
-            if col_idx == 5 and r.get("es_financiamiento_grupal"):
+            if col_idx == 6 and r.get("es_financiamiento_grupal"):
                 cell.font = Font(size=9, bold=True, color="7A3DB8")
                 if r.get("polizas_relacionadas"):
                     base_value = str(cell.value or "").strip()
                     cell.value = f"{base_value}\nPolizas: {r.get('polizas_relacionadas')}"
                     cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
-            if col_idx == 25 and r.get("polizas_relacionadas"):
+            if col_idx == 26 and r.get("polizas_relacionadas"):
                 cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
         try:
             ws.row_dimensions[i].height = 28 if r.get("es_financiamiento_grupal") and r.get("polizas_relacionadas") else 18
@@ -395,16 +461,16 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
             pass
 
     total_row = len(rows) + 3
-    ws.cell(row=total_row, column=13, value="TOTAL").font = Font(bold=True, size=9)
-    tot_importe_cell = ws.cell(row=total_row, column=14)
-    tot_prima_cell = ws.cell(row=total_row, column=22)
+    ws.cell(row=total_row, column=14, value="TOTAL").font = Font(bold=True, size=9)
+    tot_importe_cell = ws.cell(row=total_row, column=15)
+    tot_prima_cell = ws.cell(row=total_row, column=23)
     for c in (tot_importe_cell, tot_prima_cell):
         c.font = Font(bold=True, size=9)
         c.number_format = "#,##0.00"
         c.alignment = Alignment(horizontal="right", vertical="center")
     if rows:
-        tot_importe_cell.value = f"=SUBTOTAL(109,N3:N{total_row-1})"
-        tot_prima_cell.value = f"=SUBTOTAL(109,V3:V{total_row-1})"
+        tot_importe_cell.value = f"=SUBTOTAL(109,O3:O{total_row-1})"
+        tot_prima_cell.value = f"=SUBTOTAL(109,W3:W{total_row-1})"
     else:
         tot_importe_cell.value = 0
         tot_prima_cell.value = 0
@@ -414,6 +480,8 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
         22,
         14,
         28,
+        28,
+        16,
         16,
         18,
         14,
@@ -435,6 +503,7 @@ def api_cobranzas_estado_cuenta_cupones_export_xlsx():
         20,
         14,
         24,
+        18,
     ]
     for i, w in enumerate(col_widths[: len(headers)], start=1):
         ws.column_dimensions[get_column_letter(i)].width = w

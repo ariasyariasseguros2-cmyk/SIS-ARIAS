@@ -20,6 +20,14 @@
         color: #6c757d;
         white-space: normal;
     }
+    #estadoCuentaCuponesTable tbody tr.estado-anulado-row > td,
+    #estadoCuentaCuponesTableFull tbody tr.estado-anulado-row > td {
+        background-color: #f8d7da !important;
+    }
+    #estadoCuentaCuponesTable tbody tr.estado-anulado-row:hover > td,
+    #estadoCuentaCuponesTableFull tbody tr.estado-anulado-row:hover > td {
+        background-color: #f5c2c7 !important;
+    }
 </style>
 <div class="container-fluid py-4">
     <div class="card mb-4">
@@ -154,6 +162,14 @@
                                     <input class="form-check-input ms-opt" type="checkbox" value="PAGADO" id="msEstadoOpt2">
                                     <label class="form-check-label" for="msEstadoOpt2">PAGADO</label>
                                 </div>
+                                <div class="form-check">
+                                    <input class="form-check-input ms-opt" type="checkbox" value="CUPON_ANULADO" id="msEstadoOpt3">
+                                    <label class="form-check-label" for="msEstadoOpt3">CUPON ANULADO</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input ms-opt" type="checkbox" value="PRIMA_ANULADA" id="msEstadoOpt4">
+                                    <label class="form-check-label" for="msEstadoOpt4">PRIMA ANULADA</label>
+                                </div>
                             </div>
                         </div>
                         <div class="ms-hidden"></div>
@@ -197,6 +213,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>CONTRATANTE</th>
+                            <th>RUC</th>
                             <th>POLIZA</th>
                             <th>EJECUTIVO</th>
                             <th>CIA</th>
@@ -205,12 +222,13 @@
                             <th>FEC_VENCIMIENTO COB</th>
                             <th>MON</th>
                             <th class="text-end">IMPORTE</th>
+                            <th>ESTADO</th>
                             <th class="text-end">DIAS_VENCIDOS</th>
                         </tr>
                     </thead>
                     <tbody id="tbodyEstadoCuentaCupones">
                         <tr>
-                            <td colspan="10" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td>
+                            <td colspan="12" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -241,6 +259,7 @@
                                 <th>DIRECCION</th>
                                 <th>TELEFONO</th>
                                 <th>CONTRATANTE</th>
+                                <th>RUC</th>
                                 <th>POLIZA</th>
                                 <th>EJECUTIVO</th>
                                 <th>CIA</th>
@@ -262,11 +281,12 @@
                                 <th>MOTIVO</th>
                                 <th>TP_PAGO</th>
                                 <th>BREVE_DESCRIPCION</th>
+                                <th>ESTADO</th>
                             </tr>
                         </thead>
                         <tbody id="tbodyEstadoCuentaCuponesFull">
                             <tr>
-                                <td colspan="25" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td>
+                                <td colspan="27" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td>
                             </tr>
                         </tbody>
                     </table>

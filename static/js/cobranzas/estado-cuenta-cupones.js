@@ -52,6 +52,33 @@
       );
     }
 
+    function renderEstadoBadge(row) {
+      const estado = (row && row.estado_cobranza) ? String(row.estado_cobranza) : '';
+      const normalized = estado.toUpperCase();
+      let badgeClass = 'bg-secondary';
+      if (normalized === 'PAGADO') badgeClass = 'bg-success';
+      else if (normalized === 'PENDIENTE') badgeClass = 'bg-warning text-dark';
+      else if (normalized === 'CUPON ANULADO' || normalized === 'PRIMA ANULADA') badgeClass = 'bg-danger';
+      return estado ? `<span class="badge ${badgeClass}">${escapeHtml(estado)}</span>` : '';
+    }
+
+    function isEstadoAnulado(row) {
+      const estado = (row && row.estado_cobranza) ? String(row.estado_cobranza).toUpperCase() : '';
+      return estado === 'CUPON ANULADO' || estado === 'PRIMA ANULADA';
+    }
+
+    function getRowClass(row) {
+      return isEstadoAnulado(row) ? 'estado-anulado-row' : '';
+    }
+
+    function renderDiasVencidos(row) {
+      if (isEstadoAnulado(row)) {
+        return '<span class="text-muted">-</span>';
+      }
+      const dias = row && row.dias_vencidos;
+      return dias === null || dias === undefined ? '' : String(dias);
+    }
+
     function initMultiSelect(root) {
       if (!root) return null;
       const name = root.getAttribute('data-ms-name');
@@ -421,8 +448,8 @@
 
     function renderRows(rows) {
       if (!rows || rows.length === 0) {
-        const emptyMain = '<tr><td colspan="10" class="text-center text-muted">No se encontraron resultados</td></tr>';
-        const emptyFull = '<tr><td colspan="25" class="text-center text-muted">No se encontraron resultados</td></tr>';
+        const emptyMain = '<tr><td colspan="12" class="text-center text-muted">No se encontraron resultados</td></tr>';
+        const emptyFull = '<tr><td colspan="27" class="text-center text-muted">No se encontraron resultados</td></tr>';
         tbody.innerHTML = emptyMain;
         if (tbodyFull) tbodyFull.innerHTML = emptyFull;
         if (info) info.textContent = '';
@@ -430,9 +457,11 @@
         return;
       }
       const htmlMain = rows.map(function (r) {
+        const rowClass = getRowClass(r);
         return (
-          '<tr>' +
+          `<tr class="${rowClass}">` +
           `<td>${r.contratante || ''}</td>` +
+          `<td>${r.ruc || ''}</td>` +
           `<td>${renderPolizaCell(r)}</td>` +
           `<td>${r.ejecutivo || ''}</td>` +
           `<td>${r.cia || ''}</td>` +
@@ -441,17 +470,20 @@
           `<td>${r.fec_vencimiento_cob || ''}</td>` +
           `<td>${r.mon || ''}</td>` +
           `<td class="text-end">${fmtMoney(r.importe)}</td>` +
-          `<td class="text-end">${r.dias_vencidos === null || r.dias_vencidos === undefined ? '' : r.dias_vencidos}</td>` +
+          `<td>${renderEstadoBadge(r)}</td>` +
+          `<td class="text-end">${renderDiasVencidos(r)}</td>` +
           '</tr>'
         );
       }).join('');
       const htmlFull = rows.map(function (r) {
+        const rowClass = getRowClass(r);
         return (
-          '<tr>' +
+          `<tr class="${rowClass}">` +
           `<td>${r.asegurado || ''}</td>` +
           `<td>${r.direccion || ''}</td>` +
           `<td>${r.telefono || ''}</td>` +
           `<td>${r.contratante || ''}</td>` +
+          `<td>${r.ruc || ''}</td>` +
           `<td>${renderPolizaCell(r)}</td>` +
           `<td>${r.ejecutivo || ''}</td>` +
           `<td>${r.cia || ''}</td>` +
@@ -464,7 +496,7 @@
           `<td class="text-end">${fmtMoney(r.importe)}</td>` +
           `<td>${r.fec_pago || ''}</td>` +
           `<td>${r.factura || ''}</td>` +
-          `<td class="text-end">${r.dias_vencidos === null || r.dias_vencidos === undefined ? '' : r.dias_vencidos}</td>` +
+          `<td class="text-end">${renderDiasVencidos(r)}</td>` +
           `<td>${r.ult_gestion || ''}</td>` +
           `<td>${r.tp || ''}</td>` +
           `<td>${r.vig_del || ''}</td>` +
@@ -473,6 +505,7 @@
           `<td>${r.motivo || ''}</td>` +
           `<td>${r.tp_pago || ''}</td>` +
           `<td>${r.breve_descripcion || ''}</td>` +
+          `<td>${renderEstadoBadge(r)}</td>` +
           '</tr>'
         );
       }).join('');
@@ -518,8 +551,8 @@
     }
 
     function loadReporte() {
-      const loadingMain = '<tr><td colspan="10" class="text-center text-muted">Cargando...</td></tr>';
-      const loadingFull = '<tr><td colspan="25" class="text-center text-muted">Cargando...</td></tr>';
+      const loadingMain = '<tr><td colspan="12" class="text-center text-muted">Cargando...</td></tr>';
+      const loadingFull = '<tr><td colspan="27" class="text-center text-muted">Cargando...</td></tr>';
       tbody.innerHTML = loadingMain;
       if (tbodyFull) tbodyFull.innerHTML = loadingFull;
       const q = buildQuery();
@@ -528,8 +561,8 @@
         .then(r => r.json())
         .then(data => {
           if (!data.ok) {
-            const errMain = `<tr><td colspan="10" class="text-center text-danger">${data.error || 'Error'}</td></tr>`;
-            const errFull = `<tr><td colspan="25" class="text-center text-danger">${data.error || 'Error'}</td></tr>`;
+            const errMain = `<tr><td colspan="12" class="text-center text-danger">${data.error || 'Error'}</td></tr>`;
+            const errFull = `<tr><td colspan="27" class="text-center text-danger">${data.error || 'Error'}</td></tr>`;
             tbody.innerHTML = errMain;
             if (tbodyFull) tbodyFull.innerHTML = errFull;
             if (info) info.textContent = '';
@@ -539,8 +572,8 @@
           setRows(data.rows || []);
         })
         .catch(() => {
-          const errMain = '<tr><td colspan="10" class="text-center text-danger">Error de conexión</td></tr>';
-          const errFull = '<tr><td colspan="25" class="text-center text-danger">Error de conexión</td></tr>';
+          const errMain = '<tr><td colspan="12" class="text-center text-danger">Error de conexión</td></tr>';
+          const errFull = '<tr><td colspan="27" class="text-center text-danger">Error de conexión</td></tr>';
           tbody.innerHTML = errMain;
           if (tbodyFull) tbodyFull.innerHTML = errFull;
           if (info) info.textContent = '';
@@ -585,8 +618,8 @@
         multiSelects.forEach(function (ms) { ms.reset(); });
         syncQuickSearchValue('');
         allRows = [];
-        const initMain = '<tr><td colspan="10" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td></tr>';
-        const initFull = '<tr><td colspan="25" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td></tr>';
+        const initMain = '<tr><td colspan="12" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td></tr>';
+        const initFull = '<tr><td colspan="27" class="text-center text-muted">Use los filtros y pulse Procesar Archivo.</td></tr>';
         tbody.innerHTML = initMain;
         if (tbodyFull) tbodyFull.innerHTML = initFull;
         if (info) info.textContent = '';
