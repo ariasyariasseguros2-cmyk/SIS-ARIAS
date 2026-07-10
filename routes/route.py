@@ -3110,6 +3110,45 @@ def api_get_subagentes():
     subagentes = get_subagentes_abreviaciones()
     return {'ok': True, 'subagentes': subagentes}, 200
 
+
+@bp.route('/api/ubigeos/departamentos', methods=['GET'])
+def api_get_departamentos():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    from controllers.maestros.ubigeos import get_departamentos
+    departamentos = get_departamentos()
+    return {'ok': True, 'departamentos': departamentos}, 200
+
+
+@bp.route('/api/ubigeos/provincias', methods=['GET'])
+def api_get_provincias():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    departamento = (request.args.get('departamento') or '').strip()
+    if not departamento:
+        return {'ok': False, 'errors': ['El parametro departamento es obligatorio']}, 400
+
+    from controllers.maestros.ubigeos import get_provincias
+    provincias = get_provincias(departamento)
+    return {'ok': True, 'provincias': provincias}, 200
+
+
+@bp.route('/api/ubigeos/distritos', methods=['GET'])
+def api_get_distritos():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    departamento = (request.args.get('departamento') or '').strip()
+    provincia = (request.args.get('provincia') or '').strip()
+    if not departamento or not provincia:
+        return {'ok': False, 'errors': ['Los parametros departamento y provincia son obligatorios']}, 400
+
+    from controllers.maestros.ubigeos import get_distritos
+    distritos = get_distritos(departamento, provincia)
+    return {'ok': True, 'distritos': distritos}, 200
+
 # ---- Ajustadores API ----
 @bp.route('/ajustadores/list', methods=['GET'])
 def ajustadores_list():
