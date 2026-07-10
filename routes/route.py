@@ -1992,7 +1992,7 @@ def menu_page(page):
                    FROM poliza_archivos
                    WHERE poliza_id = %s
                      AND (origen IS NULL OR UPPER(origen) <> 'CUOTA')
-                   ORDER BY creado_en DESC""",
+                   ORDER BY creado_en ASC, idArchivo ASC""",
                 (prima_id,)
             )
             archivos = cur.fetchall()
@@ -2043,7 +2043,7 @@ def menu_page(page):
                    FROM poliza_archivos
                    WHERE poliza_id = %s
                      AND (origen IS NULL OR UPPER(origen) <> 'CUOTA')
-                   ORDER BY creado_en DESC""",
+                   ORDER BY creado_en ASC, idArchivo ASC""",
                 (prima_id,)
             )
             archivos = cur.fetchall()
@@ -2094,7 +2094,7 @@ def menu_page(page):
                    FROM poliza_archivos
                    WHERE poliza_id = %s
                      AND (origen IS NULL OR UPPER(origen) <> 'CUOTA')
-                   ORDER BY creado_en DESC""",
+                   ORDER BY creado_en ASC, idArchivo ASC""",
                 (prima_id,)
             )
             archivos = cur.fetchall()
