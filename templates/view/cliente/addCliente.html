@@ -110,15 +110,21 @@
                 <!-- Ubicación Geográfica -->
                 <div class="col-md-4">
                   <label for="departamento" class="form-label">Departamento <span class="text-danger">*</span></label>
-                  <input type="text" id="departamento" name="departamento" class="form-control" value="LIMA" required />
+                  <select id="departamento" name="departamento" class="form-select" required>
+                    <option value="">Seleccionar...</option>
+                  </select>
                 </div>
                 <div class="col-md-4">
                   <label for="provincia" class="form-label">Provincia <span class="text-danger">*</span></label>
-                  <input type="text" id="provincia" name="provincia" class="form-control" value="LIMA" required />
+                  <select id="provincia" name="provincia" class="form-select" required disabled>
+                    <option value="">Seleccionar...</option>
+                  </select>
                 </div>
                 <div class="col-md-4">
                   <label for="distrito" class="form-label">Distrito <span class="text-danger">*</span></label>
-                  <input type="text" id="distrito" name="distrito" class="form-control" placeholder="Ej. Miraflores" required />
+                  <select id="distrito" name="distrito" class="form-select" required disabled>
+                    <option value="">Seleccionar...</option>
+                  </select>
                 </div>
 
                 <div class="col-12"><hr class="text-muted opacity-25 my-0"></div>

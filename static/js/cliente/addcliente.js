@@ -31,11 +31,189 @@
     }
   }
 
+  function normalizeText(value) {
+    return (value || '')
+      .toString()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+  }
+
+  function setSelectOptions(selectEl, items, placeholder = 'Seleccionar...') {
+    if (!selectEl) return;
+    selectEl.innerHTML = '';
+
+    const firstOption = document.createElement('option');
+    firstOption.value = '';
+    firstOption.textContent = placeholder;
+    selectEl.appendChild(firstOption);
+
+    items.forEach(item => {
+      const option = document.createElement('option');
+      option.value = item;
+      option.textContent = item;
+      selectEl.appendChild(option);
+    });
+  }
+
+  function setSelectValueByText(selectEl, value) {
+    if (!selectEl) return;
+    const target = normalizeText(value);
+    const match = Array.from(selectEl.options).find(opt => normalizeText(opt.value) === target);
+    selectEl.value = match ? match.value : '';
+  }
+
+  function toggleSelectState(selectEl, enabled) {
+    if (!selectEl) return;
+    selectEl.disabled = !enabled;
+    if (!enabled) {
+      selectEl.value = '';
+      selectEl.classList.remove('is-valid', 'is-invalid');
+    }
+  }
+
+  async function loadDepartamentos(selectedDepartamento = '') {
+    const departamentoEl = document.getElementById('departamento');
+    if (!departamentoEl) return;
+
+    try {
+      const resp = await fetch('/api/ubigeos/departamentos');
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok || !result.ok) throw new Error('No se pudo cargar departamentos');
+
+      setSelectOptions(departamentoEl, result.departamentos || []);
+      toggleSelectState(departamentoEl, true);
+
+      if (selectedDepartamento) {
+        setSelectValueByText(departamentoEl, selectedDepartamento);
+      } else if ((result.departamentos || []).length) {
+        setSelectValueByText(departamentoEl, 'LIMA');
+      }
+    } catch (err) {
+      console.error('Error cargando departamentos:', err);
+      setSelectOptions(departamentoEl, []);
+      toggleSelectState(departamentoEl, false);
+    }
+  }
+
+  async function loadProvincias(departamento, selectedProvincia = '') {
+    const provinciaEl = document.getElementById('provincia');
+    const distritoEl = document.getElementById('distrito');
+    if (!provinciaEl || !distritoEl) return;
+
+    setSelectOptions(provinciaEl, []);
+    setSelectOptions(distritoEl, []);
+    toggleSelectState(distritoEl, false);
+
+    if (!departamento) {
+      toggleSelectState(provinciaEl, false);
+      return;
+    }
+
+    try {
+      const qs = new URLSearchParams({ departamento });
+      const resp = await fetch(`/api/ubigeos/provincias?${qs.toString()}`);
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok || !result.ok) throw new Error('No se pudo cargar provincias');
+
+      setSelectOptions(provinciaEl, result.provincias || []);
+      toggleSelectState(provinciaEl, true);
+
+      if (selectedProvincia) {
+        setSelectValueByText(provinciaEl, selectedProvincia);
+      } else if (normalizeText(departamento) === 'LIMA') {
+        setSelectValueByText(provinciaEl, 'LIMA');
+      }
+    } catch (err) {
+      console.error('Error cargando provincias:', err);
+      setSelectOptions(provinciaEl, []);
+      toggleSelectState(provinciaEl, false);
+    }
+  }
+
+  async function loadDistritos(departamento, provincia, selectedDistrito = '') {
+    const distritoEl = document.getElementById('distrito');
+    if (!distritoEl) return;
+
+    setSelectOptions(distritoEl, []);
+
+    if (!departamento || !provincia) {
+      toggleSelectState(distritoEl, false);
+      return;
+    }
+
+    try {
+      const qs = new URLSearchParams({ departamento, provincia });
+      const resp = await fetch(`/api/ubigeos/distritos?${qs.toString()}`);
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok || !result.ok) throw new Error('No se pudo cargar distritos');
+
+      setSelectOptions(distritoEl, result.distritos || []);
+      toggleSelectState(distritoEl, true);
+
+      if (selectedDistrito) {
+        setSelectValueByText(distritoEl, selectedDistrito);
+      }
+    } catch (err) {
+      console.error('Error cargando distritos:', err);
+      setSelectOptions(distritoEl, []);
+      toggleSelectState(distritoEl, false);
+    }
+  }
+
+  async function initializeUbigeoSelectors(defaults = {}) {
+    const departamentoEl = document.getElementById('departamento');
+    const provinciaEl = document.getElementById('provincia');
+    const distritoEl = document.getElementById('distrito');
+    if (!departamentoEl || !provinciaEl || !distritoEl) return;
+
+    await loadDepartamentos(defaults.departamento || 'LIMA');
+
+    const departamentoValue = departamentoEl.value || defaults.departamento || 'LIMA';
+    await loadProvincias(departamentoValue, defaults.provincia || 'LIMA');
+
+    const provinciaValue = provinciaEl.value || defaults.provincia || 'LIMA';
+    await loadDistritos(departamentoValue, provinciaValue, defaults.distrito || '');
+  }
+
+  function setupUbigeoListeners() {
+    const departamentoEl = document.getElementById('departamento');
+    const provinciaEl = document.getElementById('provincia');
+    const distritoEl = document.getElementById('distrito');
+    if (!departamentoEl || !provinciaEl || !distritoEl) return;
+    if (departamentoEl.dataset.ubigeoBound === '1') return;
+
+    departamentoEl.dataset.ubigeoBound = '1';
+
+    departamentoEl.addEventListener('change', async (e) => {
+      const departamento = e.target.value || '';
+      e.target.classList.toggle('is-valid', !!departamento);
+      e.target.classList.toggle('is-invalid', !departamento);
+      await loadProvincias(departamento);
+    });
+
+    provinciaEl.addEventListener('change', async (e) => {
+      const provincia = e.target.value || '';
+      e.target.classList.toggle('is-valid', !!provincia);
+      e.target.classList.toggle('is-invalid', !provincia);
+      await loadDistritos(departamentoEl.value || '', provincia);
+    });
+
+    distritoEl.addEventListener('change', (e) => {
+      const distrito = e.target.value || '';
+      e.target.classList.toggle('is-valid', !!distrito);
+      e.target.classList.toggle('is-invalid', !distrito);
+    });
+  }
+
 
   if (modalEl) {
-    modalEl.addEventListener('show.bs.modal', () => {
+    modalEl.addEventListener('show.bs.modal', async () => {
       loadSubagentes();
       setupRealtimeValidation();
+      setupUbigeoListeners();
+      await initializeUbigeoSelectors();
     });
   }
 
@@ -190,7 +368,7 @@
     }
 
     // Validar textos requeridos
-    const requiredTextFields = ['razonSocial', 'direccion', 'distrito'];
+    const requiredTextFields = ['razonSocial', 'direccion'];
     requiredTextFields.forEach(id => {
       const field = document.getElementById(id);
       if (field) {
@@ -318,7 +496,7 @@
 
         // Rellenar los campos del formulario con los datos extraídos
         const data = result.data || {};
-        fillFormWithData(data);
+        await fillFormWithData(data);
 
         pdfStatus.innerHTML = '<span class="text-success"><i class="bi-check-circle"></i> Datos extraídos correctamente. Revisa y completa los campos faltantes.</span>';
         btnClearPDF.style.display = 'inline-block';
@@ -347,7 +525,7 @@
   }
 
   // Rellenar Datos del formulario automaticamente con los datos extraidos del PDF
-  function fillFormWithData(data) {
+  async function fillFormWithData(data) {
 
     clearAllFormFields();
 
@@ -391,23 +569,14 @@
       if (dirInput) dirInput.value = data.direccion;
     }
 
-    // Distrito
-    if (data.distrito) {
-      const distInput = document.getElementById('distrito');
-      if (distInput) distInput.value = data.distrito;
-    }
-
-    // Provincia
-    if (data.provincia) {
-      const provInput = document.getElementById('provincia');
-      if (provInput) provInput.value = data.provincia;
-    }
-
-    // Departamento
-    if (data.departamento) {
-      const deptInput = document.getElementById('departamento');
-      if (deptInput) deptInput.value = data.departamento;
-    }
+    const departamentoValue = data.departamento || 'LIMA';
+    const provinciaValue = data.provincia || (normalizeText(departamentoValue) === 'LIMA' ? 'LIMA' : '');
+    const distritoValue = data.distrito || '';
+    await initializeUbigeoSelectors({
+      departamento: departamentoValue,
+      provincia: provinciaValue,
+      distrito: distritoValue
+    });
 
     // Email
     if (data.email) {
@@ -502,13 +671,14 @@
     selects.forEach(select => {
       if (select.id === 'tipoPersona') {
         select.value = 'NATURAL'; // Valor por defecto
-      } else if (select.id === 'departamento') {
-        select.value = 'LIMA';
-      } else if (select.id === 'provincia') {
-        select.value = 'LIMA';
+      } else if (['departamento', 'provincia', 'distrito'].includes(select.id)) {
+        select.innerHTML = '<option value="">Seleccionar...</option>';
+        select.value = '';
+        select.disabled = select.id !== 'departamento';
       } else {
         select.selectedIndex = 0; // Primera opción
       }
+      select.classList.remove('is-invalid', 'is-valid', 'border-success', 'border-2');
     });
 
     // Resetear radio buttons a valores por defecto
@@ -751,6 +921,7 @@
       form.classList.remove('was-validated');
       form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
       form.querySelectorAll('.is-valid').forEach(el => el.classList.remove('is-valid'));
+      await initializeUbigeoSelectors();
       if (pdfFileInput) pdfFileInput.value = '';
       if (pdfStatus) pdfStatus.style.display = 'none';
       if (btnClearPDF) btnClearPDF.style.display = 'none';
