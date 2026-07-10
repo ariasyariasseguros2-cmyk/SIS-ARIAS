@@ -1991,6 +1991,7 @@ def menu_page(page):
                 """SELECT idArchivo, ruta_archivo, nombre_original, origen
                    FROM poliza_archivos
                    WHERE poliza_id = %s
+                     AND (origen IS NULL OR UPPER(origen) <> 'CUOTA')
                    ORDER BY creado_en DESC""",
                 (prima_id,)
             )
@@ -2041,6 +2042,7 @@ def menu_page(page):
                 """SELECT idArchivo, ruta_archivo, nombre_original, origen
                    FROM poliza_archivos
                    WHERE poliza_id = %s
+                     AND (origen IS NULL OR UPPER(origen) <> 'CUOTA')
                    ORDER BY creado_en DESC""",
                 (prima_id,)
             )
@@ -2091,6 +2093,7 @@ def menu_page(page):
                 """SELECT idArchivo, ruta_archivo, nombre_original, origen
                    FROM poliza_archivos
                    WHERE poliza_id = %s
+                     AND (origen IS NULL OR UPPER(origen) <> 'CUOTA')
                    ORDER BY creado_en DESC""",
                 (prima_id,)
             )
