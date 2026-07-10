@@ -6,40 +6,79 @@ from utils.financiamiento_grupal_reportes import enrich_rows_with_fg_metadata, e
 
 
 def _get_poliza_activa_sql(alias='p'):
-    return (
-        f"COALESCE(NULLIF(TRIM(REPLACE(CONVERT({alias}.activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1' "
-        f"AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT({alias}.anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0' "
-        f"AND COALESCE({alias}.prima_anulada, 0) = 0"
-    )
+    return f"COALESCE(NULLIF(TRIM(REPLACE(CONVERT({alias}.activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1' "
 
 def _get_cuota_join_sql(poliza_alias='p', cuota_alias='q'):
     return f"""
         LEFT JOIN cuotas {cuota_alias}
-          ON {cuota_alias}.idCuota = (
-                SELECT q2.idCuota
-                FROM cuotas q2
-                WHERE q2.poliza_id = {poliza_alias}.idPoliza
-                  AND q2.activo = 1
-                ORDER BY
-                    CASE
-                        WHEN TRIM(COALESCE(
-                                CONVERT(AES_DECRYPT(FROM_BASE64(q2.cupon), %s) USING utf8mb4),
-                                CONVERT(AES_DECRYPT(q2.cupon, %s) USING utf8mb4),
-                                CONVERT(q2.cupon USING utf8mb4)
-                             )) COLLATE utf8mb4_0900_ai_ci =
-                             TRIM(COALESCE(
-                                CONVERT(AES_DECRYPT(FROM_BASE64({poliza_alias}.recibo), %s) USING utf8mb4),
-                                CONVERT(AES_DECRYPT({poliza_alias}.recibo, %s) USING utf8mb4),
-                                CONVERT({poliza_alias}.recibo USING utf8mb4)
-                             )) COLLATE utf8mb4_0900_ai_ci
-                        THEN 0
-                        ELSE 1
-                    END,
-                    q2.fecha_vencimiento DESC,
-                    q2.idCuota DESC
-                LIMIT 1
-          )
+          ON {cuota_alias}.poliza_id = {poliza_alias}.idPoliza
     """
+
+
+def _safe_int(value, default=0):
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _resolve_estado_cuenta_estado(row):
+    if not isinstance(row, dict):
+        return 'PENDIENTE'
+
+    prima_anulada = _safe_int(row.get('prima_anulada'), 0) == 1
+    poliza_anulada = _safe_int(row.get('poliza_anulada'), 0) == 1
+    cuota_id = row.get('idCuota')
+    cuota_activa = _safe_int(row.get('cuota_activa'), 1)
+    motivo_anulacion = str(row.get('motivo_anulacion') or '').strip()
+    fecha_anulacion = str(row.get('fecha_anulacion') or '').strip()
+    factura = str(row.get('factura') or '').strip()
+    fecha_pago = str(row.get('fecha_pago') or '').strip()
+    poliza_estado = str(row.get('poliza_estado') or row.get('estado') or '').strip()
+    poliza_estado_upper = poliza_estado.upper()
+    has_pago = (factura and factura != '-') or (fecha_pago and fecha_pago != '-')
+
+    if prima_anulada:
+        return 'PRIMA ANULADA'
+
+    if cuota_id is not None and (cuota_activa == 0 or motivo_anulacion or fecha_anulacion):
+        return 'CUPON ANULADO'
+
+    if cuota_id is None and poliza_anulada:
+        return 'CUPON ANULADO'
+
+    if cuota_id is not None:
+        return 'PAGADO' if has_pago else 'PENDIENTE'
+
+    if poliza_estado_upper in ('CANCELADO', 'PAGADO'):
+        return 'PAGADO'
+
+    if 'ANUL' in poliza_estado_upper:
+        return 'CUPON ANULADO'
+
+    return poliza_estado_upper or 'PENDIENTE'
+
+
+def _prepare_estado_cuenta_rows(polizas, estado_filter=''):
+    out = []
+    estado_filter_norm = str(estado_filter or '').strip().upper()
+
+    for row in polizas or []:
+        if not isinstance(row, dict):
+            continue
+
+        estado_resuelto = _resolve_estado_cuenta_estado(row)
+        row['estado'] = estado_resuelto
+
+        if estado_resuelto in ('PAGADO', 'CUPON ANULADO', 'PRIMA ANULADA'):
+            row['monto_cta_pagar'] = 0
+
+        if estado_filter_norm and estado_resuelto.upper() != estado_filter_norm:
+            continue
+
+        out.append(row)
+
+    return out
 
 def _dedupe_clientes_por_documento(clientes):
     """Conserva un solo cliente por tipo/nro de documento, priorizando el id mas reciente."""
@@ -157,11 +196,6 @@ def get_estado_cuenta_data(filtros_input=None):
                 'fecha_desde': request.args.get('fecha_desde', ''),
                 'fecha_hasta': request.args.get('fecha_hasta', '')
             }
-
-        if (filters.get('estado') or '').strip().upper() == 'CANCELADO':
-            filters['estado'] = 'PAGADO'
-
-
 
         cnx = get_connection()
         cur = cnx.cursor(dictionary=True)
@@ -310,13 +344,20 @@ def get_estado_cuenta_data(filtros_input=None):
                     COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), %s) AS CHAR), CAST(AES_DECRYPT(p.recibo, %s) AS CHAR), p.recibo) AS proforma,
                     COALESCE(CAST(AES_DECRYPT(FROM_BASE64(q.cupon), %s) AS CHAR), CAST(AES_DECRYPT(q.cupon, %s) AS CHAR), q.cupon) AS cupon,
                     COALESCE(CAST(AES_DECRYPT(FROM_BASE64(q.factura), %s) AS CHAR), CAST(AES_DECRYPT(q.factura, %s) AS CHAR), q.factura) AS factura,
+                    q.idCuota,
+                    q.activo AS cuota_activa,
+                    q.motivo_anulacion,
+                    DATE_FORMAT(q.fecha_anulacion, '%%d/%%m/%%Y') AS fecha_anulacion,
                     DATE_FORMAT(q.fecha_pago, '%%d/%%m/%%Y') AS fecha_pago,
                     DATE_FORMAT(p.fecha_emision, '%%d/%%m/%%Y') AS fecha_emision,
                     DATE_FORMAT(p.vig_desde, '%%d/%%m/%%Y') AS vig_inicio,
                     DATE_FORMAT(p.vig_hasta, '%%d/%%m/%%Y') AS vig_fin,
                     DATE_FORMAT(COALESCE(q.fecha_vencimiento, p.fecha_vencimiento), '%%d/%%m/%%Y') AS fecha_venc,
                     COALESCE(q.moneda, p.moneda) AS moneda,
-                    p.prima_comercial_igv AS monto_cta_cobrar,
+                    COALESCE(p.prima_anulada, 0) AS prima_anulada,
+                    COALESCE(p.anulado, 0) AS poliza_anulada,
+                    p.estado AS poliza_estado,
+                    COALESCE(q.importe, p.prima_comercial_igv) AS monto_cta_cobrar,
                     CASE 
                         WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL OR COALESCE(TRIM(q.factura), '') <> '' THEN 0 ELSE q.importe END
                         ELSE CASE WHEN UPPER(IFNULL(p.estado,'')) IN ('CANCELADO', 'PAGADO') THEN 0 ELSE p.prima_comercial_igv END
@@ -331,7 +372,7 @@ def get_estado_cuenta_data(filtros_input=None):
                   AND {_get_poliza_activa_sql('p')}
             """
 
-            params = [key, key, key, key, key, key, key, key, key, key, key, key, *cliente_ids]
+            params = [key, key, key, key, key, key, key, key, *cliente_ids]
 
             # Aplicar filtros adicionales
             if filters['compania']:
@@ -403,7 +444,7 @@ def get_estado_cuenta_data(filtros_input=None):
                     filters['fecha_hasta']
                 ])
 
-            query += " ORDER BY p.cia ASC, p.fecha_emision DESC, p.vig_desde DESC"
+            query += " ORDER BY p.cia ASC, p.fecha_emision DESC, p.vig_desde DESC, q.fecha_vencimiento ASC, q.idCuota ASC"
 
             # Reemplazar %% por % para la ejecución
             query_exec = query.replace('%%', '%')
@@ -412,12 +453,7 @@ def get_estado_cuenta_data(filtros_input=None):
             enrich_rows_with_fg_metadata(polizas)
             polizas = expand_estado_cuenta_fg_rows(polizas)
             polizas = _normalize_estado_cuenta_producto(polizas)
-
-            if filters['estado']:
-                est = filters['estado'].strip().upper()
-                if est == 'PAGADO':
-                    est = 'CANCELADO'
-                polizas = [r for r in polizas if (r.get('estado') or '').upper() == est]
+            polizas = _prepare_estado_cuenta_rows(polizas, filters.get('estado'))
 
             # (No filtrar aquí: mostrar todas las pólizas, no eliminar por monto_cta_pagar)
 
@@ -463,7 +499,13 @@ def get_estado_cuenta_data(filtros_input=None):
         estados = []
         seen = set()
         for e in estados_raw:
-            disp = 'PAGADO' if (e or '').strip().upper() == 'CANCELADO' else e
+            key_estado = (e or '').strip().upper()
+            if key_estado == 'CANCELADO':
+                disp = 'PAGADO'
+            elif 'ANUL' in key_estado:
+                disp = 'CUPON ANULADO'
+            else:
+                disp = e
             if not disp:
                 continue
             key_disp = disp.strip().upper()
@@ -473,7 +515,7 @@ def get_estado_cuenta_data(filtros_input=None):
                 continue
             seen.add(key_disp)
             estados.append(disp)
-        for requerido in ('PENDIENTE', 'PAGADO'):
+        for requerido in ('PENDIENTE', 'PAGADO', 'CUPON ANULADO', 'PRIMA ANULADA'):
             if requerido not in seen:
                 estados.insert(0, requerido)
                 seen.add(requerido)
@@ -608,9 +650,6 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
         'fecha_hasta': args.get('fecha_hasta', '')
     }
 
-    if (filters.get('estado') or '').strip().upper() == 'CANCELADO':
-        filters['estado'] = 'PAGADO'
-
     # Reusar la lógica de consulta para obtener polizas
     cnx = get_connection()
     cur = cnx.cursor(dictionary=True)
@@ -736,13 +775,20 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
                 COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.recibo), %s) AS CHAR), CAST(AES_DECRYPT(p.recibo, %s) AS CHAR), p.recibo) AS proforma,
                 COALESCE(CAST(AES_DECRYPT(FROM_BASE64(q.cupon), %s) AS CHAR), CAST(AES_DECRYPT(q.cupon, %s) AS CHAR), q.cupon) AS cupon,
                 COALESCE(CAST(AES_DECRYPT(FROM_BASE64(q.factura), %s) AS CHAR), CAST(AES_DECRYPT(q.factura, %s) AS CHAR), q.factura) AS factura,
+                q.idCuota,
+                q.activo AS cuota_activa,
+                q.motivo_anulacion,
+                DATE_FORMAT(q.fecha_anulacion, '%%d/%%m/%%Y') AS fecha_anulacion,
                 DATE_FORMAT(q.fecha_pago, '%%d/%%m/%%Y') AS fecha_pago,
                 DATE_FORMAT(p.fecha_emision, '%%d/%%m/%%Y') AS fecha_emision,
                 DATE_FORMAT(p.vig_desde, '%%d/%%m/%%Y') AS vig_inicio,
                 DATE_FORMAT(p.vig_hasta, '%%d/%%m/%%Y') AS vig_fin,
                 DATE_FORMAT(COALESCE(q.fecha_vencimiento, p.fecha_vencimiento), '%%d/%%m/%%Y') AS fecha_venc,
                 COALESCE(q.moneda, p.moneda) AS moneda,
-                p.prima_comercial_igv AS monto_cta_cobrar,
+                COALESCE(p.prima_anulada, 0) AS prima_anulada,
+                COALESCE(p.anulado, 0) AS poliza_anulada,
+                p.estado AS poliza_estado,
+                COALESCE(q.importe, p.prima_comercial_igv) AS monto_cta_cobrar,
                 CASE 
                     WHEN q.idCuota IS NOT NULL THEN CASE WHEN q.fecha_pago IS NOT NULL OR COALESCE(TRIM(q.factura), '') <> '' THEN 0 ELSE q.importe END
                     ELSE CASE WHEN UPPER(IFNULL(p.estado,'')) IN ('CANCELADO', 'PAGADO') THEN 0 ELSE p.prima_comercial_igv END
@@ -756,7 +802,7 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             WHERE p.cliente_id IN ({placeholders})
               AND {_get_poliza_activa_sql('p')}
         """
-        params = [key, key, key, key, key, key, key, key, key, key, key, key, *cliente_ids]
+        params = [key, key, key, key, key, key, key, key, *cliente_ids]
 
         if filters['compania']:
             query += " AND p.cia = %%s"
@@ -788,7 +834,7 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             query += """ AND (p.fecha_emision <= %%s OR p.fecha_vencimiento <= %%s OR p.vig_desde <= %%s OR p.vig_hasta <= %%s OR q.fecha_vencimiento <= %%s)"""
             params.extend([filters['fecha_hasta']] * 5)
 
-        query += " ORDER BY p.cia ASC, p.fecha_emision DESC, p.vig_desde DESC"
+        query += " ORDER BY p.cia ASC, p.fecha_emision DESC, p.vig_desde DESC, q.fecha_vencimiento ASC, q.idCuota ASC"
         
         # Reemplazar %% por % para la ejecución
         query_exec = query.replace('%%', '%')
@@ -797,12 +843,7 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
         enrich_rows_with_fg_metadata(polizas)
         polizas = expand_estado_cuenta_fg_rows(polizas)
         polizas = _normalize_estado_cuenta_producto(polizas)
-
-        if filters['estado']:
-            est = filters['estado'].strip().upper()
-            if est == 'PAGADO':
-                est = 'CANCELADO'
-            polizas = [r for r in polizas if (r.get('estado') or '').upper() == est]
+        polizas = _prepare_estado_cuenta_rows(polizas, filters.get('estado'))
 
             # (No filtrar aquí para export: mantener todas las pólizas, no eliminar por monto_cta_pagar)
         cur.close()
@@ -854,7 +895,7 @@ def export_estado_cuenta_data(args, fmt='xlsx'):
             moneda or '-',
             float(p.get('monto_cta_cobrar') or 0),
             float(p.get('monto_cta_pagar') or 0),
-            'PAGADO' if (p.get('estado') or '').strip().upper() == 'CANCELADO' else (p.get('estado') or '-')
+            p.get('estado') or '-'
         ])
 
     # Crear carpeta de export

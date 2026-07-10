@@ -53,10 +53,12 @@ def get_fg_cuotas_map(financiamiento_ids):
                 c.importe,
                 c.fecha_pago,
                 c.factura,
-                c.observacion
+                c.observacion,
+                c.activo,
+                c.motivo_anulacion,
+                c.fecha_anulacion
             FROM cuotas c
-            WHERE c.activo = 1
-              AND c.financiamiento_grupal_id IN ({placeholders})
+            WHERE c.financiamiento_grupal_id IN ({placeholders})
             ORDER BY c.financiamiento_grupal_id ASC, c.numero_cuota ASC, c.fecha_vencimiento ASC, c.idCuota ASC
             """,
             tuple(fg_ids),
@@ -129,7 +131,11 @@ def expand_estado_cuenta_fg_rows(rows):
             item = dict(row)
             fecha_pago = _format_fg_date_display(cuota.get("fecha_pago"))
             factura = str(cuota.get("factura") or "").strip()
-            pagado = bool(fecha_pago or factura)
+            cuota_activa = int(cuota.get("activo") or 0) if cuota.get("activo") is not None else 1
+            motivo_anulacion = str(cuota.get("motivo_anulacion") or "").strip()
+            fecha_anulacion = _format_fg_date_display(cuota.get("fecha_anulacion"))
+            anulada = (cuota_activa == 0) or bool(motivo_anulacion) or bool(fecha_anulacion)
+            pagado = (not anulada) and bool(fecha_pago or factura)
             item["idCuota"] = cuota.get("idCuota")
             item["poliza"] = f"FG-{fg_id}"
             item["cupon"] = str(cuota.get("cupon") or "").strip() or str(cuota.get("numero_cuota") or "")
@@ -138,8 +144,11 @@ def expand_estado_cuenta_fg_rows(rows):
             item["factura"] = factura
             item["moneda"] = cuota.get("moneda") or item.get("moneda")
             item["monto_cta_cobrar"] = cuota.get("importe") or 0
-            item["monto_cta_pagar"] = 0 if pagado else (cuota.get("importe") or 0)
-            item["estado"] = "PAGADO" if pagado else "PENDIENTE"
+            item["monto_cta_pagar"] = 0 if (pagado or anulada) else (cuota.get("importe") or 0)
+            item["estado"] = "CUPON ANULADO" if anulada else ("PAGADO" if pagado else "PENDIENTE")
+            item["cuota_activa"] = cuota_activa
+            item["motivo_anulacion"] = motivo_anulacion
+            item["fecha_anulacion"] = fecha_anulacion
             item["es_financiamiento_grupal"] = True
             item["financiamiento_grupal_id"] = fg_id
             item["poliza_fg_prefijo"] = "FG-"
