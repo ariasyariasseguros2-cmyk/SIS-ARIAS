@@ -428,24 +428,40 @@ def get_distribution_by_group() -> Dict[str, Any]:
             )
             user_filter_args = [user, nombre_usuario, user, nombre_usuario]
 
-        # ANUAL=1 día, resto=30 días, NO RENOVABLE/EVENTUAL/FLOTANTE=nunca renovar
-        # grupos: RRHH→personales, VEHICULOS→soat, RRGG+OTROS+resto→generales
+        # fallback por nombre de ramo cuando r.grupo es NULL (JOIN falla)
+        # RRHH: AP, AMF, EPS, SCTR, VIDA-LEY, VIDA, VIAJE, FOLA, ONCOLOGICO, SALUD
+        # VEHICULOS: SOAT, VEHICULOS/AUTOMOVILES
+        # RRGG+OTROS+resto → generales
+        rrhh_ramos = (
+            "'ACCIDENTES PERSONALES','ASISTENCIA MEDICA FAMILIAR','EPS','SCTR',"
+            "'VIDA - LEY','VIDA','VIAJE','FORMACION LABORAL','ONCOLOGICO','SALUD'"
+        )
+        vehiculos_ramos = "'SOAT','VEHICULOS / AUTOMOVILES'"
+
         sql = f"""
             SELECT
-                UPPER(TRIM(COALESCE(r.grupo, ''))) AS grupo,
+                CASE
+                    WHEN UPPER(TRIM(r.grupo)) = 'RRHH'     THEN 'RRHH'
+                    WHEN UPPER(TRIM(r.grupo)) = 'VEHICULOS' THEN 'VEHICULOS'
+                    WHEN UPPER(TRIM(r.grupo)) IN ('RRGG','OTROS') THEN 'RRGG'
+                    -- fallback cuando JOIN no matchea: clasificar por nombre de ramo
+                    WHEN UPPER(TRIM(COALESCE(p.ramo,''))) IN ({rrhh_ramos})     THEN 'RRHH'
+                    WHEN UPPER(TRIM(COALESCE(p.ramo,''))) IN ({vehiculos_ramos}) THEN 'VEHICULOS'
+                    ELSE 'RRGG'
+                END AS bucket,
                 SUM(CASE
-                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) IN ('NO RENOVABLE','EVENTUAL','FLOTANTE') THEN 1
-                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) = 'ANUAL'
+                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia,''))) IN ('NO RENOVABLE','EVENTUAL','FLOTANTE') THEN 1
+                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia,''))) = 'ANUAL'
                         AND p.vig_hasta > DATE_ADD(CURDATE(), INTERVAL 1 DAY)  THEN 1
-                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) NOT IN ('ANUAL','NO RENOVABLE','EVENTUAL','FLOTANTE')
+                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia,''))) NOT IN ('ANUAL','NO RENOVABLE','EVENTUAL','FLOTANTE')
                         AND p.vig_hasta > DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1
                     ELSE 0
                 END) AS vigentes,
                 SUM(CASE
-                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) IN ('NO RENOVABLE','EVENTUAL','FLOTANTE') THEN 0
-                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) = 'ANUAL'
+                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia,''))) IN ('NO RENOVABLE','EVENTUAL','FLOTANTE') THEN 0
+                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia,''))) = 'ANUAL'
                         AND p.vig_hasta <= DATE_ADD(CURDATE(), INTERVAL 1 DAY)  THEN 1
-                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) NOT IN ('ANUAL','NO RENOVABLE','EVENTUAL','FLOTANTE')
+                    WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia,''))) NOT IN ('ANUAL','NO RENOVABLE','EVENTUAL','FLOTANTE')
                         AND p.vig_hasta <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1
                     ELSE 0
                 END) AS renovar
@@ -456,21 +472,16 @@ def get_distribution_by_group() -> Dict[str, Any]:
               AND COALESCE(p.prima_anulada, 0) = 0
               AND p.vig_hasta >= CURDATE()
               {user_filter}
-            GROUP BY UPPER(TRIM(COALESCE(r.grupo, '')))
+            GROUP BY bucket
         """
         cur.execute(sql, user_filter_args)
         rows = cur.fetchall() or []
         cur.close()
         cnx.close()
 
+        _map = {'RRHH': 'personales', 'VEHICULOS': 'soat', 'RRGG': 'generales'}
         for row in rows:
-            grupo = (row[0] or '').upper().strip()
-            if 'RRHH' in grupo:
-                bucket = 'personales'
-            elif 'VEHICULOS' in grupo:
-                bucket = 'soat'
-            else:  # RRGG, OTROS, vacío → generales
-                bucket = 'generales'
+            bucket = _map.get(row[0] or '', 'generales')
             result[bucket]['vigentes'] += int(row[1] or 0)
             result[bucket]['renovar']  += int(row[2] or 0)
 
