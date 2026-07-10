@@ -5188,6 +5188,21 @@ PREPARE alterStatement FROM @preparedStatement;
 EXECUTE alterStatement;
 DEALLOCATE PREPARE alterStatement;
 
+CREATE TABLE ubigeo (
+    id INT PRIMARY KEY,
+    ubigeo CHAR(6) NOT NULL,
+    iddist CHAR(2) NOT NULL,
+    idprov CHAR(2) NOT NULL,
+    iddep CHAR(2) NOT NULL,
+    nombdep VARCHAR(100) NOT NULL,
+    nombprov VARCHAR(100) NOT NULL,
+    nombdist VARCHAR(150) NOT NULL,
+
+    INDEX idx_ubigeo (ubigeo),
+    INDEX idx_departamento (iddep),
+    INDEX idx_provincia (idprov),
+    INDEX idx_distrito (iddist)
+);
 
 INSERT INTO agentes 
 (codigo_agente, nombre_vendedor, tipo_menor, tipo_regular)
