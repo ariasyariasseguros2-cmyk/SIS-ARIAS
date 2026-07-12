@@ -171,7 +171,7 @@
                 </li>
 
                 <!-- NUEVO: Grupo Reportes Generales -->
-                <li class="nav-group{% if _p and (_p.startswith('reporte') or _p in ('reporte-diario','reporte-archivos-poliza','reporte-produccion','reporte-siniestros','reporte-polizas-anuladas','reporte-gestion-diaria','reporte-polizas-anuladas','cobranzas-reporte-primas','reporte-polizas-anuladas')) %} active-group{% endif %}">
+                <li class="nav-group{% if _p and (_p.startswith('reporte') or _p in ('reporte-diario','reporte-archivos-poliza','reporte-produccion','reporte-siniestros','reporte-polizas-anuladas','reporte-gestion-diaria','reporte-polizas-anuladas','cobranzas-reporte-primas','reporte-polizas-anuladas','reporte-anulados')) %} active-group{% endif %}">
                     <button class="group-toggle" type="button">
                         <i class="bi-file-earmark-text-fill"></i> <span><strong>Reportes Generales</strong></span>
                         <i class="bi-chevron-right caret"></i>
@@ -179,6 +179,7 @@
                     <ul class="submenu">
                         <li class="{% if _p == 'reporte-gestion-diaria' %}active{% endif %}"><a data-page="reporte-gestion-diaria" href="{{ url_for('main.menu_page', page='reporte-gestion-diaria') }}"><i class="bi-download"></i> Reporte Gestión Diaria</a></li>
                         <li class="{% if _p == 'reporte-polizas-anuladas' %}active{% endif %}"><a data-page="reporte-polizas-anuladas" href="{{ url_for('main.menu_page', page='polizas-anuladas') }}"><i class="bi-download"></i> Reporte Pólizas Anuladas</a></li>
+                        <li class="{% if _p == 'reporte-anulados' %}active{% endif %}"><a data-page="reporte-anulados" href="{{ url_for('main.menu_page', page='reporte-anulados') }}"><i class="bi-download"></i> Reporte Anulados General</a></li>
                         {% if session.role_name == Roles.BROKER %}
                         <li class="{% if _p == 'cuotas-anuladas' %}active{% endif %}"><a data-page="cuotas-anuladas" href="{{ url_for('main.menu_page', page='cuotas-anuladas') }}"><i class="bi-download"></i> Reporte Cuotas Anuladas</a></li>
                         {% endif %}
