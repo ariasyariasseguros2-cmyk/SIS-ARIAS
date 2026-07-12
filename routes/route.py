@@ -1080,6 +1080,9 @@ def gestion():
 from controllers.reportes.reporte_archivos_poliza import bp as reporte_archivos_bp
 bp.register_blueprint(reporte_archivos_bp)
 
+from controllers.reportes.reporte_anulados import bp as reporte_anulados_bp
+bp.register_blueprint(reporte_anulados_bp)
+
 bp.register_blueprint(vencimientos_bp)
 
 from controllers.reportes.reporte_diario_routes import bp as reporte_diario_bp
@@ -1596,6 +1599,10 @@ def menu_page(page):
     # REPORTE: Archivos Póliza
     if page == 'reporte-archivos-poliza':
         return render_template('view/reportes/reporte-archivos-poliza.html')
+
+    # REPORTE: Anulados General (polizas, primas, recibos y cuotas anuladas)
+    if page == 'reporte-anulados':
+        return render_template('view/reportes/reporte-anulados.html')
 
     # REPORTE: Vencimientos y Renovaciones
     if page == 'vencimientos-renovaciones':
