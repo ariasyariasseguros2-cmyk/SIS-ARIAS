@@ -1,0 +1,96 @@
+{% extends "view/layout_dashboard.html" %}
+
+{% block page_title %}Reporte de Anulados General{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='reportes/reporte-anulados.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 anulados-root">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="h4 m-0">Reporte de Anulados General</h2>
+            <div class="small text-muted">Pólizas, primas, recibos y cuotas anuladas, agrupadas por póliza.</div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <div class="row g-3 align-items-end anulados-filtros">
+                <div class="col-md-5">
+                    <label for="searchInput">Buscar</label>
+                    <input type="text" id="searchInput" class="form-control"
+                           placeholder="Póliza, recibo o contratante...">
+                </div>
+                <div class="col-md-3">
+                    <label for="desdeInput">Anulado desde</label>
+                    <input type="date" id="desdeInput" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label for="hastaInput">Anulado hasta</label>
+                    <input type="date" id="hastaInput" class="form-control">
+                </div>
+                <div class="col-md-1 d-grid">
+                    <button id="btnBuscar" class="btn btn-primary">Buscar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="anulados-kpis" id="kpiRow"></div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <button id="btnExpandirTodo" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi-arrows-expand"></i> Expandir todo
+                    </button>
+                    <button id="btnColapsarTodo" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi-arrows-collapse"></i> Colapsar todo
+                    </button>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="small text-muted">Mostrar</span>
+                    <select id="pageSizeSelect" class="form-select form-select-sm" style="width:auto">
+                        <option value="10" selected>10</option>
+                        <option value="20">20</option>
+                        <option value="30">30</option>
+                        <option value="50">50</option>
+                    </select>
+                    <span id="pageInfo" class="small text-muted"></span>
+                </div>
+            </div>
+
+            <div class="anulados-tree" id="anuladosTree">
+                <div class="anulados-estado">
+                    <i class="bi-hourglass-split"></i> Cargando...
+                </div>
+            </div>
+
+            <nav class="mt-3">
+                <ul id="pagination" class="pagination pagination-sm justify-content-end mb-0"></ul>
+            </nav>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js_bottom %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/reportes/reporte-anulados.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function(){
+        try {
+            const a = document.querySelector('.sidebar a[data-page="reporte-anulados"]');
+            if (a) {
+                a.classList.add('isactive');
+                const li = a.closest('li'); if (li) li.classList.add('isactive');
+                const group = a.closest('.nav-group');
+                if (group) group.classList.add('open','active-group');
+            }
+        } catch (err) { console.error('set active menu error', err); }
+    });
+</script>
+{% endblock %}

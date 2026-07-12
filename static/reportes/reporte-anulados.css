@@ -1,0 +1,278 @@
+/* Reporte de Anulados General — árbol de tarjetas */
+.anulados-root {
+    --surface-1:      #fcfcfb;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --border-hairline: rgba(11,11,11,0.10);
+    --gridline:       #e1e0d9;
+    --status-critical: #d03b3b;
+    --status-warning:  #c98500;
+    --status-serious:  #ec835a;
+    --status-info:     #2a78d6;
+    --status-good:     #0ca30c;
+}
+@media (prefers-color-scheme: dark) {
+    .anulados-root {
+        --surface-1:      #1a1a19;
+        --text-primary:   #ffffff;
+        --text-secondary: #c3c2b7;
+        --text-muted:     #898781;
+        --border-hairline: rgba(255,255,255,0.10);
+        --gridline:       #2c2c2a;
+        --status-critical: #e66767;
+        --status-warning:  #eda100;
+        --status-serious:  #ec835a;
+        --status-info:     #3987e5;
+        --status-good:     #0ca30c;
+    }
+}
+
+/* ---------- Filtros ---------- */
+.anulados-filtros label {
+    font-size: .75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    margin-bottom: .25rem;
+    display: block;
+}
+
+/* ---------- Tiles de resumen (KPI) ---------- */
+.anulados-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: .75rem;
+    margin-bottom: 1.25rem;
+}
+.kpi-tile {
+    background: var(--surface-1);
+    border: 1px solid var(--border-hairline);
+    border-radius: 10px;
+    padding: .9rem 1rem;
+}
+.kpi-tile__label {
+    font-size: .78rem;
+    color: var(--text-muted);
+    margin-bottom: .35rem;
+}
+.kpi-tile__value {
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+.kpi-tile--critical .kpi-tile__value { color: var(--status-critical); }
+.kpi-tile--warning  .kpi-tile__value { color: var(--status-warning); }
+.kpi-tile--serious  .kpi-tile__value { color: var(--status-serious); }
+
+/* ---------- Badges de estado (icono + texto, nunca solo color) ---------- */
+.estado-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .01em;
+    padding: .22rem .55rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    color: #fff;
+}
+.estado-badge--poliza  { background: var(--status-critical); }
+.estado-badge--prima   { background: var(--status-warning); }
+.estado-badge--cuota   { background: var(--status-serious); }
+.estado-badge--parcial { background: var(--status-info); }
+
+/* ---------- Árbol: tarjeta de póliza/recibo/prima ---------- */
+.anulados-tree { display: flex; flex-direction: column; gap: .6rem; }
+
+.anulado-card {
+    background: var(--surface-1);
+    border: 1px solid var(--border-hairline);
+    border-left: 4px solid var(--status-critical);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.anulado-card[data-estado="prima"]   { border-left-color: var(--status-warning); }
+.anulado-card[data-estado="cuota"]   { border-left-color: var(--status-serious); }
+.anulado-card[data-estado="parcial"] { border-left-color: var(--status-info); }
+
+.anulado-card__header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .75rem 1rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+}
+.anulado-card__header:hover { background: rgba(11,11,11,0.03); }
+@media (prefers-color-scheme: dark) {
+    .anulado-card__header:hover { background: rgba(255,255,255,0.04); }
+}
+
+.anulado-card__chevron {
+    flex: 0 0 auto;
+    color: var(--text-muted);
+    transition: transform .15s ease;
+    font-size: 1rem;
+}
+.anulado-card.is-open .anulado-card__chevron { transform: rotate(90deg); }
+.anulado-card__chevron--empty { visibility: hidden; }
+
+.anulado-card__main { flex: 1 1 auto; min-width: 0; }
+.anulado-card__title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-bottom: .2rem;
+}
+.anulado-card__poliza {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: .95rem;
+}
+.anulado-card__recibo {
+    font-size: .82rem;
+    color: var(--text-secondary);
+}
+.anulado-card__meta {
+    font-size: .78rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.anulado-card__amount {
+    flex: 0 0 auto;
+    text-align: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+}
+.anulado-card__amount small {
+    display: block;
+    font-weight: 400;
+    font-size: .7rem;
+    color: var(--text-muted);
+}
+
+.anulado-card__cuotas-count {
+    flex: 0 0 auto;
+    font-size: .72rem;
+    color: var(--text-muted);
+    background: var(--gridline);
+    border-radius: 999px;
+    padding: .15rem .5rem;
+}
+
+/* ---------- Cuerpo expandible ---------- */
+.anulado-card__body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height .2s ease;
+    border-top: 1px solid transparent;
+}
+.anulado-card.is-open .anulado-card__body {
+    max-height: 2000px;
+    border-top-color: var(--gridline);
+}
+
+.anulado-card__detalle {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: .4rem .75rem;
+    padding: .75rem 1rem;
+    font-size: .82rem;
+    background: rgba(11,11,11,0.015);
+}
+@media (prefers-color-scheme: dark) {
+    .anulado-card__detalle { background: rgba(255,255,255,0.02); }
+}
+.anulado-card__detalle dt {
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    color: var(--text-muted);
+    margin: 0;
+}
+.anulado-card__detalle dd {
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+/* ---------- Cuotas anidadas: línea conectora tipo árbol ---------- */
+.anulado-cuotas {
+    padding: .25rem 1rem .75rem 2.25rem;
+    position: relative;
+}
+.anulado-cuota-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+    padding: .5rem .75rem;
+    margin-bottom: .35rem;
+    border: 1px solid var(--border-hairline);
+    border-radius: 8px;
+    font-size: .82rem;
+}
+.anulado-cuota-item:last-child { margin-bottom: 0; }
+.anulado-cuota-item::before {
+    content: '';
+    position: absolute;
+    left: -1.25rem;
+    top: 50%;
+    width: .9rem;
+    height: 1px;
+    background: var(--gridline);
+}
+.anulado-cuota-item::after {
+    content: '';
+    position: absolute;
+    left: -1.25rem;
+    top: -.35rem;
+    bottom: 50%;
+    width: 1px;
+    background: var(--gridline);
+}
+.anulado-cuota-item:first-child::after { top: 50%; }
+.anulado-cuotas::before {
+    content: '';
+    position: absolute;
+    left: 1rem;
+    top: 0;
+    bottom: 1.1rem;
+    width: 1px;
+    background: var(--gridline);
+}
+
+.anulado-cuota-item__cupon { font-weight: 600; color: var(--text-primary); }
+.anulado-cuota-item__meta { color: var(--text-muted); font-size: .76rem; }
+.anulado-cuota-item__amount {
+    margin-left: auto;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+}
+.anulado-cuotas-empty {
+    font-size: .78rem;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: .25rem .75rem;
+}
+
+/* ---------- Estados vacío / carga ---------- */
+.anulados-estado {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-muted);
+}
+.anulados-estado i { font-size: 1.8rem; display: block; margin-bottom: .5rem; }
