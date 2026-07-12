@@ -2,12 +2,15 @@ import os
 import time
 import glob
 import threading
+from datetime import timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from routes.route import bp as main_bp
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SIS_ARIAS_SECRET_KEY') or 'cambia-esta-secret'  # Cambia esta clave por una segura
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+# Cierra la sesión tras 1 hora sin actividad (Flask renueva la cookie en cada request)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -193,6 +196,7 @@ def login():
 
         stored_password = (row or {}).get('password')
         if row and stored_password and verify_password(password, stored_password):
+            session.permanent = True
             session['user'] = row['username']
             session['user_id'] = row['id']
             session['role_id'] = row['id_rol']
