@@ -35,6 +35,73 @@ def _validate_required(fecha_desde: str, fecha_hasta: str):
     return missing
 
 
+def _safe_int(value, default=0):
+    try:
+        if value is None:
+            return default
+        text = str(value).replace("\xa0", " ").strip()
+        if text == "":
+            return default
+        return int(float(text))
+    except Exception:
+        return default
+
+
+def _row_identity_key(row):
+    return (
+        str(row.get("poliza") or "").strip().upper(),
+        str(row.get("cupon") or "").strip().upper(),
+        str(row.get("fec_vencimiento_cob") or "").strip(),
+        str(row.get("importe") or "").strip(),
+    )
+
+
+def _row_preference_rank(row):
+    cuota_poliza_id = _safe_int(row.get("cuota_poliza_id"), 0)
+    id_poliza = _safe_int(row.get("idPoliza"), 0)
+    linked_to_current_poliza = 1 if cuota_poliza_id > 0 and cuota_poliza_id == id_poliza else 0
+    cuota_activa = _safe_int(row.get("cuota_activa"), 1)
+    tiene_anulacion = 1 if str(row.get("motivo_anulacion") or "").strip() or str(row.get("fecha_anulacion") or "").strip() else 0
+    prima_anulada = _safe_int(row.get("prima_anulada"), 0)
+    poliza_anulada = _safe_int(row.get("poliza_anulada"), 0)
+    fecha_pago = 1 if str(row.get("fec_pago") or "").strip() else 0
+    return (
+        linked_to_current_poliza,
+        1 if cuota_activa == 1 else 0,
+        0 if tiene_anulacion else 1,
+        0 if prima_anulada else 1,
+        0 if poliza_anulada else 1,
+        fecha_pago,
+        _safe_int(row.get("idCuota"), 0),
+    )
+
+
+def _dedupe_rows(rows):
+    selected = {}
+    ordered_keys = []
+    for row in rows or []:
+        key = _row_identity_key(row)
+        if key not in selected:
+            selected[key] = row
+            ordered_keys.append(key)
+            continue
+        if _row_preference_rank(row) > _row_preference_rank(selected[key]):
+            selected[key] = row
+    return [selected[key] for key in ordered_keys]
+
+
+def _resequence_num_cuota(rows):
+    counters = {}
+    for row in rows or []:
+        poliza_key = (
+            _safe_int(row.get("idPoliza"), 0),
+            str(row.get("poliza") or "").strip().upper(),
+        )
+        counters[poliza_key] = counters.get(poliza_key, 0) + 1
+        row["num_cuota"] = counters[poliza_key]
+    return rows
+
+
 def _fetch_rows():
     fecha_desde = (request.args.get("fecha_desde") or "").strip()
     fecha_hasta = (request.args.get("fecha_hasta") or "").strip()
@@ -60,6 +127,8 @@ def _fetch_rows():
 
         query = f"""
             SELECT
+                c.idCuota AS idCuota,
+                c.poliza_id AS cuota_poliza_id,
                 p.idPoliza AS idPoliza,
                 c.financiamiento_grupal_id,
                 COALESCE(CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR), p.asegurado) AS asegurado,
@@ -231,14 +300,20 @@ def _fetch_rows():
                 except Exception:
                     r["vig_al"] = str(r["vig_al"])[:10]
 
-            cuota_activa = 1 if r.get("cuota_activa") in (None, "") else int(r.get("cuota_activa") or 0)
-            prima_anulada = int(r.get("prima_anulada") or 0)
-            poliza_anulada = int(r.get("poliza_anulada") or 0)
+            cuota_id = r.get("idCuota")
+            cuota_activa = _safe_int(r.get("cuota_activa"), 1)
+            prima_anulada = _safe_int(r.get("prima_anulada"), 0)
+            poliza_anulada = _safe_int(r.get("poliza_anulada"), 0)
+            motivo_cuota = str(r.get("motivo_anulacion") or "").strip()
+            fecha_anulacion = str(r.get("fecha_anulacion") or "").strip()
+            cuota_anulada = cuota_id is not None and (
+                cuota_activa == 0 or bool(motivo_cuota) or bool(fecha_anulacion)
+            )
 
             if prima_anulada:
                 estado_key = "PRIMA_ANULADA"
                 estado_label = "PRIMA ANULADA"
-            elif cuota_activa == 0 or poliza_anulada:
+            elif cuota_anulada or (cuota_id is None and poliza_anulada):
                 estado_key = "CUPON_ANULADO"
                 estado_label = "CUPON ANULADO"
             elif r.get("fec_pago"):
@@ -257,9 +332,7 @@ def _fetch_rows():
             if prima_anulada:
                 motivo_prima = str(r.get("motivo") or "").strip()
                 desc_parts.append("Prima anulada" + (f": {motivo_prima}" if motivo_prima else ""))
-            elif cuota_activa == 0 or poliza_anulada:
-                motivo_cuota = str(r.get("motivo_anulacion") or "").strip()
-                fecha_anulacion = r.get("fecha_anulacion")
+            elif cuota_anulada or (cuota_id is None and poliza_anulada):
                 detalle_anulacion = "Cupon anulado"
                 if motivo_cuota:
                     detalle_anulacion += f": {motivo_cuota}"
@@ -272,6 +345,17 @@ def _fetch_rows():
 
             if desc_parts:
                 r["breve_descripcion"] = " | ".join([p for p in desc_parts if p])
+
+        rows = _dedupe_rows(rows)
+        rows.sort(
+            key=lambda r: (
+                (r.get("fec_vencimiento_cob") is None) or str(r.get("fec_vencimiento_cob") or "").strip() == "",
+                str(r.get("fec_vencimiento_cob") or ""),
+                _safe_int(r.get("idPoliza"), 0),
+                _safe_int(r.get("idCuota"), 0),
+            )
+        )
+        rows = _resequence_num_cuota(rows)
 
         if estados_set:
             rows = [r for r in rows if (r.get("estado_key") or "").upper() in estados_set]
@@ -293,6 +377,7 @@ def _fetch_rows():
             r.pop("fecha_anulacion", None)
             r.pop("prima_anulada", None)
             r.pop("poliza_anulada", None)
+            r.pop("cuota_poliza_id", None)
 
         return rows, None, None
     except Exception as e:
