@@ -45,9 +45,17 @@
                                 <label for="compania" class="form-label">Compañía <span class="text-danger">*</span></label>
                                 <select class="form-select" id="compania">
                                     <option value="">Selecciona...</option>
+                                    {% set ns_compania = namespace(found=false) %}
+                                    {% set poliza_cia = (poliza.cia or '')|trim %}
                                     {% for c in aseguradoras_rows %}
-                                    <option value="{{ c.nombre_corto }}" {% if c.nombre_corto == poliza.cia %}selected{% endif %}>{{ c.nombre_corto }}</option>
+                                    {% set compania_nombre = (c.nombre_corto or '')|trim %}
+                                    {% set is_selected = (compania_nombre == poliza_cia) %}
+                                    {% if is_selected %}{% set ns_compania.found = true %}{% endif %}
+                                    <option value="{{ c.nombre_corto }}" {% if is_selected %}selected{% endif %}>{{ c.nombre_corto }}</option>
                                     {% endfor %}
+                                    {% if poliza_cia and not ns_compania.found %}
+                                    <option value="{{ poliza_cia }}" selected>{{ poliza_cia }}</option>
+                                    {% endif %}
                                 </select>
                             </div>
                             <div class="col-md-4">
@@ -140,9 +148,17 @@
                                 <select class="form-select" id="ejecutivoCuenta">
                                     {% if ejecutivos_rows %}
                                     <option value="">Selecciona...</option>
+                                    {% set ns_ejecutivo = namespace(found=false) %}
+                                    {% set poliza_ejecutivo = (poliza.ejecutivo or '')|trim %}
                                     {% for e in ejecutivos_rows %}
-                                    <option value="{{ e.nombre }}" {% if e.nombre == poliza.ejecutivo %}selected{% endif %}>{{ e.nombre }}</option>
+                                    {% set ejecutivo_nombre = (e.nombre or '')|trim %}
+                                    {% set is_selected = (ejecutivo_nombre == poliza_ejecutivo) %}
+                                    {% if is_selected %}{% set ns_ejecutivo.found = true %}{% endif %}
+                                    <option value="{{ e.nombre }}" {% if is_selected %}selected{% endif %}>{{ e.nombre }}</option>
                                     {% endfor %}
+                                    {% if poliza_ejecutivo and not ns_ejecutivo.found %}
+                                    <option value="{{ poliza_ejecutivo }}" selected>{{ poliza_ejecutivo }}</option>
+                                    {% endif %}
                                     {% else %}
                                     <option value="{{ poliza.ejecutivo }}" selected>{{ poliza.ejecutivo }}</option>
                                     {% endif %}

@@ -9,6 +9,31 @@
 
         const q = (id) => scope.querySelector(`#${id}`);
         const normalize = (v) => (v ?? '').toString().trim().toLowerCase();
+        const sanitizeValue = (v) => {
+            const value = v ?? '';
+            return ['none', 'null', 'undefined'].includes(normalize(value)) ? '' : value;
+        };
+        const buildFormData = () => ({
+            idPoliza: sanitizeValue(q('idPoliza')?.value),
+            cliente_id: sanitizeValue(q('contratante')?.value),
+            poliza: sanitizeValue(q('poliza')?.value),
+            asegurado: sanitizeValue(q('asegurado')?.value),
+            sub_agente: sanitizeValue(q('subAgente')?.value),
+            cia: sanitizeValue(q('compania')?.value),
+            ramo: sanitizeValue(q('ramo')?.value),
+            ramos_producto: sanitizeValue(q('producto')?.value),
+            porc_compania: sanitizeValue(q('comisionCompania')?.value),
+            porc_subagente: sanitizeValue(q('comisionSubAgente')?.value),
+            motivo: sanitizeValue(q('tipoVigencia')?.value),
+            tipo_vigencia: sanitizeValue(q('tipoVigencia')?.value),
+            endosatario: sanitizeValue(q('endosatario')?.value),
+            vig_desde: sanitizeValue(q('vigenciaInicio')?.value),
+            vig_hasta: sanitizeValue(q('vigenciaFin')?.value),
+            moneda: sanitizeValue(q('moneda')?.value),
+            asegurada: sanitizeValue(q('descripcion')?.value),
+            ejecutivo: sanitizeValue(q('ejecutivoCuenta')?.value),
+            observacion: sanitizeValue(q('masInformacion')?.value)
+        });
 
         const setupSearchableSelect = (select, placeholder) => {
             if (!select || select.dataset.searchableInit === '1') return;
@@ -93,6 +118,7 @@
         };
 
         setupSearchableSelect(q('contratante'), 'Buscar contratante...');
+        const initialFormData = buildFormData();
 
         // Lógica para filtrar productos por ramo
         const selectRamo = q('ramo');
@@ -149,29 +175,18 @@
                 e.preventDefault();
                 console.log('Button Guardar clicked');
 
-                const data = {
-                    idPoliza: q('idPoliza').value,
-                    cliente_id: q('contratante').value,
-                    poliza: q('poliza').value,
-                    asegurado: q('asegurado').value,
-                    sub_agente: q('subAgente').value,
-                    cia: q('compania').value,
-                    ramo: q('ramo').value,
-                    ramos_producto: q('producto').value,
-                    porc_compania: q('comisionCompania').value,
-                    porc_subagente: q('comisionSubAgente').value,
-                    motivo: q('tipoVigencia').value,
-                    tipo_vigencia: q('tipoVigencia').value,
-                    endosatario: q('endosatario').value,
-                    vig_desde: q('vigenciaInicio').value,
-                    vig_hasta: q('vigenciaFin').value,
-                    moneda: q('moneda').value,
-                    asegurada: q('descripcion').value,
-                    ejecutivo: q('ejecutivoCuenta').value,
-                    observacion: q('masInformacion').value
-                };
+                const currentFormData = buildFormData();
+                const data = { idPoliza: currentFormData.idPoliza };
 
-                if (!data.poliza || !data.cia || !data.ramo) {
+                Object.keys(currentFormData).forEach((key) => {
+                    if (key === 'idPoliza') return;
+                    if (currentFormData[key] !== initialFormData[key]) {
+                        data[key] = currentFormData[key];
+                    }
+                });
+
+                const effectiveData = { ...initialFormData, ...data };
+                if (!effectiveData.poliza || !effectiveData.cia || !effectiveData.ramo) {
                     Swal.fire('Atención', 'Por favor complete los campos obligatorios (Póliza, Compañía, Ramo)', 'warning');
                     return;
                 }
