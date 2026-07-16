@@ -12,20 +12,20 @@
     --status-info:     #2a78d6;
     --status-good:     #0ca30c;
 }
-@media (prefers-color-scheme: dark) {
-    .anulados-root {
-        --surface-1:      #1a1a19;
-        --text-primary:   #ffffff;
-        --text-secondary: #c3c2b7;
-        --text-muted:     #898781;
-        --border-hairline: rgba(255,255,255,0.10);
-        --gridline:       #2c2c2a;
-        --status-critical: #e66767;
-        --status-warning:  #eda100;
-        --status-serious:  #ec835a;
-        --status-info:     #3987e5;
-        --status-good:     #0ca30c;
-    }
+/* Este dashboard cambia de tema con [data-theme] en <html> (toggle +
+   localStorage, ver layout_dashboard.html), no con prefers-color-scheme. */
+[data-theme='dark'] .anulados-root {
+    --surface-1:      #1a1a19;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --border-hairline: rgba(255,255,255,0.10);
+    --gridline:       #2c2c2a;
+    --status-critical: #e66767;
+    --status-warning:  #eda100;
+    --status-serious:  #ec835a;
+    --status-info:     #3987e5;
+    --status-good:     #0ca30c;
 }
 
 /* ---------- Filtros ---------- */
@@ -111,9 +111,7 @@
     text-align: left;
 }
 .anulado-card__header:hover { background: rgba(11,11,11,0.03); }
-@media (prefers-color-scheme: dark) {
-    .anulado-card__header:hover { background: rgba(255,255,255,0.04); }
-}
+[data-theme='dark'] .anulado-card__header:hover { background: rgba(255,255,255,0.04); }
 
 .anulado-card__chevron {
     flex: 0 0 auto;
@@ -192,9 +190,7 @@
     font-size: .82rem;
     background: rgba(11,11,11,0.015);
 }
-@media (prefers-color-scheme: dark) {
-    .anulado-card__detalle { background: rgba(255,255,255,0.02); }
-}
+[data-theme='dark'] .anulado-card__detalle { background: rgba(255,255,255,0.02); }
 .anulado-card__detalle dt {
     font-size: .7rem;
     text-transform: uppercase;
