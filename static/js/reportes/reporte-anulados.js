@@ -32,14 +32,42 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function fetchData() {
         treeEl.innerHTML = `<div class="anulados-estado"><i class="bi-hourglass-split"></i>Cargando...</div>`;
+        const qs = new URLSearchParams({
+            search: searchInput.value.trim(),
+            desde: desdeInput.value,
+            hasta: hastaInput.value
+        });
+        const url = `/api/reportes/anulados?${qs.toString()}`;
+
+        console.group('%c[Reporte Anulados] diagnostico', 'color:#2a78d6;font-weight:bold;');
+        console.log('URL llamada:', url);
+        console.log('Filtros en pantalla -> search:', searchInput.value, '| desde:', desdeInput.value, '| hasta:', hastaInput.value);
+
         try {
-            const qs = new URLSearchParams({
-                search: searchInput.value.trim(),
-                desde: desdeInput.value,
-                hasta: hastaInput.value
-            });
-            const resp = await fetch(`/api/reportes/anulados?${qs.toString()}`);
+            const resp = await fetch(url);
             const json = await resp.json();
+            const d = json.debug || {};
+
+            console.log('HTTP status:', resp.status, resp.ok ? '(OK)' : '(FALLO)');
+            console.log('Parametros que recibio el backend:', d.params_recibidos);
+            console.log('Conexion real de la BD (host/usuario/schema):', d.conexion);
+            console.log('¿Existe el SP en esa BD?:', d.sp_existe);
+            console.log('Conteo directo (sin pasar por el SP) polizas.anulado=1:', d.polizas_anulado_1);
+            console.log('Conteo directo polizas.prima_anulada=1:', d.polizas_prima_anulada_1);
+            console.log('Conteo directo cuotas.activo=0:', d.cuotas_activo_0);
+            console.log('Result sets devueltos por el CALL:', d.result_sets, '| Filas:', d.row_count);
+            if (json.db_error) {
+                console.error('ERROR SQL/Python reportado por el backend:', json.db_error);
+            } else {
+                console.log('db_error: (ninguno)');
+            }
+            if (Array.isArray(json.data) && json.data.length) {
+                console.table(json.data);
+            } else {
+                console.warn('json.data esta vacio. Compara los conteos directos de arriba: si son > 0 pero row_count del SP es 0, el problema esta en el WHERE del SP contra esos datos puntuales.');
+            }
+            console.groupEnd();
+
             if (!resp.ok) throw new Error((json && json.error) || `Error HTTP ${resp.status}`);
             allData = json.data || [];
             polizaIds = allData.filter(r => r.tipo === 'POLIZA').map(p => p.poliza_id);
@@ -47,8 +75,9 @@ document.addEventListener('DOMContentLoaded', function () {
             renderKpis();
             renderPage();
         } catch (err) {
-            console.error('Error cargando reporte de anulados', err);
-            treeEl.innerHTML = `<div class="anulados-estado text-danger"><i class="bi-exclamation-octagon"></i>Error cargando datos</div>`;
+            console.error('[Reporte Anulados] Error cargando reporte:', err);
+            console.groupEnd();
+            treeEl.innerHTML = `<div class="anulados-estado text-danger"><i class="bi-exclamation-octagon"></i>Error cargando datos (ver consola del navegador, F12)</div>`;
         }
     }
 
