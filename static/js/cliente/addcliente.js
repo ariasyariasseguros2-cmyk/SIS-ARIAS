@@ -4,6 +4,8 @@
   if (!form) return;
 
   const modalEl = document.getElementById('addClienteModal');
+  let documentoLookupTimer = null;
+  let lastDocumentoLookupKey = '';
 
       // Cargar subagentes
   async function loadSubagentes() {
@@ -38,6 +40,13 @@
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toUpperCase();
+  }
+
+  function normalizeTipoDocumento(raw) {
+    const value = normalizeText(raw);
+    if (value.includes('RUC')) return 'RUC';
+    if (value.includes('DNI')) return 'DNI';
+    return value;
   }
 
   function setSelectOptions(selectEl, items, placeholder = 'Seleccionar...') {
@@ -177,6 +186,141 @@
     await loadDistritos(departamentoValue, provinciaValue, defaults.distrito || '');
   }
 
+  function getAddLookupStatusEl() {
+    let el = document.getElementById('docLookupStatus');
+    if (el) return el;
+
+    const numeroDoc = document.getElementById('numeroDocumento');
+    const container = numeroDoc?.closest('.flex-grow-1');
+    if (!container) return null;
+
+    el = document.createElement('div');
+    el.id = 'docLookupStatus';
+    el.className = 'form-text small mt-1';
+    container.appendChild(el);
+    return el;
+  }
+
+  function setAddLookupStatus(type, message) {
+    const el = getAddLookupStatusEl();
+    if (!el) return;
+
+    el.className = 'form-text small mt-1';
+    if (type === 'loading') el.classList.add('text-info');
+    if (type === 'success') el.classList.add('text-success');
+    if (type === 'error') el.classList.add('text-danger');
+    if (type === 'warning') el.classList.add('text-warning');
+    el.textContent = message || '';
+  }
+
+  function getSelectedTipoDocumento() {
+    return normalizeTipoDocumento(document.querySelector('input[name="tipoDocumento"]:checked')?.value || '');
+  }
+
+  function applyTipoPersonaFromLookup(data) {
+    const tipoPersonaEl = document.getElementById('tipoPersona');
+    if (!tipoPersonaEl) return;
+
+    const tipoPersona = normalizeText(data?.tipo_persona || '');
+    if (tipoPersona === 'JURIDICA' || tipoPersona === '2') {
+      tipoPersonaEl.value = 'JURIDICA';
+    } else if (tipoPersona) {
+      tipoPersonaEl.value = 'NATURAL';
+    }
+  }
+
+  async function applyDocumentoLookupToAddForm(data) {
+    if (!data) return;
+
+    const razonInput = document.getElementById('razonSocial');
+    const direccionInput = document.getElementById('direccion');
+
+    if (razonInput && data.razon_social) {
+      razonInput.value = data.razon_social;
+      razonInput.classList.add('is-valid');
+    }
+
+    if (direccionInput && data.direccion) {
+      direccionInput.value = data.direccion;
+      direccionInput.classList.add('is-valid');
+    }
+
+    applyTipoPersonaFromLookup(data);
+
+    if (data.departamento || data.provincia || data.distrito) {
+      await initializeUbigeoSelectors({
+        departamento: data.departamento || '',
+        provincia: data.provincia || '',
+        distrito: data.distrito || ''
+      });
+    }
+
+    highlightFilledFields();
+  }
+
+  async function performDocumentoLookup(force = false) {
+    const numeroDoc = document.getElementById('numeroDocumento');
+    if (!numeroDoc) return;
+
+    const numero = (numeroDoc.value || '').replace(/[^0-9]/g, '');
+    const tipo = getSelectedTipoDocumento();
+    const expectedLength = tipo === 'RUC' ? 11 : (tipo === 'DNI' ? 8 : 0);
+
+    if (!expectedLength || numero.length !== expectedLength) return;
+
+    const lookupKey = `${tipo}:${numero}`;
+    if (!force && lookupKey === lastDocumentoLookupKey) return;
+    lastDocumentoLookupKey = lookupKey;
+
+    setAddLookupStatus('loading', `Consultando ${tipo}...`);
+
+    try {
+      const qs = new URLSearchParams({
+        tipo_documento: tipo,
+        numero_documento: numero
+      });
+      const resp = await fetch(`/api/clientes/documento-lookup?${qs.toString()}`);
+      const result = await resp.json().catch(() => ({}));
+
+      if (!resp.ok || !result.ok) {
+        const msg = result.error || 'No se pudo consultar el documento';
+        setAddLookupStatus('warning', msg);
+        return;
+      }
+
+      await applyDocumentoLookupToAddForm(result.data || {});
+      setAddLookupStatus('success', `${tipo} consultado correctamente`);
+    } catch (error) {
+      console.error('Error consultando documento:', error);
+      setAddLookupStatus('error', 'Error consultando el documento');
+    }
+  }
+
+  function scheduleDocumentoLookup(force = false) {
+    if (documentoLookupTimer) {
+      clearTimeout(documentoLookupTimer);
+    }
+    documentoLookupTimer = setTimeout(() => {
+      performDocumentoLookup(force);
+    }, force ? 0 : 500);
+  }
+
+  function setupDocumentoLookupListeners() {
+    const numeroDoc = document.getElementById('numeroDocumento');
+    if (!numeroDoc || numeroDoc.dataset.lookupBound === '1') return;
+
+    numeroDoc.dataset.lookupBound = '1';
+
+    numeroDoc.addEventListener('input', () => {
+      const tipo = getSelectedTipoDocumento();
+      const numero = (numeroDoc.value || '').replace(/[^0-9]/g, '');
+      const expectedLength = tipo === 'RUC' ? 11 : (tipo === 'DNI' ? 8 : 0);
+      if (expectedLength && numero.length === expectedLength) {
+        scheduleDocumentoLookup(false);
+      }
+    });
+  }
+
   function setupUbigeoListeners() {
     const departamentoEl = document.getElementById('departamento');
     const provinciaEl = document.getElementById('provincia');
@@ -212,6 +356,7 @@
     modalEl.addEventListener('show.bs.modal', async () => {
       loadSubagentes();
       setupRealtimeValidation();
+      setupDocumentoLookupListeners();
       setupUbigeoListeners();
       await initializeUbigeoSelectors();
     });
@@ -660,6 +805,9 @@
 
 
   function clearAllFormFields() {
+    lastDocumentoLookupKey = '';
+    setAddLookupStatus('', '');
+
     const textInputs = form.querySelectorAll('input[type="text"], input[type="email"], input[type="date"], textarea');
     textInputs.forEach(input => {
       input.value = '';

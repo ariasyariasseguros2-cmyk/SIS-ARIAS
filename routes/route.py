@@ -3156,6 +3156,15 @@ def api_get_distritos():
     distritos = get_distritos(departamento, provincia)
     return {'ok': True, 'distritos': distritos}, 200
 
+
+@bp.route('/api/clientes/documento-lookup', methods=['GET'])
+def api_clientes_documento_lookup():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+
+    from controllers.clientes.documento_lookup import consultar_documento_route
+    return consultar_documento_route()
+
 # ---- Ajustadores API ----
 @bp.route('/ajustadores/list', methods=['GET'])
 def ajustadores_list():

@@ -6,6 +6,8 @@
     'use strict';
 
     let currentEditingClienteId = null;
+    let editDocumentoLookupTimer = null;
+    let lastEditDocumentoLookupKey = '';
 
     function normalizeTipoDocumento(raw) {
         const t = (raw || '').toString().trim().toUpperCase();
@@ -198,6 +200,142 @@
         toggleSelectState(distritoEl, false);
     }
 
+    function getEditLookupStatusEl() {
+        let el = document.getElementById('edit_doc_lookup_status');
+        if (el) return el;
+
+        const numeroDoc = document.getElementById('edit_numero_documento');
+        const container = numeroDoc?.parentElement;
+        if (!container) return null;
+
+        el = document.createElement('div');
+        el.id = 'edit_doc_lookup_status';
+        el.className = 'form-text small mt-1';
+        container.appendChild(el);
+        return el;
+    }
+
+    function setEditLookupStatus(type, message) {
+        const el = getEditLookupStatusEl();
+        if (!el) return;
+
+        el.className = 'form-text small mt-1';
+        if (type === 'loading') el.classList.add('text-info');
+        if (type === 'success') el.classList.add('text-success');
+        if (type === 'error') el.classList.add('text-danger');
+        if (type === 'warning') el.classList.add('text-warning');
+        el.textContent = message || '';
+    }
+
+    function applyEditTipoPersona(tipoPersona) {
+        const tipoPersonaEl = document.getElementById('edit_tipo_persona');
+        if (!tipoPersonaEl || !tipoPersona) return;
+
+        const value = normalizeText(tipoPersona);
+        if (value === 'JURIDICA' || value === '2') {
+            tipoPersonaEl.value = '2';
+        } else if (value) {
+            tipoPersonaEl.value = '1';
+        }
+    }
+
+    async function applyDocumentoLookupToEditForm(data) {
+        if (!data) return;
+
+        const razonInput = document.getElementById('edit_razon_social');
+        const direccionInput = document.getElementById('edit_direccion');
+
+        if (razonInput && data.razon_social) {
+            razonInput.value = data.razon_social;
+        }
+
+        if (direccionInput && data.direccion) {
+            direccionInput.value = data.direccion;
+        }
+
+        applyEditTipoPersona(data.tipo_persona);
+
+        if (data.departamento || data.provincia || data.distrito) {
+            await initializeEditUbigeoSelectors({
+                departamento: data.departamento || '',
+                provincia: data.provincia || '',
+                distrito: data.distrito || ''
+            });
+        }
+    }
+
+    async function performEditDocumentoLookup(force = false) {
+        const numeroDoc = document.getElementById('edit_numero_documento');
+        const tipoDocEl = document.getElementById('edit_tipo_documento');
+        if (!numeroDoc || !tipoDocEl) return;
+
+        numeroDoc.value = (numeroDoc.value || '').replace(/[^0-9]/g, '');
+        const numero = numeroDoc.value;
+        const tipo = normalizeTipoDocumento(tipoDocEl.value || '');
+        const expectedLength = tipo === 'RUC' ? 11 : (tipo === 'DNI' ? 8 : 0);
+
+        if (!expectedLength || numero.length !== expectedLength) return;
+
+        const lookupKey = `${tipo}:${numero}`;
+        if (!force && lookupKey === lastEditDocumentoLookupKey) return;
+        lastEditDocumentoLookupKey = lookupKey;
+
+        setEditLookupStatus('loading', `Consultando ${tipo}...`);
+
+        try {
+            const qs = new URLSearchParams({
+                tipo_documento: tipo,
+                numero_documento: numero
+            });
+            const resp = await fetch(`/api/clientes/documento-lookup?${qs.toString()}`);
+            const result = await resp.json().catch(() => ({}));
+
+            if (!resp.ok || !result.ok) {
+                setEditLookupStatus('warning', result.error || 'No se pudo consultar el documento');
+                return;
+            }
+
+            await applyDocumentoLookupToEditForm(result.data || {});
+            setEditLookupStatus('success', `${tipo} consultado correctamente`);
+        } catch (error) {
+            console.error('Error consultando documento en edición:', error);
+            setEditLookupStatus('error', 'Error consultando el documento');
+        }
+    }
+
+    function scheduleEditDocumentoLookup(force = false) {
+        if (editDocumentoLookupTimer) {
+            clearTimeout(editDocumentoLookupTimer);
+        }
+
+        editDocumentoLookupTimer = setTimeout(() => {
+            performEditDocumentoLookup(force);
+        }, force ? 0 : 500);
+    }
+
+    function setupEditDocumentoLookupListeners() {
+        const numeroDoc = document.getElementById('edit_numero_documento');
+        const tipoDocEl = document.getElementById('edit_tipo_documento');
+        if (!numeroDoc || !tipoDocEl || numeroDoc.dataset.lookupBound === '1') return;
+
+        numeroDoc.dataset.lookupBound = '1';
+
+        numeroDoc.addEventListener('input', () => {
+            numeroDoc.value = (numeroDoc.value || '').replace(/[^0-9]/g, '');
+
+            const numero = numeroDoc.value;
+            if (numero.length === 8) {
+                tipoDocEl.value = 'DNI';
+                applyEditTipoPersona('NATURAL');
+                scheduleEditDocumentoLookup(false);
+            } else if (numero.length === 11) {
+                tipoDocEl.value = 'RUC';
+                applyEditTipoPersona(numero.startsWith('20') ? 'JURIDICA' : 'NATURAL');
+                scheduleEditDocumentoLookup(false);
+            }
+        });
+    }
+
     /**
      * Inicializar eventos al cargar el DOM
      */
@@ -205,6 +343,7 @@
         initEditButtons();
         initEditForm();
         setupEditUbigeoListeners();
+        setupEditDocumentoLookupListeners();
 
         const editModalEl = document.getElementById('editClienteModal');
         if (editModalEl) {
@@ -613,6 +752,8 @@
             form.classList.remove('was-validated');
         }
         resetEditUbigeoSelectors();
+        setEditLookupStatus('', '');
+        lastEditDocumentoLookupKey = '';
         currentEditingClienteId = null;
 
         setTimeout(() => {
