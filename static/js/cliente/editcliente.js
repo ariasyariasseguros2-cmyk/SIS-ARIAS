@@ -18,12 +18,193 @@
         return 'DNI';
     }
 
+    function normalizeText(value) {
+        return (value || '')
+            .toString()
+            .trim()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toUpperCase();
+    }
+
+    function setSelectOptions(selectEl, items, placeholder = 'Seleccionar...') {
+        if (!selectEl) return;
+
+        selectEl.innerHTML = '';
+
+        const firstOption = document.createElement('option');
+        firstOption.value = '';
+        firstOption.textContent = placeholder;
+        selectEl.appendChild(firstOption);
+
+        (items || []).forEach(item => {
+            const option = document.createElement('option');
+            option.value = item;
+            option.textContent = item;
+            selectEl.appendChild(option);
+        });
+    }
+
+    function setSelectValueByText(selectEl, value) {
+        if (!selectEl) return;
+
+        const target = normalizeText(value);
+        const match = Array.from(selectEl.options).find(
+            opt => normalizeText(opt.value) === target
+        );
+
+        selectEl.value = match ? match.value : '';
+    }
+
+    function toggleSelectState(selectEl, enabled) {
+        if (!selectEl) return;
+
+        selectEl.disabled = !enabled;
+        if (!enabled) {
+            selectEl.value = '';
+            selectEl.classList.remove('is-valid', 'is-invalid');
+        }
+    }
+
+    async function loadEditDepartamentos(selectedDepartamento = '') {
+        const departamentoEl = document.getElementById('edit_departamento');
+        if (!departamentoEl) return;
+
+        try {
+            const resp = await fetch('/api/ubigeos/departamentos');
+            const result = await resp.json().catch(() => ({}));
+            if (!resp.ok || !result.ok) throw new Error('No se pudo cargar departamentos');
+
+            setSelectOptions(departamentoEl, result.departamentos || []);
+            toggleSelectState(departamentoEl, true);
+
+            if (selectedDepartamento) {
+                setSelectValueByText(departamentoEl, selectedDepartamento);
+            }
+        } catch (error) {
+            console.error('Error cargando departamentos en edición:', error);
+            setSelectOptions(departamentoEl, []);
+            toggleSelectState(departamentoEl, false);
+        }
+    }
+
+    async function loadEditProvincias(departamento, selectedProvincia = '') {
+        const provinciaEl = document.getElementById('edit_provincia');
+        const distritoEl = document.getElementById('edit_distrito');
+        if (!provinciaEl || !distritoEl) return;
+
+        setSelectOptions(provinciaEl, []);
+        setSelectOptions(distritoEl, []);
+        toggleSelectState(distritoEl, false);
+
+        if (!departamento) {
+            toggleSelectState(provinciaEl, false);
+            return;
+        }
+
+        try {
+            const qs = new URLSearchParams({ departamento });
+            const resp = await fetch(`/api/ubigeos/provincias?${qs.toString()}`);
+            const result = await resp.json().catch(() => ({}));
+            if (!resp.ok || !result.ok) throw new Error('No se pudo cargar provincias');
+
+            setSelectOptions(provinciaEl, result.provincias || []);
+            toggleSelectState(provinciaEl, true);
+
+            if (selectedProvincia) {
+                setSelectValueByText(provinciaEl, selectedProvincia);
+            }
+        } catch (error) {
+            console.error('Error cargando provincias en edición:', error);
+            setSelectOptions(provinciaEl, []);
+            toggleSelectState(provinciaEl, false);
+        }
+    }
+
+    async function loadEditDistritos(departamento, provincia, selectedDistrito = '') {
+        const distritoEl = document.getElementById('edit_distrito');
+        if (!distritoEl) return;
+
+        setSelectOptions(distritoEl, []);
+
+        if (!departamento || !provincia) {
+            toggleSelectState(distritoEl, false);
+            return;
+        }
+
+        try {
+            const qs = new URLSearchParams({ departamento, provincia });
+            const resp = await fetch(`/api/ubigeos/distritos?${qs.toString()}`);
+            const result = await resp.json().catch(() => ({}));
+            if (!resp.ok || !result.ok) throw new Error('No se pudo cargar distritos');
+
+            setSelectOptions(distritoEl, result.distritos || []);
+            toggleSelectState(distritoEl, true);
+
+            if (selectedDistrito) {
+                setSelectValueByText(distritoEl, selectedDistrito);
+            }
+        } catch (error) {
+            console.error('Error cargando distritos en edición:', error);
+            setSelectOptions(distritoEl, []);
+            toggleSelectState(distritoEl, false);
+        }
+    }
+
+    async function initializeEditUbigeoSelectors(defaults = {}) {
+        const departamentoEl = document.getElementById('edit_departamento');
+        const provinciaEl = document.getElementById('edit_provincia');
+        if (!departamentoEl || !provinciaEl) return;
+
+        await loadEditDepartamentos(defaults.departamento || '');
+
+        const departamentoValue = departamentoEl.value || defaults.departamento || '';
+        await loadEditProvincias(departamentoValue, defaults.provincia || '');
+
+        const provinciaValue = provinciaEl.value || defaults.provincia || '';
+        await loadEditDistritos(departamentoValue, provinciaValue, defaults.distrito || '');
+    }
+
+    function setupEditUbigeoListeners() {
+        const departamentoEl = document.getElementById('edit_departamento');
+        const provinciaEl = document.getElementById('edit_provincia');
+        const distritoEl = document.getElementById('edit_distrito');
+        if (!departamentoEl || !provinciaEl || !distritoEl) return;
+        if (departamentoEl.dataset.ubigeoBound === '1') return;
+
+        departamentoEl.dataset.ubigeoBound = '1';
+
+        departamentoEl.addEventListener('change', async (e) => {
+            const departamento = e.target.value || '';
+            await loadEditProvincias(departamento);
+        });
+
+        provinciaEl.addEventListener('change', async (e) => {
+            const provincia = e.target.value || '';
+            await loadEditDistritos(departamentoEl.value || '', provincia);
+        });
+    }
+
+    function resetEditUbigeoSelectors() {
+        const departamentoEl = document.getElementById('edit_departamento');
+        const provinciaEl = document.getElementById('edit_provincia');
+        const distritoEl = document.getElementById('edit_distrito');
+
+        setSelectOptions(departamentoEl, []);
+        setSelectOptions(provinciaEl, []);
+        setSelectOptions(distritoEl, []);
+        toggleSelectState(departamentoEl, true);
+        toggleSelectState(provinciaEl, false);
+        toggleSelectState(distritoEl, false);
+    }
+
     /**
      * Inicializar eventos al cargar el DOM
      */
     document.addEventListener('DOMContentLoaded', function() {
         initEditButtons();
         initEditForm();
+        setupEditUbigeoListeners();
 
         const editModalEl = document.getElementById('editClienteModal');
         if (editModalEl) {
@@ -60,10 +241,10 @@
 
         fetch(`/clientes/detalle/${clienteId}`)
             .then(response => response.json())
-            .then(data => {
+            .then(async data => {
                 if (data.status === 'success') {
                     currentEditingClienteId = clienteId;
-                    populateEditForm(data.data);
+                    await populateEditForm(data.data);
                     hideLoadingModal();
 
                     const editModal = new bootstrap.Modal(document.getElementById('editClienteModal'));
@@ -83,7 +264,7 @@
     /**
      * Poblar el formulario de edición con los datos del cliente
      */
-    function populateEditForm(cliente) {
+    async function populateEditForm(cliente) {
         // Datos básicos
         document.getElementById('edit_idCliente').value = cliente.idCliente || cliente.id || '';
         document.getElementById('edit_tipo_persona').value = cliente.tipo_persona || cliente.tipo_persona_id || '';
@@ -101,9 +282,11 @@
 
         // Ubicación
         document.getElementById('edit_direccion').value = cliente.direccion || '';
-        document.getElementById('edit_departamento').value = cliente.departamento || '';
-        document.getElementById('edit_provincia').value = cliente.provincia || '';
-        document.getElementById('edit_distrito').value = cliente.distrito || '';
+        await initializeEditUbigeoSelectors({
+            departamento: cliente.departamento || '',
+            provincia: cliente.provincia || '',
+            distrito: cliente.distrito || ''
+        });
 
         // Relación comercial
         // Si el servidor devuelve subagente como abreviación o como texto, colocarlo
@@ -429,6 +612,7 @@
             form.reset();
             form.classList.remove('was-validated');
         }
+        resetEditUbigeoSelectors();
         currentEditingClienteId = null;
 
         setTimeout(() => {
