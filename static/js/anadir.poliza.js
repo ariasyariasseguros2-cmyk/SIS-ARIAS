@@ -309,7 +309,7 @@
 
   // Helpers de primas
   function parseNumber(val) {
-    const raw0 = (val || '').toString().trim();
+    const raw0 = val === undefined || val === null ? '' : String(val).trim();
     if (!raw0) return NaN;
     let raw = raw0.replace(/[−–—]/g, '-');
     let parenNeg = false;
@@ -337,6 +337,18 @@
     const combined = decPart ? `${signedInt}.${decPart}` : signedInt;
     const num = parseFloat(combined);
     return Number.isFinite(num) ? num : NaN;
+  }
+  function hasValue(val) {
+    return val !== undefined && val !== null && String(val).trim() !== '';
+  }
+  function asTrimmedString(val) {
+    return hasValue(val) ? String(val).trim() : '';
+  }
+  function firstFilledValue(...values) {
+    for (const value of values) {
+      if (hasValue(value)) return value;
+    }
+    return '';
   }
   function mapCurrencySymbol(val) {
     const raw = (val || '').toString().trim();
@@ -970,7 +982,8 @@
 
   function normalizeItem(src) {
     const it = { ...src };
-    const totalIgvNum = parseNumber(it.prima_comercial_igv || it.prima_total);
+    const totalIgvVal = firstFilledValue(it.prima_comercial_igv, it.prima_total);
+    const totalIgvNum = parseNumber(totalIgvVal);
     const comercialNum0 = parseNumber(it.prima_comercial);
     const netaNum0 = parseNumber(it.prima_neta);
 
@@ -1004,20 +1017,20 @@
       it.prima_comercial_igv = totalIgvNum.toFixed(2);
       return normalizeFinancialSigns(it);
     }
-    let comercial = (it.prima_comercial || '').toString().trim();
-    let neta = (it.prima_neta || '').toString().trim();
+    let comercial = asTrimmedString(it.prima_comercial);
+    let neta = asTrimmedString(it.prima_neta);
 
-    if (!comercial && neta) {
+    if (!comercial && neta !== '') {
       comercial = computePrimaComercialFromNeta(neta);
       it.prima_comercial = comercial;
     }
-    if (comercial) {
+    if (comercial !== '') {
       it.prima_neta = computePrimaNetaFromComercial(comercial);
-      if (!it.prima_comercial_igv) {
+      if (!hasValue(it.prima_comercial_igv)) {
         it.prima_comercial_igv = computePrimaIGVFromComercial(comercial);
       }
     } else {
-      if (!it.prima_comercial_igv) {
+      if (!hasValue(it.prima_comercial_igv)) {
         it.prima_comercial_igv = '';
       }
     }
@@ -1409,10 +1422,10 @@
 
     tbody.innerHTML = '';
     items.forEach((it, idx) => {
-      const totalVal = it.prima_comercial_igv || it.prima_total || it.monto || '';
-      if ((!it.prima_comercial || it.prima_comercial === '') && totalVal) {
+      const totalVal = firstFilledValue(it.prima_comercial_igv, it.prima_total, it.monto);
+      if (!hasValue(it.prima_comercial) && hasValue(totalVal)) {
         const comercial = computePrimaComercialFromTotal(totalVal);
-        if (comercial) {
+        if (comercial !== '') {
           it.prima_comercial = comercial;
           it.prima_neta = computePrimaNetaFromComercial(comercial);
         }
@@ -1468,20 +1481,20 @@
         <td data-index="${idx}" data-field="moneda">${monedaSelHtml}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="inicio_vigencia">${it.inicio_vigencia || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="vencimiento">${it.vencimiento || ''}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${formatMoney(it.prima_neta || '')}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${formatMoney(it.prima_comercial || '')}</td>
-        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${formatMoney(it.prima_comercial_igv || it.prima_total || it.monto || '')}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_neta">${formatMoney(firstFilledValue(it.prima_neta))}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial">${formatMoney(firstFilledValue(it.prima_comercial))}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="prima_comercial_igv">${formatMoney(firstFilledValue(it.prima_comercial_igv, it.prima_total, it.monto))}</td>
         <td data-index="${idx}" data-field="comision_compania_pct">
-          <input type="number" step="0.01" class="form-control form-control-sm pct-comp" value="${it.comision_compania_pct || ''}">
+          <input type="number" step="0.01" class="form-control form-control-sm pct-comp" value="${firstFilledValue(it.comision_compania_pct)}">
         </td>
         <td data-index="${idx}" data-field="comision_compania_importe">
-          <input type="number" step="0.01" class="form-control form-control-sm imp-comp" value="${it.comision_compania_importe || ''}">
+          <input type="number" step="0.01" class="form-control form-control-sm imp-comp" value="${firstFilledValue(it.comision_compania_importe)}">
         </td>
         <td data-index="${idx}" data-field="comision_subagente_pct">
-          <input type="number" step="0.01" min="0" max="100" class="form-control form-control-sm pct-sub" value="${it.comision_subagente_pct || ''}">
+          <input type="number" step="0.01" min="0" max="100" class="form-control form-control-sm pct-sub" value="${firstFilledValue(it.comision_subagente_pct)}">
         </td>
         <td data-index="${idx}" data-field="comision_subagente_importe">
-          <input type="number" step="0.01" class="form-control form-control-sm imp-sub" value="${it.comision_subagente_importe || ''}">
+          <input type="number" step="0.01" class="form-control form-control-sm imp-sub" value="${firstFilledValue(it.comision_subagente_importe)}">
         </td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="factura">${it.factura || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_pago">${it.fecha_pago || ''}</td>
