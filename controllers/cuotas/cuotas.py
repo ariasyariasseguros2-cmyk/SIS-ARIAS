@@ -694,6 +694,7 @@ def get_cuotas_data(
                         FROM cuotas c
                         LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
                         WHERE c.poliza_id = %s
+                          AND COALESCE(c.activo, 1) = 1
                         ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
                         """,
                         (target_prima_id,),
@@ -734,6 +735,7 @@ def get_cuotas_data(
                             FROM cuotas c
                             LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
                             WHERE (c.poliza_id IS NULL OR c.poliza_id = 0)
+                          AND COALESCE(c.activo, 1) = 1
                               AND (
                                 CAST(AES_DECRYPT(FROM_BASE64(c.poliza), @SIS_KEY) AS CHAR) = %s
                                 OR c.poliza = %s
@@ -778,6 +780,7 @@ def get_cuotas_data(
                           CAST(AES_DECRYPT(FROM_BASE64(c.poliza), @SIS_KEY) AS CHAR) = %s
                           OR c.poliza = %s
                         )
+                          AND COALESCE(c.activo, 1) = 1
                     """
                     params = [poliza, poliza]
 
@@ -828,6 +831,7 @@ def get_cuotas_data(
                                         TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR), c.cupon)) = TRIM(%s)
                                         OR TRIM(c.factura) = TRIM(%s)
                                       )
+                                  AND COALESCE(c.activo, 1) = 1
                                 ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
                                 """,
                                 (aviso, aviso),

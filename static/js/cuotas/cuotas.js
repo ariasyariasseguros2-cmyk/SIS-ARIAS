@@ -18,6 +18,11 @@ const Cuotas = (() => {
   function init() {
     const tbody = document.querySelector('#cuotas-table tbody');
     if (!tbody) return;
+    tbody.querySelectorAll('tr').forEach(tr => {
+      if (String(tr.dataset.activo || '1') === '0') {
+        tr.remove();
+      }
+    });
     allRows = Array.from(tbody.querySelectorAll('tr'));
     ensurePager();
     syncRowIndices();
@@ -222,6 +227,11 @@ const Cuotas = (() => {
     tr.dataset.motivoAnulacion = (motivo || '').trim();
     updateObservationCell(tr);
     updateActionState(tr);
+  }
+
+  function removeRow(tr) {
+    if (!tr) return;
+    tr.remove();
   }
 
   function recalcTotal() {
@@ -735,6 +745,7 @@ const Cuotas = (() => {
       .then(res => {
         if (res.ok) {
           markRowAsAnulada(tr, motivo);
+          removeRow(tr);
           syncRowIndices();
         } else {
           alert('Error al anular: ' + (res.error || 'Desconocido'));
