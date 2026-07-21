@@ -11,6 +11,9 @@ app.secret_key = os.environ.get('SIS_ARIAS_SECRET_KEY') or 'cambia-esta-secret' 
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 # Cierra la sesión tras 1 hora sin actividad (Flask renueva la cookie en cada request)
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)
+app.config['SESSION_IDLE_TIMEOUT_SECS'] = 60 * 60
+app.config['SESSION_PING_INTERVAL_SECS'] = 5 * 60
+app.config['SESSION_WARNING_SECS'] = 60
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -125,8 +128,12 @@ def index():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    timeout_error = 'Tu sesión expiró por inactividad. Vuelve a iniciar sesión.'
     if request.method == 'GET' and session.get('user'):
         return redirect(url_for('main.dashboard'))
+    if request.method == 'GET':
+        error = timeout_error if request.args.get('reason') == 'timeout' else None
+        return render_template('view/login.html', error=error)
     if request.method == 'POST':
         session.clear()
 
@@ -248,9 +255,21 @@ def login():
             return render_template('view/login.html', error=error)
     return render_template('view/login.html')
 
+@app.route('/api/session/ping', methods=['POST'])
+def session_ping():
+    if not session.get('user'):
+        session.clear()
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+    session.permanent = True
+    session.modified = True
+    return jsonify({'ok': True})
+
 @app.route('/logout')
 def logout():
+    reason = request.args.get('reason')
     session.clear()
+    if reason:
+        return redirect(url_for('login', reason=reason))
     return redirect(url_for('login'))
 
 @app.errorhandler(404)

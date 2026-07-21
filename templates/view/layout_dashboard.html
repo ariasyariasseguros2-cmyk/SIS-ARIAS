@@ -261,6 +261,15 @@
 {% block before_js %}{% endblock %}
 <script>window.currentPage = "{{ _p }}";</script>
 <script>
+    window.sessionConfig = {
+        idleTimeoutMs: {{ (config.get('SESSION_IDLE_TIMEOUT_SECS', 3600) * 1000) | int }},
+        pingIntervalMs: {{ (config.get('SESSION_PING_INTERVAL_SECS', 300) * 1000) | int }},
+        warningLeadMs: {{ (config.get('SESSION_WARNING_SECS', 60) * 1000) | int }},
+        pingUrl: "{{ url_for('session_ping') }}",
+        logoutUrl: "{{ url_for('logout', reason='timeout') }}"
+    };
+</script>
+<script>
     // Theme Switcher Logic
     document.addEventListener('DOMContentLoaded', function() {
         const themeToggle = document.getElementById('themeToggle');
@@ -325,6 +334,202 @@
         });
     });
 </script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const sessionConfig = window.sessionConfig || {};
+        const idleTimeoutMs = Number(sessionConfig.idleTimeoutMs || 3600000);
+        const pingIntervalMs = Number(sessionConfig.pingIntervalMs || 300000);
+        const warningLeadMs = Math.min(Number(sessionConfig.warningLeadMs || 60000), idleTimeoutMs);
+        const pingUrl = sessionConfig.pingUrl || '/api/session/ping';
+        const logoutUrl = sessionConfig.logoutUrl || '/logout?reason=timeout';
+        const activityKey = 'sis_arias_last_activity_at';
+        const logoutKey = 'sis_arias_force_logout_at';
+        const warningModalEl = document.getElementById('sessionWarningModal');
+        const warningCountdownEl = document.getElementById('sessionWarningCountdown');
+        const keepAliveBtn = document.getElementById('sessionKeepAliveBtn');
+
+        let logoutTimer = null;
+        let warningTimer = null;
+        let heartbeatTimer = null;
+        let warningCountdownTimer = null;
+        let lastPingAt = 0;
+        let lastRecordedActivityAt = 0;
+        let warningModal = null;
+
+        function getStoredActivityAt() {
+            const value = Number(localStorage.getItem(activityKey) || Date.now());
+            return Number.isFinite(value) ? value : Date.now();
+        }
+
+        function hideWarningModal() {
+            if (warningCountdownTimer) {
+                window.clearInterval(warningCountdownTimer);
+                warningCountdownTimer = null;
+            }
+            if (warningModal) {
+                warningModal.hide();
+            }
+        }
+
+        function updateWarningCountdown() {
+            if (!warningCountdownEl) return;
+            const lastActivityAt = getStoredActivityAt();
+            const remainingMs = Math.max(0, idleTimeoutMs - (Date.now() - lastActivityAt));
+            const remainingSecs = Math.ceil(remainingMs / 1000);
+            warningCountdownEl.textContent = String(remainingSecs);
+        }
+
+        function showWarningModal() {
+            if (!warningModalEl || typeof bootstrap === 'undefined') return;
+            if (!warningModal) {
+                warningModal = new bootstrap.Modal(warningModalEl, {
+                    backdrop: 'static',
+                    keyboard: false
+                });
+            }
+            updateWarningCountdown();
+            if (warningCountdownTimer) {
+                window.clearInterval(warningCountdownTimer);
+            }
+            warningCountdownTimer = window.setInterval(updateWarningCountdown, 1000);
+            warningModal.show();
+        }
+
+        function redirectToLogout() {
+            hideWarningModal();
+            localStorage.setItem(logoutKey, String(Date.now()));
+            window.location.replace(logoutUrl);
+        }
+
+        function resetLogoutTimer(lastActivityAt) {
+            const idleForMs = Date.now() - lastActivityAt;
+            const remainingMs = idleTimeoutMs - idleForMs;
+
+            if (logoutTimer) {
+                window.clearTimeout(logoutTimer);
+            }
+            if (warningTimer) {
+                window.clearTimeout(warningTimer);
+            }
+
+            if (remainingMs <= 0) {
+                redirectToLogout();
+                return;
+            }
+
+            hideWarningModal();
+
+            if (remainingMs <= warningLeadMs) {
+                showWarningModal();
+            } else {
+                warningTimer = window.setTimeout(showWarningModal, remainingMs - warningLeadMs);
+            }
+
+            logoutTimer = window.setTimeout(redirectToLogout, remainingMs);
+        }
+
+        async function pingSession() {
+            if (!navigator.onLine) return;
+            try {
+                const response = await fetch(pingUrl, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                    cache: 'no-store'
+                });
+                if (response.status === 401) {
+                    redirectToLogout();
+                    return;
+                }
+                lastPingAt = Date.now();
+            } catch (_error) {
+                // Si hay una caída momentánea de red, el timer local sigue protegiendo la sesión.
+            }
+        }
+
+        function maybePingSession(lastActivityAt) {
+            const now = Date.now();
+            if (document.visibilityState === 'hidden') return;
+            if ((now - lastActivityAt) >= idleTimeoutMs) return;
+            if ((now - lastPingAt) < pingIntervalMs) return;
+            pingSession();
+        }
+
+        function recordActivity() {
+            const now = Date.now();
+            if ((now - lastRecordedActivityAt) < 1000) {
+                resetLogoutTimer(getStoredActivityAt());
+                return;
+            }
+            lastRecordedActivityAt = now;
+            localStorage.setItem(activityKey, String(now));
+            resetLogoutTimer(now);
+            maybePingSession(now);
+        }
+
+        function syncFromStorage() {
+            const lastActivityAt = getStoredActivityAt();
+            resetLogoutTimer(lastActivityAt);
+            maybePingSession(lastActivityAt);
+        }
+
+        [
+            'click',
+            'keydown',
+            'mousemove',
+            'mousedown',
+            'scroll',
+            'touchstart'
+        ].forEach(function(eventName) {
+            window.addEventListener(eventName, recordActivity, { passive: true });
+        });
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                syncFromStorage();
+            }
+        });
+
+        window.addEventListener('storage', function(event) {
+            if (event.key === activityKey) {
+                syncFromStorage();
+            }
+            if (event.key === logoutKey && event.newValue) {
+                window.location.replace(logoutUrl);
+            }
+        });
+
+        if (keepAliveBtn) {
+            keepAliveBtn.addEventListener('click', function() {
+                recordActivity();
+            });
+        }
+
+        heartbeatTimer = window.setInterval(syncFromStorage, 30000);
+        if (!localStorage.getItem(activityKey)) {
+            localStorage.setItem(activityKey, String(Date.now()));
+        }
+        syncFromStorage();
+    });
+</script>
+
+<div class="modal fade" id="sessionWarningModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title">Sesión por vencer</h5>
+            </div>
+            <div class="modal-body">
+                Tu sesión se cerrará automáticamente en <strong><span id="sessionWarningCountdown">60</span> segundos</strong> por inactividad.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary rounded-pill" id="sessionKeepAliveBtn" data-bs-dismiss="modal">
+                    Seguir en sesión
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
