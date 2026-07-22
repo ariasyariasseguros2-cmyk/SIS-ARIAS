@@ -1632,7 +1632,7 @@ def revert_cuota(cuota_id: int) -> Tuple[bool, str]:
         return False, str(e)
 
 
-def delete_cuota(cuota_id: int, motivo: str = '', usuario: str = '') -> Tuple[bool, str]:
+def delete_cuota(cuota_id: int, motivo: str = '', usuario: str = '') -> Tuple[bool, str, str]:
     try:
         from models.db import get_connection
         cnx = get_connection()
@@ -1658,7 +1658,7 @@ def delete_cuota(cuota_id: int, motivo: str = '', usuario: str = '') -> Tuple[bo
         if not row:
             cur.close()
             cnx.close()
-            return False, "Cuota no encontrada"
+            return False, "Cuota no encontrada", ""
 
         poliza_id = row[0]
         financiamiento_grupal_id = row[1]
@@ -1696,10 +1696,10 @@ def delete_cuota(cuota_id: int, motivo: str = '', usuario: str = '') -> Tuple[bo
         cnx.commit()
         cur.close()
         cnx.close()
-        return True, ""
+        return True, "", (cupon_plain or f"Cuota ID {cuota_id}")
     except Exception as e:
         print(f"Error deleting cuota: {e}")
-        return False, str(e)
+        return False, str(e), ""
 
 def get_cuotas_anuladas_filtered(
     q: str = None,
@@ -1840,22 +1840,40 @@ def get_cuotas_anuladas_filtered(
     }
 
 
-def hard_delete_cuota(cuota_id: int) -> Tuple[bool, str]:
+def hard_delete_cuota(cuota_id: int) -> Tuple[bool, str, str]:
     try:
         from models.db import get_connection
         cnx = get_connection()
         cur = cnx.cursor()
+
+        cupon_plain = None
+        try:
+            cur.execute(
+                """
+                SELECT COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR),
+                    cupon
+                ) FROM cuotas WHERE idCuota = %s
+                """,
+                (cuota_id,),
+            )
+            row = cur.fetchone()
+            cupon_plain = (row[0] or '').strip() if row else None
+        except Exception:
+            cupon_plain = None
+
         cur.execute("DELETE FROM cuotas WHERE idCuota = %s", (cuota_id,))
         affected = cur.rowcount
         cnx.commit()
         cur.close()
         cnx.close()
         if affected > 0:
-            return True, ""
-        return False, "Cuota no encontrada"
+            return True, "", (cupon_plain or f"Cuota ID {cuota_id}")
+        return False, "Cuota no encontrada", ""
     except Exception as e:
         print(f"Error hard deleting cuota: {e}")
-        return False, str(e)
+        return False, str(e), ""
 
 def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
     import re
