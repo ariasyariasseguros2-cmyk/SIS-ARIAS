@@ -436,17 +436,16 @@ def get_distribution_by_group() -> Dict[str, Any]:
             "'ACCIDENTES PERSONALES','ASISTENCIA MEDICA FAMILIAR','EPS','SCTR',"
             "'VIDA - LEY','VIDA','VIAJE','FORMACION LABORAL','ONCOLOGICO','SALUD'"
         )
-        vehiculos_ramos = "'SOAT','VEHICULOS / AUTOMOVILES'"
 
         sql = f"""
             SELECT
                 CASE
-                    WHEN UPPER(TRIM(r.grupo)) = 'RRHH'     THEN 'RRHH'
-                    WHEN UPPER(TRIM(r.grupo)) = 'VEHICULOS' THEN 'VEHICULOS'
-                    WHEN UPPER(TRIM(r.grupo)) IN ('RRGG','OTROS') THEN 'RRGG'
-                    -- fallback cuando JOIN no matchea: clasificar por nombre de ramo
-                    WHEN UPPER(TRIM(COALESCE(p.ramo,''))) IN ({rrhh_ramos})     THEN 'RRHH'
-                    WHEN UPPER(TRIM(COALESCE(p.ramo,''))) IN ({vehiculos_ramos}) THEN 'VEHICULOS'
+                    -- Solo SOAT va al bucket vehicular/soat
+                    WHEN UPPER(TRIM(COALESCE(p.ramo,''))) = 'SOAT' THEN 'VEHICULOS'
+                    -- RRHH por grupo o por nombre de ramo (fallback)
+                    WHEN UPPER(TRIM(r.grupo)) = 'RRHH' THEN 'RRHH'
+                    WHEN UPPER(TRIM(COALESCE(p.ramo,''))) IN ({rrhh_ramos}) THEN 'RRHH'
+                    -- Todo lo demás → generales (RRGG, VEHICULOS/AUTOMOVILES, OTROS, etc.)
                     ELSE 'RRGG'
                 END AS bucket,
                 SUM(CASE
