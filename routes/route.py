@@ -460,9 +460,11 @@ def delete_cuota_route():
             pass
 
     from controllers.cuotas.cuotas import delete_cuota
-    success, msg = delete_cuota(cuota_id, motivo, usuario)
+    success, msg, recibo = delete_cuota(cuota_id, motivo, usuario)
 
     if success:
+        from utils.notify import notify_deletion
+        notify_deletion(usuario, 'CUOTA', recibo, evento='anulacion', motivo=motivo)
         return {'ok': True}
     return {'ok': False, 'error': msg}, 400
 
@@ -5430,7 +5432,14 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
         except Exception as e:
             item = None
             _quarantine_parser_failure(path, 'mapfre-vida-ley', 'exception_v2', {'error': str(e)}, text_head=text)
-        # Aceptar ítem de v2 si al menos trae número de póliza; si no, fallback a v1
+        # Aceptar ítem de v2 si al menos trae número de póliza; si no, fallback a v3 (formato "VIGENCIA DESDE/HASTA") y luego v1
+        if not item or not item.get('numero_poliza'):
+            try:
+                from controllers.addMapfreVidaLeyv3 import parse_mapfre_vidaley_v3
+                item = parse_mapfre_vidaley_v3(text)
+            except Exception as e:
+                item = None
+                _quarantine_parser_failure(path, 'mapfre-vida-ley', 'exception_v3', {'error': str(e)}, text_head=text)
         if not item or not item.get('numero_poliza'):
             try:
                 from controllers.addMapfreVidaLey import parse_mapfre_vidaley
@@ -6149,8 +6158,12 @@ def cuotas_hard_delete():
     from controllers.cuotas.cuotas import hard_delete_cuota
     data = request.json or {}
     cuota_id = data.get('idCuota')
-    success, msg = hard_delete_cuota(cuota_id)
+    success, msg, recibo = hard_delete_cuota(cuota_id)
     if success:
+        from utils.notify import notify_deletion
+        user_session = session.get('user')
+        usuario = user_session.get('username') if isinstance(user_session, dict) else (user_session or 'sistema')
+        notify_deletion(usuario, 'CUOTA', recibo, evento='eliminacion')
         return {'ok': True}
     return {'ok': False, 'error': msg}, 400
 
@@ -6729,6 +6742,14 @@ def api_polizas_anular():
             cur = cnx.cursor(buffered=True)
         except TypeError:
             cur = cnx.cursor()
+
+        # El SP a veces no reporta bien sus affected_rows vía stored_results(); en vez de
+        # confiar solo en ese conteo, guardamos el estado real de "anulado" antes de tocar
+        # nada para poder distinguir "ya estaba anulada" de "la acabamos de anular".
+        cur.execute("SELECT anulado FROM polizas WHERE idPoliza=%s", (pid,))
+        _before_row = cur.fetchone()
+        was_anulado_before = bool(_before_row and _before_row[0])
+
         try:
             cur.execute(
                 "CALL sp_anular_poliza(%s,%s,%s,%s)",
@@ -6773,8 +6794,23 @@ def api_polizas_anular():
                 pass
             cnx.commit()
             if affected > 0:
+                pol_num = None
+                try:
+                    cur.execute("""
+                        SELECT TRIM(COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                            CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                            poliza
+                        )) FROM polizas WHERE idPoliza = %s LIMIT 1
+                    """, (pid,))
+                    pol_row = cur.fetchone()
+                    pol_num = (pol_row[0] if pol_row else None) or None
+                except Exception:
+                    pol_num = None
                 cur.close()
                 cnx.close()
+                from utils.notify import notify_deletion
+                notify_deletion(session.get('user'), 'PÓLIZA', pol_num or f'ID {pid}', evento='anulacion', motivo=motivo)
                 return jsonify({'ok': True})
             # Fallback si el SP retornó 0 afectados: verificar estado y aplicar UPDATE directo
             cur.execute("SELECT anulado, activo FROM polizas WHERE idPoliza=%s", (pid,))
@@ -6839,6 +6875,8 @@ def api_polizas_anular():
             cur.close()
             cnx.close()
             if ok:
+                from utils.notify import notify_deletion
+                notify_deletion(session.get('user'), 'PÓLIZA', pol_num or f'ID {pid}', evento='anulacion', motivo=motivo)
                 return jsonify({'ok': True})
             # Comprobación idempotente: si ya está anulada, consideramos éxito
             cnx = get_connection()
@@ -6858,6 +6896,11 @@ def api_polizas_anular():
                 except Exception:
                     already = False
             if already:
+                if was_anulado_before:
+                    print(f'[anular] idPoliza/idPrima {pid} ya estaba anulado, no se reenvía alerta')
+                else:
+                    from utils.notify import notify_deletion
+                    notify_deletion(session.get('user'), 'PÓLIZA', pol_num or f'ID {pid}', evento='anulacion', motivo=motivo)
                 return jsonify({'ok': True, 'status': 'already_anulled'})
             return jsonify({'ok': False, 'error': 'No se pudo anular'}), 400
         except Exception:
@@ -6917,6 +6960,8 @@ def api_polizas_anular():
                 cur.close()
                 cnx.close()
                 if ok:
+                    from utils.notify import notify_deletion
+                    notify_deletion(session.get('user'), 'PÓLIZA', pol_num or f'ID {pid}', evento='anulacion', motivo=motivo)
                     return jsonify({'ok': True})
                 # Comprobación idempotente: ya anulada
                 cnx = get_connection()
@@ -6936,6 +6981,11 @@ def api_polizas_anular():
                     except Exception:
                         already = False
                 if already:
+                    if was_anulado_before:
+                        print(f'[anular] idPoliza {pid} ya estaba anulado, no se reenvía alerta')
+                    else:
+                        from utils.notify import notify_deletion
+                        notify_deletion(session.get('user'), 'PÓLIZA', pol_num or f'ID {pid}', evento='anulacion', motivo=motivo)
                     return jsonify({'ok': True, 'status': 'already_anulled'})
                 return jsonify({'ok': False, 'error': 'No se pudo anular'}), 400
             except Exception as e:
@@ -6979,6 +7029,13 @@ def api_primas_anular():
             cur = cnx.cursor(buffered=True)
         except TypeError:
             cur = cnx.cursor()
+
+        # Ver nota en api_polizas_anular: el SP no siempre reporta bien affected_rows,
+        # así que guardamos el estado real antes de tocar nada.
+        cur.execute("SELECT prima_anulada FROM polizas WHERE idPoliza=%s", (pid,))
+        _before_row = cur.fetchone()
+        was_anulado_before = bool(_before_row and _before_row[0])
+
         try:
             cur.execute(
                 "CALL sp_anular_prima(%s, %s, %s, %s)",
@@ -7002,8 +7059,23 @@ def api_primas_anular():
                 pass
             cnx.commit()
             if affected > 0:
+                pol_num = None
+                try:
+                    cur.execute("""
+                        SELECT TRIM(COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                            CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                            poliza
+                        )) FROM polizas WHERE idPoliza = %s LIMIT 1
+                    """, (pid,))
+                    pol_row = cur.fetchone()
+                    pol_num = (pol_row[0] if pol_row else None) or None
+                except Exception:
+                    pol_num = None
                 cur.close()
                 cnx.close()
+                from utils.notify import notify_deletion
+                notify_deletion(session.get('user'), 'PRIMA', pol_num or f'ID {pid}', evento='anulacion', motivo=motivo)
                 return jsonify({'ok': True})
             # Fallback: verificar si ya estaba anulada (idempotente)
             cur.execute("SELECT prima_anulada, activo FROM polizas WHERE idPoliza=%s", (pid,))
@@ -7019,9 +7091,27 @@ def api_primas_anular():
                     already = (int(st.get('prima_anulada', 0)) == 1)
                 except Exception:
                     already = False
+            pol_num = None
+            try:
+                cur.execute("""
+                    SELECT TRIM(COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(poliza, @SIS_KEY) AS CHAR),
+                        poliza
+                    )) FROM polizas WHERE idPoliza = %s LIMIT 1
+                """, (pid,))
+                pol_row = cur.fetchone()
+                pol_num = (pol_row[0] if pol_row else None) or None
+            except Exception:
+                pol_num = None
             cur.close()
             cnx.close()
             if already:
+                if was_anulado_before:
+                    print(f'[anular] idPrima {pid} ya estaba anulado, no se reenvía alerta')
+                else:
+                    from utils.notify import notify_deletion
+                    notify_deletion(session.get('user'), 'PRIMA', pol_num or f'ID {pid}', evento='anulacion', motivo=motivo)
                 return jsonify({'ok': True, 'status': 'already_anulled'})
             return jsonify({'ok': False, 'error': 'No se pudo anular la prima'}), 400
         except Exception as e:
