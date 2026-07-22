@@ -286,6 +286,8 @@ def delete_prima_route():
         cur.close()
         cnx.close()
         if affected_rows > 0 or cuotas_affected > 0:
+            from utils.notify import notify_deletion
+            notify_deletion(usuario, 'PRIMA', poliza_numero or f'ID {pid}', evento='anulacion')
             return {'ok': True}
         return {'ok': False, 'errors': ['No encontrado o ya eliminado']}, 404
     except Exception as e:
