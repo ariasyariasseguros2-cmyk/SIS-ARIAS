@@ -62,6 +62,9 @@ def _resolve_estado_cuenta_estado(row):
 def _prepare_estado_cuenta_rows(polizas, estado_filter=''):
     out = []
     estado_filter_norm = str(estado_filter or '').strip().upper()
+    ESTADOS_ANULADOS = {'CUPON ANULADO', 'PRIMA ANULADA'}
+    mostrar_anulados = estado_filter_norm in ESTADOS_ANULADOS
+    anulados_ocultos = 0
 
     for row in polizas or []:
         if not isinstance(row, dict):
@@ -76,7 +79,17 @@ def _prepare_estado_cuenta_rows(polizas, estado_filter=''):
         if estado_filter_norm and estado_resuelto.upper() != estado_filter_norm:
             continue
 
+        if (not mostrar_anulados) and estado_resuelto.upper() in ESTADOS_ANULADOS:
+            anulados_ocultos += 1
+            continue
+
         out.append(row)
+
+    if mostrar_anulados:
+        out = _dedupe_cupones_anulados(out)
+
+    if anulados_ocultos:
+        print(f"[estado_cuenta] {anulados_ocultos} filas anuladas ocultas por defecto (solo se muestran activas)")
 
     return out
 
