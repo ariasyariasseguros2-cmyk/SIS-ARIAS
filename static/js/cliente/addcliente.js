@@ -354,6 +354,24 @@
 
   if (modalEl) {
     modalEl.addEventListener('show.bs.modal', async () => {
+      // Información del sistema: usuario actual y fecha/hora UTC
+      try {
+        const userRegEl = document.getElementById('add_usuario_registro');
+        if (userRegEl) {
+          userRegEl.textContent = window.currentUserDisplayName || window.currentUser || '';
+        }
+        const fechaRegEl = document.getElementById('add_fecha_registro_utc');
+        if (fechaRegEl) {
+          const now = new Date();
+          const dd = String(now.getUTCDate()).padStart(2, '0');
+          const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+          const yyyy = String(now.getUTCFullYear());
+          const hh = String(now.getUTCHours()).padStart(2, '0');
+          const mi = String(now.getUTCMinutes()).padStart(2, '0');
+          fechaRegEl.textContent = `${dd}-${mm}-${yyyy} ${hh}:${mi}`;
+        }
+      } catch (e) { /* ignore */ }
+
       loadSubagentes();
       setupRealtimeValidation();
       setupDocumentoLookupListeners();
@@ -543,24 +561,23 @@
       });
     }
 
-    // Validar vencimiento de licencia (no puede ser menor a la fecha actual)
+    // Validar vencimiento de licencia (no puede ser menor a la fecha actual en UTC)
     const vencimientoLicencia = document.getElementById('vencimientoLicencia');
     if (vencimientoLicencia) {
-      // Establecer fecha mínima como hoy
-      const today = new Date().toISOString().split('T')[0];
-      vencimientoLicencia.setAttribute('min', today);
+      const nowUtc = new Date();
+      const todayYYYYMMDD =
+        String(nowUtc.getUTCFullYear()) + '-' +
+        String(nowUtc.getUTCMonth() + 1).padStart(2, '0') + '-' +
+        String(nowUtc.getUTCDate()).padStart(2, '0');
+      vencimientoLicencia.setAttribute('min', todayYYYYMMDD);
 
       vencimientoLicencia.addEventListener('change', (e) => {
-        const selectedDate = e.target.value;
+        const selectedDate = (e.target.value || '').trim();
         if (selectedDate) {
-          const selected = new Date(selectedDate);
-          const now = new Date();
-          now.setHours(0, 0, 0, 0); // Resetear horas para comparar solo fechas
-
-          if (selected < now) {
+          if (selectedDate < todayYYYYMMDD) {
             e.target.classList.remove('is-valid');
             e.target.classList.add('is-invalid');
-            e.target.setCustomValidity('La fecha de vencimiento debe ser mayor o igual a la fecha actual');
+            e.target.setCustomValidity('La fecha de vencimiento debe ser mayor o igual a la fecha actual (UTC)');
           } else {
             e.target.classList.remove('is-invalid');
             e.target.classList.add('is-valid');

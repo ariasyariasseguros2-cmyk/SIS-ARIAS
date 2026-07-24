@@ -153,7 +153,9 @@ const Cuotas = (() => {
       fecha_pago: tr.dataset.fechaPago || '',
       factura: tr.dataset.factura || '',
       observacion: tr.dataset.observacion || '',
-      documento: tr.dataset.documento || ''
+      documento: tr.dataset.documento || '',
+      usuario_registro: tr.dataset.usuarioRegistro || '',
+      fecha_creado: tr.dataset.fechaCreado || ''
     };
   }
 
@@ -345,6 +347,8 @@ const Cuotas = (() => {
     tr.dataset.motivoAnulacion = '';
     tr.dataset.usuarioAnulacion = '';
     tr.dataset.fechaAnulacion = '';
+    tr.dataset.usuarioRegistro = data.usuario_registro_display || data.usuario_registro || (tr.dataset.usuarioRegistro || '');
+    tr.dataset.fechaCreado = data.fecha_creado || (tr.dataset.fechaCreado || '');
 
     const rowCount = isNew ? tbody.rows.length : (Array.from(tbody.rows).indexOf(tr) + 1);
 
@@ -502,7 +506,8 @@ const Cuotas = (() => {
     const data = getCellsData(tr, idx);
     if (!data) return;
 
-    const usuario = window.currentUser || '';
+    const usuario = data.usuario_registro || window.currentUser || '';
+    const fechaCreado = data.fecha_creado || '';
 
     const setText = (id, val) => {
       const el = document.getElementById(id);
@@ -517,6 +522,8 @@ const Cuotas = (() => {
     setText('detailFactura', data.factura);
     setText('detailObservacion', data.observacion);
     setText('detailUsuario', usuario);
+    setText('detailFooterUsuario', usuario);
+    setText('detailFooterFechaCreado', fechaCreado ? (fechaCreado ) : '');
 
     // Limpiar el campo de documento mientras carga
     const docEl = document.getElementById('detailDocumento');

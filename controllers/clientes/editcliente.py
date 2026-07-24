@@ -535,6 +535,47 @@ def get_cliente_detalle_route(idCliente):
         for result in cursor.stored_results():
             cliente = result.fetchone()
 
+        try:
+            while cursor.nextset():
+                pass
+        except Exception:
+            pass
+
+        if cliente:
+            try:
+                audit_cur = conn.cursor(dictionary=True)
+                audit_cur.execute(
+                    """
+                    SELECT
+                        c.fecha_registro,
+                        c.usuario_registro,
+                        COALESCE(NULLIF(TRIM(usu.nombre), ''), usu.username, c.usuario_registro) AS usuario_registro_display
+                    FROM clientes c
+                    LEFT JOIN usuarios usu ON usu.username = c.usuario_registro
+                    WHERE c.idCliente = %s
+                    LIMIT 1
+                    """,
+                    (idCliente,),
+                )
+                audit_row = audit_cur.fetchone() or {}
+                audit_cur.close()
+
+                fecha_reg = audit_row.get('fecha_registro')
+                if fecha_reg:
+                    if isinstance(fecha_reg, (datetime, date)):
+                        cliente['fecha_registro'] = fecha_reg.strftime('%d-%m-%Y %H:%M')
+                    else:
+                        cliente['fecha_registro'] = str(fecha_reg)
+                else:
+                    cliente['fecha_registro'] = ''
+
+                cliente['usuario_registro'] = audit_row.get('usuario_registro') or ''
+                cliente['usuario_registro_display'] = audit_row.get('usuario_registro_display') or cliente['usuario_registro'] or ''
+            except Exception:
+                cliente['fecha_registro'] = cliente.get('fecha_registro') or ''
+                cliente['usuario_registro'] = cliente.get('usuario_registro') or ''
+                cliente['usuario_registro_display'] = cliente.get('usuario_registro') or ''
+
         cursor.close()
         conn.close()
 

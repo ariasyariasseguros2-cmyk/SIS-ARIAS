@@ -12,14 +12,15 @@
 
 {% block before_js %}
 <script>
-  window.currentPage = "{{ page }}";
-  window.currentUser = "{{ session.get('user', '') }}";
-  window.currentPoliza = "{{ encabezado.poliza }}";
-  window.currentPrimaId = "{{ resumen.prima_id or '' }}";
-  window.currentPolizaId = "{{ resumen.prima_id or '' }}";
-  window.currentAviso = "{{ resumen.aviso_cob }}";
-  window.currentMoneda = "{{ resumen.moneda or '' }}";
-  window.currentClienteDocumento = "{{ encabezado.numero_documento or '' }}";
+  window.currentPage = {{ page | tojson }};
+  window.currentUser = {{ session.get('user', '') | tojson }};
+  window.currentUserDisplayName = {{ session.get('user_display_name', session.get('user', '')) | tojson }};
+  window.currentPoliza = {{ encabezado.poliza | tojson }};
+  window.currentPrimaId = {{ (resumen.prima_id or '') | tojson }};
+  window.currentPolizaId = {{ (resumen.prima_id or '') | tojson }};
+  window.currentAviso = {{ (resumen.aviso_cob or '') | tojson }};
+  window.currentMoneda = {{ (resumen.moneda or '') | tojson }};
+  window.currentClienteDocumento = {{ (encabezado.numero_documento or '') | tojson }};
   window.isFinanciamientoGrupal = "{{ 1 if es_financiamiento_grupal else 0 }}";
 </script>
 {% endblock %}
@@ -158,7 +159,9 @@
                 data-documento="{{ r.documento or '' }}" 
                 data-fecha-pago="{{ r.fecha_pago or '' }}"
                 data-factura="{{ r.factura or '' }}"
-                data-observacion="{{ r.observacion or '' }}">
+                data-observacion="{{ r.observacion or '' }}"
+                data-usuario-registro="{{ r.usuario_registro_display or r.usuario_registro or '' }}"
+                data-fecha-creado="{{ r.fecha_creado or '' }}">
               <td>{{ loop.index }}</td>
               <td>{{ r.cupon if r.cupon else '—' }}</td>
               <td>{{ r.fecha_vencimiento }}</td>
@@ -296,9 +299,16 @@
           
            <!-- 3. Footer de Auditoría -->
           <div class="panel-footer-info">
-              <div>
-                  <i class="bi bi-info-circle me-2"></i>
-                  Información del sistema
+              <div class="d-flex flex-wrap gap-4 w-100 justify-content-between">
+                  <div>
+                      <i class="bi bi-info-circle me-2"></i>
+                      <span class="text-muted small">Registrado por:</span>
+                      <span id="detailFooterUsuario" class="fw-semibold ms-1"></span>
+                  </div>
+                  <div>
+                      <span class="text-muted small">Fecha y hora de registro:</span>
+                      <span id="detailFooterFechaCreado" class="fw-semibold ms-1"></span>
+                  </div>
               </div>
           </div>
 

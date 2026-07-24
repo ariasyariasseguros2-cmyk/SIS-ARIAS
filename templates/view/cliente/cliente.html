@@ -216,7 +216,9 @@
 
 {% block before_js %}
 <script>
-    window.currentPage = "{{ page }}";
+    window.currentPage = {{ page | tojson }};
+    window.currentUser = {{ session.get('user', '') | tojson }};
+    window.currentUserDisplayName = {{ session.get('user_display_name', session.get('user', '')) | tojson }};
 </script>
 {% endblock %}
 
@@ -224,8 +226,8 @@
 {{ super() }}
 <script src="{{ url_for('static', filename='js/cliente/cliente.js', v='20260420-1') }}"></script>
 {% if page != 'clientes-anulados' %}
-<script src="{{ url_for('static', filename='js/cliente/addcliente.js', v='20260720-2') }}"></script>
-<script src="{{ url_for('static', filename='js/cliente/editcliente.js', v='20260720-3') }}"></script>
+<script src="{{ url_for('static', filename='js/cliente/addcliente.js', v='20260728-1') }}"></script>
+<script src="{{ url_for('static', filename='js/cliente/editcliente.js', v='20260728-1') }}"></script>
 {% else %}
 <script src="{{ url_for('static', filename='js/cliente/restorecliente.js', v='20260420-1') }}"></script>
 {% endif %}

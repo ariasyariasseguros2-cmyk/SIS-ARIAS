@@ -540,6 +540,24 @@
 
         // Relación Comercial - Referencia (trasladada desde Información Adicional)
         document.getElementById('edit_referencia').value = cliente.referencia || '';
+
+        // Auditoría: fecha y usuario de registro (UTC)
+        const userRegEl = document.getElementById('edit_usuario_registro');
+        if (userRegEl) {
+            const displayName =
+                cliente.usuario_registro_display ||
+                cliente.usuario_registro ||
+                cliente.subagente ||
+                window.currentUserDisplayName ||
+                window.currentUser ||
+                '';
+            userRegEl.textContent = displayName;
+        }
+        const fechaRegEl = document.getElementById('edit_fecha_registro');
+        if (fechaRegEl) {
+            const fecha = cliente.fecha_registro || cliente.creado_en || '';
+            fechaRegEl.textContent = fecha ? (fecha) : '';
+        }
     }
 
     /**
