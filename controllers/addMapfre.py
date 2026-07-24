@@ -145,57 +145,192 @@ def parse_mapfre(text: str) -> Dict[str, str]:
         )
     print("colectivo_asegurado", item["colectivo_asegurado"])
 
-    # Fechas: buscar cerca de cada etiqueta
-    item["inicio_vigencia"] = (
-        _find_date_near(r"Inicio\s+de\s+Vigencia\b", text, 160, 160)
-        or _find_after(r"Inicio\s+de\s+Vigencia\b", text, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=160)
-        or _find(r"DESDE\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
-    )
+    # ============================================================
+    # BLOQUE DE FECHAS: multi-estrategia (del MÁS FIABLE al MENOS)
+    # ============================================================
+    DATE_RE = re.compile(r"([0-9]{2}/[0-9]{2}/[0-9]{4})")
+
+    # -------- MÉTODO -1: LÍNEA POR LÍNEA (el más fiable para formularios) --------
+    # Itera sobre cada línea (o 2 líneas juntas) y busca etiqueta + fecha.
+    # El extractor de PDF típico mantiene filas lógicas como líneas individuales.
+    LABEL_LINE_PATTERNS = [
+        # (campo, regex_etiqueta)  — la regex NO incluye el valor, solo la etiqueta
+        ("inicio_vigencia_aplicacion",
+         re.compile(r"Inicio\s+de\s+Vigencia\s+Aplicaci[oó]n", re.I)),
+        ("vencimiento_aplicacion",
+         re.compile(r"Vencimiento\s+de\s+Aplicaci[oó]n", re.I)),
+        ("inicio_vigencia",
+         re.compile(r"Inicio\s+de\s+Vigencia\b(?!\s+Aplicaci)", re.I)),
+        ("vencimiento",
+         re.compile(r"\bVencimiento\b(?!\s+de\s+Aplicaci)", re.I)),
+        ("ultimo_dia_pago",
+         re.compile(r"[ÚU]ltimo\s+d[ií]a\s+de\s+Pago", re.I)),
+        ("fecha_emision",
+         re.compile(r"Fecha\s+de\s+Emisi[oó]n", re.I)),
+    ]
+    _lines = text.splitlines()
+    _dates_by_line = {}
+    for i, raw_line in enumerate(_lines):
+        line = _canon(raw_line)
+        if not line:
+            continue
+        # Probar 1 línea sola, luego línea + siguiente (para valores que saltan)
+        fragments = [line]
+        if i + 1 < len(_lines):
+            fragments.append(line + " " + _canon(_lines[i + 1]))
+        for frag in fragments:
+            for field_name, label_re in LABEL_LINE_PATTERNS:
+                if field_name in _dates_by_line:
+                    continue
+                if label_re.search(frag):
+                    dm = DATE_RE.search(frag)
+                    if dm:
+                        _dates_by_line[field_name] = dm.group(1)
+                        print(f"[debug-m-1] {field_name} = {_dates_by_line[field_name]} (línea {i+1})")
+                        break  # ya encontramos este field, no seguir con otros patterns en esta frag
+    print("[debug-m-1] resumen método por línea:", _dates_by_line)
+
+    # -------- MÉTODO 0: búsqueda EXPLÍCITA etiqueta : fecha --------
+    _explicit_patterns = [
+        ("inicio_vigencia_aplicacion",
+         [r"Inicio\s+de\s+Vigencia\s+Aplicaci[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})"]),
+        ("vencimiento_aplicacion",
+         [r"Vencimiento\s+de\s+Aplicaci[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})"]),
+        ("inicio_vigencia",
+         [r"Inicio\s+de\s+Vigencia\b(?!\s+Aplicaci)[^:]*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})"]),
+        ("vencimiento",
+         [r"\bVencimiento\b(?!\s+de\s+Aplicaci)[^:]*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})"]),
+        ("ultimo_dia_pago",
+         [r"[ÚU]ltimo\s+d[ií]a\s+de\s+Pago[^:]*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})"]),
+        ("fecha_emision",
+         [r"Fecha\s+de\s+Emisi[oó]n[^:]*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})"]),
+    ]
+    _dates_explicit = {}
+    for field_name, pats in _explicit_patterns:
+        for pat in pats:
+            m = re.search(pat, flat, re.I)
+            if not m:
+                m = re.search(pat, text, re.I)
+            if m:
+                _dates_explicit[field_name] = m.group(1).strip()
+                print(f"[debug-m0] {field_name} = {_dates_explicit[field_name]} (explícito :)")
+                break
+    print("[debug-m0] resumen método explícito:", _dates_explicit)
+
+    # -------- MÉTODO 1: extraer TODAS las fechas + TODAS las etiquetas por POSICIÓN --------
+    all_dates = [(m.start(), m.group(1)) for m in DATE_RE.finditer(flat)]
+    print("[debug-fechas] TODAS las fechas en flat (pos, valor):", all_dates)
+
+    LABELS = [
+        ("inicio_vigencia_aplicacion",   re.compile(r"Inicio\s+de\s+Vigencia\s+Aplicaci[oó]n", re.I)),
+        ("vencimiento_aplicacion",       re.compile(r"Vencimiento\s+de\s+Aplicaci[oó]n", re.I)),
+        ("inicio_vigencia",              re.compile(r"Inicio\s+de\s+Vigencia\b(?!\s+Aplicaci)", re.I)),
+        ("vencimiento",                  re.compile(r"\bVencimiento\b(?!\s+de\s+Aplicaci)", re.I)),
+        ("ultimo_dia_pago",              re.compile(r"[ÚU]ltimo\s+d[ií]a\s+de\s+Pago", re.I)),
+        ("fecha_emision",                re.compile(r"Fecha\s+de\s+Emisi[oó]n", re.I)),
+    ]
+
+    label_occurrences = []
+    for field_name, pat in LABELS:
+        for m in pat.finditer(flat):
+            label_occurrences.append((m.end(), field_name, m.group(0)))
+    label_occurrences.sort(key=lambda x: x[0])
+    print("[debug-fechas] etiquetas encontradas (pos_fin, campo, match):", label_occurrences)
+
+    used_date_idx = set()
+    _dates_by_pos = {}
+    for lab_end, field_name, lab_match in label_occurrences:
+        ctx = flat[max(0, lab_end - 80): lab_end + 120]
+        print(f"[debug-etiqueta] campo={field_name} | pos_fin={lab_end} | contexto: {ctx!r}")
+        best_idx = None
+        best_dist = None
+        for idx, (d_pos, d_val) in enumerate(all_dates):
+            if idx in used_date_idx:
+                continue
+            if d_pos < lab_end:
+                continue
+            dist = d_pos - lab_end
+            if dist <= 600 and (best_dist is None or dist < best_dist):
+                best_dist = dist
+                best_idx = idx
+        if best_idx is not None:
+            used_date_idx.add(best_idx)
+            _dates_by_pos[field_name] = all_dates[best_idx][1]
+            print(f"[debug-fechas]   ✓ asignado a {field_name}: {_dates_by_pos[field_name]} (dist={best_dist})")
+        else:
+            print(f"[debug-fechas]   ✗ NO se encontró fecha para {field_name}")
+    print("[debug-m1] resumen método por posición:", _dates_by_pos)
+
+    # -------- COMBINAR MÉTODOS: MÉTODO -1 > MÉTODO 0 > MÉTODO 1 > fallbacks --------
+    _all_fields = ["inicio_vigencia_aplicacion","vencimiento_aplicacion",
+                   "inicio_vigencia","vencimiento","ultimo_dia_pago","fecha_emision"]
+    _dates_combined = {}
+    for fn in _all_fields:
+        _dates_combined[fn] = (
+            _dates_by_line.get(fn)
+            or _dates_explicit.get(fn)
+            or _dates_by_pos.get(fn)
+        )
+    print("[debug-combinado] final pre-fallbacks:", _dates_combined)
+
+    # Aplicar valores combinados
+    item["inicio_vigencia_aplicacion"] = _dates_combined["inicio_vigencia_aplicacion"]
+    item["vencimiento_aplicacion"]    = _dates_combined["vencimiento_aplicacion"]
+    item["inicio_vigencia"]           = _dates_combined["inicio_vigencia"]
+    item["vencimiento"]               = _dates_combined["vencimiento"]
+    item["ultimo_dia_pago"]           = _dates_combined["ultimo_dia_pago"]
+    item["fecha_emision"]             = _dates_combined["fecha_emision"]
+
+    # --- FALLBACKS antiguos si alguno quedó None ---
+    if not item.get("inicio_vigencia"):
+        item["inicio_vigencia"] = (
+            _find_date_near(r"Inicio\s+de\s+Vigencia\b(?!\s+Aplicaci)", text, 160, 160)
+            or _find_after(r"Inicio\s+de\s+Vigencia\b(?!\s+Aplicaci)", text, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=160)
+            or _find(r"DESDE\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+        )
     print("inicio_vigencia", item["inicio_vigencia"])
-    item["vencimiento"] = (
-        _find_date_near(r"\bVencimiento\b", text, 160, 200)
-        or _find_after(r"\bVencimiento\b", text, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=200)
-        or _find(r"HASTA\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
-    )
-    item["vencimiento_aplicacion"] = (
-        _find_date_near(r"Vencimiento\s+de\s+Aplicaci[oó]n\b", text, 160, 200)
-        or _find_after(r"Vencimiento\s+de\s+Aplicaci[oó]n\b", text, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=200)
-        or _find(r"Vencimiento\s+de\s+Aplicaci[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
-        or _find(r"Vencimiento\s+de\s+Aplicaci[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", flat)
-    )
 
-    # Moneda
-    item["moneda"] = (
-        _find(r"\bMoneda\s*[:\-]?\s*(SOLES|DOLARES|DÓLARES|USD|PEN)", flat)
-        or _find(r"\bMONEDA\s*[:\-]?\s*(SOLES|DOLARES|DÓLARES|USD|PEN)", flat)
-        or _find_after(r"\bMoneda\b", text, r"(SOLES|DOLARES|DÓLARES|USD|PEN)", window=400)
-        or _find_after(r"\bMONEDA\b", text, r"(SOLES|DOLARES|DÓLARES|USD|PEN)", window=400)
-        or _find(r"\b(SOLES|DOLARES|DÓLARES|USD|PEN)\b", flat)
-    )
+    _iva_pat_label = r"Inicio\s+de\s+Vigencia\s+Aplicaci[oó]n"
+    if not item.get("inicio_vigencia_aplicacion"):
+        item["inicio_vigencia_aplicacion"] = (
+            _find_date_near(_iva_pat_label + r"\b", text, 200, 200)
+            or _find_after(_iva_pat_label + r"\b", text, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=250)
+            or _find_after(_iva_pat_label + r"\b", flat, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=250)
+        )
+    print("inicio_vigencia_aplicacion", item["inicio_vigencia_aplicacion"])
 
-    # Forma de Pago: solo valores válidos
-    item["forma_pago"] = (
-        _find(r"Forma\s+de\s+Pago\s*[:\-]?\s*(MENSUAL|ANUAL|SEMESTRAL|TRIMESTRAL|BIMESTRAL|QUINCENAL|UNICO|ÚNICO)", flat)
-        or _find_after(r"Forma\s+de\s+Pago\b", text, r"(MENSUAL|ANUAL|SEMESTRAL|TRIMESTRAL|BIMESTRAL|QUINCENAL|UNICO|ÚNICO)", window=200)
-    )
-    if not item.get("moneda") and item.get("forma_pago") in {"SOLES", "DOLARES", "DÓLARES", "USD", "PEN"}:
-        item["moneda"] = item["forma_pago"]
-        item["forma_pago"] = None
+    if not item.get("vencimiento"):
+        item["vencimiento"] = (
+            _find_date_near(r"\bVencimiento\b(?!\s+de\s+Aplicaci)", text, 160, 200)
+            or _find_after(r"\bVencimiento\b(?!\s+de\s+Aplicaci)", text, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=200)
+            or _find(r"HASTA\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+        )
+    print("vencimiento", item["vencimiento"])
 
-    # Fecha de Emisión
-    item["fecha_emision"] = (
-        _find_date_near(r"Fecha\s+de\s+Emisi[oó]n\b", text, 160, 160)
-        or _find_after(r"Fecha\s+de\s+Emisi[oó]n\b", text, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=120)
-        or _find(r"FECHA\s+EMISION\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
-        or _find(r"Emisi[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
-    )
+    _va_pat_label = r"Vencimiento\s+de\s+Aplicaci[oó]n"
+    if not item.get("vencimiento_aplicacion"):
+        item["vencimiento_aplicacion"] = (
+            _find_date_near(_va_pat_label + r"\b", text, 200, 200)
+            or _find_after(_va_pat_label + r"\b", text, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=250)
+            or _find_after(_va_pat_label + r"\b", flat, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=250)
+        )
+    print("vencimiento_aplicacion", item["vencimiento_aplicacion"])
 
-    # Último día de pago: SOLO fecha a la derecha de la etiqueta (evitar tomar la izquierda)
-    item["ultimo_dia_pago"] = (
-        _find_after(r"[ÚU]ltimo\s+d[ií]a\s+de\s+Pago\b", text, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=120)
-        or _find(r"[ÚU]ltimo\s+d[ií]a\s+de\s+Pago\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", flat)
-    )
+    if not item.get("fecha_emision"):
+        item["fecha_emision"] = (
+            _find_date_near(r"Fecha\s+de\s+Emisi[oó]n\b", text, 160, 160)
+            or _find_after(r"Fecha\s+de\s+Emisi[oó]n\b", text, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=120)
+            or _find(r"FECHA\s+EMISION\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+            or _find(r"Emisi[oó]n\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+        )
+
+    if not item.get("ultimo_dia_pago"):
+        item["ultimo_dia_pago"] = (
+            _find_after(r"[ÚU]ltimo\s+d[ií]a\s+de\s+Pago\b", text, r"([0-9]{2}/[0-9]{2}/[0-9]{4})", window=120)
+            or _find(r"[ÚU]ltimo\s+d[ií]a\s+de\s+Pago\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", flat)
+        )
     print("ultimo_dia_pago", item["ultimo_dia_pago"])
+    print("fecha_emision", item["fecha_emision"])
 
     # Ramo: código + descripción aunque el valor quede lejos de la etiqueta
     item["ramo"] = (
@@ -236,7 +371,10 @@ def parse_mapfre(text: str) -> Dict[str, str]:
     # NUEVO: guardar "Prima Comercial + IGV" si existe, en 'prima_comercial_igv'
     item["prima_comercial_igv"] = prima_com_igv or total
 
-    # Heurísticas para corregir inversiones de fechas
+    # ============================================================
+    # HEURÍSTICAS SUAVES: solo corregir inversiones OBVIAS
+    # NO reordenar ciegamente por cronología
+    # ============================================================
     def _as_date(s: Optional[str]) -> Optional[tuple]:
         if not s: return None
         try:
@@ -245,49 +383,59 @@ def parse_mapfre(text: str) -> Dict[str, str]:
         except Exception:
             return None
 
-    # Normalizar las tres fechas de la columna derecha (UDP, VA, V) por orden cronológico
-    _right_dates = {
-        "ultimo_dia_pago": item.get("ultimo_dia_pago"),
-        "vencimiento_aplicacion": item.get("vencimiento_aplicacion"),
-        "vencimiento": item.get("vencimiento"),
-    }
-    _valid = [(k, v, _as_date(v)) for k, v in _right_dates.items() if _as_date(v)]
-    # Nota: se mantiene la normalización original, sin forzar 'vencimiento' a la última fecha
-    if len({v for _, v, _ in _valid}) >= 2:
-        _ordered = sorted(_valid, key=lambda t: t[2])  # ascendente
-        item["ultimo_dia_pago"] = _ordered[0][1]
-        if len(_ordered) == 2:
-            item["vencimiento"] = _ordered[1][1]
-        else:
-            item["vencimiento_aplicacion"] = _ordered[1][1]
-            item["vencimiento"] = _ordered[2][1]
-        print("[parse_mapfre] fechas normalizadas ->",
-              "UD:", item["ultimo_dia_pago"],
-              "VA:", item.get("vencimiento_aplicacion"),
-              "V:", item["vencimiento"])
+    print("[heurísticas] valores ENTRADA:",
+          "iv:", item.get("inicio_vigencia"),
+          "iva:", item.get("inicio_vigencia_aplicacion"),
+          "v:", item.get("vencimiento"),
+          "va:", item.get("vencimiento_aplicacion"),
+          "ud:", item.get("ultimo_dia_pago"),
+          "fe:", item.get("fecha_emision"))
 
-    # Mantener corrección emisión/vigencia si vienen cruzadas
-    iv = _as_date(item.get("inicio_vigencia"))
-    fe = _as_date(item.get("fecha_emision"))
-    if iv and fe and fe < iv:
+    # --- 1) IV/FE: Swap solo si inicio_vigencia es ANTES que fecha_emisión y no hay IVA ---
+    iv  = _as_date(item.get("inicio_vigencia"))
+    fe  = _as_date(item.get("fecha_emision"))
+    iva = _as_date(item.get("inicio_vigencia_aplicacion"))
+    if (not iva) and iv and fe and iv < fe:
         item["inicio_vigencia"], item["fecha_emision"] = item["fecha_emision"], item["inicio_vigencia"]
+        print("[heurísticas] swap iv/fe -> iv:", item["inicio_vigencia"], "fe:", item["fecha_emision"])
 
+    # --- 2) V/UDP: Swap solo si UDP es MAYOR que V y no hay VA que esté en medio ---
     v  = _as_date(item.get("vencimiento"))
     ud = _as_date(item.get("ultimo_dia_pago"))
     va = _as_date(item.get("vencimiento_aplicacion"))
-    if v and ud and ud > v:
-        # intercambiar si quedaron cruzados
+    # Solo intercambiar si no hay vencimiento_aplicacion, ya que si existe:
+    # cronológicamente UD < VA < V lo normal
+    if (not va) and v and ud and ud > v:
         item["vencimiento"], item["ultimo_dia_pago"] = item["ultimo_dia_pago"], item["vencimiento"]
-        print("vencimiento", item["vencimiento"],"ultimo_dia_pago", item["ultimo_dia_pago"], "vencimiento_aplicacion", item["vencimiento_aplicacion"])
         v, ud = ud, v
-    # Regla Mapfre EPS: si Último Día >= Vencimiento (o igual) y hay Venc. de Aplicación menor, usarlo
-    if v and va and (not ud or ud >= v or ud == v) and va < v:
+        print("[heurísticas] swap v/ud -> v:", item["vencimiento"], "ud:", item["ultimo_dia_pago"])
+
+    # --- 3) Regla EPS: si UDP >= V y existe VA < V, usar VA como UDP ---
+    if v and va and (not ud or ud >= v) and va < v:
         item["ultimo_dia_pago"] = item.get("vencimiento_aplicacion")
-        print("ultimo_dia_pago", item["vencimiento_aplicacion"])
-    if item.get("vencimiento_aplicacion"):
-        item["vencimiento"] = item["vencimiento_aplicacion"]
-    item["fecha_vecimiento"] = None
-    if item.get("fecha_emision"):
+        print("[heurísticas] ud <- va:", item["vencimiento_aplicacion"])
+
+    # --- 4) SOBREESCRITURA: solo IV = IVA (el usuario quiere la fecha Aplicación) ---
+    #    ¡NO sobreescribir V con VA! para no perder la fecha fin 01/11/2026
+    print("[antes-sobreescritura] iv:", item.get("inicio_vigencia"), "iva:", item.get("inicio_vigencia_aplicacion"))
+    print("[antes-sobreescritura] v:",  item.get("vencimiento"),       "va:",  item.get("vencimiento_aplicacion"))
+
+    if item.get("inicio_vigencia_aplicacion"):
+        item["inicio_vigencia"] = item["inicio_vigencia_aplicacion"]
+        print("[sobreescritura] iv = iva ->", item["inicio_vigencia"])
+    # V NO se sobreescribe con VA
+
+    print("[heurísticas] valores SALIDA:",
+          "iv:", item.get("inicio_vigencia"),
+          "iva:", item.get("inicio_vigencia_aplicacion"),
+          "v:", item.get("vencimiento"),
+          "va:", item.get("vencimiento_aplicacion"),
+          "ud:", item.get("ultimo_dia_pago"),
+          "fe:", item.get("fecha_emision"))
+
+    # Fecha Vencimiento UI: priorizar Último Día de Pago, luego emisión+15, luego fin vigencia
+    item["fecha_vecimiento"] = item.get("ultimo_dia_pago")
+    if not item.get("fecha_vecimiento") and item.get("fecha_emision"):
         try:
             d = datetime.strptime(item["fecha_emision"], "%d/%m/%Y").date()
             d2 = d + timedelta(days=15)
@@ -296,6 +444,11 @@ def parse_mapfre(text: str) -> Dict[str, str]:
             pass
     if not item.get("fecha_vecimiento"):
         item["fecha_vecimiento"] = item.get("vencimiento")
+    # También poblar fecha_vencimiento (mismo propósito, usado por route.py como explícito)
+    if item.get("ultimo_dia_pago"):
+        item["fecha_vencimiento"] = item["ultimo_dia_pago"]
+    elif not item.get("fecha_vencimiento"):
+        item["fecha_vencimiento"] = item.get("fecha_vecimiento")
 
     # Extraer RUC del cliente
     # Prioridad 1: Etiqueta explícita "RUC" seguida de un número
@@ -311,5 +464,18 @@ def parse_mapfre(text: str) -> Dict[str, str]:
                     break
                     
     item["numero_documento_extracted"] = ruc_candidato
+
+    # Debug final: TODOS los campos relevantes de fechas
+    _final = {
+        "inicio_vigencia": item.get("inicio_vigencia"),
+        "inicio_vigencia_aplicacion": item.get("inicio_vigencia_aplicacion"),
+        "vencimiento": item.get("vencimiento"),
+        "vencimiento_aplicacion": item.get("vencimiento_aplicacion"),
+        "ultimo_dia_pago": item.get("ultimo_dia_pago"),
+        "fecha_emision": item.get("fecha_emision"),
+        "fecha_vecimiento": item.get("fecha_vecimiento"),
+        "fecha_vencimiento": item.get("fecha_vencimiento"),
+    }
+    print("[FINAL] fechas retornadas:", _final)
 
     return {k: _clean(v) for k, v in item.items() if v}
