@@ -262,11 +262,12 @@
 <script>window.currentPage = "{{ _p }}";</script>
 <script>
     window.sessionConfig = {
-        idleTimeoutMs: {{ (config.get('SESSION_IDLE_TIMEOUT_SECS', 3600) * 1000) | int }},
+        idleTimeoutMs: {{ (config.get('SESSION_IDLE_TIMEOUT_SECS', 7200) * 1000) | int }},
         pingIntervalMs: {{ (config.get('SESSION_PING_INTERVAL_SECS', 300) * 1000) | int }},
         warningLeadMs: {{ (config.get('SESSION_WARNING_SECS', 60) * 1000) | int }},
         pingUrl: "{{ url_for('session_ping') }}",
-        logoutUrl: "{{ url_for('logout', reason='timeout') }}"
+        logoutUrl: "{{ url_for('logout', reason='timeout') }}",
+        timeoutSessionId: "{{ session.get('timeout_session_id', '') }}"
     };
 </script>
 <script>
@@ -337,13 +338,39 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const sessionConfig = window.sessionConfig || {};
-        const idleTimeoutMs = Number(sessionConfig.idleTimeoutMs || 3600000);
+        const idleTimeoutMs = Number(sessionConfig.idleTimeoutMs || 7200000);
         const pingIntervalMs = Number(sessionConfig.pingIntervalMs || 300000);
         const warningLeadMs = Math.min(Number(sessionConfig.warningLeadMs || 60000), idleTimeoutMs);
         const pingUrl = sessionConfig.pingUrl || '/api/session/ping';
         const logoutUrl = sessionConfig.logoutUrl || '/logout?reason=timeout';
-        const activityKey = 'sis_arias_last_activity_at';
-        const logoutKey = 'sis_arias_force_logout_at';
+        const timeoutSessionId = String(sessionConfig.timeoutSessionId || '');
+
+        // Claves por SESION (con timeoutSessionId) para que cada login sea independiente
+        // y no arrastre valores viejos de localStorage entre inicios de sesión.
+        const activityKey = timeoutSessionId
+            ? 'sis_arias_last_activity_at_' + timeoutSessionId
+            : 'sis_arias_last_activity_at';
+        const logoutKey = timeoutSessionId
+            ? 'sis_arias_force_logout_at_' + timeoutSessionId
+            : 'sis_arias_force_logout_at';
+        const sessionIdKey = 'sis_arias_active_session_id';
+
+        // Limpiar huellas de sesiones ANTERIORES (evita "logout fantasma" por keys viejas)
+        try {
+            const oldSessionId = localStorage.getItem(sessionIdKey);
+            if (timeoutSessionId && oldSessionId && oldSessionId !== timeoutSessionId) {
+                // Sesión distinta → borrar keys de sesión pasada y resetear activity
+                localStorage.removeItem('sis_arias_last_activity_at_' + oldSessionId);
+                localStorage.removeItem('sis_arias_force_logout_at_' + oldSessionId);
+                localStorage.removeItem('sis_arias_last_activity_at');
+                localStorage.removeItem('sis_arias_force_logout_at');
+                console.log('[idle] nueva sesión detectada; reseteado activity por sesión antigua:', oldSessionId);
+            }
+            if (timeoutSessionId) {
+                localStorage.setItem(sessionIdKey, timeoutSessionId);
+            }
+        } catch (_e) { /* no-op */ }
+
         const warningModalEl = document.getElementById('sessionWarningModal');
         const warningCountdownEl = document.getElementById('sessionWarningCountdown');
         const keepAliveBtn = document.getElementById('sessionKeepAliveBtn');
@@ -357,7 +384,14 @@
         let warningModal = null;
 
         function getStoredActivityAt() {
-            const value = Number(localStorage.getItem(activityKey) || Date.now());
+            const raw = localStorage.getItem(activityKey);
+            if (!raw) {
+                // No hay actividad guardada → inicializar a "ahora" para NO expirar al cargar.
+                const now = Date.now();
+                localStorage.setItem(activityKey, String(now));
+                return now;
+            }
+            const value = Number(raw);
             return Number.isFinite(value) ? value : Date.now();
         }
 
@@ -397,7 +431,10 @@
 
         function redirectToLogout() {
             hideWarningModal();
-            localStorage.setItem(logoutKey, String(Date.now()));
+            try {
+                localStorage.setItem(logoutKey, String(Date.now()));
+                localStorage.removeItem(sessionIdKey);
+            } catch (_e) { /* no-op */ }
             window.location.replace(logoutUrl);
         }
 
@@ -413,7 +450,18 @@
             }
 
             if (remainingMs <= 0) {
-                redirectToLogout();
+                // Última línea de defensa: doble check pingeando el servidor antes de expulsar.
+                // Si localStorage se desincronizó de la cookie real, evitamos logout falso.
+                pingSession().then(function(alive) {
+                    if (!alive) {
+                        redirectToLogout();
+                    } else {
+                        // Sesión del servidor sigue viva → actualizar marca a ahora.
+                        const now = Date.now();
+                        localStorage.setItem(activityKey, String(now));
+                        resetLogoutTimer(now);
+                    }
+                });
                 return;
             }
 
@@ -429,7 +477,7 @@
         }
 
         async function pingSession() {
-            if (!navigator.onLine) return;
+            if (!navigator.onLine) return true; // asumir ok si no hay red
             try {
                 const response = await fetch(pingUrl, {
                     method: 'POST',
@@ -438,12 +486,13 @@
                     cache: 'no-store'
                 });
                 if (response.status === 401) {
-                    redirectToLogout();
-                    return;
+                    return false;
                 }
                 lastPingAt = Date.now();
+                return true;
             } catch (_error) {
-                // Si hay una caída momentánea de red, el timer local sigue protegiendo la sesión.
+                // Caída momentánea de red → seguir vivo por defecto.
+                return true;
             }
         }
 
@@ -506,9 +555,7 @@
         }
 
         heartbeatTimer = window.setInterval(syncFromStorage, 30000);
-        if (!localStorage.getItem(activityKey)) {
-            localStorage.setItem(activityKey, String(Date.now()));
-        }
+        // Inicializar (si no hay valor, getStoredActivityAt lo setea a Date.now())
         syncFromStorage();
     });
 </script>

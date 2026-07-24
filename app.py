@@ -207,6 +207,7 @@ def login():
             session['user'] = row['username']
             session['user_id'] = row['id']
             session['role_id'] = row['id_rol']
+            session['timeout_session_id'] = os.urandom(16).hex()
             
             # FIX: Normalizar el nombre del rol para evitar problemas de permisos por mayúsculas/minúsculas o espacios.
             rol_nombre = (row.get('rol_nombre') or '').strip().upper()
