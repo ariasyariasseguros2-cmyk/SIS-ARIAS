@@ -355,20 +355,37 @@ def parse_mapfre(text: str) -> Dict[str, str]:
         item["ramos_producto"] = ramos_producto
 
     # Prima
-    # NUEVO: primero intentar "Prima Comercial + IGV"
-    prima_com_igv = _find(r"Prima\s+Comercial\s*\+\s*IGV\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text)
+    # Prima:
+    # - Algunos PDFs/OCR traen "Prima Comercial + IGV"
+    # - Otros solo "Prima Comercial +"
+    # - En ciertos casos el OCR invierte los importes entre ambas etiquetas
+    prima_com_igv = (
+        _find(r"Prima\s+Comercial\s*\+\s*I\s*G\s*V\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat)
+        or _find(r"Prima\s+Comercial\s*\+\s*IGV\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text)
+        or _find(r"Prima\s+Comercial\s*\+\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text)
+        or _find(r"Prima\s+Comercial\s*\+\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat)
+    )
     prima_com = (
-        prima_com_igv
-        or _find(r"Prima\s+Comercial\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text)
+        _find(r"Prima\s+Comercial(?!\s*\+)\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text)
+        or _find(r"Prima\s+Comercial(?!\s*\+)\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat)
         or _find(r"Prima\s+Resultante\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text)
         or _money(_find(r"Prima\s*Total\s*[:]*\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text))
     )
+
+    try:
+        pc_val = float(str(prima_com).replace(',', '.')) if prima_com else None
+        pigv_val = float(str(prima_com_igv).replace(',', '.')) if prima_com_igv else None
+        if pc_val is not None and pigv_val is not None and pigv_val < pc_val:
+            prima_com, prima_com_igv = prima_com_igv, prima_com
+    except Exception:
+        pass
+
     item["prima_comercial"] = prima_com
 
     # Total + IGV
     igv = _find(r"(?:Impuesto\s+Gral\.?\s+A\s+Las\s+Ventas|IGV)\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text)
     total = _find(r"(?:Importe\s+Total|Total)\s*[:]*\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", text)
-    # NUEVO: guardar "Prima Comercial + IGV" si existe, en 'prima_comercial_igv'
+    # Guardar "Prima Comercial + IGV" si existe, en 'prima_comercial_igv'
     item["prima_comercial_igv"] = prima_com_igv or total
 
     # ============================================================
