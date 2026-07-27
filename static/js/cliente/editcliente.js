@@ -547,9 +547,6 @@
             const displayName =
                 cliente.usuario_registro_display ||
                 cliente.usuario_registro ||
-                cliente.subagente ||
-                window.currentUserDisplayName ||
-                window.currentUser ||
                 '';
             userRegEl.textContent = displayName;
         }

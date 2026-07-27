@@ -544,23 +544,58 @@ def get_cliente_detalle_route(idCliente):
         if cliente:
             try:
                 audit_cur = conn.cursor(dictionary=True)
-                audit_cur.execute(
-                    """
-                    SELECT
-                        c.fecha_registro,
-                        c.usuario_registro,
-                        COALESCE(NULLIF(TRIM(usu.nombre), ''), usu.username, c.usuario_registro) AS usuario_registro_display
-                    FROM clientes c
-                    LEFT JOIN usuarios usu ON usu.username = c.usuario_registro
-                    WHERE c.idCliente = %s
-                    LIMIT 1
-                    """,
-                    (idCliente,),
-                )
+                audit_cur.execute("SELECT * FROM clientes WHERE idCliente = %s LIMIT 1", (idCliente,))
                 audit_row = audit_cur.fetchone() or {}
                 audit_cur.close()
 
-                fecha_reg = audit_row.get('fecha_registro')
+                def _pick_first_non_empty(row, keys):
+                    for key in keys:
+                        value = row.get(key)
+                        if value is None:
+                            continue
+                        if isinstance(value, str):
+                            value = value.strip()
+                        if value != '':
+                            return value
+                    return None
+
+                # En clientes, el campo canonico de auditoria es usuario_creacion.
+                raw_usuario = _pick_first_non_empty(
+                    audit_row,
+                    ['usuario_creacion', 'usuario_registro', 'usuario', 'creado_por']
+                ) or _pick_first_non_empty(
+                    cliente,
+                    ['usuario_creacion', 'usuario_registro', 'usuario', 'creado_por']
+                )
+
+                fecha_reg = _pick_first_non_empty(
+                    audit_row,
+                    ['fecha_registro', 'fecha_creacion', 'creado_en', 'created_at']
+                ) or _pick_first_non_empty(
+                    cliente,
+                    ['fecha_registro', 'fecha_creacion', 'creado_en', 'created_at']
+                )
+
+                usuario_display = raw_usuario or ''
+                if raw_usuario:
+                    try:
+                        user_cur = conn.cursor(dictionary=True)
+                        user_cur.execute(
+                            """
+                            SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS display_name
+                            FROM usuarios
+                            WHERE username = %s OR nombre = %s
+                            LIMIT 1
+                            """,
+                            (raw_usuario, raw_usuario),
+                        )
+                        user_row = user_cur.fetchone() or {}
+                        user_cur.close()
+                        usuario_display = user_row.get('display_name') or raw_usuario
+                    except Exception:
+                        # Si el lookup en usuarios falla, conservar el valor real guardado en clientes.
+                        usuario_display = raw_usuario
+
                 if fecha_reg:
                     if isinstance(fecha_reg, (datetime, date)):
                         cliente['fecha_registro'] = fecha_reg.strftime('%d-%m-%Y %H:%M')
@@ -569,11 +604,13 @@ def get_cliente_detalle_route(idCliente):
                 else:
                     cliente['fecha_registro'] = ''
 
-                cliente['usuario_registro'] = audit_row.get('usuario_registro') or ''
-                cliente['usuario_registro_display'] = audit_row.get('usuario_registro_display') or cliente['usuario_registro'] or ''
+                cliente['usuario_creacion'] = raw_usuario or ''
+                cliente['usuario_registro'] = raw_usuario or ''
+                cliente['usuario_registro_display'] = usuario_display or cliente['usuario_registro'] or ''
             except Exception:
                 cliente['fecha_registro'] = cliente.get('fecha_registro') or ''
-                cliente['usuario_registro'] = cliente.get('usuario_registro') or ''
+                cliente['usuario_creacion'] = cliente.get('usuario_creacion') or ''
+                cliente['usuario_registro'] = cliente.get('usuario_creacion') or cliente.get('usuario_registro') or ''
                 cliente['usuario_registro_display'] = cliente.get('usuario_registro') or ''
 
         cursor.close()
