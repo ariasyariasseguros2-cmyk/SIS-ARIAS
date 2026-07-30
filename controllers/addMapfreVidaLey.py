@@ -1,6 +1,6 @@
 import re
 from datetime import datetime, timedelta
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 def _clean(s: Optional[str]) -> str:
     return (s or "").strip()
@@ -53,6 +53,167 @@ def _find_after(label_pat: str, text: str, value_pat: str, window: int = 2000, f
         if vm:
             return vm.group(1).strip()
     return None
+
+
+def _extract_label_value_by_lines(text: str, label_pat: str, max_lines: int = 12) -> Optional[str]:
+    lines = text.splitlines()
+    stop_labels = (
+        "contratante",
+        "ruc",
+        "direccion principal",
+        "dirección principal",
+        "actividad",
+        "forma de pago",
+        "inicio de vigencia",
+        "inicio de vigencia aplicación",
+        "inicio de vigencia aplicacion",
+        "fecha de emisión",
+        "fecha de emision",
+        "moneda",
+        "vencimiento",
+        "vencimiento de aplicación",
+        "vencimiento de aplicacion",
+        "último día de pago",
+        "ultimo dia de pago",
+        "recibo",
+    )
+
+    for i, raw_line in enumerate(lines):
+        line = _clean(raw_line)
+        if not line:
+            continue
+
+        m_same = re.match(rf"^{label_pat}\s*:?\s*(.+)$", line, re.IGNORECASE)
+        if m_same:
+            same_value = _clean(m_same.group(1))
+            if same_value and same_value != ":":
+                return re.sub(r"\s+(?:RUC\s*)?\d{11}\s*$", "", same_value, flags=re.IGNORECASE).strip()
+
+        if not re.fullmatch(rf"{label_pat}\s*:?", line, re.IGNORECASE):
+            continue
+
+        for cand_raw in lines[i + 1:i + 1 + max_lines]:
+            cand = _clean(cand_raw)
+            if not cand or cand == ":" or re.fullmatch(r"[:\-]+", cand):
+                continue
+
+            cand_low = cand.lower()
+            if any(cand_low.startswith(lbl) for lbl in stop_labels):
+                break
+            if re.fullmatch(r"[0-9]{2}/[0-9]{2}/[0-9]{4}", cand):
+                continue
+            if re.fullmatch(r"(?:RUC\s*)?\d{8,11}", cand, re.IGNORECASE):
+                continue
+            if re.fullmatch(r"\d{4,6}\s*-\s+.+", cand):
+                continue
+
+            return re.sub(r"\s+(?:RUC\s*)?\d{11}\s*$", "", cand, flags=re.IGNORECASE).strip()
+
+    return None
+
+
+def _extract_amount_after_label(text: str, label_pat: str, max_lines: int = 4) -> Optional[str]:
+    money_pat = r"(\(?\s*(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]+)?\s*\)?)"
+    lines = text.splitlines()
+    label_re = re.compile(rf"{label_pat}(?:\s*[:：])?(?:\s*S?\/?\.?)?\s*(.*)$", re.IGNORECASE)
+    for i, raw_line in enumerate(lines):
+        line = _clean(raw_line)
+        if not line:
+            continue
+
+        same_line = label_re.search(line)
+        if same_line:
+            suffix = _clean(same_line.group(1))
+            if suffix:
+                amounts = re.findall(money_pat, suffix, re.IGNORECASE)
+                if amounts:
+                    return _money(amounts[-1])
+        elif not re.fullmatch(rf"{label_pat}\s*:?", line, re.IGNORECASE):
+            continue
+
+        for cand_raw in lines[i + 1:i + 1 + max_lines]:
+            cand = _clean(cand_raw)
+            if not cand or cand == ":":
+                continue
+            if re.search(r"Prima\s+Comercial", cand, re.IGNORECASE):
+                break
+            if label_re.search(cand):
+                break
+            m = re.search(money_pat, cand, re.IGNORECASE)
+            if m:
+                return _money(m.group(1))
+    return None
+
+
+def _extract_prima_pair(text: str) -> Tuple[Optional[str], Optional[str]]:
+    money_pat = r"(\(?\s*(?:[-−–—]\s*)?[0-9]+(?:[.,][0-9]+)?\s*\)?)"
+    label_re = re.compile(
+        rf"^Prima\s+Comercial(\s*\+\s*(?:I\s*G\s*V)?)?\s*:?\s*({money_pat})?$",
+        re.IGNORECASE,
+    )
+
+    lines = [_clean(line) for line in text.splitlines()]
+    label_entries: list[tuple[int, str, Optional[str]]] = []
+
+    for idx, line in enumerate(lines):
+        if not line:
+            continue
+        m = label_re.match(line)
+        if not m:
+            continue
+        label_type = "total" if m.group(1) else "base"
+        inline_amount = _money(m.group(2)) if m.group(2) else None
+        label_entries.append((idx, label_type, inline_amount))
+
+    if not label_entries:
+        return None, None
+
+    relevant = label_entries[-2:] if len(label_entries) >= 2 else label_entries
+    label_indexes = {idx for idx, _, _ in label_entries}
+    found: dict[str, str] = {}
+
+    for idx, label_type, inline_amount in relevant:
+        if inline_amount:
+            found[label_type] = inline_amount
+            continue
+
+        for j in range(idx + 1, min(len(lines), idx + 6)):
+            cand = lines[j]
+            if not cand or cand == ":":
+                continue
+            if j in label_indexes:
+                break
+            m = re.fullmatch(money_pat, cand, re.IGNORECASE)
+            if m:
+                found[label_type] = _money(m.group(1))
+                break
+
+    if found.get("base") and found.get("total"):
+        return found.get("base"), found.get("total")
+
+    start = relevant[0][0]
+    end = min(len(lines), relevant[-1][0] + 8)
+    region_lines = lines[start:end]
+    region_labels = [label_type for _, label_type, _ in relevant]
+    region_amounts: list[str] = []
+
+    for line in region_lines:
+        if not line or line == ":":
+            continue
+        if label_re.match(line):
+            m_inline = re.search(money_pat, line, re.IGNORECASE)
+            if m_inline:
+                region_amounts.append(_money(m_inline.group(1)))
+            continue
+        m = re.fullmatch(money_pat, line, re.IGNORECASE)
+        if m:
+            region_amounts.append(_money(m.group(1)))
+
+    mapped: dict[str, str] = {}
+    for label_type, amount in zip(region_labels, region_amounts):
+        mapped[label_type] = amount
+
+    return mapped.get("base") or found.get("base"), mapped.get("total") or found.get("total")
 
 def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
     item: Dict[str, str] = {}
@@ -146,7 +307,7 @@ def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
     item["recibo"] = rec_raw
 
     # Condiciones
-    # Extrae estrictamente entre "Colectivo Asegurado :" y "Inicio de Vigencia"
+    colectivo_line = _extract_label_value_by_lines(text, r"Colectivo\s+Asegurado")
     colectivo_label = _between(
         r"\bColectivo\s+Asegurado\s*:\b",
         r"\bInicio\s+de\s+Vigencia\b",
@@ -159,8 +320,10 @@ def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
         window=600
     )
 
-    # Usa la etiqueta; si falla, respalda con "Contratante" y por último con el stream
-    item["colectivo_asegurado"] = _only_company(colectivo_label or cond.get("contratante") or cond.get("colectivo_asegurado"))
+    # Usa primero la lectura por líneas; si falla, usa bloque acotado.
+    item["colectivo_asegurado"] = _clean(colectivo_line) or _only_company(colectivo_label or cond.get("contratante") or cond.get("colectivo_asegurado"))
+    if item.get("colectivo_asegurado"):
+        item["asegurado"] = item["colectivo_asegurado"]
     item["inicio_vigencia"] = (
         _find(rf"\bInicio\s+de\s+Vigencia\b(?!\s+Aplicaci[óo]n)\s*:\s*{date_pat}", flat)
         or cond.get("inicio_vigencia")
@@ -233,8 +396,25 @@ def parse_mapfre_vidaley(text: str) -> Dict[str, str]:
         item["ramos_producto"] = ramos_producto
 
     # Importes
-    item["prima_comercial"] = _money(cond.get("prima_resultante")) or _money(_find(r"Prima\s+Comercial\s*:\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat))
-    item["prima_comercial_igv"] = _money(_find(r"Prima\s+Comercial\s*\+\s*IGV\s*:\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat)) or _money(_find(r"(?:Importe\s+Total|Total)\s*:\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat))
+    prima_base = _extract_amount_after_label(text, r"Prima\s+Comercial(?!\s*\+)")
+    prima_total = _extract_amount_after_label(text, r"Prima\s+Comercial\s*\+\s*(?:I\s*G\s*V)?")
+    item["prima_comercial"] = (
+        prima_base
+        or _money(cond.get("prima_resultante"))
+        or _money(_find(r"Prima\s+Comercial(?!\s*\+)\s*:\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat))
+    )
+    item["prima_comercial_igv"] = (
+        prima_total
+        or _money(_find(r"Prima\s+Comercial\s*\+\s*(?:I\s*G\s*V|IGV)?\s*:\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat))
+        or _money(_find(r"(?:Importe\s+Total|Total)\s*:\s*S?\/?\s*(\(?\s*(?:[-−–—]\s*)?[0-9\.,]+\s*\)?)", flat))
+    )
+    try:
+        pc = float(item["prima_comercial"]) if item.get("prima_comercial") else None
+        pt = float(item["prima_comercial_igv"]) if item.get("prima_comercial_igv") else None
+        if pc is not None and pt is not None and pc > pt:
+            item["prima_comercial"], item["prima_comercial_igv"] = item["prima_comercial_igv"], item["prima_comercial"]
+    except Exception:
+        pass
     
     # Extraer RUC del cliente
     # Prioridad 1: Valor extraído en el stream (si existe)
