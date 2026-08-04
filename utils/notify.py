@@ -25,6 +25,27 @@ def _load_settings():
         return {}
 
 
+def _resolve_nombre(usuario):
+    """El session guarda el username (a veces solo un número); mostramos el nombre real."""
+    usuario = (usuario or '').strip()
+    if not usuario:
+        return usuario
+    try:
+        from models.db import get_connection
+        cnx = get_connection()
+        cur = cnx.cursor()
+        cur.execute(
+            "SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1",
+            (usuario,),
+        )
+        row = cur.fetchone()
+        cur.close()
+        cnx.close()
+        return row[0] if row and row[0] else usuario
+    except Exception:
+        return usuario
+
+
 def _rate_limited(rate_cfg):
     limit = int(rate_cfg.get('RequestLimit', 20) or 20)
     window_s = int(rate_cfg.get('TimeWindowMinutes', 1) or 1) * 60
@@ -65,6 +86,7 @@ def notify_deletion(usuario: str, tipo: str, identificador: str, evento: str = '
             print(f'[notify_deletion] omitido, falta configurar en EmailJs: {", ".join(faltantes)}')
             return
 
+        usuario = _resolve_nombre(usuario)
         accion = 'Anuló' if evento == 'anulacion' else 'Eliminó'
         motivo_txt = (motivo or '').strip() or 'No especificado'
         hora = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
