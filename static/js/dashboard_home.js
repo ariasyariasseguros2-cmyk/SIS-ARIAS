@@ -264,13 +264,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
                     modalTbody.innerHTML = rows.map(r => `
-                        <tr>
+                        <tr class="renovar-row" data-poliza-id="${r.idPoliza}" title="Ver esta póliza">
                             <td>${escapeHtml(r.poliza)}</td>
                             <td>${escapeHtml(r.recibo)}</td>
                             <td>${escapeHtml(r.vig_desde)}</td>
                             <td>${escapeHtml(r.vig_hasta)}</td>
+                            <td class="renovar-row-action text-end"><i class="bi-box-arrow-up-right me-1"></i>Ver</td>
                         </tr>
                     `).join('');
+                    modalTbody.querySelectorAll('.renovar-row').forEach(tr => {
+                        tr.addEventListener('click', () => {
+                            window.location.href = `/notificaciones/poliza/${tr.dataset.polizaId}/abrir`;
+                        });
+                    });
                     modalTabla.classList.remove('d-none');
                 })
                 .catch(() => {
