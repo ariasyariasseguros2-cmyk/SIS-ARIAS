@@ -4,6 +4,12 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/polizas.css') }}">
+<style>
+    .poliza-highlight-renovar,
+    .poliza-highlight-renovar td { background-color: var(--notif-expired-bg) !important; color: var(--notif-expired-text) !important; }
+    .poliza-highlight-renovar:hover,
+    .poliza-highlight-renovar:hover td { background-color: var(--notif-due-bg) !important; }
+</style>
 {% endblock %}
 
 {% block page_title %}{{ title }}{% endblock %}
@@ -124,7 +130,7 @@
                 </thead>
                 <tbody>
                     {% for r in rows %}
-                    <tr data-id="{{ r.idPoliza }}" data-emision="{{ r.fecha_emision }}">
+                    <tr data-id="{{ r.idPoliza }}" data-emision="{{ r.fecha_emision }}" {% if highlight_id and r.idPoliza == highlight_id %}class="poliza-highlight-renovar" id="polizaHighlight"{% endif %}>
                         <td>{{ r.contratante }}</td>
                         <td>{{ r.asegurado }}</td>
                         <td>{{ r.cia }}</td>
@@ -276,4 +282,9 @@
 {{ super() }}
 <script src="{{ url_for('static', filename='js/polizas.js') }}"></script>
 <script src="{{ url_for('static', filename='js/renovar-poliza.js') }}"></script>
+{% if highlight_id %}
+<script>
+    document.getElementById('polizaHighlight')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+</script>
+{% endif %}
 {% endblock %}
