@@ -2186,6 +2186,7 @@ def menu_page(page):
 
         return render_template(
             'view/anadir.poliza.html',
+            page= 'poliza',
             rows=get_rows(),
             clientes_rows=cli_data['rows'],
             selected=selected,
