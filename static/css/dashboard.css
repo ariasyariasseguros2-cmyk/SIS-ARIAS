@@ -370,6 +370,31 @@ body {
     border-color: var(--card-border) !important;
 }
 
+/* Filas "por renovar" (modal del dashboard) - usa las mismas variables que las notificaciones vencidas */
+.renovar-row {
+    background-color: var(--notif-expired-bg) !important;
+    cursor: pointer;
+    transition: outline-color 0.15s, background-color 0.15s;
+    outline: 2px solid transparent;
+    outline-offset: -2px;
+}
+
+.renovar-row td {
+    color: var(--notif-expired-text) !important;
+    border-color: var(--notif-expired-border) !important;
+}
+
+.renovar-row:hover {
+    background-color: var(--notif-due-bg) !important;
+    outline-color: var(--notif-expired-border);
+}
+
+.renovar-row-action {
+    font-weight: 600;
+    color: var(--notif-expired-text) !important;
+    white-space: nowrap;
+}
+
 .form-control, .form-select {
     background-color: var(--card-bg) !important;
     border-color: var(--card-border) !important;
