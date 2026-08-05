@@ -312,8 +312,8 @@
           <td>${v(r.producto)}</td>
           <td>${v(r.poliza)}</td>
           <td>${v(r.moneda)}</td>
-          <td>${v(r.vig_desde)}</td>
-          <td>${v(r.vig_hasta)}</td>
+          <td>${v(r.ren_vig_desde || r.vig_desde)}</td>
+          <td>${v(r.ren_vig_hasta || r.vig_hasta)}</td>
           <td>${v(r.sub_agente)}</td>
           <td>${v(r.asegurada)}</td>
           <td class="text-end">

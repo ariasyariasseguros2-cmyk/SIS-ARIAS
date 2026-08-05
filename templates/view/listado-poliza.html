@@ -105,8 +105,8 @@
                         <td>{{ r.ramo }}</td>
                         <td>{{ r.producto }}</td>
                         <td>{{ r.poliza }}</td>
-                        <td>{{ r.vig_desde }}</td>
-                        <td>{{ r.vig_hasta }}</td>
+                        <td>{{ r.ren_vig_desde if r.ren_vig_desde else r.vig_desde }}</td>
+                        <td>{{ r.ren_vig_hasta if r.ren_vig_hasta else r.vig_hasta }}</td>
                         <td>{{ r.sub_agente }}</td>
                         <td>{{ r.asegurada }}</td>
                         <td class="text-end">
@@ -238,6 +238,6 @@
 
 {% block extra_js_bottom %}
 {{ super() }}
-<script src="{{ url_for('static', filename='js/renovar-poliza.js') }}"></script>
-<script src="{{ url_for('static', filename='js/listado-poliza.js') }}"></script>
+<script src="{{ url_for('static', filename='js/renovar-poliza.js') }}?v=20260805-1"></script>
+<script src="{{ url_for('static', filename='js/listado-poliza.js') }}?v=20260805-1"></script>
 {% endblock %}

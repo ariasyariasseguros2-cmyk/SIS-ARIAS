@@ -1,3 +1,156 @@
+def _enriquecer_con_ultima_renovacion(rows, cur):
+    """Agrega campos ren_vig_desde y ren_vig_hasta con la última renovación (tipo_doc RENOVACION) por número de póliza."""
+    if not rows:
+        return rows
+
+    try:
+        polizas_numeros = []
+        for r in rows:
+            p = str(r.get('poliza') or '').strip()
+            if p and p not in polizas_numeros:
+                polizas_numeros.append(p)
+
+        if not polizas_numeros:
+            for r in rows:
+                r['ren_vig_desde'] = ''
+                r['ren_vig_hasta'] = ''
+            return rows
+
+        ren_map = {}
+        batch_size = 200
+        for i in range(0, len(polizas_numeros), batch_size):
+            batch = polizas_numeros[i:i + batch_size]
+            ph = ",".join(["%s"] * len(batch))
+            params_like = []
+            for pz in batch:
+                params_like.extend([pz, pz, pz])
+            sql = f"""
+                SELECT
+                    TRIM(COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                        p.poliza
+                    )) AS poliza,
+                    DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS ren_vig_desde,
+                    DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS ren_vig_hasta,
+                    p.vig_hasta AS _raw_vig_hasta,
+                    p.vig_desde AS _raw_vig_desde
+                FROM polizas p
+                WHERE (
+                    TRIM(COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                        p.poliza
+                    )) COLLATE utf8mb4_0900_ai_ci IN ({ph})
+                )
+                AND (p.activo = 1 OR p.activo IS NULL) AND (p.anulado = 0 OR p.anulado IS NULL)
+                AND UPPER(TRIM(COALESCE(p.tipo_doc, ''))) = 'RENOVACION'
+            """
+            try:
+                cur.execute(sql, tuple(batch))
+            except Exception:
+                sql_fallback = f"""
+                    SELECT
+                        TRIM(COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                            CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                            p.poliza
+                        )) AS poliza,
+                        DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS ren_vig_desde,
+                        DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS ren_vig_hasta,
+                        p.vig_hasta AS _raw_vig_hasta,
+                        p.vig_desde AS _raw_vig_desde
+                    FROM polizas p
+                    WHERE (
+                        CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR) COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                        OR CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR) COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                        OR p.poliza COLLATE utf8mb4_0900_ai_ci = %s COLLATE utf8mb4_0900_ai_ci
+                    )
+                    AND (p.activo = 1 OR p.activo IS NULL) AND (p.anulado = 0 OR p.anulado IS NULL)
+                    AND UPPER(TRIM(COALESCE(p.tipo_doc, ''))) = 'RENOVACION'
+                """
+                ren_rows_all = []
+                for pz in batch:
+                    try:
+                        cur.execute(sql_fallback, (pz, pz, pz))
+                        ren_rows_all.extend(cur.fetchall() or [])
+                        while cur.nextset():
+                            pass
+                    except Exception:
+                        pass
+                ren_rows = ren_rows_all
+            else:
+                ren_rows = cur.fetchall() or []
+                try:
+                    while cur.nextset():
+                        pass
+                except Exception:
+                    pass
+
+            for rr in ren_rows:
+                p_key = str(rr.get('poliza') or '').strip()
+                if not p_key:
+                    continue
+                raw_vh = rr.get('_raw_vig_hasta')
+                raw_vd = rr.get('_raw_vig_desde')
+                def _cmp_val(d):
+                    if not d:
+                        return 0
+                    if hasattr(d, 'year'):
+                        return d.year * 10000 + d.month * 100 + d.day
+                    s = str(d).strip()
+                    if '/' in s:
+                        parts = s.split('/')
+                        if len(parts) == 3:
+                            try:
+                                return int(parts[2]) * 10000 + int(parts[1]) * 100 + int(parts[0])
+                            except Exception:
+                                pass
+                    if '-' in s:
+                        parts = s.split('-')
+                        if len(parts) == 3:
+                            try:
+                                return int(parts[0]) * 10000 + int(parts[1]) * 100 + int(parts[2])
+                            except Exception:
+                                pass
+                    return 0
+                curr_vh = _cmp_val(raw_vh)
+                curr_vd = _cmp_val(raw_vd)
+                if p_key not in ren_map:
+                    ren_map[p_key] = {
+                        'ren_vig_desde': rr.get('ren_vig_desde') or '',
+                        'ren_vig_hasta': rr.get('ren_vig_hasta') or '',
+                        '_vh': curr_vh,
+                        '_vd': curr_vd,
+                    }
+                else:
+                    existing = ren_map[p_key]
+                    if curr_vh > existing['_vh'] or (curr_vh == existing['_vh'] and curr_vd > existing['_vd']):
+                        ren_map[p_key] = {
+                            'ren_vig_desde': rr.get('ren_vig_desde') or '',
+                            'ren_vig_hasta': rr.get('ren_vig_hasta') or '',
+                            '_vh': curr_vh,
+                            '_vd': curr_vd,
+                        }
+
+        for r in rows:
+            p_key = str(r.get('poliza') or '').strip()
+            ren = ren_map.get(p_key)
+            if ren:
+                r['ren_vig_desde'] = ren['ren_vig_desde']
+                r['ren_vig_hasta'] = ren['ren_vig_hasta']
+            else:
+                r['ren_vig_desde'] = ''
+                r['ren_vig_hasta'] = ''
+
+    except Exception:
+        for r in rows:
+            r['ren_vig_desde'] = r.get('ren_vig_desde') or ''
+            r['ren_vig_hasta'] = r.get('ren_vig_hasta') or ''
+
+    return rows
+
+
 def get_polizas_data(selected: dict | None = None) -> dict:
     rows = []
     details = {}
@@ -116,11 +269,16 @@ def get_polizas_data(selected: dict | None = None) -> dict:
                     new_rows.append(best_rows[p])
             rows = new_rows
 
+        rows = _enriquecer_con_ultima_renovacion(rows, cur)
+
         cur.close()
         cnx.close()
     except Exception:
         rows = []
         details = {'nombre_completo': '', 'tipo_documento': '', 'numero_documento': '', 'telefono': ''}
+        for r in rows:
+            r['ren_vig_desde'] = r.get('ren_vig_desde') or ''
+            r['ren_vig_hasta'] = r.get('ren_vig_hasta') or ''
 
     return {
         'title': 'Pólizas',
@@ -288,10 +446,15 @@ def get_polizas_all() -> dict:
                     new_rows.append(best_rows[p])
             rows = new_rows
 
+        rows = _enriquecer_con_ultima_renovacion(rows, cur)
+
         cur.close()
         cnx.close()
     except Exception:
         rows = []
+        for r in rows:
+            r['ren_vig_desde'] = r.get('ren_vig_desde') or ''
+            r['ren_vig_hasta'] = r.get('ren_vig_hasta') or ''
 
     return {
         'title': 'Pólizas',

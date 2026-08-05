@@ -170,6 +170,14 @@ def filter_polizas_rapido(filter_type: str) -> dict:
 
         rows = _dedupe_poliza_rows(rows)
 
+        try:
+            from controllers.polizas import _enriquecer_con_ultima_renovacion
+            rows = _enriquecer_con_ultima_renovacion(rows, cur)
+        except Exception:
+            for r in rows:
+                r['ren_vig_desde'] = r.get('ren_vig_desde') or ''
+                r['ren_vig_hasta'] = r.get('ren_vig_hasta') or ''
+
         cur.close()
         cnx.close()
     except Exception as e:
@@ -322,6 +330,14 @@ def search_polizas_global(query: str, search_type: str) -> dict:
             r['producto'] = r.get('producto') or r.get('ramos_producto') or ''
 
         rows = _dedupe_poliza_rows(rows)
+
+        try:
+            from controllers.polizas import _enriquecer_con_ultima_renovacion
+            rows = _enriquecer_con_ultima_renovacion(rows, cur)
+        except Exception:
+            for r in rows:
+                r['ren_vig_desde'] = r.get('ren_vig_desde') or ''
+                r['ren_vig_hasta'] = r.get('ren_vig_hasta') or ''
             
         cur.close()
         cnx.close()
