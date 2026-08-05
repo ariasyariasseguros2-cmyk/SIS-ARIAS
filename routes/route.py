@@ -1540,7 +1540,8 @@ def menu_page(page):
             page='polizas',
             title=data['title'],
             rows=data['rows'],
-            details=data.get('details', {})
+            details=data.get('details', {}),
+            highlight_id=request.args.get('highlight', type=int)
         )
 
     # NUEVO: Listado de pólizas con paginación (global: todas las pólizas)
@@ -3647,7 +3648,7 @@ def open_polizas_from_notification(poliza_id):
             'tel':         row.get('telefono'),
             'subagente':   row.get('subagente'),
         }
-        return redirect(url_for('main.menu_page', page='polizas'))
+        return redirect(url_for('main.menu_page', page='polizas', highlight=poliza_id))
     except Exception as e:
         print(f"[notifications.open_polizas] {e}")
         return redirect(url_for('main.menu_page', page='listado-poliza'))
