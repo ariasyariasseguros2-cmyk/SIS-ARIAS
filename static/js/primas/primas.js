@@ -1,13 +1,98 @@
 (function () {
     const input = document.getElementById('primasSearch');
     const table = document.getElementById('primasTable');
-    if (input && table) {
-        input.addEventListener('input', () => {
-            const q = input.value.toLowerCase();
-            for (const tr of table.querySelectorAll('tbody tr')) {
-                const text = tr.innerText.toLowerCase();
-                tr.style.display = text.includes(q) ? '' : 'none';
+    const pageSizeSelect = document.getElementById('page-size');
+
+    let currentPage = 1;
+    let currentPageSize = parseInt((pageSizeSelect && pageSizeSelect.value) || '0', 10);
+    if (Number.isNaN(currentPageSize)) currentPageSize = 0;
+
+    function applySearchAndPagination() {
+        if (!table) return;
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+
+        const rows = Array.from(tbody.querySelectorAll('tr.prima-row'));
+        const q = (input ? input.value || '' : '').toLowerCase();
+
+        let matched = [];
+        for (const tr of rows) {
+            const text = (tr.innerText || tr.textContent || '').toLowerCase();
+            const passes = !q || text.includes(q);
+            if (passes) matched.push(tr);
+            tr.style.display = 'none';
+        }
+
+        const showAll = (currentPageSize <= 0);
+        const size = showAll ? matched.length : currentPageSize;
+        const totalPages = Math.max(1, Math.ceil(matched.length / Math.max(1, size)));
+        if (currentPage > totalPages) currentPage = 1;
+        const start = (currentPage - 1) * size;
+        const end = start + size;
+
+        for (let i = 0; i < matched.length; i++) {
+            if (i >= start && i < end) {
+                matched[i].style.display = '';
             }
+        }
+
+        const emptyRow = tbody.querySelector('tr.prima-empty-row');
+        if (matched.length === 0 && emptyRow) {
+            emptyRow.style.display = '';
+        } else if (emptyRow) {
+            emptyRow.style.display = 'none';
+        }
+
+        updateTotalCounter(matched.length, showAll);
+    }
+
+    function updateTotalCounter(visibleCount, showAll) {
+        const footer = document.querySelector('.primas-footer .primas-total-text');
+        if (footer) {
+            const total = (table?.querySelectorAll('tbody tr.prima-row') || []).length || 0;
+            if (showAll || visibleCount === total) {
+                footer.textContent = `Total de registros: ${total}`;
+            } else {
+                footer.textContent = `Mostrando ${visibleCount} de ${total} registros`;
+            }
+        }
+    }
+
+    function markNegativeNumbers() {
+        if (!table) return;
+        const selectors = [
+            { cls: 'num-neto' },
+            { cls: 'num-comercial' },
+            { cls: 'num-total' }
+        ];
+        table.querySelectorAll('tbody tr.prima-row').forEach(tr => {
+            selectors.forEach(({ cls }) => {
+                const el = tr.querySelector(`.${cls}`);
+                if (!el) return;
+                const raw = (el.textContent || '').replace(/[, ]/g, '').trim();
+                const n = parseFloat(raw);
+                if (!Number.isNaN(n) && n < 0) {
+                    el.setAttribute('data-negative', 'true');
+                } else {
+                    el.removeAttribute('data-negative');
+                }
+            });
+        });
+    }
+
+    if (input) {
+        input.addEventListener('input', () => {
+            currentPage = 1;
+            applySearchAndPagination();
+        });
+    }
+
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', () => {
+            const v = parseInt(pageSizeSelect.value || '0', 10);
+            currentPageSize = Number.isNaN(v) ? 0 : v;
+            currentPage = 1;
+            applySearchAndPagination();
         });
     }
 
@@ -18,14 +103,13 @@
     let confirmCallback = null;
 
     function openConfirm(message, onAccept) {
-        // Inicializar elementos si no existen
         if (!confirmModal) {
             const modalEl = document.getElementById('primasConfirmModal');
             if (modalEl && window.bootstrap) {
                 confirmModal = new bootstrap.Modal(modalEl);
                 confirmMessageEl = document.getElementById('primasConfirmMessage');
                 confirmOkBtn = document.getElementById('btnPrimasConfirmOk');
-                
+
                 if (confirmOkBtn) {
                     confirmOkBtn.addEventListener('click', () => {
                         if (confirmCallback) {
@@ -50,19 +134,13 @@
     }
 
     document.addEventListener('click', (e) => {
-        const t = e.target.closest('button');
+        const t = e.target.closest('button, a');
         if (!t) return;
-        if (t.classList.contains('btn-pdf')) {
-            const url = t.getAttribute('data-pdf');
-            if (url) {
-                window.open(url, '_blank', 'noopener');
-            } else {
-                alert('No hay PDF disponible para este registro.');
-            }
-        }
+
+        // ============ CUOTAS ============
         if (t.classList.contains('btn-cuotas')) {
             const poliza = t.getAttribute('data-poliza')
-                || t.closest('tr')?.querySelector('td:nth-child(2)')?.textContent?.trim()
+                || t.closest('tr')?.querySelector('.cell-poliza')?.textContent?.trim()
                 || '';
             const idPrima = t.getAttribute('data-idprima') || '';
             const aviso = t.getAttribute('data-aviso') || '';
@@ -77,19 +155,33 @@
             }
             return;
         }
+
+        // ============ PDF (botón gris - antiguo .btn-pdf) ============
+        if (t.classList.contains('btn-pdf')) {
+            const isAnchor = t.tagName === 'A';
+            const url = t.getAttribute('data-pdf') || t.getAttribute('href');
+            if (isAnchor && t.getAttribute('href')) {
+                return;
+            }
+            if (url) {
+                window.location.href = url;
+            } else {
+                alert('No hay PDF disponible para este registro.');
+            }
+            return;
+        }
+
+        // ============ DETALLES ============
         if (t.classList.contains('btn-detalles')) {
             const id = t.getAttribute('data-id');
             if (id) {
-                // Open modal
                 const modalEl = document.getElementById('detallesPrimasModal');
-                // Check if modal instance already exists
                 let modal = bootstrap.Modal.getInstance(modalEl);
                 if (!modal) {
                     modal = new bootstrap.Modal(modalEl);
                 }
                 modal.show();
 
-                // Load content
                 const modalBody = document.getElementById('detallesPrimasModalBody');
                 modalBody.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div></div>';
 
@@ -105,16 +197,17 @@
             } else {
                 alert('No se pudo obtener el ID para ver detalles.');
             }
+            return;
         }
+
+        // ============ EDITAR ============
         if (t.classList.contains('btn-editar')) {
             const id = t.getAttribute('data-id');
             if (id) {
-                // Open modal
                 const modalEl = document.getElementById('editarPrimasModal');
                 const modal = new bootstrap.Modal(modalEl);
                 modal.show();
 
-                // Load content
                 const modalBody = document.getElementById('editarPrimasModalBody');
                 modalBody.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div></div>';
 
@@ -122,9 +215,8 @@
                     .then(res => res.text())
                     .then(html => {
                         modalBody.innerHTML = html;
-                        // Init logic from editar-primas.js
                         if (window.initEditarPrimasLogic) {
-                            window.initEditarPrimasLogic(true); // true = isModal
+                            window.initEditarPrimasLogic(true);
                         }
                     })
                     .catch(err => {
@@ -134,7 +226,10 @@
             } else {
                 alert('No se pudo obtener el ID del registro.');
             }
+            return;
         }
+
+        // ============ ANULAR PRIMA ============
         if (t.classList.contains('btn-anular-prima')) {
             const id = t.getAttribute('data-id');
             if (!id) { alert('No se pudo obtener el ID del registro.'); return; }
@@ -153,16 +248,19 @@
             modal.show();
             return;
         }
-        if (t.classList.contains('btn-eliminar')) {
+
+        // ============ ELIMINAR ============
+        if (t.classList.contains('btn-eliminar') || t.classList.contains('action-delete')) {
             const tr = t.closest('tr');
             const id = t.getAttribute('data-id') || tr?.querySelector('.btn-detalles')?.getAttribute('data-id') || '';
             if (!id) {
                 alert('No se pudo obtener el ID del registro.');
                 return;
             }
-            const poliza = tr?.querySelector('td:nth-child(2)')?.textContent?.trim() || '';
-            const avisoCell = tr?.querySelector('td:nth-child(1)')?.textContent?.trim() || '';
+            const poliza = tr?.querySelector('.cell-poliza')?.textContent?.trim() || '';
+            const avisoCell = tr?.querySelector('.aviso-text')?.textContent?.trim() || '';
             const aviso = (avisoCell && avisoCell !== '—') ? avisoCell : '';
+
             openConfirm('¿Eliminar este registro?', async () => {
                 try {
                     t.disabled = true;
@@ -173,26 +271,27 @@
                     });
                     const data = await res.json().catch(() => ({}));
                     if (res.ok && data && data.ok) {
-                        if (tr) {
-                            tr.remove();
-                        }
-                        const totalEl = document.querySelector('.card-footer small.text-muted');
-                        if (totalEl) {
-                            const m = totalEl.textContent.match(/(\d+)/);
-                            if (m) {
-                                const n = Math.max(0, (parseInt(m[1], 10) || 1) - 1);
-                                totalEl.textContent = `Total de registros: ${n}`;
-                            }
-                        }
+                        if (tr) tr.remove();
+                        applySearchAndPagination();
                         const tbody = table?.querySelector('tbody');
-                        if (tbody && tbody.querySelectorAll('tr').length === 0) {
-                            const row = document.createElement('tr');
-                            const td = document.createElement('td');
-                            td.colSpan = 13;
-                            td.className = 'text-center text-muted py-4';
-                            td.textContent = 'Sin datos';
-                            row.appendChild(td);
-                            tbody.appendChild(row);
+                        const rowsLeft = tbody ? tbody.querySelectorAll('tr.prima-row').length : 0;
+                        if (tbody && rowsLeft === 0) {
+                            let emptyRow = tbody.querySelector('tr.prima-empty-row');
+                            if (!emptyRow) {
+                                emptyRow = document.createElement('tr');
+                                emptyRow.className = 'prima-empty-row';
+                                const td = document.createElement('td');
+                                td.colSpan = 14;
+                                td.innerHTML = `
+                                    <div class="primas-empty-state">
+                                        <i class="bi-inbox"></i>
+                                        <span>Sin registros de primas para esta póliza</span>
+                                    </div>
+                                `;
+                                emptyRow.appendChild(td);
+                                tbody.appendChild(emptyRow);
+                            }
+                            emptyRow.style.display = '';
                         }
                     } else {
                         const msg = (data && (data.error || (data.errors && data.errors.join(', ')))) || 'No se pudo eliminar';
@@ -205,24 +304,25 @@
                     t.disabled = false;
                 }
             });
+            return;
         }
     });
-    // Contador de caracteres del motivo de anulación
+
+    // ============ Modal anular prima handlers ============
     const motivoTextarea = document.getElementById('anularPrimaMotivo');
     const motivoCount = document.getElementById('anularPrimaMotivoCount');
     if (motivoTextarea && motivoCount) {
         motivoTextarea.addEventListener('input', () => {
-            motivoCount.textContent = motivoTextarea.value.length;
+            motivoCount.textContent = String(motivoTextarea.value.length);
         });
     }
 
-    // Confirmar anulación de prima
     const btnConfirmar = document.getElementById('btnConfirmarAnularPrima');
     if (btnConfirmar) {
         btnConfirmar.addEventListener('click', async () => {
-            const id = document.getElementById('anularPrimaId').value;
-            const motivo = (document.getElementById('anularPrimaMotivo').value || '').trim();
-            const fecha = document.getElementById('anularPrimaFecha').value || null;
+            const id = (document.getElementById('anularPrimaId') || {}).value || '';
+            const motivo = ((document.getElementById('anularPrimaMotivo') || {}).value || '').trim();
+            const fecha = (document.getElementById('anularPrimaFecha') || {}).value || null;
             const errorEl = document.getElementById('anularPrimaError');
 
             if (!motivo) {
@@ -251,25 +351,31 @@
                     const modal = bootstrap.Modal.getInstance(modalEl);
                     if (modal) modal.hide();
 
-                    // Marcar la fila como anulada (badge + opacidad) en lugar de eliminarla
-                    const tr = table?.querySelector(`button.btn-anular-prima[data-id="${id}"]`)?.closest('tr');
+                    const tr = table
+                        ? table.querySelector(`button.btn-anular-prima[data-id="${id}"]`)?.closest('tr')
+                        : null;
                     if (tr) {
-                        tr.classList.add('table-secondary', 'text-muted');
-                        tr.style.opacity = '0.72';
-
-                        // Agregar badge ANULADA junto al aviso (primera celda)
-                        const firstTd = tr.querySelector('td:first-child');
-                        if (firstTd && !firstTd.querySelector('.badge')) {
+                        tr.classList.add('prima-anulada');
+                        const firstTd = tr.querySelector('td:first-child .cell-wrap');
+                        if (firstTd && !firstTd.querySelector('.prima-badge-danger')) {
                             const badge = document.createElement('span');
-                            badge.className = 'badge bg-danger ms-1';
-                            badge.style.fontSize = '.65em';
+                            badge.className = 'prima-badge prima-badge-danger';
                             badge.textContent = 'ANULADA';
                             firstTd.appendChild(badge);
                         }
 
-                        // Eliminar botones de acción (cuotas, editar, anular, eliminar) de la fila
-                        tr.querySelectorAll('.btn-cuotas, .btn-editar, .btn-anular-prima, .btn-eliminar').forEach(btn => btn.remove());
+                        // Ocultar todos los botones excepto PDF y DETALLES
+                        tr.querySelectorAll('.btn-cuotas, .btn-editar, .btn-anular-prima, .btn-eliminar').forEach(btn => {
+                            btn.remove();
+                        });
+
+                        // Si no quedó ningún botón, mostrar el mensaje
+                        const col = tr.querySelector('.action-buttons-col');
+                        if (col && col.querySelectorAll('.action-btn').length === 0) {
+                            col.innerHTML = '<span class="prima-sin-acciones">Prima anulada</span>';
+                        }
                     }
+                    applySearchAndPagination();
                 } else {
                     const msg = (data && (data.error || (data.errors && data.errors.join(', ')))) || 'No se pudo anular';
                     errorEl.textContent = msg;
@@ -284,4 +390,7 @@
             }
         });
     }
+
+    markNegativeNumbers();
+    applySearchAndPagination();
 })();

@@ -11,149 +11,262 @@
 {% block page_title %}{% endblock %}
 
 {% block content %}
-<!-- Barra superior con título y acción -->
-<div class="page-header flex-column align-items-start gap-2">
-    <div class="d-flex align-items-center gap-3">
-        <div class="page-title">
-            <i class="bi bi-receipt"></i>
-            Primas / Plan de Pagos
-        </div>
-        {% if can_create(session.role_name) %}
-        <!-- <a class="btn btn-success btn-lift" href="#"><i class="bi-plus-lg"></i> Añadir</a> -->
-        {% endif %}
-    </div>
-    <div>
-        {% set back_page = 'polizas' %}
-        {% if return_to in ['polizas', 'listado-poliza'] %}
-            {% set back_page = return_to %}
-        {% endif %}
-        <a href="{{ url_for('main.menu_page', page=back_page) }}" class="text-secondary text-decoration-none small fw-bold">
-            <i class="bi bi-arrow-left"></i> Volver al listado de Pólizas
-        </a>
-    </div>
-</div>
+<div class="primas-page">
 
-<!-- Encabezado con datos principales -->
-<div class="client-info-card">
-    <div class="client-info-header">
-        <i class="bi bi-person-badge"></i>
-        <span>Asegurado: {{ details.asegurado }}</span>
-    </div>
-    <div class="client-info-body">
-        <div class="info-grid">
-            <div class="info-item">
-                <label>Póliza</label>
-                <div>{{ details.poliza }}</div>
+    <div class="primas-header">
+        <div class="primas-header-top">
+            <div class="primas-title-row">
+                <div class="primas-title-icon">
+                    <i class="bi-receipt-cutoff"></i>
+                </div>
+                <div class="primas-title-text">
+                    <h1 class="primas-title">Primas / Plan de Pagos</h1>
+                </div>
             </div>
-            <div class="info-item">
-                <label>Ejecutivo</label>
-                <div>{{ details.ejecutivo }}</div>
-            </div>
-            <div class="info-item">
-                <label>Vigencia</label>
-                <div>{{ details.vig_desde }} al {{ details.vig_hasta }}</div>
-            </div>
+            {% if can_create(session.role_name) %}
+            <!-- <button class="btn btn-primary btn-lift"><i class="bi-plus-lg"></i> Añadir</button> -->
+            {% endif %}
         </div>
-    </div>
-</div>
-
-<!-- Tabla de primas -->
-<div class="table-card">
-    <div class="table-toolbar d-flex justify-content-between align-items-center">
-        <div class="search-box">
-             <div class="input-group input-group-sm" style="width: 300px;">
-                <input id="primasSearch" type="text" class="form-control border-end-0" placeholder="Filtrar en tabla...">
-                <span class="input-group-text bg-white text-secondary border-start-0"><i class="bi-search"></i></span>
-            </div>
-        </div>
-        <div class="page-size-selector d-flex align-items-center gap-2">
-            <span class="selector-label text-secondary small">Mostrar:</span>
-            <select id="page-size" class="form-select form-select-sm" style="width: auto; cursor: pointer;">
-                <option value="10">10</option>
-                <option value="20" selected>20</option>
-                <option value="50">50</option>
-            </select>
+        <div class="primas-header-sub">
+            {% set back_page = 'polizas' %}
+            {% if return_to in ['polizas', 'listado-poliza'] %}
+                {% set back_page = return_to %}
+            {% endif %}
+            <a href="{{ url_for('main.menu_page', page=back_page) }}" class="back-link">
+                <i class="bi-arrow-left"></i>
+                <span>Volver al listado de Pólizas</span>
+            </a>
         </div>
     </div>
 
-    <div class="table-responsive">
-        <table id="primasTable" class="table modern-table table-hover m-0 align-middle">
-            <thead>
-                <tr>
-                    <th>Aviso</th>
-                    <th>Póliza</th>
-                    <th>Contratante</th>
-                    <th>Compañía</th>
-                    <th>Ramo</th>
-                    <th>Tipo</th>
-                    <th>Neto</th>
-                    <th>Comercial</th>
-                    <th>Total</th>
-                    <th>Vig Inicio</th>
-                    <th>Vig Fin</th>
-                    <th>Nro.Operación</th>
-                    <th>Motivo</>
-                    <th class="text-end">Acción</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in rows %}
-                <tr {% if r.prima_anulada %}class="table-secondary text-muted" style="opacity:.72;"{% endif %}>
-                    <td>
-                        {{ r.aviso if r.aviso and r.aviso not in ['None', 'null', 'NULL'] else '—' }}
-                        {% if r.prima_anulada %}
-                        <span class="badge bg-danger ms-1" style="font-size:.65em;">ANULADA</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ r.poliza }}</td>
-                    <td>{{ r.contratante }}</td>
-                    <td>{{ r.compania }}</td>
-                    <td>{{ r.ramo }}</td>
-                    <td>{{ r.tipo }}</td>
-                    <td>{{ r.prima_neta if r.prima_neta is not none else '0.00' }}</td>
-                    <td>{{ r.prima_comercial if r.prima_comercial is not none else '0.00' }}</td>
-                    <td>{{ r.prima_total if r.prima_total is not none else '0.00' }}</td>
-                    <td>{{ r.vig_inicio }}</td>
-                    <td>{{ r.vig_fin }}</td>
-                    <td>{{ r.nro_operacion or '' }}</td>
-                    <td>{{ r.motivo }}</td>
-                    <td class="text-end">
-                        <div class="action-buttons justify-content-end">
-                            {% if not r.prima_anulada %}
-                            <button class="btn-action btn-primary btn-cuotas"
-                                    data-poliza="{{ r.poliza }}"
-                                    data-idprima="{{ r.idPrima }}"
-                                    data-aviso="{{ r.aviso if r.aviso and r.aviso not in ['None', 'null', 'NULL'] else '' }}">Cuotas</button>
+    <div class="policy-card">
+        <div class="policy-card-header">
+            <div class="policy-asegurado-icon">
+                <i class="bi-person-vcard-fill"></i>
+            </div>
+            <div class="policy-asegurado-text">
+                <span class="policy-asegurado-label">Asegurado:</span>
+                <span class="policy-asegurado-name">{{ details.asegurado }}</span>
+            </div>
+        </div>
+
+        <div class="policy-card-body">
+            <div class="policy-info-grid">
+                <div class="policy-info-item">
+                    <label>Póliza</label>
+                    <div class="policy-info-value">{{ details.poliza }}</div>
+                </div>
+                <div class="policy-info-item">
+                    <label>Ejecutivo</label>
+                    <div class="policy-info-value">{{ details.ejecutivo }}</div>
+                </div>
+                <div class="policy-info-item policy-info-vigencia">
+                    <label>Vigencia</label>
+                    <div class="policy-info-value">{{ details.vig_desde }} <span class="policy-vig-sep">al</span> {{ details.vig_hasta }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-card">
+        <div class="table-toolbar">
+            <div class="primas-search">
+                <i class="bi-search"></i>
+                <input id="primasSearch" type="text" placeholder="Filtrar en tabla...">
+            </div>
+            <div class="page-size-selector">
+                <span class="selector-label">Mostrar:</span>
+                <select id="page-size" class="page-size-select">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="0" selected>Todos</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="primas-table-wrap">
+            <table id="primasTable" class="primas-table">
+                <colgroup>
+                    <col class="col-aviso">
+                    <col class="col-poliza">
+                    <col class="col-contratante">
+                    <col class="col-compania">
+                    <col class="col-ramo">
+                    <col class="col-tipo">
+                    <col class="col-neto">
+                    <col class="col-comercial">
+                    <col class="col-total">
+                    <col class="col-vig-i">
+                    <col class="col-vig-f">
+                    <col class="col-oper">
+                    <col class="col-motivo">
+                    <col class="col-accion">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>Aviso</th>
+                        <th>Póliza</th>
+                        <th>Contratante</th>
+                        <th>Compañía</th>
+                        <th>Ramo</th>
+                        <th>Tipo</th>
+                        <th class="col-num">Neto</th>
+                        <th class="col-num">Comercial</th>
+                        <th class="col-num">Total</th>
+                        <th>Vig. Inicio</th>
+                        <th>Vig. Fin</th>
+                        <th>Nro. Operación</th>
+                        <th>Motivo</th>
+                        <th class="col-accion">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows %}
+                    <tr data-idprima="{{ r.idPrima }}"
+                        {% if r.prima_anulada %}class="prima-row prima-anulada"{% else %}class="prima-row"{% endif %}>
+                        <td class="col-aviso">
+                            <div class="cell-wrap">
+                                {% set aviso_value = r.aviso if r.aviso and r.aviso not in ['None', 'null', 'NULL'] else '—' %}
+                                <span class="aviso-text">{{ aviso_value }}</span>
+                                {% if r.prima_anulada %}
+                                <span class="prima-badge prima-badge-danger">ANULADA</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="col-poliza">
+                            <span class="cell-poliza">{{ r.poliza }}</span>
+                        </td>
+                        <td class="col-contratante">
+                            <div class="cell-contratante">
+                                <div class="contratante-name">{{ r.contratante }}</div>
+                            </div>
+                        </td>
+                        <td class="col-compania">
+                            {% set comp = (r.compania or '')|trim %}
+                            <span class="company-pill
+                                {%- if 'LA POSITIVA' in comp.upper() or 'LAPOSITIVA' in comp.upper() %} company-la-positiva
+                                {%- elif 'CRECER' in comp.upper() %} company-crecer
+                                {%- elif 'RIMAC' in comp.upper() %} company-rimac
+                                {%- elif 'PACIFICO' in comp.upper() or 'PACÍFICO' in comp.upper() %} company-pacifico
+                                {%- elif 'MAPFRE' in comp.upper() %} company-mapfre
+                                {%- elif 'HDI' in comp.upper() %} company-hdi
+                                {%- else -%} company-default
+                                {%- endif -%}
+                            ">{{ r.compania }}</span>
+                        </td>
+                        <td class="col-ramo">
+                            <span class="cell-ramo">{{ r.ramo }}</span>
+                        </td>
+                        <td class="col-tipo">
+                            {% set t_type = (r.tipo or '')|trim|upper %}
+                            {% set t_class = 'tipo-default' %}
+                            {% if 'INCLUSI' in t_type %}{% set t_class = 'tipo-inclusion' %}
+                            {% elif 'RENOVAC' in t_type %}{% set t_class = 'tipo-renovacion' %}
+                            {% elif 'EMISI' in t_type or 'EMISION' in t_type %}{% set t_class = 'tipo-emision' %}
+                            {% elif 'EXCLUSI' in t_type %}{% set t_class = 'tipo-exclusion' %}
+                            {% elif 'ENDOSO' in t_type %}{% set t_class = 'tipo-endoso' %}
+                            {% elif 'ANUL' in t_type %}{% set t_class = 'tipo-anulacion' %}
                             {% endif %}
-                            <a href="{{ url_for('main.menu_page', page='avisos') }}?id={{ r.idPrima }}" class="btn-action btn-secondary">Pdf</a>
-                            <button class="btn-action btn-info btn-detalles" data-id="{{ r.idPrima }}">Detalles</button>
-                            {% if not r.prima_anulada %}
-                                {% if can_edit(session.role_name) %}
-                                <button class="btn-action btn-success btn-editar" data-id="{{ r.idPrima }}">Editar</button>
+                            <span class="tipo-chip tipo-chip--{{ t_class }}">{{ r.tipo }}</span>
+                        </td>
+                        <td class="col-neto col-num">
+                            <span class="num-neto">{{ r.prima_neta if r.prima_neta is not none else '0.00' }}</span>
+                        </td>
+                        <td class="col-comercial col-num">
+                            <span class="num-comercial">{{ r.prima_comercial if r.prima_comercial is not none else '0.00' }}</span>
+                        </td>
+                        <td class="col-total col-num">
+                            <span class="num-total">{{ r.prima_total if r.prima_total is not none else '0.00' }}</span>
+                        </td>
+                        <td class="col-vig-i">
+                            <span class="date-cell">{{ r.vig_inicio }}</span>
+                        </td>
+                        <td class="col-vig-f">
+                            <span class="date-cell">{{ r.vig_fin }}</span>
+                        </td>
+                        <td class="col-oper">
+                            <span class="cell-operacion">{{ r.nro_operacion or '' }}</span>
+                        </td>
+                        <td class="col-motivo">
+                            <span class="cell-motivo">{{ r.motivo }}</span>
+                        </td>
+                        <td class="col-accion">
+                            <div class="action-buttons-col">
+                                {% if not r.prima_anulada %}
+                                <button type="button"
+                                        class="action-btn action-btn--cuotas btn-cuotas"
+                                        data-poliza="{{ r.poliza }}"
+                                        data-idprima="{{ r.idPrima }}"
+                                        data-aviso="{{ r.aviso if r.aviso and r.aviso not in ['None', 'null', 'NULL'] else '' }}">
+                                    <i class="bi-layers-fill"></i>
+                                    <span>CUOTAS</span>
+                                </button>
                                 {% endif %}
-                                {% if can_restore(session.role_name) %}
-                                <button class="btn-action btn-yellow btn-anular-prima" 
-                                        data-id="{{ r.idPrima }}"
-                                        title="Anular esta prima y sus cuotas">Anular</button>
+
+                                <a href="{{ url_for('main.menu_page', page='avisos') }}?id={{ r.idPrima }}"
+                                   class="action-btn action-btn--pdf btn-pdf"
+                                   data-pdf="{{ url_for('main.menu_page', page='avisos') }}?id={{ r.idPrima }}">
+                                    <i class="bi-file-earmark-pdf-fill"></i>
+                                    <span>PDF</span>
+                                </a>
+
+                                <button type="button"
+                                        class="action-btn action-btn--detalles btn-detalles"
+                                        data-id="{{ r.idPrima }}">
+                                    <i class="bi-eye-fill"></i>
+                                    <span>DETALLES</span>
+                                </button>
+
+                                {% if not r.prima_anulada %}
+                                    {% if can_edit(session.role_name) %}
+                                    <button type="button"
+                                            class="action-btn action-btn--editar btn-editar"
+                                            data-id="{{ r.idPrima }}">
+                                        <i class="bi-pencil-square"></i>
+                                        <span>EDITAR</span>
+                                    </button>
+                                    {% endif %}
+                                    {% if can_restore(session.role_name) %}
+                                    <button type="button"
+                                            class="action-btn action-btn--anular btn-anular-prima"
+                                            data-id="{{ r.idPrima }}">
+                                        <i class="bi-x-circle-fill"></i>
+                                        <span>ANULAR</span>
+                                    </button>
+                                    {% endif %}
+                                    {% if can_delete(session.role_name) %}
+                                    <button type="button"
+                                            class="action-btn action-btn--eliminar btn-eliminar action-delete"
+                                            data-id="{{ r.idPrima }}">
+                                        <i class="bi-trash-fill"></i>
+                                        <span>ELIMINAR</span>
+                                    </button>
+                                    {% endif %}
                                 {% endif %}
-                                {% if can_delete(session.role_name) %}
-                                <button class="btn-action btn-danger btn-eliminar" data-id="{{ r.idPrima }}">Eliminar</button>
+                                {% if r.prima_anulada %}
+                                    <span class="prima-sin-acciones">Prima anulada</span>
                                 {% endif %}
-                            {% endif %}
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-                {% if not rows %}
-                <tr>
-                    <td colspan="13" class="text-center text-muted py-4">Sin datos</td>
-                </tr>
-                {% endif %}
-            </tbody>
-        </table>
-    </div>
-    <div class="card-footer bg-white border-top-0 py-3">
-        <small class="text-muted">Total de registros: {{ rows|length }}</small>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not rows %}
+                    <tr class="prima-empty-row">
+                        <td colspan="14">
+                            <div class="primas-empty-state">
+                                <i class="bi-inbox"></i>
+                                <span>Sin registros de primas para esta póliza</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        <div class="primas-footer">
+            <span class="primas-total-text">Total de registros: {{ rows|length }}</span>
+        </div>
     </div>
 </div>
 
