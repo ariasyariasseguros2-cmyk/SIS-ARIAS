@@ -18,26 +18,27 @@
         <aside class="sidebar">
             <div class="sidebar-top">
                 <div class="brand d-flex align-items-center gap-2">
-                    <img src="{{ url_for('main.serve_img', filename='logo-aasnet.png') }}" alt="AAS NET" class="brand-logo">
-                    <span class="brand-name fw-bold d-none d-xl-inline">AAS NET</span>
+                    <div class="brand-avatar">
+                        <span>A</span>
+                    </div>
+                    <div class="brand-text">
+                        <span class="brand-name fw-bold d-inline">AAS NET</span>
+                        <span class="brand-subtitle d-block">Corredores de Seguros</span>
+                    </div>
                 </div>
 
                 <div class="sidebar-actions">
-                    <!-- Theme Toggle -->
-                    <button class="btn btn-light rounded-circle p-2 border-0 bg-transparent text-white" type="button" id="themeToggle" title="Cambiar tema">
+                    <button class="btn btn-light rounded-circle p-2 border-0 bg-transparent text-white header-icon-btn" type="button" id="themeToggle" title="Cambiar tema">
                         <i class="bi bi-sun fs-5 sun-icon"></i>
                         <i class="bi bi-moon fs-5 moon-icon d-none"></i>
                     </button>
 
-                    <!-- Notification Dropdown -->
                     <div class="dropdown">
-                        <button class="btn btn-light position-relative rounded-circle p-2 border-0 bg-transparent text-white" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="notificationBtn">
+                        <button class="btn btn-light position-relative rounded-circle p-2 border-0 bg-transparent text-white header-icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="notificationBtn">
                             <i class="bi-bell fs-5"></i>
-                            {% if notifications and notifications|length > 0 %}
-                            <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
+                            <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle notification-dot-badge">
                                 <span class="visually-hidden">New alerts</span>
                             </span>
-                            {% endif %}
                         </button>
                         <div class="dropdown-menu dropdown-menu-end shadow border-0 p-0" aria-labelledby="notificationBtn" style="width: 300px;">
                             <div class="p-2 border-bottom">
@@ -87,9 +88,9 @@
                             </div>
                             <div class="user-info d-none d-md-block text-start">
                                 <div class="name small fw-bold">{{ session.get('user_display_name', session.get('user', 'Invitado')) }}</div>
-                                <div class="status smaller opacity-75" style="font-size: 10px;"><span class="dot online"></span> En línea</div>
+                                <div class="status smaller opacity-90" style="font-size: 11px;"><span class="dot online"></span> En línea</div>
                             </div>
-                            <i class="bi bi-chevron-down small opacity-50"></i>
+                            <i class="bi bi-chevron-down small opacity-70"></i>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
                             <li><a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('main.home') }}"><i class="bi-house"></i> Inicio</a></li>
@@ -106,22 +107,26 @@
                 <div class="nav-title d-lg-none">Navegación</div>
                 {% set _p = page if (page is defined and page) else (request.path.split('/')[-1] if request.path else '') %}
                 <ul class="nav-list">
-                <li><i class="bi-speedometer2"></i> <a data-page="dashboard" href="{{ url_for('main.dashboard') }}"><span><strong>Inicio</strong></span></a></li>
+                <li class="nav-item-single{% if _p == 'dashboard' or not _p %} nav-item-active{% endif %}">
+                    <i class="bi-house-door-fill nav-item-icon"></i>
+                    <a data-page="dashboard" href="{{ url_for('main.dashboard') }}"><span><strong>Inicio</strong></span></a>
+                    <span class="nav-item-dot"></span>
+                </li>
 
-                <li class="nav-group">
+                <li class="nav-group{% if _p and _p in ('mis-contactos',) %} nav-item-active-group{% endif %}">
                     <button class="group-toggle" type="button">
-                        <i class="bi-people"></i> <span><strong>Mis Contactos</strong></span>
-                        <i class="bi-chevron-right caret"></i>
+                        <i class="bi-people-fill nav-item-icon"></i> <span><strong>Mis Contactos</strong></span>
+                        <i class="bi-chevron-down caret nav-caret"></i>
                     </button>
                     <ul class="submenu">
                         <li><a data-page="mis-contactos" href="{{ url_for('main.menu_page', page='mis-contactos') }}"><i class="bi-people"></i> Mis Contactos</a></li>
                     </ul>
                 </li>
 
-                <li class="nav-group">
+                <li class="nav-group{% if _p and _p in ('solicitudes','solicitudes-reporte') %} nav-item-active-group{% endif %}">
                     <button class="group-toggle" type="button">
-                        <i class="bi-briefcase"></i> <span><strong>Solicitudes</strong></span>
-                        <i class="bi-chevron-right caret"></i>
+                        <i class="bi-briefcase-fill nav-item-icon"></i> <span><strong>Solicitudes</strong></span>
+                        <i class="bi-chevron-down caret nav-caret"></i>
                     </button>
                     <ul class="submenu">
                         <li><a data-page="solicitudes" href="{{ url_for('main.menu_page', page='solicitudes') }}"><i class="bi-briefcase"></i> Solicitudes</a></li>
@@ -129,10 +134,10 @@
                     </ul>
                 </li>
 
-                <li class="nav-group{% if page and page.startswith('clientes') %} active-group{% endif %}">
+                <li class="nav-group{% if page and page.startswith('clientes') %} nav-item-active-group{% endif %}">
                     <button class="group-toggle" type="button">
-                        <i class="bi-person"></i> <span><strong>Clientes</strong></span>
-                        <i class="bi-chevron-right caret"></i>
+                        <i class="bi-person-fill nav-item-icon"></i> <span><strong>Clientes</strong></span>
+                        <i class="bi-chevron-down caret nav-caret"></i>
                     </button>
                     <ul class="submenu">
                         <li><a data-page="clientes" href="{{ url_for('main.menu_page', page='clientes') }}"><i class="bi-person"></i> Clientes</a></li>
@@ -142,14 +147,12 @@
                     </ul>
                 </li>
 
-                <!-- Grupo: Pólizas (cambiar destino a listado-pagado) -->
-                <li class="nav-group">
+                <li class="nav-group{% if _p and _p in ('listado-poliza','carga-masiva-soat','financiamiento-grupal','vencimientos-renovaciones','vencimiento-autos-soat') %} nav-item-active-group{% endif %}">
                     <button class="group-toggle">
-                        <i class="bi-file-earmark-text"></i> <span><strong>Pólizas</strong></span>
-                        <i class="bi-chevron-right caret"></i>
+                        <i class="bi-file-earmark-text-fill nav-item-icon"></i> <span><strong>Pólizas</strong></span>
+                        <i class="bi-chevron-down caret nav-caret"></i>
                     </button>
                     <ul class="submenu">
-                        <!-- Enlace actualizado: ahora abre el listado paginado -->
                         <li><a data-page="listado-poliza" href="{{ url_for('main.menu_page', page='listado-poliza') }}"><i class="bi-gear"></i> Pólizas</a></li>
                         <li><a data-page="carga-masiva-soat" href="{{ url_for('main.carga_masiva_soat') }}"><i class="bi-file-earmark-excel"></i> Carga Masiva SOAT</a></li>
                         <li><a data-page="financiamiento-grupal" href="{{ url_for('main.menu_page', page='financiamiento-grupal') }}"><i class="bi-people"></i> Financiamiento Grupal</a></li>
@@ -158,10 +161,10 @@
                     </ul>
                 </li>
 
-                <li class="nav-group">
+                <li class="nav-group{% if _p and _p in ('gestion','cobranzas-gestion','cobranzas-mail','cobranzas-estado-cuenta') %} nav-item-active-group{% endif %}">
                     <button class="group-toggle">
-                        <i class="bi-credit-card"></i> <span><strong>Cobranzas</strong></span>
-                        <i class="bi-chevron-right caret"></i>
+                        <i class="bi-credit-card-fill nav-item-icon"></i> <span><strong>Cobranzas</strong></span>
+                        <i class="bi-chevron-down caret nav-caret"></i>
                     </button>
                     <ul class="submenu">
                         <li><a data-page="cobranzas-gestion" href="{{ url_for('main.gestion') }}"><i class="bi-briefcase"></i> Gestión</a></li>
@@ -170,47 +173,40 @@
                     </ul>
                 </li>
 
-                <!-- NUEVO: Grupo Reportes Generales -->
-                <li class="nav-group{% if _p and (_p.startswith('reporte') or _p in ('reporte-diario','reporte-archivos-poliza','reporte-produccion','reporte-siniestros','reporte-polizas-anuladas','reporte-gestion-diaria','reporte-polizas-anuladas','cobranzas-reporte-primas','reporte-polizas-anuladas','reporte-anulados')) %} active-group{% endif %}">
+                <li class="nav-group{% if _p and (_p.startswith('reporte') or _p in ('reporte-diario','reporte-archivos-poliza','reporte-produccion','reporte-siniestros','reporte-polizas-anuladas','reporte-gestion-diaria','cobranzas-reporte-primas','reporte-anulados','polizas-anuladas','cuotas-anuladas')) %} nav-item-active-group{% endif %}">
                     <button class="group-toggle" type="button">
-                        <i class="bi-file-earmark-text-fill"></i> <span><strong>Reportes Generales</strong></span>
-                        <i class="bi-chevron-right caret"></i>
+                        <i class="bi-bar-chart-line-fill nav-item-icon"></i> <span><strong>Reportes</strong></span>
+                        <i class="bi-chevron-down caret nav-caret"></i>
                     </button>
                     <ul class="submenu">
                         <li class="{% if _p == 'reporte-gestion-diaria' %}active{% endif %}"><a data-page="reporte-gestion-diaria" href="{{ url_for('main.menu_page', page='reporte-gestion-diaria') }}"><i class="bi-download"></i> Reporte Gestión Diaria</a></li>
-                        <li class="{% if _p == 'reporte-polizas-anuladas' %}active{% endif %}"><a data-page="reporte-polizas-anuladas" href="{{ url_for('main.menu_page', page='polizas-anuladas') }}"><i class="bi-download"></i> Reporte Pólizas Anuladas</a></li>
+                        <li class="{% if _p == 'reporte-polizas-anuladas' or _p == 'polizas-anuladas' %}active{% endif %}"><a data-page="reporte-polizas-anuladas" href="{{ url_for('main.menu_page', page='polizas-anuladas') }}"><i class="bi-download"></i> Reporte Pólizas Anuladas</a></li>
                         <li class="{% if _p == 'reporte-anulados' %}active{% endif %}"><a data-page="reporte-anulados" href="{{ url_for('main.menu_page', page='reporte-anulados') }}"><i class="bi-download"></i> Reporte Anulados General</a></li>
                         {% if session.role_name == Roles.BROKER %}
                         <li class="{% if _p == 'cuotas-anuladas' %}active{% endif %}"><a data-page="cuotas-anuladas" href="{{ url_for('main.menu_page', page='cuotas-anuladas') }}"><i class="bi-download"></i> Reporte Cuotas Anuladas</a></li>
                         {% endif %}
-                        <!--<li class="{% if _p == 'cobranzas-reporte-primas' %}active{% endif %}"><a data-page="cobranzas-reporte-primas" href="{{ url_for('main.menu_page', page='cobranzas-reporte-primas') }}"><i class="bi-download"></i> Reporte de Primas con sus Cuotas</a></li>-->
                         <li class="{% if _p == 'reporte-siniestros' %}active{% endif %}"><a data-page="reporte-siniestros" href="{{ url_for('main.menu_page', page='reporte-siniestros') }}"><i class="bi-download"></i> Reporte de Siniestros</a></li>
                         <li class="{% if _p == 'reporte-produccion' %}active{% endif %}"><a data-page="reporte-produccion" href="{{ url_for('main.menu_page', page='reporte-produccion') }}"><i class="bi-download"></i> Reporte de Producción</a></li>
                         <li class="{% if _p == 'reporte-diario' %}active{% endif %}"><a data-page="reporte-diario" href="{{ url_for('main.menu_page', page='reporte-diario') }}"><i class="bi-download"></i> Reporte Diario</a></li>
                         <li class="{% if _p == 'reporte-archivos-poliza' %}active{% endif %}"><a data-page="reporte-archivos-poliza" href="{{ url_for('main.menu_page', page='reporte-archivos-poliza') }}"><i class="bi-download"></i> Reporte Archivos Póliza</a></li>
-                        <!-- Comentados mantenidos para posible activación futura -->
-                        {# <li><i class="bi-download"></i> <a data-page="reporte-liquidaciones" href="{{ url_for('main.menu_page', page='reporte-liquidaciones') }}">Reporte Liquidaciones</a></li> #}
-                        {# <li><i class="bi-download"></i> <a data-page="reporte-comisiones-cobradas" href="{{ url_for('main.menu_page', page='reporte-comisiones-cobradas') }}">Reporte de Comisiones Cobradas</a></li> #}
                     </ul>
                 </li>
 
-
-                <li class="nav-group{% if _p and _p.startswith('siniestros') %} active-group{% endif %}">
+                <li class="nav-group{% if _p and _p.startswith('siniestros') %} nav-item-active-group{% endif %}">
                     <button class="group-toggle" type="button">
-                        <i class="bi-exclamation-triangle"></i> <span><strong>Siniestros</strong></span>
-                        <i class="bi-chevron-right caret"></i>
+                        <i class="bi-exclamation-triangle-fill nav-item-icon"></i> <span><strong>Siniestros</strong></span>
+                        <i class="bi-chevron-down caret nav-caret"></i>
                     </button>
                     <ul class="submenu">
                         <li class="{% if _p == 'siniestros' %}active{% endif %}"><a data-page="siniestros" href="{{ url_for('main.menu_page', page='siniestros') }}"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
                     </ul>
                 </li>
 
-
             {% if can_view_maestros(session.role_name) %}
-            <li class="nav-group{% if page and page.startswith('maestros') %} active-group{% endif %}">
+            <li class="nav-group{% if page and page.startswith('maestros') %} nav-item-active-group{% endif %}">
                 <button class="group-toggle" type="button">
-                    <i class="bi-journal-bookmark"></i> <span><strong>Maestros</strong></span>
-                    <i class="bi-chevron-right caret"></i>
+                    <i class="bi-journal-bookmark-fill nav-item-icon"></i> <span><strong>Maestros</strong></span>
+                    <i class="bi-chevron-down caret nav-caret"></i>
                 </button>
                 <ul class="submenu">
                     <li class="{% if page in ('maestros-ajustadores','maestros-ajustador') %}active{% endif %}"><a data-page="maestros-ajustadores" href="{{ url_for('main.menu_page', page='maestros-ajustadores') }}"><i class="bi-person-badge"></i> Ajustadores</a></li>
@@ -250,7 +246,7 @@
             </nav>
 
             <section class="page">
-                <div class="page-header d-none d-lg-block mb-3 px-3">
+                <div class="page-header d-none d-lg-block mb-3">
                     {% block page_title %}{% endblock %}
                 </div>
                 {% block content %}{% endblock %}

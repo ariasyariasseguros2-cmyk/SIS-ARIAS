@@ -2,7 +2,7 @@
 
 {% block html_title %}Dashboard | AASNET{% endblock %}
 {% block page_title %}
-    <h3 class="fw-bold mb-0">Bienvenido, {{ session.get('user_display_name', session.get('user', 'Usuario')) }}!</h3>
+<h1 class="welcome-title">Bienvenido, {{ session.get('user_display_name', session.get('user', 'Usuario')) }}!</h1>
 {% endblock %}
 
 {% block extra_css %}
@@ -10,237 +10,169 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid p-4">
-    <!-- Section 1: Financial Metrics (Soles & Dolares) -->
-    <div class="row g-4 mb-4">
-        <!-- Card 1: Prima Neta S/. -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h6 class="text-muted mb-0">Prima Neta S/.</h6>
-                        <div class="icon-shape text-info">
-                            <i class="bi-graph-up-arrow"></i>
-                        </div>
-                    </div>
-                    <h3 class="mb-1 fw-bold">{{ cards.prima_neta_soles }}</h3>
+<div class="dashboard-content">
+    <div class="dashboard-stats-grid">
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-label">Prima Neta S/.</span>
+                <div class="stat-card-icon stat-card-icon-cyan">
+                    <i class="bi-graph-up-arrow"></i>
                 </div>
+            </div>
+            <div class="stat-card-value">{{ cards.prima_neta_soles }}</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-label">Prima Neta US$</span>
+                <div class="stat-card-icon stat-card-icon-red">
+                    <i class="bi-bar-chart-fill"></i>
+                </div>
+            </div>
+            <div class="stat-card-value">{{ cards.prima_neta_dolares }}</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-label">Comisiones S/.</span>
+                <div class="stat-card-icon stat-card-icon-green">
+                    <i class="bi-pie-chart-fill"></i>
+                </div>
+            </div>
+            <div class="stat-card-value">{{ cards.comision_soles }}</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-label">Comisiones US$</span>
+                <div class="stat-card-icon stat-card-icon-orange">
+                    <i class="bi-receipt-cutoff"></i>
+                </div>
+            </div>
+            <div class="stat-card-value">{{ cards.comision_dolares }}</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-label">Registradas</span>
+                <div class="stat-card-icon stat-card-icon-blue">
+                    <i class="bi-journal-check"></i>
+                </div>
+            </div>
+            <div class="stat-card-value">{{ cards.total_policies }}</div>
+            <div class="stat-card-simple-footer">
+                <span class="stat-card-sub">Total registradas</span>
             </div>
         </div>
 
-        <!-- Card 2: Prima Neta US$ -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h6 class="text-muted mb-0">Prima Neta US$</h6>
-                        <div class="icon-shape text-danger">
-                            <i class="bi-bar-chart-fill"></i>
-                        </div>
-                    </div>
-                    <h3 class="mb-1 fw-bold">{{ cards.prima_neta_dolares }}</h3>
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-label">Pólizas Activas</span>
+                <div class="stat-card-icon stat-card-icon-green">
+                    <i class="bi-file-earmark-text"></i>
                 </div>
+            </div>
+            <div class="stat-card-value">{{ cards.active_policies }}</div>
+            <div class="stat-card-simple-footer">
+                <span class="stat-card-sub">Total vigentes</span>
             </div>
         </div>
 
-        <!-- Card 3: Comisiones S/. -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h6 class="text-muted mb-0">Comisiones S/.</h6>
-                        <div class="icon-shape text-success">
-                            <i class="bi-pie-chart-fill"></i>
-                        </div>
-                    </div>
-                    <h3 class="mb-1 fw-bold">{{ cards.comision_soles }}</h3>
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-label">Clientes</span>
+                <div class="stat-card-icon stat-card-icon-cyan">
+                    <i class="bi-people"></i>
                 </div>
+            </div>
+            <div class="stat-card-value">{{ cards.last_client_id }}</div>
+            <div class="stat-card-simple-footer">
+                <span class="stat-card-sub">Cartera total</span>
             </div>
         </div>
 
-        <!-- Card 4: Comisiones US$ -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h6 class="text-muted mb-0">Comisiones US$</h6>
-                        <div class="icon-shape text-warning">
-                            <i class="bi-cash-coin"></i>
-                        </div>
-                    </div>
-                    <h3 class="mb-1 fw-bold">{{ cards.comision_dolares }}</h3>
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-label">Renovaciones</span>
+                <div class="stat-card-icon stat-card-icon-orange">
+                    <i class="bi-clock"></i>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Section 2: Operational Metrics -->
-    <div class="row g-4 mb-4">
-        <!-- Card 1: Comisión Total -->
-        {#
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h6 class="text-muted mb-0">Comisión Total (Mes)</h6>
-                        <div class="icon-shape text-primary">
-                            <i class="bi-currency-dollar"></i>
-                        </div>
-                    </div>
-                    <h3 class="mb-1 fw-bold">{{ cards.total_commission | default('$0') }}</h3>
-                    <div class="small">
-                        {% if cards.comision_diff >= 0 %}
-                        <span class="text-success fw-bold"><i class="bi-arrow-up"></i> {{ cards.comision_diff }}%</span>
-                        {% else %}
-                        <span class="text-danger fw-bold"><i class="bi-arrow-down"></i> {{ cards.comision_diff }}%</span>
-                        {% endif %}
-                        <span class="text-muted">vs mes anterior</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        #}
-
-        <!-- Card 2: Pólizas Registradas + recibo -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h6 class="text-muted mb-0">Registradas</h6>
-                        <div class="icon-shape text-secondary">
-                            <i class="bi-journal-check"></i>
-                        </div>
-                    </div>
-                    <h3 class="mb-1 fw-bold">{{ cards.total_policies | default('0') }}</h3>
-                    <div class="small">
-                        <span class="text-muted">Total registradas</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-
-        <!-- Card 3: Pólizas Activas -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h6 class="text-muted mb-0">Pólizas Activas</h6>
-                        <div class="icon-shape text-success">
-                            <i class="bi-file-earmark-text"></i>
-                        </div>
-                    </div>
-                    <h3 class="mb-1 fw-bold">{{ cards.active_policies | default('0') }}</h3>
-                     <div class="small">
-                        <span class="text-muted">Total vigentes</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Card 4: Clientes -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h6 class="text-muted mb-0">Clientes</h6>
-                        <div class="icon-shape text-info">
-                            <i class="bi-people"></i>
-                        </div>
-                    </div>
-                    <h3 class="mb-1 fw-bold">{{ cards.last_client_id | default('0') }}</h3>
-                </div>
-            </div>
-        </div>
-        
-         <!-- Card 5: Renovaciones Pendientes -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h6 class="text-muted mb-0">Renovaciones</h6>
-                        <div class="icon-shape text-warning">
-                            <i class="bi-clock-history"></i>
-                        </div>
-                    </div>
-                    <h3 class="mb-1 fw-bold">{{ cards.pending_renewals | default('0') }}</h3>
-                     <div class="small">
-                        <span class="text-muted">Próximo mes</span>
-                    </div>
-                </div>
+            <div class="stat-card-value">{{ cards.pending_renewals }}</div>
+            <div class="stat-card-simple-footer">
+                <span class="stat-card-sub">Próximo mes</span>
             </div>
         </div>
     </div>
 
-    <!-- Charts Section -->
     {% if can_view_dashboard_charts(session.get('role_name')) %}
-    <div class="row g-4">
-        <!-- NEW: Income per Day (Wave/Soundtrack Style) -->
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0 pt-4 ps-4 d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="mb-0">Prima Neta y Comisiones Mensuales</h5>
-                        <p class="text-muted small mb-0">Distribucion por meses del año actual</p>
-                        <p class="text-danger small mb-0" id="chartErrorText" style="display:none;"></p>
-                    </div>
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="currency-toggle-group p-1 rounded-pill bg-dark-soft d-flex border border-white-10">
-                            <button class="btn btn-sm rounded-pill px-3 active currency-btn" data-currency="soles" type="button">S/.</button>
-                            <button class="btn btn-sm rounded-pill px-3 currency-btn text-muted" data-currency="dolares" type="button">US$</button>
-                        </div>
-                        <div class="d-flex flex-column align-items-end gap-1">
-                            <div class="income-total-badge px-3 py-2 rounded-pill bg-primary-soft">
-                                <span class="fw-bold text-primary" id="totalPrimaNetaLabel">Prima Neta: S/ 0.00</span>
-                            </div>
-                            <div class="income-total-badge px-3 py-2 rounded-pill bg-primary-soft">
-                                <span class="fw-bold text-primary" id="totalPrimaTotalLabel">Prima Comercial IGV: S/ 0.00</span>
-                            </div>
-                            <div class="income-total-badge px-3 py-2 rounded-pill bg-primary-soft">
-                                <span class="fw-bold text-primary" id="totalComisionLabel">Comisión: S/ 0.00</span>
-                            </div>
-                        </div>
-                    </div>
+    <div class="chart-section-card">
+        <div class="chart-section-header">
+            <div class="chart-title-area">
+                <h2 class="chart-title">Prima Neta y Comisiones Mensuales</h2>
+                <p class="chart-subtitle">Distribución por meses del año actual</p>
+                <p class="text-danger small mb-0" id="chartErrorText" style="display:none;"></p>
+            </div>
+            <div class="chart-controls-area">
+                <div class="chart-legend-badges">
+                    <span class="legend-badge">
+                        <span class="legend-dot legend-dot-blue"></span>
+                        <span class="legend-text fw-bold" id="totalPrimaNetaLabel">Prima Neta: S/. 76,857.25</span>
+                    </span>
+                    <span class="legend-badge">
+                        <span class="legend-dot legend-dot-green"></span>
+                        <span class="legend-text fw-bold" id="totalPrimaTotalLabel">Prima Comercial c/IGV: S/. 93,413.00</span>
+                    </span>
+                    <span class="legend-badge">
+                        <span class="legend-dot legend-dot-purple"></span>
+                        <span class="legend-text fw-bold" id="totalComisionLabel">Comisión: S/. 7,326.55</span>
+                    </span>
                 </div>
-                <div class="card-body">
-                    <div class="chart-income-day" style="height: 350px;">
-                        <canvas id="incomeDayChart"></canvas>
-                    </div>
+                <div class="currency-toggle-group">
+                    <button class="currency-btn active" data-currency="soles" type="button">S/.</button>
+                    <button class="currency-btn" data-currency="dolares" type="button">US$</button>
                 </div>
             </div>
         </div>
+        <div class="chart-section-body">
+            <div class="chart-income-day" style="height: 380px;">
+                <canvas id="incomeDayChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="category-grid">
         {% for key, label, color, canvas_id, renovar_label in [
             ('generales', 'Seguros Generales', '#3b82f6', 'chartGenerales', 'Por renovar'),
             ('soat',      'SOAT',              '#f59e0b', 'chartSoat',      'Por renovar'),
             ('personales','Seguros Personales','#10b981', 'chartPersonales','Por renovar')
         ] %}
-        <div class="col-12 col-md-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-transparent border-0 pt-3 ps-4 pb-0">
-                    <div class="d-flex align-items-center gap-2">
-                        <div style="width:10px;height:10px;border-radius:2px;background:{{ color }};"></div>
-                        <h6 class="mb-0 fw-semibold">{{ label }}</h6>
+        <div class="category-card">
+            <div class="category-card-header">
+                <span class="category-dot" style="background: {{ color }};"></span>
+                <h3 class="category-title">{{ label }}</h3>
+            </div>
+            <div class="category-card-body">
+                <div class="donut-wrapper">
+                    <canvas id="{{ canvas_id }}"></canvas>
+                    <div class="donut-center">
+                        <div class="donut-center-value">{{ (distribution.get(key, {}).vigentes | default(0, true)) + (distribution.get(key, {}).renovar | default(0, true)) }}</div>
+                        <div class="donut-center-label">Total</div>
                     </div>
                 </div>
-                <div class="card-body d-flex flex-column align-items-center pt-2">
-                    <div style="position:relative;width:160px;height:160px;">
-                        <canvas id="{{ canvas_id }}"></canvas>
-                        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
-                            <div class="fw-bold fs-4 lh-1">{{ distribution[key].vigentes + distribution[key].renovar }}</div>
-                            <div class="text-muted" style="font-size:0.65rem;">Total</div>
-                        </div>
-                    </div>
-                    <div class="d-flex gap-4 mt-3">
-                        <div class="text-center">
-                            <div class="fw-bold fs-5 lh-1" style="color:{{ color }}">{{ distribution[key].vigentes }}</div>
-                            <div class="text-muted" style="font-size:0.7rem;">Vigentes</div>
-                        </div>
-                        <button type="button" class="btn renovar-trigger text-center border-0 px-3 py-2 rounded-3" data-bucket="{{ key }}" data-label="{{ label }}" title="Click para ver el detalle" style="background:#fee2e2;color:#ef4444;transition:filter .15s;" onmouseover="this.style.filter='brightness(0.95)'" onmouseout="this.style.filter='none'">
-                            <div class="fw-bold fs-5 lh-1">{{ distribution[key].renovar }} <i class="bi-eye" style="font-size:0.75rem;"></i></div>
-                            <div style="font-size:0.7rem;">{{ renovar_label }}</div>
-                        </button>
-                    </div>
+            </div>
+            <div class="category-card-footer">
+                <div class="category-footer-left">
+                    <div class="footer-value" style="color: {{ color }};">{{ distribution.get(key, {}).vigentes | default(0, true) }}</div>
+                    <div class="footer-label">Vigentes</div>
                 </div>
+                <button type="button" class="renovar-btn renovar-trigger" data-bucket="{{ key }}" data-label="{{ label }}" title="Click para ver el detalle">
+                    <div class="renovar-btn-value">
+                        {{ distribution.get(key, {}).renovar | default(0, true) }}
+                        <i class="bi-eye"></i>
+                    </div>
+                    <div class="renovar-btn-label">{{ renovar_label }}</div>
+                </button>
             </div>
         </div>
         {% endfor %}
@@ -301,6 +233,6 @@
         distribution: {{ distribution | tojson }}
     };
 </script>
-<script src="{{ url_for('static', filename='js/dashboard_home.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard_home.js') }}?v=20260805-1"></script>
 {% endif %}
 {% endblock %}

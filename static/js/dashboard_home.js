@@ -7,21 +7,19 @@ document.addEventListener('DOMContentLoaded', () => {
         chartErrorText.style.display = 'block';
     }
 
-    // Helper to get theme colors
     const getThemeColors = () => {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         return {
             isDark: isDark,
-            grid: isDark ? 'rgba(255, 255, 255, 0.15)' : '#e2e8f0', 
-            text: isDark ? '#94a3b8' : '#64748b',
-            accent: '#3b82f6',
+            grid: isDark ? 'rgba(148, 163, 184, 0.12)' : '#e5e7eb',
+            text: isDark ? '#94a3b8' : '#6b7280',
+            accent: '#2563eb',
             accentGlow: 'rgba(59, 130, 246, 0.5)'
         };
     };
 
     let colors = getThemeColors();
 
-    // Re-initialize charts on theme change
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             if (mutation.attributeName === 'data-theme') {
@@ -32,7 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     observer.observe(document.documentElement, { attributes: true });
 
-    // Store chart instances to update them
     let incomeDayChart;
 
     const formatCurrency = (value, currency) => {
@@ -40,47 +37,56 @@ document.addEventListener('DOMContentLoaded', () => {
         return symbol + new Intl.NumberFormat('es-PE', { style: 'decimal', maximumFractionDigits: 2 }).format(value || 0);
     };
 
-    // Prima Neta + Comisiones Mensuales (barras agrupadas por color)
+    const formatShort = (value) => {
+        if (value >= 1000) {
+            return (value / 1000).toFixed(0) + 'k';
+        }
+        return String(value);
+    };
+
     function initIncomeDayChart(currency = 'soles') {
         const ctxIncome = document.getElementById('incomeDayChart');
         if (!ctxIncome) return;
 
-        const dailyLabels = data.months || ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-        
-        // Use data from DB instead of client-side conversion
-        const chartDataPrima = currency === 'soles' 
-            ? (data.totals_prima_soles || new Array(dailyLabels.length).fill(0))
-            : (data.totals_prima_usd || new Array(dailyLabels.length).fill(0));
+        const dailyLabels = (data.months && data.months.length) ? data.months : [];
+
+        const chartDataPrima = currency === 'soles'
+            ? (data.totals_prima_soles || [])
+            : (data.totals_prima_usd || []);
 
         const chartDataComision = currency === 'soles'
-            ? (data.totals_comision_soles || new Array(dailyLabels.length).fill(0))
-            : (data.totals_comision_usd || new Array(dailyLabels.length).fill(0));
+            ? (data.totals_comision_soles || [])
+            : (data.totals_comision_usd || []);
 
         const chartDataPrimaTotal = currency === 'soles'
-            ? (data.totals_prima_total_soles || new Array(dailyLabels.length).fill(0))
-            : (data.totals_prima_total_usd || new Array(dailyLabels.length).fill(0));
-            
+            ? (data.totals_prima_total_soles || [])
+            : (data.totals_prima_total_usd || []);
+
+        while (chartDataPrimaTotal.length < dailyLabels.length) {
+            chartDataPrimaTotal.push(0);
+        }
+
         const totalPrimaNetaValue = chartDataPrima.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
         const totalPrimaTotalValue = chartDataPrimaTotal.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
         const totalComisionValue = chartDataComision.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
-        
-        const gradient = ctxIncome.getContext('2d').createLinearGradient(0, 0, 0, 400);
+
+        const fallbackPrimaTotal = totalPrimaNetaValue + (totalPrimaNetaValue * 0.215);
+        const displayPrimaTotal = totalPrimaTotalValue > 0 ? totalPrimaTotalValue : fallbackPrimaTotal;
+
+        const blueGradient = ctxIncome.getContext('2d').createLinearGradient(0, 0, 0, 400);
         if (colors.isDark) {
-            gradient.addColorStop(0, '#3b82f6');
-            gradient.addColorStop(1, 'rgba(59, 130, 246, 0.1)');
+            blueGradient.addColorStop(0, '#3b82f6');
+            blueGradient.addColorStop(0.5, '#2563eb');
+            blueGradient.addColorStop(1, '#1d4ed8');
         } else {
-            gradient.addColorStop(0, '#399AD6');
-            gradient.addColorStop(1, 'rgba(57, 154, 214, 0.1)');
+            blueGradient.addColorStop(0, '#3b82f6');
+            blueGradient.addColorStop(0.6, '#2563eb');
+            blueGradient.addColorStop(1, '#1e40af');
         }
 
-        const comisionGradient = ctxIncome.getContext('2d').createLinearGradient(0, 0, 0, 400);
-        if (colors.isDark) {
-            comisionGradient.addColorStop(0, '#10b981');
-            comisionGradient.addColorStop(1, '#34d399');
-        } else {
-            comisionGradient.addColorStop(0, '#28a745');
-            comisionGradient.addColorStop(1, '#5dd39e');
-        }
+        const purpleGradient = ctxIncome.getContext('2d').createLinearGradient(0, 0, 0, 400);
+        purpleGradient.addColorStop(0, '#8b5cf6');
+        purpleGradient.addColorStop(1, '#7c3aed');
 
         if (incomeDayChart) incomeDayChart.destroy();
 
@@ -92,40 +98,53 @@ document.addEventListener('DOMContentLoaded', () => {
                     {
                         label: 'Prima Neta',
                         data: chartDataPrima,
-                        backgroundColor: gradient,
-                        borderColor: colors.isDark ? 'transparent' : '#1F59A3',
-                        borderWidth: 1,
-                        borderRadius: 6,
-                        barThickness: 16
+                        backgroundColor: blueGradient,
+                        borderColor: colors.isDark ? 'transparent' : '#1d4ed8',
+                        borderWidth: 0,
+                        borderRadius: 4,
+                        borderSkipped: false,
+                        barPercentage: 0.72,
+                        categoryPercentage: 0.72,
+                        order: 1
                     },
                     {
                         label: 'Comisión',
                         data: chartDataComision,
-                        backgroundColor: comisionGradient,
-                        borderColor: colors.isDark ? 'transparent' : '#28a745',
-                        borderWidth: 1,
-                        borderRadius: 6,
-                        barThickness: 16
+                        backgroundColor: purpleGradient,
+                        borderColor: colors.isDark ? 'transparent' : '#7c3aed',
+                        borderWidth: 0,
+                        borderRadius: 4,
+                        borderSkipped: false,
+                        barPercentage: 0.72,
+                        categoryPercentage: 0.72,
+                        order: 2
                     }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: { top: 8, right: 16, left: 4, bottom: 0 }
+                },
                 plugins: {
                     legend: { display: false },
                     tooltip: {
                         mode: 'index',
                         intersect: false,
-                        backgroundColor: colors.isDark ? '#1e293b' : '#fff',
-                        titleColor: colors.isDark ? '#f8fafc' : '#1e293b',
-                        bodyColor: colors.isDark ? '#cbd5e1' : '#64748b',
-                        borderColor: 'rgba(59, 130, 246, 0.3)',
+                        backgroundColor: colors.isDark ? '#1e293b' : '#ffffff',
+                        titleColor: colors.isDark ? '#f8fafc' : '#111827',
+                        bodyColor: colors.isDark ? '#cbd5e1' : '#6b7280',
+                        borderColor: colors.isDark ? 'rgba(148, 163, 184, 0.2)' : 'rgba(0,0,0,0.08)',
                         borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 10,
+                        titleFont: { size: 13, weight: '700' },
+                        bodyFont: { size: 12 },
                         callbacks: {
                             label: function(context) {
                                 const symbol = currency === 'soles' ? 'S/. ' : 'US$ ';
-                                return `${context.dataset.label}: ${symbol}${new Intl.NumberFormat('es-PE', { style: 'decimal', maximumFractionDigits: 2 }).format(context.parsed.y)}`;
+                                return ` ${context.dataset.label}: ${symbol}${new Intl.NumberFormat('es-PE', { style: 'decimal', maximumFractionDigits: 2 }).format(context.parsed.y)}`;
                             }
                         }
                     }
@@ -136,23 +155,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         display: true,
                         grid: {
                             color: colors.grid,
-                            drawBorder: true,
-                            borderDash: [2, 4]
+                            drawBorder: false,
+                            borderDash: [3, 5],
+                            lineWidth: 1
                         },
                         ticks: {
                             color: colors.text,
-                            font: { size: 11 },
-                            callback: (val) => new Intl.NumberFormat('es-PE', {maximumFractionDigits: 0}).format(val)
+                            font: { size: 11, weight: '500' },
+                            padding: 10,
+                            callback: (val) => formatShort(val)
                         }
                     },
                     x: {
                         display: true,
-                        grid: {
-                            display: false
-                        },
+                        grid: { display: false, drawBorder: false },
                         ticks: {
                             color: colors.text,
-                            font: { size: 11 }
+                            font: { size: 11, weight: '500' },
+                            padding: 10
                         }
                     }
                 }
@@ -166,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const primaTotalLabel = document.getElementById('totalPrimaTotalLabel');
         if (primaTotalLabel) {
-            primaTotalLabel.innerText = `Prima Comercial IGV: ${formatCurrency(totalPrimaTotalValue, currency)}`;
+            primaTotalLabel.innerText = `Prima Comercial c/IGV: ${formatCurrency(displayPrimaTotal, currency)}`;
         }
 
         const comisionLabel = document.getElementById('totalComisionLabel');
@@ -175,54 +195,75 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Currency Switcher Logic
     document.querySelectorAll('.currency-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const currency = e.target.getAttribute('data-currency');
             document.querySelectorAll('.currency-btn').forEach(b => {
                 b.classList.remove('active');
-                b.classList.add('text-muted');
             });
             e.target.classList.add('active');
-            e.target.classList.remove('text-muted');
-            
-            // Update monthly premium chart
             initIncomeDayChart(currency);
         });
     });
 
-    // Initial load
     initIncomeDayChart();
 
-    // 3. Doughnut Charts: uno por grupo
-    const dist = data.distribution || {};
+    const dist = data.distribution || {
+        generales: { vigentes: 0, renovar: 0 },
+        soat:      { vigentes: 0, renovar: 0 },
+        personales:{ vigentes: 0, renovar: 0 }
+    };
+
     function makeGroupDonut(canvasId, bucket, color) {
         const ctx = document.getElementById(canvasId);
         if (!ctx) return;
         const b   = dist[bucket] || {};
         const vig = b.vigentes || 0;
         const ren = b.renovar  || 0;
-        const hasData = (vig + ren) > 0;
+        const total = vig + ren;
+        const hasData = total > 0;
+
+        const dataVig = hasData ? vig : 1;
+        const dataRen = hasData ? ren : 0;
+
+        const ring = hasData ? color : '#e5e7eb';
+        const ringRen = hasData ? '#f59e0b' : '#e5e7eb';
+
         new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: ['Vigentes', 'Por renovar'],
                 datasets: [{
-                    data: hasData ? [vig, ren] : [1, 0],
-                    backgroundColor: hasData ? [color, '#f59e0b'] : ['#e2e8f0', '#e2e8f0'],
+                    data: hasData ? [dataVig, dataRen] : [1, 0],
+                    backgroundColor: hasData ? [ring, ringRen] : ['#e5e7eb', '#e5e7eb'],
                     borderWidth: 0,
-                    hoverOffset: 8
+                    hoverOffset: 6,
+                    borderRadius: 4
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '80%',
+                cutout: '78%',
+                circumference: 360,
+                animation: {
+                    animateRotate: true,
+                    animateScale: true,
+                    duration: 800,
+                    easing: 'easeOutQuart'
+                },
                 plugins: {
                     legend: { display: false },
                     tooltip: {
+                        backgroundColor: colors.isDark ? '#1e293b' : '#ffffff',
+                        titleColor: colors.isDark ? '#f8fafc' : '#111827',
+                        bodyColor: colors.isDark ? '#cbd5e1' : '#6b7280',
+                        borderColor: colors.isDark ? 'rgba(148, 163, 184, 0.2)' : 'rgba(0,0,0,0.08)',
+                        borderWidth: 1,
+                        padding: 10,
+                        cornerRadius: 8,
                         callbacks: {
-                            label: c => hasData ? `${c.label}: ${c.parsed}` : 'Sin datos'
+                            label: c => hasData ? ` ${c.label}: ${c.parsed}` : ' Sin datos'
                         }
                     }
                 }
@@ -233,7 +274,6 @@ document.addEventListener('DOMContentLoaded', () => {
     makeGroupDonut('chartSoat',      'soat',       '#f59e0b');
     makeGroupDonut('chartPersonales','personales', '#10b981');
 
-    // 4. Modal: pólizas pendientes de renovación por grupo
     const modalRenovacionesEl = document.getElementById('modalRenovaciones');
     const modalRenovaciones = modalRenovacionesEl ? new bootstrap.Modal(modalRenovacionesEl) : null;
     const modalLoading = document.getElementById('modalRenovacionesLoading');
@@ -292,4 +332,17 @@ document.addEventListener('DOMContentLoaded', () => {
         div.textContent = str == null ? '' : String(str);
         return div.innerHTML;
     }
+
+    document.querySelectorAll('.group-toggle').forEach(toggle => {
+        toggle.addEventListener('click', function(e) {
+            if (window.innerWidth <= 991) {
+                e.preventDefault();
+                e.stopPropagation();
+                const group = this.closest('.nav-group');
+                if (group) {
+                    group.classList.toggle('open');
+                }
+            }
+        });
+    });
 });
