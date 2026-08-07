@@ -3,54 +3,59 @@
 {% block html_title %}Pólizas | Listado{% endblock %}
 
 {% block extra_css %}
-<!-- Usamos polizas.css para mantener el mismo estilo que la vista de pólizas -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/polizas.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/listado-poliza.css') }}">
-<style>
-    /* Ajustes específicos para listado-poliza si son necesarios */
-    .table-card {
-        margin-top: 1rem;
-    }
-</style>
 {% endblock %}
 
 {% block page_title %}  {% endblock %}
 
 {% block content %}
-<div class="container-fluid px-0">
+<div class="container-fluid px-0 listado-page">
     
-    <!-- 1. Header Principal con Título y Botones Principales -->
-    <div class="page-header justify-content-start gap-3">
-        <h1 class="page-title mb-0">
-            <i class="bi-shield-check text-primary"></i> Pólizas | Listado
-        </h1>
-        <div class="header-actions d-flex gap-2">
-            <!-- Botones de filtros rápidos -->
-            <a href="#" class="btn btn-outline-primary btn-filter-rapido" data-filter="vencen-mes"><i class="bi-calendar3 me-1"></i> Vencen este Mes</a>
-            <a href="#" class="btn btn-outline-success btn-filter-rapido" data-filter="vigentes"><i class="bi-check-circle me-1"></i> Ver Vigentes</a>
-            <a href="{{ url_for('main.menu_page', page='listado-poliza') }}" class="btn btn-outline-dark btn-filter-rapido" data-filter="todos"><i class="bi-list-ul me-1"></i> Ver Todos</a>
+    <!-- 1. Header Principal: ícono gradiente + título + chips filtro -->
+    <div class="listado-header">
+        <div class="listado-header-main">
+            <div class="listado-title-icon">
+                <i class="bi bi-shield-check"></i>
+            </div>
+            <div>
+                <h1 class="listado-title">
+                    Pólizas<span class="listado-title-sep">|</span>Listado
+                </h1>
+                <div class="listado-header-subtitle mt-1">Administra, busca y filtra todas las pólizas del sistema</div>
+            </div>
+        </div>
+
+        <!-- Filtros rápidos: chips Vencen / Vigentes / Todos -->
+        <div class="filter-chips-row">
+            <a href="#" class="filter-chip chip-vencen btn-filter-rapido" data-filter="vencen-mes">
+                <i class="bi bi-calendar3"></i><span>Vencen este Mes</span>
+            </a>
+            <a href="#" class="filter-chip chip-vigentes btn-filter-rapido" data-filter="vigentes">
+                <i class="bi bi-check-circle"></i><span>Ver Vigentes</span>
+            </a>
+            <a href="{{ url_for('main.menu_page', page='listado-poliza') }}" class="filter-chip chip-todos btn-filter-rapido" data-filter="todos">
+                <i class="bi bi-list-ul"></i><span>Ver Todos</span>
+            </a>
         </div>
     </div>
 
-    <!-- 2. Sub-navegación / Filtros Secundarios -->
-    <div class="sub-nav" id="searchTabs">
-        <a href="#" class="sub-nav-link" data-search-type="historica">Número de Póliza Histórica</a>
-        <span class="sub-nav-separator">|</span>
-        <a href="#" class="sub-nav-link" data-search-type="aviso">Aviso de Cobranza</a>
-        <span class="sub-nav-separator">|</span>
-        <a href="#" class="sub-nav-link" data-search-type="placa">Placa/Motor</a>
-        <span class="sub-nav-separator">|</span>
-        <a href="#" class="sub-nav-link" data-search-type="titular">Titular y/o Dependiente</a>
+    <!-- 2. Sub-navegación pills -->
+    <div class="quick-links listado-subnav" id="searchTabs">
+        <a href="#" class="qlink sub-nav-link" data-search-type="historica">Número de Póliza Histórica</a>
+        <a href="#" class="qlink sub-nav-link" data-search-type="aviso">Aviso de Cobranza</a>
+        <a href="#" class="qlink sub-nav-link" data-search-type="placa">Placa/Motor</a>
+        <a href="#" class="qlink sub-nav-link" data-search-type="titular">Titular y/o Dependiente</a>
     </div>
 
-    <!-- 3. Barra de Búsqueda Grande -->
-    <div class="search-container">
-        <div class="input-group search-input-group w-100">
+    <!-- 3. Barra de Búsqueda Grande (pill 44px) -->
+    <div class="search-container listado-search-wrap">
+        <div class="input-group search-input-group listado-search">
             <span class="input-group-text border-end-0 text-muted ps-3">
-                <i class="bi-search"></i>
+                <i class="bi bi-search"></i>
             </span>
             <input id="polizasSearch" type="text" class="form-control border-start-0" placeholder="Búsqueda General (Contratante, asegurado, póliza, placa...)">
-            <button class="btn btn-outline-secondary" type="button" id="btnVoiceSearch" title="Buscar por voz"><i class="bi-mic-fill"></i></button>
+            <button class="btn btn-outline-secondary" type="button" id="btnVoiceSearch" title="Buscar por voz"><i class="bi bi-mic-fill"></i></button>
             <button class="btn btn-success btn-search text-white" type="button" id="btnGlobalSearch">Buscar</button>
         </div>
     </div>
@@ -63,7 +68,7 @@
          data-cuotas-url="{{ url_for('main.menu_page', page='cuotas') }}"
          data-siniestros-url="{{ url_for('main.menu_siniestros_poliza') }}">
         
-        <!-- Toolbar de Tabla -->
+        <!-- Toolbar de Tabla: Mostrar X filas -->
         <div class="table-toolbar p-2 border-bottom">
             <div class="table-actions d-flex align-items-center justify-content-end w-100">
                 <div class="page-size-selector d-flex align-items-center gap-2">
@@ -77,82 +82,172 @@
             </div>
         </div>
 
-        <div class="table-responsive">
-            <table class="table modern-table" id="polizasListTable">
+        <div class="table-responsive listado-table-wrap">
+            <table class="table modern-table listado-table" id="polizasListTable">
+                <!-- COLGROUP 11 cols (anchos fijos, total 1240px — SIN scroll horizontal) -->
+                <colgroup>
+                    <col class="col-contratante">
+                    <col class="col-asegurado">
+                    <col class="col-cia">
+                    <col class="col-ramo">
+                    <col class="col-prod">
+                    <col class="col-poliza">
+                    <col class="col-vig-i">
+                    <col class="col-vig-f">
+                    <col class="col-subagente">
+                    <col class="col-maseg">
+                    <col class="col-accion">
+                </colgroup>
                 <thead>
                     <tr>
-                        <th>Contratante</th>
-                        <th>Asegurado</th>
-                        <th>Cía</th>
-                        <th>Ram</th>
-                        <th>Prod</th>
-                        <th>Póliza</th>
-                        <th>Vig Inicio</th>
-                        <th>Vig Fin</th>
-                        <th>Sub Agente</th>
-                        <th>M.Asegurada</th>
-                        <!--<th>Registrado Por</th>
-                        <th>Editado Por</th> -->
-                        <th class="text-end">Acción</th>
+                        <th class="col-contratante">Contratante</th>
+                        <th class="col-asegurado">Asegurado</th>
+                        <th class="col-cia">Cía</th>
+                        <th class="col-ramo">Ram</th>
+                        <th class="col-prod">Prod</th>
+                        <th class="col-poliza">Póliza</th>
+                        <th class="col-vig-i">Vig Inicio</th>
+                        <th class="col-vig-f">Vig Fin</th>
+                        <th class="col-subagente">Sub Agente</th>
+                        <th class="col-maseg">M.Asegurada</th>
+                        <th class="text-center col-accion">Acción</th>
                     </tr>
                 </thead>
                 <tbody id="polizasTableBody">
                     {% for r in page_rows %}
-                    <tr data-id="{{ r.idPoliza }}" data-emision="{{ r.fecha_emision }}" data-poliza="{{ r.poliza }}">
-                        <td>{{ r.contratante }}</td>
-                        <td>{{ r.asegurado }}</td>
-                        <td>{{ r.cia }}</td>
-                        <td>{{ r.ramo }}</td>
-                        <td>{{ r.producto }}</td>
-                        <td>{{ r.poliza }}</td>
-                        <td>{{ r.ren_vig_desde if r.ren_vig_desde else r.vig_desde }}</td>
-                        <td>{{ r.ren_vig_hasta if r.ren_vig_hasta else r.vig_hasta }}</td>
-                        <td>{{ r.sub_agente }}</td>
-                        <td>{{ r.asegurada }}</td>
-                        <td class="text-end">
-                            <div class="action-buttons justify-content-end">
-                                <!-- Botones Visibles Prioritarios -->
-                                {% if can_delete(session.role_name) %} <!-- Anular es un tipo de edición de estado -->
+                    {% set vig_desde = r.ren_vig_desde if r.ren_vig_desde else r.vig_desde %}
+                    {% set vig_hasta = r.ren_vig_hasta if r.ren_vig_hasta else r.vig_hasta %}
+                    <tr class="poliza-row"
+                        data-id="{{ r.idPoliza }}"
+                        data-emision="{{ r.fecha_emision }}"
+                        data-poliza="{{ r.poliza }}">
+
+                        <!-- Contratante -->
+                        <td class="col-contratante">
+                            <span class="cell-nombre">{{ r.contratante }}</span>
+                        </td>
+
+                        <!-- Asegurado -->
+                        <td class="col-asegurado">
+                            <span class="cell-nombre">{{ r.asegurado }}</span>
+                        </td>
+
+                        <!-- Compañía (pill por aseguradora) -->
+                        <td class="col-cia">
+                            {% if r.cia %}
+                                {% set ciak = r.cia|string|lower|replace(' ','') %}
+                                {% if 'mapfre' in ciak %}
+                                    <span class="company-pill company-mapfre">MAPFRE</span>
+                                {% elif 'rimac' in ciak %}
+                                    <span class="company-pill company-rimac">RIMAC</span>
+                                {% elif 'lapositiva' in ciak or 'positiva' in ciak %}
+                                    <span class="company-pill company-la-positiva">LA POSITIVA</span>
+                                {% elif 'pacifico' in ciak or 'pacífico' in ciak %}
+                                    <span class="company-pill company-pacifico">PACÍFICO</span>
+                                {% elif 'hdi' in ciak %}
+                                    <span class="company-pill company-hdi">HDI</span>
+                                {% elif 'crecer' in ciak %}
+                                    <span class="company-pill company-crecer">CRECER</span>
+                                {% else %}
+                                    <span class="company-pill company-default">{{ r.cia[:12]|upper }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Ramo -->
+                        <td class="col-ramo">
+                            <span class="cell-ramo">{{ r.ramo }}</span>
+                        </td>
+
+                        <!-- Producto (chip SOAT / Particular / Empresarial) -->
+                        <td class="col-prod">
+                            {% if r.producto %}
+                                {% set p = r.producto|string|lower|replace(' ','') %}
+                                {% if 'soat' in p %}
+                                    <span class="prod-chip prod-chip--soat">SOAT</span>
+                                {% elif 'particular' in p or 'particular' in p or 'vehicular' in p %}
+                                    <span class="prod-chip prod-chip--particular">PARTICULAR</span>
+                                {% elif 'empresarial' in p or 'empresa' in p or 'flota' in p %}
+                                    <span class="prod-chip prod-chip--empresarial">EMPRESARIAL</span>
+                                {% else %}
+                                    <span class="prod-chip prod-chip--default">{{ r.producto[:10]|upper }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Póliza (monospace) -->
+                        <td class="col-poliza">
+                            <span class="cell-poliza">{{ r.poliza }}</span>
+                        </td>
+
+                        <!-- Vig Inicio (monospace bold date) -->
+                        <td class="col-vig-i">
+                            <span class="date-cell">{{ vig_desde }}</span>
+                        </td>
+
+                        <!-- Vig Fin -->
+                        <td class="col-vig-f">
+                            <span class="date-cell">{{ vig_hasta }}</span>
+                        </td>
+
+                        <!-- Sub Agente -->
+                        <td class="col-subagente">
+                            <span class="cell-subagente">{{ r.sub_agente if r.sub_agente else '—' }}</span>
+                        </td>
+
+                        <!-- Materia Asegurada -->
+                        <td class="col-maseg">
+                            <span class="cell-maseg">{{ r.asegurada if r.asegurada else '—' }}</span>
+                        </td>
+
+                        <!-- ACCIÓN: 6 botones verticales gradiente -->
+                        <td class="col-accion">
+                            <div class="action-buttons-col">
+                                <!-- 1. ANULAR -->
+                                {% if can_delete(session.role_name) %}
                                 <button type="button" class="btn-action btn-danger" data-action="anular">
-                                    Anular
+                                    <i class="bi bi-x-circle-fill"></i><span>ANULAR</span>
                                 </button>
                                 {% endif %}
-                               <!-- 
-                                {% if can_create_poliza(session.role_name) %}
-                                <button type="button" class="btn-action btn-success" data-action="renovar">
-                                    Renovar
-                                </button>
-                                {% endif %}-->
-                                
-                                <button type="button" class="btn-action btn-nueva-poliza" data-action="nueva-poliza" title="Nueva póliza para este cliente">
-                                    <i class="bi-plus-lg"></i>
-                                </button>
 
+                                <!-- 2. NUEVA PÓLIZA (pseudo-elementos ::before (ícono) + ::after ("NUEVA") via CSS) -->
+                                <button type="button" class="btn-nueva-poliza" data-action="nueva-poliza" title="Nueva póliza para este cliente"></button>
+
+                                <!-- 3. PRIMAS -->
                                 <a href="{{ url_for('main.menu_page', page='primas') }}?poliza={{ r.poliza }}" class="btn-action btn-primary text-decoration-none">
-                                    Primas
+                                    <i class="bi bi-file-earmark-check-fill"></i><span>PRIMAS</span>
                                 </a>
 
-                                <!-- Dropdown para resto de acciones -->
-                                <div class="dropdown action-dropdown ms-1">
-                                    <button class="btn-dropdown dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        Acción
+                                <!-- 4. EXTRACTO (teal) -->
+                                <a href="{{ url_for('main.menu_page', page='cuotas') }}?poliza={{ r.poliza }}" class="btn-action btn-teal text-decoration-none">
+                                    <i class="bi bi-file-earmark-lock"></i><span>EXTRACTO</span>
+                                </a>
+
+                                <!-- 5. EDITAR (success verde) -->
+                                {% if can_edit(session.role_name) %}
+                                <a href="{{ url_for('main.menu_page', page='editar-poliza') }}?id={{ r.idPoliza }}" class="btn-action btn-success text-decoration-none">
+                                    <i class="bi bi-pencil-square"></i><span>EDITAR</span>
+                                </a>
+                                {% endif %}
+
+                                <!-- 6. MAS OPCIONES: dropdown cyan -->
+                                <div class="dropdown action-dropdown w-100">
+                                    <button class="btn-dropdown dropdown-toggle w-100" type="button" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
+                                        <i class="bi bi-three-dots"></i><span>MAS OPCIONES</span>
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-end">
-                                        <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='cuotas') }}?poliza={{ r.poliza }}"><i class="bi-file-earmark-lock"></i> Extracto</a></li>
-                                        <li><a class="dropdown-item" href="{{ url_for('main.menu_siniestros_poliza', poliza=r.poliza) }}"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
-                                        <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi-briefcase"></i> Solicitudes</a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('main.menu_siniestros_poliza', poliza=r.poliza) }}"><i class="bi bi-exclamation-triangle"></i> Siniestros</a></li>
+                                        <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi bi-briefcase"></i> Solicitudes</a></li>
                                         <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='detalles-poliza', id=r.idPoliza) }}"><i class="bi-info-circle"></i> Detalles</a></li>
-                                        
-                                        {% if can_edit(session.role_name) %}
-                                        <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='editar-poliza') }}?id={{ r.idPoliza }}"><i class="bi-pencil-square"></i> Editar</a></li>
-                                        {% endif %}
-                                        
-                                        <li><a class="dropdown-item" href="/menu/detalles-poliza?id={{ r.idPoliza }}&print=true" target="_blank"><i class="bi-printer"></i> Imprimir</a></li>
-                                        
+                                        <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='detalles-poliza', id=r.idPoliza) }}"><i class="bi bi-info-circle"></i> Detalles</a></li>
+                                        <li><a class="dropdown-item" href="/menu/detalles-poliza?id={{ r.idPoliza }}&print=true" target="_blank"><i class="bi bi-printer"></i> Imprimir</a></li>
                                         {% if can_hard_delete(session.role_name) %}
                                         <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash-fill"></i> Eliminar</a></li>
+                                        <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi bi-trash-fill"></i> Eliminar</a></li>
                                         {% endif %}
                                     </ul>
                                 </div>
@@ -176,10 +271,10 @@
             <div class="d-flex align-items-center">
                 {% if pagination.has_prev %}
                 <a class="btn-pagination" href="{{ url_for('main.menu_page', page='listado-poliza') }}?page={{ pagination.page - 1 }}&per_page={{ pagination.per_page }}" title="Anterior">
-                    <i class="bi-chevron-left"></i>
+                    <i class="bi bi-chevron-left"></i>
                 </a>
                 {% else %}
-                <span class="btn-pagination disabled"><i class="bi-chevron-left"></i></span>
+                <span class="btn-pagination disabled"><i class="bi bi-chevron-left"></i></span>
                 {% endif %}
 
                 {% for p in pagination.iter_pages %}
@@ -196,10 +291,10 @@
 
                 {% if pagination.has_next %}
                 <a class="btn-pagination" href="{{ url_for('main.menu_page', page='listado-poliza') }}?page={{ pagination.page + 1 }}&per_page={{ pagination.per_page }}" title="Siguiente">
-                    <i class="bi-chevron-right"></i>
+                    <i class="bi bi-chevron-right"></i>
                 </a>
                 {% else %}
-                <span class="btn-pagination disabled"><i class="bi-chevron-right"></i></span>
+                <span class="btn-pagination disabled"><i class="bi bi-chevron-right"></i></span>
                 {% endif %}
             </div>
         </div>
@@ -231,13 +326,12 @@
 
 {% block before_js %}
 <script>
-  // Marca el item del menú como activo en el sidebar
   window.currentPage = "listado-poliza";
 </script>
 {% endblock %}
 
 {% block extra_js_bottom %}
 {{ super() }}
-<script src="{{ url_for('static', filename='js/renovar-poliza.js') }}?v=20260805-1"></script>
-<script src="{{ url_for('static', filename='js/listado-poliza.js') }}?v=20260805-1"></script>
+<script src="{{ url_for('static', filename='js/renovar-poliza.js') }}?v=20260807-2"></script>
+<script src="{{ url_for('static', filename='js/listado-poliza.js') }}?v=20260807-2"></script>
 {% endblock %}

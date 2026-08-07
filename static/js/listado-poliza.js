@@ -267,6 +267,17 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     const modal = bootstrap.Modal.getOrCreateInstance(searchModalEl);
     modal.show();
+
+    const esc = (s) => {
+      if (s == null) return '';
+      return String(s)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    };
+
     try {
       const response = await fetch(`/api/polizas/search?q=${encodeURIComponent(query)}&type=${encodeURIComponent(type)}`);
       const data = await response.json();
@@ -275,15 +286,24 @@ document.addEventListener('DOMContentLoaded', () => {
         searchModalBody.innerHTML = `
           <div class="text-center text-muted py-5">
             <i class="bi-search display-6 d-block mb-3 opacity-25"></i>
-            No se encontraron resultados para "${query}"
+            No se encontraron resultados para "${esc(query)}"
           </div>
         `;
         return;
       }
       let html = `
-        <div class="mb-2 text-muted small">Se encontraron ${rows.length} resultado${rows.length !== 1 ? 's' : ''}</div>
-        <div class="table-responsive">
-          <table class="table">
+        <div class="mb-2 text-muted small fw-medium">Se encontraron ${rows.length} resultado${rows.length !== 1 ? 's' : ''}</div>
+        <div class="searchresults-wrap">
+          <table class="searchresults-table">
+            <colgroup>
+              <col class="col-sr-contratante">
+              <col class="col-sr-asegurado">
+              <col class="col-sr-cia">
+              <col class="col-sr-prod">
+              <col class="col-sr-poliza">
+              <col class="col-sr-vig">
+              <col class="col-sr-accion">
+            </colgroup>
             <thead>
               <tr>
                 <th>Contratante</th>
@@ -292,25 +312,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th>Prod</th>
                 <th>Póliza</th>
                 <th>Vigencia</th>
-                <th class="text-end">Acciones</th>
+                <th class="col-sr-accion">Acciones</th>
               </tr>
             </thead>
             <tbody>
       `;
       rows.forEach(r => {
-        const vig = `${r.vig_desde || ''} - ${r.vig_hasta || ''}`;
+        const vigDesde = esc(r.ren_vig_desde || r.vig_desde || '');
+        const vigHasta = esc(r.ren_vig_hasta || r.vig_hasta || '');
+        const pol = esc(r.poliza || '');
+        const polEnc = encodeURIComponent(r.poliza || '');
+        const ciaInfo = companyPill(r.cia);
+        const prodInfo = prodChip(r.producto, r.ramo);
         html += `
           <tr>
-            <td>${r.contratante || ''}</td>
-            <td>${r.asegurado || ''}</td>
-            <td>${r.cia || ''}</td>
-            <td>${r.producto || r.ramos_producto || ''}</td>
-            <td>${r.poliza || ''}</td>
-            <td>${vig}</td>
-            <td class="text-end">
-              <a href="${primasUrlBase}?poliza=${encodeURIComponent(r.poliza || '')}" class="btn btn-sm btn-primary me-1">Primas</a>
-              <a href="${cuotasUrlBase}?poliza=${encodeURIComponent(r.poliza || '')}" class="btn btn-sm btn-outline-secondary me-1">Extracto</a>
-              <a href="/menu/detalles-poliza?id=${r.idPoliza}" class="btn btn-sm btn-outline-dark">Detalles</a>
+            <td class="col-sr-contratante"><span class="sr-cell-nombre">${esc(r.contratante || '')}</span></td>
+            <td class="col-sr-asegurado"><span class="sr-cell-nombre">${esc(r.asegurado || '')}</span></td>
+            <td class="col-sr-cia"><span class="company-pill ${ciaInfo[0]}">${esc(ciaInfo[1] || r.cia || '')}</span></td>
+            <td class="col-sr-prod"><span class="prod-chip ${prodInfo[0]}">${esc(prodInfo[1] || r.producto || '')}</span></td>
+            <td class="col-sr-poliza"><span class="sr-cell-poliza">${pol}</span></td>
+            <td class="col-sr-vig"><span class="sr-cell-vig">${vigDesde}${vigDesde && vigHasta ? ' → ' : ''}${vigHasta}</span></td>
+            <td class="col-sr-accion">
+              <div class="sr-action-btns">
+                <a href="${esc(primasUrlBase)}?poliza=${polEnc}" class="sr-btn sr-btn--primas" title="Ir a Primas">Primas</a>
+                <a href="${esc(cuotasUrlBase)}?poliza=${polEnc}" class="sr-btn sr-btn--extracto" title="Ir a Extracto/Cuotas">Extracto</a>
+                <a href="/menu/detalles-poliza?id=${encodeURIComponent(String(r.idPoliza || ''))}" class="sr-btn sr-btn--detalles" title="Ver detalles">Detalles</a>
+              </div>
             </td>
           </tr>
         `;
@@ -347,67 +374,85 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Helper para nulos
-    const v = (val) => val || '';
+    const esc = (s) => {
+      if (s == null) return '';
+      return String(s)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    };
 
     rows.forEach(r => {
+      const idP = String(r.idPoliza || '');
+      const pol = String(r.poliza || '');
+      const polEnc = encodeURIComponent(pol);
+      const cia = companyPill(r.cia);
+      const prod = prodChip(r.producto, r.ramo);
+      const vigDesde = esc(r.ren_vig_desde || r.vig_desde || '');
+      const vigHasta = esc(r.ren_vig_hasta || r.vig_hasta || '');
+      const contratante = esc(r.contratante || '');
+      const asegurado = esc(r.asegurado || '');
+      const ramo = esc(r.ramo || '');
+      const subAg = esc(r.sub_agente || '');
+      const mAseg = esc(r.asegurada || '');
+
       const tr = document.createElement('tr');
-      tr.classList.add('align-middle');
-      tr.setAttribute('data-id', r.idPoliza);
-      tr.setAttribute('data-emision', r.fecha_emision || '');
-      tr.setAttribute('data-poliza', r.poliza || '');
+      tr.className = 'poliza-row';
+      tr.setAttribute('data-id', idP);
+      tr.setAttribute('data-emision', esc(r.fecha_emision || ''));
+      tr.setAttribute('data-poliza', pol);
 
-      // Estilo de botones: Usamos el estilo flex de polizas.html pero adaptado.
-      // Corrección: Eliminados data-action de enlaces de navegación (Primas, Extracto, Editar)
-      
+      // MISMA ESTRUCTURA QUE JINJA: (1) Contratante (2) Aseg (3) Cía (4) Ram (5) Prod (6) Pol (7) VigI (8) VigF (9) SubAg (10) MAseg (11) Acc
       tr.innerHTML = `
-        <td>${v(r.contratante)}</td>
-        <td>${v(r.asegurado)}</td>
-        <td>${v(r.cia)}</td>
-        <td>${v(r.ramo)}</td>
-        <td>${v(r.producto)}</td>
-        <td>${v(r.poliza)}</td>
-        <td>${v(r.ren_vig_desde || r.vig_desde)}</td>
-        <td>${v(r.ren_vig_hasta || r.vig_hasta)}</td>
-        <td>${v(r.sub_agente)}</td>
-        <td>${v(r.asegurada)}</td>
-        <td class="text-end">
-          <div class="action-buttons justify-content-end">
-              <!-- Botones Visibles Prioritarios -->
-              <button type="button" class="btn-action btn-danger" data-action="anular" title="Anular">
-                  Anular
+        <td class="col-contratante"><span class="cell-nombre">${contratante || '<span class="text-muted small">—</span>'}</span></td>
+        <td class="col-asegurado"><span class="cell-nombre">${asegurado || '<span class="text-muted small">—</span>'}</span></td>
+        <td class="col-cia">${cia ? `<span class="company-pill ${cia[0]}">${esc(cia[1])}</span>` : '<span class="text-muted small">—</span>'}</td>
+        <td class="col-ramo"><span class="cell-ramo">${ramo || '<span class="text-muted small">—</span>'}</span></td>
+        <td class="col-prod">${prod ? `<span class="prod-chip ${prod[0]}">${esc(prod[1])}</span>` : '<span class="text-muted small">—</span>'}</td>
+        <td class="col-poliza"><span class="cell-poliza">${esc(pol)}</span></td>
+        <td class="col-vig-i"><span class="date-cell">${vigDesde || '<span class="text-muted small">—</span>'}</span></td>
+        <td class="col-vig-f"><span class="date-cell">${vigHasta || '<span class="text-muted small">—</span>'}</span></td>
+        <td class="col-subagente"><span class="cell-subagente">${subAg || '<span class="text-muted small">—</span>'}</span></td>
+        <td class="col-maseg"><span class="cell-maseg">${mAseg || '<span class="text-muted small">—</span>'}</span></td>
+        <td class="col-accion">
+          <div class="action-buttons-col">
+            <button type="button" class="btn-action btn-danger" data-action="anular">
+              <i class="bi bi-x-circle-fill"></i><span>ANULAR</span>
+            </button>
+
+            <button type="button" class="btn-nueva-poliza" data-action="nueva-poliza" title="Nueva póliza para este cliente"></button>
+
+            <a href="${primasUrlBase}?poliza=${polEnc}" class="btn-action btn-primary text-decoration-none">
+              <i class="bi bi-file-earmark-check-fill"></i><span>PRIMAS</span>
+            </a>
+
+            <a href="${cuotasUrlBase}?poliza=${polEnc}" class="btn-action btn-teal text-decoration-none">
+              <i class="bi bi-file-earmark-lock"></i><span>EXTRACTO</span>
+            </a>
+
+            <a href="${editUrlBase}?id=${encodeURIComponent(idP)}" class="btn-action btn-success text-decoration-none">
+              <i class="bi bi-pencil-square"></i><span>EDITAR</span>
+            </a>
+
+            <div class="dropdown action-dropdown w-100">
+              <button class="btn-dropdown dropdown-toggle w-100" type="button" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
+                <i class="bi bi-three-dots"></i><span>MAS OPCIONES</span>
               </button>
-
-              <button type="button" class="btn-action btn-success" data-action="renovar" title="Renovar">
-                  Renovar
-              </button>
-
-              <button type="button" class="btn-action btn-nueva-poliza" data-action="nueva-poliza" title="Agregar nueva póliza para este cliente">
-                  <i class="bi-plus-lg"></i>
-              </button>
-
-              <a href="${primasUrlBase}?poliza=${encodeURIComponent(r.poliza)}" class="btn-action btn-primary text-decoration-none" title="Primas">
-                  Primas
-              </a>
-
-              <!-- Dropdown para resto de acciones -->
-              <div class="dropdown action-dropdown ms-1">
-                  <button class="btn-dropdown dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                      Acción
-                  </button>
-                  <ul class="dropdown-menu dropdown-menu-end">
-                      <li><a class="dropdown-item" href="${cuotasUrlBase}?poliza=${encodeURIComponent(r.poliza)}"><i class="bi-file-text"></i> Extracto</a></li>
-                      <li><a class="dropdown-item" href="${siniestrosUrlBase}?poliza=${encodeURIComponent(r.poliza)}"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
-                      <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi-briefcase"></i> Solicitudes</a></li>
-                      <li><hr class="dropdown-divider"></li>
-                      <li><a class="dropdown-item" href="/menu/detalles-poliza?id=${r.idPoliza}"><i class="bi-info-circle"></i> Detalles</a></li>
-                      <li><a class="dropdown-item" href="${editUrlBase}?id=${r.idPoliza}"><i class="bi-pencil-square"></i> Editar</a></li>
-                      <li><a class="dropdown-item" href="/menu/detalles-poliza?id=${r.idPoliza}&print=true" target="_blank"><i class="bi-printer"></i> Imprimir</a></li>
-                      <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash"></i> Eliminar</a></li>
-                  </ul>
-              </div>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="${siniestrosUrlBase}?poliza=${polEnc}"><i class="bi bi-exclamation-triangle"></i> Siniestros</a></li>
+                <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi bi-briefcase"></i> Solicitudes</a></li>
+                <li><a class="dropdown-item" href="#" data-action="renovar"><i class="bi bi-arrow-repeat"></i> Renovar</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="/menu/detalles-poliza?id=${encodeURIComponent(idP)}"><i class="bi bi-info-circle"></i> Detalles</a></li>
+                <li><a class="dropdown-item" href="/menu/detalles-poliza?id=${encodeURIComponent(idP)}&print=true" target="_blank"><i class="bi bi-printer"></i> Imprimir</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi bi-trash-fill"></i> Eliminar</a></li>
+              </ul>
+            </div>
           </div>
-      </td>
+        </td>
       `;
       tbody.appendChild(tr);
     });
@@ -417,12 +462,35 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!tbody) return;
     tbody.innerHTML = `
       <tr>
-        <td colspan="13" class="text-center text-danger py-5">
+        <td colspan="11" class="text-center text-danger py-5">
           <i class="bi-exclamation-circle display-6 d-block mb-3"></i>
           ${msg}
         </td>
       </tr>
     `;
+  }
+
+  // Helper: devuelve [clase pill, texto] para una compañía
+  function companyPill(ciaStr) {
+    if (!ciaStr) return null;
+    const c = String(ciaStr).toLowerCase().replace(/\s+/g, '');
+    if (c.includes('mapfre')) return ['company-mapfre', 'MAPFRE'];
+    if (c.includes('rimac')) return ['company-rimac', 'RIMAC'];
+    if (c.includes('lapositiva') || c.includes('positiva')) return ['company-la-positiva', 'LA POSITIVA'];
+    if (c.includes('pacifico') || c.includes('pacífico')) return ['company-pacifico', 'PACÍFICO'];
+    if (c.includes('hdi')) return ['company-hdi', 'HDI'];
+    if (c.includes('crecer')) return ['company-crecer', 'CRECER'];
+    return ['company-default', String(ciaStr).slice(0, 12).toUpperCase()];
+  }
+
+  // Helper: devuelve [clase chip, texto] para un producto
+  function prodChip(prodStr, ramoStr) {
+    const s = String(prodStr || ramoStr || '').toLowerCase().replace(/\s+/g, '');
+    if (!s) return null;
+    if (s.includes('soat')) return ['prod-chip--soat', 'SOAT'];
+    if (s.includes('particular') || s.includes('vehicular')) return ['prod-chip--particular', 'PARTICULAR'];
+    if (s.includes('empresarial') || s.includes('empresa') || s.includes('flota')) return ['prod-chip--empresarial', 'EMPRESARIAL'];
+    return ['prod-chip--default', String(prodStr || ramoStr || '').slice(0, 10).toUpperCase()];
   }
 
   // Event Listeners Búsqueda Global
@@ -531,12 +599,16 @@ document.addEventListener('DOMContentLoaded', () => {
     table.addEventListener('click', async (e) => {
         // Manejar clicks en botones o items de dropdown
         const actionEl = e.target.closest('[data-action]');
-        if (!actionEl) return;
 
-        // Si es un enlace normal (sin data-action), no prevenimos default.
-        // Pero aquí hemos filtrado por [data-action], así que se supone que son acciones JS.
-        // Si por error queda un data-action en un href, esto prevendrá la navegación.
-        // Por eso hemos quitado data-action de los hrefs de navegación.
+        // 🔴 GUARDA CRÍTICA: Si el clickeado es un <a href> SIN data-action (PRIMAS, EXTRACTO, EDITAR),
+        //    NO hacemos nada. El browser hace la navegación NATIVA instantánea (sin demora, sin preventDefault).
+        if (!actionEl) {
+            const plainLink = e.target.closest('a[href]');
+            if (plainLink && !plainLink.getAttribute('data-action')) {
+                return; // ← DEJA NAVEGAR → instantáneo como antes
+            }
+            return;
+        }
 
         e.preventDefault();
         const action = actionEl.getAttribute('data-action');
