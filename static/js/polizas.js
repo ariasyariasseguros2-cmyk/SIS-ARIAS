@@ -300,51 +300,71 @@
         const tr = document.createElement('tr');
         tr.setAttribute('data-id', r.idPoliza);
         tr.setAttribute('data-emision', r.fecha_emision || '');
-        
-        // Helper para nulos
+        tr.className = 'poliza-row';
+
         const v = (val) => val || '';
 
+        const cia = v(r.cia);
+        const ciaLower = cia.toLowerCase().replace(/\s+/g, '-').replace(/\./g, '');
+        let ciaClass = 'company-default';
+        if (ciaLower.includes('positiva') || ciaLower.includes('la-positiva')) ciaClass = 'company-la-positiva';
+        else if (ciaLower.includes('crecer')) ciaClass = 'company-crecer';
+        else if (ciaLower.includes('rimac')) ciaClass = 'company-rimac';
+        else if (ciaLower.includes('pacifico')) ciaClass = 'company-pacifico';
+        else if (ciaLower.includes('mapfre')) ciaClass = 'company-mapfre';
+        else if (ciaLower.includes('hdi')) ciaClass = 'company-hdi';
+
+        const prod = v(r.producto);
+        const prodLower = prod.toLowerCase().replace(/\s+/g, '-').replace(/\./g, '');
+        let prodClass = 'prod-chip--default';
+        if (prodLower.includes('soat')) prodClass = 'prod-chip--soat';
+        else if (prodLower.includes('particular')) prodClass = 'prod-chip--particular';
+        else if (prodLower.includes('empresa') || prodLower.includes('empresarial')) prodClass = 'prod-chip--empresarial';
+
+        const vigDesde = v(r.ren_vig_desde || r.vig_desde);
+        const vigHasta = v(r.ren_vig_hasta || r.vig_hasta);
+        const primasHref = `${primasUrlBase}?poliza=${encodeURIComponent(v(r.poliza))}&return=polizas`;
+        const extractoHref = `/menu/cuotas?poliza=${encodeURIComponent(v(r.poliza))}`;
+        const detallesHref = `/menu/detalles-poliza?id=${r.idPoliza}`;
+        const editarHref = `/menu/editar-poliza?id=${r.idPoliza}`;
+
         tr.innerHTML = `
-          <td>${v(r.contratante)}</td>
-          <td>${v(r.asegurado)}</td>
-          <td>${v(r.cia)}</td>
-          <td>${v(r.ramo)}</td>
-          <td>${v(r.producto)}</td>
-          <td>${v(r.poliza)}</td>
-          <td>${v(r.moneda)}</td>
-          <td>${v(r.ren_vig_desde || r.vig_desde)}</td>
-          <td>${v(r.ren_vig_hasta || r.vig_hasta)}</td>
-          <td>${v(r.sub_agente)}</td>
-          <td>${v(r.asegurada)}</td>
-          <td class="text-end">
-              <div class="action-buttons">
+          <td class="col-contratante"><span class="cell-nombre">${v(r.contratante)}</span></td>
+          <td class="col-asegurado"><span class="cell-nombre">${v(r.asegurado)}</span></td>
+          <td class="col-cia"><span class="company-pill ${ciaClass}">${cia}</span></td>
+          <td class="col-ramo"><span class="cell-ramo">${v(r.ramo)}</span></td>
+          <td class="col-prod"><span class="prod-chip ${prodClass}">${prod}</span></td>
+          <td class="col-poliza"><span class="cell-poliza">${v(r.poliza)}</span></td>
+          <td class="col-moneda"><span class="moneda-badge">${v(r.moneda)}</span></td>
+          <td class="col-vig-i"><span class="date-cell">${vigDesde}</span></td>
+          <td class="col-vig-f"><span class="date-cell">${vigHasta}</span></td>
+          <td class="col-subagente"><span class="cell-subagente">${v(r.sub_agente)}</span></td>
+          <td class="col-maseg"><span class="cell-maseg">${v(r.asegurada)}</span></td>
+          <td class="col-accion">
+              <div class="action-buttons-col">
                   <button type="button" class="btn-action btn-danger" data-action="anular">
-                      Anular
+                      <i class="bi-x-circle-fill"></i><span>ANULAR</span>
                   </button>
-                  
-                  <button type="button" class="btn-action btn-success" data-action="renovar">
-                      Renovar
-                  </button>
-                  
-                  <a href="${primasUrlBase}?poliza=${encodeURIComponent(r.poliza)}&return=polizas" class="btn-action btn-primary text-decoration-none" data-action="primas">
-                      Primas
+
+                  <a href="${primasHref}" class="btn-action btn-primary text-decoration-none" data-action="primas">
+                      <i class="bi-file-earmark-check-fill"></i><span>PRIMAS</span>
                   </a>
 
-                  <div class="dropdown action-dropdown ms-1">
-                      <button class="btn-dropdown dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                          Acción
-                      </button>
-                      <ul class="dropdown-menu dropdown-menu-end">
-                          <li><a class="dropdown-item" href="/menu/cuotas?poliza=${encodeURIComponent(r.poliza)}" data-action="extracto"><i class="bi-file-earmark-lock"></i> Extracto</a></li>
-                          <li><a class="dropdown-item" href="#" data-action="siniestros"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
-                          <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi-briefcase"></i> Solicitudes</a></li>
-                          <li><hr class="dropdown-divider"></li>
-                          <li><a class="dropdown-item" href="/menu/detalles-poliza?id=${r.idPoliza}" data-action="detalles"><i class="bi-info-circle"></i> Detalles</a></li>
-                          <li><a class="dropdown-item" href="/menu/detalles-poliza?id=${r.idPoliza}&print=true" target="_blank"><i class="bi-printer"></i> Imprimir</a></li>
-                          <li><a class="dropdown-item" href="/menu/editar-poliza?id=${r.idPoliza}" data-action="editar"><i class="bi-pencil-square"></i> Editar</a></li>
-                          <li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash"></i> Eliminar</a></li>
-                      </ul>
-                  </div>
+                  <a href="${extractoHref}" class="btn-action btn-teal text-decoration-none" data-action="extracto">
+                      <i class="bi-file-earmark-lock"></i><span>EXTRACTO</span>
+                  </a>
+
+                  <a href="${detallesHref}" class="btn-action btn-gray text-decoration-none" data-action="detalles">
+                      <i class="bi-info-circle"></i><span>DETALLES</span>
+                  </a>
+
+                  <a href="${editarHref}" class="btn-action btn-success text-decoration-none" data-action="editar">
+                      <i class="bi-pencil-square"></i><span>EDITAR</span>
+                  </a>
+
+                  <a href="#" class="btn-action btn-violet text-decoration-none" data-action="siniestros">
+                      <i class="bi-exclamation-triangle"></i><span>SINIESTROS</span>
+                  </a>
               </div>
           </td>
         `;

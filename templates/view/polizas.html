@@ -15,171 +15,245 @@
 {% block page_title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-0">
-    
-    <!-- 1. Header Principal con Título y Botones Principales -->
-    <div class="page-header justify-content-start gap-3">
-        <div class="d-flex flex-column">
-            <h1 class="page-title mb-0">
-                <i class="bi-shield-check text-primary"></i> Pólizas
-            </h1>
-            <a href="{{ url_for('main.menu_page', page='clientes') }}" class="text-decoration-none text-primary fw-semibold mt-1">
+<div class="container-fluid px-0 polizas-page">
+
+    <!-- 1. Header Principal -->
+    <div class="polizas-header">
+        <div class="polizas-header-left">
+            <div class="polizas-title-row">
+                <div class="polizas-title-icon">
+                    <i class="bi-shield-check"></i>
+                </div>
+                <h1 class="polizas-title">Pólizas</h1>
+            </div>
+            <a href="{{ url_for('main.menu_page', page='clientes') }}" class="polizas-back-link">
                 <i class="bi-chevron-left"></i> Volver a clientes
             </a>
         </div>
-        <div class="header-actions d-flex gap-2">
+        <div class="polizas-header-actions">
             {% if can_create_poliza(session.role_name) %}
-            <a class="btn btn-success text-white btn-sm rounded-pill" href="{{ url_for('main.menu_page', page='anadir-poliza') }}" rel="noopener noreferrer">
-                <i class="bi-plus-lg me-1"></i> Añadir
+            <a class="polizas-add-btn" href="{{ url_for('main.menu_page', page='anadir-poliza') }}" rel="noopener noreferrer">
+                <i class="bi-plus-lg"></i> Añadir
             </a>
             {% endif %}
-            <div class="btn-group">
-                <a href="#" class="btn btn-outline-primary"><i class="bi-calendar3 me-1"></i> Vencen este Mes</a>
-                <a href="#" class="btn btn-outline-success"><i class="bi-check-circle me-1"></i> Ver Vigentes</a>
-                <a href="#" class="btn btn-outline-dark"><i class="bi-list-ul me-1"></i> Ver Todos</a>
-            </div>
+            <a href="#" class="polizas-filter-chip"><i class="bi-calendar3"></i> Vencen este Mes</a>
+            <a href="#" class="polizas-filter-chip"><i class="bi-check-circle"></i> Ver Vigentes</a>
+            <a href="#" class="polizas-filter-chip"><i class="bi-list-ul"></i> Ver Todos</a>
         </div>
     </div>
 
     <!-- 2. Sub-navegación / Filtros Secundarios -->
-    <div class="sub-nav" id="searchTabs">
+    <div class="polizas-subnav sub-nav" id="searchTabs">
         <a href="#" class="sub-nav-link" data-search-type="historica">Número de Póliza Histórica</a>
-        <span class="sub-nav-separator">|</span>
         <a href="#" class="sub-nav-link" data-search-type="aviso">Aviso de Cobranza</a>
-        <span class="sub-nav-separator">|</span>
         <a href="#" class="sub-nav-link" data-search-type="placa">Placa/Motor</a>
-        <span class="sub-nav-separator">|</span>
         <a href="#" class="sub-nav-link" data-search-type="titular">Titular y/o Dependiente</a>
     </div>
 
     <!-- 3. Barra de Búsqueda Grande -->
-    <div class="search-container">
-        <div class="input-group search-input-group w-100">
-            <span class="input-group-text bg-white border-end-0 text-muted ps-3">
-                <i class="bi-search"></i>
-            </span>
-            <input id="polizasSearch" type="text" class="form-control border-start-0" placeholder="Búsqueda General (Contratante, asegurado, póliza, placa...)">
-            <button class="btn btn-success btn-search text-white" type="button">Buscar</button>
+    <div class="polizas-search-wrap">
+        <div class="polizas-search">
+            <i class="bi-search polizas-search-icon"></i>
+            <input id="polizasSearch" type="text" class="polizas-search-input" placeholder="Búsqueda General (Contratante, asegurado, póliza, placa...)">
+            <button class="polizas-search-btn btn-search" type="button">Buscar</button>
         </div>
     </div>
 
     <!-- 4. Panel de Datos del Titular -->
-    <div class="client-info-card">
-        <div class="client-info-header">
-            <i class="bi-person-vcard"></i> Datos del Titular
+    <div class="polizas-titular-card">
+        <div class="polizas-titular-header">
+            <div class="polizas-titular-header-icon">
+                <i class="bi-person-vcard"></i>
+            </div>
+            <h2>Datos del Titular</h2>
         </div>
-        <div class="client-info-body">
-            <div class="info-grid">
-                <div class="info-item">
-                    <label>Nombre Completo</label>
-                    <div>{{ details.nombre_completo }}</div>
+        <div class="polizas-titular-body">
+            <div class="polizas-titular-grid">
+                <div class="polizas-titular-item">
+                    <span class="polizas-titular-item-label">Nombre Completo</span>
+                    <span class="polizas-titular-item-value">{{ details.nombre_completo }}</span>
                 </div>
-                <div class="info-item">
-                    <label>Tipo Documento</label>
-                    <div>{{ details.tipo_documento }}</div>
+                <div class="polizas-titular-item">
+                    <span class="polizas-titular-item-label">Tipo Documento</span>
+                    <span class="polizas-titular-item-value">{{ details.tipo_documento }}</span>
                 </div>
-                <div class="info-item">
-                    <label>Numero Documento</label>
-                    <div>{{ details.numero_documento }}</div>
+                <div class="polizas-titular-item">
+                    <span class="polizas-titular-item-label">Numero Documento</span>
+                    <span class="polizas-titular-item-value">{{ details.numero_documento }}</span>
                 </div>
-                <div class="info-item">
-                    <label>Telefono</label>
-                    <div>{{ details.telefono }}</div>
+                <div class="polizas-titular-item">
+                    <span class="polizas-titular-item-label">Telefono</span>
+                    <span class="polizas-titular-item-value">{{ details.telefono }}</span>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- 5. Tabla de Pólizas -->
-    <div class="table-card">
-        <!-- Toolbar de Tabla -->
-        <div class="table-toolbar">
-            <div class="table-actions d-flex align-items-center justify-content-between">
-                <div class="search-box position-relative" style="width: 250px;">
-                    <input type="text" id="tableSearch" class="form-control pe-4" placeholder="Filtrar en tabla...">
-                    <i class="bi-search search-icon position-absolute top-50 end-0 translate-middle-y me-3 text-muted"></i>
-                </div>
-                <div class="page-size-selector d-flex align-items-center gap-2">
-                    <span class="selector-label text-secondary small">Mostrar:</span>
-                    <select class="form-select form-select-sm" style="width: auto; cursor: pointer;">
-                        <option value="20">20</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                    </select>
-                </div>
+    <div class="polizas-table-card table-card">
+        <div class="polizas-table-toolbar table-toolbar">
+            <div class="polizas-table-search">
+                <i class="bi-search polizas-table-search-icon"></i>
+                <input type="text" id="tableSearch" class="polizas-table-search-input" placeholder="Filtrar en tabla...">
+            </div>
+            <div class="polizas-page-size page-size-selector">
+                <span class="polizas-page-size-label selector-label">Mostrar:</span>
+                <select class="polizas-page-size-select form-select">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="0">Todos</option>
+                </select>
             </div>
         </div>
 
-        <div class="table-responsive">
-            <table id="polizasTable" class="table modern-table" data-primas-url="{{ url_for('main.menu_page', page='primas') }}">
+        <div class="polizas-table-wrap">
+            <table id="polizasTable" class="polizas-table table modern-table" data-primas-url="{{ url_for('main.menu_page', page='primas') }}">
+                <colgroup>
+                    <col class="col-contratante">
+                    <col class="col-asegurado">
+                    <col class="col-cia">
+                    <col class="col-ramo">
+                    <col class="col-prod">
+                    <col class="col-poliza">
+                    <col class="col-moneda">
+                    <col class="col-vig-i">
+                    <col class="col-vig-f">
+                    <col class="col-subagente">
+                    <col class="col-maseg">
+                    <col class="col-accion">
+                </colgroup>
                 <thead>
                     <tr>
-                        <th>Contratante</th>
-                        <th>Asegurado</th>
-                        <th>Cía</th>
-                        <th>Ram</th>
-                        <th>Prod</th>
-                        <th>Poliza</th>
-                        <th>Moneda</th>
-                        <th>Vig inicio</th>
-                        <th>Vig Fin</th>
-                        <th>Sub Agente</th>
-                        <th>M.Asegurada</th>
-                        <th class="text-end">Acción</th>
+                        <th class="col-contratante">Contratante</th>
+                        <th class="col-asegurado">Asegurado</th>
+                        <th class="col-cia">Cía</th>
+                        <th class="col-ramo">Ram</th>
+                        <th class="col-prod">Prod</th>
+                        <th class="col-poliza">Poliza</th>
+                        <th class="col-moneda">Moneda</th>
+                        <th class="col-vig-i">Vig inicio</th>
+                        <th class="col-vig-f">Vig Fin</th>
+                        <th class="col-subagente">Sub Agente</th>
+                        <th class="col-maseg">M.Asegurada</th>
+                        <th class="col-accion">Acción</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for r in rows %}
-                    <tr data-id="{{ r.idPoliza }}" data-emision="{{ r.fecha_emision }}" {% if highlight_id and r.idPoliza == highlight_id %}class="poliza-highlight-renovar" id="polizaHighlight"{% endif %}>
-                        <td>{{ r.contratante }}</td>
-                        <td>{{ r.asegurado }}</td>
-                        <td>{{ r.cia }}</td>
-                        <td>{{ r.ramo }}</td>
-                        <td>{{ r.producto }}</td>
-                        <td>{{ r.poliza }}</td>
-                        <td>{{ r.moneda }}</td>
-                        <td>{{ r.ren_vig_desde if r.ren_vig_desde else r.vig_desde }}</td>
-                        <td>{{ r.ren_vig_hasta if r.ren_vig_hasta else r.vig_hasta }}</td>
-                        <td>{{ r.sub_agente }}</td>
-                        <td>{{ r.asegurada }}</td>
-                        <td class="text-end">
-                            <div class="action-buttons">
-                                <!-- Botones Visibles Prioritarios -->
+                    {% set highlight = (highlight_id and r.idPoliza == highlight_id) %}
+                    <tr
+                        {% if highlight %}id="polizaHighlight"{% endif %}
+                        class="poliza-row {% if highlight %}poliza-highlight-renovar{% endif %}"
+                        data-id="{{ r.idPoliza }}"
+                        data-emision="{{ r.fecha_emision }}"
+                    >
+                        <td class="col-contratante">
+                            <span class="cell-nombre">{{ r.contratante }}</span>
+                        </td>
+                        <td class="col-asegurado">
+                            <span class="cell-nombre">{{ r.asegurado }}</span>
+                        </td>
+                        <td class="col-cia">
+                            {% set cia_lower = (r.cia or '') | string | lower | replace(' ', '-') | replace('.', '') %}
+                            {% if 'positiva' in cia_lower or 'la-positiva' in cia_lower %}
+                                <span class="company-pill company-la-positiva">{{ r.cia }}</span>
+                            {% elif 'crecer' in cia_lower %}
+                                <span class="company-pill company-crecer">{{ r.cia }}</span>
+                            {% elif 'rimac' in cia_lower %}
+                                <span class="company-pill company-rimac">{{ r.cia }}</span>
+                            {% elif 'pacifico' in cia_lower or 'pacífico' in cia_lower %}
+                                <span class="company-pill company-pacifico">{{ r.cia }}</span>
+                            {% elif 'mapfre' in cia_lower %}
+                                <span class="company-pill company-mapfre">{{ r.cia }}</span>
+                            {% elif 'hdi' in cia_lower %}
+                                <span class="company-pill company-hdi">{{ r.cia }}</span>
+                            {% else %}
+                                <span class="company-pill company-default">{{ r.cia }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="col-ramo">
+                            <span class="cell-ramo">{{ r.ramo }}</span>
+                        </td>
+                        <td class="col-prod">
+                            {% set prod_lower = (r.producto or '') | string | lower | replace(' ', '-') | replace('.', '') %}
+                            {% if 'soat' in prod_lower %}
+                                <span class="prod-chip prod-chip--soat">{{ r.producto }}</span>
+                            {% elif 'particular' in prod_lower %}
+                                <span class="prod-chip prod-chip--particular">{{ r.producto }}</span>
+                            {% elif 'empresa' in prod_lower or 'empresarial' in prod_lower %}
+                                <span class="prod-chip prod-chip--empresarial">{{ r.producto }}</span>
+                            {% else %}
+                                <span class="prod-chip prod-chip--default">{{ r.producto }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="col-poliza">
+                            <span class="cell-poliza">{{ r.poliza }}</span>
+                        </td>
+                        <td class="col-moneda">
+                            <span class="moneda-badge">{{ r.moneda }}</span>
+                        </td>
+                        <td class="col-vig-i">
+                            <span class="date-cell">{{ r.ren_vig_desde if r.ren_vig_desde else r.vig_desde }}</span>
+                        </td>
+                        <td class="col-vig-f">
+                            <span class="date-cell">{{ r.ren_vig_hasta if r.ren_vig_hasta else r.vig_hasta }}</span>
+                        </td>
+                        <td class="col-subagente">
+                            <span class="cell-subagente">{{ r.sub_agente }}</span>
+                        </td>
+                        <td class="col-maseg">
+                            <span class="cell-maseg">{{ r.asegurada }}</span>
+                        </td>
+                        <td class="col-accion">
+                            <div class="action-buttons-col">
                                 {% if can_delete(session.role_name) %}
                                 <button type="button" class="btn-action btn-danger" data-action="anular">
-                                    Anular
+                                    <i class="bi-x-circle-fill"></i><span>ANULAR</span>
                                 </button>
                                 {% endif %}
-                                <!--
-                                {% if can_create_poliza(session.role_name) %}
-                                <button type="button" class="btn-action btn-success" data-action="renovar">
-                                    Renovar
-                                </button>
-                                {% endif %}-->
-                                
-                                <a href="{{ url_for('main.menu_page', page='primas') }}?poliza={{ r.poliza }}&return=polizas" class="btn-action btn-primary text-decoration-none" data-action="primas">
-                                    Primas
+
+                                <a
+                                    href="{{ url_for('main.menu_page', page='primas') }}?poliza={{ r.poliza }}&return=polizas"
+                                    class="btn-action btn-primary text-decoration-none"
+                                    data-action="primas"
+                                >
+                                    <i class="bi-file-earmark-check-fill"></i><span>PRIMAS</span>
                                 </a>
 
-                                <!-- Dropdown para resto de acciones -->
-                                <div class="dropdown action-dropdown ms-1">
-                                    <button class="btn-dropdown dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        Acción
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end">
-                                        <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='cuotas') }}?poliza={{ r.poliza }}" data-action="extracto"><i class="bi-file-earmark-lock"></i> Extracto</a></li>
-                                        <li><a class="dropdown-item" href="#" data-action="siniestros"><i class="bi-exclamation-triangle"></i> Siniestros</a></li>
-                                        <li><a class="dropdown-item" href="#" data-action="solicitudes"><i class="bi-briefcase"></i> Solicitudes</a></li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='detalles-poliza', id=r.idPoliza) }}" data-action="detalles"><i class="bi-info-circle"></i> Detalles</a></li>
-                                        {% if can_edit(session.role_name) %}
-                                        <li><a class="dropdown-item" href="{{ url_for('main.menu_page', page='editar-poliza') }}?id={{ r.idPoliza }}" data-action="editar"><i class="bi-pencil-square"></i> Editar</a></li>
-                                        {% endif %}
-                                        {% if can_delete(session.role_name) %}
-                                        <!--<li><a class="dropdown-item text-danger" href="#" data-action="eliminar"><i class="bi-trash"></i> Eliminar</a></li> -->
-                                        {% endif %}
-                                    </ul>
-                                </div>
+                                <a
+                                    href="{{ url_for('main.menu_page', page='cuotas') }}?poliza={{ r.poliza }}"
+                                    class="btn-action btn-teal text-decoration-none"
+                                    data-action="extracto"
+                                >
+                                    <i class="bi-file-earmark-lock"></i><span>EXTRACTO</span>
+                                </a>
+
+                                <a
+                                    href="{{ url_for('main.menu_page', page='detalles-poliza', id=r.idPoliza) }}"
+                                    class="btn-action btn-gray text-decoration-none"
+                                    data-action="detalles"
+                                >
+                                    <i class="bi-info-circle"></i><span>DETALLES</span>
+                                </a>
+
+                                {% if can_edit(session.role_name) %}
+                                <a
+                                    href="{{ url_for('main.menu_page', page='editar-poliza') }}?id={{ r.idPoliza }}"
+                                    class="btn-action btn-success text-decoration-none"
+                                    data-action="editar"
+                                >
+                                    <i class="bi-pencil-square"></i><span>EDITAR</span>
+                                </a>
+                                {% endif %}
+
+                                <a
+                                    href="#"
+                                    class="btn-action btn-violet text-decoration-none"
+                                    data-action="siniestros"
+                                >
+                                    <i class="bi-exclamation-triangle"></i><span>SINIESTROS</span>
+                                </a>
                             </div>
                         </td>
                     </tr>
@@ -195,12 +269,12 @@
                 </tbody>
             </table>
         </div>
-        <!-- Paginación (Placeholder visual según imagen) -->
-        <div class="pagination-container border-top">
-            <div class="text-muted small me-auto">
+        <!-- Paginación -->
+        <div class="pagination-container border-top polizas-footer">
+            <div class="text-muted small me-auto polizas-total-text">
                 Total de registros: {{ rows|length }}
             </div>
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2 polizas-pagination">
                 <button class="btn btn-outline-secondary btn-sm" disabled>Anterior</button>
                 <button class="btn btn-outline-secondary btn-sm" disabled>Siguiente</button>
             </div>
