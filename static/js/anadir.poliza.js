@@ -1267,10 +1267,13 @@
     const cuotas = item.cuotas || [];
     const hasCuotas = cuotas.length > 0;
     const hasMultipleCuotas = cuotas.length > 1;
-    
-    let cuotasHtml = '';
-    if (cuotas.length > 0) {
-      cuotasHtml = cuotas.map((c, ci) => `
+
+    function buildSingleCuotaCard(c, ci) {
+      const k = getCuotaFileMapKey(index, c);
+      const f = cuotaFacturaFileMap.get(k);
+      const has = !!f;
+      const nm = f ? (f.name || '') : '';
+      return `
         <div class="cuota-row border rounded p-2 mb-2" data-cuota-index="${ci}">
           <div class="pane-fields mb-2">
             <div class="field">
@@ -1297,33 +1300,102 @@
             </div>
             <div class="field">
               <label class="form-label small mb-1">ARCHIVO</label>
-              ${(() => {
-                const k = getCuotaFileMapKey(index, c);
-                const f = cuotaFacturaFileMap.get(k);
-                const has = !!f;
-                const nm = f ? (f.name || '') : '';
-                return `
-                  <div class="cuota-file-drop ${has ? 'has-file' : ''}" data-index="${index}" data-cuota-index="${ci}">
-                    <div class="cuota-file-name text-truncate" title="${nm}">${nm || 'Adjuntar factura'}</div>
-                    <div class="cuota-file-actions">
-                      <button type="button" class="btn btn-sm btn-outline-secondary cuota-file-view" data-index="${index}" data-cuota-index="${ci}" ${has ? '' : 'disabled'}>
-                        <i class="bi bi-eye"></i>
-                      </button>
-                      <button type="button" class="btn btn-sm btn-outline-danger cuota-file-remove" data-index="${index}" data-cuota-index="${ci}" ${has ? '' : 'disabled'}>
-                        <i class="bi bi-x-lg"></i>
-                      </button>
-                    </div>
-                  </div>
-                  <input type="file" class="d-none cuota-file-input" data-index="${index}" data-cuota-index="${ci}" accept=".pdf,image/*">
-                `;
-              })()}
+              <div class="cuota-file-drop ${has ? 'has-file' : ''}" data-index="${index}" data-cuota-index="${ci}">
+                <div class="cuota-file-name text-truncate" title="${nm}">${nm || 'Adjuntar factura'}</div>
+                <div class="cuota-file-actions">
+                  <button type="button" class="btn btn-sm btn-outline-secondary cuota-file-view" data-index="${index}" data-cuota-index="${ci}" ${has ? '' : 'disabled'}>
+                    <i class="bi bi-eye"></i>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-danger cuota-file-remove" data-index="${index}" data-cuota-index="${ci}" ${has ? '' : 'disabled'}>
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+                </div>
+              </div>
+              <input type="file" class="d-none cuota-file-input" data-index="${index}" data-cuota-index="${ci}" accept=".pdf,image/*">
             </div>
           </div>
           <div class="d-flex justify-content-end">
             <button type="button" class="btn btn-sm btn-outline-danger action-remove-cuota" data-index="${index}" data-cuota-index="${ci}">Eliminar</button>
           </div>
         </div>
-      `).join('');
+      `;
+    }
+
+    function buildCuotaTableRow(c, ci) {
+      const k = getCuotaFileMapKey(index, c);
+      const f = cuotaFacturaFileMap.get(k);
+      const has = !!f;
+      const nm = f ? (f.name || '') : '';
+      const zebra = ci % 2 === 1 ? ' ct-zebra' : '';
+      return `
+        <div class="ct-tr cuota-table-row${zebra}" data-cuota-index="${ci}">
+          <div class="ct-td cuota-table-cell cell-cupon" style="--col:#be185d;">
+            <span class="cuota-row-n">#${ci + 1}</span>
+            <input type="text" class="form-control form-control-sm cuota-cupon" data-index="${index}" data-cuota-index="${ci}" value="${c.cupon || ''}" placeholder="Cupón">
+          </div>
+          <div class="ct-td cuota-table-cell cell-venc">
+            <input type="text" class="form-control form-control-sm cuota-vencimiento" data-index="${index}" data-cuota-index="${ci}" value="${c.fecha_vencimiento || ''}" placeholder="dd/mm/aaaa" inputmode="numeric">
+          </div>
+          <div class="ct-td cuota-table-cell cell-importe">
+            <input type="text" class="form-control form-control-sm cuota-importe" data-index="${index}" data-cuota-index="${ci}" value="${c.importe || ''}" placeholder="0.00" inputmode="decimal">
+          </div>
+          <div class="ct-td cuota-table-cell cell-factura">
+            <input type="text" class="form-control form-control-sm cuota-factura" data-index="${index}" data-cuota-index="${ci}" value="${c.factura || ''}" placeholder="Factura">
+          </div>
+          <div class="ct-td cuota-table-cell cell-fpago">
+            <input type="text" class="form-control form-control-sm cuota-fecha" data-index="${index}" data-cuota-index="${ci}" value="${c.fecha_pago || ''}" placeholder="dd/mm/aaaa" inputmode="numeric">
+          </div>
+          <div class="ct-td cuota-table-cell cell-archivo">
+            <div class="cuota-file-drop ${has ? 'has-file' : ''}" data-index="${index}" data-cuota-index="${ci}" title="${nm || 'Clic para adjuntar factura'}">
+              <div class="cuota-file-name text-truncate" title="${nm}">${nm || 'Adjuntar'}</div>
+              <div class="cuota-file-actions">
+                <button type="button" class="btn btn-sm btn-outline-secondary cuota-file-view" data-index="${index}" data-cuota-index="${ci}" ${has ? '' : 'disabled'}><i class="bi bi-eye"></i></button>
+                <button type="button" class="btn btn-sm btn-outline-danger cuota-file-remove" data-index="${index}" data-cuota-index="${ci}" ${has ? '' : 'disabled'}><i class="bi bi-x-lg"></i></button>
+              </div>
+            </div>
+            <input type="file" class="d-none cuota-file-input" data-index="${index}" data-cuota-index="${ci}" accept=".pdf,image/*">
+          </div>
+          <div class="ct-td cuota-table-cell cell-accion">
+            <button type="button" class="btn btn-sm btn-outline-danger action-remove-cuota cuota-del-btn" data-index="${index}" data-cuota-index="${ci}" title="Eliminar cuota">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    let cuotasHtml = '';
+    if (cuotas.length > 0) {
+      if (hasMultipleCuotas) {
+        const bodyRows = cuotas.map((c, ci) => buildCuotaTableRow(c, ci)).join('');
+        cuotasHtml = `
+          <div class="cuotas-table-wrap">
+            <div class="cuotas-table-title">
+              <i class="bi bi-receipt-cutoff"></i>
+              <span>Listado de Cuotas</span>
+              <span class="cuotas-table-count">${cuotas.length} cuota${cuotas.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div class="cuotas-table">
+              <div class="ct-thead">
+                <div class="ct-tr">
+                  <div class="ct-th th-cupon"><span class="th-bar"></span>CUPÓN</div>
+                  <div class="ct-th th-venc">VENCIMIENTO</div>
+                  <div class="ct-th th-importe">IMPORTE</div>
+                  <div class="ct-th th-factura">FACTURA</div>
+                  <div class="ct-th th-fpago">FECHA PAGO</div>
+                  <div class="ct-th th-archivo">ARCHIVO</div>
+                  <div class="ct-th th-accion"></div>
+                </div>
+              </div>
+              <div class="ct-tbody">
+                ${bodyRows}
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        cuotasHtml = cuotas.map((c, ci) => buildSingleCuotaCard(c, ci)).join('');
+      }
     }
 
     return `
@@ -1349,7 +1421,7 @@
         ` : (hasMultipleCuotas ? `
           <div class="pane-cuotas-hint mb-2">Cuotas múltiples: completa Factura y Fecha Pago en cada cuota.</div>
         ` : '')}
-        
+
         <div class="cuotas-list" data-index="${index}">
           ${cuotasHtml}
         </div>

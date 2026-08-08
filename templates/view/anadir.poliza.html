@@ -9,7 +9,7 @@
       document.documentElement.setAttribute('data-theme', savedTheme);
     })();
   </script>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/anadir.poliza.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/anadir.poliza.css') }}?v=20260808-7">
   <style>
     .page {
       padding: 0;
@@ -21,7 +21,7 @@
     }
 
     .anadir-poliza-shell {
-      padding-bottom: 1.5rem;
+      padding-bottom: 0;
     }
   </style>
 {% endblock %}
@@ -32,13 +32,13 @@
   <div class="anadir-poliza-page">
     <header class="app-header">
       <div class="container d-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-center gap-3">
-          <h1 class="h5 m-0 text-white">Añadir</h1>
-          <span class="text-secondary">/</span>
-          <span class="text-light small opacity-75">Gestión de Pólizas</span>
+        <div class="d-flex align-items-center gap-2 flex-shrink-1">
+          <h1 class="m-0 text-white">Añadir</h1>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-sub">Gestión de Pólizas</span>
         </div>
 
-        <div class="client-badge d-none d-lg-flex">
+        <div class="client-badge d-none d-md-flex flex-shrink-0">
           <div>
             <span class="label">Cliente/Contratante</span>
             <div class="value">{{ selected.razon_social or selected.nombre }}</div>
@@ -53,18 +53,18 @@
           </div>
         </div>
 
-        <a href="{{ url_for('main.menu_page', page='polizas') }}" class="btn btn-sm btn-back">
+        <a href="{{ url_for('main.menu_page', page='polizas') }}" class="btn btn-sm btn-back flex-shrink-0">
           <i class="bi bi-arrow-left me-1"></i> Volver
-        </a> 
+        </a>
       </div>
     </header>
 
     <div class="anadir-poliza-shell">
-      <div class="container pb-5">
+      <div class="container">
 
         <!-- Mobile Client Info (Visible only on small screens) -->
-        <div class="card mb-3 d-lg-none">
-          <div class="card-body">
+        <div class="card mb-3 d-md-none">
+          <div class="card-body py-2 px-3">
             <div class="d-flex flex-column gap-2">
                 <div><small class="text-muted">Cliente:</small> <strong>{{ selected.razon_social or selected.nombre }}</strong></div>
                 <div><small class="text-muted">Doc:</small> {{ selected.tipo_doc }} - {{ selected.n_doc }}</div>
@@ -72,240 +72,279 @@
           </div>
         </div>
 
-        <!-- Upload Section (Distinctive Area) -->
-        <div class="upload-zone mb-4">
-          <div class="row align-items-center justify-content-center g-3">
-            <div class="col-md-6 text-start">
-              <label class="form-label text-muted mb-2"><i class="bi bi-file-earmark-pdf me-1"></i> Cargar Póliza (PDF)</label>
-              <input id="pdfFile" type="file" accept=".pdf" class="form-control">
+        <!-- Upload Section (Visily style - 1 compact row) -->
+        <div class="upload-zone">
+          <div class="upload-icon-wrap d-none d-sm-flex">
+            <i class="bi bi-file-earmark-pdf-fill"></i>
+          </div>
+          <div class="upload-text-group d-none d-sm-block">
+            <p class="upload-title">Cargar Póliza (PDF)</p>
+            <p class="upload-subtitle">Sube el documento original para extraer datos automáticamente</p>
+          </div>
+          <div class="d-sm-none w-100 mb-1">
+            <p class="upload-title mb-0"><i class="bi bi-file-earmark-pdf-fill me-2 text-primary"></i>Cargar Póliza (PDF)</p>
+            <p class="upload-subtitle">Sube el PDF para extraer datos automáticamente</p>
+          </div>
+          <div class="upload-file-group">
+            <input id="pdfFile" type="file" accept=".pdf" class="form-control">
+            <button id="btnUpload" class="btn-extract">
+                <i class="bi bi-magic"></i> Extraer Datos
+            </button>
+          </div>
+        </div>
+
+        <!-- Main Form Grid - 4 Cards Pro -->
+        <div class="row g-4">
+          <!-- Column 1: Entidades -->
+          <div class="col-lg-3">
+            <div class="card h-100">
+              <div class="card-header-pro">
+                <div class="card-header-icon icon-entidades">
+                  <i class="bi bi-buildings-fill"></i>
+                </div>
+                <div class="card-header-text">
+                  <h5 class="card-header-title">Entidades</h5>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Sub Agente</label>
+                    <select id="subAgenteTop" class="form-select">
+                        <option value="">Selecciona...</option>
+                        {% for abbr in (subagentes_abbrs or []) %}
+                        <option value="{{ abbr }}">{{ abbr }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Ejecutivo de Cuenta</label>
+                    <select id="ejecutivoTop" class="form-select">
+                        <option value="">Selecciona...</option>
+                        {% for e in (ejecutivos_rows or []) %}
+                        <option value="{{ e.nombre }}"
+                          {% if ((selected.ejecutivo or '')|lower|trim) == ((e.nombre or '')|lower|trim) or ((selected.ejecutivo or '')|lower|trim) == ((e.abreviacion or '')|lower|trim) %}selected{% endif %}>{{ e.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-0">
+                    <label class="form-label">Endosatario</label>
+                    <select id="endosatarioTop" class="form-select">
+                        <option value="">Selecciona...</option>
+                        {% for e in (endosatarios_rows or []) %}
+                        <option value="{{ e.nombre }}">{{ e.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+              </div>
             </div>
-            <div class="col-md-3">
-                <label class="form-label d-none d-md-block">&nbsp;</label>
-                <button id="btnUpload" class="btn btn-primary w-100">
-                    <i class="bi bi-magic me-2"></i> Extraer Datos
+          </div>
+
+          <!-- Column 2: Detalles de Operación -->
+          <div class="col-lg-3">
+            <div class="card h-100">
+              <div class="card-header-pro">
+                <div class="card-header-icon icon-detalles">
+                  <i class="bi bi-clipboard2-data-fill"></i>
+                </div>
+                <div class="card-header-text">
+                  <h5 class="card-header-title">Detalles</h5>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Materia Asegurada</label>
+                    <div class="input-group">
+                        <input id="aseguradaTop" type="text" class="form-control" placeholder="Descripcion breve..." value="{{ selected.asegurada or '' }}">
+                        <button id="btnEditAseguradaTop" type="button" class="btn btn-outline-secondary d-none" title="Editar descripción asegurada">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Motivo</label>
+                    <input id="motivoTop" type="text" class="form-control" placeholder="Motivo" value="{{ selected.motivo or '' }}">
+                </div> 
+
+                <div class="row g-2 mb-0">
+                    <div class="col-6">
+                        <label class="form-label">Tipo Doc</label>
+                        <select id="tipoDocTop" class="form-select" required>
+                            <option value="">Selecciona...</option>
+                            <option>EMISION</option>
+                            <option>RENOVACION</option>
+                            <option>DEVOLUCION</option>
+                            <option>INCLUSIÓN</option>
+                            <option>NETEO - SIN PRIMA</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Nro Operación</label>
+                        <input id="nroOperacionTop" type="text" class="form-control" placeholder="Opcional" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+                    </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 3: Financiero -->
+          <div class="col-lg-3">
+            <div class="card h-100">
+              <div class="card-header-pro">
+                <div class="card-header-icon icon-financiero">
+                  <i class="bi bi-cash-stack"></i>
+                </div>
+                <div class="card-header-text">
+                  <h5 class="card-header-title">Financiero</h5>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Tipo de Vigencia</label>
+                    <select id="tipoVigenciaTop" class="form-select">
+                        <option value="">Selecciona...</option>
+                        <option value="ANUAL">ANUAL</option>
+                        <option value="DECLARACION MENSUAL">DECLARACION MENSUAL</option>
+                        <option value="NO RENOVABLE">NO RENOVABLE</option>
+                        <option value="PERIODICA">PERIODICA</option>
+                        <option value="EVENTUAL">EVENTUAL</option>
+                        <option value="FLOTANTE">FLOTANTE</option>
+                    </select>
+                </div>
+
+                <div class="mb-0">
+                    <label class="form-label">Tipo de Pago</label>
+                    <select id="tipoPagoTop" class="form-select" required>
+                        <option value="">Selecciona...</option>
+                        <option>CONTADO</option>
+                        <option>FINANCIADO</option>
+                        <option>CREDITO</option>
+                        <option>CARGO EN CUENTA</option>
+                        <option>SAFETY PAY</option>
+                        <option>SIN PRIMA</option>
+                        <option>PAGO EFECTIVO</option>
+                    </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 4: Anexos -->
+          <div class="col-lg-3">
+            <div class="card h-100">
+              <div class="card-header-pro">
+                <div class="card-header-icon icon-anexos">
+                  <i class="bi bi-paperclip"></i>
+                </div>
+                <div class="card-header-text">
+                  <h5 class="card-header-title">Anexos</h5>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="mb-2">
+                    <label class="form-label">Adjuntar Archivos</label>
+                    <input class="form-control" type="file" id="anexosFiles" multiple>
+                    <div class="form-text small mt-1">Selecciona múltiples archivos (PDF, Imágenes, etc).</div>
+                </div>
+                <div id="anexosList" class="small text-muted mt-2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data Extraction Section (Extract Card) -->
+        <div class="card mt-4 extract-card">
+          <div class="card-body p-0">
+            <div class="extract-header-bar">
+              <div class="extract-header-title">
+                <div class="card-header-icon icon-clave">
+                  <i class="bi bi-database-fill-gear"></i>
+                </div>
+                <h5>Datos Extraídos</h5>
+                <span class="extract-count" id="extractCountBadge" style="display:none;">0 items</span>
+              </div>
+              <div class="extract-header-actions">
+                <button id="btnVerComisiones" type="button" class="btn btn-sm btn-outline-info">
+                  <i class="bi bi-percent me-1"></i>Ver Comisiones
                 </button>
-            </div>
-        </div>
-      </div>
-
-    <!-- Main Form Grid -->
-    <div class="row g-4">
-        <!-- Column 1: Entidades -->
-        <div class="col-lg-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="section-title"><i class="bi bi-building"></i> Entidades</div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Sub Agente</label>
-                        <select id="subAgenteTop" class="form-select">
-                            <option value="">Selecciona...</option>
-                            {% for abbr in (subagentes_abbrs or []) %}
-                            <option value="{{ abbr }}">{{ abbr }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Ejecutivo de Cuenta</label>
-                        <select id="ejecutivoTop" class="form-select">
-                            <option value="">Selecciona...</option>
-                            {% for e in (ejecutivos_rows or []) %}
-                            <option value="{{ e.nombre }}"
-                              {% if ((selected.ejecutivo or '')|lower|trim) == ((e.nombre or '')|lower|trim) or ((selected.ejecutivo or '')|lower|trim) == ((e.abreviacion or '')|lower|trim) %}selected{% endif %}>{{ e.nombre }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Endosatario</label>
-                        <select id="endosatarioTop" class="form-select">
-                            <option value="">Selecciona...</option>
-                            {% for e in (endosatarios_rows or []) %}
-                            <option value="{{ e.nombre }}">{{ e.nombre }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Column 2: Detalles de Operación -->
-        <div class="col-lg-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="section-title"><i class="bi bi-clipboard-data"></i> Detalles</div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Materia Asegurada</label>
-                        <div class="input-group">
-                            <input id="aseguradaTop" type="text" class="form-control" placeholder="Descripcion breve..." value="{{ selected.asegurada or '' }}">
-                            <button id="btnEditAseguradaTop" type="button" class="btn btn-outline-secondary d-none" title="Editar descripción asegurada">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Motivo</label>
-                        <input id="motivoTop" type="text" class="form-control" placeholder="Motivo" value="{{ selected.motivo or '' }}">
-                    </div> 
-
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="form-label">Tipo Doc</label>
-                            <select id="tipoDocTop" class="form-select" required>
-                                <option value="">Selecciona...</option>
-                                <option>EMISION</option>
-                                <option>RENOVACION</option>
-                                <option>DEVOLUCION</option>
-                                <option>INCLUSIÓN</option>
-                                <option>NETEO - SIN PRIMA</option>
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Nro Operación</label>
-                            <input id="nroOperacionTop" type="text" class="form-control" placeholder="Opcional" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Column 3: Financiero -->
-        <div class="col-lg-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="section-title"><i class="bi bi-cash-coin"></i> Financiero</div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Tipo de Vigencia</label>
-                        <select id="tipoVigenciaTop" class="form-select">
-                            <option value="">Selecciona...</option>
-                            <option value="ANUAL">ANUAL</option>
-                            <option value="DECLARACION MENSUAL">DECLARACION MENSUAL</option>
-                            <option value="NO RENOVABLE">NO RENOVABLE</option>
-                            <option value="PERIODICA">PERIODICA</option>
-                            <option value="EVENTUAL">EVENTUAL</option>
-                            <option value="FLOTANTE">FLOTANTE</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Tipo de Pago</label>
-                        <select id="tipoPagoTop" class="form-select" required>
-                            <option value="">Selecciona...</option>
-                            <option>CONTADO</option>
-                            <option>FINANCIADO</option>
-                            <option>CREDITO</option>
-                            <option>CARGO EN CUENTA</option>
-                            <option>SAFETY PAY</option>
-                            <option>SIN PRIMA</option>
-                            <option>PAGO EFECTIVO</option>
-                            <!--<option>DIRECTO</option>
-                            <option>INDIRECTO EFECTIVO</option>
-                            <option>INDIRECTO TRANSFERENCIA</option>-->
-                        </select>
-                    </div>
-                <!--
-                    <div class="mb-3">
-                        <label class="form-label">Estado</label>
-                        <select id="estadoTop" class="form-select">
-                            <option value="">Selecciona...</option>
-                            <option>PENDIENTE</option>
-                            <option>CANCELADO</option>
-                            <option>SIN PRIMA</option>
-                        </select>
-                    </div>-->
-                </div>
-            </div>
-        </div>
-
-        <!-- Column 4: Anexos (New) -->
-        <div class="col-lg-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="section-title"><i class="bi bi-paperclip"></i> Anexos</div>
-                    <div class="mb-3">
-                        <label class="form-label">Adjuntar Archivos</label>
-                        <input class="form-control" type="file" id="anexosFiles" multiple>
-                        <div class="form-text small">Selecciona múltiples archivos (PDF, Imágenes, etc).</div>
-                    </div>
-                    <div id="anexosList" class="small text-muted mt-2"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Data Extraction Section -->
-    <div class="card mt-4">
-        <div class="card-body p-0">
-            <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
-                <h5 class="m-0 h6 text-uppercase fw-bold text-muted">Datos Extraídos</h5>
-                <div class="d-flex gap-2">
-                    <button id="btnVerComisiones" type="button" class="btn btn-sm btn-outline-info">
-                        <i class="bi bi-percent"></i> Ver Comisiones
-                    </button>
-                    <button id="btnVerPDF" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-eye"></i> Ver PDF
-                    </button>
-                    <button id="btnAgregarPoliza" class="btn btn-sm btn-accent">
-                        <i class="bi bi-plus-lg"></i> Agregar
-                    </button>
-                    <button id="btnClear" class="btn btn-sm btn-outline-danger">
-                        <i class="bi bi-trash"></i> Limpiar
-                    </button>
-                </div>
+                <button id="btnVerPDF" class="btn btn-sm btn-outline-secondary">
+                  <i class="bi bi-eye me-1"></i>Ver PDF
+                </button>
+                <button id="btnAgregarPoliza" class="btn btn-sm btn-accent">
+                  <i class="bi bi-plus-lg me-1"></i>Agregar
+                </button>
+                <button id="btnClear" class="btn btn-sm btn-outline-danger">
+                  <i class="bi bi-trash me-1"></i>Limpiar
+                </button>
+              </div>
             </div>
             
             <!-- Loading -->
             <div id="extractLoading" class="m-3 p-3 d-flex align-items-center d-none">
-                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                <span class="msg">Procesando documento...</span>
-                <span class="ms-auto small" id="extractElapsed"></span>
+              <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+              <span class="msg">Procesando documento...</span>
+              <span class="ms-auto small" id="extractElapsed"></span>
             </div>
 
             <!-- Table -->
             <div class="table-responsive">
-                <table class="table-custom" id="extractTable">
-                    <thead>
-                        <tr>
-                            <th>Póliza</th>
-                            <th>Proforma/Recibo</th>
-                            <th>Fecha Emisión</th>
-                            <th>Fecha Vencimiento</th>
-                            <th>Asegurado</th>
-                            <th>Cía</th>
-                            <th class="ramo-col">Ramo</th>
-                            <th>Producto</th>
-                            <th>Moneda</th>
-                            <th>Inicio Vigencia</th>
-                            <th>Fin Vigencia</th>
-                            <th>Prima Neta</th>
-                            <th>Prima Comercial</th>
-                            <th>Prima + IGV</th>
-                            <th>% Com. Cía</th>
-                            <th>Imp. Com. Cía</th>
-                            <th>% Com. Sub</th>
-                            <th>Imp. Com. Sub</th>
-                            <th class="actions-col">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Filled by JS -->
-                    </tbody>
-                </table>
+              <table class="table-custom" id="extractTable">
+                <thead>
+                  <tr>
+                    <th>Póliza</th>
+                    <th>Proforma/Recibo</th>
+                    <th>Fecha Emisión</th>
+                    <th>Fecha Vencimiento</th>
+                    <th>Asegurado</th>
+                    <th>Cía</th>
+                    <th class="ramo-col">Ramo</th>
+                    <th>Producto</th>
+                    <th>Moneda</th>
+                    <th>Inicio Vigencia</th>
+                    <th>Fin Vigencia</th>
+                    <th>Prima Neta</th>
+                    <th>Prima Comercial</th>
+                    <th>Prima + IGV</th>
+                    <th>% Com. Cía</th>
+                    <th>Imp. Com. Cía</th>
+                    <th>% Com. Sub</th>
+                    <th>Imp. Com. Sub</th>
+                    <th class="actions-col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Filled by JS -->
+                </tbody>
+              </table>
             </div>
 
-            <!-- Footer Actions -->
-            <div class="p-3 border-top text-center bg-light">
-                <div class="text-muted small mb-3" id="extractHint">Carga un PDF para visualizar los datos extraídos aquí.</div>
-                <button id="btnSave" class="btn btn-primary px-5" disabled>
-                    <i class="bi bi-save me-2"></i> Guardar Pólizas
-                </button>
+            <!-- Hidden legacy btnSave + hint (handlers compat) -->
+            <div class="px-3 pb-0 pt-0">
+              <div class="text-muted small mb-2 text-center d-none" id="extractHint">Carga un PDF para visualizar los datos extraídos aquí.</div>
+              <button id="btnSave" class="btn btn-primary px-5 d-none" disabled style="display:none!important;visibility:hidden!important;">
+                <i class="bi bi-save me-2"></i> Guardar Pólizas
+              </button>
             </div>
+          </div>
         </div>
-    </div>
+
+        <!-- BOTTOM BAR (Visily style — inline, light gray bg) -->
+        <div class="bottom-bar mb-5">
+          <div class="bottom-info" id="bottomInfo">
+            <i class="bi bi-info-circle-fill"></i>
+            <div id="bottomInfoText"><strong>Listo para comenzar.</strong> Carga un PDF y extrae los datos automáticamente.</div>
+          </div>
+          <div class="bottom-buttons">
+            <button id="btnDiscardBottom" type="button" class="btn-discard">
+              Descartar Cambios
+            </button>
+            <button id="btnSaveBottom" class="btn-save-main" disabled>
+              <i class="bi bi-shield-check me-2"></i> Guardar Pólizas
+            </button>
+          </div>
+        </div>
 
       </div>
     </div>
@@ -380,47 +419,109 @@
     window.ramosAbbrs = {{ ramos_abbrs | tojson }};
   </script>
 
-  <!-- Scripts -->
+  <!-- Dependencies -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <!-- Company scripts (preserve order + IDs) -->
   <script src="{{ url_for('static', filename='js/addPacificoGenerales_V2.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Mapfre Poliza -->
   <script src="{{ url_for('static', filename='js/polizas/mapfre/addPolizaMapfre.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Pacifico Poliza -->
   <script src="{{ url_for('static', filename='js/polizas/pacifico/addPolizaPacifico.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Rimac Poliza -->
   <script src="{{ url_for('static', filename='js/polizas/rimac/addPolizaRimac.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Positiva Poliza -->
   <script src="{{ url_for('static', filename='js/polizas/positiva/addPolizaPositiva.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Proctecta Pension Emisión -->
   <script src="{{ url_for('static', filename='js/addProctectaPensionEmision.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Proctecta Pension Emisión -->
   <script src="{{ url_for('static', filename='js/addCrecer_vida_ley_pocos_datos.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para LPV Salud Ley -->
   <script src="{{ url_for('static', filename='js/addLPVSALUD.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para LPV Pensión -->
   <script src="{{ url_for('static', filename='js/addLPVPENSION.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para LPV Vida Ley -->
   <script src="{{ url_for('static', filename='js/addLPVLEY.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Mapfre Poliza -->
   <script src="{{ url_for('static', filename='js/addMapfrePoliza.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Mapfre Vida Ley -->
   <script src="{{ url_for('static', filename='js/addMapfreVidaLey.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Sanitas Salud -->
   <script src="{{ url_for('static', filename='js/addSanitasSalud.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Proctecta Pension -->
   <script src="{{ url_for('static', filename='js/addProctectaPension.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Pacifico -->
   <script src="{{ url_for('static', filename='js/addPacifico.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Pacifico Salud -->
   <script src="{{ url_for('static', filename='js/addPacificoSalud.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Pacifico Vida Ley -->
   <script src="{{ url_for('static', filename='js/addPacificoVidaLey.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Crecer Pensión -->
   <script src="{{ url_for('static', filename='js/addCrecerPension.js') }}?v=1"></script>
-  <!-- NUEVO: helper mínimo para Crecer Vida Ley -->  
   <script src="{{ url_for('static', filename='js/addCrecerVidaLey.js') }}?v=1"></script>
   
-  <!-- Main Script -->
-  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=20260803-1" defer></script>
+  <!-- Main + Sincronizador bottom buttons (cache bust v2) -->
+  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=20260807-5" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const saveLegacy   = document.getElementById('btnSave');
+      const saveBottom   = document.getElementById('btnSaveBottom');
+      const discardBot   = document.getElementById('btnDiscardBottom');
+      const clearLegacy  = document.getElementById('btnClear');
+      const countBadge   = document.getElementById('extractCountBadge');
+      const bottomInfo   = document.getElementById('bottomInfo');
+      const bottomTxt    = document.getElementById('bottomInfoText');
+      const extractHint  = document.getElementById('extractHint');
+
+      function syncSaveButtons() {
+        if (!saveLegacy || !saveBottom) return;
+        saveBottom.disabled = saveLegacy.disabled;
+      }
+      if (saveLegacy && 'MutationObserver' in window) {
+        const obs = new MutationObserver(syncSaveButtons);
+        obs.observe(saveLegacy, { attributes: true, attributeFilter: ['disabled'] });
+      }
+      syncSaveButtons();
+
+      if (saveBottom && saveLegacy) {
+        saveBottom.addEventListener('click', function (e) {
+          if (saveLegacy.disabled) return;
+          saveLegacy.click();
+        });
+      }
+
+      if (discardBot && clearLegacy) {
+        discardBot.addEventListener('click', function () {
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              title: '¿Descartar cambios?',
+              text: 'Se eliminarán todos los datos extraídos sin guardar.',
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonText: 'Sí, descartar',
+              cancelButtonText: 'Cancelar',
+              confirmButtonColor: '#ef4444',
+              cancelButtonColor: '#64748b',
+            }).then(r => { if (r.isConfirmed) clearLegacy.click(); });
+          } else {
+            if (confirm('¿Descartar todos los datos extraídos?')) clearLegacy.click();
+          }
+        });
+      }
+
+      const tbl = document.getElementById('extractTable');
+      function refreshCounts() {
+        if (!tbl) return;
+        const rows = tbl.querySelectorAll('tbody tr');
+        const n = rows.length;
+        if (countBadge) {
+          if (n > 0) {
+            countBadge.textContent = n + ' item' + (n !== 1 ? 'es' : '');
+            countBadge.style.display = 'inline-block';
+          } else {
+            countBadge.style.display = 'none';
+          }
+        }
+        if (bottomInfo && bottomTxt) {
+          if (n === 0) {
+            bottomTxt.innerHTML = '<strong>Listo para comenzar.</strong> Carga un PDF y extrae los datos automáticamente.';
+            if (extractHint) extractHint.textContent = 'Carga un PDF para visualizar los datos extraídos aquí.';
+          } else {
+            bottomTxt.innerHTML = 'Se extrajeron <strong>' + n + ' item' + (n !== 1 ? 's' : '') + '</strong>. Por favor revisa y guarda los cambios.';
+            if (extractHint) extractHint.textContent = 'Revisa los datos y haz clic en Guardar Pólizas cuando estés conforme.';
+          }
+        }
+      }
+      refreshCounts();
+      if (tbl && 'MutationObserver' in window) {
+        const obs2 = new MutationObserver(refreshCounts);
+        try { obs2.observe(tbl.querySelector('tbody'), { childList: true, subtree: false }); }
+        catch (err) {}
+      }
+    });
+  </script>
 {% endblock %}
