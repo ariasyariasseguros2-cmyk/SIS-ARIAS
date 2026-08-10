@@ -221,11 +221,9 @@ def get_dashboard_cards() -> Dict[str, Any]:
             if res: cards['total_policies'] = res[0]
         except Exception: pass
         
-        # 3. Renovaciones Pendientes (próximo mes)
-        # vigencia_hasta BETWEEN FirstDayNextMonth AND LastDayNextMonth
+        # 3. Renovaciones Pendientes (próximos 10 días)
         try:
-            # Simplificado: entre hoy y hoy+30 días
-            sql = f"SELECT COUNT(*) FROM polizas WHERE COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1' AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0' AND COALESCE(prima_anulada, 0) = 0 AND vig_hasta BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) {user_filter}"
+            sql = f"SELECT COUNT(*) FROM polizas WHERE COALESCE(NULLIF(TRIM(REPLACE(CONVERT(activo USING latin1), _latin1 0xA0, ' ')), ''), '0') = '1' AND COALESCE(NULLIF(TRIM(REPLACE(CONVERT(anulado USING latin1), _latin1 0xA0, ' ')), ''), '0') = '0' AND COALESCE(prima_anulada, 0) = 0 AND vig_hasta BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 10 DAY) {user_filter}"
             cur.execute(sql, user_filter_args)
             res = cur.fetchone()
             if res: cards['pending_renewals'] = res[0]
@@ -394,7 +392,7 @@ def get_dashboard_cards() -> Dict[str, Any]:
     return cards
 
 def get_distribution_by_group() -> Dict[str, Any]:
-    """Active policies per grupo (Generales/SOAT/Personales) split by vigente vs por renovar (próx. 30 días)."""
+    """Active policies per grupo (Generales/SOAT/Personales) split by vigente vs por renovar (próx. 10 días)."""
     empty = lambda: {'vigentes': 0, 'renovar': 0}
     result = {'generales': empty(), 'soat': empty(), 'personales': empty()}
     try:
@@ -453,7 +451,7 @@ def get_distribution_by_group() -> Dict[str, Any]:
                     WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia,''))) = 'ANUAL'
                         AND p.vig_hasta > DATE_ADD(CURDATE(), INTERVAL 1 DAY)  THEN 1
                     WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia,''))) NOT IN ('ANUAL','NO RENOVABLE','EVENTUAL','FLOTANTE')
-                        AND p.vig_hasta > DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1
+                        AND p.vig_hasta > DATE_ADD(CURDATE(), INTERVAL 10 DAY) THEN 1
                     ELSE 0
                 END) AS vigentes,
                 SUM(CASE
@@ -461,7 +459,7 @@ def get_distribution_by_group() -> Dict[str, Any]:
                     WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia,''))) = 'ANUAL'
                         AND p.vig_hasta <= DATE_ADD(CURDATE(), INTERVAL 1 DAY)  THEN 1
                     WHEN UPPER(TRIM(COALESCE(p.tipo_vigencia,''))) NOT IN ('ANUAL','NO RENOVABLE','EVENTUAL','FLOTANTE')
-                        AND p.vig_hasta <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1
+                        AND p.vig_hasta <= DATE_ADD(CURDATE(), INTERVAL 10 DAY) THEN 1
                     ELSE 0
                 END) AS renovar
             FROM polizas p
@@ -543,7 +541,7 @@ def get_pending_renewals_list(bucket: str, limit: int = 500) -> List[dict]:
             AND (
                 (UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) = 'ANUAL' AND p.vig_hasta <= DATE_ADD(CURDATE(), INTERVAL 1 DAY))
                 OR
-                (UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) NOT IN ('ANUAL','NO RENOVABLE','EVENTUAL','FLOTANTE') AND p.vig_hasta <= DATE_ADD(CURDATE(), INTERVAL 30 DAY))
+                (UPPER(TRIM(COALESCE(p.tipo_vigencia, ''))) NOT IN ('ANUAL','NO RENOVABLE','EVENTUAL','FLOTANTE') AND p.vig_hasta <= DATE_ADD(CURDATE(), INTERVAL 10 DAY))
             )
         """
 
