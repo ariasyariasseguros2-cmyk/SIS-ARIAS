@@ -4,7 +4,9 @@ import time
 import urllib.error
 import urllib.request
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+
+_LIMA_TZ = timezone(timedelta(hours=-5))  # Perú no usa horario de verano
 from threading import Lock
 
 _SETTINGS_PATH = os.path.join(os.path.dirname(__file__), '..', 'appsettings.json')
@@ -89,7 +91,7 @@ def notify_deletion(usuario: str, tipo: str, identificador: str, evento: str = '
         usuario = _resolve_nombre(usuario)
         accion = 'Anuló' if evento == 'anulacion' else 'Eliminó'
         motivo_txt = (motivo or '').strip() or 'No especificado'
-        hora = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+        hora = datetime.now(_LIMA_TZ).strftime('%d/%m/%Y %H:%M:%S')
         mensaje = (
             f"Este usuario: {usuario or 'desconocido'}\n"
             f"{accion} {tipo}\n"
