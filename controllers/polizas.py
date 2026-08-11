@@ -462,6 +462,175 @@ def get_polizas_all() -> dict:
         'details': {},  # listado global no necesita cabecera de cliente
     }
 
+def get_polizas_all_paginated(page: int | None = 1, per_page: int | None = 10) -> dict:
+    rows = []
+    total = 0
+    page_num = 1
+    per_page_num = 10
+    pages = 1
+    try:
+        from models.db import get_connection
+        from flask import session
+        from utils.rbac import Roles
+
+        try:
+            page_num = int(page or 1)
+        except Exception:
+            page_num = 1
+        try:
+            per_page_num = int(per_page or 10)
+        except Exception:
+            per_page_num = 10
+        if page_num < 1:
+            page_num = 1
+        if per_page_num < 1:
+            per_page_num = 10
+        if per_page_num > 200:
+            per_page_num = 200
+
+        offset = (page_num - 1) * per_page_num
+
+        cnx = get_connection()
+        cur = cnx.cursor(dictionary=True)
+
+        rls_filter = ""
+        rls_params = []
+        if session.get('role_name') == Roles.SUB_AGENTE:
+            user = session.get('user')
+            cur.execute("SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) AS nombre FROM usuarios WHERE username = %s", (user,))
+            u_row = cur.fetchone()
+            nombre_usuario = (u_row.get('nombre') if u_row else user) or user
+            rls_filter = " AND (p.usuario_registro = %s OR p.usuario_registro = %s OR p.sub_agente = %s OR p.sub_agente = %s) "
+            rls_params = [user, nombre_usuario, user, nombre_usuario]
+
+        base_where = " WHERE (p.activo = 1 OR p.activo IS NULL) AND (p.anulado = 0 OR p.anulado IS NULL) "
+
+        count_sql = "SELECT COUNT(*) AS total FROM polizas p INNER JOIN clientes c ON c.idCliente = p.cliente_id " + base_where + rls_filter
+        cur.execute(count_sql, tuple(rls_params))
+        total_row = cur.fetchone() or {}
+        try:
+            total = int(total_row.get('total', 0) or 0)
+        except Exception:
+            total = 0
+        pages = max(1, (total + per_page_num - 1) // per_page_num) if per_page_num > 0 else 1
+        if page_num > pages:
+            page_num = pages
+            offset = (page_num - 1) * per_page_num
+
+        sql = """
+            SELECT 
+                p.idPoliza,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(c.razon_social, @SIS_KEY) AS CHAR),
+                    c.razon_social
+                ) AS contratante,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.asegurado), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.asegurado, @SIS_KEY) AS CHAR),
+                    p.asegurado
+                ) AS asegurado,
+                p.cia,
+                p.ramo,
+                p.ramos_producto AS producto,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza
+                ) AS poliza,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.nro), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.nro, @SIS_KEY) AS CHAR),
+                    p.nro
+                ) AS nro,
+                p.moneda,
+                DATE_FORMAT(p.fecha_emision, '%d/%m/%Y') AS fecha_emision,
+                DATE_FORMAT(p.vig_desde, '%d/%m/%Y') AS vig_desde,
+                DATE_FORMAT(p.vig_hasta, '%d/%m/%Y') AS vig_hasta,
+                p.sub_agente,
+                p.asegurada
+            FROM polizas p
+            INNER JOIN clientes c ON c.idCliente = p.cliente_id
+        """ + base_where + rls_filter + """
+            ORDER BY p.creado_en DESC
+            LIMIT %s OFFSET %s
+        """
+        page_params = list(rls_params)
+        page_params.extend([per_page_num, offset])
+        cur.execute(sql, tuple(page_params))
+        rows = cur.fetchall() or []
+
+        for r in rows:
+            r['producto'] = r.get('producto') or r.get('ramos_producto') or ''
+
+        if rows:
+            def _to_int(d):
+                if not d: return 0
+                if hasattr(d, 'year'):
+                    return d.year * 10000 + d.month * 100 + d.day
+                s = str(d).strip()
+                if '/' in s:
+                    parts = s.split('/')
+                    if len(parts) == 3:
+                        try: return int(parts[2])*10000 + int(parts[1])*100 + int(parts[0])
+                        except: pass
+                if '-' in s:
+                    parts = s.split('-')
+                    if len(parts) == 3:
+                        try: return int(parts[0])*10000 + int(parts[1])*100 + int(parts[2])
+                        except: pass
+                return 0
+
+            best_rows = {}
+            for r in rows:
+                p = str(r.get('poliza') or '')
+                if not p: continue
+
+                if p not in best_rows:
+                    best_rows[p] = r
+                else:
+                    curr = best_rows[p]
+                    if _to_int(r.get('vig_hasta')) > _to_int(curr.get('vig_hasta')):
+                        best_rows[p] = r
+                    elif _to_int(r.get('vig_hasta')) == _to_int(curr.get('vig_hasta')):
+                        if _to_int(r.get('vig_desde')) > _to_int(curr.get('vig_desde')):
+                            best_rows[p] = r
+
+            new_rows = []
+            seen = set()
+            for r in rows:
+                p = str(r.get('poliza') or '')
+                if not p:
+                    new_rows.append(r)
+                    continue
+                if p not in seen:
+                    seen.add(p)
+                    new_rows.append(best_rows[p])
+            rows = new_rows
+
+        rows = _enriquecer_con_ultima_renovacion(rows, cur)
+
+        cur.close()
+        cnx.close()
+    except Exception:
+        rows = []
+        total = 0
+        page_num = 1
+        per_page_num = 10
+        pages = 1
+        for r in rows:
+            r['ren_vig_desde'] = r.get('ren_vig_desde') or ''
+            r['ren_vig_hasta'] = r.get('ren_vig_hasta') or ''
+
+    return {
+        'rows': rows,
+        'total': total,
+        'page': page_num,
+        'per_page': per_page_num,
+        'pages': pages,
+    }
+
+
 def get_polizas_anuladas() -> dict:
     rows = []
     try:

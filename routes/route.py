@@ -1546,8 +1546,7 @@ def menu_page(page):
 
     # NUEVO: Listado de pólizas con paginación (global: todas las pólizas)
     if page == 'listado-poliza':
-        from controllers.polizas import get_polizas_all
-        data = get_polizas_all()
+        from controllers.polizas import get_polizas_all_paginated
 
         try:
             page_num = int(request.args.get('page') or 1)
@@ -1558,12 +1557,13 @@ def menu_page(page):
         except Exception:
             per_page = 10
 
-        total = len(data.get('rows', []))
-        pages = max(1, (total + per_page - 1) // per_page)
-        page_num = max(1, min(page_num, pages))
-        start = (page_num - 1) * per_page
-        end = start + per_page
-        page_rows = data.get('rows', [])[start:end]
+        data = get_polizas_all_paginated(page=page_num, per_page=per_page)
+
+        total = data.get('total', 0)
+        pages = data.get('pages', 1)
+        page_num = data.get('page', 1)
+        per_page = data.get('per_page', 10)
+        page_rows = data.get('rows', [])
 
         # Logic for pagination iterator (smart pagination)
         iter_pages = []
