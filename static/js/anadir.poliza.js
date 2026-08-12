@@ -3456,6 +3456,50 @@
   }
 
   function __validateBeforeSave() {
+    if (!lastUploadedFilename && (!fileEl || !fileEl.files || !fileEl.files[0])) {
+      if (window.Swal) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Falta cargar póliza',
+          html: 'No se ha cargado ningún PDF de póliza.<br><br><strong>Por favor:</strong><ol class="text-start mt-2 mb-0"><li>Selecciona un archivo PDF en la zona de carga superior</li><li>Haz clic en <b>"Extraer Datos"</b> para procesarlo</li><li>Verifica que los datos aparezcan en la tabla</li><li>Luego intenta guardar nuevamente</li></ol>',
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#3b82f6',
+          didClose: () => {
+            try { fileEl?.focus(); } catch (_) {}
+            try { fileEl?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+          }
+        });
+      } else {
+        alert('No se ha cargado ningún PDF de póliza. Selecciona un PDF, extrae los datos y luego guarda.');
+        try { fileEl?.focus(); } catch (_) {}
+      }
+      return false;
+    }
+
+    if (!extractedItems || extractedItems.length === 0) {
+      if (window.Swal) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Sin datos extraídos',
+          html: 'La tabla de datos extraídos está vacía.<br><br><strong>Posibles soluciones:</strong><ol class="text-start mt-2 mb-0"><li>Verifica que hayas seleccionado el PDF correcto</li><li>Haz clic en <b>"Extraer Datos"</b> nuevamente</li><li>Si el PDF está protegido, ingresa la contraseña cuando se te solicite</li><li>Revisa que el archivo no esté dañado o en blanco</li></ol>',
+          confirmButtonText: 'Re-extraer PDF',
+          confirmButtonColor: '#8b5cf6',
+          showCancelButton: true,
+          cancelButtonText: 'Cancelar',
+          cancelButtonColor: '#64748b'
+        }).then((res) => {
+          if (res.isConfirmed) {
+            try {
+              if (btnUpload) btnUpload.click();
+            } catch (_) {}
+          }
+        });
+      } else {
+        alert('No hay datos para guardar. Extrae primero el PDF.');
+      }
+      return false;
+    }
+
     const tipoDocSel = (tipoDocTopEl?.value || '').toString().trim();
     if (!tipoDocSel) {
       __warnMissing('Falta completar', 'Selecciona el Tipo de Doc antes de guardar.', () => tipoDocTopEl?.focus());
@@ -3541,15 +3585,23 @@
       }
     }
 
+    const tipoPagoNorm = (tipoPagoSel || '').toString().toUpperCase().trim();
+    const requierePagoDetallado = ['FINANCIADO', 'CREDITO', 'CARGO EN CUENTA', 'SAFETY PAY', 'PAGO EFECTIVO'].includes(tipoPagoNorm);
+
     for (let i = 0; i < (extractedItems || []).length; i++) {
       const it = extractedItems[i] || {};
       const cuotas = Array.isArray(it.cuotas) ? it.cuotas : [];
+      const rowFiles = (rowFacturasMap?.get(i) || []).filter(Boolean);
+      const hasAnyFile = rowFiles.length > 0;
 
       if (cuotas.length > 0) {
         for (let ci = 0; ci < cuotas.length; ci++) {
           const c = cuotas[ci] || {};
           const fac = (c.factura || '').toString().trim();
           const fec = (c.fecha_pago || '').toString().trim();
+          const cup = (c.cupon || '').toString().trim();
+          const ven = (c.fecha_vencimiento || '').toString().trim();
+          const imp = (c.importe || '').toString().trim();
           const cuotaFile = (() => {
             try {
               const k = getCuotaFileMapKey(i, c);
@@ -3559,26 +3611,75 @@
             }
           })();
 
-          const shouldValidate = !!cuotaFile && isFacturaFile(cuotaFile);
-          if (shouldValidate && (!fac || !fec)) {
-            __warnMissing(
-              'Falta completar',
-              `Fila ${i + 1} - Cuota ${ci + 1}: completa Factura y Fecha de Pago antes de guardar.`,
-              () => __focusFacturaFecha(i, !fac ? 'factura' : 'fecha_pago', ci)
-            );
-            return false;
+          const tieneArchivoCuota = !!cuotaFile;
+          const fileKind = cuotaFile ? getFileKind(cuotaFile) : '';
+          const esFactura = fileKind === 'FACTURA';
+          const esConvenio = fileKind === 'CONVENIO';
+
+          if (esFactura) {
+            if (!fac || !fec) {
+              __warnMissing(
+                'Falta completar Factura',
+                `Fila ${i + 1} - Cuota ${ci + 1}: el archivo adjunto es una FACTURA. Completa "Factura" y "Fecha de Pago" antes de guardar.`,
+                () => __focusFacturaFecha(i, !fac ? 'factura' : 'fecha_pago', ci)
+              );
+              return false;
+            }
+          }
+
+          if (esConvenio || requierePagoDetallado) {
+            if (!cup || !ven || !imp) {
+              const faltantes = [];
+              if (!cup) faltantes.push('Cupón');
+              if (!ven) faltantes.push('Fecha Vencimiento');
+              if (!imp) faltantes.push('Importe');
+              __warnMissing(
+                'Falta completar Convenio/Cuota',
+                `Fila ${i + 1} - Cuota ${ci + 1}: completa ${faltantes.join(', ')} antes de guardar. (Tipo de pago: ${tipoPagoSel || '—'})`,
+                () => { try { tbody?.querySelectorAll('tr')?.[i]?.querySelector(`.cuota-cupon[data-index="${i}"][data-cuota-index="${ci}"]`)?.focus(); } catch (_) {} }
+              );
+              return false;
+            }
+          }
+
+          if (tieneArchivoCuota && !esFactura && !esConvenio) {
+            if (!fac || !fec) {
+              __warnMissing(
+                'Falta completar',
+                `Fila ${i + 1} - Cuota ${ci + 1}: hay un archivo adjunto. Completa Factura y Fecha de Pago antes de guardar.`,
+                () => __focusFacturaFecha(i, !fac ? 'factura' : 'fecha_pago', ci)
+              );
+              return false;
+            }
           }
         }
       } else {
         const fac = __rowFieldValue(i, 'factura');
         const fec = __rowFieldValue(i, 'fecha_pago');
-        const shouldValidate = false;
-        if (shouldValidate && (!fac || !fec)) {
-          __warnMissing(
-            'Falta completar',
-            `Fila ${i + 1}: completa Factura y Fecha de Pago antes de guardar.`,
-            () => __focusFacturaFecha(i, !fac ? 'factura' : 'fecha_pago')
-          );
+
+        if (hasAnyFile) {
+          if (!fac || !fec) {
+            __warnMissing(
+              'Falta completar Factura',
+              `Fila ${i + 1}: tienes archivos adjuntos de factura. Completa "Factura" y "Fecha de Pago" en la fila (o agrega cuotas) antes de guardar.`,
+              () => __focusFacturaFecha(i, !fac ? 'factura' : 'fecha_pago')
+            );
+            return false;
+          }
+        }
+
+        if (requierePagoDetallado && !fac && !fec) {
+          if (window.Swal) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Falta información de pago',
+              html: `Fila ${i + 1}: Tipo de Pago es <strong>"${tipoPagoSel}"</strong> pero no hay datos de pago.<br><br>Opciones:<ol class="text-start mt-2 mb-0"><li>Agrega cuotas haciendo clic en <b>"+ Agregar Cuota"</b> y completa sus datos</li><li>O completa los campos <b>"Factura"</b> y <b>"Fecha Pago"</b> directamente en la fila</li><li>O cambia el Tipo de Pago si corresponde</li></ol>`,
+              confirmButtonText: 'Entendido',
+              confirmButtonColor: '#f59e0b'
+            });
+          } else {
+            alert(`Fila ${i + 1}: Para Tipo de Pago "${tipoPagoSel}" debes agregar cuotas o completar Factura y Fecha Pago.`);
+          }
           return false;
         }
       }
@@ -3587,15 +3688,24 @@
   }
 
   function __autoSaveHasFacturaFecha(items) {
+    const tipoPagoSel = (tipoPagoTopEl?.value || '').toString().trim();
+    const tipoPagoNorm = (tipoPagoSel || '').toString().toUpperCase().trim();
+    const requierePagoDetallado = ['FINANCIADO', 'CREDITO', 'CARGO EN CUENTA', 'SAFETY PAY', 'PAGO EFECTIVO'].includes(tipoPagoNorm);
+
     for (let i = 0; i < (items || []).length; i++) {
       const it = items[i] || {};
       const cuotas = Array.isArray(it.cuotas) ? it.cuotas : [];
+      const rowFiles = (rowFacturasMap?.get(i) || []).filter(Boolean);
+      const hasAnyFile = rowFiles.length > 0;
 
       if (cuotas.length > 0) {
         for (let ci = 0; ci < cuotas.length; ci++) {
           const c = cuotas[ci] || {};
           const fac = (c.factura || '').toString().trim();
           const fec = (c.fecha_pago || '').toString().trim();
+          const cup = (c.cupon || '').toString().trim();
+          const ven = (c.fecha_vencimiento || '').toString().trim();
+          const imp = (c.importe || '').toString().trim();
           const cuotaFile = (() => {
             try {
               const k = getCuotaFileMapKey(i, c);
@@ -3604,11 +3714,21 @@
               return null;
             }
           })();
-          const shouldValidate = !!cuotaFile && isFacturaFile(cuotaFile);
-          if (shouldValidate && (!fac || !fec)) return false;
+
+          const tieneArchivoCuota = !!cuotaFile;
+          const fileKind = cuotaFile ? getFileKind(cuotaFile) : '';
+          const esFactura = fileKind === 'FACTURA';
+          const esConvenio = fileKind === 'CONVENIO';
+
+          if (esFactura && (!fac || !fec)) return false;
+          if ((esConvenio || requierePagoDetallado) && (!cup || !ven || !imp)) return false;
+          if (tieneArchivoCuota && !esFactura && !esConvenio && (!fac || !fec)) return false;
         }
       } else {
-        continue;
+        const fac = (it.factura || '').toString().trim();
+        const fec = (it.fecha_pago || '').toString().trim();
+        if (hasAnyFile && (!fac || !fec)) return false;
+        if (requierePagoDetallado && !fac && !fec) return false;
       }
     }
     return true;
