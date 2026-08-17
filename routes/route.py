@@ -2829,6 +2829,14 @@ def upload():
                         if mv:
                             it['inicio_vigencia'] = mv.group(1).replace("-", "/")
                             it['vencimiento'] = mv.group(2).replace("-", "/")
+                    if not iv:
+                        m_iv_ind = re.search(r"INICIO\s+DE\s+VIGENCIA\s*[:：]?\s*(?:\r?\n\s*)?(\d{1,2}[/-]\d{1,2}[/-]\d{4})", pdf_text, re.IGNORECASE | re.DOTALL)
+                        if m_iv_ind:
+                            it['inicio_vigencia'] = m_iv_ind.group(1).replace("-", "/")
+                    if not ve:
+                        m_fv_ind = re.search(r"FIN\s+DE\s+VIGENCIA\s*[:：]?\s*(?:\r?\n\s*)?(\d{1,2}[/-]\d{1,2}[/-]\d{4})", pdf_text, re.IGNORECASE | re.DOTALL)
+                        if m_fv_ind:
+                            it['vencimiento'] = m_fv_ind.group(1).replace("-", "/")
                     fe_header = None
                     try:
                         mh = re.search(
@@ -2847,14 +2855,18 @@ def upload():
 
                     fe = (it.get('fecha_emision') or '').strip()
                     if not fe:
-                        mwords = re.search(r"\b(\d{1,2})\s+de\s+([A-Za-zÁÉÍÓÚÑáéíóúñ]+)\s+de\s+(\d{4})\b", pdf_text, re.IGNORECASE)
+                        meses = {
+                            "enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
+                            "mayo": "05", "junio": "06", "julio": "07", "agosto": "08",
+                            "setiembre": "09", "septiembre": "09", "octubre": "10",
+                            "noviembre": "11", "diciembre": "12",
+                        }
+                        mwords = re.search(r"(?:Suscrito|Emitido|Expedido)[\s\S]{0,100}?(\d{1,2})\s+de\s+([A-Za-zÁÉÍÓÚÑáéíóúñ]+)\s+de[l]?\s+(\d{4})", pdf_text, re.IGNORECASE)
+                        if not mwords:
+                            mwords = re.search(r"(?:Lunes|Martes|Mi[eé]rcoles|Jueves|Viernes|S[aá]bado|Domingo)\s*[,，]\s*(\d{1,2})\s+de\s+([A-Za-zÁÉÍÓÚÑáéíóúñ]+)\s+de[l]?\s+(\d{4})", pdf_text, re.IGNORECASE)
+                        if not mwords:
+                            mwords = re.search(r"\b(\d{1,2})\s+de\s+([A-Za-zÁÉÍÓÚÑáéíóúñ]+)\s+de\s+(\d{4})\b", pdf_text, re.IGNORECASE)
                         if mwords:
-                            meses = {
-                                "enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
-                                "mayo": "05", "junio": "06", "julio": "07", "agosto": "08",
-                                "setiembre": "09", "septiembre": "09", "octubre": "10",
-                                "noviembre": "11", "diciembre": "12",
-                            }
                             mon = mwords.group(2).lower()
                             mon_num = meses.get(mon)
                             if mon_num:
@@ -2903,6 +2915,25 @@ def upload():
         except Exception as e:
             LOG(f"[upload] cronograma parse error: {e}")
         LOG(f"[upload] fechas normalizadas: {[(x.get('ultimo_dia_pago'), x.get('vencimiento')) for x in items_ui]}")
+
+        # Regla final: SIEMPRE recalcular fecha_vencimiento (pago) = fecha_emision + 15.
+        # Nunca usar vencimiento (fin cobertura) como fecha de pago.
+        try:
+            for it in items_ui:
+                fe_val = (it.get('fecha_emision') or '').strip()
+                iv_val = (it.get('inicio_vigencia') or '').strip()
+                udp_val = (it.get('ultimo_dia_pago') or '').strip()
+                fvec_val = (it.get('fecha_vecimiento') or '').strip()
+                pago_calc = udp_val or fvec_val or _add_days_ddmmyyyy(fe_val, 15) or _add_days_ddmmyyyy(iv_val, 15)
+                if pago_calc:
+                    it['fecha_vencimiento'] = pago_calc
+                    if not fvec_val:
+                        it['fecha_vecimiento'] = pago_calc
+                    if not udp_val:
+                        it['ultimo_dia_pago'] = pago_calc
+        except Exception:
+            pass
+
         # Dedupe por combinación clave y descartar muy vacíos
         unique = []
         seen = set()
@@ -3009,20 +3040,29 @@ def upload():
     #     pass
 
     # Ajuste de fechas:
-    # - fecha_vencimiento = vigencia (si existe)
-    # - fecha_vecimiento = fecha de pago (ultimo_dia_pago o emision+15)
+    # PRIMERO: fecha de pago (vence pago) = ultimo_dia_pago o fecha_emision + 15.
+    # LUEGO (fallback solo si no existe fecha de pago): fecha_vencimiento = fin de vigencia.
     try:
-        if not extracted.get('fecha_vencimiento'):
-            fv = (extracted.get('vencimiento')
-                  or extracted.get('vigencia_hasta')
-                  or extracted.get('hasta')
-                  or extracted.get('expiracion'))
-            if fv:
-                extracted['fecha_vencimiento'] = fv
-
-        # Sincroniza fecha_vecimiento a la fecha de pago (no sobreescribir si el parser ya la definió)
-        if not extracted.get('fecha_vecimiento'):
-            extracted['fecha_vecimiento'] = extracted.get('ultimo_dia_pago') or _add_days_ddmmyyyy(extracted.get('fecha_emision'), 15)
+        fe_val_fb = (extracted.get('fecha_emision') or '').strip()
+        iv_val_fb = (extracted.get('inicio_vigencia') or '').strip()
+        udp_val_fb = (extracted.get('ultimo_dia_pago') or '').strip()
+        fvec_val_fb = (extracted.get('fecha_vecimiento') or '').strip()
+        pago_calc_fb = udp_val_fb or fvec_val_fb or _add_days_ddmmyyyy(fe_val_fb, 15) or _add_days_ddmmyyyy(iv_val_fb, 15)
+        if pago_calc_fb:
+            extracted['fecha_vencimiento'] = pago_calc_fb
+            if not fvec_val_fb:
+                extracted['fecha_vecimiento'] = pago_calc_fb
+            if not udp_val_fb:
+                extracted['ultimo_dia_pago'] = pago_calc_fb
+        else:
+            # Fallback extremo: si no hay fecha de pago, usar fin de vigencia
+            if not extracted.get('fecha_vencimiento'):
+                fv = (extracted.get('vencimiento')
+                      or extracted.get('vigencia_hasta')
+                      or extracted.get('hasta')
+                      or extracted.get('expiracion'))
+                if fv:
+                    extracted['fecha_vencimiento'] = fv
     except Exception:
         pass
 

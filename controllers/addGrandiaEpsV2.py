@@ -60,6 +60,16 @@ def parse_grandia_eps_v2(text: str) -> Dict[str, str]:
     item: Dict[str, Optional[str]] = {}
     flat = _canon(text)
 
+    def _add_days_ddmmyyyy(date_str: Optional[str], days: int) -> Optional[str]:
+        try:
+            from datetime import datetime, timedelta
+            if not date_str:
+                return None
+            dt = datetime.strptime(date_str.strip(), "%d/%m/%Y")
+            return (dt + timedelta(days=days)).strftime("%d/%m/%Y")
+        except Exception:
+            return None
+
     def _find_date_range(src: str) -> tuple[Optional[str], Optional[str]]:
         patterns = [
             r"VIGENCIA\s*:\s*([0-9]{2}/[0-9]{2}/[0-9]{4})\s*(?:al|hasta|-|–|—)\s*([0-9]{2}/[0-9]{2}/[0-9]{4})",
@@ -71,7 +81,37 @@ def parse_grandia_eps_v2(text: str) -> Dict[str, str]:
             m = re.search(pat, src, re.IGNORECASE | re.DOTALL)
             if m:
                 return m.group(1), m.group(2)
+        m_iv = re.search(r"INICIO\s+DE\s+VIGENCIA\s*[:：]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", src, re.IGNORECASE)
+        m_fv = re.search(r"FIN\s+DE\s+VIGENCIA\s*[:：]?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", src, re.IGNORECASE)
+        if m_iv or m_fv:
+            return m_iv.group(1) if m_iv else None, m_fv.group(1) if m_fv else None
         return None, None
+
+    def _find_fecha_emision(src: str) -> Optional[str]:
+        meses = {
+            "enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
+            "mayo": "05", "junio": "06", "julio": "07", "agosto": "08",
+            "setiembre": "09", "septiembre": "09", "octubre": "10",
+            "noviembre": "11", "diciembre": "12",
+        }
+        m_fe = re.search(r"FECHA\s+DE\s+EMISI[ÓO]N\s*[:：.]?\s*(?:\r?\n\s*)?(\d{1,2}[/-]\d{1,2}[/-]\d{4})", src, re.IGNORECASE)
+        if m_fe:
+            return m_fe.group(1).replace("-", "/")
+        m_words = re.search(r"(?:Suscrito|Emitido|Expedido)[\s\S]{0,100}?(\d{1,2})\s+de\s+([A-Za-zÁÉÍÓÚÑáéíóúñ]+)\s+de[l]?\s+(\d{4})", src, re.IGNORECASE)
+        if m_words:
+            mon = m_words.group(2).lower()
+            mon_num = meses.get(mon)
+            if mon_num:
+                dd = f"{int(m_words.group(1)):02d}"
+                return f"{dd}/{mon_num}/{m_words.group(3)}"
+        m_words2 = re.search(r"(?:Lunes|Martes|Mi[eé]rcoles|Jueves|Viernes|S[aá]bado|Domingo)\s*[,，]\s*(\d{1,2})\s+de\s+([A-Za-zÁÉÍÓÚÑáéíóúñ]+)\s+de[l]?\s+(\d{4})", src, re.IGNORECASE)
+        if m_words2:
+            mon = m_words2.group(2).lower()
+            mon_num = meses.get(mon)
+            if mon_num:
+                dd = f"{int(m_words2.group(1)):02d}"
+                return f"{dd}/{mon_num}/{m_words2.group(3)}"
+        return None
 
     contrato = (
         _find(r"\bCONTRATO\s*(?:NO\.?|NRO\.?|N°|Nº)\s*[:.]?\s*([0-9]{5,}(?:-[0-9A-Z]+)?)\b", flat)
@@ -81,6 +121,8 @@ def parse_grandia_eps_v2(text: str) -> Dict[str, str]:
     inicio_vigencia, vencimiento = _find_date_range(text)
     if not inicio_vigencia and not vencimiento:
         inicio_vigencia, vencimiento = _find_date_range(flat)
+
+    fecha_emision = _find_fecha_emision(text) or _find_fecha_emision(flat)
 
     datos_block = (
         _between(r"\bDATOS\s+DEL\s+CONTRATANTE\b", r"\bAnexo\b|\bCONSOLIDADO\s+DE\s+PRIMAS\b", text, window=6000)
@@ -157,6 +199,12 @@ def parse_grandia_eps_v2(text: str) -> Dict[str, str]:
         except Exception:
             prima_comercial = None
 
+    fecha_vecimiento = None
+    if fecha_emision:
+        fecha_vecimiento = _add_days_ddmmyyyy(fecha_emision, 15)
+    if not fecha_vecimiento and inicio_vigencia:
+        fecha_vecimiento = _add_days_ddmmyyyy(inicio_vigencia, 15)
+
     item.update(
         {
             "numero_poliza": contrato,
@@ -164,7 +212,8 @@ def parse_grandia_eps_v2(text: str) -> Dict[str, str]:
             "colectivo_asegurado": colectivo,
             "inicio_vigencia": inicio_vigencia,
             "vencimiento": vencimiento,
-            "fecha_vencimiento": vencimiento,
+            "fecha_emision": fecha_emision,
+            "fecha_vecimiento": fecha_vecimiento,
             "ramo": "SCTR",
             "ramos_producto": "Salud",
             "moneda": "SOLES",
