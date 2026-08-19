@@ -64,8 +64,8 @@ def _rate_limited(rate_cfg):
 def notify_deletion(usuario: str, tipo: str, identificador: str, evento: str = 'eliminacion', motivo: str = ''):
     """Envía una alerta vía EmailJS cuando alguien elimina o anula una póliza, cuota o prima.
 
-    evento: 'eliminacion' (borrado físico) usa EmailJs.template_id;
-            'anulacion' (borrado lógico / anular) usa EmailJs.template_id_anulacion.
+    Un solo template (EmailJs.template_id) sirve para eliminación y anulación: la
+    diferencia queda en el texto de {{accion}}/{{message}}, no en el template.
     Nunca lanza excepción: un fallo de envío no debe romper el flujo de borrado.
     """
     try:
@@ -73,9 +73,7 @@ def notify_deletion(usuario: str, tipo: str, identificador: str, evento: str = '
         ej_cfg = cfg.get('EmailJs') or {}
         recipients = [r for r in (ej_cfg.get('alert_recipients') or []) if r]
         service_id = ej_cfg.get('service_id')
-        template_id = (
-            ej_cfg.get('template_id_anulacion') if evento == 'anulacion' else ej_cfg.get('template_id')
-        )
+        template_id = ej_cfg.get('template_id')
         public_key = ej_cfg.get('public_key')
         private_key = os.environ.get('SIS_ARIAS_EMAILJS_PRIVATE_KEY') or ej_cfg.get('private_key')
         if not (service_id and template_id and public_key and recipients):
@@ -145,3 +143,68 @@ def notify_deletion(usuario: str, tipo: str, identificador: str, evento: str = '
                 print(f'[notify_deletion] error enviando a {to_email}: {e}')
     except Exception as e:
         print(f'[notify_deletion] error inesperado: {e}')
+
+
+def notify_solicitud(destinatarios: list[str], cc: list[str], template_params: dict):
+    """Envía el correo de una Solicitud (TI) vía EmailJS con EmailJs.template_id_solicitud.
+
+    Nunca lanza excepción: un fallo de envío no debe romper el guardado de la solicitud.
+    Los adjuntos de la solicitud NO se envían como adjunto binario del correo (EmailJS no
+    lo soporta bien vía REST); quedan guardados en solicitud_archivos para verlos en la app.
+    """
+    try:
+        cfg = _load_settings()
+        ej_cfg = cfg.get('EmailJs') or {}
+        service_id = ej_cfg.get('service_id')
+        template_id = ej_cfg.get('template_id_solicitud')
+        public_key = ej_cfg.get('public_key')
+        private_key = os.environ.get('SIS_ARIAS_EMAILJS_PRIVATE_KEY') or ej_cfg.get('private_key')
+        destinatarios = [d for d in (destinatarios or []) if d]
+        if not (service_id and template_id and public_key and destinatarios):
+            faltantes = [
+                n for n, v in (
+                    ('service_id', service_id), ('template_id_solicitud', template_id),
+                    ('public_key', public_key), ('para', destinatarios),
+                ) if not v
+            ]
+            print(f'[notify_solicitud] omitido, falta configurar/completar: {", ".join(faltantes)}')
+            return
+
+        for to_email in destinatarios:
+            if _rate_limited(cfg.get('RateLimit') or {}):
+                print('[notify_solicitud] rate limit alcanzado, correo omitido')
+                return
+
+            payload = {
+                'service_id': service_id,
+                'template_id': template_id,
+                'user_id': public_key,
+                'template_params': {
+                    **template_params,
+                    'to_email': to_email,
+                    'cc_email': '; '.join(cc or []),
+                },
+            }
+            if private_key:
+                payload['accessToken'] = private_key
+
+            req = urllib.request.Request(
+                _EMAILJS_URL,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                },
+                method='POST',
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    if resp.status >= 300:
+                        print(f'[notify_solicitud] EmailJS respondió {resp.status} para {to_email}: {resp.read().decode(errors="replace")}')
+            except urllib.error.HTTPError as e:
+                body = e.read().decode(errors='replace')
+                print(f'[notify_solicitud] error enviando a {to_email}: HTTP {e.code} - {body}')
+            except Exception as e:
+                print(f'[notify_solicitud] error enviando a {to_email}: {e}')
+    except Exception as e:
+        print(f'[notify_solicitud] error inesperado: {e}')
