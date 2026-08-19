@@ -1660,16 +1660,22 @@ def delete_cuota(cuota_id: int, motivo: str = '', usuario: str = '') -> Tuple[bo
         cur.execute(
             """
             SELECT
-                poliza_id,
-                financiamiento_grupal_id,
+                c.poliza_id,
+                c.financiamiento_grupal_id,
                 COALESCE(
-                    CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR),
-                    CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR),
-                    cupon
-                ) AS cupon_plain
-            FROM cuotas
-            WHERE idCuota = %s
-              AND activo = 1
+                    CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(c.cupon, @SIS_KEY) AS CHAR),
+                    c.cupon
+                ) AS cupon_plain,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza
+                ) AS poliza_numero
+            FROM cuotas c
+            LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
+            WHERE c.idCuota = %s
+              AND c.activo = 1
             """,
             (cuota_id,),
         )
@@ -1682,6 +1688,7 @@ def delete_cuota(cuota_id: int, motivo: str = '', usuario: str = '') -> Tuple[bo
         poliza_id = row[0]
         financiamiento_grupal_id = row[1]
         cupon_plain = (row[2] or '').strip()
+        poliza_numero = (row[3] or '').strip()
 
         # En financiamiento grupal la cuota base forma parte del cronograma y no debe anularse.
         # Se limpia la factura/pago/documento para conservar la estructura de cuotas.
@@ -1715,7 +1722,9 @@ def delete_cuota(cuota_id: int, motivo: str = '', usuario: str = '') -> Tuple[bo
         cnx.commit()
         cur.close()
         cnx.close()
-        return True, "", (cupon_plain or f"Cuota ID {cuota_id}")
+        recibo_txt = cupon_plain or f"Cuota ID {cuota_id}"
+        identificador = f"Póliza {poliza_numero} — Recibo {recibo_txt}" if poliza_numero else recibo_txt
+        return True, "", identificador
     except Exception as e:
         print(f"Error deleting cuota: {e}")
         return False, str(e), ""
@@ -1866,21 +1875,33 @@ def hard_delete_cuota(cuota_id: int) -> Tuple[bool, str, str]:
         cur = cnx.cursor()
 
         cupon_plain = None
+        poliza_numero = None
         try:
             cur.execute(
                 """
-                SELECT COALESCE(
-                    CAST(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) AS CHAR),
-                    CAST(AES_DECRYPT(cupon, @SIS_KEY) AS CHAR),
-                    cupon
-                ) FROM cuotas WHERE idCuota = %s
+                SELECT
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(c.cupon, @SIS_KEY) AS CHAR),
+                        c.cupon
+                    ),
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                        p.poliza
+                    )
+                FROM cuotas c
+                LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
+                WHERE c.idCuota = %s
                 """,
                 (cuota_id,),
             )
             row = cur.fetchone()
             cupon_plain = (row[0] or '').strip() if row else None
+            poliza_numero = (row[1] or '').strip() if row else None
         except Exception:
             cupon_plain = None
+            poliza_numero = None
 
         cur.execute("DELETE FROM cuotas WHERE idCuota = %s", (cuota_id,))
         affected = cur.rowcount
@@ -1888,7 +1909,9 @@ def hard_delete_cuota(cuota_id: int) -> Tuple[bool, str, str]:
         cur.close()
         cnx.close()
         if affected > 0:
-            return True, "", (cupon_plain or f"Cuota ID {cuota_id}")
+            recibo_txt = cupon_plain or f"Cuota ID {cuota_id}"
+            identificador = f"Póliza {poliza_numero} — Recibo {recibo_txt}" if poliza_numero else recibo_txt
+            return True, "", identificador
         return False, "Cuota no encontrada", ""
     except Exception as e:
         print(f"Error hard deleting cuota: {e}")
