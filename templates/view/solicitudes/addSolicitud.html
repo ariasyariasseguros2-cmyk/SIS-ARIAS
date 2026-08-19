@@ -1,0 +1,198 @@
+<div class="modal fade" id="addSolicitudModal" tabindex="-1" aria-labelledby="addSolicitudModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <form id="addSolicitudForm" autocomplete="off" novalidate>
+        <div class="modal-header">
+          <h5 class="modal-title" id="addSolicitudModalLabel">
+            <i class="bi-briefcase-fill me-1"></i> Añadir Solicitud
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+
+          <!-- SECCIÓN 1: GESTIÓN -->
+          <div class="mb-5">
+            <h6 class="section-title text-primary"><i class="bi-diagram-3 me-2"></i> Gestión</h6>
+            <div class="section-box">
+              <div class="row g-4">
+                <div class="col-md-4">
+                  <label for="sol_tipo_operacion" class="form-label">Tipo Operación <span class="text-danger">*</span></label>
+                  <select id="sol_tipo_operacion" name="tipo_operacion" class="form-select" required>
+                    <option value="">Seleccionar...</option>
+                    {% for op in tipo_operacion_options %}
+                    <option value="{{ op }}">{{ op.title() }}</option>
+                    {% endfor %}
+                  </select>
+                  <div class="invalid-feedback">Seleccione el tipo de operación.</div>
+                </div>
+                <div class="col-md-4">
+                  <label for="sol_fecha_solicitud" class="form-label">Fecha Solicitud <span class="text-danger">*</span></label>
+                  <input type="date" id="sol_fecha_solicitud" name="fecha_solicitud" class="form-control" value="{{ today }}" required />
+                </div>
+                <div class="col-md-4">
+                  <label for="sol_ubicacion" class="form-label">Ubicación <span class="text-danger">*</span></label>
+                  <select id="sol_ubicacion" name="ubicacion" class="form-select" required>
+                    {% for op in ubicacion_options %}
+                    <option value="{{ op }}" {% if op == 'CLIENTE' %}selected{% endif %}>{{ op.title() }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div class="col-md-4">
+                  <label for="sol_prioridad" class="form-label">Prioridad <span class="text-danger">*</span></label>
+                  <select id="sol_prioridad" name="prioridad" class="form-select" required>
+                    {% for op in prioridad_options %}
+                    <option value="{{ op }}" {% if op == 'NORMAL' %}selected{% endif %}>{{ op.title() }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label for="sol_medio" class="form-label">Medio</label>
+                  <select id="sol_medio" name="medio" class="form-select">
+                    {% for op in medio_options %}
+                    <option value="{{ op }}" {% if op == 'CORREO' %}selected{% endif %}>{{ op.title() }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label for="sol_gestor" class="form-label">Gestor <span class="text-danger">*</span></label>
+                  <select id="sol_gestor" name="gestor" class="form-select" required>
+                    <option value="">Seleccionar...</option>
+                    {% for e in ejecutivos_rows %}
+                    <option value="{{ e.nombre }}" {% if e.nombre == default_gestor %}selected{% endif %}>{{ e.nombre }}</option>
+                    {% endfor %}
+                  </select>
+                  <div class="invalid-feedback">Seleccione un gestor.</div>
+                </div>
+
+                <div class="col-md-4">
+                  <label for="sol_fecha_proxima_gestion" class="form-label">Fecha Próxima Gestión</label>
+                  <input type="date" id="sol_fecha_proxima_gestion" name="fecha_proxima_gestion" class="form-control" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN 2: CONTEXTO (opcional, referencial) -->
+          <div class="mb-5">
+            <h6 class="section-title text-primary"><i class="bi-file-earmark-text me-2"></i> Contexto</h6>
+            <div class="section-box">
+              <div class="row g-4">
+                <div class="col-md-4">
+                  <label for="sol_cliente" class="form-label">Cliente</label>
+                  <input type="text" id="sol_cliente" name="cliente" class="form-control" list="sol_clientes_list" placeholder="Buscar cliente..." />
+                  <datalist id="sol_clientes_list"></datalist>
+                </div>
+                <div class="col-md-4">
+                  <label for="sol_compania" class="form-label">Compañía</label>
+                  <select id="sol_compania" name="compania" class="form-select">
+                    <option value="">Seleccionar...</option>
+                    {% for a in aseguradoras_rows %}
+                    <option value="{{ a.nombre_corto }}">{{ a.nombre_corto }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label for="sol_ramo" class="form-label">Ramo</label>
+                  <select id="sol_ramo" name="ramo" class="form-select">
+                    <option value="">Seleccionar...</option>
+                    {% for r in ramos_abbrs %}
+                    <option value="{{ r }}">{{ r }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div class="col-md-4">
+                  <label for="sol_poliza" class="form-label">Póliza</label>
+                  <input type="text" id="sol_poliza" name="poliza" class="form-control" placeholder="N° póliza existente (si aplica)" />
+                </div>
+                <div class="col-md-4">
+                  <label for="sol_numero_tramite_cia" class="form-label">N° Trámite Cía</label>
+                  <input type="text" id="sol_numero_tramite_cia" name="numero_tramite_cia" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                  <label for="sol_subagente" class="form-label">Subagente</label>
+                  <select id="sol_subagente" name="subagente" class="form-select">
+                    <option value="">Seleccionar...</option>
+                    {% for s in subagentes_abbrs %}
+                    <option value="{{ s }}">{{ s }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label for="sol_ejecutivo" class="form-label">Ejecutivo</label>
+                  <select id="sol_ejecutivo" name="ejecutivo" class="form-select">
+                    <option value="">Seleccionar...</option>
+                    {% for e in ejecutivos_rows %}
+                    <option value="{{ e.nombre }}">{{ e.nombre }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN 3: CORREO -->
+          <div class="mb-5">
+            <h6 class="section-title text-primary"><i class="bi-envelope me-2"></i> Correo</h6>
+            <div class="section-box">
+              <div class="row g-4">
+                <div class="col-md-6">
+                  <label for="sol_para" class="form-label">Para</label>
+                  <input type="text" id="sol_para" name="para" class="form-control" placeholder="correo1@ejemplo.com; correo2@ejemplo.com" />
+                  <div class="form-text small">Usar punto y coma (;) para agregar más de un correo. Se enviará automáticamente al guardar si se llena.</div>
+                </div>
+                <div class="col-md-6">
+                  <label for="sol_cc" class="form-label">Cc</label>
+                  <input type="text" id="sol_cc" name="cc" class="form-control" placeholder="correo1@ejemplo.com; correo2@ejemplo.com" />
+                  <div class="form-text small">Usar punto y coma (;) para agregar más de un correo.</div>
+                </div>
+                <div class="col-12">
+                  <label for="sol_motivo" class="form-label">Motivo</label>
+                  <input type="text" id="sol_motivo" name="motivo" class="form-control" placeholder="Resumen breve del motivo" />
+                </div>
+                <div class="col-12">
+                  <label for="sol_contenido" class="form-label">Contenido</label>
+                  <textarea id="sol_contenido" name="contenido" class="form-control" rows="4"></textarea>
+                </div>
+                <div class="col-12">
+                  <label for="sol_archivos" class="form-label">Archivos Adjuntos</label>
+                  <input type="file" id="sol_archivos" name="archivos" class="form-control" multiple />
+                  <div class="form-text small">Quedan guardados en la solicitud; no se envían como adjunto del correo.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN 4: INFORMACIÓN DEL SISTEMA -->
+          <div class="mb-5">
+            <h6 class="section-title text-muted"><i class="bi-info-circle me-2"></i> Información del Sistema</h6>
+            <div class="section-box bg-light border border-light">
+              <div class="row g-4">
+                <div class="col-md-4">
+                  <label class="form-label text-muted mb-1">N° TI</label>
+                  <div class="value fw-semibold bg-white border rounded p-2">Se genera al guardar</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label text-muted mb-1">Registrado por</label>
+                  <div class="value fw-semibold bg-white border rounded p-2 user-badge">{{ session.get('user_display_name', session.get('user', '')) }}</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label text-muted mb-1">Fecha de registro</label>
+                  <div id="sol_fecha_registro_preview" class="value fw-semibold bg-white border rounded p-2"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Volver</button>
+          <button type="submit" class="btn btn-success" id="btnGuardarSolicitud">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
