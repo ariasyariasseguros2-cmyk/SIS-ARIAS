@@ -2219,6 +2219,56 @@ def menu_page(page):
     if page == 'clientes-cumpleanos':
         return render_template('view/cliente/reporte-cumpleaños.html')
 
+    if page == 'solicitudes':
+        from datetime import datetime as _dt_solicitudes
+        from controllers.solicitudes.solicitudes import (
+            get_solicitudes_rows, TIPO_OPERACION_OPTIONS, UBICACION_OPTIONS,
+            PRIORIDAD_OPTIONS, MEDIO_OPTIONS,
+        )
+        from controllers.ramos import get_ramos
+        from controllers.compania import get_aseguradoras
+        from controllers.subagente import get_subagentes_abreviaciones
+        from controllers.ejecutivos import get_ejecutivos
+
+        q = (request.args.get('q') or '').strip() or None
+        try:
+            page_num = int(request.args.get('page') or 1)
+        except ValueError:
+            page_num = 1
+        limit = 20
+
+        data = get_solicitudes_rows(search=q, limit=limit, page=page_num)
+        total = data['total']
+        pages = max(1, (total + limit - 1) // limit)
+        page_num = max(1, min(page_num, pages))
+        pagination = {
+            'page': page_num,
+            'pages': pages,
+            'total': total,
+            'has_prev': page_num > 1,
+            'has_next': page_num < pages,
+            'start_index': (page_num - 1) * limit + 1 if total > 0 else 0,
+            'end_index': min(page_num * limit, total),
+        }
+
+        return render_template(
+            'view/solicitudes/solicitudes.html',
+            page='solicitudes',
+            rows=data['rows'],
+            pagination=pagination,
+            q=q,
+            today=_dt_solicitudes.utcnow().date().isoformat(),
+            tipo_operacion_options=TIPO_OPERACION_OPTIONS,
+            ubicacion_options=UBICACION_OPTIONS,
+            prioridad_options=PRIORIDAD_OPTIONS,
+            medio_options=MEDIO_OPTIONS,
+            ramos_abbrs=get_ramos(),
+            aseguradoras_rows=get_aseguradoras(),
+            subagentes_abbrs=get_subagentes_abreviaciones(),
+            ejecutivos_rows=get_ejecutivos(),
+            default_gestor=_get_current_user_ejecutivo(),
+        )
+
     abort(404)
 
 
@@ -3148,6 +3198,77 @@ def clientes_add():
 
     from controllers.clientes.addcliente import save_cliente
     res = save_cliente(data)
+    status = 200 if res.get('ok') else 400
+    return res, status
+
+
+@bp.route('/solicitudes/add', methods=['POST'])
+@require_permission(can_create, response_mode='json')
+def solicitudes_add():
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    data = request.form.to_dict()
+    usuario_actual = session.get('user', 'SISTEMA')
+
+    from controllers.solicitudes.solicitudes import save_solicitud, add_archivo
+    res = save_solicitud(data, usuario_actual)
+    if not res.get('ok'):
+        return res, 400
+
+    archivos = [f for f in request.files.getlist('archivos') if f and f.filename]
+    if archivos:
+        import time
+        upload_folder = os.path.join(current_app.root_path, 'uploads', 'solicitudes')
+        os.makedirs(upload_folder, exist_ok=True)
+        for f in archivos:
+            filename = secure_filename(f.filename)
+            filename = f"{res['id']}_{int(time.time())}_{filename}"
+            f.save(os.path.join(upload_folder, filename))
+            add_archivo(res['id'], f"solicitudes/{filename}", f.filename, usuario_actual)
+
+    if res.get('para'):
+        from utils.notify import notify_solicitud
+        template_params = {
+            'numero_ti': res['numero_ti'],
+            'asunto': res['asunto'],
+            'tipo_operacion': data.get('tipo_operacion', ''),
+            'fecha_solicitud': data.get('fecha_solicitud', ''),
+            'prioridad': data.get('prioridad', ''),
+            'medio': data.get('medio', ''),
+            'ubicacion': data.get('ubicacion', ''),
+            'gestor': data.get('gestor', ''),
+            'cliente': data.get('cliente', ''),
+            'compania': data.get('compania', ''),
+            'ramo': data.get('ramo', ''),
+            'poliza': data.get('poliza', ''),
+            'numero_tramite_cia': data.get('numero_tramite_cia', ''),
+            'subagente': data.get('subagente', ''),
+            'ejecutivo': data.get('ejecutivo', ''),
+            'motivo': data.get('motivo', ''),
+            'contenido': data.get('contenido', ''),
+            'registrado_por': usuario_actual,
+            'message': (
+                f"Solicitud {res['asunto']}\n"
+                f"Tipo: {data.get('tipo_operacion', '')}\n"
+                f"Cliente: {data.get('cliente', '')}\n"
+                f"Motivo: {data.get('motivo', '')}\n\n"
+                f"{data.get('contenido', '')}"
+            ),
+        }
+        notify_solicitud(res['para'], res['cc'], template_params)
+
+    return res, 200
+
+
+@bp.route('/solicitudes/<int:idSolicitud>/anular', methods=['POST'])
+@require_permission(can_delete, response_mode='json')
+def solicitudes_anular(idSolicitud):
+    if 'user' not in session:
+        return {'ok': False, 'errors': ['No autenticado']}, 401
+
+    from controllers.solicitudes.solicitudes import anular_solicitud
+    res = anular_solicitud(idSolicitud)
     status = 200 if res.get('ok') else 400
     return res, status
 
