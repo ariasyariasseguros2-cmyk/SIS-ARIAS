@@ -213,6 +213,7 @@ def delete_prima_route():
             return {'ok': False, 'errors': ['Error de conexión a BD']}, 500
         cur = cnx.cursor(dictionary=True)
         poliza_numero = None
+        recibo = None
         try:
             cur.execute(
                 """
@@ -224,6 +225,7 @@ def delete_prima_route():
                             poliza
                         )
                     ) AS poliza_numero,
+                    recibo
                 FROM polizas
                 WHERE idPoliza = %s
                 LIMIT 1
@@ -232,8 +234,11 @@ def delete_prima_route():
             )
             r = cur.fetchone() or {}
             poliza_numero = (r.get('poliza_numero') or '').strip() or None
+            recibo = (r.get('recibo') or '').strip() or None
         except Exception:
             poliza_numero = (data.get('poliza') or '').strip() or None
+        if not recibo:
+            recibo = (data.get('aviso') or '').strip() or None
 
         affected_rows = 0
         try:
@@ -287,7 +292,9 @@ def delete_prima_route():
         cnx.close()
         if affected_rows > 0 or cuotas_affected > 0:
             from utils.notify import notify_deletion
-            notify_deletion(usuario, 'PRIMA', poliza_numero or f'ID {pid}', evento='anulacion')
+            pol_txt = poliza_numero or f'ID {pid}'
+            identificador = f'Póliza {pol_txt} — Recibo {recibo}' if recibo else f'Póliza {pol_txt}'
+            notify_deletion(usuario, 'PRIMA', identificador, evento='anulacion')
             return {'ok': True}
         return {'ok': False, 'errors': ['No encontrado o ya eliminado']}, 404
     except Exception as e:
