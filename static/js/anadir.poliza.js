@@ -21,6 +21,17 @@
   const anexosListEl = document.getElementById('anexosList'); // NUEVO: Lista de anexos
   const facturasFilesEl = document.getElementById('facturasFiles');
   const facturasListEl = document.getElementById('facturasList');
+  const uploadTitleEl = document.getElementById('uploadTitle');
+  const uploadSubtitleEl = document.getElementById('uploadSubtitle');
+  const uploadTitleMobileEl = document.getElementById('uploadTitleMobile');
+  const uploadSubtitleMobileEl = document.getElementById('uploadSubtitleMobile');
+  const appendUploadZoneEl = document.getElementById('appendUploadZone');
+  const fileElAppend = document.getElementById('pdfFileAppend');
+  const btnUploadAppend = document.getElementById('btnUploadAppend');
+  const appendUploadTitleEl = document.getElementById('appendUploadTitle');
+  const appendUploadSubtitleEl = document.getElementById('appendUploadSubtitle');
+  const appendUploadTitleMobileEl = document.getElementById('appendUploadTitleMobile');
+  const appendUploadSubtitleMobileEl = document.getElementById('appendUploadSubtitleMobile');
   // Campos de comisiones (superior)
   const pctComCompaniaEl   = document.getElementById('pctComCompania');
   const impComCompaniaEl   = document.getElementById('impComCompania');
@@ -29,6 +40,78 @@
   // Botones adicionales
   const btnClear = document.getElementById('btnClear');
   const btnAgregarPoliza = document.getElementById('btnAgregarPoliza');
+
+  function __normalizeStr(s) {
+    return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  }
+  function isGestorUser() {
+    const u = (window.currentUser || {});
+    const email = __normalizeStr(u.email);
+    const name = __normalizeStr(u.displayName);
+    return (
+      email === 'gestor@ariasyarias.com' ||
+      name.includes('kevin') && name.includes('murieta') ||
+      name === 'kevin murieta'
+    );
+  }
+  const IS_KEVIN_USER = isGestorUser();
+  function currentTipoDocValue() {
+    return (tipoDocTopEl && tipoDocTopEl.value) ? String(tipoDocTopEl.value).trim().toUpperCase() : '';
+  }
+  function isInclusionModeActive() {
+    return currentTipoDocValue() === 'INCLUSIÓN' || currentTipoDocValue() === 'INCLUSION';
+  }
+  function updateAppendZoneVisibility() {
+    const enabled = !!(IS_KEVIN_USER && isInclusionModeActive());
+
+    if (fileEl) {
+      if (enabled) {
+        fileEl.setAttribute('multiple', 'multiple');
+      } else {
+        fileEl.removeAttribute('multiple');
+      }
+      if (uploadTitleEl) {
+        uploadTitleEl.textContent = enabled
+          ? 'Cargar Pólizas (PDFs Múltiples — Inclusión)'
+          : (IS_KEVIN_USER ? 'Cargar Póliza (PDF)' : 'Cargar Póliza (PDF)');
+      }
+      if (uploadSubtitleEl) {
+        uploadSubtitleEl.textContent = enabled
+          ? 'Sube 1 o varios PDFs para extraer datos automáticamente de todos ellos (modo reemplazo si hay datos existentes)'
+          : 'Sube el documento original para extraer datos automáticamente';
+      }
+      if (uploadTitleMobileEl) {
+        uploadTitleMobileEl.innerHTML = enabled
+          ? '<i class="bi bi-file-earmark-pdf-fill me-2 text-primary"></i>Cargar Pólizas (PDFs Múltiples)'
+          : '<i class="bi bi-file-earmark-pdf-fill me-2 text-primary"></i>Cargar Póliza (PDF)';
+      }
+      if (uploadSubtitleMobileEl) {
+        uploadSubtitleMobileEl.textContent = enabled
+          ? 'Sube varios PDFs y extrae datos de todos a la vez'
+          : 'Sube el PDF para extraer datos automáticamente';
+      }
+    }
+
+    if (appendUploadZoneEl) {
+      if (enabled) appendUploadZoneEl.classList.remove('d-none');
+      else appendUploadZoneEl.classList.add('d-none');
+    }
+
+    if (fileElAppend) {
+      if (enabled) fileElAppend.setAttribute('multiple', 'multiple');
+      else fileElAppend.removeAttribute('multiple');
+    }
+
+    if (enabled) {
+      if (appendUploadTitleEl) appendUploadTitleEl.textContent = 'Agregar Otro Documento (Acumular — Inclusión)';
+    } else {
+      if (appendUploadTitleEl) appendUploadTitleEl.textContent = 'Agregar Otro Documento (Acumular)';
+    }
+  }
+  updateAppendZoneVisibility();
+  if (tipoDocTopEl) {
+    tipoDocTopEl.addEventListener('change', updateAppendZoneVisibility);
+  }
 
   let subAgenteEl = subAgenteTopEl || document.getElementById('subAgente');
   let extractedItems = [];
@@ -102,16 +185,27 @@
 
   // SweetAlert2 como preferencia
   let swalInterval = null;
-  function openLoadingSwal(msg) {
+  function openLoadingSwal(msg, opts) {
     if (window.Swal) {
-      Swal.fire({
-        title: msg || 'Procesando PDF…',
-        html: `
+      const totalFiles = Number(opts && opts.totalFiles) || 0;
+      const multi = totalFiles > 1;
+      const html = multi ? `
+          <div id="swalProgressInfo" class="mb-2 text-start text-muted small">
+            Preparando…
+          </div>
           <div class="d-flex align-items-center gap-3">
             <span class="spinner-border text-primary" role="status" aria-hidden="true"></span>
             <div>Tiempo transcurrido: <b id="swalElapsed">0.0s</b></div>
           </div>
-        `,
+        ` : `
+          <div class="d-flex align-items-center gap-3">
+            <span class="spinner-border text-primary" role="status" aria-hidden="true"></span>
+            <div>Tiempo transcurrido: <b id="swalElapsed">0.0s</b></div>
+          </div>
+        `;
+      Swal.fire({
+        title: msg || 'Procesando PDF…',
+        html,
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,
@@ -134,6 +228,14 @@
       // Fallback al modal Bootstrap si no hay Swal
       showLoading(msg || 'Procesando PDF…');
     }
+  }
+  function setLoadingSwalProgress(idx1Based, total, fileName, extraMsg) {
+    if (!window.Swal) return;
+    const box = Swal.getHtmlContainer()?.querySelector('#swalProgressInfo');
+    if (!box) return;
+    const name = fileName ? ` — <b>${String(fileName).replace(/</g,'&lt;')}</b>` : '';
+    const extra = extraMsg ? `<br><span class="ms-3 text-primary">${String(extraMsg).replace(/</g,'&lt;')}</span>` : '';
+    box.innerHTML = `Procesando PDF <b>${idx1Based}</b> de <b>${total}</b>${name}${extra}`;
   }
   function closeLoadingSwal() {
     if (window.Swal) {
@@ -3016,288 +3118,417 @@
     scheduleAutoSave();
   });
 
-  // Upload handler
-  btnUpload?.addEventListener('click', () => {
-    const file = fileEl?.files?.[0];
-    if (!file) { alert('Selecciona un PDF.'); return; }
-
-    openLoadingSwal('Procesando PDF…');
-    const startTs = performance.now();
-    btnUpload.disabled = true;
-    if (issuerEl) issuerEl.disabled = true;
-    fileEl.disabled = true;
-    btnUpload.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Extrayendo…`;
-
+  // ===== FUNCIONES AUXILIARES DE UPLOAD (reutilizables single/multi) =====
+  async function __parseResponseJson(r) {
+    const ct = (r.headers.get('content-type') || '').toLowerCase();
+    const rawText = await r.text();
+    if (ct.includes('application/json')) return JSON.parse(rawText);
+    try { return JSON.parse(rawText); } catch (e) { return rawText; }
+  }
+  async function __askPdfPasswordOrSkip(file) {
+    if (!window.Swal) {
+      const pw = prompt('Este PDF está protegido. Ingresa contraseña (deja vacío y cancela para omitir):');
+      if (pw === null) return { action: 'cancel' };
+      if (pw === '') return { action: 'attach' };
+      return { action: 'password', value: pw };
+    }
+    const swalChoice = await Swal.fire({
+      title: 'PDF protegido',
+      text: (file ? `El archivo "${file.name}" requiere contraseña. ` : 'Este PDF requiere contraseña. ') +
+            '¿Deseas anexarlo sin extraer o ingresar contraseña para extraer?',
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: 'Ingresar contraseña',
+      denyButtonText: 'Anexar sin extraer',
+      cancelButtonText: 'Cancelar',
+      allowOutsideClick: false
+    });
+    if (swalChoice.isDenied) return { action: 'attach' };
+    if (!swalChoice.isConfirmed) return { action: 'cancel' };
+    const pw = await Swal.fire({
+      title: 'Ingresar contraseña',
+      input: 'password',
+      inputLabel: 'Contraseña',
+      inputAttributes: { autocapitalize: 'off', autocomplete: 'current-password' },
+      showCancelButton: true,
+      confirmButtonText: 'Continuar',
+      cancelButtonText: 'Cancelar',
+      allowOutsideClick: false
+    });
+    if (!pw.isConfirmed) return { action: 'cancel' };
+    return { action: 'password', value: pw.value || '' };
+  }
+  function __buildFormDataUpload(file, password) {
     const fd = new FormData();
     fd.append('file', file);
-    if (issuerEl && issuerEl.value) {
-      fd.append('issuer', issuerEl.value);
-    }
+    if (issuerEl && issuerEl.value) fd.append('issuer', issuerEl.value);
+    if (password) fd.append('pdf_password', password);
     fd.append('debug', '1');
+    return fd;
+  }
+  async function uploadPdfSingleWithPasswordFlow(file) {
+    const logServerDebug = (payload) => {
+      if (payload && Array.isArray(payload.debug)) payload.debug.forEach(l => console.log('[server]', l));
+    };
+    let fd = __buildFormDataUpload(file, null);
+    let r = await fetch('/upload', { method: 'POST', body: fd });
+    let payload = await __parseResponseJson(r);
+    logServerDebug(payload);
+    if (!r.ok && payload && payload.need_password) {
+      const step = await __askPdfPasswordOrSkip(file);
+      if (step.action === 'attach') return { ok: false, action: 'attach' };
+      if (step.action === 'cancel') return { ok: false, action: 'cancel', errorMsg: 'Extracción cancelada por el usuario.' };
+      const fd2 = __buildFormDataUpload(file, step.value);
+      r = await fetch('/upload', { method: 'POST', body: fd2 });
+      payload = await __parseResponseJson(r);
+      logServerDebug(payload);
+      if (!r.ok) {
+        const msg = typeof payload === 'string' ? payload : (payload && payload.error) || 'Error al extraer datos con contraseña.';
+        return { ok: false, action: 'error', errorMsg: msg };
+      }
+    } else if (!r.ok) {
+      const msg = typeof payload === 'string' ? payload : (payload && payload.error) || 'Error al extraer datos.';
+      return { ok: false, action: 'error', errorMsg: msg };
+    }
+    return { ok: true, action: 'ok', payload, response: r };
+  }
+  function __extractItemsFromPayload(payload) {
+    let items = [];
+    if (payload && payload.items && Array.isArray(payload.items)) {
+      items = payload.items.map(normalizeItem);
+    } else if (payload && payload.fields && typeof payload.fields === 'object') {
+      items = [normalizeItem(payload.fields)];
+    }
+    return items;
+  }
+  function applyGlobalDefaultsToItems(items) {
+    const tipoPago = tipoPagoTopEl?.value || '';
+    const estado   = estadoTopEl?.value || 'PENDIENTE';
+    const pctCC    = pctComCompaniaEl?.value || '';
+    const pctSA    = pctComSubAgenteEl?.value || '100';
+    const impSA    = impComSubAgenteEl?.value || '';
+    const defaultProducto = (window.selectedCliente && window.selectedCliente.ramos_producto) || '';
+    return items.map(it => {
+      const pctCCFinal = pctCC || (it.comision_compania_pct || '');
+      const importeCC = pctCCFinal ? computeCommissionAmount(it.prima_neta, pctCCFinal) : (it.comision_compania_importe || '');
+      const pctSAFinal = (it.comision_subagente_pct && it.comision_subagente_pct.toString().trim() !== '') ? it.comision_subagente_pct : pctSA;
+      const importeSA = (pctSAFinal && importeCC) ? computeSubAgentCommissionAmount(importeCC, pctSAFinal) : (it.comision_subagente_importe || impSA);
+      const rProd = (it.ramos_producto && it.ramos_producto.trim()) ? it.ramos_producto : defaultProducto;
+      return {
+        ...it,
+        ramos_producto: rProd,
+        forma_pago: tipoPago || it.forma_pago || '',
+        estado: estado || it.estado || 'PENDIENTE',
+        comision_compania_pct: pctCCFinal,
+        comision_compania_importe: importeCC,
+        comision_subagente_pct: pctSAFinal,
+        comision_subagente_importe: importeSA
+      };
+    });
+  }
+  async function inferIssuerForItems(items, providerHint) {
+    await ensureIssuerOptionsLoaded();
+    const issuerOpts = getIssuerOptions();
+    const pickLPVVariantByText = (txt) => {
+      const t = (txt || '').toString().toLowerCase();
+      if (t.includes('eps') || t.includes('entidad prestadora') || t.includes('salud') || t.includes('lpeps')) return 'lpv-eps';
+      if (t.includes('vida') && t.includes('ley')) return 'lpv-pension';
+      if (t.includes('vida')) return 'lpv-vida';
+      if (t.includes('pension') || t.includes('pensión')) return 'lpv-pension';
+      return 'positiva';
+    };
+    const pickCrecerVariantByText = () => 'crecer';
+    const preferOption = (val, label) => {
+      const v = (val || '').trim();
+      if (v && issuerOpts.some(o => o.value === v)) return v;
+      const l = (label || '').trim();
+      if (l) {
+        const byText = issuerOpts.find(o => (o.text || '').toLowerCase() === l.toLowerCase());
+        if (byText) return byText.value;
+        const inc = issuerOpts.find(o => (o.text || '').toLowerCase().includes(l.toLowerCase()));
+        if (inc) return inc.value;
+      }
+      return v || '';
+    };
+    const normIssuerText = (text) => {
+      const s = (text || '').toString().toLowerCase();
+      try { return s.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (e) { return s; }
+    };
+    const hasToken = (normText, token) => {
+      const t = normIssuerText(normText);
+      const re = new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`);
+      return re.test(t);
+    };
+    const detectSlugFromText = (text) => {
+      const t = (text || '').toString().toLowerCase();
+      if (!t) return '';
+      if (hasToken(t, 'rimac')) return 'rimac';
+      if (t.includes('hdi')) return 'hdi';
+      if (t.includes('ohio')) return 'ohio';
+      if (t.includes('qualitas') || t.includes('quálitas')) return 'qualitas';
+      if (t.includes('avla')) return 'avla';
+      if (t.includes('grandia') && t.includes('eps')) return 'grandia-eps';
+      if (t.includes('crecer')) return pickCrecerVariantByText(t);
+      if (t.includes('sanitas')) return 'sanitas';
+      if (t.includes('mapfre')) return 'mapfre';
+      if (t.includes('pacifico') || t.includes('pacífico')) return 'pacifico';
+      if (t.includes('la positiva') || t.includes('positiva') || t.includes('lpv') || t.includes('lpeps')) return pickLPVVariantByText(t);
+      if (t.includes('protecta') || t.includes('proctecta')) return 'proctecta';
+      return '';
+    };
+    const inferIssuerForItem = (it, provider) => {
+      const p = (provider || '').toString();
+      const haystack = [
+        it.cia, it.aseguradora, it.asegurado, it.asegurada, it.colectivo_asegurado,
+        it.producto, it.ramos_producto, it.ramo, p
+      ].filter(Boolean).join(' | ');
+      const slug = detectSlugFromText(haystack);
+      if (slug) return preferOption(slug, slug);
+      const t = haystack.toLowerCase();
+      const inc = issuerOpts.find(o => (o.text || '').toLowerCase() && t.includes((o.text || '').toLowerCase()));
+      return inc ? inc.value : '';
+    };
+    return items.map(it => {
+      const already = ((it.cia_value || '').trim() || (it.cia || '').trim());
+      if (already) return it;
+      const val = inferIssuerForItem(it, providerHint || '');
+      if (!val) return it;
+      const opt = issuerOpts.find(o => o.value === val);
+      return { ...it, cia_value: val, cia: (opt ? opt.text : (it.cia || '')) || it.cia };
+    });
+  }
+  async function postExtractFinalize(newItems, sourceFilesArr, startTsForElapsed, processedPdfCount, totalPdfCount, errorsList, opts) {
+    const appendMode = !!(opts && opts.appendMode);
+    const baseItems = appendMode ? (extractedItems || []).slice() : [];
+    const oldCount = baseItems.length;
 
-    fetch('/upload', { method: 'POST', body: fd })
-      .then(async (r) => {
-        try {
-          const ct = (r.headers.get('content-type') || '').toLowerCase();
-          const rawText = await r.text();
-          let payload;
-          if (ct.includes('application/json')) {
-            payload = JSON.parse(rawText);
-          } else {
-            try { payload = JSON.parse(rawText); } catch (e) { payload = rawText; }
-          }
+    let newItemsProcessed = applyGlobalDefaultsToItems(newItems || []);
+    let firstProvider = null;
+    if (sourceFilesArr && sourceFilesArr._providers && sourceFilesArr._providers.length) {
+      for (const p of sourceFilesArr._providers) {
+        if (p) { firstProvider = p; setIssuerFromProvider(p); break; }
+      }
+    }
+    newItemsProcessed = await inferIssuerForItems(newItemsProcessed, firstProvider || '');
+    newItemsProcessed = await hydratePolicyDataFromPolizas(newItemsProcessed);
 
-          console.log('[upload] status:', r.status, 'payload:', payload);
+    const combined = appendMode ? baseItems.concat(newItemsProcessed) : newItemsProcessed;
+    extractedItems = combined;
+    render(extractedItems);
 
-          if (payload && Array.isArray(payload.debug)) {
-            payload.debug.forEach((line) => console.log('[server]', line));
-          }
-
-          // Manejo de PDF protegido con contraseña
-          if (!r.ok && payload && payload.need_password) {
-            try {
-              const choice = await (window.Swal ? Swal.fire({
-                title: 'PDF protegido',
-                text: 'Este documento requiere contraseña para extraer los datos. ¿Deseas anexarlo sin extraer o ingresar contraseña para extraer?',
-                showDenyButton: true,
-                showCancelButton: true,
-                confirmButtonText: 'Ingresar contraseña',
-                denyButtonText: 'Anexar sin extraer',
-                cancelButtonText: 'Cancelar',
-                allowOutsideClick: false
-              }) : Promise.resolve({ isConfirmed: false, isDenied: true }));
-              if (choice.isDenied) {
-                allAnexos.push(file);
-                if (typeof renderAnexosList === 'function') renderAnexosList();
-                else if (anexosListEl) anexosListEl.innerHTML = '';
-                return;
-              }
-              if (!choice.isConfirmed) {
-                alert('Extracción cancelada.');
-                return;
-              }
-              const pw = await (window.Swal ? Swal.fire({
-                title: 'Ingresar contraseña',
-                input: 'password',
-                inputLabel: 'Contraseña',
-                inputAttributes: { autocapitalize: 'off', autocomplete: 'current-password' },
-                showCancelButton: true,
-                confirmButtonText: 'Continuar',
-                cancelButtonText: 'Cancelar',
-                allowOutsideClick: false
-              }) : Promise.resolve({ isConfirmed: false, value: '' }));
-              if (!pw.isConfirmed || !pw.value) { alert('Extracción cancelada.'); return; }
-              const fd2 = new FormData();
-              fd2.append('file', file);
-              if (issuerEl && issuerEl.value) {
-                fd2.append('issuer', issuerEl.value);
-              }
-              fd2.append('pdf_password', pw.value);
-              fd2.append('debug', '1');
-              const r2 = await fetch('/upload', { method: 'POST', body: fd2 });
-              const ct2 = (r2.headers.get('content-type') || '').toLowerCase();
-              const raw2 = await r2.text();
-              let payload2;
-              if (ct2.includes('application/json')) {
-                payload2 = JSON.parse(raw2);
-              } else {
-                try { payload2 = JSON.parse(raw2); } catch (e) { payload2 = raw2; }
-              }
-              if (!r2.ok) {
-                alert(typeof payload2 === 'string' ? payload2 : (payload2.error || 'Error al extraer datos con contraseña.'));
-                return;
-              }
-              payload = payload2;
-              r = r2;
-            } catch (pwErr) {
-              console.error('password flow error', pwErr);
-              alert('No se pudo procesar el PDF protegido.');
-              return;
-            }
-          }
-
-          if (!r.ok) {
-            alert(typeof payload === 'string' ? payload : (payload.error || 'Error al extraer datos.'));
-            return;
-          }
-
-          if (payload && typeof payload.filename === 'string') {
-            lastUploadedFilename = payload.filename;
-          }
-
-          if (payload && payload.provider) {
-            setIssuerFromProvider(payload.provider);
-          }
-
-          let items = [];
-          if (payload.items && Array.isArray(payload.items)) {
-            items = payload.items.map(normalizeItem);
-            console.log('[upload] items normalizados:', items); // verificar fechas antes de render
-          } else if (payload.fields && typeof payload.fields === 'object') {
-            items = [normalizeItem(payload.fields)];
-            console.log('[upload] item normalizado (fields):', items[0]); // verificar fechas
-          }
-
-          const tipoPago = tipoPagoTopEl?.value || '';
-          const estado   = estadoTopEl?.value || 'PENDIENTE';
-          const pctCC    = pctComCompaniaEl?.value || '';
-          const pctSA    = pctComSubAgenteEl?.value || '100';
-          const impSA    = impComSubAgenteEl?.value || '';
-          // NUEVO: Obtener producto por defecto del cliente si existe
-          const defaultProducto = (window.selectedCliente && window.selectedCliente.ramos_producto) || '';
-
-          items = items.map(it => {
-            const pctCCFinal = pctCC || (it.comision_compania_pct || '');
-            const importeCC = pctCCFinal ? computeCommissionAmount(it.prima_neta, pctCCFinal) : (it.comision_compania_importe || '');
-            const pctSAFinal = (it.comision_subagente_pct && it.comision_subagente_pct.toString().trim() !== '') ? it.comision_subagente_pct : pctSA;
-            const importeSA = (pctSAFinal && importeCC) ? computeSubAgentCommissionAmount(importeCC, pctSAFinal) : (it.comision_subagente_importe || impSA);
-            // Si no viene producto del PDF, usar el del cliente
-            const rProd = (it.ramos_producto && it.ramos_producto.trim()) ? it.ramos_producto : defaultProducto;
-            
-            return {
-              ...it,
-              ramos_producto: rProd,
-              forma_pago: tipoPago || it.forma_pago || '',
-              estado: estado || it.estado || 'PENDIENTE',
-              comision_compania_pct: pctCCFinal,
-              comision_compania_importe: importeCC,
-              comision_subagente_pct: pctSAFinal,
-              comision_subagente_importe: importeSA
-            };
-          });
-
-          await ensureIssuerOptionsLoaded();
-          const issuerOpts = getIssuerOptions();
-          function pickLPVVariantByText(txt) {
-            const t = (txt || '').toString().toLowerCase();
-            if (t.includes('eps') || t.includes('entidad prestadora') || t.includes('salud') || t.includes('lpeps')) return 'lpv-eps';
-            if (t.includes('vida') && t.includes('ley')) return 'lpv-pension';
-            if (t.includes('vida')) return 'lpv-vida';
-            if (t.includes('pension') || t.includes('pensión')) return 'lpv-pension';
-            return 'positiva';
-          }
-          function pickCrecerVariantByText(txt) {
-            const t = (txt || '').toString().toLowerCase();
-            return 'crecer';
-          }
-          function preferOption(val, label) {
-            const v = (val || '').trim();
-            if (v && issuerOpts.some(o => o.value === v)) return v;
-            const l = (label || '').trim();
-            if (l) {
-              const byText = issuerOpts.find(o => (o.text || '').toLowerCase() === l.toLowerCase());
-              if (byText) return byText.value;
-              const inc = issuerOpts.find(o => (o.text || '').toLowerCase().includes(l.toLowerCase()));
-              if (inc) return inc.value;
-            }
-            return v || '';
-          }
-          function normIssuerText(text) {
-            const s = (text || '').toString().toLowerCase();
-            try {
-              return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            } catch (e) {
-              return s;
-            }
-          }
-          function hasToken(normText, token) {
-            const t = normIssuerText(normText);
-            const re = new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`);
-            return re.test(t);
-          }
-          function detectSlugFromText(text) {
-            const t = (text || '').toString().toLowerCase();
-            if (!t) return '';
-            if (hasToken(t, 'rimac')) return 'rimac';
-            if (t.includes('hdi')) return 'hdi';
-            if (t.includes('ohio')) return 'ohio';
-            if (t.includes('qualitas') || t.includes('quálitas')) return 'qualitas';
-            if (t.includes('avla')) return 'avla';
-            if (t.includes('grandia') && t.includes('eps')) return 'grandia-eps';
-            if (t.includes('crecer')) return pickCrecerVariantByText(t);
-            // Priorizar sanitas por encima del caso genérico "EPS"
-            if (t.includes('sanitas')) return 'sanitas';
-            if (t.includes('mapfre')) return 'mapfre';
-            if (t.includes('pacifico') || t.includes('pacífico')) return 'pacifico';
-            // Positiva/LPV: evitar heurísticas genéricas como "salud"/"eps" (causan falsos positivos en otras aseguradoras)
-            if (t.includes('la positiva') || t.includes('positiva') || t.includes('lpv') || t.includes('lpeps')) return pickLPVVariantByText(t);
-            if (t.includes('protecta') || t.includes('proctecta')) return 'proctecta';
-            return '';
-          }
-          function inferIssuerForItem(it, provider) {
-            const p = (provider || '').toString();
-            const haystack = [
-              it.cia, it.aseguradora, it.asegurado, it.asegurada, it.colectivo_asegurado,
-              it.producto, it.ramos_producto, it.ramo, p
-            ].filter(Boolean).join(' | ');
-            const slug = detectSlugFromText(haystack);
-            if (slug) return preferOption(slug, slug);
-            // Fallback: buscar por coincidencia de texto en opciones
-            const t = haystack.toLowerCase();
-            const inc = issuerOpts.find(o => (o.text || '').toLowerCase() && t.includes((o.text || '').toLowerCase()));
-            return inc ? inc.value : '';
-          }
-          items = items.map(it => {
-            const already = ((it.cia_value || '').trim() || (it.cia || '').trim());
-            if (already) return it;
-            const val = inferIssuerForItem(it, (payload && payload.provider) ? String(payload.provider) : '');
-            if (!val) return it;
-            const opt = issuerOpts.find(o => o.value === val);
-            return { ...it, cia_value: val, cia: (opt ? opt.text : (it.cia || '')) || it.cia };
-          });
-
-          items = await hydratePolicyDataFromPolizas(items);
-
-          extractedItems = items;
-          render(extractedItems);
-
-          try {
-            const hasAnyCuotas = (extractedItems || []).some(it => Array.isArray(it.cuotas) && it.cuotas.length > 0);
-            if (!hasAnyCuotas) {
-              const meta = await extractFacturaMetaFromFile(file);
-              if (meta && Array.isArray(meta.cuotas) && meta.cuotas.length > 0) {
-                applyFacturaMeta(meta);
-              }
-            }
-          } catch (e) {
-            console.error('Error extracting cronograma de cuotas:', e);
-          }
-
-          // Autocompletar % comisión de compañía desde la tabla comisiones_temp (servidor)
-          try {
-            const fillPromises = extractedItems.map(async (it, i) => {
-              const hasPct = it.comision_compania_pct !== undefined && it.comision_compania_pct !== null && String(it.comision_compania_pct).trim() !== '';
-              if (!hasPct) {
-                 await fetchCommissionPct(i);
-              }
-            });
-            await Promise.all(fillPromises);
-          } catch (e) {
-             console.error('Error autocompleting commissions:', e);
-          }
-
-          const elapsed = ((performance.now() - startTs) / 1000).toFixed(2);
-          if (hint) {
-            hint.textContent = items.length
-              ? `Se extrajeron ${items.length} ítem(s) en ${elapsed}s. Revisa y guarda.`
-              : `Sin datos. Procesado en ${elapsed}s.`;
-          }
-        } catch (e) {
-          console.error('[upload] processing error]:', e);
-          alert('Error procesando respuesta del servidor.');
+    try {
+      const hasAnyCuotas = (extractedItems || []).some(it => Array.isArray(it.cuotas) && it.cuotas.length > 0);
+      if (!hasAnyCuotas && sourceFilesArr && sourceFilesArr.length) {
+        const lastFile = sourceFilesArr[sourceFilesArr.length - 1];
+        if (lastFile) {
+          const meta = await extractFacturaMetaFromFile(lastFile);
+          if (meta && Array.isArray(meta.cuotas) && meta.cuotas.length > 0) applyFacturaMeta(meta);
         }
-      })
-      .catch((err) => {
-        console.error('[upload] fetch error:', err);
-        alert('No se pudo conectar con el servidor (/upload).');
-      })
-      .finally(() => {
-        closeLoadingSwal();
-        btnUpload.disabled = false;
-        if (issuerEl) issuerEl.disabled = false;
-        fileEl.disabled = false;
-        btnUpload.textContent = 'Extraer datos';
+      }
+    } catch (e) { console.error('Error extracting cronograma de cuotas:', e); }
+
+    try {
+      const indices = appendMode
+        ? Array.from({ length: newItemsProcessed.length }, (_, i) => oldCount + i)
+        : extractedItems.map((_, i) => i);
+      const fillPromises = indices.map(async (idx) => {
+        const it = extractedItems[idx];
+        if (!it) return;
+        const hasPct = it.comision_compania_pct !== undefined && it.comision_compania_pct !== null && String(it.comision_compania_pct).trim() !== '';
+        if (!hasPct) await fetchCommissionPct(idx);
       });
+      await Promise.all(fillPromises);
+    } catch (e) { console.error('Error autocompleting commissions:', e); }
+
+    const elapsedSecs = ((performance.now() - startTsForElapsed) / 1000).toFixed(2);
+    if (hint) {
+      const totalPdfTxt = totalPdfCount > 1 ? ` de ${totalPdfCount} PDF${totalPdfCount !== 1 ? 's' : ''}` : '';
+      const procPdfTxt = totalPdfCount > 1 ? ` (${processedPdfCount} procesados${totalPdfTxt})` : '';
+      const errTxt = (errorsList && errorsList.length) ? ` ${errorsList.length} con error` : '';
+      const totalFinal = combined.length;
+      if (appendMode) {
+        const addedN = newItemsProcessed.length;
+        hint.textContent = addedN
+          ? `Se agregaron ${addedN} ítem(s) nuevos${procPdfTxt}. Total: ${totalFinal}. En ${elapsedSecs}s.${errTxt} Revisa y guarda.`
+          : `No se agregaron ítems. Total actual: ${totalFinal}. Procesado en ${elapsedSecs}s.${errTxt}`;
+      } else {
+        hint.textContent = totalFinal
+          ? `Se extrajeron ${totalFinal} ítem(s)${procPdfTxt} en ${elapsedSecs}s.${errTxt} Revisa y guarda.`
+          : `Sin datos. Procesado en ${elapsedSecs}s.${errTxt}`;
+      }
+    }
+  }
+
+  async function processPdfFiles(files, opts) {
+    const options = opts || {};
+    const appendMode = !!options.appendMode;
+    const allowMultiForNonKevin = !!options.allowMultiForNonKevin;
+    const fileElRef = options.fileElRef || null;
+    const btnRef = options.btnRef || btnUpload;
+    const btnLabel = options.btnLabel || (appendMode ? 'Extraer y Acumular' : 'Extraer datos');
+    const loadingMsg = options.loadingMsg || null;
+
+    const arr = Array.isArray(files) ? files.filter(Boolean) : [];
+    if (!arr.length) { alert('Selecciona al menos un PDF.'); return; }
+    if (!allowMultiForNonKevin && !IS_KEVIN_USER && arr.length > 1) {
+      alert('Por favor selecciona solo 1 PDF a la vez. La carga de múltiples PDFs está habilitada solo para usuarios autorizados.');
+      return;
+    }
+    const totalN = arr.length;
+    const startTs = performance.now();
+    if (btnRef) {
+      btnRef.disabled = true;
+      btnRef.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Procesando…`;
+    }
+    if (issuerEl) issuerEl.disabled = true;
+    if (fileElRef) fileElRef.disabled = true;
+    if (btnUpload && btnUpload !== btnRef) btnUpload.disabled = true;
+    if (btnUploadAppend && btnUploadAppend !== btnRef) btnUploadAppend.disabled = true;
+
+    const swalMsg = loadingMsg || (appendMode
+      ? (totalN > 1 ? `Agregando ${totalN} PDFs al listado…` : 'Agregando PDF y acumulando…')
+      : (totalN > 1 ? `Procesando ${totalN} PDFs…` : 'Procesando PDF…'));
+    openLoadingSwal(swalMsg, { totalFiles: totalN });
+
+    let allItems = [];
+    const errors = [];
+    const processedFilesForMeta = [];
+    processedFilesForMeta._providers = [];
+    let processedOkCount = 0;
+
+    try {
+      for (let i = 0; i < totalN; i++) {
+        const file = arr[i];
+        setLoadingSwalProgress(i + 1, totalN, file ? file.name : '', appendMode ? 'Subiendo (modo acumular)…' : 'Subiendo…');
+        let result;
+        try {
+          result = await uploadPdfSingleWithPasswordFlow(file);
+        } catch (netErr) {
+          console.error('[upload] network error for file', (file && file.name), netErr);
+          errors.push({ name: (file && file.name) || `PDF ${i+1}`, msg: 'No se pudo conectar con el servidor.' });
+          continue;
+        }
+        if (!result.ok) {
+          if (result.action === 'attach') {
+            allAnexos.push(file);
+            if (typeof renderAnexosList === 'function') renderAnexosList();
+            else if (anexosListEl) anexosListEl.innerHTML = '';
+            setLoadingSwalProgress(i + 1, totalN, file ? file.name : '', 'Anexado sin extraer.');
+            continue;
+          }
+          if (result.action === 'cancel') {
+            errors.push({ name: (file && file.name) || `PDF ${i+1}`, msg: result.errorMsg || 'Cancelado por el usuario.' });
+            setLoadingSwalProgress(i + 1, totalN, file ? file.name : '', 'Cancelado.');
+            continue;
+          }
+          errors.push({ name: (file && file.name) || `PDF ${i+1}`, msg: result.errorMsg || 'Error desconocido.' });
+          setLoadingSwalProgress(i + 1, totalN, file ? file.name : '', 'Error.');
+          continue;
+        }
+        const payload = result.payload;
+        if (payload && typeof payload.filename === 'string') lastUploadedFilename = payload.filename;
+        if (payload && payload.provider) processedFilesForMeta._providers.push(payload.provider);
+        processedFilesForMeta.push(file);
+        processedOkCount++;
+        let pdfItems = __extractItemsFromPayload(payload);
+        console.log(`[upload-${appendMode?'append':'replace'}] PDF ${i+1}/${totalN} "${file ? file.name : ''}" items:`, pdfItems.length);
+        if (pdfItems.length) {
+          setLoadingSwalProgress(i + 1, totalN, file ? file.name : '', `+${pdfItems.length} ítem(s) ${appendMode ? 'agregados' : 'extraídos'}.`);
+          allItems = allItems.concat(pdfItems);
+        } else {
+          setLoadingSwalProgress(i + 1, totalN, file ? file.name : '', 'Sin ítems detectados.');
+        }
+      }
+
+      await postExtractFinalize(allItems, processedFilesForMeta, startTs, processedOkCount, totalN, errors, { appendMode });
+      if (errors.length && window.Swal) {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const bullets = errors.slice(0, 8).map(e => `• <b>${String(e.name).replace(/</g,'&lt;')}</b>: ${String(e.msg).replace(/</g,'&lt;')}`).join('<br>');
+        const more = errors.length > 8 ? `<br><span class="text-muted small">… y ${errors.length - 8} más</span>` : '';
+        Swal.fire({
+          icon: 'warning',
+          title: appendMode ? 'Agregado con advertencias' : 'Se completó con advertencias',
+          html: `${allItems.length ? (appendMode ? `Se agregaron <b>${allItems.length}</b> ítems. Total: <b>${extractedItems.length}</b>.<br><br>` : `Se extrajeron <b>${allItems.length}</b> ítems correctamente.<br><br>`) : (appendMode ? 'No se agregaron ítems.<br><br>' : 'No se extrajeron ítems.<br><br>')}Los siguientes PDFs tuvieron problemas:<br><br>${bullets}${more}`,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#3b82f6',
+          background: isDark ? '#1a1a1a' : '#ffffff',
+          color: isDark ? '#ffffff' : '#333333',
+          customClass: { popup: 'rounded-4', confirmButton: 'rounded-pill px-4' }
+        });
+      }
+    } catch (e) {
+      console.error('[upload-processor] fatal processing error:', e);
+      alert('Error procesando los PDFs. Por favor revisa la consola o intenta nuevamente.');
+    } finally {
+      closeLoadingSwal();
+      if (btnRef) {
+        btnRef.disabled = false;
+        btnRef.textContent = btnLabel;
+      }
+      if (issuerEl) issuerEl.disabled = false;
+      if (fileElRef) fileElRef.disabled = false;
+      if (btnUpload && btnUpload !== btnRef) btnUpload.disabled = false;
+      if (btnUploadAppend && btnUploadAppend !== btnRef) btnUploadAppend.disabled = false;
+      if (impComCompaniaEl) impComCompaniaEl.value = sumCommission(extractedItems);
+      scheduleAutoSave();
+    }
+  }
+
+  // Upload handler PRINCIPAL: reemplazo normal (pregunta si hay items, Kevin e INCLUSIÓN)
+  btnUpload?.addEventListener('click', async () => {
+    const files = Array.from(fileEl?.files || []).filter(f => f);
+    if (!files.length) { alert('Selecciona al menos un PDF.'); return; }
+
+    const inclusionMode = isInclusionModeActive();
+    if (files.length > 1) {
+      if (!IS_KEVIN_USER || !inclusionMode) {
+        alert('La carga de múltiples PDFs solo está habilitada para Kevin y cuando Tipo Doc = INCLUSIÓN.');
+        return;
+      }
+    }
+
+    let appendMode = false;
+    if (inclusionMode && IS_KEVIN_USER && extractedItems && extractedItems.length > 0 && window.Swal) {
+      const hasPrev = extractedItems.length;
+      const choice = await Swal.fire({
+        icon: 'question',
+        title: `${hasPrev} ítem(s) ya extraído(s) (Inclusión)`,
+        html: `¿Qué deseas hacer con los <b>${hasPrev}</b> ítems existentes?<br><br>
+               <b>REEMPLAZAR</b>: elimina lo anterior y carga solo lo nuevo.<br>
+               <b>ACUMULAR</b>: suma lo nuevo a lo que ya tienes (también puedes usar el botón verde inferior).`,
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: 'Reemplazar',
+        denyButtonText: 'Acumular',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#3b82f6',
+        denyButtonColor: '#15803d',
+        cancelButtonColor: '#64748b'
+      });
+      if (choice.isDismissed) return;
+      appendMode = !!choice.isDenied;
+    }
+    await processPdfFiles(files, {
+      appendMode,
+      fileElRef: fileEl,
+      btnRef: btnUpload,
+      btnLabel: 'Extraer datos'
+    });
+  });
+
+  // Upload handler SECUNDARIO: siempre ACUMULAR (Kevin)
+  btnUploadAppend?.addEventListener('click', async () => {
+    const files = Array.from(fileElAppend?.files || []).filter(f => f);
+    if (!files.length) { alert('Selecciona al menos un PDF para acumular.'); return; }
+    await processPdfFiles(files, {
+      appendMode: true,
+      allowMultiForNonKevin: false,
+      fileElRef: fileElAppend,
+      btnRef: btnUploadAppend,
+      btnLabel: 'Extraer y Acumular'
+    });
+    // limpiar el selector append tras usarlo para evitar doble-procesamiento
+    if (fileElAppend) try { fileElAppend.value = ''; } catch (_) {}
   });
 
   // Preseleccionar subagente si viene del servidor

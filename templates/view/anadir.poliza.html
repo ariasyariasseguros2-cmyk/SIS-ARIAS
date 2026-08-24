@@ -78,12 +78,12 @@
             <i class="bi bi-file-earmark-pdf-fill"></i>
           </div>
           <div class="upload-text-group d-none d-sm-block">
-            <p class="upload-title">Cargar Póliza (PDF)</p>
-            <p class="upload-subtitle">Sube el documento original para extraer datos automáticamente</p>
+            <p class="upload-title" id="uploadTitle">Cargar Póliza (PDF)</p>
+            <p class="upload-subtitle" id="uploadSubtitle">Sube el documento original para extraer datos automáticamente</p>
           </div>
           <div class="d-sm-none w-100 mb-1">
-            <p class="upload-title mb-0"><i class="bi bi-file-earmark-pdf-fill me-2 text-primary"></i>Cargar Póliza (PDF)</p>
-            <p class="upload-subtitle">Sube el PDF para extraer datos automáticamente</p>
+            <p class="upload-title mb-0" id="uploadTitleMobile"><i class="bi bi-file-earmark-pdf-fill me-2 text-primary"></i>Cargar Póliza (PDF)</p>
+            <p class="upload-subtitle" id="uploadSubtitleMobile">Sube el PDF para extraer datos automáticamente</p>
           </div>
           <div class="upload-file-group">
             <input id="pdfFile" type="file" accept=".pdf" class="form-control">
@@ -330,6 +330,31 @@
           </div>
         </div>
 
+        <!-- Zona SECUNDARIA: Agregar otro(s) PDF(s) y ACUMULAR (solo Kevin) -->
+        <div class="card mt-4 extract-card d-none" id="appendUploadZone">
+          <div class="card-body py-3">
+            <div class="upload-zone mb-0 border-0 shadow-none p-0" style="background:transparent;">
+              <div class="upload-icon-wrap d-none d-sm-flex" style="background: linear-gradient(135deg,#16a34a 0%,#15803d 100%);">
+                <i class="bi bi-file-earmark-plus-fill"></i>
+              </div>
+              <div class="upload-text-group d-none d-sm-block">
+                <p class="upload-title" id="appendUploadTitle" style="color:#065f46;">Agregar Otro Documento (Acumular)</p>
+                <p class="upload-subtitle" id="appendUploadSubtitle">Procesa otro PDF y suma sus filas a la tabla existente sin borrar nada. Permite varios a la vez.</p>
+              </div>
+              <div class="d-sm-none w-100 mb-1">
+                <p class="upload-title mb-0" id="appendUploadTitleMobile" style="color:#065f46;"><i class="bi bi-file-earmark-plus-fill me-2"></i>Agregar Otro Documento (Acumular)</p>
+                <p class="upload-subtitle" id="appendUploadSubtitleMobile">Procesa otro PDF y suma sus filas sin borrar lo anterior.</p>
+              </div>
+              <div class="upload-file-group">
+                <input id="pdfFileAppend" type="file" accept=".pdf" class="form-control">
+                <button id="btnUploadAppend" class="btn-extract" style="background: linear-gradient(135deg,#16a34a 0%,#15803d 100%); border-color:#15803d;">
+                    <i class="bi bi-plus-lg me-1"></i> Extraer y Acumular
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- BOTTOM BAR (Visily style — inline, light gray bg) -->
         <div class="bottom-bar mb-5">
           <div class="bottom-info" id="bottomInfo">
@@ -417,6 +442,10 @@
     window.selectedCliente = {{ selected|tojson }};
     window.availableSubagentes = {{ subagentes_abbrs | tojson }};
     window.ramosAbbrs = {{ ramos_abbrs | tojson }};
+    window.currentUser = {
+      email: {{ session.get('user', '')|tojson }},
+      displayName: {{ session.get('user_display_name', '')|tojson }}
+    };
   </script>
 
   <!-- Dependencies -->
@@ -445,7 +474,7 @@
   <script src="{{ url_for('static', filename='js/addCrecerVidaLey.js') }}?v=1"></script>
   
   <!-- Main + Sincronizador bottom buttons (cache bust v2) -->
-  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=20260810-1" defer></script>
+  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=20260824-3" defer></script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       const saveLegacy   = document.getElementById('btnSave');
