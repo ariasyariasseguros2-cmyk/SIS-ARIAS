@@ -98,7 +98,7 @@ def require_login():
     if request.path.startswith('/static/'):
         return None
 
-    if request.path in ('/', '/login', '/logout'):
+    if request.path in ('/', '/login', '/logout', '/FacturaVentas'):
         return None
 
     if session.get('user'):

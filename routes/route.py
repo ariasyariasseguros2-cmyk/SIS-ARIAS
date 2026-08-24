@@ -7632,5 +7632,10 @@ def delete_vendedor(id):
     return redirect(url_for('main.menu_page', page='maestros-vendedores'))
 
 
+@bp.route('/FacturaVentas')
+def factura_ventas():
+    return render_template('view/FacturaVentas.html')
+
+
 
 
