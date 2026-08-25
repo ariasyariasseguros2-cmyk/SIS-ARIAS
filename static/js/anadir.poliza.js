@@ -127,6 +127,13 @@
   let tipoVigenciaManualOverride = false;
   let aseguradaTopDirty = false;
   let motivoTopDirty = false;
+  const finVigenciaManualOverrides = new Set();
+  function computeFinVigenciaTrimestral(inicioVigenciaStr) {
+    const start = parseDMYDateStrict(inicioVigenciaStr);
+    if (!start) return '';
+    const end = addMonthsClamped(start, 3);
+    return formatDateToDMY(end);
+  }
   try { if (btnSave) btnSave.setAttribute('type', 'button'); } catch (e) {}
 
   function setIssuerFromProvider(provider) {
@@ -1164,7 +1171,12 @@
     //   }
     // }
 
-    // Mantener "Fin Vigencia" (vencimiento) tal cual PDF para la columna "Fin Vigencia"
+    // Si hay Inicio Vigencia pero NO Fin Vigencia, calcular Fin = Inicio + 3 meses
+    if (it.inicio_vigencia && !String(it.vencimiento || '').trim()) {
+      const calcFin = computeFinVigenciaTrimestral(it.inicio_vigencia);
+      if (calcFin) it.vencimiento = calcFin;
+    }
+
     if (!it.cuotas) it.cuotas = [];
 
     // Si viene el importe de comisión desde el PDF, inferir el % cuando esté vacío.
@@ -1553,6 +1565,7 @@
   // Renderizado
   function render(items) {
     ensureHeader();
+    finVigenciaManualOverrides.clear();
     console.log('[render] fechas', items.map(it => ({
       //ultimo_dia_pago: it.ultimo_dia_pago,
       fecha_vencimiento: it.fecha_vencimiento,
@@ -2208,6 +2221,27 @@
     if (field === 'inicio_vigencia' || field === 'vencimiento') {
       syncTipoVigenciaTopFromDates(extractedItems);
     }
+    if (field === 'inicio_vigencia') {
+      if (!finVigenciaManualOverrides.has(idx)) {
+        const inicio = (extractedItems[idx].inicio_vigencia || '').toString().trim();
+        const calc = computeFinVigenciaTrimestral(inicio);
+        if (calc) {
+          extractedItems[idx].vencimiento = calc;
+          const venTd = getTd(idx, 'vencimiento');
+          if (venTd && venTd !== td) venTd.textContent = calc;
+        }
+      }
+    }
+    if (field === 'vencimiento') {
+      const inicio = (extractedItems[idx].inicio_vigencia || '').toString().trim();
+      const finActual = (extractedItems[idx].vencimiento || '').toString().trim();
+      const calc = inicio ? computeFinVigenciaTrimestral(inicio) : '';
+      if (calc && finActual && finActual !== calc) {
+        finVigenciaManualOverrides.add(idx);
+      } else if (!finActual || finActual === calc) {
+        finVigenciaManualOverrides.delete(idx);
+      }
+    }
   });
 
   // Formateo en blur y guardado
@@ -2266,6 +2300,27 @@
       }
     }
 
+    if (field === 'inicio_vigencia') {
+      if (!finVigenciaManualOverrides.has(idx)) {
+        const inicio = (extractedItems[idx].inicio_vigencia || '').toString().trim();
+        const calc = computeFinVigenciaTrimestral(inicio);
+        if (calc) {
+          extractedItems[idx].vencimiento = calc;
+          const venTd = getTd(idx, 'vencimiento');
+          if (venTd && venTd !== td) venTd.textContent = calc;
+        }
+      }
+    }
+    if (field === 'vencimiento') {
+      const inicio = (extractedItems[idx].inicio_vigencia || '').toString().trim();
+      const finActual = (extractedItems[idx].vencimiento || '').toString().trim();
+      const calc = inicio ? computeFinVigenciaTrimestral(inicio) : '';
+      if (calc && finActual && finActual !== calc) {
+        finVigenciaManualOverrides.add(idx);
+      } else if (!finActual || finActual === calc) {
+        finVigenciaManualOverrides.delete(idx);
+      }
+    }
     if (field === 'prima_comercial' || field === 'prima_neta') {
       updateDependents(idx, field, td);
     }
@@ -4615,6 +4670,7 @@
       tipoVigenciaManualOverride = false;
       aseguradaTopDirty = false;
       motivoTopDirty = false;
+      finVigenciaManualOverrides.clear();
       if (tipoPagoTopEl) {
         tipoPagoTopEl.value = '';
         if (tipoPagoTopEl.selectedIndex !== 0) tipoPagoTopEl.selectedIndex = 0;
