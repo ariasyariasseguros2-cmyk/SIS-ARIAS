@@ -126,6 +126,7 @@
   let productsCache = null;
   let tipoVigenciaManualOverride = false;
   let aseguradaTopDirty = false;
+  let motivoTopDirty = false;
   try { if (btnSave) btnSave.setAttribute('type', 'button'); } catch (e) {}
 
   function setIssuerFromProvider(provider) {
@@ -585,6 +586,16 @@
     list.forEach(item => {
       if (!item) return;
       item.asegurada = aseguradaTop;
+    });
+    return list;
+  }
+  function syncMotivoTopToItems(items, force = false) {
+    if (!force && !motivoTopDirty) return items;
+    const list = Array.isArray(items) ? items : [];
+    const motivoTop = String(motivoTopEl?.value || '').trim();
+    list.forEach(item => {
+      if (!item) return;
+      item.motivo = motivoTop;
     });
     return list;
   }
@@ -1556,6 +1567,7 @@
     const issuerText = issuerEl?.options?.[issuerEl.selectedIndex]?.text || (issuerEl?.value || '');
 
     syncAseguradaTopToItems(items);
+    syncMotivoTopToItems(items);
 
     // NUEVO: asegurar que 'ramo' sea vacío si no coincide con las abreviaciones disponibles
     const abbrs = (window.ramosAbbrs || []).map(s => (s || '').trim());
@@ -1593,6 +1605,20 @@
     });
 
     syncTipoVigenciaTopFromDates(items);
+
+    // Toggle clase single-mode / multiple-mode en la tabla
+    // Si hay 1 solo ítem → Motivo por fila no es necesario (ocultar TD6)
+    // Si hay 2+ ítems → modo MÚLTIPLES / INCLUSIÓN → mostrar Motivo por fila
+    (function toggleSingleMultipleMode(count) {
+      try {
+        const tbl = document.getElementById('extractTable');
+        if (!tbl) return;
+        const isSingle = (count || 0) <= 1;
+        tbl.classList.toggle('single-mode', isSingle);
+        tbl.classList.toggle('multiple-mode', !isSingle);
+        // También en thead th:nth-child(6) — lo controla el CSS
+      } catch (e) { /* ignore */ }
+    })(items.length);
 
     tbody.innerHTML = '';
     items.forEach((it, idx) => {
@@ -1649,6 +1675,7 @@
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_emision">${it.fecha_emision || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_vencimiento">${it.fecha_vencimiento || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="colectivo_asegurado">${it.colectivo_asegurado || ''}</td>
+        <td contenteditable="true" class="editable" data-index="${idx}" data-field="motivo">${it.motivo || ''}</td>
         <td data-index="${idx}" data-field="cia">${issuerSelHtml}</td>
         <td class="ramo-col" data-index="${idx}" data-field="ramo">${buildRamoSelect(it.ramo || '')}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="ramos_producto">${it.ramos_producto || ''}</td>
@@ -3074,6 +3101,8 @@
       recibo: '',
       nro: nroOpTop, // prellenar con global
       colectivo_asegurado: '',
+      asegurada: (aseguradaTopEl?.value || '').trim(),
+      motivo: (motivoTopEl?.value || '').trim(),
       inicio_vigencia: '',
       vencimiento: '',
       moneda: '',
@@ -3574,6 +3603,21 @@
     scheduleAutoSave();
   });
 
+  motivoTopEl?.addEventListener('input', () => {
+    motivoTopDirty = true;
+    syncMotivoTopToItems(extractedItems, true);
+    const motivoVal = String(motivoTopEl.value || '').trim();
+    Array.from(tbody.querySelectorAll('tr')).forEach((tr, i) => {
+      const tdMotivo = tr.querySelector('td[data-field="motivo"]');
+      if (tdMotivo && extractedItems[i]) {
+        if (motivoVal || (!extractedItems[i].motivo || extractedItems[i].motivo.trim() === '')) {
+          tdMotivo.textContent = motivoVal;
+        }
+      }
+    });
+    scheduleAutoSave();
+  });
+
   syncAseguradaTopLock(true);
 
   // % Comisión Cía superior → recalcular todas las filas
@@ -3983,6 +4027,7 @@
       const tipoVigenciaSeleccionada = resolveTipoVigenciaForSave(extractedItems);
       const aseguradaTopSave = (aseguradaTopEl?.value || '').trim();
       syncAseguradaTopToItems(extractedItems);
+      syncMotivoTopToItems(extractedItems);
       const selected = Object.assign({}, (window.selectedCliente || {}), {
         subagente: (document.getElementById('subAgenteTop')?.value ||
                     document.getElementById('subAgente')?.value ||
@@ -4568,6 +4613,8 @@
         if (tipoVigenciaTopEl.selectedIndex !== 0) tipoVigenciaTopEl.selectedIndex = 0;
       }
       tipoVigenciaManualOverride = false;
+      aseguradaTopDirty = false;
+      motivoTopDirty = false;
       if (tipoPagoTopEl) {
         tipoPagoTopEl.value = '';
         if (tipoPagoTopEl.selectedIndex !== 0) tipoPagoTopEl.selectedIndex = 0;
@@ -4647,6 +4694,7 @@
       if (!__autoSaveHasFacturaFecha(extractedItems)) return;
       const aseguradaTopSave = (aseguradaTopEl?.value || '').trim();
       syncAseguradaTopToItems(extractedItems);
+      syncMotivoTopToItems(extractedItems);
       const selected = Object.assign({}, (window.selectedCliente || {}), {
         subagente: (document.getElementById('subAgenteTop')?.value ||
                     document.getElementById('subAgente')?.value ||

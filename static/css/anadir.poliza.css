@@ -972,31 +972,48 @@ body {
     border-color: rgba(59, 130, 246, 0.18);
 }
 
-/* TD 6 — Cía (verde) */
-.table-custom td:nth-child(6)::before { color: #047857; }
+/* TD 6 — Motivo (ámbar/warning) */
+.table-custom td:nth-child(6)::before { color: #b45309; }
 .table-custom td:nth-child(6) > span:not(.badge):not(.cuota-row-n),
 .table-custom td:nth-child(6) input,
 .table-custom td:nth-child(6) .flex-grow-1 {
-    border-color: rgba(16, 185, 129, 0.22);
-    background: linear-gradient(180deg, #f0fdf4 0%, #fff 100%);
-    font-weight: 600;
+    border-color: rgba(245, 158, 11, 0.22);
+    background: linear-gradient(180deg, #fffbeb 0%, #fff 100%);
+    font-weight: 500;
 }
 [data-theme='dark'] .table-custom td:nth-child(6) > span:not(.badge):not(.cuota-row-n),
 [data-theme='dark'] .table-custom td:nth-child(6) input,
 [data-theme='dark'] .table-custom td:nth-child(6) .flex-grow-1 {
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.08) 0%, transparent 100%);
+    border-color: rgba(245, 158, 11, 0.2);
+    color: #fde68a;
+}
+
+/* TD 7 — Cía (verde) */
+.table-custom td:nth-child(7)::before { color: #047857; }
+.table-custom td:nth-child(7) > span:not(.badge):not(.cuota-row-n),
+.table-custom td:nth-child(7) input,
+.table-custom td:nth-child(7) .flex-grow-1 {
+    border-color: rgba(16, 185, 129, 0.22);
+    background: linear-gradient(180deg, #f0fdf4 0%, #fff 100%);
+    font-weight: 600;
+}
+[data-theme='dark'] .table-custom td:nth-child(7) > span:not(.badge):not(.cuota-row-n),
+[data-theme='dark'] .table-custom td:nth-child(7) input,
+[data-theme='dark'] .table-custom td:nth-child(7) .flex-grow-1 {
     background: linear-gradient(180deg, rgba(16, 185, 129, 0.07) 0%, transparent 100%);
     border-color: rgba(16, 185, 129, 0.2);
 }
 
 /* =============================================================
-   TD 7 — RAMO (rosa #be185d project memory)
+   TD 8 — RAMO (rosa #be185d project memory)
    → 3 COLUMNAS + ALTURA DINÁMICA + WRAPPING PARA TEXTO LARGO
    ============================================================= */
-.table-custom td:nth-child(7) { min-height: 70px; }
-.table-custom td:nth-child(7)::before { color: #be185d; }
-.table-custom td:nth-child(7) > span:not(.badge):not(.cuota-row-n),
-.table-custom td:nth-child(7) input,
-.table-custom td:nth-child(7) .flex-grow-1 {
+.table-custom td:nth-child(8) { min-height: 70px; }
+.table-custom td:nth-child(8)::before { color: #be185d; }
+.table-custom td:nth-child(8) > span:not(.badge):not(.cuota-row-n),
+.table-custom td:nth-child(8) input,
+.table-custom td:nth-child(8) .flex-grow-1 {
     border-color: rgba(190, 24, 93, 0.25);
     background: linear-gradient(180deg, #fdf2f8 0%, #fff 100%);
     color: #831843;
@@ -1012,30 +1029,30 @@ body {
     display: flex;
     align-items: center;
 }
-[data-theme='dark'] .table-custom td:nth-child(7) > span:not(.badge):not(.cuota-row-n),
-[data-theme='dark'] .table-custom td:nth-child(7) input,
-[data-theme='dark'] .table-custom td:nth-child(7) .flex-grow-1 {
+[data-theme='dark'] .table-custom td:nth-child(8) > span:not(.badge):not(.cuota-row-n),
+[data-theme='dark'] .table-custom td:nth-child(8) input,
+[data-theme='dark'] .table-custom td:nth-child(8) .flex-grow-1 {
     background: linear-gradient(180deg, rgba(190, 24, 93, 0.12) 0%, transparent 100%);
     border-color: rgba(236, 72, 153, 0.25);
     color: #fbcfe8;
 }
-.table-custom td:nth-child(7):hover > span:not(.badge):not(.cuota-row-n),
-.table-custom td:nth-child(7):hover input,
-.table-custom td:nth-child(7):hover select,
-.table-custom td:nth-child(7):hover .flex-grow-1 {
+.table-custom td:nth-child(8):hover > span:not(.badge):not(.cuota-row-n),
+.table-custom td:nth-child(8):hover input,
+.table-custom td:nth-child(8):hover select,
+.table-custom td:nth-child(8):hover .flex-grow-1 {
     border-color: rgba(190, 24, 93, 0.45);
     box-shadow: 0 2px 6px rgba(190, 24, 93, 0.08);
 }
 
 /* ==================================================================
-   TD 8 — PRODUCTO (celeste #0ea5e9 project memory)
+   TD 9 — PRODUCTO (celeste #0ea5e9 project memory)
    → 3 COLUMNAS + ALTURA DINÁMICA + WRAPPING PARA TEXTO LARGO
    ================================================================== */
-.table-custom td:nth-child(8) { min-height: 70px; }
-.table-custom td:nth-child(8)::before { color: #0284c7; }
-.table-custom td:nth-child(8) > span:not(.badge):not(.cuota-row-n),
-.table-custom td:nth-child(8) input,
-.table-custom td:nth-child(8) .flex-grow-1 {
+.table-custom td:nth-child(9) { min-height: 70px; }
+.table-custom td:nth-child(9)::before { color: #0284c7; }
+.table-custom td:nth-child(9) > span:not(.badge):not(.cuota-row-n),
+.table-custom td:nth-child(9) input,
+.table-custom td:nth-child(9) .flex-grow-1 {
     border-color: rgba(14, 165, 233, 0.28);
     background: linear-gradient(180deg, #eff6ff 0%, #fff 100%);
     color: #075985;
@@ -1051,34 +1068,34 @@ body {
     display: flex;
     align-items: center;
 }
-[data-theme='dark'] .table-custom td:nth-child(8) > span:not(.badge):not(.cuota-row-n),
-[data-theme='dark'] .table-custom td:nth-child(8) input,
-[data-theme='dark'] .table-custom td:nth-child(8) .flex-grow-1 {
+[data-theme='dark'] .table-custom td:nth-child(9) > span:not(.badge):not(.cuota-row-n),
+[data-theme='dark'] .table-custom td:nth-child(9) input,
+[data-theme='dark'] .table-custom td:nth-child(9) .flex-grow-1 {
     background: linear-gradient(180deg, rgba(14, 165, 233, 0.1) 0%, transparent 100%);
     border-color: rgba(14, 165, 233, 0.25);
     color: #bae6fd;
 }
-.table-custom td:nth-child(8):hover > span:not(.badge):not(.cuota-row-n),
-.table-custom td:nth-child(8):hover input,
-.table-custom td:nth-child(8):hover select,
-.table-custom td:nth-child(8):hover .flex-grow-1 {
+.table-custom td:nth-child(9):hover > span:not(.badge):not(.cuota-row-n),
+.table-custom td:nth-child(9):hover input,
+.table-custom td:nth-child(9):hover select,
+.table-custom td:nth-child(9):hover .flex-grow-1 {
     border-color: rgba(14, 165, 233, 0.5);
     box-shadow: 0 2px 6px rgba(14, 165, 233, 0.08);
 }
 
-/* TD 14 — Prima + IGV (resaltado) */
-.table-custom td:nth-child(14)::before { color: var(--primary); }
-.table-custom td:nth-child(14) > span:not(.badge):not(.cuota-row-n),
-.table-custom td:nth-child(14) input,
-.table-custom td:nth-child(14) .flex-grow-1 {
+/* TD 15 — Prima + IGV (resaltado) */
+.table-custom td:nth-child(15)::before { color: var(--primary); }
+.table-custom td:nth-child(15) > span:not(.badge):not(.cuota-row-n),
+.table-custom td:nth-child(15) input,
+.table-custom td:nth-child(15) .flex-grow-1 {
     border-color: rgba(37, 99, 235, 0.28);
     background: linear-gradient(180deg, #eff6ff 0%, #fff 100%);
     font-weight: 800;
     color: var(--text-strong);
 }
-[data-theme='dark'] .table-custom td:nth-child(14) > span:not(.badge):not(.cuota-row-n),
-[data-theme='dark'] .table-custom td:nth-child(14) input,
-[data-theme='dark'] .table-custom td:nth-child(14) .flex-grow-1 {
+[data-theme='dark'] .table-custom td:nth-child(15) > span:not(.badge):not(.cuota-row-n),
+[data-theme='dark'] .table-custom td:nth-child(15) input,
+[data-theme='dark'] .table-custom td:nth-child(15) .flex-grow-1 {
     background: linear-gradient(180deg, rgba(59, 130, 246, 0.08) 0%, transparent 100%);
     border-color: rgba(59, 130, 246, 0.22);
     color: #f9fafb;
@@ -1139,21 +1156,24 @@ body {
     border-color: rgba(59, 130, 246, 0.18);
 }
 
-/* ---------- TD 6 — Cía (verde) ---------- */
-.table-custom td:nth-child(6) select {
+/* ---------- TD 6 — Motivo (NO select; estilos en bloque COLORES CORPORATIVOS) ---------- */
+/* (TD 6 = campo editable contenteditable, sin <select>, por lo que no requiere reglas aquí) */
+
+/* ---------- TD 7 — Cía (verde) ---------- */
+.table-custom td:nth-child(7) select {
     border-color: rgba(16, 185, 129, 0.22);
     background-image: var(--chevron-svg), linear-gradient(180deg, #f0fdf4 0%, #fff 100%);
     background-color: transparent;
     font-weight: 600;
 }
-[data-theme='dark'] .table-custom td:nth-child(6) select {
+[data-theme='dark'] .table-custom td:nth-child(7) select {
     background-image: var(--chevron-svg), linear-gradient(180deg, rgba(16, 185, 129, 0.07) 0%, transparent 100%);
     background-color: transparent;
     border-color: rgba(16, 185, 129, 0.2);
 }
 
-/* ---------- TD 7 — RAMO (rosa) ---------- */
-.table-custom td:nth-child(7) select {
+/* ---------- TD 8 — RAMO (rosa) ---------- */
+.table-custom td:nth-child(8) select {
     border-color: rgba(190, 24, 93, 0.25);
     background-image: var(--chevron-svg), linear-gradient(180deg, #fdf2f8 0%, #fff 100%);
     background-color: transparent;
@@ -1170,15 +1190,15 @@ body {
     display: flex;
     align-items: center;
 }
-[data-theme='dark'] .table-custom td:nth-child(7) select {
+[data-theme='dark'] .table-custom td:nth-child(8) select {
     background-image: var(--chevron-svg), linear-gradient(180deg, rgba(190, 24, 93, 0.12) 0%, transparent 100%);
     background-color: transparent;
     border-color: rgba(236, 72, 153, 0.25);
     color: #fbcfe8;
 }
 
-/* ---------- TD 8 — PRODUCTO (celeste) ---------- */
-.table-custom td:nth-child(8) select {
+/* ---------- TD 9 — PRODUCTO (celeste) ---------- */
+.table-custom td:nth-child(9) select {
     border-color: rgba(14, 165, 233, 0.28);
     background-image: var(--chevron-svg), linear-gradient(180deg, #eff6ff 0%, #fff 100%);
     background-color: transparent;
@@ -1195,58 +1215,59 @@ body {
     display: flex;
     align-items: center;
 }
-[data-theme='dark'] .table-custom td:nth-child(8) select {
+[data-theme='dark'] .table-custom td:nth-child(9) select {
     background-image: var(--chevron-svg), linear-gradient(180deg, rgba(14, 165, 233, 0.1) 0%, transparent 100%);
     background-color: transparent;
     border-color: rgba(14, 165, 233, 0.25);
     color: #bae6fd;
 }
 
-/* ---------- TD 9 — Moneda ---------- */
-.table-custom td:nth-child(9) select {
+/* ---------- TD 10 — Moneda ---------- */
+.table-custom td:nth-child(10) select {
     background-image: var(--chevron-svg), linear-gradient(180deg, #f8fafc 0%, #fff 100%);
     background-color: transparent;
 }
-[data-theme='dark'] .table-custom td:nth-child(9) select {
+[data-theme='dark'] .table-custom td:nth-child(10) select {
     background-image: var(--chevron-svg), linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%);
     background-color: transparent;
 }
 
-/* ---------- TD 14 — Prima + IGV (resaltado) ---------- */
-.table-custom td:nth-child(14) select {
+/* ---------- TD 15 — Prima + IGV (resaltado) ---------- */
+.table-custom td:nth-child(15) select {
     border-color: rgba(37, 99, 235, 0.28);
     background-image: var(--chevron-svg), linear-gradient(180deg, #eff6ff 0%, #fff 100%);
     background-color: transparent;
     font-weight: 800;
     color: var(--text-strong);
 }
-[data-theme='dark'] .table-custom td:nth-child(14) select {
+[data-theme='dark'] .table-custom td:nth-child(15) select {
     background-image: var(--chevron-svg), linear-gradient(180deg, rgba(59, 130, 246, 0.08) 0%, transparent 100%);
     background-color: transparent;
     border-color: rgba(59, 130, 246, 0.22);
     color: #f9fafb;
 }
 
-/* Map manual por nth-child — MANTENER 19+20 ocultas (van al pane) */
+/* Map manual por nth-child — MANTENER 20+21 ocultas (factura/fecha_pago) y 22 es acciones-pane */
 .table-custom td:nth-child(1)::before { content: "Póliza"; }
 .table-custom td:nth-child(2)::before { content: "Proforma/Recibo"; }
 .table-custom td:nth-child(3)::before { content: "Fecha Emisión"; }
 .table-custom td:nth-child(4)::before { content: "Fecha Vencimiento"; }
 .table-custom td:nth-child(5)::before { content: "Asegurado"; }
-.table-custom td:nth-child(6)::before { content: "Cía"; }
-.table-custom td:nth-child(7)::before { content: "Ramo"; }
-.table-custom td:nth-child(8)::before { content: "Producto"; }
-.table-custom td:nth-child(9)::before { content: "Moneda"; }
-.table-custom td:nth-child(10)::before { content: "Inicio Vigencia"; }
-.table-custom td:nth-child(11)::before { content: "Fin Vigencia"; }
-.table-custom td:nth-child(12)::before { content: "Prima Neta"; }
-.table-custom td:nth-child(13)::before { content: "Prima Comercial"; }
-.table-custom td:nth-child(14)::before { content: "Prima + IGV"; }
-.table-custom td:nth-child(15)::before { content: "% Com. Cía"; }
-.table-custom td:nth-child(16)::before { content: "Imp. Com. Cía"; }
-.table-custom td:nth-child(17)::before { content: "% Com. Sub"; }
-.table-custom td:nth-child(18)::before { content: "Imp. Com. Sub"; }
-.table-custom td:nth-child(21)::before { content: ""; display: none; }
+.table-custom td:nth-child(6)::before { content: "Motivo"; }
+.table-custom td:nth-child(7)::before { content: "Cía"; }
+.table-custom td:nth-child(8)::before { content: "Ramo"; }
+.table-custom td:nth-child(9)::before { content: "Producto"; }
+.table-custom td:nth-child(10)::before { content: "Moneda"; }
+.table-custom td:nth-child(11)::before { content: "Inicio Vigencia"; }
+.table-custom td:nth-child(12)::before { content: "Fin Vigencia"; }
+.table-custom td:nth-child(13)::before { content: "Prima Neta"; }
+.table-custom td:nth-child(14)::before { content: "Prima Comercial"; }
+.table-custom td:nth-child(15)::before { content: "Prima + IGV"; }
+.table-custom td:nth-child(16)::before { content: "% Com. Cía"; }
+.table-custom td:nth-child(17)::before { content: "Imp. Com. Cía"; }
+.table-custom td:nth-child(18)::before { content: "% Com. Sub"; }
+.table-custom td:nth-child(19)::before { content: "Imp. Com. Sub"; }
+.table-custom td:nth-child(22)::before { content: ""; display: none; }
 
 /* Row 1: Póliza(span2: 1-2) | Proforma+Lupa(span2: 3-4) | Emisión(span2: 5-6) | Vencimiento(span2: 7-8) + cols 9-10 libre */
 .table-custom td:nth-child(1) {
@@ -1265,50 +1286,145 @@ body {
 .table-custom td:nth-child(3) { grid-column: 5 / span 2; grid-row: 1; }
 .table-custom td:nth-child(4) { grid-column: 7 / span 2; grid-row: 1; }
 
-/* Row 2: Asegurado (span 3 cols 1-3) | Cía (span 2 cols 4-5) | Ramo (span 3 cols 6-8) | Producto (span 2 cols 9-10) — TOTAL 10 */
+/* Row 2: Asegurado(span2: 1-2) | Motivo(col3) | Cía(span2: 4-5) | Ramo(span3: 6-8) | Producto(span2: 9-10) — TOTAL 10 */
 .table-custom td:nth-child(5) {
-    grid-column: 1 / span 3;
+    grid-column: 1 / span 2;
     grid-row: 2;
 }
-.table-custom td:nth-child(6) { grid-column: 4 / span 2; grid-row: 2; }
-.table-custom td:nth-child(6)::after {
+.table-custom td:nth-child(6) { grid-column: 3; grid-row: 2; }
+.table-custom td:nth-child(7) { grid-column: 4 / span 2; grid-row: 2; }
+.table-custom td:nth-child(7)::after {
     border-color: rgba(16, 185, 129, 0.18);
     background: linear-gradient(180deg, #f0fdf4 0%, #fff 100%);
 }
-.table-custom td:nth-child(7) { grid-column: 6 / span 3; grid-row: 2; }
-.table-custom td:nth-child(8) { grid-column: 9 / span 2; grid-row: 2; }
+.table-custom td:nth-child(8) { grid-column: 6 / span 3; grid-row: 2; }
+.table-custom td:nth-child(9) { grid-column: 9 / span 2; grid-row: 2; }
+
+/* ============== SINGLE-MODE OVERRIDE (1 solo ítem → ocultar Motivo por fila) ==============
+   Motivo (TD6) deja de ser necesario cuando sólo hay 1 póliza; se usa el campo superior.
+   Re-expandimos Row 2: Asegurado(span3 cols1-3) + Cía(span2 cols4-5) + Ramo(span3 cols6-8) + Producto(span2 cols9-10) = 10 cols.
+   Especificidad: .table-custom.single-mode > .table-custom → aplica override.
+   ========================================================================================== */
+.table-custom.single-mode thead th:nth-child(6) {
+    display: none !important;
+}
+.table-custom.single-mode td:nth-child(6) {
+    display: none !important;
+    grid-column: auto !important;
+    grid-row: auto !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    font-size: 0 !important;
+}
+.table-custom.single-mode td:nth-child(6)::before,
+.table-custom.single-mode td:nth-child(6)::after {
+    display: none !important;
+    content: "" !important;
+    background: none !important;
+    border: none !important;
+}
+/* Row 2 SINGLE-MODE: Asegurado span3, Cía span2, Ramo span3, Producto span2 = 10 cols */
+.table-custom.single-mode td:nth-child(5) {
+    grid-column: 1 / span 3 !important;
+    grid-row: 2 !important;
+}
+.table-custom.single-mode td:nth-child(7) {
+    grid-column: 4 / span 2 !important;
+    grid-row: 2 !important;
+}
+.table-custom.single-mode td:nth-child(8) {
+    grid-column: 6 / span 3 !important;
+    grid-row: 2 !important;
+}
+.table-custom.single-mode td:nth-child(9) {
+    grid-column: 9 / span 2 !important;
+    grid-row: 2 !important;
+}
+
+/* ============== MULTIPLE-MODE: PRIMERA FILA (index 0) SIN MOTIVO POR FILA
+   En modo INCLUSIÓN / 2+ ítems:
+   - El primer <tr> (primer documento extraído) usa el Motivo del campo superior #motivoTop → NO mostrar campo por fila, reexpandir Asegurado span3
+   - Los <tr> 2do, 3er, ...  mantienen Motivo visible con span2+Motivo(col3)
+   Especificidad: .table-custom.multiple-mode tbody tr:first-child > td:nth-child(N)
+   ========================================================================================== */
+.table-custom.multiple-mode tbody tr:first-child td:nth-child(6) {
+    display: none !important;
+    grid-column: auto !important;
+    grid-row: auto !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    font-size: 0 !important;
+}
+.table-custom.multiple-mode tbody tr:first-child td:nth-child(6)::before,
+.table-custom.multiple-mode tbody tr:first-child td:nth-child(6)::after {
+    display: none !important;
+    content: "" !important;
+    background: none !important;
+    border: none !important;
+}
+/* Row 2 primera-fila-multiple: Asegurado(span3 cols1-3) + Cía(span2 cols4-5) + Ramo(span3 cols6-8) + Producto(span2 cols9-10) = 10 cols */
+.table-custom.multiple-mode tbody tr:first-child td:nth-child(5) {
+    grid-column: 1 / span 3 !important;
+    grid-row: 2 !important;
+}
+.table-custom.multiple-mode tbody tr:first-child td:nth-child(7) {
+    grid-column: 4 / span 2 !important;
+    grid-row: 2 !important;
+}
+.table-custom.multiple-mode tbody tr:first-child td:nth-child(8) {
+    grid-column: 6 / span 3 !important;
+    grid-row: 2 !important;
+}
+.table-custom.multiple-mode tbody tr:first-child td:nth-child(9) {
+    grid-column: 9 / span 2 !important;
+    grid-row: 2 !important;
+}
 
 /* Row 3: Moneda(1) | Inicio Vig(span2: 2-3) | Fin Vig(span2: 4-5) | Prima Neta(span2: 6-7) | Comercial(span2: 8-9) | +IGV(10) — TOTAL 10 */
-.table-custom td:nth-child(9)  { grid-column: 1; grid-row: 3; }
-.table-custom td:nth-child(10) { grid-column: 2 / span 2; grid-row: 3; }
-.table-custom td:nth-child(11) { grid-column: 4 / span 2; grid-row: 3; }
-.table-custom td:nth-child(12) { grid-column: 6 / span 2; grid-row: 3; }
-.table-custom td:nth-child(13) { grid-column: 8 / span 2; grid-row: 3; }
-.table-custom td:nth-child(14) {
+.table-custom td:nth-child(10)  { grid-column: 1; grid-row: 3; }
+.table-custom td:nth-child(11) { grid-column: 2 / span 2; grid-row: 3; }
+.table-custom td:nth-child(12) { grid-column: 4 / span 2; grid-row: 3; }
+.table-custom td:nth-child(13) { grid-column: 6 / span 2; grid-row: 3; }
+.table-custom td:nth-child(14) { grid-column: 8 / span 2; grid-row: 3; }
+.table-custom td:nth-child(15) {
     grid-column: 10; grid-row: 3;
     font-weight: 800;
     color: var(--text-strong);
 }
-.table-custom td:nth-child(14)::after {
+.table-custom td:nth-child(15)::after {
     border-color: rgba(37, 99, 235, 0.25);
     background: linear-gradient(180deg, #eff6ff 0%, #fff 100%);
 }
 
-/* Row 4: Comisiones 4 cols × span 2.5 → span(2+3+2+3) = 10:  %Cía(span2) | ImpCía(span3) | %Sub(span2) | ImpSub(span3) — TOTAL 10 */
-.table-custom td:nth-child(15) { grid-column: 1 / span 2; grid-row: 4; }
-.table-custom td:nth-child(16) { grid-column: 3 / span 3; grid-row: 4; }
-.table-custom td:nth-child(17) { grid-column: 6 / span 2; grid-row: 4; }
-.table-custom td:nth-child(18) { grid-column: 8 / span 3; grid-row: 4; }
+/* Row 4: Comisiones 4 cols × span(2+3+2+3) = 10:  %Cía(span2) | ImpCía(span3) | %Sub(span2) | ImpSub(span3) — TOTAL 10 */
+.table-custom td:nth-child(16) { grid-column: 1 / span 2; grid-row: 4; }
+.table-custom td:nth-child(17) { grid-column: 3 / span 3; grid-row: 4; }
+.table-custom td:nth-child(18) { grid-column: 6 / span 2; grid-row: 4; }
+.table-custom td:nth-child(19) { grid-column: 8 / span 3; grid-row: 4; }
 
 /* Row 5: ACCIONES SPAN COMPLETO (Panel cupones + factura + archivo) */
-.table-custom td:nth-child(21) {
+.table-custom td:nth-child(22) {
     grid-column: 1 / -1;
     grid-row: 5;
     border-top: 1px dashed var(--card-border);
     padding-top: 0.9rem;
     margin-top: 0.15rem;
 }
-.table-custom td:nth-child(21)::after {
+.table-custom td:nth-child(22)::after {
     display: none;
 }
 
@@ -2432,7 +2548,7 @@ span.badge.text-bg-secondary.facturas-count {
     .table-custom td:nth-child(16) { grid-column: 5; grid-row: 5; }
     .table-custom td:nth-child(17) { grid-column: 6; grid-row: 5; }
     .table-custom td:nth-child(18) { grid-column: 1 / span 2; grid-row: 6; }
-    .table-custom td:nth-child(21) { grid-row: 7; }
+    .table-custom td:nth-child(22) { grid-row: 7; }
 }
 
 @media (max-width: 992px) {
@@ -2467,7 +2583,7 @@ span.badge.text-bg-secondary.facturas-count {
     .table-custom td:nth-child(16) { grid-column: 2; grid-row: 8; }
     .table-custom td:nth-child(17) { grid-column: 3; grid-row: 8; }
     .table-custom td:nth-child(18) { grid-column: 4; grid-row: 8; }
-    .table-custom td:nth-child(21) { grid-row: 9; }
+    .table-custom td:nth-child(22) { grid-row: 9; }
 
     .actions-pane .pane-fields,
     .actions-pane .pane-fields-6 {
@@ -2517,7 +2633,7 @@ span.badge.text-bg-secondary.facturas-count {
     .table-custom td:nth-child(8),
     .table-custom td:nth-child(12),
     .table-custom td:nth-child(14),
-    .table-custom td:nth-child(21) {
+    .table-custom td:nth-child(22) {
         grid-column: 1 / -1 !important;
     }
 

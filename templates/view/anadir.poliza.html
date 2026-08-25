@@ -9,7 +9,7 @@
       document.documentElement.setAttribute('data-theme', savedTheme);
     })();
   </script>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/anadir.poliza.css') }}?v=20260808-7">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/anadir.poliza.css') }}?v=20260825-1">
   <style>
     .page {
       padding: 0;
@@ -298,6 +298,7 @@
                     <th>Fecha Emisión</th>
                     <th>Fecha Vencimiento</th>
                     <th>Asegurado</th>
+                    <th>Motivo</th>
                     <th>Cía</th>
                     <th class="ramo-col">Ramo</th>
                     <th>Producto</th>
@@ -474,7 +475,7 @@
   <script src="{{ url_for('static', filename='js/addCrecerVidaLey.js') }}?v=1"></script>
   
   <!-- Main + Sincronizador bottom buttons (cache bust v2) -->
-  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=20260824-3" defer></script>
+  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=20260825-1" defer></script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       const saveLegacy   = document.getElementById('btnSave');
