@@ -24,7 +24,14 @@
                 </div>
             </div>
             {% if can_create(session.role_name) %}
-            <!-- <button class="btn btn-primary btn-lift"><i class="bi-plus-lg"></i> Añadir</button> -->
+            {% set _anadir_qstring = '' %}
+            {% if details and details.poliza %}
+                {% set _anadir_qstring = _anadir_qstring ~ ('&' if _anadir_qstring else '?') ~ 'poliza=' ~ details.poliza %}
+            {% endif %}
+            {% if return_to %}
+                {% set _anadir_qstring = _anadir_qstring ~ ('&' if _anadir_qstring else '?') ~ 'return=' ~ return_to %}
+            {% endif %}
+            <a href="{{ url_for('main.menu_page', page='anadir-poliza') }}{{ _anadir_qstring }}" class="btn btn-primary btn-lift"><i class="bi-plus-lg"></i> Añadir</a>
             {% endif %}
         </div>
         <div class="primas-header-sub">

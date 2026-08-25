@@ -2145,6 +2145,20 @@ def menu_page(page):
         cli_data = get_clientes_data()
         selected = session.get('selected_cliente') or {}
 
+        # Capturar contexto de retorno para botones "Volver"
+        back_poliza_num = request.args.get('poliza') or request.args.get('nro_poliza') or None
+        back_prima_id = request.args.get('idPrima') or request.args.get('prima_id') or request.args.get('id') or None
+        back_return_to = request.args.get('return') or request.args.get('return_to') or None
+        # Persistir en sesión si vienen por URL; si no, mantener lo anterior
+        if back_poliza_num or back_prima_id or back_return_to:
+            nav_ctx = session.get('anadir_poliza_nav') or {}
+            if back_poliza_num: nav_ctx['poliza'] = back_poliza_num
+            if back_prima_id: nav_ctx['idPrima'] = back_prima_id
+            if back_return_to: nav_ctx['return_to'] = back_return_to
+            session['anadir_poliza_nav'] = nav_ctx
+        else:
+            nav_ctx = session.get('anadir_poliza_nav') or {}
+
         # Hidratar datos faltantes del cliente seleccionado
         if not selected.get('subagente'):
             match = None
@@ -2194,7 +2208,8 @@ def menu_page(page):
             aseguradoras_rows=get_aseguradoras(),
             subagentes_abbrs=get_subagentes_abreviaciones(),  # NUEVO
             ejecutivos_rows=get_ejecutivos(),                 # NUEVO
-            endosatarios_rows=get_endosatarios()              # NUEVO
+            endosatarios_rows=get_endosatarios(),             # NUEVO
+            nav_ctx=nav_ctx                                   # Contexto de navegación para volver
         )
 
     # NUEVO: Reporte Diario (acepta 'reporte-diaro' por el slug del menú)
@@ -3866,7 +3881,12 @@ def api_cliente_from_poliza():
                     CAST(AES_DECRYPT(c.telefono, @SIS_KEY) AS CHAR),
                     c.telefono
                 ) AS tel,
-                COALESCE(c.subagente, p.sub_agente, '') AS subagente
+                COALESCE(c.subagente, p.sub_agente, '') AS subagente,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza
+                ) AS numero_poliza
             FROM polizas p
             INNER JOIN clientes c ON c.idCliente = p.cliente_id
             WHERE p.idPoliza = %s AND p.activo = 1
@@ -3888,6 +3908,16 @@ def api_cliente_from_poliza():
             'tel': row['tel'],
             'subagente': row['subagente'],
         }
+
+        # Guardar contexto de navegación para los botones "Volver" en Añadir Póliza
+        nav_ctx = session.get('anadir_poliza_nav') or {}
+        _pol = (row.get('numero_poliza') or '').strip()
+        if _pol:
+            nav_ctx['poliza'] = _pol
+        nav_ctx['return_to'] = 'listado-poliza'
+        nav_ctx['return_from_poliza_id'] = poliza_id
+        session['anadir_poliza_nav'] = nav_ctx
+
         return jsonify({'ok': True, 'redirect': '/menu/anadir-poliza'})
     except Exception as e:
         print(f'[api_cliente_from_poliza] {e}')

@@ -34,7 +34,7 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
         pol = details['poliza']
         cliente_id = (selected or {}).get('idCliente')
 
-        # Intento por número de póliza
+        # 1) Intento por número de póliza
         if pol:
             try:
                 cur.execute("CALL sp_list_primas_por_poliza(%s)", (pol,))
@@ -44,16 +44,7 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
             except Exception:
                 rows = rows
 
-        # Intento por cliente
-        if not rows and cliente_id:
-            try:
-                cur.execute("CALL sp_list_primas_por_cliente_id(%s)", (cliente_id,))
-                rows = cur.fetchall() or []
-                while cur.nextset():
-                    pass
-            except Exception:
-                rows = rows
-
+        # 2) Fallback query directa por póliza (si hay pol definida y rows aún vacío)
         if not rows and pol:
             try:
                 cur.execute(
@@ -107,6 +98,17 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
             except Exception:
                 rows = rows
 
+        # 3) Intento por cliente — SÓLO si NO se especificó número de póliza.
+        #    Si el usuario llegó con ?poliza=XXX, nunca mezclamos primas de otras pólizas.
+        if not pol and not rows and cliente_id:
+            try:
+                cur.execute("CALL sp_list_primas_por_cliente_id(%s)", (cliente_id,))
+                rows = cur.fetchall() or []
+                while cur.nextset():
+                    pass
+            except Exception:
+                rows = rows
+
         # Si no hay poliza definida pero hay resultados, tomamos la poliza del primer resultado
         rows.sort(
             key=lambda r: parse_sort_date(
@@ -141,6 +143,16 @@ def get_primas_data(selected: dict | None = None, numero_poliza: str | None = No
     except Exception:
         rows = rows
         details = details
+
+    # FILTRO FINAL: si se llegó con un número de póliza explícito,
+    # descartamos cualquier fila que no coincida (protege contra SPs que devuelven más de la cuenta).
+    pol_explicito = numero_poliza or (selected or {}).get('poliza') or (selected or {}).get('numero_poliza')
+    if pol_explicito:
+        _pol = str(pol_explicito).strip()
+        rows = [
+            r for r in rows
+            if str((r.get('poliza') or r.get('numero_poliza') or '')).strip() == _pol
+        ]
 
     # Normalización de claves a las usadas por la plantilla
     def coalesce_nonempty(*vals):

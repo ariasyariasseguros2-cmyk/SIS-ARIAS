@@ -9,7 +9,7 @@
       document.documentElement.setAttribute('data-theme', savedTheme);
     })();
   </script>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/anadir.poliza.css') }}?v=20260825-1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/anadir.poliza.css') }}?v=20260825-3">
   <style>
     .page {
       padding: 0;
@@ -53,9 +53,25 @@
           </div>
         </div>
 
-        <a href="{{ url_for('main.menu_page', page='polizas') }}" class="btn btn-sm btn-back flex-shrink-0">
-          <i class="bi bi-arrow-left me-1"></i> Volver
-        </a>
+        {% set nav_ctx = nav_ctx or {} %}
+        {% set _primas_qstring = '' %}
+        {% if nav_ctx.poliza %}
+            {% set _primas_qstring = _primas_qstring ~ ('&' if _primas_qstring else '?') ~ 'poliza=' ~ nav_ctx.poliza %}
+        {% endif %}
+        {% if nav_ctx.return_to %}
+            {% set _primas_qstring = _primas_qstring ~ ('&' if _primas_qstring else '?') ~ 'return=' ~ nav_ctx.return_to %}
+        {% endif %}
+
+        {% set _polizas_page = nav_ctx.return_to if nav_ctx.return_to in ['polizas', 'listado-poliza'] else 'polizas' %}
+
+        <div class="d-flex gap-2 flex-shrink-0">
+          <a href="{{ url_for('main.menu_page', page=_polizas_page) }}" class="btn btn-sm btn-back">
+            <i class="bi bi-arrow-left me-1"></i> Volver Póliza
+          </a>
+          <a href="{{ url_for('main.menu_page', page='primas') }}{{ _primas_qstring }}" class="btn btn-sm btn-back">
+            <i class="bi bi-arrow-left me-1"></i> Volver Primas
+          </a>
+        </div>
       </div>
     </header>
 
@@ -475,7 +491,7 @@
   <script src="{{ url_for('static', filename='js/addCrecerVidaLey.js') }}?v=1"></script>
   
   <!-- Main + Sincronizador bottom buttons (cache bust v2) -->
-  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=20260825-1" defer></script>
+  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=20260825-3" defer></script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       const saveLegacy   = document.getElementById('btnSave');
