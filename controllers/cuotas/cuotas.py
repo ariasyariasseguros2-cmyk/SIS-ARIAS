@@ -975,23 +975,6 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
         if isinstance(cupon, str):
             cupon = cupon.strip() or None
 
-        if cupon:
-            cur.execute(
-                """
-                SELECT 1
-                FROM cuotas
-                WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
-                  AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) USING utf8mb4), cupon) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
-                  AND activo = 1
-                LIMIT 1
-                """,
-                (poliza, cupon),
-            )
-            if cur.fetchone():
-                cur.close()
-                cnx.close()
-                return False, "El cupón ya existe para esta póliza.", None
-
         factura = val_or_none(data.get('factura'))
         if isinstance(factura, str):
             factura = factura.strip() or None
@@ -1316,24 +1299,6 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
         if isinstance(factura_nueva, str):
             factura_nueva = factura_nueva.strip() or None
         observacion_nueva = val_or_none(data.get('observacion')) or observacion_actual
-
-        if cupon_nuevo and cupon_nuevo != cupon_actual:
-            cur.execute(
-                """
-                SELECT 1
-                FROM cuotas
-                WHERE TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(poliza), @SIS_KEY) USING utf8mb4), poliza) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
-                  AND TRIM(COALESCE(CONVERT(AES_DECRYPT(FROM_BASE64(cupon), @SIS_KEY) USING utf8mb4), cupon) COLLATE utf8mb4_0900_ai_ci) = TRIM(CAST(%s AS CHAR) COLLATE utf8mb4_0900_ai_ci)
-                  AND idCuota <> %s
-                  AND activo = 1
-                LIMIT 1
-                """,
-                (poliza_actual, cupon_nuevo, cuota_id),
-            )
-            if cur.fetchone():
-                cur.close()
-                cnx.close()
-                return False, "El nuevo cupón ya existe para esta póliza."
 
         if factura_nueva and factura_nueva != factura_actual:
             cia = None
