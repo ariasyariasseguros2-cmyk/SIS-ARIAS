@@ -1,6 +1,7 @@
 from models.db import get_connection, get_encrypt_key
 from datetime import datetime
 from flask import session
+import json
 
 def _parse_date(d_str):
     if not d_str: return None
@@ -59,6 +60,7 @@ def get_poliza_data(poliza_id):
                 p.imp_compania,
                 p.porc_subagente,
                 p.imp_subagente,
+                p.datos_adicionales,
                 p.ramos_producto,
                 p.estado,
                 p.usuario_registro,
@@ -176,6 +178,59 @@ def update_poliza(data):
                 return d.strftime('%Y-%m-%d')
             return d
 
+        # --- NUEVO: Construir datos_adicionales JSON (preservando valores existentes) ---
+        def _safe_str_da_edit(v):
+            if v is None:
+                return None
+            try:
+                s = str(v).strip()
+                return s if s else None
+            except Exception:
+                return None
+
+        def _safe_num_da_edit(v):
+            if v in (None, ''):
+                return None
+            try:
+                f = float(str(v).replace(',', ''))
+                return f
+            except Exception:
+                return None
+
+        _da = {
+            "flete":             _safe_num_da_edit(data.get("flete")),
+            "fob":               _safe_num_da_edit(data.get("fob")),
+            "sobreseguro":       _safe_num_da_edit(data.get("sobreseguro")),
+            "nro_factura":       _safe_str_da_edit(data.get("nro_factura")),
+            "ip_ipl_ipf":        _safe_str_da_edit(data.get("ip_ipl_ipf") or data.get("ip_ipl") or data.get("ip")),
+            "origen":            _safe_str_da_edit(data.get("origen")),
+            "destino":           _safe_str_da_edit(data.get("destino")),
+            "etd":               _safe_str_da_edit(data.get("etd")),
+            "eta":               _safe_str_da_edit(data.get("eta")),
+            "proveedor":         _safe_str_da_edit(data.get("proveedor")),
+            "ruta":              _safe_str_da_edit(data.get("ruta")),
+            "puerto_embarque":   _safe_str_da_edit(data.get("puerto_embarque")),
+            "embalaje":          _safe_str_da_edit(data.get("embalaje")),
+            "certificado":       _safe_str_da_edit(data.get("certificado")),
+            "descripcion":       _safe_str_da_edit(data.get("descripcion")),
+        }
+        # Preservar datos existentes en BD si no vienen en el request
+        if current.get('datos_adicionales'):
+            try:
+                _existing = json.loads(current['datos_adicionales']) if isinstance(current['datos_adicionales'], str) else current['datos_adicionales']
+                for _k, _v in (_existing or {}).items():
+                    if _k not in _da or _da[_k] in (None, '', []):
+                        _da[_k] = _v
+            except Exception:
+                pass
+
+        # NUNCA enviamos NULL: al menos '{}' para que el campo quede procesado
+        if not _da or all(v in (None, '', [], {}) for v in _da.values()):
+            datos_adicionales_json = '{}'
+        else:
+            datos_adicionales_json = json.dumps(_da, ensure_ascii=False)
+        # -----------------------------------------------------------------------------
+
         params = (
             pid,
             val('asegurado'),
@@ -207,14 +262,15 @@ def update_poliza(data):
             val('tipo_vigencia'), # Nuevo
             val('endosatario'),   # Nuevo
             val('pdf_url'),       # p_pdf_path
-            session.get('user') # p_usuario_edicion
+            session.get('user'), # p_usuario_edicion
+            datos_adicionales_json,          # NUEVO
         )
-        
-        # Updated call with 4 new parameters at the end (nro, forma_pago, recibo, pdf_path, usuario_edicion)
+
+        # Updated call with 4 new parameters at the end (nro, forma_pago, recibo, pdf_path, usuario_edicion, datos_adicionales)
         cur.execute("""CALL sp_update_poliza(
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         )""", params)
         
         cnx.commit()

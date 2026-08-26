@@ -711,6 +711,7 @@ CREATE TABLE IF NOT EXISTS polizas (
     imp_subagente DECIMAL(15,2) NULL,
 
     datos_vehiculo JSON NULL,         -- NUEVO: Para almacenar datos del vehículo en SOAT
+    datos_adicionales JSON NULL,      -- NUEVO: Campos adicionales (flete, fob, sobreseguro, nro_factura, ip_ipl_ipf, origen, destino, etd, eta, proveedor, ruta, puerto_embarque, embalaje, certificado, descripcion, cupon, factura, fecha_pago, importe, cuotas)
     codigo_agente VARCHAR(50) NULL,   -- NUEVO: Código de agente/vendedor
 
     ramos_producto VARCHAR(120) NULL,
@@ -805,6 +806,9 @@ DELIMITER ;
 
 -- Insertar póliza enlazando por numero_documento del cliente (actualizado con todos los campos)
 DELIMITER $$
+
+DROP PROCEDURE IF EXISTS sp_insert_poliza_por_numero;
+
 CREATE PROCEDURE sp_insert_poliza_por_numero (
     IN p_numero_documento VARCHAR(20),
     IN p_tipo_doc VARCHAR(10),
@@ -847,7 +851,8 @@ CREATE PROCEDURE sp_insert_poliza_por_numero (
     IN p_ramos_producto VARCHAR(120),
     IN p_estado VARCHAR(20),
     IN p_pdf_path VARCHAR(255),
-    IN p_usuario_registro VARCHAR(100)
+    IN p_usuario_registro VARCHAR(100),
+    IN p_datos_adicionales JSON            -- NUEVO: datos extra en JSON
 )
 BEGIN
     DECLARE v_cliente_id INT;
@@ -948,6 +953,7 @@ BEGIN
         sub_agente, ejecutivo, tipo_doc,
         asegurada, motivo, prima_comercial, prima_neta, prima_comercial_igv, prima_total,
         porc_compania, imp_compania, porc_subagente, imp_subagente,
+        datos_adicionales,
         ramos_producto, estado, usuario_registro, creado_en
     ) VALUES (
         v_cliente_id, p_asegurado, p_cia, p_ramo,
@@ -956,6 +962,7 @@ BEGIN
         p_sub_agente, p_ejecutivo, p_tipo_doc,
         p_asegurada, p_motivo, p_prima_comercial, p_prima_neta, p_prima_comercial_igv, p_prima_total,
         p_porc_compania, p_imp_compania, p_porc_subagente, p_imp_subagente,
+        p_datos_adicionales,
         p_ramos_producto, p_estado, v_usuario_registro_nombre, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00')
     );
 
@@ -2178,7 +2185,8 @@ CREATE PROCEDURE sp_update_poliza(
     IN p_tipo_vigencia VARCHAR(50), -- Nuevo
     IN p_endosatario VARCHAR(150), -- Nuevo
     IN p_pdf_path VARCHAR(255), -- Nuevo
-    IN p_usuario_edicion VARCHAR(100)
+    IN p_usuario_edicion VARCHAR(100),
+    IN p_datos_adicionales JSON            -- NUEVO: datos extra en JSON
 )
 BEGIN
     DECLARE v_usuario_edicion_nombre VARCHAR(100);
@@ -2223,7 +2231,8 @@ BEGIN
         forma_pago = p_forma_pago,
         recibo = p_recibo,
         tipo_vigencia = p_tipo_vigencia,
-        endosatario = p_endosatario
+        endosatario = p_endosatario,
+        datos_adicionales = p_datos_adicionales
     WHERE idPoliza = p_idPoliza;
 
     IF p_pdf_path IS NOT NULL AND p_pdf_path <> '' THEN
@@ -5183,6 +5192,27 @@ SET @preparedStatement = (SELECT IF(
   ) > 0,
   'SELECT 1',
   CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' VARCHAR(50) NULL COMMENT ''Código de agente/vendedor'' AFTER datos_vehiculo;')
+));
+PREPARE alterStatement FROM @preparedStatement;
+EXECUTE alterStatement;
+DEALLOCATE PREPARE alterStatement;
+
+-- ============================================================
+-- ALTER TABLE para agregar columna datos_adicionales JSON
+-- EJECUTA ESTA CONSULTA EN TU BD EXISTENTE:
+-- ============================================================
+SET @tablename = 'polizas';
+SET @columnname = 'datos_adicionales';
+SET @preparedStatement = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname)
+  ) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' JSON NULL COMMENT ''Campos adicionales (flete, fob, sobreseguro, nro_factura, ip_ipl_ipf, origen, destino, etd, eta, proveedor, ruta, puerto_embarque, embalaje, certificado, descripcion, cupon, factura, fecha_pago, importe, cuotas)'' AFTER datos_vehiculo;')
 ));
 PREPARE alterStatement FROM @preparedStatement;
 EXECUTE alterStatement;

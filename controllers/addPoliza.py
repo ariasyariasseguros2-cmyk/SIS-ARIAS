@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 import os
 import time
 import re
+import json
 from datetime import datetime
 import unicodedata
 
@@ -718,6 +719,65 @@ def save_polizas(
             # Determinar ejecutivo efectivo: fila -> seleccionado -> fallback por usuario
             efectivo_ejecutivo = U(row.get("ejecutivo") or (selected or {}).get("ejecutivo") or default_ejecutivo or "")
 
+            # --- NUEVO: Construir datos_adicionales JSON (TODOS los campos extra + preservar lo que venga en row) ---
+            def _safe_str_da(v):
+                if v is None:
+                    return None
+                try:
+                    s = str(v).strip()
+                    return s if s else None
+                except Exception:
+                    return None
+
+            def _safe_num_da(v):
+                if v in (None, ''):
+                    return None
+                try:
+                    f = float(str(v).replace(',', ''))
+                    return f
+                except Exception:
+                    return None
+
+            # Campos con nombres "fijos" que conocemos (primera fuente de datos)
+            datos_adicionales_payload = {
+                "flete":             _safe_num_da(row.get("flete")),
+                "fob":               _safe_num_da(row.get("fob")),
+                "sobreseguro":       _safe_num_da(row.get("sobreseguro")),
+                "nro_factura":       _safe_str_da(row.get("nro_factura")),
+                "ip_ipl_ipf":        _safe_str_da(row.get("ip_ipl_ipf") or row.get("ip_ipl") or row.get("ip")),
+                "origen":            _safe_str_da(row.get("origen")),
+                "destino":           _safe_str_da(row.get("destino")),
+                "etd":               _safe_str_da(row.get("etd")),
+                "eta":               _safe_str_da(row.get("eta")),
+                "proveedor":         _safe_str_da(row.get("proveedor")),
+                "ruta":              _safe_str_da(row.get("ruta")),
+                "puerto_embarque":   _safe_str_da(row.get("puerto_embarque")),
+                "embalaje":          _safe_str_da(row.get("embalaje")),
+                "certificado":       _safe_str_da(row.get("certificado")),
+                "descripcion":       _safe_str_da(row.get("descripcion")),
+            }
+            # DEBUG: mostrar en server console un preview de los datos extra (primer fila nada más para no saturar)
+            try:
+                if globals().get('_DA_FIRST_LOGGED') is not True:
+                    from flask import current_app as _cap
+                    _kv = {k: v for k, v in (row or {}).items()
+                           if k in {"flete","fob","sobreseguro","nro_factura","origen","destino","proveedor","cuotas"} or str(k).startswith("extra_")}
+                    if _cap:
+                        _cap.logger.info("[datos_adicionales] row-raw-preview=%s", _kv)
+                    print("[datos_adicionales DEBUG] row raw preview:", _kv)
+                    _dirty_any = any(v not in (None, '', [], {}) for v in datos_adicionales_payload.values())
+                    print("[datos_adicionales DEBUG] payload has data?", _dirty_any, "keys filled:", [k for k,v in datos_adicionales_payload.items() if v not in (None, '', [], {})])
+                    globals()['_DA_FIRST_LOGGED'] = True
+            except Exception:
+                pass
+
+            # NUNCA enviamos NULL. Si todos los campos están vacíos, al menos enviamos '{}' para que el campo quede marcado como procesado
+            if not datos_adicionales_payload or all(v in (None, '', [], {}) for v in datos_adicionales_payload.values()):
+                datos_adicionales_json = '{}'
+            else:
+                datos_adicionales_json = json.dumps(datos_adicionales_payload, ensure_ascii=False)
+            # ------------------------------------------------
+
             args = (
                 str(target_doc).strip(),  # documento (puede ser el extraído o el seleccionado)
                 U((selected or {}).get("tipo_doc") or (selected or {}).get("tipo_documento") or ""),
@@ -757,7 +817,8 @@ def save_polizas(
                 U(row.get("ramos_producto") or (selected or {}).get("ramos_producto") or ""),
                 U(row.get("estado") or "PENDIENTE"),
                 f"polizas/{(selected or {}).get('pdf_filename')}" if (selected or {}).get("pdf_filename") else None,
-                usuario_display
+                usuario_display,
+                datos_adicionales_json,          # NUEVO
             )
 
             try:
@@ -772,7 +833,8 @@ def save_polizas(
                         "%s,%s,"
                         "%s,%s,%s,%s,%s,%s,"
                         "%s,%s,%s,%s,"
-                        "%s,%s,%s,%s"
+                        "%s,%s,%s,%s,"
+                        "%s"
                         ")",
                         args,
                     )
@@ -841,6 +903,7 @@ def save_polizas(
                                             imp_compania = %s,
                                             porc_subagente = %s,
                                             imp_subagente = %s,
+                                            datos_adicionales = %s,
                                             ramos_producto = %s,
                                             estado = %s,
                                             activo = 1,
@@ -879,6 +942,7 @@ def save_polizas(
                                             parse_decimal(row.get("comision_compania_importe")),
                                             parse_decimal(row.get("comision_subagente_pct")),
                                             parse_decimal(row.get("comision_subagente_importe")),
+                                            datos_adicionales_json,
                                             U(row.get("ramos_producto") or (selected or {}).get("ramos_producto") or ""),
                                             U(row.get("estado") or "PENDIENTE"),
                                             usuario_display,
