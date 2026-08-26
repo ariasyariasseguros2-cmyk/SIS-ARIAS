@@ -128,6 +128,7 @@
   let aseguradaTopDirty = false;
   let motivoTopDirty = false;
   const finVigenciaManualOverrides = new Set();
+  const expandedRows = new Set();
   function computeFinVigenciaTrimestral(inicioVigenciaStr) {
     const start = parseDMYDateStrict(inicioVigenciaStr);
     if (!start) return '';
@@ -1525,6 +1526,78 @@
 
     return `
       <div class="actions-pane" data-index="${index}">
+        <!-- SECCIÓN EXPANDIBLE: CAMPOS ADICIONALES (Flete, FOB, etc.) -->
+        <div class="extra-fields-pane${expandedRows.has(index) ? ' open' : ''}">
+          <div class="extra-fields-inner">
+            <div class="extra-fields-title">
+              <i class="bi bi-grid-3x2-gap"></i>
+              <span>Campos Adicionales</span>
+            </div>
+            <div class="extra-fields-grid">
+              <div class="field">
+                <label class="form-label">Flete</label>
+                <input type="text" class="form-control form-control-sm extra-flete" data-index="${index}" value="${item.flete || ''}" placeholder="0.00" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label class="form-label">FOB</label>
+                <input type="text" class="form-control form-control-sm extra-fob" data-index="${index}" value="${item.fob || ''}" placeholder="0.00" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label class="form-label">Sobreseguro</label>
+                <input type="text" class="form-control form-control-sm extra-sobreseguro" data-index="${index}" value="${item.sobreseguro || ''}" placeholder="0.00" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label class="form-label">N° Factura Mercaderia</label>
+                <input type="text" class="form-control form-control-sm extra-nro-factura" data-index="${index}" value="${item.nro_factura || ''}" placeholder="F001-0000001">
+              </div>
+              <div class="field">
+                <label class="form-label">IP / IPL / IPF</label>
+                <input type="text" class="form-control form-control-sm extra-ip" data-index="${index}" value="${item.ip_ipl_ipf || ''}" placeholder="IP / IPL / IPF">
+              </div>
+              <div class="field">
+                <label class="form-label">Origen</label>
+                <input type="text" class="form-control form-control-sm extra-origen" data-index="${index}" value="${item.origen || ''}" placeholder="Ciudad / País de origen">
+              </div>
+              <div class="field">
+                <label class="form-label">Destino</label>
+                <input type="text" class="form-control form-control-sm extra-destino" data-index="${index}" value="${item.destino || ''}" placeholder="Ciudad / País de destino">
+              </div>
+              <div class="field">
+                <label class="form-label">ETD</label>
+                <input type="text" class="form-control form-control-sm extra-etd" data-index="${index}" value="${item.etd || ''}" placeholder="dd/mm/aaaa">
+              </div>
+              <div class="field">
+                <label class="form-label">DESDE</label>
+                <input type="text" class="form-control form-control-sm extra-eta" data-index="${index}" value="${item.eta || ''}" placeholder="dd/mm/aaaa">
+              </div>
+              <div class="field">
+                <label class="form-label">Proveedor</label>
+                <input type="text" class="form-control form-control-sm extra-proveedor" data-index="${index}" value="${item.proveedor || ''}" placeholder="Nombre del proveedor">
+              </div>
+              <div class="field">
+                <label class="form-label">Ruta</label>
+                <input type="text" class="form-control form-control-sm extra-ruta" data-index="${index}" value="${item.ruta || ''}" placeholder="Ruta de transporte">
+              </div>
+              <div class="field">
+                <label class="form-label">Puerto de Embarque</label>
+                <input type="text" class="form-control form-control-sm extra-puerto" data-index="${index}" value="${item.puerto_embarque || ''}" placeholder="Puerto / Aeropuerto">
+              </div>
+              <div class="field">
+                <label class="form-label">Embalaje</label>
+                <input type="text" class="form-control form-control-sm extra-embalaje" data-index="${index}" value="${item.embalaje || ''}" placeholder="Cajas, Pallets, Contenedor...">
+              </div>
+              <div class="field">
+                <label class="form-label">Certificado</label>
+                <input type="text" class="form-control form-control-sm extra-certificado" data-index="${index}" value="${item.certificado || ''}" placeholder="Ej. 3909">
+              </div>
+              <div class="field field-span-3">
+                <label class="form-label">Descripción</label>
+                <input type="text" class="form-control form-control-sm extra-descripcion" data-index="${index}" value="${item.descripcion || ''}" placeholder="Descripción adicional, mercancía, detalle...">
+              </div>
+            </div>
+          </div>
+        </div>
+
         ${!hasCuotas ? `
           <div class="drop-facturas mb-2" data-index="${index}">Haz clic para seleccionar o arrastra la factura aquí</div>
           <input type="file" class="d-none input-facturas" data-index="${index}" accept=".pdf,image/*" multiple>
@@ -1708,7 +1781,13 @@
           <input type="number" step="0.01" min="0" max="100" class="form-control form-control-sm pct-sub" value="${firstFilledValue(it.comision_subagente_pct)}">
         </td>
         <td data-index="${idx}" data-field="comision_subagente_importe">
-          <input type="number" step="0.01" class="form-control form-control-sm imp-sub" value="${firstFilledValue(it.comision_subagente_importe)}">
+          <div class="imp-sub-wrapper">
+            <input type="number" step="0.01" class="form-control form-control-sm imp-sub" value="${firstFilledValue(it.comision_subagente_importe)}">
+          </div>
+          <button type="button" class="btn-ver-mas${expandedRows.has(idx) ? ' expanded' : ''}" data-index="${idx}" title="Mostrar / ocultar campos adicionales">
+            <i class="bi bi-chevron-down"></i>
+            <span>${expandedRows.has(idx) ? 'Ver menos' : 'Ver más'}</span>
+          </button>
         </td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="factura">${it.factura || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_pago">${it.fecha_pago || ''}</td>
@@ -3065,9 +3144,24 @@
   tbody.addEventListener('input', (e) => {
     const pf = e.target.closest('.pane-factura');
     const pfp = e.target.closest('.pane-fecha');
-    const pfv = null;
-    if (!pf && !pfp) return;
-    const idx = Number((pf || pfp).dataset.index);
+    const xFlete = e.target.closest('.extra-flete');
+    const xFob = e.target.closest('.extra-fob');
+    const xSobr = e.target.closest('.extra-sobreseguro');
+    const xNroF = e.target.closest('.extra-nro-factura');
+    const xDesc = e.target.closest('.extra-descripcion');
+    const xOrig = e.target.closest('.extra-origen');
+    const xDest = e.target.closest('.extra-destino');
+    const xEtd  = e.target.closest('.extra-etd');
+    const xEta  = e.target.closest('.extra-eta');
+    const xIp = e.target.closest('.extra-ip');
+    const xProv = e.target.closest('.extra-proveedor');
+    const xRuta = e.target.closest('.extra-ruta');
+    const xPuer = e.target.closest('.extra-puerto');
+    const xEmba = e.target.closest('.extra-embalaje');
+    const xCert = e.target.closest('.extra-certificado');
+    if (!pf && !pfp && !xFlete && !xFob && !xSobr && !xNroF && !xDesc && !xOrig && !xDest && !xEtd && !xEta && !xIp && !xProv && !xRuta && !xPuer && !xEmba && !xCert) return;
+    const anySrc = (pf || pfp || xFlete || xFob || xSobr || xNroF || xDesc || xOrig || xDest || xEtd || xEta || xIp || xProv || xRuta || xPuer || xEmba || xCert);
+    const idx = Number(anySrc.dataset.index);
     if (!Number.isFinite(idx)) return;
     if (!extractedItems[idx]) return;
     if (pf) {
@@ -3082,6 +3176,21 @@
       const td = getTd(idx, 'fecha_pago');
       if (td) td.textContent = masked || '';
     }
+    if (xFlete) extractedItems[idx].flete = xFlete.value;
+    if (xFob) extractedItems[idx].fob = xFob.value;
+    if (xSobr) extractedItems[idx].sobreseguro = xSobr.value;
+    if (xNroF) extractedItems[idx].nro_factura = xNroF.value;
+    if (xDesc) extractedItems[idx].descripcion = xDesc.value;
+    if (xOrig) extractedItems[idx].origen = xOrig.value;
+    if (xDest) extractedItems[idx].destino = xDest.value;
+    if (xEtd)  extractedItems[idx].etd = xEtd.value;
+    if (xEta)  extractedItems[idx].eta = xEta.value;
+    if (xIp) extractedItems[idx].ip_ipl_ipf = xIp.value;
+    if (xProv) extractedItems[idx].proveedor = xProv.value;
+    if (xRuta) extractedItems[idx].ruta = xRuta.value;
+    if (xPuer) extractedItems[idx].puerto_embarque = xPuer.value;
+    if (xEmba) extractedItems[idx].embalaje = xEmba.value;
+    if (xCert) extractedItems[idx].certificado = xCert.value;
     scheduleAutoSave();
   });
 
@@ -3105,6 +3214,22 @@
   });
 
   tbody.addEventListener('click', async (e) => {
+    // Handler para botón "Ver más" — expandir/colapsar campos adicionales
+    const btnVerMas = e.target.closest('.btn-ver-mas');
+    if (btnVerMas) {
+      const idx = Number(btnVerMas.dataset.index);
+      if (!Number.isFinite(idx)) return;
+      const tr = tbody.querySelectorAll('tbody tr')[idx] || tbody.querySelectorAll('tr')[idx];
+      const pane = tr?.querySelector('.extra-fields-pane');
+      if (!pane) return;
+      const isOpen = pane.classList.toggle('open');
+      btnVerMas.classList.toggle('expanded', isOpen);
+      const lblSpan = btnVerMas.querySelector('span');
+      if (lblSpan) lblSpan.textContent = isOpen ? 'Ver menos' : 'Ver más';
+      if (isOpen) expandedRows.add(idx); else expandedRows.delete(idx);
+      return;
+    }
+
     const btn = e.target.closest('.act-find-pdf');
     if (!btn) return;
     const idx = Number(btn.dataset.index);
@@ -3178,7 +3303,23 @@
       comision_compania_pct: pctCC,
       comision_compania_importe: '',
       comision_subagente_pct: pctSA,
-      comision_subagente_importe: ''
+      comision_subagente_importe: '',
+      // Campos adicionales (expandibles con "Ver más")
+      flete: '',
+      fob: '',
+      sobreseguro: '',
+      nro_factura: '',
+      descripcion: '',
+      origen: '',
+      destino: '',
+      etd: '',
+      eta: '',
+      ip_ipl_ipf: '',
+      proveedor: '',
+      ruta: '',
+      puerto_embarque: '',
+      embalaje: '',
+      certificado: ''
     });
   
     if (blank.comision_compania_pct && blank.prima_neta) {
@@ -4671,6 +4812,7 @@
       aseguradaTopDirty = false;
       motivoTopDirty = false;
       finVigenciaManualOverrides.clear();
+      expandedRows.clear();
       if (tipoPagoTopEl) {
         tipoPagoTopEl.value = '';
         if (tipoPagoTopEl.selectedIndex !== 0) tipoPagoTopEl.selectedIndex = 0;

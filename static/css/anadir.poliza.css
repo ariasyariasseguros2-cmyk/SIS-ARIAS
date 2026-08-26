@@ -1883,10 +1883,161 @@ span.badge.text-bg-secondary.facturas-count {
     margin-top: 0.25rem;
 }
 
-/* Col 19 (factura) y 20 (fecha pago) = OCULTAS, van al pane */
-.table-custom td:nth-child(19),
-.table-custom td:nth-child(20) {
+/* Col 20 (factura) y 21 (fecha pago) = OCULTAS, van al pane */
+.table-custom td:nth-child(20),
+.table-custom td:nth-child(21) {
     display: none;
+}
+
+/* ============ VER MÁS / CAMPOS ADICIONALES ============ */
+/* TD 19 = Imp. Com. Sub → flex layout: input + btn "Ver más" */
+.table-custom td:nth-child(19) {
+    display: flex;
+    align-items: stretch;
+    gap: 0.45rem;
+    min-height: 40px;
+}
+.table-custom td:nth-child(19) > .imp-sub-wrapper {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: stretch;
+}
+.table-custom td:nth-child(19) > .imp-sub-wrapper > .imp-sub {
+    width: 100%;
+}
+.table-custom td:nth-child(19)::after {
+    display: none !important;
+}
+
+/* Botón Ver más */
+.btn-ver-mas {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0 0.8rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--primary);
+    background: #eff6ff;
+    border: 1.5px solid rgba(37, 99, 235, 0.28);
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+    letter-spacing: 0.01em;
+    flex-shrink: 0;
+    min-height: 40px;
+    align-self: stretch;
+}
+.btn-ver-mas:hover {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(37, 99, 235, 0.2);
+}
+.btn-ver-mas:active {
+    transform: translateY(0);
+}
+.btn-ver-mas i {
+    font-size: 0.85rem;
+    transition: transform 0.25s ease;
+}
+.btn-ver-mas.expanded i {
+    transform: rotate(180deg);
+}
+[data-theme='dark'] .btn-ver-mas {
+    background: rgba(59, 130, 246, 0.08);
+    border-color: rgba(59, 130, 246, 0.25);
+    color: #93c5fd;
+}
+[data-theme='dark'] .btn-ver-mas:hover {
+    background: var(--primary);
+    color: #fff;
+}
+
+/* Sección expandible de campos adicionales (dentro de acciones-pane) */
+.extra-fields-pane {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.3s ease, opacity 0.25s ease, margin 0.25s ease, padding 0.25s ease;
+    margin-bottom: 0;
+}
+.extra-fields-pane.open {
+    max-height: 600px;
+    opacity: 1;
+    margin-bottom: 0.7rem;
+}
+.extra-fields-pane .extra-fields-inner {
+    padding: 0.9rem 1rem;
+    border: 1.5px dashed rgba(14, 165, 233, 0.35);
+    border-radius: 10px;
+    background: linear-gradient(135deg, #ecfeff 0%, #f0f9ff 50%, #eff6ff 100%);
+    position: relative;
+}
+[data-theme='dark'] .extra-fields-pane .extra-fields-inner {
+    background: linear-gradient(135deg, rgba(8, 145, 178, 0.06) 0%, rgba(59, 130, 246, 0.04) 100%);
+    border-color: rgba(14, 165, 233, 0.2);
+}
+.extra-fields-pane .extra-fields-title {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #0e7490;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.65rem;
+}
+[data-theme='dark'] .extra-fields-pane .extra-fields-title {
+    color: #67e8f9;
+}
+.extra-fields-pane .extra-fields-title i {
+    font-size: 0.95rem;
+    color: #0ea5e9;
+}
+[data-theme='dark'] .extra-fields-pane .extra-fields-title i {
+    color: #22d3ee;
+}
+.extra-fields-pane .extra-fields-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.55rem 0.75rem;
+}
+.extra-fields-pane .extra-fields-grid .field {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.extra-fields-pane .extra-fields-grid .field.field-span-3 {
+    grid-column: 1 / -1;
+}
+.extra-fields-pane .extra-fields-grid .field.field-span-2 {
+    grid-column: span 2;
+}
+.extra-fields-pane .extra-fields-grid .form-label {
+    font-size: 0.68rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    color: var(--text-muted) !important;
+    margin-bottom: 0.22rem !important;
+    font-weight: 800 !important;
+    line-height: 1.1 !important;
+}
+.extra-fields-pane .extra-fields-grid .form-control {
+    font-size: 0.83rem !important;
+    padding: 0.42rem 0.6rem !important;
+    border-radius: 6px !important;
+    border-color: var(--card-border-strong) !important;
+    min-height: 36px;
+}
+.extra-fields-pane .extra-fields-grid .form-control:focus {
+    border-color: #0ea5e9 !important;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12) !important;
 }
 
 /* ============= BOTTOM BAR (NO STICKY — Visily style inline gris claro PRO) ============= */

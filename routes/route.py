@@ -2459,6 +2459,25 @@ def upload():
             # Campos extra para validación de cliente
             "contratante": it.get("contratante"),
             "razon_social": it.get("razon_social"),
+            # Campos adicionales expandibles (Ver más) – passthrough si el parser los devuelve
+            "flete": it.get("flete"),
+            "fob": it.get("fob"),
+            "sobreseguro": it.get("sobreseguro"),
+            "nro_factura": it.get("nro_factura") or it.get("nrofactura") or it.get("numero_factura"),
+            "descripcion": it.get("descripcion") or it.get("mercaderia") or it.get("mercancía"),
+            "origen": it.get("origen"),
+            "destino": it.get("destino"),
+            "etd": it.get("etd"),
+            "eta": it.get("eta"),
+            "ip_ipl_ipf": it.get("ip_ipl_ipf") or it.get("ip_ipl_ipf_nro") or it.get("ip_ipl"),
+            "proveedor": it.get("proveedor"),
+            "ruta": it.get("ruta") or it.get("medio_transporte"),
+            "puerto_embarque": it.get("puerto_embarque") or it.get("puerto"),
+            "embalaje": it.get("embalaje"),
+            "certificado": it.get("certificado"),
+            # Factura / fecha pago (ya existen en pane)
+            "factura": it.get("factura"),
+            "fecha_pago": it.get("fecha_pago"),
         }
         try:
             mv = (res.get("moneda") or "").replace("\u00A0", " ").strip()
@@ -2480,6 +2499,9 @@ def upload():
                 "prima_comercial_igv",
                 "comision_compania_importe",
                 "comision_subagente_importe",
+                "flete",
+                "fob",
+                "sobreseguro",
             ):
                 raw_v = res.get(k)
                 if raw_v is None:
@@ -2878,6 +2900,12 @@ def upload():
                             m = re.search(r"\bNro\.?\s*[:：]?\s*([0-9]{2,6})(\s*" + dash + r"\s*)([0-9]{5,12})", pdf_text, re.IGNORECASE | re.DOTALL)
                         if m:
                             it['numero_poliza'] = f"{m.group(1)}{m.group(2)}{m.group(3)}"
+                            if not it.get('certificado'):
+                                it['certificado'] = m.group(3).strip()
+                    if not it.get('certificado'):
+                        mc = re.search(r"(?:pol[ií]za|p[oó]liza)\s*[:：]\s*([0-9]{2,10})\s*" + dash + r"\s*([0-9]{2,10})", pdf_text, re.IGNORECASE)
+                        if mc:
+                            it['certificado'] = mc.group(2).strip()
                     iv = (it.get('inicio_vigencia') or '').strip()
                     ve = (it.get('vencimiento') or '').strip()
                     mv_label_iv = re.search(r"vigencia\s*[-–—]?\s*inicio\s*[:：]?\s*(?:\r?\n\s*)?(\d{1,2}[/-]\d{1,2}[/-]\d{4})", pdf_text, re.IGNORECASE | re.DOTALL)
@@ -2939,6 +2967,275 @@ def upload():
                                 it['fecha_emision'] = f"{dd}/{mon_num}/{mwords.group(3)}"
         except Exception:
             pass
+        # ===== PARSEO DE CAMPOS ADICIONALES (expandibles "Ver más") desde texto del PDF =====
+        try:
+            pdf_text_add = pdf_text_full or pdf_text or ''
+            if pdf_text_add:
+                def _norm_importe(v: str | None) -> str:
+                    if not v:
+                        return ''
+                    raw = str(v).strip()
+                    if not raw:
+                        return ''
+                    # Primero intento "cualquier dígito continuo con decimal" (más general), luego miles separados
+                    m = re.search(r"([0-9]+(?:[.,][0-9]{1,4})?|[0-9]{1,3}(?:[.,\s][0-9]{3})+(?:[.,][0-9]{1,4})?)", raw)
+                    if not m:
+                        return ''
+                    num = m.group(1)
+                    has_comma = ',' in num
+                    has_dot = '.' in num
+                    if has_comma and has_dot:
+                        if num.rfind(',') > num.rfind('.'):
+                            num = num.replace('.', '').replace(',', '.')
+                        else:
+                            num = num.replace(',', '')
+                    elif has_comma and not has_dot:
+                        if re.search(r",\d{1,2}$", num):
+                            num = num.replace(',', '.')
+                        else:
+                            num = num.replace(',', '')
+                    cleaned = num.replace(' ', '')
+                    try:
+                        float(cleaned)
+                        return cleaned
+                    except Exception:
+                        return ''
+
+                lines = re.split(r"\r?\n", pdf_text_add)
+                def _find_header_range(header_regex, stop_regex=None):
+                    """Devuelve (start_idx, end_idx) dentro de lines donde se aplica un bloque encabezado."""
+                    s = -1
+                    e = len(lines)
+                    for i, line in enumerate(lines):
+                        if s < 0 and re.search(header_regex, line, re.IGNORECASE):
+                            s = i
+                            continue
+                        if s >= 0 and stop_regex and re.search(stop_regex, line, re.IGNORECASE):
+                            e = i
+                            break
+                    if s < 0:
+                        return (-1, -1)
+                    return (s, e)
+                def _first_digit_line_in_range(sl, el, needs_date):
+                    for i in range(sl, min(el, len(lines))):
+                        ls = lines[i].strip()
+                        if not ls or not ls[0].isdigit():
+                            continue
+                        if needs_date and not re.search(r"\d{1,2}[/-]\d{1,2}[/-]\d{4}", ls):
+                            continue
+                        return lines[i]
+                    return ''
+
+                for it in items_ui:
+                    txt = pdf_text_add
+
+                    # --- A) Observaciones y comentarios (patrón label : valor) ---
+                    if not it.get('proveedor'):
+                        mp = re.search(r"(?:Proveedor|Proovedor|Supplier)\s*[:：]\s*([^\n\r]{3,180})", txt, re.IGNORECASE)
+                        if mp: it['proveedor'] = mp.group(1).strip()
+                    if not it.get('descripcion'):
+                        md = re.search(r"(?:Mercader[ií]a|Mercancia|Description|Descripci[oó]n)\s*[:：]\s*([^\n\r]{2,260})", txt, re.IGNORECASE)
+                        if md: it['descripcion'] = md.group(1).strip()
+                    if not it.get('fob'):
+                        mfob = re.search(r"(?:Valor\s+FOB|FOB)\s*[:：]?\s*(?:US\s*\$|US\$|USD|S\s*\/\.?|\$)?\s*([\d.,\s$US/]+)", txt, re.IGNORECASE)
+                        if mfob: it['fob'] = _norm_importe(mfob.group(1))
+                    if not it.get('flete'):
+                        mf = re.search(r"(?:Valor\s+Flete|Flete|Freight)\s*[:：]?\s*(?:US\s*\$|US\$|USD|S\s*\/\.?|\$)?\s*([\d.,\s$US/]+)", txt, re.IGNORECASE)
+                        if mf: it['flete'] = _norm_importe(mf.group(1))
+                    if not it.get('sobreseguro'):
+                        ms = re.search(r"(?:Sobreseguro|Overinsurance|Sobre\s*seguro)\s*[:：]?\s*(?:US\s*\$|US\$|USD|S\s*\/\.?|\$)?\s*([\d.,\s$US/]+)", txt, re.IGNORECASE)
+                        if ms: it['sobreseguro'] = _norm_importe(ms.group(1))
+                    # --- B) Línea resumen: FOB US$X - FLETE US$Y - SOBRESEGURO US$Z (siempre prioriza sobre líneas 0) ---
+                    mline = re.search(
+                        r"FOB\s*(?:US\s*\$|US\$|USD|S\s*\/\.?|\$)\s*([\d.,]+)\s*[\-–—]\s*"
+                        r"FLETE\s*(?:US\s*\$|US\$|USD|S\s*\/\.?|\$)\s*([\d.,]+)\s*[\-–—]\s*"
+                        r"SOBRESEGURO\s*(?:US\s*\$|US\$|USD|S\s*\/\.?|\$)\s*([\d.,]+)",
+                        txt, re.IGNORECASE,
+                    )
+                    if mline:
+                        fob_v = _norm_importe(mline.group(1))
+                        fle_v = _norm_importe(mline.group(2))
+                        sob_v = _norm_importe(mline.group(3))
+                        if fob_v: it['fob'] = fob_v
+                        if fle_v: it['flete'] = fle_v
+                        if sob_v: it['sobreseguro'] = sob_v
+                    # --- C) IP/IPL/IPF [N°] XXXX [DE FACTURA YYYYY + ZZZZZ] ---
+                    if not it.get('ip_ipl_ipf') or not it.get('nro_factura'):
+                        mip = re.search(
+                            r"IP\s*/\s*IPL\s*/\s*IPF\s*(?:N\s*[°º]\s*)?([A-Za-z0-9\-]{2,25})[\s\S]{0,120}?"
+                            r"(?:DE\s+)?FACTURA\s*([A-Za-z0-9\-\.+\s]{3,80}?)(?:\s*(?:\n|$|TASA|PRIMA|Póliza|POLIZA|Itinerario|Declaración))",
+                            txt, re.IGNORECASE,
+                        )
+                        if mip:
+                            if not it.get('ip_ipl_ipf'): it['ip_ipl_ipf'] = mip.group(1).strip()
+                            if not it.get('nro_factura'):
+                                f_raw = re.sub(r"\s+", " ", mip.group(2)).strip(" :：.-")
+                                it['nro_factura'] = f_raw
+                        else:
+                            if not it.get('ip_ipl_ipf'):
+                                m2 = re.search(r"IP\s*/\s*IPL\s*/\s*IPF\s*(?:N\s*[°º]\s*)?([A-Za-z0-9\-]{2,25})", txt, re.IGNORECASE)
+                                if m2: it['ip_ipl_ipf'] = m2.group(1).strip()
+                            if not it.get('nro_factura'):
+                                m3 = re.search(
+                                    r"N\s*[°º]\s*(?:DE\s+)?FACTURA\s*[:：]?\s*([A-Za-z0-9\-\.+\s]{3,80}?)"
+                                    r"(?:\s*(?:\n|$|TASA|PRIMA|Póliza|POLIZA|Itinerario|Declaración))",
+                                    txt, re.IGNORECASE,
+                                )
+                                if m3:
+                                    f_raw = re.sub(r"\s+", " ", m3.group(1)).strip(" :：.-")
+                                    it['nro_factura'] = f_raw
+                                else:
+                                    m4 = re.search(r"FACTURA\s*[:：]?\s*([A-Za-z0-9\-\.+\s]{3,50}?)(?:\s*(?:\n|$|TASA|PRIMA|Póliza|POLIZA))", txt, re.IGNORECASE)
+                                    if m4:
+                                        f_raw = re.sub(r"\s+", " ", m4.group(1)).strip(" :：.-")
+                                        it['nro_factura'] = f_raw
+
+                    # --- D) ITINERARIO DE TRANSPORTES (regex anclados, NO depende de separadores de columna) ---
+                    itinerario_date = ''
+                    origen_raw = ''
+                    destino_raw = ''
+                    if not it.get('origen') or not it.get('destino') or not it.get('etd'):
+                        # 1) Fecha F.Salida: primera fecha después del encabezado Itinerario
+                        m_fs = re.search(
+                            r"Itinerario\s+de\s+Transportes[\s\S]{0,400}?Etapa\s+F\.Salida\s+Origen[\s\S]{0,200}?(\d{1,2}[/-]\d{1,2}[/-]\d{4})",
+                            txt, re.IGNORECASE,
+                        )
+                        if m_fs:
+                            itinerario_date = m_fs.group(1).replace('-', '/').strip()
+                        # 2) Origen: patrón "CIUDAD-PAIS" (DELHI-INDIA, etc.) que aparece JUSTO después de itinerario_date
+                        #    O bien: "CIUDAD PAIS" (dos tokens en MAYUS, antes de "PERU").
+                        if not origen_raw:
+                            m_orig = re.search(
+                                r"Itinerario\s+de\s+Transportes[\s\S]{0,400}?Etapa\s+F\.Salida\s+Origen[\s\S]{0,300}?"
+                                r"(\d{1,2}[/-]\d{1,2}[/-]\d{4})\s+([A-Z][A-ZÁÉÍÓÚÑ0-9\.\-]*[ \-][A-Z][A-ZÁÉÍÓÚÑ]+)\s+(PERU[^\n\r]{2,120}?)(?:\s{1,}-|Ruta|Declaración|Deducible|Etapa|Embalaje|Medio|$)",
+                                txt, re.IGNORECASE,
+                            )
+                            if m_orig:
+                                origen_raw = re.sub(r"\s+", " ", m_orig.group(2)).strip()
+                                dest = re.sub(r"\s+", " ", m_orig.group(3)).strip()
+                                dest = re.sub(r"\s*(DESTINO|Medio\s+de\s+Transporte|Medio)\s*$", "", dest, flags=re.IGNORECASE).strip()
+                                dest = re.sub(r"\s*-\s*(Ruta|Declaración|Deducible|Etapa|Embalaje|Suma).*$", "", dest, flags=re.IGNORECASE).strip()
+                                dest = re.sub(r"\s+(Ruta|Declaración|Deducible|Etapa|Embalaje|Suma|%|Descripción).*$", "", dest, flags=re.IGNORECASE).strip()
+                                destino_raw = dest
+                        # Fallback: buscar "DELHI-INDIA" / "LIMA-PERU" tipo pattern + "PERU..." hasta el "Medio"
+                        if not origen_raw:
+                            m2 = re.search(
+                                r"([A-Z][A-ZÁÉÍÓÚÑ0-9]+\s*-\s*[A-ZÁÉÍÓÚÑ]{2,})\s+(PERU[^\n\r]{2,120}?)(?:\s{1,}-|Ruta|Declaración|Deducible|Etapa|Embalaje|Medio|$)",
+                                txt, re.IGNORECASE,
+                            )
+                            if m2:
+                                origen_raw = re.sub(r"\s+", " ", m2.group(1)).strip()
+                                dest = re.sub(r"\s+", " ", m2.group(2)).strip()
+                                dest = re.sub(r"\s*(DESTINO|Medio\s+de\s+Transporte|Medio)\s*$", "", dest, flags=re.IGNORECASE).strip()
+                                dest = re.sub(r"\s*-\s*(Ruta|Declaración|Deducible|Etapa|Embalaje|Suma).*$", "", dest, flags=re.IGNORECASE).strip()
+                                dest = re.sub(r"\s+(Ruta|Declaración|Deducible|Etapa|Embalaje|Suma|%|Descripción).*$", "", dest, flags=re.IGNORECASE).strip()
+                                destino_raw = dest
+                        # Fallback 2: línea de tabla explícita "Etapa F.Salida Origen Destino Medio..."
+                        # Captura: <fecha> <CIUDAD-PAIS> <PERU-XXXX> resto=Medio
+                        if not origen_raw or not destino_raw:
+                            m3 = re.search(
+                                r"Itinerario[\s\S]{0,500}?"
+                                r"(\d{1,2}[/-]\d{1,2}[/-]\d{4})\s+"
+                                r"([A-ZÁÉÍÓÚÑ0-9]{2,}(?:\s*[-\s]\s*[A-ZÁÉÍÓÚÑ0-9]{2,}){1,3})\s+"
+                                r"(PERU[\w\s.\-]{1,80}?)(?:\s{2,}[A-ZÁÉÍÓÚÑ]|$)",
+                                txt, re.IGNORECASE | re.MULTILINE,
+                            )
+                            if m3:
+                                if not origen_raw:
+                                    origen_raw = re.sub(r"\s+", " ", m3.group(2)).strip()
+                                if not destino_raw:
+                                    d = re.sub(r"\s+", " ", m3.group(3)).strip()
+                                    d = re.sub(r"\s+(Ruta|Declaración|Deducible|Etapa|Embalaje|Suma|Medio|%|Descripción).*$", "", d, flags=re.IGNORECASE).strip()
+                                    destino_raw = d
+                                if itinerario_date == '':
+                                    itinerario_date = m3.group(1).replace('-', '/').strip()
+                        # Fallback 3: token CIUDAD-PAIS (QINGDAO-CHINA) + token siguiente que empiece por PERU
+                        if not origen_raw or not destino_raw:
+                            m4 = re.search(
+                                r"([A-ZÁÉÍÓÚÑ]{3,}\s*-\s*[A-ZÁÉÍÓÚÑ]{2,})(?:\s+[A-ZÁÉÍÓÚÑ]{3,}\s*-\s*[A-ZÁÉÍÓÚÑ]{2,}){0,2}"
+                                r"[\s\S]{0,80}?"
+                                r"(PERU[\w.\-]{1,60}(?:\s+[A-ZÁÉÍÓÚÑ.]{1,30}){0,2})",
+                                txt, re.IGNORECASE,
+                            )
+                            if m4:
+                                if not origen_raw:
+                                    origen_raw = re.sub(r"\s+", " ", m4.group(1)).strip()
+                                if not destino_raw:
+                                    destino_raw = re.sub(r"\s+", " ", m4.group(2)).strip()
+                        # Asignar si no tenían valor (solo si se capturó algo útil)
+                        if itinerario_date and not it.get('etd'):
+                            it['etd'] = itinerario_date
+                        if origen_raw and not it.get('origen'):
+                            it['origen'] = origen_raw
+                        if destino_raw and not it.get('destino'):
+                            it['destino'] = destino_raw
+                        # Fallback labels (siempre al final)
+                        if not it.get('origen'):
+                            mo = re.search(r"(?:Origen|Origin|Lugar\s+de\s+Salida)\s*[:：]\s*([A-ZÁÉÍÓÚÑa-záéíóúñ0-9\-\.\s/]{2,90})", txt, re.IGNORECASE)
+                            if mo: it['origen'] = mo.group(1).strip()
+                        if not it.get('destino'):
+                            md2 = re.search(r"(?:Destino|Destination|Lugar\s+de\s+Destino|Llegada)\s*[:：]\s*([A-ZÁÉÍÓÚÑa-záéíóúñ0-9\-\.\s/]{2,90})", txt, re.IGNORECASE)
+                            if md2: it['destino'] = md2.group(1).strip()
+                        if not it.get('etd'):
+                            mf = re.search(r"(?:F\.?\s*Salida|Fecha\s+de\s+Salida|ETD)\s*[:：]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{4})", txt, re.IGNORECASE)
+                            if mf: it['etd'] = mf.group(1).replace('-', '/').strip()
+                        if not it.get('eta'):
+                            meta = re.search(r"(?:F\.?\s*Llegada|Fecha\s+de\s+Llegada|ETA|Arribo)\s*[:：]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{4})", txt, re.IGNORECASE)
+                            if meta: it['eta'] = meta.group(1).replace('-', '/').strip()
+                    origen_r = (it.get('origen') or '').strip()
+                    ciudad_origen = ''
+                    pais_origen = ''
+                    if origen_r:
+                        msp = re.split(r"\s*[-–—/]\s*", origen_r, maxsplit=1)
+                        if len(msp) == 2:
+                            ciudad_origen = msp[0].strip().upper()
+                            pais_origen = msp[1].strip().upper()
+                        else:
+                            ciudad_origen = origen_r.upper()
+                            pais_origen = origen_r.upper()
+                    # Puerto de Embarque = ciudad (DELHI)
+                    if not it.get('puerto_embarque'):
+                        if ciudad_origen:
+                            it['puerto_embarque'] = ciudad_origen
+                        elif origen_r:
+                            it['puerto_embarque'] = origen_r.upper()
+                    # ASIGNACIÓN FINAL EXACTA (como usuario pide):
+                    # ETD := fecha F.Salida (05/07/2026)   [ya está en it['etd'] si hubo match]
+                    # ETA := pais Origen (INDIA)
+                    if pais_origen:
+                        it['eta'] = pais_origen
+                    # Ruta (label "Ruta  Aereo")
+                    if not it.get('ruta'):
+                        mr = re.search(r"Ruta\s+([^\n\r]{2,90})", txt, re.IGNORECASE)
+                        if mr:
+                            it['ruta'] = mr.group(1).strip()
+                        else:
+                            mr2 = re.search(r"Medio\s+de\s+Transporte\s*[:：]?\s*([^\n\r]{1,90})", txt, re.IGNORECASE)
+                            if mr2:
+                                val = mr2.group(1).strip()
+                                if val and val != '-': it['ruta'] = val
+
+                    # --- E) DECLARACIÓN DE MERCADERÍAS: extraer embalaje por token standalone (no column-split) ---
+                    if not it.get('descripcion') or not it.get('embalaje'):
+                        # Descripción ya viene de "Mercadería : MOTO" (fallback)
+                        # Embalaje: encontrar palabra ADECUADO/CARTON/MADERA/PALLET/CONTENEDOR etc. o Embalaje : XXXX
+                        if not it.get('embalaje'):
+                            me = re.search(r"(?:Embalaje|Packaging)\s*[:：]?\s*([A-ZÁÉÍÓÚÑa-záéíóúñ]{3,30})", txt, re.IGNORECASE)
+                            if me:
+                                em = me.group(1).strip()
+                                if em.lower() not in {'-', 'n/a', 'ninguna', 'no'}: it['embalaje'] = em.upper()
+                        if not it.get('embalaje'):
+                            # buscar token standalone ADECUADO repetido (La Positiva lo muestra 2 veces)
+                            m_stand = re.search(r"\b(ADECUADO|CART[ÓO]N|MADERA|PALLET|CONTENEDOR|CAJAS?|FIBERBOARD|STRETCH)\b", txt, re.IGNORECASE)
+                            if m_stand:
+                                it['embalaje'] = m_stand.group(1).upper()
+                        if not it.get('descripcion'):
+                            # "MOTO" / "AUTOPARTES" standalone después de mercadería
+                            md3 = re.search(r"Declaraci[oó]n\s+de\s+Mercader[\s\S]{0,300}?\b(MOTO|AUTOPARTES|REPUESTOS|TEXTILES|ALIMENTOS|FARMACOS|QU[IÍ]MICOS|EQUIPOS?)\b", txt, re.IGNORECASE)
+                            if md3: it['descripcion'] = md3.group(1).strip().upper()
+        except Exception as e:
+            LOG(f"[upload] campos_adicionales parse error: {e}")
+
         try:
             moneda_cuotas = ''
             if items_ui:
