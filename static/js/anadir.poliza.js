@@ -61,6 +61,9 @@
   function isInclusionModeActive() {
     return currentTipoDocValue() === 'INCLUSIÓN' || currentTipoDocValue() === 'INCLUSION';
   }
+  function canUseExtraFields() {
+    return !!(IS_KEVIN_USER && isInclusionModeActive());
+  }
   function updateAppendZoneVisibility() {
     const enabled = !!(IS_KEVIN_USER && isInclusionModeActive());
 
@@ -1526,6 +1529,7 @@
 
     return `
       <div class="actions-pane" data-index="${index}">
+        ${canUseExtraFields() ? `
         <!-- SECCIÓN EXPANDIBLE: CAMPOS ADICIONALES (Flete, FOB, etc.) -->
         <div class="extra-fields-pane${expandedRows.has(index) ? ' open' : ''}">
           <div class="extra-fields-inner">
@@ -1597,6 +1601,7 @@
             </div>
           </div>
         </div>
+        ` : ''}
 
         ${!hasCuotas ? `
           <div class="drop-facturas mb-2" data-index="${index}">Haz clic para seleccionar o arrastra la factura aquí</div>
@@ -1784,10 +1789,12 @@
           <div class="imp-sub-wrapper">
             <input type="number" step="0.01" class="form-control form-control-sm imp-sub" value="${firstFilledValue(it.comision_subagente_importe)}">
           </div>
+          ${canUseExtraFields() ? `
           <button type="button" class="btn-ver-mas${expandedRows.has(idx) ? ' expanded' : ''}" data-index="${idx}" title="Mostrar / ocultar campos adicionales">
             <i class="bi bi-chevron-down"></i>
             <span>${expandedRows.has(idx) ? 'Ver menos' : 'Ver más'}</span>
           </button>
+          ` : ''}
         </td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="factura">${it.factura || ''}</td>
         <td contenteditable="true" class="editable" data-index="${idx}" data-field="fecha_pago">${it.fecha_pago || ''}</td>
@@ -3217,6 +3224,7 @@
     // Handler para botón "Ver más" — expandir/colapsar campos adicionales
     const btnVerMas = e.target.closest('.btn-ver-mas');
     if (btnVerMas) {
+      if (!canUseExtraFields()) return;
       const idx = Number(btnVerMas.dataset.index);
       if (!Number.isFinite(idx)) return;
       const tr = tbody.querySelectorAll('tbody tr')[idx] || tbody.querySelectorAll('tr')[idx];
