@@ -10,6 +10,32 @@
         _docValidationOk: true,
         _clienteDocumento: '',
 
+        _todayISO: function() {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        },
+
+        _nowISO: function() {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            const ss = String(d.getSeconds()).padStart(2, '0');
+            return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
+        },
+
+        _autoFechaFactura: function(factura, fechaFactura) {
+            const f = String(factura || '').trim();
+            const ff = String(fechaFactura || '').trim();
+            if (f && !ff) return this._nowISO();
+            return ff;
+        },
+
         init: function() {
             const btnGuardar = document.getElementById('btnGuardarCuota');
             if (btnGuardar) {
@@ -375,6 +401,7 @@
                 importe: normalizeImporte(getVal('editImporte')),
                 fecha_pago: getVal('editFechaPago'),
                 factura: getVal('editFactura'),
+                fecha_factura: this._autoFechaFactura(getVal('editFactura'), ''),
                 observacion: getVal('editObservacion'),
             };
 
@@ -403,6 +430,7 @@
                         importe: payload.importe,
                         fecha_pago: payload.fecha_pago,
                         factura: payload.factura,
+                        fecha_factura: payload.fecha_factura,
                         observacion: payload.observacion
                     };
                     const response = await fetch('/cuotas/save', {

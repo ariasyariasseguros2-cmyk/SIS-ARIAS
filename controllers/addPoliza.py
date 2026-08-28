@@ -9,6 +9,11 @@ import re
 import json
 from datetime import datetime
 import unicodedata
+from zoneinfo import ZoneInfo
+
+def _lima_now_str(with_time: bool = True) -> str:
+    fmt = '%Y-%m-%d %H:%M:%S' if with_time else '%Y-%m-%d'
+    return datetime.now(ZoneInfo('America/Lima')).strftime(fmt)
 
 def cia_to_col(cia_txt: str | None) -> str | None:
     if not cia_txt:
@@ -1068,18 +1073,22 @@ def save_polizas(
                             "moneda": U(row.get("moneda") or "S/."),
                             "importe": row.get("prima_comercial_igv") or row.get("prima_total"),
                             "fecha_pago": row.get("fecha_pago"),
-                            "factura": U(row.get("factura") or "")
+                            "factura": U(row.get("factura") or ""),
+                            "fecha_factura": row.get("fecha_factura")
                         }]
 
                     for ci, c_data in enumerate(row_cuotas, start=1):
                         c_poliza = U(row.get("numero_poliza") or "")
                         c_cupon = U(c_data.get("cupon") or row.get("recibo") or "")
                         c_cupon = c_cupon.strip() or None
-                        c_fec_venc = parse_date(c_data.get("fecha_vencimiento")) or datetime.today().strftime('%Y-%m-%d')
+                        c_fec_venc = parse_date(c_data.get("fecha_vencimiento")) or _lima_now_str(False)
                         c_moneda = U(c_data.get("moneda") or row.get("moneda") or "S/.")
                         c_importe = parse_decimal(c_data.get("importe")) or 0.0
                         c_fecha_pago = parse_date(c_data.get("fecha_pago"))
                         c_factura = U(c_data.get("factura") or "")
+                        c_fecha_factura = parse_date(c_data.get("fecha_factura"))
+                        if c_factura and not c_fecha_factura:
+                            c_fecha_factura = _lima_now_str(True)
                         numero_cuota = ci
 
                         if c_poliza:
@@ -1186,6 +1195,7 @@ def save_polizas(
                                             importe = %s,
                                             fecha_pago = %s,
                                             factura = %s,
+                                            fecha_factura = %s,
                                             observacion = %s,
                                             usuario_edicion = %s,
                                             usuario_registro = COALESCE(usuario_registro, %s),
@@ -1203,6 +1213,7 @@ def save_polizas(
                                             c_importe,
                                             c_fecha_pago,
                                             c_factura or None,
+                                            c_fecha_factura,
                                             None,
                                             usuario_display,
                                             usuario_display,
@@ -1220,9 +1231,9 @@ def save_polizas(
                                 """
                                 INSERT INTO cuotas (
                                     poliza_id, poliza, cupon, fecha_vencimiento, moneda,
-                                    importe, fecha_pago, factura, observacion, usuario_registro,
+                                    importe, fecha_pago, factura, fecha_factura, observacion, usuario_registro,
                                     numero_cuota, activo
-                                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, 1)
+                                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, 1)
                                 """,
                                 (
                                     target_poliza_id,
@@ -1233,6 +1244,7 @@ def save_polizas(
                                     c_importe,
                                     c_fecha_pago,
                                     c_factura or None,
+                                    c_fecha_factura,
                                     None,
                                     usuario_display,
                                     numero_cuota,

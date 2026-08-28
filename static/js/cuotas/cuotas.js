@@ -525,6 +525,22 @@ const Cuotas = (() => {
     setText('detailFooterUsuario', usuario);
     setText('detailFooterFechaCreado', fechaCreado ? (fechaCreado ) : '');
 
+    // Mostrar / ocultar Fecha Factura según si existe el valor.
+    // Si factura o fecha_factura están vacíos → no mostramos, para no confundir.
+    const fechaFacturaVal = data.fecha_factura ? String(data.fecha_factura).trim() : '';
+    const tieneFactura = !!(data.factura && String(data.factura).trim());
+    const rowFechaFactura = document.getElementById('detailRowFechaFactura');
+    const tlFechaFactura  = document.getElementById('detailTimelineFechaFactura');
+    const tlFechaFacturaVal = document.getElementById('detailTimelineFechaFacturaVal');
+    setText('detailFechaFactura', fechaFacturaVal);
+    if (tlFechaFacturaVal) tlFechaFacturaVal.textContent = fechaFacturaVal;
+    if (rowFechaFactura) {
+      rowFechaFactura.style.display = (tieneFactura && fechaFacturaVal) ? '' : 'none';
+    }
+    if (tlFechaFactura) {
+      tlFechaFactura.style.display = fechaFacturaVal ? '' : 'none';
+    }
+
     // Limpiar el campo de documento mientras carga
     const docEl = document.getElementById('detailDocumento');
     if (docEl) docEl.innerHTML = '<span class="text-muted small">Cargando...</span>';

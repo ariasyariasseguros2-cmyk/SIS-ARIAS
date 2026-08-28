@@ -66,6 +66,32 @@
         return Number.isFinite(num) ? String(num) : '';
     }
 
+    function todayISO() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    function nowISO() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        const ss = String(d.getSeconds()).padStart(2, '0');
+        return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
+    }
+
+    function autoFechaFactura(factura, fechaFactura) {
+        const f = String(factura || '').trim();
+        const ff = String(fechaFactura || '').trim();
+        if (f && !ff) return nowISO();
+        return ff;
+    }
+
     function addOneMonthToISODate(value) {
         const iso = toISODate(value);
         if (!iso) return '';
@@ -691,8 +717,9 @@
                         fecha_vencimiento: fechaIso,
                         moneda,
                         importe,
-                        fecha_pago: '',
-                        factura: '',
+                        fecha_pago: c.fecha_pago || '',
+                        factura: c.factura || '',
+                        fecha_factura: autoFechaFactura(c.factura || '', c.fecha_factura || ''),
                         observacion: ''
                     };
 
@@ -786,6 +813,7 @@
                 importe: imp,
                 fecha_pago: getVal('addFechaPago'),
                 factura: getVal('addFactura'),
+                fecha_factura: autoFechaFactura(getVal('addFactura'), ''),
                 observacion: getVal('addObservacion')
               };
 

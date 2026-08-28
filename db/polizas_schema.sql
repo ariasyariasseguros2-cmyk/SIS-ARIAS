@@ -1688,7 +1688,7 @@ CREATE TABLE IF NOT EXISTS cuotas (
     importe DECIMAL(15,2) NOT NULL,
     fecha_pago DATE NULL,
     factura VARCHAR(50) NULL,
-    fecha_factura DATE NULL,
+    fecha_factura DATETIME NULL,
     observacion VARCHAR(255) NULL,
     usuario_registro VARCHAR(100) NULL,
     usuario_edicion VARCHAR(100) NULL,
@@ -1993,7 +1993,7 @@ BEGIN
         FORMAT(importe, 2) AS importe,
         DATE_FORMAT(fecha_pago, '%d-%m-%Y') AS fecha_pago,
         factura,
-        DATE_FORMAT(fecha_factura, '%d-%m-%Y') AS fecha_factura,
+        DATE_FORMAT(fecha_factura, '%d-%m-%Y %H:%i') AS fecha_factura,
         observacion
     FROM cuotas
     WHERE (
@@ -2017,7 +2017,7 @@ CREATE PROCEDURE sp_insert_cuota(
     IN p_importe DECIMAL(15,2),
     IN p_fecha_pago DATE,
     IN p_factura VARCHAR(50),
-    IN p_fecha_factura DATE,
+    IN p_fecha_factura DATETIME,
     IN p_observacion VARCHAR(255),
     IN p_usuario VARCHAR(100),
     IN p_numero_cuota INT

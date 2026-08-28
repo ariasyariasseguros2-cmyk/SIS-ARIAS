@@ -1,6 +1,11 @@
 import os
 from typing import Dict, List, Tuple
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
+
+def _lima_now_str(with_time: bool = True) -> str:
+    fmt = '%Y-%m-%d %H:%M:%S' if with_time else '%Y-%m-%d'
+    return datetime.now(ZoneInfo('America/Lima')).strftime(fmt)
 
 # #region debug-point A:report-helper
 def _dbg_fg_cuotas(hypothesis_id: str, location: str, msg: str, data=None, run_id: str = 'pre'):
@@ -123,13 +128,22 @@ def _parse_decimal(value):
 
 
 def format_date_custom(d):
-    """Format date to DD/MM/YYYY"""
+    """Format date/datetime to DD/MM/YYYY or DD/MM/YYYY HH:MM"""
     if not d:
         return ''
-    if isinstance(d, (date, datetime)):
+    if isinstance(d, datetime):
+        return d.strftime('%d/%m/%Y %H:%M')
+    if isinstance(d, date):
         return d.strftime('%d/%m/%Y')
     
     s = str(d).strip()
+    # YYYY-MM-DD HH:MM:SS or YYYY-MM-DD HH:MM
+    if '-' in s and ' ' in s:
+        date_part, time_part = s.split(' ', 1)
+        parts = date_part.split('-')
+        if len(parts) == 3 and len(parts[0]) == 4:
+            time_short = ':'.join(time_part.split(':')[:2])
+            return f"{parts[2]}/{parts[1]}/{parts[0]} {time_short}"
     # Handle YYYY-MM-DD
     if '-' in s:
         parts = s.split('-')
@@ -684,6 +698,7 @@ def get_cuotas_data(
                             FORMAT(c.importe, 2) AS importe,
                             DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
                             c.factura,
+                            DATE_FORMAT(c.fecha_factura, '%d-%m-%Y %H:%i') AS fecha_factura,
                             c.observacion,
                             c.activo,
                             c.motivo_anulacion,
@@ -729,6 +744,7 @@ def get_cuotas_data(
                                 FORMAT(c.importe, 2) AS importe,
                                 DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
                                 c.factura,
+                                DATE_FORMAT(c.fecha_factura, '%d-%m-%Y %H:%i') AS fecha_factura,
                                 c.observacion,
                                 c.activo,
                                 c.motivo_anulacion,
@@ -775,6 +791,7 @@ def get_cuotas_data(
                             FORMAT(c.importe, 2) AS importe,
                             DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
                             c.factura,
+                            DATE_FORMAT(c.fecha_factura, '%d-%m-%Y %H:%i') AS fecha_factura,
                             c.observacion,
                             c.activo,
                             c.motivo_anulacion,
@@ -830,6 +847,7 @@ def get_cuotas_data(
                                     FORMAT(c.importe, 2) AS importe,
                                     DATE_FORMAT(c.fecha_pago, '%d-%m-%Y') AS fecha_pago,
                                     c.factura,
+                                    DATE_FORMAT(c.fecha_factura, '%d-%m-%Y %H:%i') AS fecha_factura,
                                     c.observacion,
                                     c.activo,
                                     c.motivo_anulacion,
@@ -873,6 +891,7 @@ def get_cuotas_data(
                             'importe': c.get('importe') or '',
                             'fecha_pago': format_date_custom(c.get('fecha_pago')),
                             'factura': c.get('factura') or '',
+                            'fecha_factura': format_date_custom(c.get('fecha_factura')),
                             'observacion': c.get('observacion') or '',
                             'activo': c.get('activo'),
                             'motivo_anulacion': c.get('motivo_anulacion') or '',
@@ -978,6 +997,14 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
         factura = val_or_none(data.get('factura'))
         if isinstance(factura, str):
             factura = factura.strip() or None
+
+        fecha_factura = val_or_none(data.get('fecha_factura'))
+        if isinstance(fecha_factura, str):
+            fecha_factura = fecha_factura.strip() or None
+
+        fecha_pago_val = val_or_none(data.get('fecha_pago'))
+        if factura and not fecha_factura:
+            fecha_factura = _lima_now_str(True)
 
         importe_input = val_or_none(data.get('importe'))
         importe_val = None
@@ -1136,23 +1163,25 @@ def save_cuota(data: Dict[str, object]) -> Tuple[bool, str]:
                 importe,
                 fecha_pago,
                 factura,
+                fecha_factura,
                 observacion,
                 usuario_registro,
                 numero_cuota,
                 activo
             ) VALUES (
-                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, 1
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, 1
             )
             """,
             (
                 poliza_id,
                 poliza,
                 cupon,
-                (data.get('fecha_vencimiento') or date.today().strftime('%Y-%m-%d')),
+                (data.get('fecha_vencimiento') or _lima_now_str(False)),
                 data.get('moneda', 'S/.'),
                 importe_val,
                 val_or_none(data.get('fecha_pago')),
                 factura,
+                fecha_factura,
                 val_or_none(data.get('observacion')),
                 data.get('usuario'),
                 numero_cuota,
@@ -1256,6 +1285,7 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
                    importe,
                    fecha_pago,
                    factura,
+                   fecha_factura,
                    observacion
             FROM cuotas
             WHERE idCuota = %s
@@ -1276,7 +1306,8 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
         importe_actual = row[5]
         fecha_pago_actual = row[6]
         factura_actual = row[7]
-        observacion_actual = row[8]
+        fecha_factura_actual = row[8]
+        observacion_actual = row[9]
 
         cupon_nuevo_val = data.get('cupon')
         if cupon_nuevo_val is None:
@@ -1298,6 +1329,11 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
         factura_nueva = val_or_none(data.get('factura')) or factura_actual
         if isinstance(factura_nueva, str):
             factura_nueva = factura_nueva.strip() or None
+        fecha_factura_nueva = val_or_none(data.get('fecha_factura')) or fecha_factura_actual
+        if isinstance(fecha_factura_nueva, str):
+            fecha_factura_nueva = fecha_factura_nueva.strip() or None
+        if factura_nueva and not fecha_factura_nueva:
+            fecha_factura_nueva = _lima_now_str(True)
         observacion_nueva = val_or_none(data.get('observacion')) or observacion_actual
 
         if factura_nueva and factura_nueva != factura_actual:
@@ -1416,6 +1452,7 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
                 importe = %s,
                 fecha_pago = %s,
                 factura = %s,
+                fecha_factura = %s,
                 observacion = %s,
                 usuario_registro = COALESCE(%s, usuario_registro)
             WHERE idCuota = %s
@@ -1427,6 +1464,7 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
                 importe_nuevo,
                 fecha_pago_nueva,
                 factura_nueva,
+                fecha_factura_nueva,
                 observacion_nueva,
                 usuario,
                 cuota_id,
@@ -1599,6 +1637,7 @@ def revert_cuota(cuota_id: int) -> Tuple[bool, str]:
             UPDATE cuotas
             SET fecha_pago = NULL,
                 factura = NULL,
+                fecha_factura = NULL,
                 observacion = NULL
             WHERE idCuota = %s
             """,
@@ -1663,6 +1702,7 @@ def delete_cuota(cuota_id: int, motivo: str = '', usuario: str = '') -> Tuple[bo
                 UPDATE cuotas
                 SET fecha_pago = NULL,
                     factura = NULL,
+                    fecha_factura = NULL,
                     observacion = NULL
                 WHERE idCuota = %s
                 """,
@@ -1949,6 +1989,7 @@ def extract_cuota_from_pdf(filepath: str) -> Dict[str, str]:
         'fecha_vencimiento': '',
         'importe': '',
         'factura': '',
+        'fecha_factura': '',
         'fecha_pago': '',
         'observacion': '',
         'numero_documento_contratante': '',
