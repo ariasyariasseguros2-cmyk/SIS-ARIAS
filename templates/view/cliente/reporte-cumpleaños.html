@@ -1,130 +1,388 @@
 ﻿{% extends "view/layout_dashboard.html" %}
 {% block html_title %}Reporte de Cumpleaños{% endblock %}
-{% block page_title %}Clientes | Reporte de Cumpleaños{% endblock %}
+{% block page_title %}{% endblock %}
 {% block content %}
-<div class="row mb-3">
+<div class="row mb-3" id="cumpleanos-header">
     <div class="col-12">
         <h2>Reporte de Cumpleaños</h2>
         <p class="text-muted">Listado de clientes con fecha de nacimiento registrada.</p>
     </div>
 </div>
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
-        <form id="form-filtros" class="row g-3 align-items-end">
-            <div class="col-md-3">
-                <label for="filtro-mes" class="form-label">Filtrar por Mes</label>
-                <select id="filtro-mes" class="form-select">
-                    <option value="">Todos los meses</option>
-                    <option value="1">Enero</option>
-                    <option value="2">Febrero</option>
-                    <option value="3">Marzo</option>
-                    <option value="4">Abril</option>
-                    <option value="5">Mayo</option>
-                    <option value="6">Junio</option>
-                    <option value="7">Julio</option>
-                    <option value="8">Agosto</option>
-                    <option value="9">Septiembre</option>
-                    <option value="10">Octubre</option>
-                    <option value="11">Noviembre</option>
-                    <option value="12">Diciembre</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label for="filtro-dias" class="form-label">Próximos días</label>
-                <input id="filtro-dias" type="number" min="1" max="60" class="form-control" value="7">
-            </div>
-            <div class="col-md-3">
-                <label for="filtro-orden" class="form-label">Orden</label>
-                <select id="filtro-orden" class="form-select">
-                    <option value="cercania" selected>Más cercanos primero</option>
-                    <option value="calendario">Calendario (mes y día)</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <button type="button" id="btn-buscar" class="btn btn-primary w-100">
-                    <i class="fas fa-search"></i> Buscar
-                </button>
-            </div>
-            <div class="col-md-2">
-                 <button type="button" id="btn-exportar" class="btn btn-success w-100" onclick="exportTableToExcel('tabla-cumpleanos', 'reporte_cumpleanos')">
-                    <i class="fas fa-file-excel"></i> Exportar
-                </button>
-            </div>
 
-            <div class="col-12">
-                <div class="d-flex flex-wrap gap-2" id="filtros-estado">
-                    <button type="button" class="btn btn-sm estado-chip active" data-estado="todos">Todos</button>
-                    <button type="button" class="btn btn-sm estado-chip" data-estado="hoy">Hoy</button>
-                    <button type="button" class="btn btn-sm estado-chip" data-estado="proximos">Próximos</button>
-                    <button type="button" class="btn btn-sm estado-chip" data-estado="mes_actual">Este mes</button>
+<div id="cumpleanos-main-layout">
+    <div class="cumpleanos-col-main">
+
+        <div class="card shadow-sm mb-4" id="filtros-card">
+            <div class="card-body">
+                <form id="form-filtros" class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label for="filtro-mes" class="form-label">Filtrar por Mes</label>
+                        <select id="filtro-mes" class="form-select">
+                            <option value="">Todos los meses</option>
+                            <option value="1">Enero</option>
+                            <option value="2">Febrero</option>
+                            <option value="3">Marzo</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Mayo</option>
+                            <option value="6">Junio</option>
+                            <option value="7">Julio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Septiembre</option>
+                            <option value="10">Octubre</option>
+                            <option value="11">Noviembre</option>
+                            <option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="filtro-dias" class="form-label">Próximos días</label>
+                        <input id="filtro-dias" type="number" min="1" max="60" class="form-control" value="7">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filtro-orden" class="form-label">Orden</label>
+                        <select id="filtro-orden" class="form-select">
+                            <option value="cercania" selected>Más cercanos primero</option>
+                            <option value="calendario">Calendario (mes y día)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" id="btn-buscar" class="btn btn-primary w-100">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                         <button type="button" id="btn-exportar" class="btn btn-success w-100" onclick="exportTableToExcel('tabla-cumpleanos', 'reporte_cumpleanos')">
+                            <i class="bi bi-download"></i> Exportar
+                        </button>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="d-flex flex-wrap gap-2" id="filtros-estado">
+                            <button type="button" class="btn btn-sm estado-chip active" data-estado="todos">Todos</button>
+                            <button type="button" class="btn btn-sm estado-chip" data-estado="hoy">Hoy</button>
+                            <button type="button" class="btn btn-sm estado-chip" data-estado="proximos">Próximos</button>
+                            <button type="button" class="btn btn-sm estado-chip" data-estado="mes_actual">Este mes</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="row mb-3" id="resumen-cumpleanos">
+            <div class="col-md-3">
+                <div class="card resumen-item border-warning-subtle">
+                    <div class="card-body py-2">
+                        <div class="text-muted small">Cumplen hoy</div>
+                        <div class="h4 mb-0" id="count-hoy">0</div>
+                    </div>
                 </div>
             </div>
-        </form>
+            <div class="col-md-3">
+                <div class="card resumen-item border-primary-subtle">
+                    <div class="card-body py-2">
+                        <div class="text-muted small">Próximos días</div>
+                        <div class="h4 mb-0" id="count-proximos">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card resumen-item border-info-subtle">
+                    <div class="card-body py-2">
+                        <div class="text-muted small">Este mes</div>
+                        <div class="h4 mb-0" id="count-mes-actual">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card resumen-item border-secondary-subtle">
+                    <div class="card-body py-2">
+                        <div class="text-muted small">Total listado</div>
+                        <div class="h4 mb-0" id="count-total">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm" id="timeline-card">
+            <div class="card-body">
+                <div class="timeline-header">
+                    <div class="timeline-title">
+                        <i class="bi bi-calendar-week"></i>
+                        <h5>Próximos 7 días</h5>
+                    </div>
+                    <div class="timeline-legend">
+                        <span class="legend-pill"><span class="dot"></span>Hoy</span>
+                    </div>
+                </div>
+                <div class="timeline-scroll">
+                <div class="timeline-grid">
+                    <div class="timeline-hours">
+                        <div class="hour-label">8 AM</div>
+                        <div class="hour-label">9 AM</div>
+                        <div class="hour-label">10 AM</div>
+                        <div class="hour-label">11 AM</div>
+                        <div class="hour-label">12 PM</div>
+                        <div class="hour-label">1 PM</div>
+                    </div>
+                    <div class="timeline-days">
+                        <div class="timeline-day-column">
+                            <div class="day-header day-mon">
+                                <div>Lun</div>
+                                <div class="day-num">20</div>
+                            </div>
+                            <div class="day-slots">
+                                <div class="day-slot"></div>
+                                <div class="day-slot">
+                                    <div class="timeline-event evt-mon">
+                                        <div class="evt-avatar">CL</div>
+                                        <div class="evt-body">
+                                            <div class="evt-name">Carlos López</div>
+                                            <div class="evt-time">9:00 - 9:30</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot">
+                                    <div class="timeline-event evt-mon">
+                                        <div class="evt-avatar">MF</div>
+                                        <div class="evt-body">
+                                            <div class="evt-name">María Fernanda</div>
+                                            <div class="evt-time">10:00 - 10:30</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                            </div>
+                        </div>
+                        <div class="timeline-day-column">
+                            <div class="day-header day-tue">
+                                <div>Mar</div>
+                                <div class="day-num">21</div>
+                            </div>
+                            <div class="day-slots">
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot">
+                                    <div class="timeline-event evt-tue">
+                                        <div class="evt-avatar">LC</div>
+                                        <div class="evt-body">
+                                            <div class="evt-name">Lucía del Carmen</div>
+                                            <div class="evt-time">9:30 - 10:00</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot">
+                                    <div class="timeline-event evt-tue">
+                                        <div class="evt-avatar">AS</div>
+                                        <div class="evt-body">
+                                            <div class="evt-name">Andrés Silva</div>
+                                            <div class="evt-time">11:00 - 11:30</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="day-slot"></div>
+                            </div>
+                        </div>
+                        <div class="timeline-day-column">
+                            <div class="day-header day-wed">
+                                <div>Mié</div>
+                                <div class="day-num">22</div>
+                            </div>
+                            <div class="day-slots">
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                            </div>
+                        </div>
+                        <div class="timeline-day-column">
+                            <div class="day-header day-thu">
+                                <div>Jue</div>
+                                <div class="day-num">23</div>
+                            </div>
+                            <div class="day-slots">
+                                <div class="day-slot"></div>
+                                <div class="day-slot">
+                                    <div class="timeline-event evt-thu">
+                                        <div class="evt-avatar">JR</div>
+                                        <div class="evt-body">
+                                            <div class="evt-name">Jorge Ramírez</div>
+                                            <div class="evt-time">9:00 - 9:30</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot">
+                                    <div class="timeline-event evt-thu">
+                                        <div class="evt-avatar">DT</div>
+                                        <div class="evt-body">
+                                            <div class="evt-name">Diego Torres</div>
+                                            <div class="evt-time">11:30 - 12:00</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="timeline-day-column">
+                            <div class="day-header day-fri">
+                                <div>Vie</div>
+                                <div class="day-num">24</div>
+                            </div>
+                            <div class="day-slots">
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                            </div>
+                        </div>
+                        <div class="timeline-day-column">
+                            <div class="day-header day-sat">
+                                <div>Sáb</div>
+                                <div class="day-num">25</div>
+                            </div>
+                            <div class="day-slots">
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot">
+                                    <div class="timeline-event evt-sat">
+                                        <div class="evt-avatar">PG</div>
+                                        <div class="evt-body">
+                                            <div class="evt-name">Patricia Gómez</div>
+                                            <div class="evt-time">10:30 - 11:00</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                            </div>
+                        </div>
+                        <div class="timeline-day-column">
+                            <div class="day-header day-sun">
+                                <div>Dom</div>
+                                <div class="day-num">26</div>
+                            </div>
+                            <div class="day-slots">
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                                <div class="day-slot"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mt-4" id="tabla-card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0" id="tabla-cumpleanos">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50px;">ID</th>
+                                <th>Razón Social / Nombre</th>
+                                <th>Documento</th>
+                                <th>Fecha Nac.</th>
+                                <th>Día</th>
+                                <th>Mes</th>
+                                <th>Edad</th>
+                                <th>Faltan</th>
+                                <th>Estado</th>
+                                <th>Email</th>
+                                <th>Teléfono</th>
+                                <th>Contacto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-resultados">
+                            <!-- JS populate -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="cumpleanos-col-sidebar">
+        <div class="card shadow-sm" id="proximos-card">
+            <div class="card-body">
+                <div class="proximos-header">
+                    <h5><i class="bi bi-gift"></i> Próximos Cumpleaños</h5>
+                </div>
+                <div class="proximos-list" id="proximos-list">
+                    <div class="proximo-item prox-wed">
+                        <div class="proximo-date">
+                            <span class="pday">21</span>
+                            <span class="pmonth">MAY</span>
+                        </div>
+                        <div class="proximo-info">
+                            <div class="proximo-name">Carlos López</div>
+                            <div class="proximo-sub">21 años • Ventas</div>
+                        </div>
+                        <div class="proximo-icon">
+                            <i class="bi bi-gift"></i>
+                        </div>
+                    </div>
+                    <div class="proximo-item prox-sat">
+                        <div class="proximo-date">
+                            <span class="pday">22</span>
+                            <span class="pmonth">MAY</span>
+                        </div>
+                        <div class="proximo-info">
+                            <div class="proximo-name">María Fernanda Torres</div>
+                            <div class="proximo-sub">28 años • Marketing</div>
+                        </div>
+                        <div class="proximo-icon">
+                            <i class="bi bi-gift"></i>
+                        </div>
+                    </div>
+                    <div class="proximo-item prox-mon">
+                        <div class="proximo-date">
+                            <span class="pday">23</span>
+                            <span class="pmonth">MAY</span>
+                        </div>
+                        <div class="proximo-info">
+                            <div class="proximo-name">Lucía del Carmen Rojas</div>
+                            <div class="proximo-sub">32 años • Administración</div>
+                        </div>
+                        <div class="proximo-icon">
+                            <i class="bi bi-gift"></i>
+                        </div>
+                    </div>
+                    <div class="proximo-item prox-thu">
+                        <div class="proximo-date">
+                            <span class="pday">23</span>
+                            <span class="pmonth">MAY</span>
+                        </div>
+                        <div class="proximo-info">
+                            <div class="proximo-name">Andrés Silva Vargas</div>
+                            <div class="proximo-sub">26 años • Soporte</div>
+                        </div>
+                        <div class="proximo-icon">
+                            <i class="bi bi-gift"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="proximos-footer">
+                    <a href="#" class="proximos-ver-todos">
+                        Ver todos (12) <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="row mb-3" id="resumen-cumpleanos">
-    <div class="col-md-3">
-        <div class="card resumen-item border-warning-subtle">
-            <div class="card-body py-2">
-                <div class="text-muted small">Cumplen hoy</div>
-                <div class="h4 mb-0" id="count-hoy">0</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card resumen-item border-primary-subtle">
-            <div class="card-body py-2">
-                <div class="text-muted small">Próximos días</div>
-                <div class="h4 mb-0" id="count-proximos">0</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card resumen-item border-info-subtle">
-            <div class="card-body py-2">
-                <div class="text-muted small">Este mes</div>
-                <div class="h4 mb-0" id="count-mes-actual">0</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card resumen-item border-secondary-subtle">
-            <div class="card-body py-2">
-                <div class="text-muted small">Total listado</div>
-                <div class="h4 mb-0" id="count-total">0</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="card shadow-sm">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover table-striped mb-0" id="tabla-cumpleanos">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width: 50px;">ID</th>
-                        <th>Razón Social / Nombre</th>
-                        <th>Documento</th>
-                        <th>Fecha Nac.</th>
-                        <th>Día</th>
-                        <th>Mes</th>
-                        <th>Edad</th>
-                        <th>Faltan</th>
-                        <th>Estado</th>
-                        <th>Email</th>
-                        <th>Teléfono</th>
-                        <th>Contacto</th>
-                    </tr>
-                </thead>
-                <tbody id="tbody-resultados">
-                    <!-- JS populate -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
 <script>
 function exportTableToExcel(tableID, filename = ''){
     var downloadLink;

@@ -1,58 +1,862 @@
-/* Estilos para el reporte de cumpleaños */
-#tabla-cumpleanos thead th {
-  background: #f8fafc; /* encabezado suave */
-  color: #1f2937;
-  font-weight: 700;
-  border-bottom: 2px solid #e6eef8;
+/* =========================================================
+   Estilos para Reporte de Cumpleaños
+   Soporte nativo para tema claro y oscuro via [data-theme]
+   ========================================================= */
+
+/* --- Variables de tema claro (heredan y complementan dashboard.css) --- */
+:root {
+  --rc-table-header-bg: #f8fafc;
+  --rc-table-header-border: #e6eef8;
+  --rc-table-row-alt: rgba(15, 23, 42, 0.02);
+  --rc-table-row-hover: rgba(59, 130, 246, 0.06);
+
+  --rc-pill-border: #d1d5db;
+  --rc-pill-day-bg: #f3f4f6;
+  --rc-pill-day-color: #111827;
+  --rc-pill-month-bg: #f3f4f6;
+  --rc-pill-month-color: #374151;
+  --rc-pill-faltan-bg: #f3f4f6;
+  --rc-pill-faltan-color: #111827;
+  --rc-pill-age-bg: #ecfdf5;
+  --rc-pill-age-color: #065f46;
+  --rc-pill-age-border: #a7f3d0;
+
+  --rc-estado-hoy-bg: #fef3c7;
+  --rc-estado-hoy-color: #92400e;
+  --rc-estado-proximo-bg: #dbeafe;
+  --rc-estado-proximo-color: #1d4ed8;
+  --rc-estado-mes-bg: #e0f2fe;
+  --rc-estado-mes-color: #0c4a6e;
+  --rc-estado-futuro-bg: #e5e7eb;
+  --rc-estado-futuro-color: #374151;
+
+  --rc-today-row-bg: rgba(245, 158, 11, 0.08);
+  --rc-today-row-shadow: rgba(245, 158, 11, 0.18);
+
+  --rc-row-border-hoy: #d97706;
+  --rc-row-border-proximo: #2563eb;
+
+  --rc-chip-active-bg: #e5e7eb;
+  --rc-chip-active-color: #111827;
+  --rc-chip-active-border: #d1d5db;
+  --rc-chip-bg: #ffffff;
+  --rc-chip-color: #4b5563;
+  --rc-chip-border: #d1d5db;
+
+  --rc-resumen-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --rc-card-shadow: 0 4px 14px -8px rgba(0, 0, 0, 0.08);
+
+  /* Timeline semanal */
+  --rc-timeline-bg: var(--card-bg);
+  --rc-timeline-border: var(--card-border);
+  --rc-timeline-day-bg: var(--layout-bg);
+  --rc-timeline-day-color: var(--text-secondary);
+  --rc-timeline-day-active-border: var(--accent-blue);
+  --rc-timeline-line: var(--border-muted);
+
+  /* Colores por día de la semana (pastel suave) */
+  --rc-day-mon: #eff6ff;
+  --rc-day-mon-color: #1d4ed8;
+  --rc-day-tue: #ecfdf5;
+  --rc-day-tue-color: #047857;
+  --rc-day-wed: #fffbeb;
+  --rc-day-wed-color: #b45309;
+  --rc-day-thu: #eef2ff;
+  --rc-day-thu-color: #4338ca;
+  --rc-day-fri: #fdf2f8;
+  --rc-day-fri-color: #be185d;
+  --rc-day-sat: #f0fdfa;
+  --rc-day-sat-color: #0f766e;
+  --rc-day-sun: #faf5ff;
+  --rc-day-sun-color: #6d28d9;
+
+  /* Event card en timeline */
+  --rc-event-bg: #ffffff;
+  --rc-event-border: #e5e7eb;
+  --rc-event-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.08);
+
+  /* Sidebar próximos */
+  --rc-prox-item-bg: var(--layout-bg);
+  --rc-prox-item-border: var(--card-border);
+  --rc-prox-item-hover-bg: rgba(59, 130, 246, 0.04);
+  --rc-prox-date-color: var(--text-secondary);
+  --rc-prox-sub-color: var(--text-tertiary);
+
+  /* Botones fila */
+  --rc-btn-radius: 8px;
 }
 
-/* Centrar columnas Día (5) y Mes (6) */
-#tabla-cumpleanos tbody td:nth-child(5),
-#tabla-cumpleanos thead th:nth-child(5) {
-  text-align: center;
+/* --- Variables de tema oscuro --- */
+[data-theme='dark'] {
+  --rc-table-header-bg: rgba(255, 255, 255, 0.03);
+  --rc-table-header-border: rgba(255, 255, 255, 0.06);
+  --rc-table-row-alt: rgba(255, 255, 255, 0.015);
+  --rc-table-row-hover: rgba(59, 130, 246, 0.12);
+
+  --rc-pill-border: rgba(255, 255, 255, 0.1);
+  --rc-pill-day-bg: rgba(255, 255, 255, 0.06);
+  --rc-pill-day-color: #f1f5f9;
+  --rc-pill-month-bg: rgba(255, 255, 255, 0.06);
+  --rc-pill-month-color: #cbd5e1;
+  --rc-pill-faltan-bg: rgba(255, 255, 255, 0.06);
+  --rc-pill-faltan-color: #f1f5f9;
+  --rc-pill-age-bg: rgba(16, 185, 129, 0.15);
+  --rc-pill-age-color: #34d399;
+  --rc-pill-age-border: rgba(16, 185, 129, 0.3);
+
+  --rc-estado-hoy-bg: rgba(245, 158, 11, 0.18);
+  --rc-estado-hoy-color: #fbbf24;
+  --rc-estado-proximo-bg: rgba(59, 130, 246, 0.18);
+  --rc-estado-proximo-color: #60a5fa;
+  --rc-estado-mes-bg: rgba(6, 182, 212, 0.18);
+  --rc-estado-mes-color: #22d3ee;
+  --rc-estado-futuro-bg: rgba(148, 163, 184, 0.15);
+  --rc-estado-futuro-color: #94a3b8;
+
+  --rc-today-row-bg: rgba(245, 158, 11, 0.1);
+  --rc-today-row-shadow: rgba(245, 158, 11, 0.3);
+
+  --rc-row-border-hoy: #f59e0b;
+  --rc-row-border-proximo: #3b82f6;
+
+  --rc-chip-active-bg: rgba(59, 130, 246, 0.25);
+  --rc-chip-active-color: #ffffff;
+  --rc-chip-active-border: rgba(59, 130, 246, 0.4);
+  --rc-chip-bg: rgba(255, 255, 255, 0.03);
+  --rc-chip-color: #cbd5e1;
+  --rc-chip-border: rgba(255, 255, 255, 0.08);
+
+  --rc-resumen-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --rc-card-shadow: 0 6px 20px -10px rgba(0, 0, 0, 0.5);
+
+  --rc-timeline-line: rgba(255, 255, 255, 0.08);
+
+  /* Días tema oscuro: tonos con opacidad */
+  --rc-day-mon: rgba(59, 130, 246, 0.18);
+  --rc-day-mon-color: #60a5fa;
+  --rc-day-tue: rgba(16, 185, 129, 0.18);
+  --rc-day-tue-color: #34d399;
+  --rc-day-wed: rgba(245, 158, 11, 0.18);
+  --rc-day-wed-color: #fbbf24;
+  --rc-day-thu: rgba(139, 92, 246, 0.2);
+  --rc-day-thu-color: #a78bfa;
+  --rc-day-fri: rgba(236, 72, 153, 0.18);
+  --rc-day-fri-color: #f472b6;
+  --rc-day-sat: rgba(20, 184, 166, 0.18);
+  --rc-day-sat-color: #2dd4bf;
+  --rc-day-sun: rgba(139, 92, 246, 0.18);
+  --rc-day-sun-color: #c4b5fd;
+
+  --rc-event-bg: rgba(255, 255, 255, 0.04);
+  --rc-event-border: rgba(255, 255, 255, 0.08);
+  --rc-event-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.4);
+
+  --rc-prox-item-bg: rgba(255, 255, 255, 0.025);
+  --rc-prox-item-hover-bg: rgba(59, 130, 246, 0.08);
 }
 
-#tabla-cumpleanos tbody td:nth-child(6),
-#tabla-cumpleanos thead th:nth-child(6) {
-  text-align: center;
+/* =========================================================
+   CABECERA DE PÁGINA (título + descripción)
+   ========================================================= */
+#cumpleanos-header h2 {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: 1.7rem;
+  margin-bottom: 2px;
 }
 
-/* Centrar y mejorar filas */
-#tabla-cumpleanos tbody tr td {
-  vertical-align: middle;
-}
-#tabla-cumpleanos tbody tr:nth-child(odd) {
-  background: rgba(15, 23, 42, 0.02);
-}
-#tabla-cumpleanos tbody tr:hover {
-  background: rgba(59,130,246,0.06) !important;
+#cumpleanos-header p {
+  margin-bottom: 0;
+  font-size: 0.95rem;
 }
 
-/* Edad en color distintivo */
-#tabla-cumpleanos tbody td:nth-child(7) {
-  text-align: center;
-  color: #065f46;
-  font-weight: 600;
+/* =========================================================
+   LAYOUT PRINCIPAL: 2 columnas (contenido + sidebar)
+   ========================================================= */
+#cumpleanos-main-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 22px;
+  align-items: start;
 }
 
-/* Mensajes de estado centrados */
-#tabla-cumpleanos tbody td.text-center {
-  padding: 30px 0;
-  color: #6b7280;
-}
-
-/* Responsive: ajustar badges en pantallas pequeñas */
-@media (max-width: 576px) {
-	#tabla-cumpleanos .metric-pill,
-	#tabla-cumpleanos .estado-badge,
-  #tabla-cumpleanos tbody td:nth-child(5) .day-value,
-  #tabla-cumpleanos tbody td:nth-child(6) .month-value {
-	padding: 4px 8px;
-	font-size: 0.82rem;
+@media (max-width: 1100px) {
+  #cumpleanos-main-layout {
+    grid-template-columns: 1fr;
   }
 }
 
-/* Base comun para todos los indicadores visuales de la tabla */
+/* =========================================================
+   TARJETA DE FILTROS
+   ========================================================= */
+#filtros-card {
+  border-radius: 18px;
+  box-shadow: var(--rc-card-shadow);
+  overflow: hidden;
+}
+
+#filtros-card .card-body {
+  padding: 22px 24px;
+}
+
+#form-filtros .form-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  letter-spacing: 0.01em;
+}
+
+#form-filtros .form-select,
+#form-filtros .form-control {
+  font-weight: 500;
+  font-size: 0.92rem;
+  min-height: 40px;
+}
+
+#btn-buscar,
+#btn-exportar {
+  min-height: 40px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 12px !important;
+  letter-spacing: 0.01em;
+  transition: all 0.22s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.15);
+}
+
+#btn-buscar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px -6px rgba(59, 130, 246, 0.55);
+}
+
+#btn-exportar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px -6px rgba(16, 185, 129, 0.55);
+}
+
+/* --- Chips de estado --- */
+#filtros-estado .estado-chip {
+  background: var(--rc-chip-bg);
+  color: var(--rc-chip-color);
+  border: 1px solid var(--rc-chip-border);
+  border-radius: 999px;
+  padding: 0.42rem 0.9rem;
+  font-weight: 600;
+  font-size: 0.82rem;
+  transition: all 0.2s ease;
+  letter-spacing: 0.01em;
+}
+
+#filtros-estado .estado-chip:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+[data-theme='dark'] #filtros-estado .estado-chip:hover {
+  color: #60a5fa;
+}
+
+#filtros-estado .estado-chip.active {
+  color: var(--rc-chip-active-color);
+  background: var(--rc-chip-active-bg);
+  border-color: var(--rc-chip-active-border);
+  box-shadow: 0 2px 6px -2px rgba(59, 130, 246, 0.25);
+}
+
+/* =========================================================
+   TARJETAS DE RESUMEN
+   ========================================================= */
+#resumen-cumpleanos {
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+#resumen-cumpleanos > [class*="col-"] {
+  padding-left: 7px;
+  padding-right: 7px;
+}
+
+.resumen-item {
+  border-width: 1px !important;
+  border-radius: 16px !important;
+  transition: all 0.25s ease;
+  box-shadow: var(--rc-resumen-shadow);
+  overflow: hidden;
+  position: relative;
+  background: var(--card-bg);
+}
+
+.resumen-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--accent-blue);
+}
+
+.resumen-item.border-warning-subtle::before { background: var(--accent-orange); }
+.resumen-item.border-primary-subtle::before { background: var(--accent-blue); }
+.resumen-item.border-info-subtle::before { background: #06b6d4; }
+.resumen-item.border-secondary-subtle::before { background: var(--text-tertiary); }
+
+.resumen-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.18);
+}
+
+.resumen-item .card-body {
+  padding: 14px 18px 14px 20px !important;
+}
+
+.resumen-item .text-muted.small {
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.resumen-item .h4 {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  font-size: 1.55rem;
+}
+
+/* =========================================================
+   TIMELINE SEMANAL (Próximos 7 días)
+   ========================================================= */
+#timeline-card {
+  border-radius: 18px;
+  box-shadow: var(--rc-card-shadow);
+  overflow: hidden;
+  margin-bottom: 22px;
+}
+
+#timeline-card .card-body {
+  padding: 22px 24px;
+}
+
+.timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.timeline-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.timeline-title h5 {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
+.timeline-title i {
+  color: var(--accent-blue);
+  font-size: 1.1rem;
+}
+
+.timeline-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.legend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--rc-timeline-day-bg);
+  color: var(--text-secondary);
+  border: 1px solid var(--rc-pill-border);
+}
+
+.legend-pill .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Grid de días + horas */
+.timeline-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: 60px repeat(7, 1fr);
+  gap: 8px;
+}
+
+.timeline-hours {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 48px;
+}
+
+.hour-label {
+  min-height: 48px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-right: 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+.timeline-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  grid-column: 2 / -1;
+}
+
+.timeline-day-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.day-header {
+  min-height: 40px;
+  border-radius: 12px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.day-header.day-mon { background: var(--rc-day-mon); color: var(--rc-day-mon-color); }
+.day-header.day-tue { background: var(--rc-day-tue); color: var(--rc-day-tue-color); }
+.day-header.day-wed { background: var(--rc-day-wed); color: var(--rc-day-wed-color); position: relative; }
+.day-header.day-wed::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+.day-header.day-thu { background: var(--rc-day-thu); color: var(--rc-day-thu-color); }
+.day-header.day-fri { background: var(--rc-day-fri); color: var(--rc-day-fri-color); }
+.day-header.day-sat { background: var(--rc-day-sat); color: var(--rc-day-sat-color); }
+.day-header.day-sun { background: var(--rc-day-sun); color: var(--rc-day-sun-color); }
+
+.day-header .day-num {
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.day-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  min-height: 200px;
+}
+
+.day-slots::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: var(--rc-timeline-line);
+  border-radius: 2px;
+  z-index: 0;
+}
+
+.day-slot {
+  min-height: 48px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.timeline-event {
+  width: 100%;
+  background: var(--rc-event-bg);
+  border: 1px solid var(--rc-event-border);
+  border-left-width: 3px;
+  border-radius: 10px;
+  padding: 8px 10px;
+  box-shadow: var(--rc-event-shadow);
+  transition: all 0.2s ease;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline-event:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.18);
+}
+
+.timeline-event.evt-mon { border-left-color: #3b82f6; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), var(--rc-event-bg)); }
+.timeline-event.evt-tue { border-left-color: #10b981; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), var(--rc-event-bg)); }
+.timeline-event.evt-wed { border-left-color: #f59e0b; background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), var(--rc-event-bg)); }
+.timeline-event.evt-thu { border-left-color: #6366f1; background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), var(--rc-event-bg)); }
+.timeline-event.evt-fri { border-left-color: #ec4899; background: linear-gradient(135deg, rgba(236, 72, 153, 0.08), var(--rc-event-bg)); }
+.timeline-event.evt-sat { border-left-color: #14b8a6; background: linear-gradient(135deg, rgba(20, 184, 166, 0.08), var(--rc-event-bg)); }
+.timeline-event.evt-sun { border-left-color: #8b5cf6; background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), var(--rc-event-bg)); }
+
+.evt-avatar {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.6);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+[data-theme='dark'] .evt-avatar {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.evt-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.evt-name {
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.evt-time {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .timeline-grid {
+    grid-template-columns: 1fr;
+  }
+  .timeline-hours {
+    display: none;
+  }
+  .timeline-days {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(7, 1fr);
+    overflow-x: auto;
+    min-width: 700px;
+  }
+  .timeline-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* =========================================================
+   SIDEBAR: PRÓXIMOS CUMPLEAÑOS
+   ========================================================= */
+#proximos-card {
+  border-radius: 18px;
+  box-shadow: var(--rc-card-shadow);
+  overflow: hidden;
+  position: sticky;
+  top: 24px;
+}
+
+#proximos-card .card-body {
+  padding: 20px;
+}
+
+.proximos-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.proximos-header h5 {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.proximos-header h5 i {
+  color: var(--accent-purple);
+}
+
+.proximos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 560px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.proximo-item {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  background: var(--rc-prox-item-bg);
+  border: 1px solid var(--rc-prox-item-border);
+  border-radius: 14px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.proximo-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent-blue);
+}
+
+.proximo-item.prox-mon::before { background: #3b82f6; }
+.proximo-item.prox-tue::before { background: #10b981; }
+.proximo-item.prox-wed::before { background: #f59e0b; }
+.proximo-item.prox-thu::before { background: #6366f1; }
+.proximo-item.prox-fri::before { background: #ec4899; }
+.proximo-item.prox-sat::before { background: #14b8a6; }
+.proximo-item.prox-sun::before { background: #8b5cf6; }
+
+.proximo-item:hover {
+  background: var(--rc-prox-item-hover-bg);
+  transform: translateX(3px);
+}
+
+.proximo-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+  border-radius: 10px;
+  background: var(--rc-prox-item-bg);
+  border: 1px solid var(--rc-pill-border);
+  min-width: 48px;
+}
+
+.proximo-date .pday {
+  font-weight: 800;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.proximo-date .pmonth {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--rc-prox-date-color);
+  margin-top: 2px;
+}
+
+.proximo-info {
+  min-width: 0;
+}
+
+.proximo-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.proximo-sub {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--rc-prox-sub-color);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.proximo-icon {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+
+.proximo-item.prox-mon .proximo-icon { background: var(--rc-day-mon); color: var(--rc-day-mon-color); }
+.proximo-item.prox-tue .proximo-icon { background: var(--rc-day-tue); color: var(--rc-day-tue-color); }
+.proximo-item.prox-wed .proximo-icon { background: var(--rc-day-wed); color: var(--rc-day-wed-color); }
+.proximo-item.prox-thu .proximo-icon { background: var(--rc-day-thu); color: var(--rc-day-thu-color); }
+.proximo-item.prox-fri .proximo-icon { background: var(--rc-day-fri); color: var(--rc-day-fri-color); }
+.proximo-item.prox-sat .proximo-icon { background: var(--rc-day-sat); color: var(--rc-day-sat-color); }
+.proximo-item.prox-sun .proximo-icon { background: var(--rc-day-sun); color: var(--rc-day-sun-color); }
+
+.proximos-footer {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rc-pill-border);
+  text-align: center;
+}
+
+.proximos-ver-todos {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--accent-blue);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+[data-theme='dark'] .proximos-ver-todos {
+  color: #60a5fa;
+}
+
+.proximos-ver-todos:hover {
+  gap: 10px;
+  filter: brightness(1.1);
+}
+
+.proximos-ver-todos i {
+  transition: transform 0.2s ease;
+}
+
+.proximos-ver-todos:hover i {
+  transform: translateX(2px);
+}
+
+/* =========================================================
+   TABLA DE RESULTADOS
+   ========================================================= */
+#tabla-card {
+  border-radius: 18px;
+  box-shadow: var(--rc-card-shadow);
+  overflow: hidden;
+}
+
+#tabla-cumpleanos thead th {
+  background: var(--rc-table-header-bg) !important;
+  color: var(--text-primary) !important;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--rc-table-header-border) !important;
+  padding: 14px 14px;
+  vertical-align: middle;
+}
+
+#tabla-cumpleanos thead th:first-child {
+  border-top-left-radius: 0;
+}
+
+#tabla-cumpleanos thead th:last-child {
+  border-top-right-radius: 0;
+}
+
+/* Centrar columnas Día (5), Mes (6), Edad (7), Faltan (8), Estado (9), Contacto (12) */
+#tabla-cumpleanos thead th:nth-child(5),
+#tabla-cumpleanos thead th:nth-child(6),
+#tabla-cumpleanos thead th:nth-child(7),
+#tabla-cumpleanos thead th:nth-child(8),
+#tabla-cumpleanos thead th:nth-child(9),
+#tabla-cumpleanos thead th:nth-child(12) {
+  text-align: center;
+}
+
+#tabla-cumpleanos tbody td:nth-child(5),
+#tabla-cumpleanos tbody td:nth-child(6),
+#tabla-cumpleanos tbody td:nth-child(7),
+#tabla-cumpleanos tbody td:nth-child(8),
+#tabla-cumpleanos tbody td:nth-child(9),
+#tabla-cumpleanos tbody td:nth-child(12) {
+  text-align: center;
+}
+
+#tabla-cumpleanos tbody tr td {
+  vertical-align: middle;
+  padding: 12px 14px;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--card-border) !important;
+  transition: background 0.15s ease;
+}
+
+#tabla-cumpleanos tbody tr:nth-child(odd) {
+  background: var(--rc-table-row-alt);
+}
+
+#tabla-cumpleanos tbody tr:hover {
+  background: var(--rc-table-row-hover) !important;
+}
+
+/* =========================================================
+   PILLS / BADGES COMUNES
+   ========================================================= */
 .metric-pill,
 .estado-badge,
 .day-badge,
@@ -60,97 +864,110 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
-  padding: 5px 10px;
+  min-height: 30px;
+  padding: 5px 12px;
   border-radius: 10px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   line-height: 1;
   font-weight: 600;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--rc-pill-border);
+  letter-spacing: 0.01em;
 }
 
-/* Valores de día/mes sin color fuerte */
 .day-value {
-  min-width: 34px;
-  font-weight: 700;
-  background: #f3f4f6;
-  color: #111827;
+  min-width: 38px;
+  font-weight: 800;
+  background: var(--rc-pill-day-bg);
+  color: var(--rc-pill-day-color);
+  border-color: var(--rc-pill-border);
 }
 
 .month-value {
-  background: #f3f4f6;
-  color: #374151;
-}
-.age-badge {
-  min-width: 34px;
-  background: #ecfdf5;
-  color: #065f46;
-  border-color: #a7f3d0;
+  background: var(--rc-pill-month-bg);
+  color: var(--rc-pill-month-color);
+  border-color: var(--rc-pill-border);
 }
 
-/* Fila resaltada para cumpleaños hoy */
-.today-row {
-  background: rgba(245, 158, 11, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.18);
+.age-badge {
+  min-width: 38px;
+  background: var(--rc-pill-age-bg);
+  color: var(--rc-pill-age-color);
+  border-color: var(--rc-pill-age-border);
 }
 
 .faltan-badge {
-  min-width: 70px;
-  background: #f3f4f6;
-  color: #111827;
+  min-width: 78px;
+  background: var(--rc-pill-faltan-bg);
+  color: var(--rc-pill-faltan-color);
+  border-color: var(--rc-pill-border);
 }
 
 .estado-badge {
-  min-width: 76px;
-  font-size: 0.9rem;
+  min-width: 86px;
+  font-size: 0.82rem;
   letter-spacing: 0;
+  font-weight: 700;
+  border-color: transparent !important;
 }
 
 .estado-hoy {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--rc-estado-hoy-bg);
+  color: var(--rc-estado-hoy-color);
 }
 
 .estado-proximo {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--rc-estado-proximo-bg);
+  color: var(--rc-estado-proximo-color);
 }
 
 .estado-mes {
-  background: #e0f2fe;
-  color: #0c4a6e;
+  background: var(--rc-estado-mes-bg);
+  color: var(--rc-estado-mes-color);
 }
 
 .estado-futuro {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--rc-estado-futuro-bg);
+  color: var(--rc-estado-futuro-color);
+}
+
+/* =========================================================
+   FILAS RESALTADAS
+   ========================================================= */
+.today-row {
+  background: var(--rc-today-row-bg) !important;
+  box-shadow: inset 0 0 0 1px var(--rc-today-row-shadow);
 }
 
 .estado-row-hoy {
-  box-shadow: inset 3px 0 0 #d97706;
+  box-shadow: inset 3px 0 0 var(--rc-row-border-hoy);
 }
 
 .estado-row-proximo {
-  box-shadow: inset 3px 0 0 #2563eb;
+  box-shadow: inset 3px 0 0 var(--rc-row-border-proximo);
 }
 
-#filtros-estado .estado-chip.active {
-  color: #111827;
-  background: #e5e7eb;
-  border-color: #d1d5db;
+/* Mensajes centrados en tabla */
+#tabla-cumpleanos tbody td.text-center {
+  padding: 40px 20px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 0.95rem;
 }
 
-#filtros-estado .estado-chip {
-  background: #ffffff;
-  color: #4b5563;
-  border: 1px solid #d1d5db;
-  border-radius: 999px;
-  padding: 0.35rem 0.7rem;
-}
-
+/* =========================================================
+   BOTONES DE ACCIÓN EN TABLA
+   ========================================================= */
 #tabla-cumpleanos td .btn.btn-sm {
-  border-radius: 8px;
-  padding: 0.28rem 0.55rem;
+  border-radius: var(--rc-btn-radius);
+  padding: 0.3rem 0.65rem;
+  font-weight: 600;
+  font-size: 0.78rem;
+  transition: all 0.2s ease;
+}
+
+#tabla-cumpleanos td .btn.btn-sm:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.2);
 }
 
 .contacto-actions {
@@ -158,6 +975,7 @@
   gap: 6px;
   justify-content: center;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .contacto-btn {
@@ -172,10 +990,53 @@
   font-size: 0.85rem;
 }
 
-.resumen-item {
-  border-width: 1px;
+/* =========================================================
+   RESPONSIVE ADICIONAL
+   ========================================================= */
+@media (max-width: 576px) {
+  #tabla-cumpleanos .metric-pill,
+  #tabla-cumpleanos .estado-badge {
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    min-height: 28px;
+  }
+
+  #tabla-cumpleanos tbody tr td {
+    padding: 10px 8px;
+    font-size: 0.84rem;
+  }
+
+  #filtros-card .card-body {
+    padding: 16px;
+  }
+
+  #proximos-card .card-body {
+    padding: 16px;
+  }
+
+  #timeline-card .card-body {
+    padding: 16px;
+  }
+
+  .resumen-item .h4 {
+    font-size: 1.3rem;
+  }
 }
 
+/* Scrollbar sutil para sidebar próximos */
+.proximos-list::-webkit-scrollbar {
+  width: 5px;
+}
 
+.proximos-list::-webkit-scrollbar-track {
+  background: transparent;
+}
 
+.proximos-list::-webkit-scrollbar-thumb {
+  background: var(--rc-pill-border);
+  border-radius: 4px;
+}
 
+.proximos-list::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-blue);
+}
