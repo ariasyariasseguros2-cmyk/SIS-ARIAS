@@ -484,16 +484,18 @@ const Cuotas = (() => {
           return;
         }
         const tds = tr.querySelectorAll('td');
-        // Cola actual: #, Cupón, F.Venc, Importe, F.Pago, Factura, Observación, Acción
-        if (tds[4]) tds[4].textContent = '';  // F.Pago
+        // Columnas actuales: #, Cupón, F.Venc, Importe, F.Pago, Factura, Observación, Acción
+        if (tds[4]) tds[4].textContent = '';  // Fecha Pago
         if (tds[5]) tds[5].textContent = '';  // Factura
-        // Observación actualizo vía dataset para que updateObservationCell lo pinte bien
+        // Limpio TODOS los datasets (incluida Fecha Factura) para que Detalles no la muestre
         tr.dataset.fechaPago = '';
         tr.dataset.factura = '';
         tr.dataset.fechaFactura = '';
         tr.dataset.observacion = '';
         tr.dataset.documento = '';
         updateObservationCell(tr);
+        updateActionState(tr);
+        // Ocultar botones que dependen de Factura/Pago/Documento
         const btnRevert = tr.querySelector('.btn-revert');
         if (btnRevert) btnRevert.style.display = 'none';
         const btnPdf = tr.querySelector('.btn-pdf');
