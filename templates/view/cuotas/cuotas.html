@@ -159,6 +159,7 @@
                 data-documento="{{ r.documento or '' }}" 
                 data-fecha-pago="{{ r.fecha_pago or '' }}"
                 data-factura="{{ r.factura or '' }}"
+                data-fecha-factura="{{ r.fecha_factura or '' }}"
                 data-observacion="{{ r.observacion or '' }}"
                 data-usuario-registro="{{ r.usuario_registro_display or r.usuario_registro or '' }}"
                 data-fecha-creado="{{ r.fecha_creado or '' }}">
@@ -279,6 +280,12 @@
                           <span class="text-secondary">Factura / Recibo</span>
                           <span id="detailFactura" class="fw-bold"></span>
                       </div>
+                      <div class="detail-row" id="detailRowFechaFactura" style="display:none;">
+                          <span class="text-secondary">
+                              <i class="bi bi-receipt-cutoff me-1 text-primary"></i>Fecha Factura
+                          </span>
+                          <span id="detailFechaFactura" class="fw-semibold text-primary"></span>
+                      </div>
                   </div>
 
                   <!-- Timeline de Fechas -->
@@ -287,6 +294,12 @@
                       <div class="timeline-point">
                           <span id="detailFechaVenc" class="timeline-date"></span>
                           <span class="timeline-desc">Fecha Vencimiento</span>
+                      </div>
+                      <div class="timeline-point" id="detailTimelineFechaFactura" style="display:none;">
+                          <span id="detailTimelineFechaFacturaVal" class="timeline-date text-primary"></span>
+                          <span class="timeline-desc">
+                              <i class="bi bi-receipt-cutoff me-1"></i>Emisión Factura
+                          </span>
                       </div>
                       <div class="timeline-point end">
                           <span id="detailFechaPago" class="timeline-date"></span>
@@ -301,12 +314,13 @@
           <div class="panel-footer-info">
               <div class="d-flex flex-wrap gap-4 w-100 justify-content-between">
                   <div>
-                      <i class="bi bi-info-circle me-2"></i>
-                      <span class="text-muted small">Registrado por:</span>
+                      <i class="bi bi-person-badge me-1 text-muted"></i>
+                      <span class="text-muted small">Registro creado por:</span>
                       <span id="detailFooterUsuario" class="fw-semibold ms-1"></span>
                   </div>
                   <div>
-                      <span class="text-muted small">Fecha y hora de registro:</span>
+                      <i class="bi bi-calendar3-event me-1 text-muted"></i>
+                      <span class="text-muted small">Fecha y hora de creación del registro:</span>
                       <span id="detailFooterFechaCreado" class="fw-semibold ms-1"></span>
                   </div>
               </div>
@@ -386,9 +400,9 @@
 {% block extra_js_bottom %}
 {{ super() }}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="{{ url_for('static', filename='js/cuotas/cuotas.js') }}"></script>
-<script src="{{ url_for('static', filename='js/cuotas/add_cuota_modal.js') }}"></script>
-<script src="{{ url_for('static', filename='js/cuotas/edit_cuota_modal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/cuotas/cuotas.js') }}?v=20260828"></script>
+<script src="{{ url_for('static', filename='js/cuotas/add_cuota_modal.js') }}?v=20260828"></script>
+<script src="{{ url_for('static', filename='js/cuotas/edit_cuota_modal.js') }}?v=20260828"></script>
 <script>
   Cuotas.init();
 </script>

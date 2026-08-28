@@ -152,6 +152,7 @@ const Cuotas = (() => {
       importe: tds[3]?.textContent.trim() || '',
       fecha_pago: tr.dataset.fechaPago || '',
       factura: tr.dataset.factura || '',
+      fecha_factura: tr.dataset.fechaFactura || '',
       observacion: tr.dataset.observacion || '',
       documento: tr.dataset.documento || '',
       usuario_registro: tr.dataset.usuarioRegistro || '',
@@ -170,7 +171,9 @@ const Cuotas = (() => {
 
   function updateObservationCell(tr) {
     if (!tr) return;
-    const cell = tr.querySelector('td:nth-child(7)');
+    const tds = tr.querySelectorAll('td');
+    // Observación siempre es la penúltima columna (última antes de Acciones)
+    const cell = tds.length >= 2 ? tds[tds.length - 2] : null;
     if (!cell) return;
     const observacion = escapeHtml(tr.dataset.observacion || '');
     const motivo = escapeHtml(tr.dataset.motivoAnulacion || '');
@@ -341,6 +344,7 @@ const Cuotas = (() => {
     tr.dataset.idcuota = data.idCuota || '';
     tr.dataset.fechaPago = data.fecha_pago || '';
     tr.dataset.factura = data.factura || '';
+    tr.dataset.fechaFactura = data.fecha_factura || '';
     tr.dataset.observacion = data.observacion || '';
     tr.dataset.documento = documentoActual;
     tr.dataset.activo = '1';
@@ -480,13 +484,16 @@ const Cuotas = (() => {
           return;
         }
         const tds = tr.querySelectorAll('td');
-        if (tds[4]) tds[4].textContent = '';
-        if (tds[5]) tds[5].textContent = '';
-        if (tds[6]) tds[6].textContent = '';
+        // Cola actual: #, Cupón, F.Venc, Importe, F.Pago, Factura, Observación, Acción
+        if (tds[4]) tds[4].textContent = '';  // F.Pago
+        if (tds[5]) tds[5].textContent = '';  // Factura
+        // Observación actualizo vía dataset para que updateObservationCell lo pinte bien
         tr.dataset.fechaPago = '';
         tr.dataset.factura = '';
+        tr.dataset.fechaFactura = '';
         tr.dataset.observacion = '';
         tr.dataset.documento = '';
+        updateObservationCell(tr);
         const btnRevert = tr.querySelector('.btn-revert');
         if (btnRevert) btnRevert.style.display = 'none';
         const btnPdf = tr.querySelector('.btn-pdf');
@@ -525,9 +532,13 @@ const Cuotas = (() => {
     setText('detailFooterUsuario', usuario);
     setText('detailFooterFechaCreado', fechaCreado ? (fechaCreado ) : '');
 
-    // Mostrar / ocultar Fecha Factura según si existe el valor.
-    // Si factura o fecha_factura están vacíos → no mostramos, para no confundir.
-    const fechaFacturaVal = data.fecha_factura ? String(data.fecha_factura).trim() : '';
+    // Mostrar Fecha Factura SOLO en el Resumen Económico (fila de la tarjeta).
+    // NO mostrarla en el Timeline "Fechas Clave" (lo pide oculto).
+    let fechaFacturaVal = data.fecha_factura ? String(data.fecha_factura).trim() : '';
+    // Normalizar formato dd-mm-yyyy (o dd-mm-yyyy hh:mm) -> dd/mm/yyyy
+    if (fechaFacturaVal) {
+      fechaFacturaVal = fechaFacturaVal.replace(/-/g, '/').split(' ')[0];
+    }
     const tieneFactura = !!(data.factura && String(data.factura).trim());
     const rowFechaFactura = document.getElementById('detailRowFechaFactura');
     const tlFechaFactura  = document.getElementById('detailTimelineFechaFactura');
@@ -537,8 +548,9 @@ const Cuotas = (() => {
     if (rowFechaFactura) {
       rowFechaFactura.style.display = (tieneFactura && fechaFacturaVal) ? '' : 'none';
     }
+    // Timeline "Emisión Factura" permanentemente oculto
     if (tlFechaFactura) {
-      tlFechaFactura.style.display = fechaFacturaVal ? '' : 'none';
+      tlFechaFactura.style.display = 'none';
     }
 
     // Limpiar el campo de documento mientras carga
