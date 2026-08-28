@@ -103,7 +103,7 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
         start = max(0, m.start() - 20)
         end = min(len(t), m.end() + window)
         segment = t[start:end]
-        nm = re.search(r"\b([0-9]{6,12})\b", segment, re.IGNORECASE | re.DOTALL)
+        nm = re.search(r"\b([0-9]{4,12})\b", segment, re.IGNORECASE | re.DOTALL)
         return nm.group(1).strip() if nm else None
 
     # NUEVOS HELPERS
@@ -112,7 +112,69 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
         if not m:
             return []
         seg = t[m.end(): m.end() + window]
-        return re.findall(r"\b([0-9]{6,12})\b", seg, re.IGNORECASE | re.DOTALL)
+        return re.findall(r"\b([0-9]{4,12})\b", seg, re.IGNORECASE | re.DOTALL)
+
+    def _find_poliza_number_via_ndeg(text: str, flat: str) -> str | None:
+        """Buscar el número de póliza específicamente después de N°/Nro/N.° que
+        aparece en la misma línea o cerca de la etiqueta POLIZA (antes de la tabla)."""
+        # 1) Patrón más fuerte: POLIZA ... N° XXXXXX (en el mismo segmento antes de la tabla)
+        patterns_line = [
+            r"P[ÓO]LI?ZA\b[^\n]{0,300}?N[°º\.]?\s*([0-9]{4,12})",
+            r"P[ÓO]LI?ZA\b[^\n]{0,300}?NRO\s*[\.:]?\s*([0-9]{4,12})",
+        ]
+        for pat in patterns_line:
+            m = re.search(pat, text, re.IGNORECASE | re.DOTALL)
+            if m:
+                return m.group(1).strip()
+            m2 = re.search(pat, flat, re.IGNORECASE | re.DOTALL)
+            if m2:
+                return m2.group(1).strip()
+        # 2) Fallback: buscar cualquier N° XX antes de que empiece la tabla de DOCUMENTO
+        seg_pre_tabla = flat
+        idx_doc = re.search(r"\bDOCUMENTO\s+NOMBRES\b", flat, re.IGNORECASE)
+        if idx_doc:
+            seg_pre_tabla = flat[: idx_doc.start()]
+        m3 = re.search(
+            r"P[ÓO]LI?ZA\b.{0,500}?N[°º\.]?\s*([0-9]{4,12})",
+            seg_pre_tabla, re.IGNORECASE | re.DOTALL
+        )
+        if m3:
+            return m3.group(1).strip()
+        return None
+
+    def _filter_out_dni_table_candidates(candidates: list[str], text: str, flat: str) -> list[str]:
+        """Eliminar candidatos que son DNIs/documentos de la tabla de trabajadores.
+        Detecta la cabecera DOCUMENTO / DOCUMENTO NOMBRES y descarta los primeros
+        números que aparecen después (la columna DOCUMENTO)."""
+        if not candidates:
+            return candidates
+        # Buscar la cabecera de la tabla. Si no existe, no filtramos.
+        header_match = None
+        for pat in [r"\bDOCUMENTO\s+NOMBRES\b", r"\bDOCUMENTO\b"]:
+            m = re.search(pat, flat, re.IGNORECASE)
+            if m:
+                header_match = m
+                break
+        if not header_match:
+            # Fallback: buscar en text original
+            for pat in [r"\bDOCUMENTO\s+NOMBRES\b", r"\bDOCUMENTO\b"]:
+                m = re.search(pat, text, re.IGNORECASE)
+                if m:
+                    header_match = m
+                    break
+        if not header_match:
+            return candidates
+        # Posición donde empieza la tabla de trabajadores (después de la cabecera).
+        tabla_start = header_match.end()
+        # Encontrar los números de 8 dígitos (DNI típico) que aparecen en las primeras
+        # filas de la tabla — esos son DOCUMENTOS, no pólizas.
+        post_header = flat[tabla_start: tabla_start + 3000]
+        dni_candidates = set(re.findall(r"\b(\d{8})\b", post_header))
+        # También quitar cualquier número de 8 dígitos que esté cerca (primera columna de la tabla)
+        # Y remover también el recibo si fuera parte.
+        filtered = [n for n in candidates if n not in dni_candidates]
+        # Si tras filtrar se quedó vacío, volver al original (evitar perder candidatos si el filtro fue agresivo)
+        return filtered if filtered else candidates
 
     def _choose_poliza(candidates: list[str], recibo_val: str | None) -> str | None:
         if not candidates:
@@ -245,29 +307,63 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
     print("[pacifico] texto extraído (head 600):", text[:600].replace("\n", "\\n"))
     print("[pacifico] flat (head 600):", flat[:600])
 
-    # Recibo primero
+    # Recibo primero (admitir LIQUIDACION N° tanto con como sin "DE PRIMA")
     recibo = (
-        _find(r"LIQUIDACI[oó]N\s+DE\s+PRIMA\s*N[°º]\s*(?:\n|\r|\s)*([0-9]{6,12})", text)
-        or _find_after(r"LIQUIDACI[oó]N\s+DE\s+PRIMA\b", flat, r"N[°º]\s*([0-9]{6,12})", window=220)
-        or _find_number_near(r"LIQUIDACI[oó]N\s+DE\s+PRIMA\b", flat, window=320)
+        _find(r"LIQUIDACI[oó]N\s+(?:DE\s+PRIMA\s+)?N[°º]\s*(?:\n|\r|\s)*([0-9]{4,12})", text)
+        or _find_after(r"LIQUIDACI[oó]N\b", flat, r"N[°º]\s*([0-9]{4,12})", window=220)
+        or _find_number_near(r"LIQUIDACI[oó]N\b", flat, window=320)
     )
 
-    # Póliza: elegir entre candidatos cerca de "POLIZA", descartando el recibo y prefiriendo 8+ dígitos
-    poliza_candidates = (
+    # Póliza: PRIORIDAD 1 -> número después de N°/Nro junto a la etiqueta POLIZA (antes de tabla)
+    numero_poliza_ndeg = _find_poliza_number_via_ndeg(text, flat)
+    print("[pacifico] numero_poliza via N°:", numero_poliza_ndeg)
+
+    # Póliza: elegir entre candidatos cerca de "POLIZA", descartando el recibo, DNIs de tabla y prefiriendo 8+ dígitos
+    poliza_candidates_raw = (
         _numbers_after(r"\bP[ÓO]LI?ZA\b\s*:", flat, 500)
         or _numbers_after(r"\bP[ÓO]LI?ZA\b", flat, 500)
         or _numbers_after(r"\bPOLI?ZA\b", text, 500)
     )
-    print("[pacifico] poliza candidatos:", poliza_candidates)
+    # Filtrar candidatos que son DNIs/documentos de la tabla de trabajadores
+    poliza_candidates = _filter_out_dni_table_candidates(poliza_candidates_raw, text, flat)
+    # Si el número vía N° es válido, meterlo al frente de la lista para preferirlo
+    if numero_poliza_ndeg:
+        if poliza_candidates and poliza_candidates[0] != numero_poliza_ndeg:
+            poliza_candidates = [numero_poliza_ndeg] + [c for c in poliza_candidates if c != numero_poliza_ndeg]
+        elif not poliza_candidates:
+            poliza_candidates = [numero_poliza_ndeg]
+    print("[pacifico] poliza candidatos (tras filtro DNI tabla + N°):", poliza_candidates)
     numero_poliza = (
-        _choose_poliza(poliza_candidates, recibo)
-        or _find(r"P[ÓO]LI?ZA\s*:?\s*(?:\n|\r|\s)*([0-9]{6,12})", text)
-        or _find_after(r"\bP[ÓO]LI?ZA\b\s*:?", flat, r"([0-9]{6,12})", window=200)
+        (numero_poliza_ndeg if numero_poliza_ndeg else None)
+        or _choose_poliza(poliza_candidates, recibo)
+        or _find(r"P[ÓO]LI?ZA\s*:?\s*(?:\n|\r|\s)*([0-9]{4,12})", text)
+        or _find_after(r"\bP[ÓO]LI?ZA\b\s*:?", flat, r"([0-9]{4,12})", window=200)
         or _find_number_near(r"\bP[ÓO]LI?ZA\b", flat, window=400)
     )
-    if numero_poliza and not re.match(r"^[0-9]{6,12}$", numero_poliza):
+    if numero_poliza and not re.match(r"^[0-9]{4,12}$", numero_poliza):
         print("[pacifico] numero_poliza inválido capturado:", numero_poliza)
         numero_poliza = None
+
+    # Contratante: priorizar "CLIENTE" (formato anexo detallado) y luego "Contratante"
+    cliente_blk = _capture_block_after(
+        r"\bCLIENTE\b", text,
+        ["POLIZA", "PÓLIZA", "Vigencia", "Moneda", "DOCUMENTO", "LIQUIDACION", "Asegurado", "Contratante"]
+    )
+    print("[pacifico] cliente_blk:", cliente_blk)
+    cliente_val = None
+    if cliente_blk:
+        clean_blk = re.sub(r"\s+[0-9]+$", "", cliente_blk.strip())
+        # Quitar indicadores de tipo de contribuyente solitarios al final (ej: "B", "J", "N")
+        clean_blk = re.sub(r"\s+[A-Z]\s*$", "", clean_blk)
+        m_name = re.search(r"([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\.\- ]+(?:S\.A\.C\.?|S\.R\.L\.?|E\.I\.R\.L\.?|S\.A\.?|S\.A\.A\.?))", clean_blk, re.IGNORECASE)
+        cliente_val = m_name.group(1) if m_name else clean_blk.strip()
+    else:
+        cliente_val = (
+            _find_after(r"\bCLIENTE\b\s*:?", flat, r"([A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120})", window=200)
+            or _find(r"CLIENTE\s*:?\s*(.+)", text)
+        )
+        if cliente_val:
+            cliente_val = re.sub(r"\s+[A-Z]\s*$", "", cliente_val.strip())
 
     # Contratante (Nuevo)
     contratante_blk = _capture_block_after(
@@ -287,6 +383,9 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
             _find_after(r"Contratante\b\s*:?", flat, r"([A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120})", window=200)
             or _find(r"Contratante\s*:?\s*(.+)", text)
         )
+    # Fallback: usar CLIENTE si no hubo Contratante
+    if not contratante and cliente_val:
+        contratante = cliente_val
     
     if contratante:
         contratante = re.sub(r"\bHAW\s+K\b", "HAWK", contratante, flags=re.IGNORECASE)
@@ -312,6 +411,12 @@ def parse_pacifico_vidaley(text: str) -> dict | None:
         or _find_after(r"Asegurado\b\s*:?", flat, r"([A-ZÁÉÍÓÚÑ0-9\.\- ]{6,120})", window=220)
         or _capture_block_after(r"Asegurado\b", text, ["Dirección", "Plan", "Agente", "REG. PROD.", "CODIGO", "Moneda", "DOCUMENTO", "LIQUIDACION", "Vigencia", "POLIZA"])
     )
+    # Fallback: usar CLIENTE o Contratante si no hubo Asegurado
+    if not asegurado:
+        if contratante:
+            asegurado = contratante
+        elif cliente_val:
+            asegurado = cliente_val
     if asegurado:
         asegurado = re.sub(r"\bHAW\s+K\b", "HAWK", asegurado, flags=re.IGNORECASE)
 
