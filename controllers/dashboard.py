@@ -566,6 +566,24 @@ def get_pending_renewals_list(bucket: str, limit: int = 500) -> List[dict]:
               AND (p.anulado = 0 OR p.anulado IS NULL)
               AND COALESCE(p.prima_anulada, 0) = 0
               AND p.vig_hasta >= CURDATE()
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM polizas p2
+                    WHERE (p2.activo = 1 OR p2.activo IS NULL)
+                      AND (p2.anulado = 0 OR p2.anulado IS NULL)
+                      AND COALESCE(p2.prima_anulada, 0) = 0
+                      AND p2.vig_hasta IS NOT NULL
+                      AND p2.vig_hasta > p.vig_hasta
+                      AND TRIM(COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(p2.poliza), @SIS_KEY) AS CHAR),
+                            CAST(AES_DECRYPT(p2.poliza, @SIS_KEY) AS CHAR),
+                            p2.poliza
+                      )) COLLATE utf8mb4_0900_ai_ci = TRIM(COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                            CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                            p.poliza
+                      )) COLLATE utf8mb4_0900_ai_ci
+              )
               {grupo_filter}
               {renovar_filter}
               {user_filter}

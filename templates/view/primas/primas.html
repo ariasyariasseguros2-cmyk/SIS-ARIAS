@@ -3,15 +3,16 @@
 {% block html_title %}Primas | SIS-ARIAS{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/primas/primas.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/primas/editar-primas.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/primas/Mostrar-detalles-primas.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/primas/primas.css', v='20260923') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/primas/editar-primas.css', v='20260923') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/primas/Mostrar-detalles-primas.css', v='20260923') }}">
 {% endblock %}
 
 {% block page_title %}{% endblock %}
 
 {% block content %}
-<div class="primas-page">
+{% set highlight_context = highlight_poliza and (details.poliza|string|trim) == (highlight_poliza|string|trim) %}
+<div class="primas-page" data-poliza="{{ details.poliza }}" data-highlight-id="{{ highlight_id or '' }}" data-highlight-poliza="{{ highlight_poliza or '' }}">
 
     <div class="primas-header">
         <div class="primas-header-top">
@@ -49,7 +50,7 @@
         </div>
     </div>
 
-    <div class="policy-card">
+    <div class="policy-card{% if highlight_context %} policy-card-highlight{% endif %}">
         <div class="policy-card-header">
             <div class="policy-asegurado-icon">
                 <i class="bi-person-vcard-fill"></i>
@@ -133,8 +134,10 @@
                 </thead>
                 <tbody>
                     {% for r in rows %}
+                    {% set row_highlight = highlight_id and (r.idPrima|int) == (highlight_id|int) %}
                     <tr data-idprima="{{ r.idPrima }}"
-                        {% if r.prima_anulada %}class="prima-row prima-anulada"{% else %}class="prima-row"{% endif %}>
+                        data-poliza="{{ r.poliza }}"
+                        class="prima-row{% if r.prima_anulada %} prima-anulada{% endif %}{% if row_highlight %} prima-highlight-context{% endif %}">
                         <td class="col-aviso">
                             <div class="cell-wrap">
                                 {% set aviso_value = r.aviso if r.aviso and r.aviso not in ['None', 'null', 'NULL'] else '—' %}
@@ -390,6 +393,6 @@
 
 {% block extra_js_bottom %}
 {{ super() }}
-<script src="{{ url_for('static', filename='js/primas/editar-primas.js') }}"></script>
-<script src="{{ url_for('static', filename='js/primas/primas.js') }}"></script>
+<script src="{{ url_for('static', filename='js/primas/editar-primas.js', v='20260923') }}"></script>
+<script src="{{ url_for('static', filename='js/primas/primas.js', v='20260923-2') }}"></script>
 {% endblock %}

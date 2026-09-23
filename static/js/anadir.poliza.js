@@ -606,14 +606,7 @@
     return list;
   }
   function syncMotivoTopToItems(items, force = false) {
-    if (!force && !motivoTopDirty) return items;
-    const list = Array.isArray(items) ? items : [];
-    const motivoTop = String(motivoTopEl?.value || '').trim();
-    list.forEach(item => {
-      if (!item) return;
-      item.motivo = motivoTop;
-    });
-    return list;
+    return Array.isArray(items) ? items : [];
   }
   function normalizePolicyLookupKey(value) {
     return String(value || '').replace(/\s+/g, '').trim().toLowerCase();
@@ -1682,9 +1675,6 @@
       // }
       if (aseguradaTop && (!it.asegurada || it.asegurada.trim() === '')) {
         it.asegurada = aseguradaTop;
-      }
-      if (motivoTop && (!it.motivo || it.motivo.trim() === '')) {
-        it.motivo = motivoTop;
       }
       if (nroOpTop && (!it.nro || it.nro.trim() === '')) {
         it.nro = nroOpTop;
@@ -3669,6 +3659,9 @@
         processedFilesForMeta.push(file);
         processedOkCount++;
         let pdfItems = __extractItemsFromPayload(payload);
+        pdfItems.forEach(item => {
+          item.motivo = file.name || '';
+        });
         console.log(`[upload-${appendMode?'append':'replace'}] PDF ${i+1}/${totalN} "${file ? file.name : ''}" items:`, pdfItems.length);
         if (pdfItems.length) {
           setLoadingSwalProgress(i + 1, totalN, file ? file.name : '', `+${pdfItems.length} ítem(s) ${appendMode ? 'agregados' : 'extraídos'}.`);
@@ -3815,15 +3808,6 @@
   motivoTopEl?.addEventListener('input', () => {
     motivoTopDirty = true;
     syncMotivoTopToItems(extractedItems, true);
-    const motivoVal = String(motivoTopEl.value || '').trim();
-    Array.from(tbody.querySelectorAll('tr')).forEach((tr, i) => {
-      const tdMotivo = tr.querySelector('td[data-field="motivo"]');
-      if (tdMotivo && extractedItems[i]) {
-        if (motivoVal || (!extractedItems[i].motivo || extractedItems[i].motivo.trim() === '')) {
-          tdMotivo.textContent = motivoVal;
-        }
-      }
-    });
     scheduleAutoSave();
   });
 

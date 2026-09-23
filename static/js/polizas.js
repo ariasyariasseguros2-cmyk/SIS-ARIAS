@@ -199,6 +199,45 @@
     };
 
     let currentSearchType = 'general';
+    const urlParams = new URLSearchParams(window.location.search);
+    const highlightPolizaId = urlParams.get('highlight');
+    const highlightPolizaNumero = (urlParams.get('highlight_poliza') || '').trim();
+
+    function matchesHighlightedRow(row) {
+      if (!row) return false;
+
+      const rowId = String(row.getAttribute('data-id') || row.getAttribute('data-poliza-id') || '').trim();
+      const rowPoliza = String(row.getAttribute('data-poliza') || '').trim();
+
+      return (
+        (highlightPolizaId && rowId === String(highlightPolizaId).trim()) ||
+        (highlightPolizaNumero && rowPoliza === highlightPolizaNumero)
+      );
+    }
+
+    function applyHighlightToRow(row, shouldScroll = false) {
+      if (!row || (!highlightPolizaId && !highlightPolizaNumero)) return;
+
+      row.classList.add('poliza-highlight-renovar');
+      row.id = 'polizaHighlight';
+
+      row.querySelectorAll('td').forEach(td => {
+        td.style.setProperty('background-color', 'var(--notif-expired-bg)', 'important');
+      });
+
+      if (shouldScroll) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    function applyHighlightInTable(shouldScroll = false) {
+      if ((!highlightPolizaId && !highlightPolizaNumero) || !table) return;
+
+      const row = Array.from(table.querySelectorAll('.poliza-row')).find(matchesHighlightedRow);
+
+      if (!row) return;
+      applyHighlightToRow(row, shouldScroll);
+    }
 
     // === 1. LÓGICA DE TABS (FILTROS DE BÚSQUEDA) ===
     if (searchTabs) {
@@ -299,6 +338,8 @@
       rows.forEach(r => {
         const tr = document.createElement('tr');
         tr.setAttribute('data-id', r.idPoliza);
+        tr.setAttribute('data-poliza-id', r.idPoliza);
+        tr.setAttribute('data-poliza', v(r.poliza));
         tr.setAttribute('data-emision', r.fecha_emision || '');
         tr.className = 'poliza-row';
 
@@ -323,9 +364,13 @@
 
         const vigDesde = v(r.ren_vig_desde || r.vig_desde);
         const vigHasta = v(r.ren_vig_hasta || r.vig_hasta);
-          const clienteId = table.getAttribute('data-cliente-id') || '';
-          const clienteQuery = clienteId ? `&cliente_id=${encodeURIComponent(clienteId)}` : '';
-          const primasHref = `${primasUrlBase}?poliza=${encodeURIComponent(v(r.poliza))}&return=polizas${clienteQuery}`;
+        const clienteId = table.getAttribute('data-cliente-id') || '';
+        const clienteQuery = clienteId ? `&cliente_id=${encodeURIComponent(clienteId)}` : '';
+        const shouldCarryHighlight = matchesHighlightedRow(tr);
+        const highlightQuery = shouldCarryHighlight
+          ? `&highlight=${encodeURIComponent(String(r.idPoliza || ''))}&highlight_poliza=${encodeURIComponent(v(r.poliza))}`
+          : '';
+        const primasHref = `${primasUrlBase}?poliza=${encodeURIComponent(v(r.poliza))}&return=polizas${clienteQuery}${highlightQuery}`;
         const extractoHref = `/menu/cuotas?poliza=${encodeURIComponent(v(r.poliza))}`;
         const detallesHref = `/menu/detalles-poliza?id=${r.idPoliza}`;
         const editarHref = `/menu/editar-poliza?id=${r.idPoliza}`;
@@ -371,6 +416,10 @@
           </td>
         `;
         tbody.appendChild(tr);
+
+        if (matchesHighlightedRow(tr)) {
+          applyHighlightToRow(tr);
+        }
       });
       
       // Actualizar referencias para el filtro local
@@ -423,6 +472,8 @@
     if (tableSearchInput) {
       tableSearchInput.addEventListener('input', (e) => filterLocalRows(e.target.value));
     }
+
+    applyHighlightInTable(true);
 
     // === 4. DELEGACIÓN DE ACCIONES (Lógica Original Preservada) ===
     table?.addEventListener('click', async (e) => {

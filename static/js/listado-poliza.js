@@ -21,6 +21,45 @@ document.addEventListener('DOMContentLoaded', () => {
   const siniestrosUrlBase = cardContainer?.getAttribute('data-siniestros-url') || '/menu/siniestros-poliza';
 
   let currentSearchType = 'general';
+  const urlParams = new URLSearchParams(window.location.search);
+  const highlightPolizaId = urlParams.get('highlight');
+  const highlightPolizaNumero = (urlParams.get('highlight_poliza') || '').trim();
+
+  function matchesHighlightedRow(row) {
+    if (!row) return false;
+
+    const rowId = String(row.getAttribute('data-id') || row.getAttribute('data-poliza-id') || '').trim();
+    const rowPoliza = String(row.getAttribute('data-poliza') || '').trim();
+
+    return (
+      (highlightPolizaId && rowId === String(highlightPolizaId).trim()) ||
+      (highlightPolizaNumero && rowPoliza === highlightPolizaNumero)
+    );
+  }
+
+  function applyHighlightToRow(row, shouldScroll = false) {
+    if (!row || (!highlightPolizaId && !highlightPolizaNumero)) return;
+
+    row.classList.add('poliza-highlight-renovar');
+    row.id = 'polizaHighlight';
+
+    row.querySelectorAll('td').forEach(td => {
+      td.style.setProperty('background-color', 'var(--notif-expired-bg)', 'important');
+    });
+
+    if (shouldScroll) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  function applyHighlightInTable(shouldScroll = false) {
+    if ((!highlightPolizaId && !highlightPolizaNumero) || !table) return;
+
+    const row = Array.from(table.querySelectorAll('.poliza-row')).find(matchesHighlightedRow);
+
+    if (!row) return;
+    applyHighlightToRow(row, shouldScroll);
+  }
 
   const anularModalEl = document.getElementById('anularPolizaModal');
   const anularModalInstance = (anularModalEl && window.bootstrap)
@@ -401,8 +440,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const tr = document.createElement('tr');
       tr.className = 'poliza-row';
       tr.setAttribute('data-id', idP);
+      tr.setAttribute('data-poliza-id', idP);
       tr.setAttribute('data-emision', esc(r.fecha_emision || ''));
       tr.setAttribute('data-poliza', pol);
+      const shouldCarryHighlight = matchesHighlightedRow(tr);
+      const highlightQuery = shouldCarryHighlight
+        ? `&highlight=${encodeURIComponent(idP)}&highlight_poliza=${encodeURIComponent(pol)}`
+        : '';
 
       // MISMA ESTRUCTURA QUE JINJA: (1) Contratante (2) Aseg (3) Cía (4) Ram (5) Prod (6) Pol (7) VigI (8) VigF (9) SubAg (10) MAseg (11) Acc
       tr.innerHTML = `
@@ -424,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             <button type="button" class="btn-nueva-poliza" data-action="nueva-poliza" title="Nueva póliza para este cliente"></button>
 
-            <a href="${primasUrlBase}?poliza=${polEnc}" class="btn-action btn-primary text-decoration-none">
+            <a href="${primasUrlBase}?poliza=${polEnc}${highlightQuery}" class="btn-action btn-primary text-decoration-none">
               <i class="bi bi-file-earmark-check-fill"></i><span>PRIMAS</span>
             </a>
 
@@ -455,6 +499,10 @@ document.addEventListener('DOMContentLoaded', () => {
         </td>
       `;
       tbody.appendChild(tr);
+
+      if (matchesHighlightedRow(tr)) {
+        applyHighlightToRow(tr);
+      }
     });
   }
 
@@ -593,6 +641,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  applyHighlightInTable(true);
 
   // === 4. Manejo de Acciones (Delegación de eventos) ===
   if (table) {

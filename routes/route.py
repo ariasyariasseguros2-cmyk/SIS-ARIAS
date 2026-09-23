@@ -24,6 +24,35 @@ from models.db import get_connection, get_encrypt_key
 bp = Blueprint('main', __name__)
 
 
+def _parse_highlight_date(value):
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if hasattr(value, 'year') and hasattr(value, 'month') and hasattr(value, 'day'):
+        return value
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%Y/%m/%d', '%Y-%m-%d %H:%M:%S'):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except Exception:
+            pass
+    return None
+
+
+def _is_valid_highlight_date(value):
+    target = _parse_highlight_date(value)
+    if not target:
+        return False
+
+    today = datetime.today().date()
+    return target < today or (target.year == today.year and target.month == today.month)
+
+
 def _get_current_user_ejecutivo():
     username = (session.get('user') or '').strip()
     if not username:
@@ -1599,6 +1628,18 @@ def menu_page(page):
             except Exception as e:
                 print(f'[polizas] No se pudo cargar cliente de URL: {e}')
         data = get_polizas_data(selected)
+        highlight_id = request.args.get('highlight', type=int)
+        highlight_poliza = request.args.get('highlight_poliza', type=str)
+        if highlight_id or highlight_poliza:
+            target_row = next((
+                r for r in (data.get('rows') or [])
+                if (highlight_id and int(r.get('idPoliza') or 0) == int(highlight_id))
+                or (highlight_poliza and str(r.get('poliza') or '').strip() == str(highlight_poliza).strip())
+            ), None)
+            vig_ref = (target_row or {}).get('ren_vig_hasta') or (target_row or {}).get('vig_hasta')
+            if not _is_valid_highlight_date(vig_ref):
+                highlight_id = None
+                highlight_poliza = None
         return render_template(
             'view/polizas.html',
             page='polizas',
@@ -1606,7 +1647,8 @@ def menu_page(page):
             rows=data['rows'],
             details=data.get('details', {}),
             selected_cliente_id=selected.get('idCliente'),
-            highlight_id=request.args.get('highlight', type=int)
+            highlight_id=highlight_id,
+            highlight_poliza=highlight_poliza
         )
 
     # NUEVO: Listado de pólizas con paginación (global: todas las pólizas)
@@ -1661,7 +1703,9 @@ def menu_page(page):
             'view/listado-poliza.html',
             page='listado-poliza',
             page_rows=page_rows,
-            pagination=pagination
+            pagination=pagination,
+            highlight_id=request.args.get('highlight', type=int),
+            highlight_poliza=request.args.get('highlight_poliza', type=str)
         )
 
     # REPORTE: Archivos Póliza
@@ -1726,6 +1770,12 @@ def menu_page(page):
         numero_poliza = request.args.get('poliza') or None
         return_to = request.args.get('return') or request.args.get('return_to')
         data = get_primas_data(selected, numero_poliza)
+        highlight_id = request.args.get('highlight', type=int)
+        highlight_poliza = request.args.get('highlight_poliza', type=str)
+        vig_ref = (data.get('details') or {}).get('vig_hasta')
+        if not _is_valid_highlight_date(vig_ref):
+            highlight_id = None
+            highlight_poliza = None
         return render_template(
             'view/primas/primas.html',
             page='primas',
@@ -1733,7 +1783,9 @@ def menu_page(page):
             rows=data['rows'],
             details=data.get('details', {}),
             return_to=return_to,
-            selected_cliente_id=selected.get('idCliente')
+            selected_cliente_id=selected.get('idCliente'),
+            highlight_id=highlight_id,
+            highlight_poliza=highlight_poliza
         )
 
     # NUEVO: Detalles de Póliza
@@ -4207,7 +4259,13 @@ def open_polizas_from_notification(poliza_id):
                 c.tipo_documento,
                 c.numero_documento,
                 c.telefono,
-                COALESCE(c.subagente, p.sub_agente, '') AS subagente
+                COALESCE(c.subagente, p.sub_agente, '') AS subagente,
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                    CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                    p.poliza
+                ) AS poliza,
+                p.vig_hasta
             FROM polizas p
             INNER JOIN clientes c ON c.idCliente = p.cliente_id
             WHERE p.idPoliza = %s AND p.activo = 1 AND p.anulado = 0
@@ -4229,7 +4287,11 @@ def open_polizas_from_notification(poliza_id):
             'tel':         row.get('telefono'),
             'subagente':   row.get('subagente'),
         }
-        return redirect(url_for('main.menu_page', page='polizas', highlight=poliza_id))
+        redirect_args = {'page': 'polizas'}
+        if _is_valid_highlight_date(row.get('vig_hasta')):
+            redirect_args['highlight'] = poliza_id
+            redirect_args['highlight_poliza'] = (row.get('poliza') or '').strip()
+        return redirect(url_for('main.menu_page', **redirect_args))
     except Exception as e:
         print(f"[notifications.open_polizas] {e}")
         return redirect(url_for('main.menu_page', page='listado-poliza'))

@@ -155,6 +155,11 @@ body, html {
     overflow: hidden;
 }
 
+.policy-card.policy-card-highlight {
+    border-color: var(--notif-expired-border, #fecdd3);
+    background: var(--notif-expired-bg, #fff1f2);
+}
+
 .policy-card-header {
     padding: 10px 14px;
     display: flex;
@@ -166,6 +171,19 @@ body, html {
 
 [data-theme='dark'] .policy-card-header {
     background: linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
+}
+
+.policy-card.policy-card-highlight .policy-card-header {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(244, 63, 94, 0.04) 100%);
+}
+
+[data-theme='dark'] .policy-card.policy-card-highlight {
+    border-color: rgba(248, 113, 113, 0.28);
+    background: rgba(127, 29, 29, 0.2);
+}
+
+[data-theme='dark'] .policy-card.policy-card-highlight .policy-card-header {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(190, 24, 93, 0.12) 100%);
 }
 
 .policy-asegurado-icon {
@@ -440,6 +458,34 @@ body, html {
 .primas-table tbody tr.prima-anulada {
     opacity: 0.72;
     background: var(--primas-table-row-hover);
+}
+
+.policy-card.policy-card-highlight {
+border-color: var(--notif-expired-border, #fecdd3) !important;
+background: var(--notif-expired-bg, #fff1f2) !important;
+}
+.primas-table tbody tr.prima-highlight-context,
+.primas-table tbody tr.prima-highlight-context td {
+        background-color: var(--notif-expired-bg, #fff1f2) !important;
+}
+.primas-table tbody tr.prima-highlight-context:hover,
+.primas-table tbody tr.prima-highlight-context:hover td {
+background-color: var(--notif-due-bg, #fff7ed) !important;
+}
+
+.primas-table tbody tr.prima-highlight-context,
+.primas-table tbody tr.prima-highlight-context td {
+    background-color: var(--notif-expired-bg, #fff1f2) !important;
+}
+
+.primas-table tbody tr.prima-highlight-context:hover,
+.primas-table tbody tr.prima-highlight-context:hover td {
+    background-color: var(--notif-due-bg, #fff7ed) !important;
+}
+
+[data-theme='dark'] .primas-table tbody tr.prima-highlight-context,
+[data-theme='dark'] .primas-table tbody tr.prima-highlight-context td {
+    background-color: rgba(239, 68, 68, 0.12) !important;
 }
 
 .primas-table tbody td {

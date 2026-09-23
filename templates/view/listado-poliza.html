@@ -3,8 +3,8 @@
 {% block html_title %}Pólizas | Listado{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/polizas.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/listado-poliza.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/polizas.css') }}?v=20260917-1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/listado-poliza.css') }}?v=20260917-1">
 {% endblock %}
 
 {% block page_title %}  {% endblock %}
@@ -117,8 +117,12 @@
                     {% for r in page_rows %}
                     {% set vig_desde = r.ren_vig_desde if r.ren_vig_desde else r.vig_desde %}
                     {% set vig_hasta = r.ren_vig_hasta if r.ren_vig_hasta else r.vig_hasta %}
-                    <tr class="poliza-row"
+                    {% set poliza_match = highlight_poliza and (r.poliza|string|trim) == (highlight_poliza|string|trim) %}
+                    {% set highlight = ((highlight_id and (r.idPoliza|int) == (highlight_id|int)) or poliza_match) %}
+                    <tr {% if highlight %}id="polizaHighlight"{% endif %}
+                        class="poliza-row {% if highlight %}poliza-highlight-renovar{% endif %}"
                         data-id="{{ r.idPoliza }}"
+                        data-poliza-id="{{ r.idPoliza }}"
                         data-emision="{{ r.fecha_emision }}"
                         data-poliza="{{ r.poliza }}">
 
@@ -218,7 +222,7 @@
                                 <button type="button" class="btn-nueva-poliza" data-action="nueva-poliza" title="Nueva póliza para este cliente"></button>
 
                                 <!-- 3. PRIMAS -->
-                                <a href="{{ url_for('main.menu_page', page='primas') }}?poliza={{ r.poliza }}" class="btn-action btn-primary text-decoration-none">
+                                <a href="{{ url_for('main.menu_page', page='primas') }}?poliza={{ r.poliza }}{% if highlight %}&highlight={{ r.idPoliza }}&highlight_poliza={{ r.poliza }}{% endif %}" class="btn-action btn-primary text-decoration-none">
                                     <i class="bi bi-file-earmark-check-fill"></i><span>PRIMAS</span>
                                 </a>
 
@@ -333,5 +337,7 @@
 {% block extra_js_bottom %}
 {{ super() }}
 <script src="{{ url_for('static', filename='js/renovar-poliza.js') }}?v=20260807-2"></script>
-<script src="{{ url_for('static', filename='js/listado-poliza.js') }}?v=20260807-2"></script>
+<script src="{{ url_for('static', filename='js/listado-poliza.js') }}?v=20260923-3"></script>
+{% if highlight_id %}
+{% endif %}
 {% endblock %}

@@ -2,6 +2,11 @@
     const input = document.getElementById('primasSearch');
     const table = document.getElementById('primasTable');
     const pageSizeSelect = document.getElementById('page-size');
+    const pageRoot = document.querySelector('.primas-page');
+    const policyCard = document.querySelector('.policy-card');
+    const highlightId = (pageRoot?.getAttribute('data-highlight-id') || '').trim();
+    const highlightPoliza = (pageRoot?.getAttribute('data-highlight-poliza') || '').trim();
+    const shouldHighlightContext = Boolean(highlightPoliza || highlightId);
 
     let currentPage = 1;
     let currentPageSize = parseInt((pageSizeSelect && pageSizeSelect.value) || '0', 10);
@@ -78,6 +83,25 @@
                 }
             });
         });
+    }
+
+    function applyHighlightContext() {
+        if (!shouldHighlightContext || !pageRoot) return;
+
+        const currentPoliza = (pageRoot.getAttribute('data-poliza') || '').trim();
+        const rows = table ? Array.from(table.querySelectorAll('tbody tr.prima-row')) : [];
+        const matchedRows = highlightId
+            ? rows.filter(tr => (tr.getAttribute('data-idprima') || '').trim() === highlightId)
+            : [];
+        const matchesContext = !highlightPoliza || (currentPoliza && currentPoliza === highlightPoliza);
+
+        if (!matchesContext && matchedRows.length === 0) return;
+
+        pageRoot.classList.add('primas-highlight-context');
+        if (policyCard && matchesContext) {
+            policyCard.classList.add('policy-card-highlight');
+        }
+        matchedRows.forEach(tr => tr.classList.add('prima-highlight-context'));
     }
 
     if (input) {
@@ -392,5 +416,6 @@
     }
 
     markNegativeNumbers();
+    applyHighlightContext();
     applySearchAndPagination();
 })();
