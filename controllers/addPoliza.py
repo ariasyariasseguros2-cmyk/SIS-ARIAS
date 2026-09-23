@@ -474,9 +474,6 @@ def save_polizas(
                 # 'asegurada' solo se edita en el bloque superior: usarlo como fuente de verdad
                 if "asegurada" in selected:
                     row["asegurada"] = selected.get("asegurada") or ""
-                # Completar motivo si falta
-                if not row.get("motivo") and selected.get("motivo"):
-                    row["motivo"] = selected["motivo"]
                 # SIEMPRE aplicar ramos_producto del bloque superior si existe
                 if selected.get("ramos_producto"):
                     row["ramos_producto"] = selected["ramos_producto"]
@@ -827,7 +824,7 @@ def save_polizas(
                 # NUEVO: ejecutivo (con fallback por usuario)
                 efectivo_ejecutivo,
                 U(row.get("asegurada") or ""),
-                U(row.get("motivo") or (selected or {}).get("motivo") or ""),
+                U(row.get("motivo") or ""),
                 parse_decimal(row.get("prima_comercial")),
                 parse_decimal(row.get("prima_neta")),
                 parse_decimal(row.get("prima_comercial_igv")),
@@ -957,7 +954,7 @@ def save_polizas(
                                             efectivo_ejecutivo,
                                             U((selected or {}).get("tipo_doc") or (selected or {}).get("tipo_documento") or ""),
                                             U(row.get("asegurada") or ""),
-                                            U(row.get("motivo") or (selected or {}).get("motivo") or ""),
+                                            U(row.get("motivo") or ""),
                                             parse_decimal(row.get("prima_comercial")),
                                             parse_decimal(row.get("prima_neta")),
                                             parse_decimal(row.get("prima_comercial_igv")),

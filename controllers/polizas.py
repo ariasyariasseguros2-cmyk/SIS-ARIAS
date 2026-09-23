@@ -553,10 +553,8 @@ def get_polizas_all_paginated(page: int | None = 1, per_page: int | None = 10) -
             INNER JOIN clientes c ON c.idCliente = p.cliente_id
         """ + base_where + rls_filter + """
             ORDER BY p.creado_en DESC
-            LIMIT %s OFFSET %s
         """
         page_params = list(rls_params)
-        page_params.extend([per_page_num, offset])
         cur.execute(sql, tuple(page_params))
         rows = cur.fetchall() or []
 
@@ -607,6 +605,13 @@ def get_polizas_all_paginated(page: int | None = 1, per_page: int | None = 10) -
                     seen.add(p)
                     new_rows.append(best_rows[p])
             rows = new_rows
+
+        total = len(rows)
+        pages = max(1, (total + per_page_num - 1) // per_page_num)
+        if page_num > pages:
+            page_num = pages
+        offset = (page_num - 1) * per_page_num
+        rows = rows[offset:offset + per_page_num]
 
         rows = _enriquecer_con_ultima_renovacion(rows, cur)
 
