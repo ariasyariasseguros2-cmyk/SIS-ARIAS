@@ -111,8 +111,8 @@ def get_connection(connect_timeout=None, read_timeout=None, write_timeout=None):
     try:
         cur_cs = cnx.cursor()
         try:
-            cur_cs.execute("SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci")
-            cur_cs.execute("SET collation_connection = 'utf8mb4_0900_ai_ci'")
+            cur_cs.execute("SET NAMES utf8mb4 COLLATE utf8mb4_bin")
+            cur_cs.execute("SET collation_connection = 'utf8mb4_bin'")
         except Exception:
             cur_cs.execute("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci")
             cur_cs.execute("SET collation_connection = 'utf8mb4_unicode_ci'")

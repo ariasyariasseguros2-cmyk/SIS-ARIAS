@@ -708,10 +708,13 @@ def get_cuotas_data(
                             p.tipo_doc,
                             c.usuario_registro,
                             COALESCE(NULLIF(TRIM(usu.nombre), ''), usu.username, c.usuario_registro) AS usuario_registro_display,
-                            DATE_FORMAT(c.creado_en, '%d-%m-%Y %H:%i') AS fecha_creado
+                            DATE_FORMAT(c.creado_en, '%d-%m-%Y %H:%i') AS fecha_creado,
+                            c.usuario_edicion,
+                            COALESCE(NULLIF(TRIM(usu_e.nombre), ''), usu_e.username, c.usuario_edicion) AS usuario_edicion_display
                         FROM cuotas c
                         LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
                         LEFT JOIN usuarios usu ON usu.username = c.usuario_registro
+                        LEFT JOIN usuarios usu_e ON usu_e.username = c.usuario_edicion
                         WHERE c.poliza_id = %s
                           AND COALESCE(c.activo, 1) = 1
                         ORDER BY c.fecha_vencimiento ASC, c.idCuota ASC
@@ -754,10 +757,13 @@ def get_cuotas_data(
                                 p.tipo_doc,
                                 c.usuario_registro,
                                 COALESCE(NULLIF(TRIM(usu.nombre), ''), usu.username, c.usuario_registro) AS usuario_registro_display,
-                                DATE_FORMAT(c.creado_en, '%d-%m-%Y %H:%i') AS fecha_creado
+                                DATE_FORMAT(c.creado_en, '%d-%m-%Y %H:%i') AS fecha_creado,
+                                c.usuario_edicion,
+                                COALESCE(NULLIF(TRIM(usu_e.nombre), ''), usu_e.username, c.usuario_edicion) AS usuario_edicion_display
                             FROM cuotas c
                             LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
                             LEFT JOIN usuarios usu ON usu.username = c.usuario_registro
+                            LEFT JOIN usuarios usu_e ON usu_e.username = c.usuario_edicion
                             WHERE (c.poliza_id IS NULL OR c.poliza_id = 0)
                           AND COALESCE(c.activo, 1) = 1
                               AND (
@@ -801,10 +807,13 @@ def get_cuotas_data(
                             p.tipo_doc,
                             c.usuario_registro,
                             COALESCE(NULLIF(TRIM(usu.nombre), ''), usu.username, c.usuario_registro) AS usuario_registro_display,
-                            DATE_FORMAT(c.creado_en, '%d-%m-%Y %H:%i') AS fecha_creado
+                            DATE_FORMAT(c.creado_en, '%d-%m-%Y %H:%i') AS fecha_creado,
+                            c.usuario_edicion,
+                            COALESCE(NULLIF(TRIM(usu_e.nombre), ''), usu_e.username, c.usuario_edicion) AS usuario_edicion_display
                         FROM cuotas c
                         LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
                         LEFT JOIN usuarios usu ON usu.username = c.usuario_registro
+                        LEFT JOIN usuarios usu_e ON usu_e.username = c.usuario_edicion
                         WHERE (
                           CAST(AES_DECRYPT(FROM_BASE64(c.poliza), @SIS_KEY) AS CHAR) = %s
                           OR c.poliza = %s
@@ -857,10 +866,13 @@ def get_cuotas_data(
                                     p.tipo_doc,
                                     c.usuario_registro,
                                     COALESCE(NULLIF(TRIM(usu.nombre), ''), usu.username, c.usuario_registro) AS usuario_registro_display,
-                                    DATE_FORMAT(c.creado_en, '%d-%m-%Y %H:%i') AS fecha_creado
+                                    DATE_FORMAT(c.creado_en, '%d-%m-%Y %H:%i') AS fecha_creado,
+                                    c.usuario_edicion,
+                                    COALESCE(NULLIF(TRIM(usu_e.nombre), ''), usu_e.username, c.usuario_edicion) AS usuario_edicion_display
                                 FROM cuotas c
                                 LEFT JOIN polizas p ON p.idPoliza = c.poliza_id
                                 LEFT JOIN usuarios usu ON usu.username = c.usuario_registro
+                                LEFT JOIN usuarios usu_e ON usu_e.username = c.usuario_edicion
                                 WHERE (
                                         TRIM(COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR), c.cupon)) = TRIM(%s)
                                         OR TRIM(c.factura) = TRIM(%s)
@@ -902,6 +914,8 @@ def get_cuotas_data(
                             'usuario_registro': c.get('usuario_registro') or '',
                             'usuario_registro_display': c.get('usuario_registro_display') or (c.get('usuario_registro') or ''),
                             'fecha_creado': c.get('fecha_creado') or '',
+                            'usuario_edicion': c.get('usuario_edicion') or '',
+                            'usuario_edicion_display': c.get('usuario_edicion_display') or (c.get('usuario_edicion') or ''),
                         })
             except Exception as e:
                 print(f"Error fetching cuotas list: {e}")
@@ -1454,7 +1468,8 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
                 factura = %s,
                 fecha_factura = %s,
                 observacion = %s,
-                usuario_registro = COALESCE(%s, usuario_registro)
+                usuario_registro = COALESCE(%s, usuario_registro),
+                usuario_edicion = %s
             WHERE idCuota = %s
             """,
             (
@@ -1466,6 +1481,7 @@ def update_cuota_cupon(data: Dict[str, object]) -> Tuple[bool, str]:
                 factura_nueva,
                 fecha_factura_nueva,
                 observacion_nueva,
+                usuario,
                 usuario,
                 cuota_id,
             ),
@@ -1601,7 +1617,7 @@ def _recalculate_poliza_estado(cur, poliza_id, estado_sin_pendientes: str = 'PAG
     )
 
 
-def revert_cuota(cuota_id: int) -> Tuple[bool, str]:
+def revert_cuota(cuota_id: int, usuario: str = '') -> Tuple[bool, str]:
     try:
         from models.db import get_connection
         cnx = get_connection()
@@ -1632,16 +1648,18 @@ def revert_cuota(cuota_id: int) -> Tuple[bool, str]:
         poliza_id = row[0]
         cupon_plain = (row[2] or '').strip()
 
+        usuario_val = usuario if usuario else None
         cur.execute(
             """
             UPDATE cuotas
             SET fecha_pago = NULL,
                 factura = NULL,
                 fecha_factura = NULL,
-                observacion = NULL
+                observacion = NULL,
+                usuario_edicion = %s
             WHERE idCuota = %s
             """,
-            (cuota_id,),
+            (usuario_val, cuota_id),
         )
         _clear_cuota_archivos(cur, cuota_id, poliza_id, cupon_plain)
         _recalculate_poliza_estado(cur, poliza_id, 'PAGADO')

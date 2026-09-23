@@ -19,7 +19,7 @@ from controllers.addPoliza import lookup_commission_pct
 from controllers.cuotas.VariosCuotasGenerales import extract_cronograma_cuotas_from_text as extract_cronograma_cuotas_general
 from controllers.cuotas.VariosCuotasPositiva import extract_cronograma_cuotas_positiva
 from controllers.cuotas.VariosCuotasPacifico import extract_cronograma_cuotas_pacifico
-from models.db import get_connection
+from models.db import get_connection, get_encrypt_key
 
 bp = Blueprint('main', __name__)
 
@@ -603,7 +603,8 @@ def revert_cuota_route():
     if not cuota_id:
         return {'ok': False, 'error': 'Falta idCuota'}, 400
     from controllers.cuotas.cuotas import revert_cuota
-    success, msg = revert_cuota(cuota_id)
+    usuario_revert = session.get('user', '') if 'user' in session else ''
+    success, msg = revert_cuota(cuota_id, usuario_revert)
     if success:
         return {'ok': True}
     return {'ok': False, 'error': msg}, 400
@@ -1141,6 +1142,19 @@ def _validate_reporte_produccion_dates(filters: dict) -> str | None:
     return None
 
 
+def _get_reporte_produccion_multi_arg(name: str) -> list[str]:
+    values = request.args.getlist(name)
+    result = []
+    seen = set()
+    for value in values:
+        for part in str(value or '').split(','):
+            item = part.strip()
+            if item and item not in seen:
+                seen.add(item)
+                result.append(item)
+    return result
+
+
 @bp.route('/api/reportes/produccion', methods=['GET'])
 @require_permission(lambda r: r in [Roles.BROKER, Roles.OPERADOR], response_mode='json')
 def api_reporte_produccion():
@@ -1154,6 +1168,7 @@ def api_reporte_produccion():
         'ramo': request.args.get('ramo') or None,
         'sub_agente': request.args.get('sub_agente') or None,
         'ejecutivo': request.args.get('ejecutivo') or None,
+        'contratantes': _get_reporte_produccion_multi_arg('contratantes'),
         'moneda': request.args.get('moneda') or None,
         'usuario': request.args.get('usuario') or None,
         'f_reg_desde': request.args.get('f_reg_desde') or None,
@@ -1185,6 +1200,7 @@ def api_reporte_produccion_export():
         'ramo': request.args.get('ramo') or None,
         'sub_agente': request.args.get('sub_agente') or None,
         'ejecutivo': request.args.get('ejecutivo') or None,
+        'contratantes': _get_reporte_produccion_multi_arg('contratantes'),
         'moneda': request.args.get('moneda') or None,
         'usuario': request.args.get('usuario') or None,
         'f_reg_desde': request.args.get('f_reg_desde') or None,
@@ -1216,6 +1232,7 @@ def api_reporte_produccion_export_pro():
         'ramo': request.args.get('ramo') or None,
         'sub_agente': request.args.get('sub_agente') or None,
         'ejecutivo': request.args.get('ejecutivo') or None,
+        'contratantes': _get_reporte_produccion_multi_arg('contratantes'),
         'moneda': request.args.get('moneda') or None,
         'usuario': request.args.get('usuario') or None,
         'f_reg_desde': request.args.get('f_reg_desde') or None,
@@ -1532,8 +1549,55 @@ def menu_page(page):
     # Pólizas → plantilla dedicada
     if page == 'polizas':
         from controllers.polizas import get_polizas_data
-        # Tomar la selección almacenada en sesión (sin exponer en la URL)
+        # La sesión es compartida entre pestañas; priorizar el cliente de la URL.
         selected = session.get('selected_cliente') or {}
+        cliente_id = request.args.get('cliente_id', type=int)
+        if cliente_id:
+            try:
+                cnx = get_connection()
+                cur = cnx.cursor(dictionary=True)
+                key = get_encrypt_key()
+                cur.execute("""
+                    SELECT
+                        c.idCliente,
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), %s) AS CHAR),
+                            CAST(AES_DECRYPT(c.razon_social, %s) AS CHAR),
+                            c.razon_social
+                        ) AS razon_social,
+                        c.tipo_documento,
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(c.numero_documento), %s) AS CHAR),
+                            CAST(AES_DECRYPT(c.numero_documento, %s) AS CHAR),
+                            c.numero_documento
+                        ) AS numero_documento,
+                        COALESCE(
+                            CAST(AES_DECRYPT(FROM_BASE64(c.telefono), %s) AS CHAR),
+                            CAST(AES_DECRYPT(c.telefono, %s) AS CHAR),
+                            c.telefono
+                        ) AS telefono,
+                        c.subagente
+                    FROM clientes c
+                    WHERE c.idCliente = %s AND c.activo = 1
+                    LIMIT 1
+                """, (key, key, key, key, key, key, cliente_id))
+                cliente = cur.fetchone() or {}
+                while cur.nextset():
+                    pass
+                cur.close()
+                cnx.close()
+                if cliente:
+                    selected = {
+                        'idCliente': cliente_id,
+                        'nombre': cliente.get('razon_social') or '',
+                        'razon_social': cliente.get('razon_social') or '',
+                        'tipo_doc': cliente.get('tipo_documento') or '',
+                        'n_doc': cliente.get('numero_documento') or '',
+                        'tel': cliente.get('telefono') or '',
+                        'subagente': cliente.get('subagente') or '',
+                    }
+            except Exception as e:
+                print(f'[polizas] No se pudo cargar cliente de URL: {e}')
         data = get_polizas_data(selected)
         return render_template(
             'view/polizas.html',
@@ -1541,6 +1605,7 @@ def menu_page(page):
             title=data['title'],
             rows=data['rows'],
             details=data.get('details', {}),
+            selected_cliente_id=selected.get('idCliente'),
             highlight_id=request.args.get('highlight', type=int)
         )
 
@@ -1635,6 +1700,29 @@ def menu_page(page):
     if page == 'primas':
         from controllers.primas.primas import get_primas_data
         selected = session.get('selected_cliente') or {}
+        cliente_id = request.args.get('cliente_id', type=int)
+        if cliente_id:
+            try:
+                cnx = get_connection()
+                cur = cnx.cursor(dictionary=True)
+                cur.execute("CALL sp_get_cliente_por_id(%s)", (cliente_id,))
+                cliente = cur.fetchone() or {}
+                while cur.nextset():
+                    pass
+                cur.close()
+                cnx.close()
+                if cliente:
+                    selected = {
+                        'idCliente': cliente_id,
+                        'nombre': cliente.get('razon_social') or '',
+                        'razon_social': cliente.get('razon_social') or '',
+                        'tipo_doc': cliente.get('tipo_documento') or '',
+                        'n_doc': cliente.get('numero_documento') or '',
+                        'tel': cliente.get('telefono') or '',
+                        'subagente': cliente.get('subagente') or '',
+                    }
+            except Exception as e:
+                print(f'[primas] No se pudo cargar cliente de URL: {e}')
         numero_poliza = request.args.get('poliza') or None
         return_to = request.args.get('return') or request.args.get('return_to')
         data = get_primas_data(selected, numero_poliza)
@@ -1644,7 +1732,8 @@ def menu_page(page):
             title=data['title'],
             rows=data['rows'],
             details=data.get('details', {}),
-            return_to=return_to
+            return_to=return_to,
+            selected_cliente_id=selected.get('idCliente')
         )
 
     # NUEVO: Detalles de Póliza
@@ -2144,6 +2233,23 @@ def menu_page(page):
         from controllers.endosatario.endosatario import get_endosatarios # NUEVO
         cli_data = get_clientes_data()
         selected = session.get('selected_cliente') or {}
+        cliente_id = request.args.get('cliente_id', type=int)
+        if cliente_id:
+            cliente = next(
+                (row for row in (cli_data.get('rows') or [])
+                 if str(row.get('idCliente')) == str(cliente_id)),
+                None
+            )
+            if cliente:
+                selected = {
+                    'idCliente': cliente_id,
+                    'nombre': cliente.get('razon_social') or '',
+                    'razon_social': cliente.get('razon_social') or '',
+                    'tipo_doc': cliente.get('doc') or '',
+                    'n_doc': cliente.get('n_doc') or '',
+                    'tel': cliente.get('tel') or '',
+                    'subagente': cliente.get('subagente') or '',
+                }
 
         # Capturar contexto de retorno para botones "Volver"
         back_poliza_num = request.args.get('poliza') or request.args.get('nro_poliza') or None
@@ -2395,7 +2501,7 @@ def upload():
             return jsonify({
                 'ok': False,
                 'need_password': True,
-                'filename': filename,
+                'filename': f'temp/{filename}',
                 'error': 'El PDF está protegido con contraseña',
                 'debug': debug_logs,
             }), 423
@@ -3331,7 +3437,7 @@ def upload():
         except Exception:
             provider_final = detected_provider
 
-        return {'filename': filename, 'items': unique, 'debug': debug_logs, 'provider': provider_final}, 200
+        return {'filename': f'temp/{filename}', 'items': unique, 'debug': debug_logs, 'provider': provider_final}, 200
 
     # Fallback: comportamiento anterior (un solo objeto)
     extracted = {}
@@ -3471,7 +3577,7 @@ def upload():
     except Exception:
         pass
 
-    return {'filename': filename, 'fields': extracted, 'debug': debug_logs, 'provider': provider_final}, 200
+    return {'filename': f'temp/{filename}', 'fields': extracted, 'debug': debug_logs, 'provider': provider_final}, 200
 
 
 @bp.route('/clientes/add', methods=['POST'])
@@ -4066,9 +4172,10 @@ def clientes_select():
         return {'ok': False, 'errors': ['No autenticado']}, 401
 
     payload = request.get_json(silent=True) or request.form.to_dict()
+    razon_social = (payload.get('razon_social') or payload.get('nombre') or '').strip()
     selected = {
-        'nombre': payload.get('nombre') or payload.get('razon_social'),
-        'razon_social': payload.get('razon_social'),
+        'nombre': razon_social,
+        'razon_social': razon_social,
         'tipo_doc': payload.get('tipo_doc') or payload.get('doc') or payload.get('tipo_documento'),
         'n_doc': payload.get('n_doc') or payload.get('numero_documento'),
         'tel': payload.get('tel') or payload.get('telefono'),
@@ -4215,7 +4322,10 @@ def api_cliente_from_poliza():
         nav_ctx['return_from_poliza_id'] = poliza_id
         session['anadir_poliza_nav'] = nav_ctx
 
-        return jsonify({'ok': True, 'redirect': '/menu/anadir-poliza'})
+        return jsonify({
+            'ok': True,
+            'redirect': f"/menu/anadir-poliza?cliente_id={row['idCliente']}"
+        })
     except Exception as e:
         print(f'[api_cliente_from_poliza] {e}')
         return jsonify({'ok': False, 'error': 'Error interno'}), 500
@@ -4668,15 +4778,24 @@ def polizas_save():
     pdf_filename = (selected or {}).get('pdf_filename')
     if pdf_filename:
         import shutil as _shutil
+        # Limpiar prefijo "temp/" si viene incluido (ahora /upload lo devuelve con prefijo)
+        pdf_filename_clean = str(pdf_filename).replace('\\', '/')
+        while pdf_filename_clean.startswith('temp/'):
+            pdf_filename_clean = pdf_filename_clean[len('temp/'):]
+        pdf_filename_clean = os.path.basename(pdf_filename_clean)
+        # Actualizar selected para que save_polizas reciba el nombre limpio sin temp/
+        if selected and pdf_filename_clean:
+            selected['pdf_filename'] = pdf_filename_clean
+            session['selected_cliente'] = {**(session.get('selected_cliente') or {}), **selected}
         upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
-        temp_path = os.path.join(upload_folder, 'temp', pdf_filename)
+        temp_path = os.path.join(upload_folder, 'temp', pdf_filename_clean)
         polizas_folder = os.path.join(upload_folder, 'polizas')
         os.makedirs(polizas_folder, exist_ok=True)
-        dest_path = os.path.join(polizas_folder, pdf_filename)
+        dest_path = os.path.join(polizas_folder, pdf_filename_clean)
         if os.path.exists(temp_path) and not os.path.exists(dest_path):
             try:
                 _shutil.move(temp_path, dest_path)
-                print(f"[polizas_save] PDF movido de temp/ a polizas/: {pdf_filename}")
+                print(f"[polizas_save] PDF movido de temp/ a polizas/: {pdf_filename_clean}")
             except Exception as _e:
                 print(f"[polizas_save] No se pudo mover el PDF: {_e}")
         elif os.path.exists(temp_path) and os.path.exists(dest_path):

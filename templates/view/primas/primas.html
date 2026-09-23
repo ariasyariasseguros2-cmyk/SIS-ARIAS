@@ -31,6 +31,9 @@
             {% if return_to %}
                 {% set _anadir_qstring = _anadir_qstring ~ ('&' if _anadir_qstring else '?') ~ 'return=' ~ return_to %}
             {% endif %}
+            {% if selected_cliente_id %}
+                {% set _anadir_qstring = _anadir_qstring ~ ('&' if _anadir_qstring else '?') ~ 'cliente_id=' ~ selected_cliente_id %}
+            {% endif %}
             <a href="{{ url_for('main.menu_page', page='anadir-poliza') }}{{ _anadir_qstring }}" class="btn btn-primary btn-lift"><i class="bi-plus-lg"></i> Añadir</a>
             {% endif %}
         </div>
@@ -39,7 +42,7 @@
             {% if return_to in ['polizas', 'listado-poliza'] %}
                 {% set back_page = return_to %}
             {% endif %}
-            <a href="{{ url_for('main.menu_page', page=back_page) }}" class="back-link">
+            <a href="{{ url_for('main.menu_page', page=back_page, cliente_id=selected_cliente_id) }}" class="back-link">
                 <i class="bi-arrow-left"></i>
                 <span>Volver al listado de Pólizas</span>
             </a>

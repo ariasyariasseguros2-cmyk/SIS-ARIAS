@@ -113,9 +113,10 @@ def _fetch_rows():
     sub_agentes = _get_multi("sub_agente")
     estados = [e.upper() for e in _get_multi("estado")]
 
-    missing = _validate_required(fecha_desde, fecha_hasta)
-    if missing:
-        return None, jsonify({"ok": False, "error": "Debe completar: " + ", ".join(missing) + "."}), 400
+    if not poliza_cupon:
+        missing = _validate_required(fecha_desde, fecha_hasta)
+        if missing:
+            return None, jsonify({"ok": False, "error": "Debe completar: " + ", ".join(missing) + "."}), 400
 
     conn = None
     cursor = None
@@ -199,6 +200,9 @@ def _fetch_rows():
                 p.forma_pago AS tp_pago,
                 NULL AS breve_descripcion
             FROM cuotas c
+            LEFT JOIN polizas p_direct
+              ON p_direct.idPoliza = c.poliza_id
+             AND p_direct.activo = 1
             LEFT JOIN (
                 SELECT
                     MAX(idPoliza) AS idPoliza,
@@ -212,8 +216,7 @@ def _fetch_rows():
                 WHERE activo = 1
                 GROUP BY poliza_plain
             ) p_lookup
-              ON c.poliza_id IS NULL
-             AND TRIM(
+              ON TRIM(
                     COALESCE(
                         CONVERT(AES_DECRYPT(FROM_BASE64(c.poliza), @SIS_KEY) USING utf8mb4),
                         c.poliza
@@ -229,22 +232,60 @@ def _fetch_rows():
                   AND p2.activo = 1
                 GROUP BY i.financiamiento_grupal_id
             ) fg_lookup
-              ON c.poliza_id IS NULL
-             AND COALESCE(c.financiamiento_grupal_id, 0) > 0
+              ON COALESCE(c.financiamiento_grupal_id, 0) > 0
              AND fg_lookup.financiamiento_grupal_id = c.financiamiento_grupal_id
-            INNER JOIN polizas p ON p.idPoliza = COALESCE(c.poliza_id, p_lookup.idPoliza, fg_lookup.poliza_id)
+            LEFT JOIN polizas p
+              ON p.idPoliza = CASE
+                    WHEN p_direct.idPoliza IS NOT NULL THEN p_direct.idPoliza
+                    WHEN p_lookup.idPoliza IS NOT NULL THEN p_lookup.idPoliza
+                    ELSE fg_lookup.poliza_id
+                END
+             AND p.activo = 1
             LEFT JOIN clientes cl ON p.cliente_id = cl.idCliente
-            WHERE p.activo = 1
+            WHERE p.idPoliza IS NOT NULL
         """
 
         params = []
 
-        if fecha_desde:
-            query += f" AND {venc_expr} >= %s"
-            params.append(fecha_desde)
-        if fecha_hasta:
-            query += f" AND {venc_expr} < DATE_ADD(%s, INTERVAL 1 DAY)"
-            params.append(fecha_hasta)
+        if poliza_cupon:
+            needle_like = "%" + poliza_cupon + "%"
+            p_poliza_plain_expr = """
+                TRIM(
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(p.poliza), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(p.poliza, @SIS_KEY) AS CHAR),
+                        p.poliza
+                    )
+                ) COLLATE utf8mb4_0900_ai_ci
+            """
+            c_poliza_plain_expr = """
+                TRIM(
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(c.poliza), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(c.poliza, @SIS_KEY) AS CHAR),
+                        c.poliza
+                    )
+                ) COLLATE utf8mb4_0900_ai_ci
+            """
+            cupon_plain_expr = """
+                TRIM(
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(c.cupon), @SIS_KEY) AS CHAR),
+                        CAST(AES_DECRYPT(c.cupon, @SIS_KEY) AS CHAR),
+                        c.cupon
+                    )
+                ) COLLATE utf8mb4_0900_ai_ci
+            """
+            query += f" AND ({p_poliza_plain_expr} LIKE %s OR {c_poliza_plain_expr} LIKE %s OR {cupon_plain_expr} LIKE %s)"
+            params.extend([needle_like, needle_like, needle_like])
+
+        if not poliza_cupon:
+            if fecha_desde:
+                query += f" AND {venc_expr} >= %s"
+                params.append(fecha_desde)
+            if fecha_hasta:
+                query += f" AND {venc_expr} < DATE_ADD(%s, INTERVAL 1 DAY)"
+                params.append(fecha_hasta)
         if cliente_ids:
             query += " AND p.cliente_id IN (" + ",".join(["%s"] * len(cliente_ids)) + ")"
             params.extend(cliente_ids)

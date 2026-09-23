@@ -32,7 +32,7 @@
         </div>
         <div class="polizas-header-actions">
             {% if can_create_poliza(session.role_name) %}
-            <a class="polizas-add-btn" href="{{ url_for('main.menu_page', page='anadir-poliza') }}" rel="noopener noreferrer">
+            <a class="polizas-add-btn" href="{{ url_for('main.menu_page', page='anadir-poliza', cliente_id=selected_cliente_id) }}" rel="noopener noreferrer">
                 <i class="bi-plus-lg"></i> Añadir
             </a>
             {% endif %}
@@ -108,7 +108,7 @@
         </div>
 
         <div class="polizas-table-wrap">
-            <table id="polizasTable" class="polizas-table table modern-table" data-primas-url="{{ url_for('main.menu_page', page='primas') }}">
+            <table id="polizasTable" class="polizas-table table modern-table" data-primas-url="{{ url_for('main.menu_page', page='primas') }}" data-cliente-id="{{ selected_cliente_id or '' }}">
                 <colgroup>
                     <col class="col-contratante">
                     <col class="col-asegurado">
@@ -214,7 +214,7 @@
                                 {% endif %}
 
                                 <a
-                                    href="{{ url_for('main.menu_page', page='primas') }}?poliza={{ r.poliza }}&return=polizas"
+                                    href="{{ url_for('main.menu_page', page='primas') }}?poliza={{ r.poliza }}&return=polizas{% if selected_cliente_id %}&cliente_id={{ selected_cliente_id }}{% endif %}"
                                     class="btn-action btn-primary text-decoration-none"
                                     data-action="primas"
                                 >

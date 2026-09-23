@@ -44,6 +44,11 @@
   function __normalizeStr(s) {
     return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   }
+  function __basename(s) {
+    const raw = (s || '').toString().replace(/\\/g, '/');
+    const parts = raw.split('/');
+    return parts[parts.length - 1] || raw;
+  }
   function isGestorUser() {
     const u = (window.currentUser || {});
     const email = __normalizeStr(u.email);
@@ -3257,7 +3262,7 @@
         if (j && j.ok && j.page) page = String(j.page);
       } catch (_) {}
       url = `/uploads/${safe}${page ? `#page=${page}&search=${encodeURIComponent(query)}` : `#search=${encodeURIComponent(query)}`}`;
-      label = `PDF: ${lastUploadedFilename}`;
+      label = `PDF: ${__basename(lastUploadedFilename)}`;
     } else if (fileEl?.files?.[0]) {
       const blobUrl = URL.createObjectURL(fileEl.files[0]);
       url = `${blobUrl}#search=${encodeURIComponent(query)}`;
@@ -3861,7 +3866,7 @@
     if (lastUploadedFilename) {
       const safe = encodeURIComponent(lastUploadedFilename);
       src = `/uploads/${safe}`; // ruta servidor
-      label = `PDF: ${lastUploadedFilename}`;
+      label = `PDF: ${__basename(lastUploadedFilename)}`;
     } else if (fileEl?.files?.[0]) {
       const blobUrl = URL.createObjectURL(fileEl.files[0]);
       src = blobUrl;

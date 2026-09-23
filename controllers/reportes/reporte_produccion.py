@@ -39,7 +39,36 @@ def get_reporte_produccion_filters() -> Dict[str, Any]:
         "subagentes": get_subagentes_abreviaciones() or [],
         "ejecutivos": get_ejecutivos() or [],
         "usuarios": get_usuarios() or [],
+        "contratantes": get_reporte_produccion_contratantes(),
     }
+
+
+def get_reporte_produccion_contratantes() -> List[str]:
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT DISTINCT
+                COALESCE(
+                    CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                    c.razon_social
+                ) AS contratante
+            FROM clientes c
+            INNER JOIN polizas p ON p.cliente_id = c.idCliente
+            WHERE c.razon_social IS NOT NULL
+              AND CHAR_LENGTH(TRIM(
+                    COALESCE(
+                        CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR),
+                        c.razon_social
+                    )
+                  )) > 0
+            ORDER BY contratante
+            """
+        )
+        return [str(row[0]).strip() for row in cursor.fetchall() if row[0]]
+    finally:
+        conn.close()
 
 
 def _build_filters(filters: Dict[str, Any]) -> Tuple[str, List[Any]]:
@@ -56,8 +85,10 @@ def _build_filters(filters: Dict[str, Any]) -> Tuple[str, List[Any]]:
     sql_filters.append(
         "("
         "p.estado IS NULL "
-        "OR TRIM(CONVERT(p.estado USING utf8mb4)) = '' "
-        "OR UPPER(TRIM(CONVERT(p.estado USING utf8mb4))) NOT LIKE 'ANULAD%'"
+        "OR TRIM(CONVERT(p.estado USING utf8mb4)) COLLATE utf8mb4_bin = "
+        "_utf8mb4'' COLLATE utf8mb4_bin "
+        "OR UPPER(TRIM(CONVERT(p.estado USING utf8mb4))) COLLATE utf8mb4_bin "
+        "NOT LIKE _utf8mb4'ANULAD%' COLLATE utf8mb4_bin"
         ")"
     )
 
@@ -73,33 +104,69 @@ def _build_filters(filters: Dict[str, Any]) -> Tuple[str, List[Any]]:
         params.append(vig_hasta)
 
     if filters.get("cia"):
-        sql_filters.append("p.cia = %s")
+        sql_filters.append(
+            "CONVERT(p.cia USING utf8mb4) COLLATE utf8mb4_bin = "
+            "CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin"
+        )
         params.append(filters["cia"])
 
     if filters.get("ramo"):
-        sql_filters.append("p.ramo = %s")
+        sql_filters.append(
+            "CONVERT(p.ramo USING utf8mb4) COLLATE utf8mb4_bin = "
+            "CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin"
+        )
         params.append(filters["ramo"])
 
     if filters.get("sub_agente"):
-        sql_filters.append("p.sub_agente = %s")
+        sql_filters.append(
+            "CONVERT(p.sub_agente USING utf8mb4) COLLATE utf8mb4_bin = "
+            "CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin"
+        )
         params.append(filters["sub_agente"])
 
     if filters.get("ejecutivo"):
-        sql_filters.append("p.ejecutivo = %s")
+        sql_filters.append(
+            "CONVERT(p.ejecutivo USING utf8mb4) COLLATE utf8mb4_bin = "
+            "CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin"
+        )
         params.append(filters["ejecutivo"])
+
+    contratantes = filters.get("contratantes") or []
+    if isinstance(contratantes, str):
+        contratantes = [contratantes]
+    contratantes = [str(value).strip() for value in contratantes if str(value).strip()]
+    if contratantes:
+        contratante_params = ", ".join(
+            ["CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin"] * len(contratantes)
+        )
+        contratante_sql = (
+            "COALESCE(CAST(AES_DECRYPT(FROM_BASE64(c.razon_social), @SIS_KEY) AS CHAR), "
+            "CONVERT(c.razon_social USING utf8mb4)) COLLATE utf8mb4_bin IN ({})"
+        ).format(contratante_params)
+        sql_filters.append(contratante_sql)
+        params.extend(contratantes)
 
     if filters.get("moneda"):
         mon = (filters.get("moneda") or "").strip().upper()
         if mon in {"S/", "S/.", "SOLES", "PEN"}:
             sql_filters.append(
-                "(UPPER(TRIM(p.moneda)) LIKE 'S/%' OR UPPER(TRIM(p.moneda)) IN ('SOLES','PEN'))"
+                "(UPPER(TRIM(CONVERT(p.moneda USING utf8mb4))) COLLATE utf8mb4_bin "
+                "LIKE _utf8mb4'S/%' COLLATE utf8mb4_bin OR "
+                "UPPER(TRIM(CONVERT(p.moneda USING utf8mb4))) COLLATE utf8mb4_bin "
+                "IN (_utf8mb4'SOLES' COLLATE utf8mb4_bin, _utf8mb4'PEN' COLLATE utf8mb4_bin))"
             )
         elif mon in {"US$", "USD", "$", "DOLARES", "DÓLARES", "DOLAR"}:
             sql_filters.append(
-                "(UPPER(TRIM(p.moneda)) IN ('US$','USD','$','DOLARES','DÓLARES','DOLAR'))"
+                "UPPER(TRIM(CONVERT(p.moneda USING utf8mb4))) COLLATE utf8mb4_bin "
+                "IN (_utf8mb4'US$' COLLATE utf8mb4_bin, _utf8mb4'USD' COLLATE utf8mb4_bin, "
+                "_utf8mb4'$' COLLATE utf8mb4_bin, _utf8mb4'DOLARES' COLLATE utf8mb4_bin, "
+                "_utf8mb4'DÓLARES' COLLATE utf8mb4_bin, _utf8mb4'DOLAR' COLLATE utf8mb4_bin)"
             )
         else:
-            sql_filters.append("p.moneda = %s")
+            sql_filters.append(
+                "CONVERT(p.moneda USING utf8mb4) COLLATE utf8mb4_bin = "
+                "CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin"
+            )
             params.append(filters["moneda"])
 
     # Filtro por rol: sub agente solo ve sus pólizas
@@ -109,10 +176,20 @@ def _build_filters(filters: Dict[str, Any]) -> Tuple[str, List[Any]]:
     if role == Roles.SUB_AGENTE and user:
         sql_filters.append(
             "("
-            "p.sub_agente = %s "
-            "OR p.sub_agente = (SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1) "
-            "OR p.usuario_registro = %s "
-            "OR p.usuario_registro = (SELECT COALESCE(NULLIF(TRIM(nombre), ''), username) FROM usuarios WHERE username = %s LIMIT 1)"
+            "CONVERT(p.sub_agente USING utf8mb4) COLLATE utf8mb4_bin = "
+            "CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin "
+            "OR CONVERT(p.sub_agente USING utf8mb4) COLLATE utf8mb4_bin = "
+            "(SELECT CONVERT(COALESCE(NULLIF(TRIM(nombre), ''), username) USING utf8mb4) "
+            "COLLATE utf8mb4_bin FROM usuarios WHERE "
+            "CONVERT(username USING utf8mb4) COLLATE utf8mb4_bin = "
+            "CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin LIMIT 1) "
+            "OR CONVERT(p.usuario_registro USING utf8mb4) COLLATE utf8mb4_bin = "
+            "CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin "
+            "OR CONVERT(p.usuario_registro USING utf8mb4) COLLATE utf8mb4_bin = "
+            "(SELECT CONVERT(COALESCE(NULLIF(TRIM(nombre), ''), username) USING utf8mb4) "
+            "COLLATE utf8mb4_bin FROM usuarios WHERE "
+            "CONVERT(username USING utf8mb4) COLLATE utf8mb4_bin = "
+            "CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin LIMIT 1)"
             ")"
         )
         params.extend([user, user, user, user])

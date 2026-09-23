@@ -156,7 +156,8 @@ const Cuotas = (() => {
       observacion: tr.dataset.observacion || '',
       documento: tr.dataset.documento || '',
       usuario_registro: tr.dataset.usuarioRegistro || '',
-      fecha_creado: tr.dataset.fechaCreado || ''
+      fecha_creado: tr.dataset.fechaCreado || '',
+      usuario_edicion: tr.dataset.usuarioEdicion || ''
     };
   }
 
@@ -353,6 +354,7 @@ const Cuotas = (() => {
     tr.dataset.fechaAnulacion = '';
     tr.dataset.usuarioRegistro = data.usuario_registro_display || data.usuario_registro || (tr.dataset.usuarioRegistro || '');
     tr.dataset.fechaCreado = data.fecha_creado || (tr.dataset.fechaCreado || '');
+    tr.dataset.usuarioEdicion = data.usuario_edicion_display || data.usuario_edicion || (tr.dataset.usuarioEdicion || '');
 
     const rowCount = isNew ? tbody.rows.length : (Array.from(tbody.rows).indexOf(tr) + 1);
 
@@ -493,6 +495,7 @@ const Cuotas = (() => {
         tr.dataset.fechaFactura = '';
         tr.dataset.observacion = '';
         tr.dataset.documento = '';
+        tr.dataset.usuarioEdicion = window.currentUser || tr.dataset.usuarioEdicion || '';
         updateObservationCell(tr);
         updateActionState(tr);
         // Ocultar botones que dependen de Factura/Pago/Documento
@@ -533,6 +536,7 @@ const Cuotas = (() => {
     setText('detailUsuario', usuario);
     setText('detailFooterUsuario', usuario);
     setText('detailFooterFechaCreado', fechaCreado ? (fechaCreado ) : '');
+    setText('detailFooterUsuarioEdicion', data.usuario_edicion || '');
 
     // Mostrar Fecha Factura SOLO en el Resumen Económico (fila de la tarjeta).
     // NO mostrarla en el Timeline "Fechas Clave" (lo pide oculto).

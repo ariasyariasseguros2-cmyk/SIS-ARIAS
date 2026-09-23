@@ -244,6 +244,7 @@
       const inpDesde = form.querySelector('input[name="fecha_desde"]');
       const inpHasta = form.querySelector('input[name="fecha_hasta"]');
       const contratanteInp = document.getElementById('contratanteSearch');
+      const polizaCuponVal = (polizaCuponInput && polizaCuponInput.value) ? polizaCuponInput.value.trim() : '';
 
       const invalidEls = [];
       const missing = [];
@@ -265,13 +266,15 @@
 
       [inpDesde, inpHasta, contratanteInp].forEach(clearInvalid);
 
-      if (!inpDesde || !inpDesde.value) {
-        missing.push('Del');
-        markInvalid(inpDesde);
-      }
-      if (!inpHasta || !inpHasta.value) {
-        missing.push('Al');
-        markInvalid(inpHasta);
+      if (!polizaCuponVal) {
+        if (!inpDesde || !inpDesde.value) {
+          missing.push('Del');
+          markInvalid(inpDesde);
+        }
+        if (!inpHasta || !inpHasta.value) {
+          missing.push('Al');
+          markInvalid(inpHasta);
+        }
       }
 
       if (missing.length > 0) {

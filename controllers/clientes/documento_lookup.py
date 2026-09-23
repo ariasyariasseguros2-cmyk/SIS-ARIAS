@@ -75,14 +75,9 @@ def _infer_tipo_persona(tipo_documento: str, numero_documento: str) -> str:
 
 def _build_factiliza_url(tipo_documento: str, numero_documento: str, settings: dict) -> str:
     factiliza_cfg = settings.get("factiliza") or {}
-    template = factiliza_cfg.get("dni_url") if tipo_documento == "DNI" else factiliza_cfg.get("ruc_url")
-    if not template:
-        return ""
-
-    encoded_value = urllib.parse.quote(numero_documento)
-    if tipo_documento == "DNI":
-        return str(template).replace("{dni}", encoded_value)
-    return str(template).replace("{ruc}", encoded_value)
+    return (
+        factiliza_cfg.get("dni_url") if tipo_documento == "DNI" else factiliza_cfg.get("ruc_url")
+    ) or ""
 
 
 def _parse_http_body(raw_body: bytes):
@@ -93,16 +88,24 @@ def _parse_http_body(raw_body: bytes):
         return {"raw": text}
 
 
-def _fetch_factiliza(url: str, token: str):
+def _fetch_factiliza(url: str, token: str, tipo_documento: str, numero_documento: str):
+    body_key = "dni" if tipo_documento == "DNI" else "ruc"
+    body_bytes = json.dumps({body_key: numero_documento}).encode("utf-8")
+
+    base_headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
     header_candidates = [
-        {"Authorization": f"Bearer {token}", "Accept": "application/json"},
-        {"Authorization": token, "Accept": "application/json"},
-        {"token": token, "Accept": "application/json"},
+        base_headers,
+        {**base_headers, "Authorization": token},
+        {**base_headers, "token": token},
     ]
 
     last_response = None
     for headers in header_candidates:
-        req = urllib.request.Request(url, headers=headers, method="GET")
+        req = urllib.request.Request(url, data=body_bytes, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 return resp.getcode(), _parse_http_body(resp.read())
@@ -112,7 +115,7 @@ def _fetch_factiliza(url: str, token: str):
                 continue
             return last_response
 
-    return last_response or (500, {"error": "No se pudo consultar Factiliza"})
+    return last_response or (500, {"error": "No se pudo consultar la API de documentos"})
 
 
 def _normalize_response(tipo_documento: str, numero_documento: str, raw_response: dict) -> dict:
@@ -126,7 +129,7 @@ def _normalize_response(tipo_documento: str, numero_documento: str, raw_response
     departamento = _pick_first_text(payload, ["departamento"])
     provincia = _pick_first_text(payload, ["provincia"])
     distrito = _pick_first_text(payload, ["distrito"])
-    ubigeo_code = _pick_first_text(payload, ["ubigeo", "codigoUbigeo", "codigo_ubigeo"])
+    ubigeo_code = _pick_first_text(payload, ["ubigeo_reniec", "ubigeo_sunat", "ubigeo", "codigoUbigeo", "codigo_ubigeo"])
 
     ubigeo_resuelto = resolve_ubigeo(
         ubigeo_code=ubigeo_code,
@@ -183,7 +186,7 @@ def consultar_documento_route():
     )
 
     try:
-        status_code, raw_response = _fetch_factiliza(url, token)
+        status_code, raw_response = _fetch_factiliza(url, token, tipo_documento, numero_documento)
         if status_code >= 400:
             message = _pick_first_text(raw_response if isinstance(raw_response, dict) else {}, [
                 "error", "message", "mensaje", "detail",

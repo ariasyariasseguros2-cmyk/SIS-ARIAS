@@ -61,11 +61,14 @@
         {% if nav_ctx.return_to %}
             {% set _primas_qstring = _primas_qstring ~ ('&' if _primas_qstring else '?') ~ 'return=' ~ nav_ctx.return_to %}
         {% endif %}
+        {% if selected.idCliente %}
+          {% set _primas_qstring = _primas_qstring ~ ('&' if _primas_qstring else '?') ~ 'cliente_id=' ~ selected.idCliente %}
+        {% endif %}
 
         {% set _polizas_page = nav_ctx.return_to if nav_ctx.return_to in ['polizas', 'listado-poliza'] else 'polizas' %}
 
         <div class="d-flex gap-2 flex-shrink-0">
-          <a href="{{ url_for('main.menu_page', page=_polizas_page) }}" class="btn btn-sm btn-back">
+          <a href="{{ url_for('main.menu_page', page=_polizas_page, cliente_id=selected.idCliente) }}" class="btn btn-sm btn-back">
             <i class="bi bi-arrow-left me-1"></i> Volver Póliza
           </a>
           <a href="{{ url_for('main.menu_page', page='primas') }}{{ _primas_qstring }}" class="btn btn-sm btn-back">
@@ -491,7 +494,7 @@
   <script src="{{ url_for('static', filename='js/addCrecerVidaLey.js') }}?v=1"></script>
   
   <!-- Main + Sincronizador bottom buttons (cache bust v2) -->
-  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=20260826-2" defer></script>
+  <script src="{{ url_for('static', filename='js/anadir.poliza.js') }}?v=20260910" defer></script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       const saveLegacy   = document.getElementById('btnSave');

@@ -166,6 +166,12 @@ def save_polizas(
     facturas_by_index: dict | None = None,
     facturas_by_cuota: dict | None = None,
 ) -> dict:
+    # Limpiar prefijo "temp/" de pdf_filename (ahora /upload lo devuelve con prefijo para que nginx/Flask sirvan correctamente)
+    if selected and selected.get('pdf_filename'):
+        _pf = str(selected['pdf_filename']).replace('\\', '/')
+        while _pf.startswith('temp/'):
+            _pf = _pf[len('temp/'):]
+        selected['pdf_filename'] = os.path.basename(_pf)
     # Insertar en BD usando SP
     saved_anexos = []
     saved_facturas = []
@@ -592,21 +598,34 @@ def save_polizas(
             r = cursor.fetchone()
             return int(r[0]) if r and r[0] is not None else None
 
-        # Validar si el cliente existe (por documento o nombre)
-        found_doc = find_client_doc(numero_documento, razon_social_selected, cur)
-        if not found_doc:
-            cur.close()
-            cnx.close()
-            return {"ok": False, "errors": ["El cliente no existe (ni por documento ni por nombre), debes registrar cliente nuevo"]}
-
-        # Actualizar numero_documento con el encontrado (para usarlo como default)
-        numero_documento = found_doc
-
+        # Si la pantalla entregó el ID del cliente, ese ID es la fuente de verdad.
+        # No volver a resolverlo por documento: otra pestaña puede haber cambiado la sesión.
         cliente_id_global = None
-        try:
-            cliente_id_global = find_client_id(numero_documento, cur)
-        except Exception:
-            cliente_id_global = None
+        selected_client_id = (selected or {}).get('idCliente')
+        if selected_client_id:
+            try:
+                cur.execute(
+                    "SELECT idCliente FROM clientes WHERE idCliente = %s AND activo = 1 LIMIT 1",
+                    (int(selected_client_id),)
+                )
+                valid_client = cur.fetchone()
+                if valid_client:
+                    cliente_id_global = int(valid_client[0])
+            except Exception:
+                cliente_id_global = None
+
+        if cliente_id_global is None:
+            # Compatibilidad con formularios antiguos que aún no envían idCliente.
+            found_doc = find_client_doc(numero_documento, razon_social_selected, cur)
+            if not found_doc:
+                cur.close()
+                cnx.close()
+                return {"ok": False, "errors": ["El cliente no existe (ni por documento ni por nombre), debes registrar cliente nuevo"]}
+            numero_documento = found_doc
+            try:
+                cliente_id_global = find_client_id(numero_documento, cur)
+            except Exception:
+                cliente_id_global = None
 
         batch_dups = set()
         for idx, row in enumerate(normalized, start=1):

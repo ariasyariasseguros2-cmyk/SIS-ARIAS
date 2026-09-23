@@ -494,7 +494,8 @@
                         ...payload,
                         fecha_pago: getVal('editFechaPago'),
                         factura: getVal('editFactura'),
-                        observacion: getVal('editObservacion')
+                        observacion: getVal('editObservacion'),
+                        usuario_edicion_display: window.currentUser || ''
                     };
                     if (this._archivoActual && this._archivoActual.idArchivo) {
                         savedDetail.idArchivo = this._archivoActual.idArchivo;

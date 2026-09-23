@@ -428,6 +428,7 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 nombre: razon,
+                                razon_social: razon,
                                 tipo_doc: tipoDoc,
                                 n_doc: numeroDoc,
                                 tel: telefono,
@@ -438,7 +439,10 @@
                         .then(r => r.json())
                         .then(res => {
                             if (res.ok) {
-                                window.location.href = polizasUrl; // sin query string
+                                const targetUrl = idCliente
+                                    ? `${polizasUrl}?cliente_id=${encodeURIComponent(idCliente)}`
+                                    : polizasUrl;
+                                window.location.href = targetUrl;
                             } else {
                                 alert(res.errors?.[0] || 'No se pudo seleccionar el cliente.');
                             }

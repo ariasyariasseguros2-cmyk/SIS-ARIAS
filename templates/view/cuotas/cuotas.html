@@ -162,7 +162,8 @@
                 data-fecha-factura="{{ r.fecha_factura or '' }}"
                 data-observacion="{{ r.observacion or '' }}"
                 data-usuario-registro="{{ r.usuario_registro_display or r.usuario_registro or '' }}"
-                data-fecha-creado="{{ r.fecha_creado or '' }}">
+                data-fecha-creado="{{ r.fecha_creado or '' }}"
+                data-usuario-edicion="{{ r.usuario_edicion_display or r.usuario_edicion or '' }}">
               <td>{{ loop.index }}</td>
               <td>{{ r.cupon if r.cupon else '—' }}</td>
               <td>{{ r.fecha_vencimiento }}</td>
@@ -319,6 +320,11 @@
                       <span id="detailFooterUsuario" class="fw-semibold ms-1"></span>
                   </div>
                   <div>
+                      <i class="bi bi-pencil-square me-1 text-muted"></i>
+                      <span class="text-muted small">Modificado por:</span>
+                      <span id="detailFooterUsuarioEdicion" class="fw-semibold ms-1"></span>
+                  </div>
+                  <div>
                       <i class="bi bi-calendar3-event me-1 text-muted"></i>
                       <span class="text-muted small">Fecha y hora de creación del registro:</span>
                       <span id="detailFooterFechaCreado" class="fw-semibold ms-1"></span>
@@ -400,9 +406,9 @@
 {% block extra_js_bottom %}
 {{ super() }}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="{{ url_for('static', filename='js/cuotas/cuotas.js') }}?v=20260828"></script>
+<script src="{{ url_for('static', filename='js/cuotas/cuotas.js') }}?v=20260829"></script>
 <script src="{{ url_for('static', filename='js/cuotas/add_cuota_modal.js') }}?v=20260828"></script>
-<script src="{{ url_for('static', filename='js/cuotas/edit_cuota_modal.js') }}?v=20260828"></script>
+<script src="{{ url_for('static', filename='js/cuotas/edit_cuota_modal.js') }}?v=20260829"></script>
 <script>
   Cuotas.init();
 </script>

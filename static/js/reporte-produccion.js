@@ -6,6 +6,10 @@ function reporteProduccionInit() {
     const btnExportPro = document.getElementById('btnExportProduccionExcelPro');
     const btnClear = document.getElementById('btnClearProduccion');
     const alertEl = document.getElementById('reporteProduccionAlert');
+    const contratanteSearch = document.getElementById('reporteProduccionContratanteSearch');
+    const contratanteSelect = document.getElementById('reporteProduccionContratantes');
+    const contratanteSelected = document.getElementById('reporteProduccionContratantesSelected');
+    const contratanteAll = document.getElementById('reporteProduccionContratantesAll');
 
     // Estado de paginación
     let allData = [];
@@ -87,6 +91,58 @@ function reporteProduccionInit() {
             }
         }
         return params.toString();
+    }
+
+    function updateContratantesSelected() {
+        if (!contratanteSelect || !contratanteSelected) return;
+        const checked = contratanteSelect.querySelectorAll('input[name="contratantes"]:checked');
+        if (!checked.length) {
+            contratanteSelected.textContent = 'Ningún contratante seleccionado.';
+            if (contratanteAll) contratanteAll.checked = false;
+            return;
+        }
+        const total = contratanteSelect.querySelectorAll('input[name="contratantes"]').length;
+        if (contratanteAll) contratanteAll.checked = checked.length === total;
+        const names = Array.from(checked).map(function (input) {
+            return input.parentElement.querySelector('span').textContent.trim();
+        });
+        const visibleNames = names.slice(0, 3);
+        const remaining = names.length - visibleNames.length;
+        contratanteSelected.innerHTML = '<span class="contratante-summary-label">' +
+            checked.length + ' seleccionado(s):</span>' +
+            visibleNames.map(function (name) {
+                return '<span class="contratante-chip" title="' + escapeHtml(name) + '">' + escapeHtml(name) + '</span>';
+            }).join('') +
+            (remaining > 0 ? '<span class="contratante-summary-more">+' + remaining + ' más</span>' : '');
+    }
+
+    if (contratanteSearch && contratanteSelect) {
+        function normalizeSearchText(value) {
+            return String(value || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .trim();
+        }
+
+        contratanteSearch.addEventListener('input', function () {
+            const search = normalizeSearchText(this.value);
+            contratanteSelect.querySelectorAll('.contratante-option').forEach(function (option) {
+                const matches = !search || normalizeSearchText(option.textContent).includes(search);
+                option.classList.toggle('is-hidden', !matches);
+                option.style.display = matches ? '' : 'none';
+            });
+        });
+        contratanteSelect.addEventListener('change', updateContratantesSelected);
+        if (contratanteAll) {
+            contratanteAll.addEventListener('change', function () {
+                contratanteSelect.querySelectorAll('input[name="contratantes"]').forEach(function (input) {
+                    input.checked = contratanteAll.checked;
+                });
+                updateContratantesSelected();
+            });
+        }
+        updateContratantesSelected();
     }
 
     function hasAnyFilter() {
@@ -398,6 +454,15 @@ function reporteProduccionInit() {
     if (btnClear) {
         btnClear.addEventListener('click', function () {
             form.reset();
+            if (contratanteSearch) contratanteSearch.value = '';
+            if (contratanteAll) contratanteAll.checked = false;
+            if (contratanteSelect) {
+                contratanteSelect.querySelectorAll('.contratante-option').forEach(function (option) {
+                    option.classList.remove('is-hidden');
+                    option.style.display = '';
+                });
+            }
+            updateContratantesSelected();
             clearAlert();
             allData = [];
             currentPage = 1;

@@ -323,7 +323,9 @@
 
         const vigDesde = v(r.ren_vig_desde || r.vig_desde);
         const vigHasta = v(r.ren_vig_hasta || r.vig_hasta);
-        const primasHref = `${primasUrlBase}?poliza=${encodeURIComponent(v(r.poliza))}&return=polizas`;
+          const clienteId = table.getAttribute('data-cliente-id') || '';
+          const clienteQuery = clienteId ? `&cliente_id=${encodeURIComponent(clienteId)}` : '';
+          const primasHref = `${primasUrlBase}?poliza=${encodeURIComponent(v(r.poliza))}&return=polizas${clienteQuery}`;
         const extractoHref = `/menu/cuotas?poliza=${encodeURIComponent(v(r.poliza))}`;
         const detallesHref = `/menu/detalles-poliza?id=${r.idPoliza}`;
         const editarHref = `/menu/editar-poliza?id=${r.idPoliza}`;
