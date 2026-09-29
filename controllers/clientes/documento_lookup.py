@@ -73,11 +73,22 @@ def _infer_tipo_persona(tipo_documento: str, numero_documento: str) -> str:
     return "NATURAL"
 
 
-def _build_factiliza_url(tipo_documento: str, numero_documento: str, settings: dict) -> str:
+def _build_factiliza_urls(tipo_documento: str, settings: dict) -> list[str]:
     factiliza_cfg = settings.get("factiliza") or {}
-    return (
-        factiliza_cfg.get("dni_url") if tipo_documento == "DNI" else factiliza_cfg.get("ruc_url")
-    ) or ""
+    if tipo_documento == "DNI":
+        urls = [
+            factiliza_cfg.get("dni_url"),
+            factiliza_cfg.get("dni_direccion_url") or "https://api.json.pe/api/dni-direccion",
+        ]
+        unique_urls = []
+        for raw_url in urls:
+            url = str(raw_url or "").strip()
+            if url and url not in unique_urls:
+                unique_urls.append(url)
+        return unique_urls
+
+    url = str(factiliza_cfg.get("ruc_url") or "").strip()
+    return [url] if url else []
 
 
 def _parse_http_body(raw_body: bytes):
@@ -118,17 +129,30 @@ def _fetch_factiliza(url: str, token: str, tipo_documento: str, numero_documento
     return last_response or (500, {"error": "No se pudo consultar la API de documentos"})
 
 
-def _normalize_response(tipo_documento: str, numero_documento: str, raw_response: dict) -> dict:
-    payload = _extract_payload(raw_response)
+def _merge_payloads(raw_responses: list[dict]) -> dict:
+    merged = {}
+    for raw_response in raw_responses:
+        payload = _extract_payload(raw_response)
+        if not isinstance(payload, dict):
+            continue
+        for key, value in payload.items():
+            current = merged.get(key)
+            if current is None or (isinstance(current, str) and not current.strip()):
+                merged[key] = value
+    return merged
+
+
+def _normalize_response(tipo_documento: str, numero_documento: str, raw_responses: list[dict]) -> dict:
+    payload = _merge_payloads(raw_responses)
 
     razon_social = _build_nombre(payload, tipo_documento)
     direccion = _pick_first_text(
         payload,
-        ["direccion", "direccionFiscal", "direccion_fiscal"],
+        ["direccion", "direccionFiscal", "direccion_fiscal", "direccionCompleta", "direccion_completa", "domicilio", "domicilioFiscal", "domicilio_fiscal"],
     )
-    departamento = _pick_first_text(payload, ["departamento"])
-    provincia = _pick_first_text(payload, ["provincia"])
-    distrito = _pick_first_text(payload, ["distrito"])
+    departamento = _pick_first_text(payload, ["departamento", "departamentoReniec", "departamento_reniec"])
+    provincia = _pick_first_text(payload, ["provincia", "provinciaReniec", "provincia_reniec"])
+    distrito = _pick_first_text(payload, ["distrito", "distritoReniec", "distrito_reniec"])
     ubigeo_code = _pick_first_text(payload, ["ubigeo_reniec", "ubigeo_sunat", "ubigeo", "codigoUbigeo", "codigo_ubigeo"])
 
     ubigeo_resuelto = resolve_ubigeo(
@@ -171,9 +195,9 @@ def consultar_documento_route():
     settings = load_settings() or {}
     factiliza_cfg = settings.get("factiliza") or {}
     token = str(factiliza_cfg.get("token") or "").strip()
-    url = _build_factiliza_url(tipo_documento, numero_documento, settings)
+    urls = _build_factiliza_urls(tipo_documento, settings)
 
-    if not token or not url:
+    if not token or not urls:
         return jsonify({
             "ok": False,
             "error": "La configuracion de Factiliza no esta completa en appsettings.json",
@@ -186,14 +210,25 @@ def consultar_documento_route():
     )
 
     try:
-        status_code, raw_response = _fetch_factiliza(url, token, tipo_documento, numero_documento)
-        if status_code >= 400:
-            message = _pick_first_text(raw_response if isinstance(raw_response, dict) else {}, [
+        successful_responses = []
+        last_error = None
+
+        for url in urls:
+            status_code, raw_response = _fetch_factiliza(url, token, tipo_documento, numero_documento)
+            if status_code < 400:
+                successful_responses.append(raw_response or {})
+                continue
+            last_error = (status_code, raw_response)
+
+        if not successful_responses:
+            error_status = last_error[0] if last_error else 500
+            raw_error = last_error[1] if last_error else {}
+            message = _pick_first_text(raw_error if isinstance(raw_error, dict) else {}, [
                 "error", "message", "mensaje", "detail",
             ]) or "No se encontraron datos para el documento consultado"
-            return jsonify({"ok": False, "error": message}), status_code
+            return jsonify({"ok": False, "error": message}), error_status
 
-        normalized = _normalize_response(tipo_documento, numero_documento, raw_response or {})
+        normalized = _normalize_response(tipo_documento, numero_documento, successful_responses)
         if not any([
             normalized.get("razon_social"),
             normalized.get("direccion"),
