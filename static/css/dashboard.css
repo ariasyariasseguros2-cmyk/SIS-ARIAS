@@ -1145,6 +1145,118 @@ a { text-decoration: none; }
   white-space: nowrap;
 }
 
+.renovar-row-blocked {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.12) 0%, rgba(245, 158, 11, 0.08) 100%) !important;
+}
+
+.renovar-row-blocked td {
+  color: var(--text-primary) !important;
+}
+
+.renovar-row-blocked:hover {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.16) 0%, rgba(245, 158, 11, 0.12) 100%) !important;
+  outline-color: rgba(239, 68, 68, 0.28);
+}
+
+.renovar-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c !important;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+[data-theme='dark'] .renovar-status-chip {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fecaca !important;
+}
+
+.renewal-block-modal {
+  overflow: hidden;
+  border: 1px solid rgba(239, 68, 68, 0.12) !important;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18) !important;
+}
+
+.renewal-block-modal .modal-body {
+  padding: 1.75rem 1.5rem 1rem;
+  text-align: center;
+}
+
+.renewal-block-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 1rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(245, 158, 11, 0.18));
+  color: #dc2626;
+  font-size: 2rem;
+}
+
+.renewal-block-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.8rem;
+  margin-bottom: 0.9rem;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.renewal-block-title {
+  margin-bottom: 0.8rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.renewal-block-text {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-size: 0.94rem;
+}
+
+.renewal-block-text strong {
+  color: var(--text-primary);
+}
+
+.renewal-block-text-soft {
+  font-size: 0.88rem;
+}
+
+.renewal-block-footer {
+  padding: 0 1.5rem 1.4rem;
+  border-top: 0 !important;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+[data-theme='dark'] .renewal-block-modal {
+  border-color: rgba(248, 113, 113, 0.18) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45) !important;
+}
+
+[data-theme='dark'] .renewal-block-icon {
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.14), rgba(245, 158, 11, 0.18));
+  color: #fca5a5;
+}
+
+[data-theme='dark'] .renewal-block-badge {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+}
+
 /* ================= NOTIFICATIONS ================= */
 .notification-item.notif-vencida {
   background-color: var(--notif-expired-bg);

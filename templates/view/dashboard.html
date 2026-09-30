@@ -6,7 +6,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}?v=20260928-1">
 {% endblock %}
 
 {% block content %}
@@ -212,6 +212,32 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="modalRenovacionBloqueada" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content renewal-block-modal">
+            <div class="modal-body">
+                <div class="renewal-block-icon">
+                    <i class="bi bi-shield-exclamation"></i>
+                </div>
+                <div class="renewal-block-badge">Renovación bloqueada</div>
+                <h5 class="renewal-block-title">Completa la factura antes de continuar</h5>
+                <p class="renewal-block-text mb-2">
+                    La póliza <strong id="blockedRenewalPoliza">-</strong> tiene cuotas activas sin factura registrada.
+                </p>
+                <p class="renewal-block-text renewal-block-text-soft mb-0">
+                    Para continuar con la renovación primero debes completar la factura desde la vista de <strong>Cuotas</strong>.
+                </p>
+            </div>
+            <div class="modal-footer renewal-block-footer">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Ahora no</button>
+                <button type="button" class="btn btn-primary rounded-pill px-4" id="btnGoToCuotasBlocked">
+                    <i class="bi bi-arrow-right-circle me-1"></i> Ir a Cuotas
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js_bottom %}
@@ -233,6 +259,6 @@
         distribution: {{ distribution | tojson }}
     };
 </script>
-<script src="{{ url_for('static', filename='js/dashboard_home.js') }}?v=20260805-1"></script>
+<script src="{{ url_for('static', filename='js/dashboard_home.js') }}?v=20260928-2"></script>
 {% endif %}
 {% endblock %}

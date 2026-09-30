@@ -281,6 +281,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalTabla = document.getElementById('modalRenovacionesTabla');
     const modalTbody = modalTabla ? modalTabla.querySelector('tbody') : null;
     const modalLabel = document.getElementById('modalRenovacionesLabel');
+    const modalRenovacionBloqueadaEl = document.getElementById('modalRenovacionBloqueada');
+    const modalRenovacionBloqueada = modalRenovacionBloqueadaEl ? new bootstrap.Modal(modalRenovacionBloqueadaEl) : null;
+    const blockedRenewalPoliza = document.getElementById('blockedRenewalPoliza');
+    const btnGoToCuotasBlocked = document.getElementById('btnGoToCuotasBlocked');
+    let blockedCuotasUrl = '';
+
+    if (btnGoToCuotasBlocked) {
+        btnGoToCuotasBlocked.addEventListener('click', () => {
+            if (!blockedCuotasUrl) return;
+            window.location.href = blockedCuotasUrl;
+        });
+    }
+
+    function buildCuotasUrl(row) {
+        const params = new URLSearchParams();
+        if (row.poliza) params.set('poliza', row.poliza);
+        if (row.idPoliza) params.set('idPrima', row.idPoliza);
+        if (row.recibo) params.set('aviso', row.recibo);
+        return `/menu/cuotas?${params.toString()}`;
+    }
+
+    function showBlockedRenewalModal(row, cuotasUrl) {
+        blockedCuotasUrl = cuotasUrl || '';
+        if (blockedRenewalPoliza) {
+            blockedRenewalPoliza.textContent = row.poliza || 'seleccionada';
+        }
+        if (modalRenovacionBloqueada) {
+            modalRenovacionBloqueada.show();
+            return;
+        }
+        alert('No puedes continuar con la renovación porque la póliza tiene cuotas activas sin factura. Completa la factura en Cuotas para seguir.');
+        if (blockedCuotasUrl) {
+            window.location.href = blockedCuotasUrl;
+        }
+    }
 
     document.querySelectorAll('.renovar-trigger').forEach(el => {
         el.addEventListener('click', () => {
@@ -304,16 +339,37 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
                     modalTbody.innerHTML = rows.map(r => `
-                        <tr class="renovar-row" data-poliza-id="${r.idPoliza}" title="Ver esta póliza">
+                        <tr
+                            class="renovar-row ${r.missing_invoice ? 'renovar-row-blocked' : ''}"
+                            data-poliza-id="${r.idPoliza}"
+                            data-poliza="${encodeURIComponent(r.poliza || '')}"
+                            data-recibo="${encodeURIComponent(r.recibo || '')}"
+                            data-missing-invoice="${r.missing_invoice ? '1' : '0'}"
+                            title="${r.missing_invoice ? 'Completar factura antes de renovar' : 'Ver esta póliza'}"
+                        >
                             <td>${escapeHtml(r.poliza)}</td>
                             <td>${escapeHtml(r.recibo)}</td>
                             <td>${escapeHtml(r.vig_desde)}</td>
                             <td>${escapeHtml(r.vig_hasta)}</td>
-                            <td class="renovar-row-action text-end"><i class="bi-box-arrow-up-right me-1"></i>Ver</td>
+                            <td class="renovar-row-action text-end">
+                                ${r.missing_invoice
+                                    ? '<span class="renovar-status-chip"><i class="bi bi-exclamation-circle me-1"></i>Completar factura</span>'
+                                    : '<i class="bi-box-arrow-up-right me-1"></i>Ver'}
+                            </td>
                         </tr>
                     `).join('');
                     modalTbody.querySelectorAll('.renovar-row').forEach(tr => {
                         tr.addEventListener('click', () => {
+                            const row = {
+                                idPoliza: tr.dataset.polizaId || '',
+                                poliza: decodeURIComponent(tr.dataset.poliza || ''),
+                                recibo: decodeURIComponent(tr.dataset.recibo || '')
+                            };
+                            const cuotasUrl = buildCuotasUrl(row);
+                            if ((tr.dataset.missingInvoice || '') === '1') {
+                                showBlockedRenewalModal(row, cuotasUrl);
+                                return;
+                            }
                             window.location.href = `/notificaciones/poliza/${tr.dataset.polizaId}/abrir`;
                         });
                     });
