@@ -8,6 +8,8 @@ from flask import current_app, jsonify, request, session
 from controllers.maestros.ubigeos import resolve_ubigeo
 from models.db import load_settings
 
+APIMANAGER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+
 
 def _normalize_tipo_documento(raw: str) -> str:
     value = str(raw or "").strip().upper()
@@ -33,6 +35,37 @@ def _pick_first_text(source: dict, keys: list[str]) -> str:
     return ""
 
 
+def _normalize_date_for_html(raw_date: str) -> str:
+    value = str(raw_date or "").strip()
+    if not value:
+        return ""
+
+    if len(value) >= 10 and value[4] == "-" and value[7] == "-":
+        return value[:10]
+
+    normalized = value.replace("/", "-")
+    parts = normalized.split("-")
+    if len(parts) == 3:
+        first, second, third = parts
+        if len(first) == 4:
+            return f"{first.zfill(4)}-{second.zfill(2)}-{third.zfill(2)}"
+        if len(third) == 4:
+            return f"{third.zfill(4)}-{second.zfill(2)}-{first.zfill(2)}"
+
+    return ""
+
+
+def _split_nombre_persona(full_name: str) -> tuple[str, str, str]:
+    parts = [part for part in str(full_name or "").strip().split() if part]
+    if len(parts) >= 3:
+        return parts[2] if len(parts) == 3 else " ".join(parts[2:]), parts[0], parts[1]
+    if len(parts) == 2:
+        return parts[1], parts[0], ""
+    if len(parts) == 1:
+        return parts[0], "", ""
+    return "", "", ""
+
+
 def _extract_payload(raw_data):
     if not isinstance(raw_data, dict):
         return {}
@@ -41,6 +74,10 @@ def _extract_payload(raw_data):
         nested = raw_data.get(key)
         if isinstance(nested, dict):
             return nested
+        if isinstance(nested, list):
+            for item in nested:
+                if isinstance(item, dict):
+                    return item
 
     return raw_data
 
@@ -99,6 +136,23 @@ def _parse_http_body(raw_body: bytes):
         return {"raw": text}
 
 
+def _fetch_apimanager(url: str, token: str):
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+            "User-Agent": APIMANAGER_USER_AGENT,
+        },
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.getcode(), _parse_http_body(resp.read())
+    except urllib.error.HTTPError as exc:
+        return exc.code, _parse_http_body(exc.read())
+
+
 def _fetch_factiliza(url: str, token: str, tipo_documento: str, numero_documento: str):
     body_key = "dni" if tipo_documento == "DNI" else "ruc"
     body_bytes = json.dumps({body_key: numero_documento}).encode("utf-8")
@@ -142,6 +196,78 @@ def _merge_payloads(raw_responses: list[dict]) -> dict:
     return merged
 
 
+def _build_apimanager_url(settings: dict, tipo_documento: str, numero_documento: str) -> str:
+    api_cfg = settings.get("ApiManager") or {}
+    if tipo_documento == "DNI":
+        base_url = str(api_cfg.get("urldni") or "").strip()
+        query = urllib.parse.urlencode({"dni": numero_documento})
+    else:
+        base_url = str(api_cfg.get("urlruc") or "").strip()
+        query = urllib.parse.urlencode({"ruc": numero_documento})
+
+    if not base_url:
+        return ""
+
+    separator = "&" if "?" in base_url else "?"
+    return f"{base_url}{separator}{query}"
+
+
+def _normalize_basic_response(tipo_documento: str, numero_documento: str, raw_response: dict) -> dict:
+    payload = _extract_payload(raw_response)
+    if not isinstance(payload, dict):
+        payload = {}
+
+    if tipo_documento == "RUC":
+        return {
+            "tipo_documento": tipo_documento,
+            "numero_documento": numero_documento,
+            "nombres": _pick_first_text(
+                payload,
+                ["razonSocial", "razon_social", "nombre", "nombre_o_razon_social"],
+            ),
+            "apellido_paterno": "",
+            "apellido_materno": "",
+            "fecha_nacimiento": "",
+            "sexo": "",
+            "estado_civil": "",
+        }
+
+    nombres = _pick_first_text(payload, ["nombres", "prenombres"])
+    apellido_paterno = _pick_first_text(payload, ["apellidoPaterno", "apellido_paterno", "ap_pat"])
+    apellido_materno = _pick_first_text(payload, ["apellidoMaterno", "apellido_materno", "ap_mat"])
+    fecha_nacimiento = _pick_first_text(
+        payload,
+        ["fecha_nac", "fechaNacimiento", "fecha_nacimiento", "fec_nacimiento"],
+    )
+    fecha_nacimiento = _normalize_date_for_html(fecha_nacimiento)
+    sexo = _pick_first_text(payload, ["sexo", "genero"])
+    estado_civil = _pick_first_text(
+        payload,
+        ["est_civil", "estadoCivil", "estado_civil"],
+    )
+
+    if not (nombres and apellido_paterno):
+        full_name = _pick_first_text(
+            payload,
+            ["nombre", "nombreCompleto", "nombre_completo", "cliente", "nombresCompletos"],
+        )
+        split_nombres, split_apellido_paterno, split_apellido_materno = _split_nombre_persona(full_name)
+        nombres = nombres or split_nombres
+        apellido_paterno = apellido_paterno or split_apellido_paterno
+        apellido_materno = apellido_materno or split_apellido_materno
+
+    return {
+        "tipo_documento": tipo_documento,
+        "numero_documento": numero_documento or _pick_first_text(payload, ["dni", "numero_documento"]),
+        "nombres": nombres,
+        "apellido_paterno": apellido_paterno,
+        "apellido_materno": apellido_materno,
+        "fecha_nacimiento": fecha_nacimiento,
+        "sexo": sexo,
+        "estado_civil": estado_civil,
+    }
+
+
 def _normalize_response(tipo_documento: str, numero_documento: str, raw_responses: list[dict]) -> dict:
     payload = _merge_payloads(raw_responses)
 
@@ -181,6 +307,7 @@ def consultar_documento_route():
 
     tipo_documento = _normalize_tipo_documento(request.args.get("tipo_documento"))
     numero_documento = _clean_numero_documento(request.args.get("numero_documento"))
+    modo = str(request.args.get("modo") or "").strip().lower()
 
     if tipo_documento not in {"DNI", "RUC"}:
         return jsonify({"ok": False, "error": "Solo se admite consulta de DNI o RUC"}), 400
@@ -193,6 +320,59 @@ def consultar_documento_route():
         }), 400
 
     settings = load_settings() or {}
+    if modo == "basico":
+        api_cfg = settings.get("ApiManager") or {}
+        api_token = str(api_cfg.get("token") or "").strip()
+        api_url = _build_apimanager_url(settings, tipo_documento, numero_documento)
+
+        if not api_token or not api_url:
+            return jsonify({
+                "ok": False,
+                "error": "La configuracion de ApiManager no esta completa en appsettings.json",
+            }), 500
+
+        current_app.logger.info(
+            "[clientes.documento_lookup] modo=basico tipo=%s numero=%s",
+            tipo_documento,
+            f"{numero_documento[:2]}***{numero_documento[-2:]}",
+        )
+
+        try:
+            status_code, raw_response = _fetch_apimanager(api_url, api_token)
+            if status_code >= 400:
+                status_map = {
+                    401: "Token requerido o invalido para ApiManager",
+                    403: "La cuenta de ApiManager esta suspendida",
+                    422: "ApiManager recibio parametros invalidos",
+                    429: "ApiManager alcanzo la cuota mensual",
+                }
+                message = _pick_first_text(
+                    raw_response if isinstance(raw_response, dict) else {},
+                    ["error", "message", "mensaje", "detail"],
+                ) or status_map.get(status_code) or "No se encontraron datos para el documento consultado"
+                if status_code == 412 and "modsecurity" in str(raw_response).lower():
+                    message = "ApiManager bloqueo la solicitud del servidor por una regla de seguridad"
+                return jsonify({"ok": False, "error": message}), status_code
+
+            normalized = _normalize_basic_response(tipo_documento, numero_documento, raw_response)
+            if not any([
+                normalized.get("nombres"),
+                normalized.get("apellido_paterno"),
+                normalized.get("apellido_materno"),
+            ]):
+                return jsonify({
+                    "ok": False,
+                    "error": "ApiManager respondio sin nombres utilizables para este documento",
+                }), 404
+
+            return jsonify({"ok": True, "data": normalized}), 200
+        except Exception as exc:
+            current_app.logger.exception("[clientes.documento_lookup] error modo=basico")
+            return jsonify({
+                "ok": False,
+                "error": f"Error consultando ApiManager: {str(exc)}",
+            }), 500
+
     factiliza_cfg = settings.get("factiliza") or {}
     token = str(factiliza_cfg.get("token") or "").strip()
     urls = _build_factiliza_urls(tipo_documento, settings)

@@ -144,6 +144,8 @@
                         <li><a data-page="clientes-cumpleanos" href="{{ url_for('main.menu_page', page='clientes-cumpleanos') }}"><i class="bi-download"></i> Reporte de Cumpleaños</a></li>
                         <li class="{% if page == 'clientes-anulados' %}active{% endif %}"><a data-page="clientes-anulados" href="{{ url_for('main.menu_page', page='clientes-anulados') }}"><i class="bi-x-circle"></i> Clientes Anulados</a></li>
                         <li class="{% if page == 'clientes-estado-cuenta' %}active{% endif %}"><a data-page="clientes-estado-cuenta" href="{{ url_for('main.menu_page', page='clientes-estado-cuenta') }}"><i class="bi-wallet2"></i> Estado de Cuenta</a></li>
+                        <li class="{% if page == 'cliente-tramas' %}active{% endif %}"><a data-page="cliente-tramas" href="{{ url_for('main.menu_page', page='cliente-tramas') }}"><i class="bi-file-earmark-text"></i> Clientes Tramas</a>
+                        </li>                                                                           
                     </ul>
                 </li>
 

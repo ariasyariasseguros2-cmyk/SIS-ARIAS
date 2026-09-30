@@ -1,0 +1,2281 @@
+{% extends 'view/layout_dashboard.html' %}
+
+{% block page_title %}
+Generador de Tramas
+{% endblock %}
+
+{% block content %}
+
+<style>
+    /* =========================================================
+       ESTILOS GENERALES
+    ========================================================== */
+
+    .trama-page {
+        padding: 20px 10px 40px;
+    }
+
+    .trama-header {
+        margin-bottom: 22px;
+    }
+
+    .trama-header h2 {
+        font-size: 25px;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 5px;
+    }
+
+    .trama-header p {
+        color: #6b7280;
+        margin: 0;
+        font-size: 14px;
+    }
+
+    /* =========================================================
+       TARJETAS
+    ========================================================== */
+
+    .trama-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+
+    .trama-card-header {
+        padding: 15px 20px;
+        border-bottom: 1px solid #e5e7eb;
+        background: #f8fafc;
+    }
+
+    .trama-card-header h5 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: #1f2937;
+    }
+
+    .trama-card-header small {
+        display: block;
+        color: #6b7280;
+        margin-top: 3px;
+    }
+
+    .trama-card-body {
+        padding: 20px;
+    }
+
+    /* =========================================================
+       LABELS
+    ========================================================== */
+
+    .form-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 6px;
+    }
+
+    .required {
+        color: #dc2626;
+    }
+
+    /* =========================================================
+       INPUTS
+    ========================================================== */
+
+    .form-control,
+    .form-select {
+        border-color: #d1d5db;
+        border-radius: 7px;
+        min-height: 39px;
+        font-size: 14px;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, .10);
+    }
+
+    .form-control[readonly] {
+        background-color: #f3f4f6;
+    }
+
+    /* =========================================================
+       BOTÓN BUSCAR
+    ========================================================== */
+
+    .btn-buscar {
+        border-radius: 0 7px 7px 0;
+        min-width: 75px;
+    }
+
+    /* =========================================================
+       BOTONES
+    ========================================================== */
+
+    .btn {
+        border-radius: 7px;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .btn-agregar {
+        padding: 9px 18px;
+    }
+
+    .btn-exportar {
+        padding: 9px 18px;
+    }
+
+    /* =========================================================
+       TABLA
+    ========================================================== */
+
+    .table-container {
+        padding: 0;
+    }
+
+    .table {
+        margin: 0;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+
+    .table thead th {
+        background: #f8fafc;
+        color: #374151;
+        font-weight: 600;
+        border-bottom: 1px solid #d1d5db;
+        padding: 11px 10px;
+    }
+
+    .table tbody td {
+        padding: 10px;
+        vertical-align: middle;
+    }
+
+    .table tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .btn-eliminar {
+        font-size: 12px;
+        padding: 5px 9px;
+    }
+
+    /* =========================================================
+       CONTADOR
+    ========================================================== */
+
+    .contador-registros {
+        background: #eef2ff;
+        color: #4338ca;
+        border-radius: 20px;
+        padding: 4px 10px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .contador-registros.limite {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+
+    /* =========================================================
+       MENSAJES API
+    ========================================================== */
+
+    .api-hint {
+        font-size: 11px;
+        margin-top: 4px;
+    }
+
+    /* =========================================================
+       ACCIONES TABLA
+    ========================================================== */
+
+    .tabla-footer {
+        padding: 15px 20px;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* =========================================================
+       RESPONSIVE
+    ========================================================== */
+
+    @media (max-width: 768px) {
+
+        .trama-page {
+            padding: 10px 5px 30px;
+        }
+
+        .trama-card-body {
+            padding: 15px;
+        }
+
+        .tabla-footer {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .btn-exportar {
+            width: 100%;
+        }
+    }
+</style>
+
+
+<div class="container-fluid trama-page">
+
+    <!-- =========================================================
+         ENCABEZADO
+    ========================================================== -->
+
+    <div class="trama-header">
+
+        <h2>
+            Generador de Tramas
+        </h2>
+
+        <p>
+            Registra los datos de los clientes y genera la trama
+            para exportarla a Excel.
+        </p>
+
+    </div>
+
+
+    <!-- =========================================================
+         DATOS DEL CLIENTE
+    ========================================================== -->
+
+    <div class="trama-card">
+
+        <div class="trama-card-header">
+
+            <h5>
+                Datos del cliente
+            </h5>
+
+            <small>
+                Ingrese el documento y complete la información.
+            </small>
+
+        </div>
+
+
+        <div class="trama-card-body">
+
+            <form id="tramaForm">
+
+                <div class="row g-3">
+
+                    <!-- =================================================
+                         DOCUMENTO
+                    ================================================== -->
+
+                    <div class="col-md-3">
+
+                        <label class="form-label">
+                            Tipo de documento
+                            <span class="required">*</span>
+                        </label>
+
+                        <select
+                            id="TipoIdent"
+                            class="form-select"
+                        >
+
+                            <option value="1">
+                                DNI
+                            </option>
+
+                            <option value="6">
+                                RUC
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="col-md-4">
+
+                        <label class="form-label">
+                            Número de documento
+                            <span class="required">*</span>
+                        </label>
+
+                        <div class="input-group">
+
+                            <input
+                                type="text"
+                                id="NumIdent"
+                                class="form-control"
+                                maxlength="11"
+                                placeholder="Ingrese DNI o RUC"
+                            >
+
+                            <button
+                                class="btn btn-outline-primary btn-buscar"
+                                type="button"
+                                id="btnConsultar"
+                            >
+                                Buscar
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- =================================================
+                         NOMBRES
+                    ================================================== -->
+
+                    <div class="col-md-5">
+
+                        <label class="form-label">
+                            Nombres
+                            <span class="required">*</span>
+                        </label>
+
+                        <input
+                            type="text"
+                            id="Nombres"
+                            class="form-control"
+                            placeholder="Nombres del cliente"
+                            required
+                        >
+
+                    </div>
+
+
+                    <!-- =================================================
+                         APELLIDOS
+                    ================================================== -->
+
+                    <div class="col-md-4">
+
+                        <label class="form-label">
+                            Apellido paterno
+                            <span class="required">*</span>
+                        </label>
+
+                        <input
+                            type="text"
+                            id="ApPaterno"
+                            class="form-control"
+                            placeholder="Apellido paterno"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="col-md-4">
+
+                        <label class="form-label">
+                            Apellido materno
+                            <span class="required">*</span>
+                        </label>
+
+                        <input
+                            type="text"
+                            id="ApMaterno"
+                            class="form-control"
+                            placeholder="Apellido materno"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="col-md-4">
+
+                        <label class="form-label">
+                            País de nacimiento
+                            <span class="required">*</span>
+                        </label>
+
+                        <select
+                            id="PaisNacimiento"
+                            class="form-select"
+                        >
+
+                            <option value="Perú" selected>
+                                Perú
+                            </option>
+
+                            <option value="Colombia">
+                                Colombia
+                            </option>
+
+                            <option value="Argentina">
+                                Argentina
+                            </option>
+
+                            <option value="Chile">
+                                Chile
+                            </option>
+
+                            <option value="Ecuador">
+                                Ecuador
+                            </option>
+
+                            <option value="Bolivia">
+                                Bolivia
+                            </option>
+
+                            <option value="Brasil">
+                                Brasil
+                            </option>
+
+                            <option value="Estados Unidos">
+                                Estados Unidos
+                            </option>
+
+                            <option value="España">
+                                España
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- =================================================
+                         DATOS PERSONALES
+                    ================================================== -->
+
+                    <div class="col-md-3">
+
+                        <label class="form-label">
+                            Sexo
+                            <span class="required">*</span>
+                        </label>
+
+                        <select
+                            id="Sexo"
+                            class="form-select"
+                        >
+
+                            <option value="">
+                                Seleccionar
+                            </option>
+
+                            <option value="M">
+                                Masculino
+                            </option>
+
+                            <option value="F">
+                                Femenino
+                            </option>
+
+                        </select>
+
+                        <div
+                            id="SexoApiHint"
+                            class="api-hint text-muted"
+                        ></div>
+
+                    </div>
+
+
+                    <div class="col-md-3">
+
+                        <label class="form-label">
+                            Fecha de nacimiento
+                            <span class="required">*</span>
+                        </label>
+
+                        <input
+                            type="date"
+                            id="FecNacimiento"
+                            class="form-control"
+                        >
+
+                    </div>
+
+
+                    <div class="col-md-3">
+
+                        <label class="form-label">
+                            Estado civil
+                            <span class="required">*</span>
+                        </label>
+
+                        <select
+                            id="EstadoCivil"
+                            class="form-select"
+                        >
+
+                            <option value="">
+                                Seleccionar
+                            </option>
+
+                            <option value="Soltero">
+                                Soltero(a)
+                            </option>
+
+                            <option value="Casado">
+                                Casado(a)
+                            </option>
+
+                            <option value="Conviviente">
+                                Conviviente
+                            </option>
+
+                            <option value="Divorciado">
+                                Divorciado
+                            </option>
+                            
+                            <option value="Viudo">
+                                Viudo
+                            </option>
+
+                        </select>
+
+                        <div
+                            id="EstadoCivilApiHint"
+                            class="api-hint text-muted"
+                        ></div>
+
+                    </div>
+
+
+                    <div class="col-md-3">
+
+                        <label class="form-label">
+                            Tipo de trabajador
+                            <span class="required">*</span>
+                        </label>
+
+                        <select
+                            id="TipoTrabajador"
+                            class="form-select"
+                        >
+
+                            <option
+                                value=""
+                                disabled
+                                selected
+                            >
+                                Seleccionar
+                            </option>
+
+                            <option value="01">
+                                Trabajador dependiente
+                            </option>
+
+                            <option value="02">
+                                Trabajador independiente
+                            </option>
+
+                            <option value="03">
+                                Pensionista
+                            </option>
+
+                            <option value="04">
+                                Practicante
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- =================================================
+                         DATOS LABORALES
+                    ================================================== -->
+
+                    <div class="col-md-3">
+
+                        <label class="form-label">
+                            Moneda
+                            <span class="required">*</span>
+                        </label>
+
+                        <select
+                            id="Moneda"
+                            class="form-select"
+                        >
+
+                            <option value="S/." selected>
+                                S/.
+                            </option>
+
+                            <option value="USD">
+                                USD
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="col-md-3">
+
+                        <label class="form-label">
+                            Remuneración
+                            <span class="required">*</span>
+                        </label>
+
+                        <input
+                            type="number"
+                            step="0.01"
+                            id="Remuneracion"
+                            class="form-control"
+                            value="0"
+                            readonly
+                        >
+
+                    </div>
+
+
+                    <div class="col-md-3">
+
+                        <label class="form-label">
+                            Sede
+                            <span class="required">*</span>
+                        </label>
+
+                        <input
+                            type="text"
+                            id="Sede"
+                            class="form-control"
+                            value="Principal"
+                        >
+
+                    </div>
+
+
+                    <!-- =================================================
+                         BOTÓN
+                    ================================================== -->
+
+                    <div class="col-md-3 d-flex align-items-end">
+
+                        <button
+                            type="button"
+                            id="btnAgregar"
+                            class="btn btn-success btn-agregar w-100"
+                        >
+                            + Agregar registro
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================================================
+         REGISTROS
+    ========================================================== -->
+
+    <div class="trama-card">
+
+        <div class="trama-card-header">
+
+            <div class="d-flex justify-content-between align-items-center">
+
+                <div>
+
+                    <h5>
+                        Registros de la trama
+                    </h5>
+
+                    <small>
+                        Revise los registros antes de exportar.
+                        Máximo recomendado: 10 registros.
+                    </small>
+
+                </div>
+
+                <span
+                    id="contadorRegistros"
+                    class="contador-registros"
+                >
+                    0 registros
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="table-responsive table-container">
+
+            <table
+                class="table table-bordered table-hover align-middle"
+                id="tablaTramas"
+            >
+
+                <thead>
+
+                    <tr>
+
+                        <th>Nombres</th>
+                        <th>ApPaterno</th>
+                        <th>ApMaterno</th>
+                        <th>TipoTrabajador</th>
+                        <th>PaisNacimiento</th>
+                        <th>TipoIdent</th>
+                        <th>NumIdent</th>
+                        <th>Sexo</th>
+                        <th>FecNacimiento</th>
+                        <th>Moneda</th>
+                        <th>Remuneracion</th>
+                        <th>EstadoCivil</th>
+                        <th>Sede</th>
+                        <th>Acciones</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody></tbody>
+
+            </table>
+
+        </div>
+
+
+        <!-- =====================================================
+             PIE TABLA
+        ====================================================== -->
+
+        <div class="tabla-footer">
+
+            <div class="text-muted small">
+
+                Los registros agregados se incluirán en el Excel.
+
+            </div>
+
+            <button
+                type="button"
+                id="btnExportarExcel"
+                class="btn btn-primary btn-exportar"
+            >
+                Exportar a Excel
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     JAVASCRIPT
+========================================================== -->
+
+<script>
+
+    /* ========================================================
+       CONSTANTE MÁXIMO RECOMENDADO
+    ======================================================== */
+
+    const MAX_REGISTROS_TRAMA = 10;
+
+
+    /* ========================================================
+       ACTUALIZAR CONTADOR
+    ======================================================== */
+
+    function actualizarContador() {
+
+        const cantidad =
+            document.querySelectorAll(
+                '#tablaTramas tbody tr'
+            ).length;
+
+        const contador =
+            document.getElementById(
+                'contadorRegistros'
+            );
+
+        if (!contador) {
+            return;
+        }
+
+        contador.textContent =
+            cantidad === 1
+                ? '1 registro'
+                : `${cantidad} registros`;
+
+        /*
+         * Si llega a 10 o supera 10,
+         * mostramos el contador en rojo.
+         */
+
+        if (cantidad >= MAX_REGISTROS_TRAMA) {
+
+            contador.classList.add('limite');
+
+        } else {
+
+            contador.classList.remove('limite');
+
+        }
+    }
+
+
+    /* ========================================================
+       NORMALIZAR FECHA
+    ======================================================== */
+
+    function normalizarFechaInput(valor) {
+
+        const texto =
+            (valor || '').trim();
+
+        if (!texto) {
+            return '';
+        }
+
+        if (
+            /^\d{4}-\d{2}-\d{2}$/.test(texto)
+        ) {
+            return texto;
+        }
+
+        const match =
+            texto.match(
+                /^(\d{2})[\/-](\d{2})[\/-](\d{4})$/
+            );
+
+        if (match) {
+
+            const [
+                ,
+                dd,
+                mm,
+                yyyy
+            ] = match;
+
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        return '';
+    }
+
+
+    /* ========================================================
+       NORMALIZAR ESTADO CIVIL
+    ======================================================== */
+
+    function normalizarEstadoCivil(valor) {
+
+        const texto =
+            (valor || '')
+                .trim()
+                .toUpperCase();
+
+        if (!texto) {
+            return '';
+        }
+
+        if (texto.startsWith('S')) {
+            return 'S';
+        }
+
+        if (texto.startsWith('C')) {
+            return 'C';
+        }
+
+        return '';
+    }
+
+
+    /* ========================================================
+       NORMALIZAR SEXO
+    ======================================================== */
+
+    function normalizarSexo(valor) {
+
+        const texto =
+            (valor || '')
+                .trim()
+                .toUpperCase();
+
+        if (!texto) {
+            return '';
+        }
+
+        if (
+            texto === 'M' ||
+            texto.startsWith('MASC')
+        ) {
+            return 'M';
+        }
+
+        if (
+            texto === 'F' ||
+            texto.startsWith('FEM')
+        ) {
+            return 'F';
+        }
+
+        return '';
+    }
+
+
+    /* ========================================================
+       AYUDA CAMPOS
+    ======================================================== */
+
+    function actualizarAyudaCampo(
+        id,
+        mensaje
+    ) {
+
+        const el =
+            document.getElementById(id);
+
+        if (!el) {
+            return;
+        }
+
+        el.textContent =
+            mensaje || '';
+    }
+
+
+    /* ========================================================
+       OBTENER REGISTROS DE TABLA
+    ======================================================== */
+
+    function obtenerRegistrosTrama() {
+
+        const headers = [
+
+            'Nombres',
+            'ApPaterno',
+            'ApMaterno',
+            'TipoTrabajador',
+            'PaisNacimiento',
+            'TipoIdent',
+            'NumIdent',
+            'Sexo',
+            'FecNacimiento',
+            'Moneda',
+            'Remuneracion',
+            'EstadoCivil',
+            'Sede'
+
+        ];
+
+        const rows =
+            Array.from(
+                document.querySelectorAll(
+                    '#tablaTramas tbody tr'
+                )
+            );
+
+        return rows.map(row => {
+
+            const cells =
+                Array.from(row.cells);
+
+            const item = {};
+
+            headers.forEach(
+                (header, index) => {
+
+                    item[header] =
+                        (
+                            cells[index]
+                                ?.textContent || ''
+                        ).trim();
+
+                }
+            );
+
+            return item;
+
+        });
+    }
+
+
+    /* ========================================================
+       OBTENER FORMULARIO
+    ======================================================== */
+
+    function obtenerRegistroActualFormulario() {
+
+        const nombres =
+            (
+                document.getElementById(
+                    'Nombres'
+                ).value || ''
+            ).trim();
+
+        const apPaterno =
+            (
+                document.getElementById(
+                    'ApPaterno'
+                ).value || ''
+            ).trim();
+
+        const apMaterno =
+            (
+                document.getElementById(
+                    'ApMaterno'
+                ).value || ''
+            ).trim();
+
+
+        /*
+         * Si no existe ningún dato del registro
+         * no agregamos el formulario a la exportación.
+         */
+
+        if (
+            !nombres &&
+            !apPaterno &&
+            !apMaterno
+        ) {
+            return null;
+        }
+
+
+        const fechaInput =
+            (
+                document.getElementById(
+                    'FecNacimiento'
+                ).value || ''
+            ).trim();
+
+        let fecha =
+            fechaInput;
+
+
+        if (fechaInput) {
+
+            const partes =
+                fechaInput.split('-');
+
+            if (partes.length === 3) {
+
+                const [
+                    yyyy,
+                    mm,
+                    dd
+                ] = partes;
+
+                fecha =
+                    `${dd}/${mm}/${yyyy}`;
+            }
+        }
+
+
+        return {
+
+            Nombres: nombres,
+
+            ApPaterno: apPaterno,
+
+            ApMaterno: apMaterno,
+
+            TipoTrabajador:
+                document.getElementById(
+                    'TipoTrabajador'
+                ).value.trim(),
+
+            PaisNacimiento:
+                document.getElementById(
+                    'PaisNacimiento'
+                ).value.trim(),
+
+            TipoIdent:
+                document.getElementById(
+                    'TipoIdent'
+                ).value.trim(),
+
+            NumIdent:
+                document.getElementById(
+                    'NumIdent'
+                ).value.trim(),
+
+            Sexo:
+                document.getElementById(
+                    'Sexo'
+                ).value.trim(),
+
+            FecNacimiento:
+                fecha,
+
+            Moneda:
+                document.getElementById(
+                    'Moneda'
+                ).value.trim(),
+
+            Remuneracion:
+                document.getElementById(
+                    'Remuneracion'
+                ).value.trim(),
+
+            EstadoCivil:
+                document.getElementById(
+                    'EstadoCivil'
+                ).value.trim(),
+
+            Sede:
+                document.getElementById(
+                    'Sede'
+                ).value.trim()
+        };
+    }
+
+
+    /* ========================================================
+       CONSULTAR DNI / RUC
+    ======================================================== */
+
+    document
+        .getElementById('btnConsultar')
+        .addEventListener(
+            'click',
+            async () => {
+
+                const tipo =
+                    document.getElementById(
+                        'TipoIdent'
+                    ).value === '1'
+                        ? 'DNI'
+                        : 'RUC';
+
+
+                const numero =
+                    document.getElementById(
+                        'NumIdent'
+                    ).value.trim();
+
+
+                if (!numero) {
+
+                    alert(
+                        'Número de documento requerido.\n\n' +
+                        'Ingrese el DNI o RUC para realizar la consulta.'
+                    );
+
+                    document.getElementById(
+                        'NumIdent'
+                    ).focus();
+
+                    return;
+                }
+
+
+                try {
+
+                    actualizarAyudaCampo(
+                        'SexoApiHint',
+                        ''
+                    );
+
+                    actualizarAyudaCampo(
+                        'EstadoCivilApiHint',
+                        ''
+                    );
+
+
+                    const btn =
+                        document.getElementById(
+                            'btnConsultar'
+                        );
+
+                    const textoOriginal =
+                        btn.textContent;
+
+
+                    btn.disabled = true;
+
+                    btn.textContent =
+                        'Buscando...';
+
+
+                    const qs =
+                        new URLSearchParams({
+
+                            tipo_documento:
+                                tipo,
+
+                            numero_documento:
+                                numero,
+
+                            modo:
+                                'basico'
+
+                        });
+
+
+                    const response =
+                        await fetch(
+                            `/api/clientes/documento-lookup?${qs.toString()}`
+                        );
+
+
+                    const result =
+                        await response.json();
+
+
+                    if (
+                        response.ok &&
+                        result.ok &&
+                        result.data
+                    ) {
+
+                        const data =
+                            result.data || {};
+
+
+                        document.getElementById(
+                            'ApPaterno'
+                        ).value =
+                            data.apellido_paterno || '';
+
+
+                        document.getElementById(
+                            'ApMaterno'
+                        ).value =
+                            data.apellido_materno || '';
+
+
+                        document.getElementById(
+                            'Nombres'
+                        ).value =
+                            data.nombres || '';
+
+
+                        const fecha =
+                            normalizarFechaInput(
+                                data.fecha_nacimiento
+                            );
+
+
+                        document.getElementById(
+                            'FecNacimiento'
+                        ).value =
+                            fecha;
+
+
+                        const sexo =
+                            normalizarSexo(
+                                data.sexo
+                            );
+
+
+                        document.getElementById(
+                            'Sexo'
+                        ).value =
+                            sexo;
+
+
+                        const estadoCivil =
+                            normalizarEstadoCivil(
+                                data.estado_civil
+                            );
+
+
+                        document.getElementById(
+                            'EstadoCivil'
+                        ).value =
+                            estadoCivil;
+
+
+                        actualizarAyudaCampo(
+                            'SexoApiHint',
+                            sexo
+                                ? 'Dato obtenido'
+                                : 'Dato no disponible'
+                        );
+
+
+                        actualizarAyudaCampo(
+                            'EstadoCivilApiHint',
+                            estadoCivil
+                                ? 'Dato obtenido'
+                                : 'Dato no disponible'
+                        );
+
+
+                    } else {
+
+                        alert(
+                            result.error ||
+                            'No se encontraron datos para el documento.'
+                        );
+                    }
+
+
+                    btn.disabled = false;
+
+                    btn.textContent =
+                        textoOriginal;
+
+
+                } catch (error) {
+
+                    console.error(
+                        'Error al consultar:',
+                        error
+                    );
+
+
+                    const btn =
+                        document.getElementById(
+                            'btnConsultar'
+                        );
+
+
+                    btn.disabled = false;
+
+                    btn.textContent =
+                        'Buscar';
+
+
+                    alert(
+                        'No se pudo realizar la consulta.\n\n' +
+                        'Verifique su conexión e inténtelo nuevamente.'
+                    );
+                }
+            }
+        );
+
+
+    /* ========================================================
+       AGREGAR REGISTRO
+    ======================================================== */
+
+    document
+        .getElementById('btnAgregar')
+        .addEventListener(
+            'click',
+            () => {
+
+                const tbody =
+                    document.querySelector(
+                        '#tablaTramas tbody'
+                    );
+
+
+                const cantidadRegistros =
+                    tbody.querySelectorAll(
+                        'tr'
+                    ).length;
+
+
+                /* =================================================
+                   AVISO SI YA SUPERA EL MÁXIMO RECOMENDADO
+                ================================================== */
+
+                if (
+                    cantidadRegistros >=
+                    MAX_REGISTROS_TRAMA
+                ) {
+
+                    const continuar =
+                        confirm(
+
+                            'MÁXIMO RECOMENDADO ALCANZADO\n\n' +
+
+                            `La trama tiene actualmente ${cantidadRegistros} registros.\n\n` +
+
+                            'El máximo recomendado es de 10 registros.\n\n' +
+
+                            '¿Está seguro de que desea registrar una persona adicional?'
+
+                        );
+
+
+                    if (!continuar) {
+
+                        return;
+                    }
+                }
+
+
+                /* =================================================
+                   DOCUMENTO
+                ================================================== */
+
+                const tipoIdent =
+                    document.getElementById(
+                        'TipoIdent'
+                    ).value.trim();
+
+
+                const numIdent =
+                    document.getElementById(
+                        'NumIdent'
+                    ).value.trim();
+
+
+                if (!numIdent) {
+
+                    alert(
+                        'NÚMERO DE DOCUMENTO REQUERIDO\n\n' +
+                        'Ingrese el número de DNI o RUC antes de agregar el registro.'
+                    );
+
+                    document.getElementById(
+                        'NumIdent'
+                    ).focus();
+
+                    return;
+                }
+
+
+                /* =================================================
+                   VALIDAR LONGITUD DEL DNI
+                ================================================== */
+
+                if (
+                    tipoIdent === '1' &&
+                    !/^\d{8}$/.test(
+                        numIdent.replace(/\s+/g, '')
+                    )
+                ) {
+
+                    alert(
+                        'DNI NO VÁLIDO\n\n' +
+                        'El DNI debe contener exactamente 8 dígitos.'
+                    );
+
+                    document.getElementById(
+                        'NumIdent'
+                    ).focus();
+
+                    return;
+                }
+
+
+                /* =================================================
+                   VALIDAR LONGITUD DEL RUC
+                ================================================== */
+
+                if (
+                    tipoIdent === '6' &&
+                    !/^\d{11}$/.test(
+                        numIdent.replace(/\s+/g, '')
+                    )
+                ) {
+
+                    alert(
+                        'RUC NO VÁLIDO\n\n' +
+                        'El RUC debe contener exactamente 11 dígitos.'
+                    );
+
+                    document.getElementById(
+                        'NumIdent'
+                    ).focus();
+
+                    return;
+                }
+
+
+                /* =================================================
+                   NORMALIZAR DOCUMENTO
+                ================================================== */
+
+                const documentoNuevo =
+                    numIdent
+                        .replace(/\s+/g, '')
+                        .toUpperCase();
+
+
+                /* =================================================
+                   VALIDAR DOCUMENTO DUPLICADO
+                ================================================== */
+
+                const filas =
+                    Array.from(
+                        tbody.querySelectorAll(
+                            'tr'
+                        )
+                    );
+
+
+                const documentoDuplicado =
+                    filas.some(row => {
+
+                        const tipo =
+                            (
+                                row.cells[5]
+                                    ?.textContent || ''
+                            ).trim();
+
+
+                        const numero =
+                            (
+                                row.cells[6]
+                                    ?.textContent || ''
+                            )
+                                .trim()
+                                .replace(/\s+/g, '')
+                                .toUpperCase();
+
+
+                        return (
+                            tipo === tipoIdent &&
+                            numero === documentoNuevo
+                        );
+
+                    });
+
+
+                if (documentoDuplicado) {
+
+                    const tipoTexto =
+                        tipoIdent === '1'
+                            ? 'DNI'
+                            : 'RUC';
+
+
+                    alert(
+
+                        'DOCUMENTO DUPLICADO\n\n' +
+
+                        `El ${tipoTexto} N.º ${numIdent} ya se encuentra registrado en esta trama.\n\n` +
+
+                        'No se puede registrar nuevamente el mismo documento.'
+
+                    );
+
+
+                    document.getElementById(
+                        'NumIdent'
+                    ).focus();
+
+                    return;
+                }
+
+
+                /* =================================================
+                   VALIDAR NOMBRES Y APELLIDOS
+                ================================================== */
+
+                const nombres =
+                    document.getElementById(
+                        'Nombres'
+                    ).value.trim();
+
+
+                const apPaterno =
+                    document.getElementById(
+                        'ApPaterno'
+                    ).value.trim();
+
+
+                const apMaterno =
+                    document.getElementById(
+                        'ApMaterno'
+                    ).value.trim();
+
+
+                if (
+                    !nombres ||
+                    !apPaterno ||
+                    !apMaterno
+                ) {
+
+                    alert(
+
+                        'DATOS INCOMPLETOS\n\n' +
+
+                        'Complete los nombres, apellido paterno y apellido materno antes de agregar el registro.'
+
+                    );
+
+                    return;
+                }
+
+
+                /* =================================================
+                   VALIDAR SEXO
+                ================================================== */
+
+                const sexo =
+                    document.getElementById(
+                        'Sexo'
+                    ).value.trim();
+
+
+                if (!sexo) {
+
+                    alert(
+                        'SEXO REQUERIDO\n\n' +
+                        'Seleccione el sexo del cliente.'
+                    );
+
+                    document.getElementById(
+                        'Sexo'
+                    ).focus();
+
+                    return;
+                }
+
+
+                /* =================================================
+                   VALIDAR FECHA
+                ================================================== */
+
+                const fechaNacimiento =
+                    document.getElementById(
+                        'FecNacimiento'
+                    ).value.trim();
+
+
+                if (!fechaNacimiento) {
+
+                    alert(
+                        'FECHA DE NACIMIENTO REQUERIDA\n\n' +
+                        'Ingrese la fecha de nacimiento.'
+                    );
+
+                    document.getElementById(
+                        'FecNacimiento'
+                    ).focus();
+
+                    return;
+                }
+
+
+                /* =================================================
+                   VALIDAR ESTADO CIVIL
+                ================================================== */
+
+                const estadoCivil =
+                    document.getElementById(
+                        'EstadoCivil'
+                    ).value.trim();
+
+
+                if (!estadoCivil) {
+
+                    alert(
+                        'ESTADO CIVIL REQUERIDO\n\n' +
+                        'Seleccione el estado civil.'
+                    );
+
+                    document.getElementById(
+                        'EstadoCivil'
+                    ).focus();
+
+                    return;
+                }
+
+
+                /* =================================================
+                   CREAR FILA
+                ================================================== */
+
+                const row =
+                    tbody.insertRow();
+
+
+                const campos = [
+
+                    'Nombres',
+                    'ApPaterno',
+                    'ApMaterno',
+                    'TipoTrabajador',
+                    'PaisNacimiento',
+                    'TipoIdent',
+                    'NumIdent',
+                    'Sexo',
+                    'FecNacimiento',
+                    'Moneda',
+                    'Remuneracion',
+                    'EstadoCivil',
+                    'Sede'
+
+                ];
+
+
+                campos.forEach(id => {
+
+                    const cell =
+                        row.insertCell();
+
+
+                    let valor =
+                        document.getElementById(
+                            id
+                        ).value;
+
+
+                    /* =================================================
+                       FECHA DD/MM/YYYY
+                    ================================================== */
+
+                    if (
+                        id === 'FecNacimiento' &&
+                        valor
+                    ) {
+
+                        const partes =
+                            valor.split('-');
+
+
+                        if (
+                            partes.length === 3
+                        ) {
+
+                            const [
+                                yyyy,
+                                mm,
+                                dd
+                            ] = partes;
+
+
+                            valor =
+                                `${dd}/${mm}/${yyyy}`;
+                        }
+                    }
+
+
+                    cell.textContent =
+                        valor;
+
+                });
+
+
+                /* =================================================
+                   ACCIONES
+                ================================================== */
+
+                const acciones =
+                    row.insertCell();
+
+
+                acciones.className =
+                    'text-center';
+
+
+                const btnEliminar =
+                    document.createElement(
+                        'button'
+                    );
+
+
+                btnEliminar.type =
+                    'button';
+
+
+                btnEliminar.className =
+                    'btn btn-outline-danger btn-sm btn-eliminar';
+
+
+                btnEliminar.innerHTML =
+                    'Eliminar';
+
+
+                btnEliminar.addEventListener(
+                    'click',
+                    () => {
+
+                        const nombre =
+                            row.cells[0]
+                                ?.textContent || '';
+
+
+                        const tipoDocumento =
+                            row.cells[5]
+                                ?.textContent === '1'
+                                ? 'DNI'
+                                : 'RUC';
+
+
+                        const numeroDocumento =
+                            row.cells[6]
+                                ?.textContent || '';
+
+
+                        const confirmar =
+                            confirm(
+
+                                'CONFIRMAR ELIMINACIÓN\n\n' +
+
+                                '¿Está seguro de eliminar este registro?\n\n' +
+
+                                `Nombre: ${nombre}\n` +
+
+                                `${tipoDocumento}: ${numeroDocumento}\n\n` +
+
+                                'Esta acción no se puede deshacer.'
+
+                            );
+
+
+                        if (confirmar) {
+
+                            row.remove();
+
+                            actualizarContador();
+                        }
+
+                    }
+                );
+
+
+                acciones.appendChild(
+                    btnEliminar
+                );
+
+
+                /* =================================================
+                   LIMPIAR FORMULARIO
+                ================================================== */
+
+                document
+                    .getElementById(
+                        'tramaForm'
+                    )
+                    .reset();
+
+
+                document.getElementById(
+                    'PaisNacimiento'
+                ).value =
+                    'Perú';
+
+
+                document.getElementById(
+                    'Moneda'
+                ).value =
+                    'S/.';
+
+
+                document.getElementById(
+                    'Remuneracion'
+                ).value =
+                    '0';
+
+
+                document.getElementById(
+                    'Sede'
+                ).value =
+                    'Principal';
+
+
+                actualizarAyudaCampo(
+                    'SexoApiHint',
+                    ''
+                );
+
+
+                actualizarAyudaCampo(
+                    'EstadoCivilApiHint',
+                    ''
+                );
+
+
+                /* =================================================
+                   ACTUALIZAR CONTADOR
+                ================================================== */
+
+                actualizarContador();
+
+
+                /* =================================================
+                   AVISO AL LLEGAR A 10
+                ================================================== */
+
+                const totalActual =
+                    tbody.querySelectorAll(
+                        'tr'
+                    ).length;
+
+
+                if (
+                    totalActual ===
+                    MAX_REGISTROS_TRAMA
+                ) {
+
+                    alert(
+
+                        'MÁXIMO RECOMENDADO ALCANZADO\n\n' +
+
+                        'Se han registrado 10 personas.\n\n' +
+
+                        'Este es el máximo recomendado para la trama.\n\n' +
+
+                        'Si necesita registrar más personas, el sistema le pedirá confirmación.'
+
+                    );
+                }
+
+            }
+        );
+
+
+    /* ========================================================
+       EXPORTAR EXCEL
+    ======================================================== */
+
+    document
+        .getElementById('btnExportarExcel')
+        .addEventListener(
+            'click',
+            async () => {
+
+
+                const rows =
+                    obtenerRegistrosTrama();
+
+
+                const currentRow =
+                    obtenerRegistroActualFormulario();
+
+
+                /*
+                 * Si existe información en el formulario,
+                 * también se incluye en la exportación.
+                 */
+
+                if (currentRow) {
+
+                    rows.push(
+                        currentRow
+                    );
+                }
+
+
+                if (!rows.length) {
+
+                    alert(
+                        'No hay registros para exportar.'
+                    );
+
+                    return;
+                }
+
+
+                /* =================================================
+                   CONFIRMAR EXPORTACIÓN SI SUPERA 10
+                ================================================== */
+
+                if (
+                    rows.length >
+                    MAX_REGISTROS_TRAMA
+                ) {
+
+                    const continuar =
+                        confirm(
+
+                            'TRAMA CON MÁS DE 10 REGISTROS\n\n' +
+
+                            `La trama contiene ${rows.length} registros.\n\n` +
+
+                            'El máximo recomendado es de 10 registros.\n\n' +
+
+                            '¿Está seguro de que desea continuar con la exportación?'
+
+                        );
+
+
+                    if (!continuar) {
+
+                        return;
+                    }
+                }
+
+
+                /* =================================================
+                   GENERAR EXCEL
+                ================================================== */
+
+                try {
+
+                    const btn =
+                        document.getElementById(
+                            'btnExportarExcel'
+                        );
+
+
+                    btn.disabled =
+                        true;
+
+
+                    btn.textContent =
+                        'Generando Excel...';
+
+
+                    const response =
+                        await fetch(
+
+                            '/clientes/trama/export',
+
+                            {
+
+                                method: 'POST',
+
+                                headers: {
+
+                                    'Content-Type':
+                                        'application/json'
+
+                                },
+
+                                body:
+                                    JSON.stringify({
+
+                                        rows: rows
+
+                                    })
+
+                            }
+
+                        );
+
+
+                    if (!response.ok) {
+
+                        const result =
+                            await response
+                                .json()
+                                .catch(
+                                    () => ({})
+                                );
+
+
+                        throw new Error(
+
+                            result.error ||
+                            'No se pudo generar el Excel.'
+
+                        );
+                    }
+
+
+                    const blob =
+                        await response.blob();
+
+
+                    const disposition =
+                        response.headers.get(
+                            'Content-Disposition'
+                        ) || '';
+
+
+                    let filename =
+                        'Trama_Clientes.xlsx';
+
+
+                    const match =
+                        disposition.match(
+                            /filename\*?=["']?(?:UTF-8'')?([^;"']+)["']?/i
+                        );
+
+
+                    if (
+                        match &&
+                        match[1]
+                    ) {
+
+                        filename =
+                            decodeURIComponent(
+                                match[1]
+                            ).trim();
+                    }
+
+
+                    /* =================================================
+                       GUARDAR ARCHIVO
+                    ================================================== */
+
+                    if (
+                        'showSaveFilePicker'
+                        in window
+                    ) {
+
+                        const fileHandle =
+                            await window
+                                .showSaveFilePicker(
+
+                                    {
+
+                                        suggestedName:
+                                            filename,
+
+                                        types: [
+
+                                            {
+
+                                                description:
+                                                    'Archivo Excel',
+
+                                                accept: {
+
+                                                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+                                                        ['.xlsx']
+
+                                                }
+
+                                            }
+
+                                        ]
+
+                                    }
+
+                                );
+
+
+                        const writable =
+                            await fileHandle
+                                .createWritable();
+
+
+                        await writable.write(
+                            blob
+                        );
+
+
+                        await writable.close();
+
+
+                        alert(
+                            'Excel guardado correctamente.'
+                        );
+
+
+                    } else {
+
+                        const url =
+                            window.URL
+                                .createObjectURL(
+                                    blob
+                                );
+
+
+                        const link =
+                            document.createElement(
+                                'a'
+                            );
+
+
+                        link.href =
+                            url;
+
+
+                        link.download =
+                            filename;
+
+
+                        document.body.appendChild(
+                            link
+                        );
+
+
+                        link.click();
+
+
+                        link.remove();
+
+
+                        window.URL
+                            .revokeObjectURL(
+                                url
+                            );
+                    }
+
+
+                    btn.disabled =
+                        false;
+
+
+                    btn.textContent =
+                        'Exportar a Excel';
+
+
+                } catch (error) {
+
+
+                    /* =================================================
+                       CANCELAR SELECTOR DE ARCHIVO
+                    ================================================== */
+
+                    if (
+                        error.name ===
+                        'AbortError'
+                    ) {
+
+                        const btn =
+                            document.getElementById(
+                                'btnExportarExcel'
+                            );
+
+
+                        btn.disabled =
+                            false;
+
+
+                        btn.textContent =
+                            'Exportar a Excel';
+
+
+                        return;
+                    }
+
+
+                    console.error(
+                        'Error exportando:',
+                        error
+                    );
+
+
+                    alert(
+
+                        error.message ||
+                        'No se pudo exportar la trama.'
+
+                    );
+
+
+                    const btn =
+                        document.getElementById(
+                            'btnExportarExcel'
+                        );
+
+
+                    btn.disabled =
+                        false;
+
+
+                    btn.textContent =
+                        'Exportar a Excel';
+
+                }
+
+            }
+        );
+
+
+    /* ========================================================
+       INICIALIZAR
+    ======================================================== */
+
+    actualizarContador();
+
+</script>
+
+{% endblock %}

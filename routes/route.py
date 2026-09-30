@@ -1,11 +1,15 @@
 from flask import Blueprint, redirect, url_for, session, render_template, request, current_app, send_from_directory, jsonify, send_file, abort, Response
 from werkzeug.utils import secure_filename
+import io
 import os
 import re
 import pytesseract
 import hashlib
 import json
 import shutil
+import openpyxl
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 from utils.rbac import can_access_maestros, can_view_maestros, can_delete, can_edit, can_create, can_create_poliza, can_restore, can_hard_delete, Roles, get_role_scope, require_permission
 from controllers.dashboard import get_dashboard_data, get_rows as get_dashboard_rows, get_dashboard_cards, get_distribution_by_group, get_pending_renewals_list
 from datetime import datetime, timedelta
@@ -23,6 +27,119 @@ from models.db import get_connection, get_encrypt_key
 
 bp = Blueprint('main', __name__)
 
+@bp.route('/menu/cliente-tramas', methods=['GET'])
+def clientes_trama_view():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('view/cliente/cliente-tramas.html')
+
+
+
+def export_clientes_trama_excel(rows=None):
+    wb = openpyxl.Workbook()
+    
+    # Hoja de cálculo principal
+    ws = wb.active
+    ws.title = "TramasClientes"
+    ws.views.sheetView[0].showGridLines = True
+
+    # Estilos corporativos
+    font_header = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    fill_header = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+    borde_delgado = Border(
+        left=Side(style="thin", color="D9D9D9"),
+        right=Side(style="thin", color="D9D9D9"),
+        top=Side(style="thin", color="D9D9D9"),
+        bottom=Side(style="thin", color="D9D9D9"),
+    )
+
+    # Cabeceras de la trama
+    headers = [
+        "Nombres", "ApPaterno", "ApMaterno", "TipoTrabajador", 
+        "PaisNacimiento", "TipoIdent", "NumIdent", "Sexo", 
+        "FecNacimiento", "Moneda", "Remuneracion", "EstadoCivil", "Sede"
+    ]
+    
+    ws.row_dimensions[1].height = 25
+    for col_idx, header in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.font = font_header
+        cell.fill = fill_header
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = borde_delgado
+
+    rows = rows or []
+    for row_idx, item in enumerate(rows, start=2):
+        for col_idx, key in enumerate(headers, start=1):
+            value = item.get(key, "")
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = borde_delgado
+            cell.alignment = Alignment(
+                horizontal="left" if col_idx in (1, 2, 3, 5, 7, 9, 12, 13) else "center",
+                vertical="center",
+            )
+            if key == "Remuneracion":
+                try:
+                    cell.value = float(value) if str(value).strip() else None
+                except Exception:
+                    cell.value = value
+                cell.number_format = '"S/ "#,##0.00'
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or "")) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 15)
+
+    file_obj = io.BytesIO()
+    wb.save(file_obj)
+    file_obj.seek(0)
+    filename = f"Trama_Clientes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return file_obj, filename
+
+
+# NUEVA RUTA PARA DESCARGAR EL EXCEL
+@bp.route('/clientes/descargar-trama', methods=['GET'])
+def descargar_trama_excel():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    
+    try:
+        file_obj, filename = export_clientes_trama_excel()
+        
+        # Envía el archivo como respuesta para descarga directa en el navegador
+        return send_file(
+            file_obj,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        current_app.logger.exception("Error al generar descarga de trama")
+        return redirect(url_for('main.clientes_trama_view'))
+
+
+@bp.route('/clientes/trama/export', methods=['POST'])
+def exportar_trama_excel():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    payload = request.get_json(silent=True) or {}
+    rows = payload.get('rows') or []
+
+    if not isinstance(rows, list) or not rows:
+        return jsonify({'ok': False, 'error': 'No hay registros para exportar'}), 400
+
+    try:
+        file_obj, filename = export_clientes_trama_excel(rows=rows)
+        return send_file(
+            file_obj,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        current_app.logger.exception("Error exportando trama de clientes")
+        return jsonify({'ok': False, 'error': f'Error generando Excel: {str(e)}'}), 500
 
 def _parse_highlight_date(value):
     if not value:
@@ -3794,6 +3911,15 @@ def api_get_distritos():
 
 @bp.route('/api/clientes/documento-lookup', methods=['GET'])
 def api_clientes_documento_lookup():
+    if 'user' not in session:
+        return {'ok': False, 'error': 'No autenticado'}, 401
+
+    from controllers.clientes.documento_lookup import consultar_documento_route
+    return consultar_documento_route()
+
+
+@bp.route('/consultar-documento', methods=['GET'])
+def consultar_documento():
     if 'user' not in session:
         return {'ok': False, 'error': 'No autenticado'}, 401
 

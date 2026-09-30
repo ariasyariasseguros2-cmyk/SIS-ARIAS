@@ -559,7 +559,14 @@ def get_pending_renewals_list(bucket: str, limit: int = 500) -> List[dict]:
                     p.recibo
                 ) AS recibo,
                 p.vig_desde,
-                p.vig_hasta
+                p.vig_hasta,
+                EXISTS (
+                    SELECT 1
+                    FROM cuotas c
+                    WHERE c.poliza_id = p.idPoliza
+                      AND COALESCE(c.activo, 1) = 1
+                      AND TRIM(COALESCE(c.factura, '')) = ''
+                ) AS missing_invoice
             FROM polizas p
             LEFT JOIN ramos r ON LOWER(TRIM(p.ramo)) = LOWER(TRIM(r.nombre))
             WHERE p.activo = 1
@@ -604,6 +611,7 @@ def get_pending_renewals_list(bucket: str, limit: int = 500) -> List[dict]:
                 'recibo': (r.get('recibo') or '').strip(),
                 'vig_desde': vig_desde.strftime('%d/%m/%Y') if isinstance(vig_desde, (date, datetime)) else (str(vig_desde) if vig_desde else ''),
                 'vig_hasta': vig_hasta.strftime('%d/%m/%Y') if isinstance(vig_hasta, (date, datetime)) else (str(vig_hasta) if vig_hasta else ''),
+                'missing_invoice': bool(r.get('missing_invoice')),
             })
     except Exception as e:
         print(f"[Dashboard] Error fetching pending renewals list: {e}")
