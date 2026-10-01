@@ -151,6 +151,7 @@ Generador de Tramas
         font-weight: 600;
         border-bottom: 1px solid #d1d5db;
         padding: 11px 10px;
+        vertical-align: middle;
     }
 
     .table tbody td {
@@ -161,6 +162,28 @@ Generador de Tramas
     .table tbody tr:hover {
         background-color: #f8fafc;
     }
+
+    /* =========================================================
+       COLUMNA N°
+    ========================================================== */
+
+    .col-numero {
+        width: 55px;
+        min-width: 55px;
+        max-width: 55px;
+        text-align: center;
+        font-weight: 600;
+    }
+
+    .numero-registro {
+        text-align: center;
+        font-weight: 700;
+        color: #374151;
+    }
+
+    /* =========================================================
+       BOTÓN ELIMINAR
+    ========================================================== */
 
     .btn-eliminar {
         font-size: 12px;
@@ -537,7 +560,7 @@ Generador de Tramas
                             <option value="Divorciado">
                                 Divorciado
                             </option>
-                            
+
                             <option value="Viudo">
                                 Viudo
                             </option>
@@ -623,6 +646,7 @@ Generador de Tramas
 
 
                     <div class="col-md-3">
+
                         <label class="form-label">
                             Remuneración
                             <span class="required">*</span>
@@ -637,7 +661,9 @@ Generador de Tramas
                             value="0"
                             placeholder="Ingrese remuneración"
                         >
+
                     </div>
+
 
                     <div class="col-md-3">
 
@@ -657,7 +683,7 @@ Generador de Tramas
 
 
                     <!-- =================================================
-                         BOTÓN
+                         BOTÓN AGREGAR
                     ================================================== -->
 
                     <div class="col-md-3 d-flex align-items-end">
@@ -727,20 +753,66 @@ Generador de Tramas
 
                     <tr>
 
-                        <th>Nombres</th>
-                        <th>ApPaterno</th>
-                        <th>ApMaterno</th>
-                        <th>TipoTrabajador</th>
-                        <th>PaisNacimiento</th>
-                        <th>TipoIdent</th>
-                        <th>NumIdent</th>
-                        <th>Sexo</th>
-                        <th>FecNacimiento</th>
-                        <th>Moneda</th>
-                        <th>Remuneracion</th>
-                        <th>EstadoCivil</th>
-                        <th>Sede</th>
-                        <th>Acciones</th>
+                        <!-- NUEVA COLUMNA -->
+                        <th class="col-numero">
+                            N°
+                        </th>
+
+                        <th>
+                            Nombres
+                        </th>
+
+                        <th>
+                            ApPaterno
+                        </th>
+
+                        <th>
+                            ApMaterno
+                        </th>
+
+                        <th>
+                            TipoTrabajador
+                        </th>
+
+                        <th>
+                            PaisNacimiento
+                        </th>
+
+                        <th>
+                            TipoIdent
+                        </th>
+
+                        <th>
+                            NumIdent
+                        </th>
+
+                        <th>
+                            Sexo
+                        </th>
+
+                        <th>
+                            FecNacimiento
+                        </th>
+
+                        <th>
+                            Moneda
+                        </th>
+
+                        <th>
+                            Remuneracion
+                        </th>
+
+                        <th>
+                            EstadoCivil
+                        </th>
+
+                        <th>
+                            Sede
+                        </th>
+
+                        <th>
+                            Acciones
+                        </th>
 
                     </tr>
 
@@ -760,9 +832,7 @@ Generador de Tramas
         <div class="tabla-footer">
 
             <div class="text-muted small">
-
                 Los registros agregados se incluirán en el Excel.
-
             </div>
 
             <button
@@ -786,16 +856,60 @@ Generador de Tramas
 
 <script>
 
-    /* ========================================================
-       CONSTANTE MÁXIMO RECOMENDADO
-    ======================================================== */
+    /* =========================================================
+       CONFIGURACIÓN
+    ========================================================== */
 
     const MAX_REGISTROS_TRAMA = 10;
 
 
-    /* ========================================================
+    /* =========================================================
+       ACTUALIZAR NUMERACIÓN N°
+       
+       Esta función vuelve a numerar todas las filas:
+       1
+       2
+       3
+       4
+       ...
+       
+       Si se elimina la fila 2:
+       1
+       2
+       3
+       
+       Así nunca quedan saltos.
+    ========================================================== */
+
+    function actualizarNumeracion() {
+
+        const filas = Array.from(
+            document.querySelectorAll(
+                '#tablaTramas tbody tr'
+            )
+        );
+
+        filas.forEach((row, index) => {
+
+            if (row.cells[0]) {
+
+                row.cells[0].textContent =
+                    index + 1;
+
+                row.cells[0].classList.add(
+                    'numero-registro'
+                );
+
+            }
+
+        });
+
+    }
+
+
+    /* =========================================================
        ACTUALIZAR CONTADOR
-    ======================================================== */
+    ========================================================== */
 
     function actualizarContador() {
 
@@ -818,26 +932,26 @@ Generador de Tramas
                 ? '1 registro'
                 : `${cantidad} registros`;
 
-        /*
-         * Si llega a 10 o supera 10,
-         * mostramos el contador en rojo.
-         */
-
         if (cantidad >= MAX_REGISTROS_TRAMA) {
 
-            contador.classList.add('limite');
+            contador.classList.add(
+                'limite'
+            );
 
         } else {
 
-            contador.classList.remove('limite');
+            contador.classList.remove(
+                'limite'
+            );
 
         }
+
     }
 
 
-    /* ========================================================
+    /* =========================================================
        NORMALIZAR FECHA
-    ======================================================== */
+    ========================================================== */
 
     function normalizarFechaInput(valor) {
 
@@ -851,7 +965,9 @@ Generador de Tramas
         if (
             /^\d{4}-\d{2}-\d{2}$/.test(texto)
         ) {
+
             return texto;
+
         }
 
         const match =
@@ -869,15 +985,17 @@ Generador de Tramas
             ] = match;
 
             return `${yyyy}-${mm}-${dd}`;
+
         }
 
         return '';
+
     }
 
 
-    /* ========================================================
+    /* =========================================================
        NORMALIZAR ESTADO CIVIL
-    ======================================================== */
+    ========================================================== */
 
     function normalizarEstadoCivil(valor) {
 
@@ -899,12 +1017,13 @@ Generador de Tramas
         }
 
         return '';
+
     }
 
 
-    /* ========================================================
+    /* =========================================================
        NORMALIZAR SEXO
-    ======================================================== */
+    ========================================================== */
 
     function normalizarSexo(valor) {
 
@@ -921,23 +1040,28 @@ Generador de Tramas
             texto === 'M' ||
             texto.startsWith('MASC')
         ) {
+
             return 'M';
+
         }
 
         if (
             texto === 'F' ||
             texto.startsWith('FEM')
         ) {
+
             return 'F';
+
         }
 
         return '';
+
     }
 
 
-    /* ========================================================
+    /* =========================================================
        AYUDA CAMPOS
-    ======================================================== */
+    ========================================================== */
 
     function actualizarAyudaCampo(
         id,
@@ -953,12 +1077,19 @@ Generador de Tramas
 
         el.textContent =
             mensaje || '';
+
     }
 
 
-    /* ========================================================
+    /* =========================================================
        OBTENER REGISTROS DE TABLA
-    ======================================================== */
+
+       IMPORTANTE:
+       La columna N° NO se envía al Excel.
+
+       Por eso los índices se manejan desde la
+       posición 1 de la tabla.
+    ========================================================== */
 
     function obtenerRegistrosTrama() {
 
@@ -999,7 +1130,7 @@ Generador de Tramas
 
                     item[header] =
                         (
-                            cells[index]
+                            cells[index + 1]
                                 ?.textContent || ''
                         ).trim();
 
@@ -1009,12 +1140,13 @@ Generador de Tramas
             return item;
 
         });
+
     }
 
 
-    /* ========================================================
-       OBTENER FORMULARIO
-    ======================================================== */
+    /* =========================================================
+       OBTENER REGISTRO ACTUAL DEL FORMULARIO
+    ========================================================== */
 
     function obtenerRegistroActualFormulario() {
 
@@ -1041,8 +1173,8 @@ Generador de Tramas
 
 
         /*
-         * Si no existe ningún dato del registro
-         * no agregamos el formulario a la exportación.
+         * Si NO hay ningún dato del formulario,
+         * no agregamos un registro al exportar.
          */
 
         if (
@@ -1050,7 +1182,9 @@ Generador de Tramas
             !apPaterno &&
             !apMaterno
         ) {
+
             return null;
+
         }
 
 
@@ -1061,9 +1195,7 @@ Generador de Tramas
                 ).value || ''
             ).trim();
 
-        let fecha =
-            fechaInput;
-
+        let fecha = fechaInput;
 
         if (fechaInput) {
 
@@ -1080,17 +1212,22 @@ Generador de Tramas
 
                 fecha =
                     `${dd}/${mm}/${yyyy}`;
+
             }
+
         }
 
 
         return {
 
-            Nombres: nombres,
+            Nombres:
+                nombres,
 
-            ApPaterno: apPaterno,
+            ApPaterno:
+                apPaterno,
 
-            ApMaterno: apMaterno,
+            ApMaterno:
+                apMaterno,
 
             TipoTrabajador:
                 document.getElementById(
@@ -1139,13 +1276,15 @@ Generador de Tramas
                 document.getElementById(
                     'Sede'
                 ).value.trim()
+
         };
+
     }
 
 
-    /* ========================================================
+    /* =========================================================
        CONSULTAR DNI / RUC
-    ======================================================== */
+    ========================================================== */
 
     document
         .getElementById('btnConsultar')
@@ -1159,7 +1298,6 @@ Generador de Tramas
                     ).value === '1'
                         ? 'DNI'
                         : 'RUC';
-
 
                 const numero =
                     document.getElementById(
@@ -1179,6 +1317,7 @@ Generador de Tramas
                     ).focus();
 
                     return;
+
                 }
 
 
@@ -1321,6 +1460,7 @@ Generador de Tramas
                             result.error ||
                             'No se encontraron datos para el documento.'
                         );
+
                     }
 
 
@@ -1354,14 +1494,16 @@ Generador de Tramas
                         'No se pudo realizar la consulta.\n\n' +
                         'Verifique su conexión e inténtelo nuevamente.'
                     );
+
                 }
+
             }
         );
 
 
-    /* ========================================================
+    /* =========================================================
        AGREGAR REGISTRO
-    ======================================================== */
+    ========================================================== */
 
     document
         .getElementById('btnAgregar')
@@ -1382,7 +1524,7 @@ Generador de Tramas
 
 
                 /* =================================================
-                   AVISO SI YA SUPERA EL MÁXIMO RECOMENDADO
+                   DESDE EL REGISTRO 11 PREGUNTAR
                 ================================================== */
 
                 if (
@@ -1391,7 +1533,7 @@ Generador de Tramas
                 ) {
 
                     const continuar =
-                        confirm(
+                        window.confirm(
 
                             'MÁXIMO RECOMENDADO ALCANZADO\n\n' +
 
@@ -1399,15 +1541,19 @@ Generador de Tramas
 
                             'El máximo recomendado es de 10 registros.\n\n' +
 
-                            '¿Está seguro de que desea registrar una persona adicional?'
+                            '¿Está seguro de que desea registrar una persona adicional?\n\n' +
+
+                            'Aceptar = Registrar\n' +
+
+                            'Cancelar = No registrar'
 
                         );
 
 
                     if (!continuar) {
-
                         return;
                     }
+
                 }
 
 
@@ -1439,11 +1585,12 @@ Generador de Tramas
                     ).focus();
 
                     return;
+
                 }
 
 
                 /* =================================================
-                   VALIDAR LONGITUD DEL DNI
+                   VALIDAR DNI
                 ================================================== */
 
                 if (
@@ -1463,11 +1610,12 @@ Generador de Tramas
                     ).focus();
 
                     return;
+
                 }
 
 
                 /* =================================================
-                   VALIDAR LONGITUD DEL RUC
+                   VALIDAR RUC
                 ================================================== */
 
                 if (
@@ -1487,6 +1635,7 @@ Generador de Tramas
                     ).focus();
 
                     return;
+
                 }
 
 
@@ -1515,20 +1664,31 @@ Generador de Tramas
                 const documentoDuplicado =
                     filas.some(row => {
 
+                        /*
+                         * Ahora la columna N° ocupa
+                         * la posición 0.
+                         *
+                         * TipoIdent = posición 6
+                         * NumIdent  = posición 7
+                         */
+
                         const tipo =
                             (
-                                row.cells[5]
+                                row.cells[6]
                                     ?.textContent || ''
                             ).trim();
 
 
                         const numero =
                             (
-                                row.cells[6]
+                                row.cells[7]
                                     ?.textContent || ''
                             )
                                 .trim()
-                                .replace(/\s+/g, '')
+                                .replace(
+                                    /\s+/g,
+                                    ''
+                                )
                                 .toUpperCase();
 
 
@@ -1564,6 +1724,7 @@ Generador de Tramas
                     ).focus();
 
                     return;
+
                 }
 
 
@@ -1589,6 +1750,11 @@ Generador de Tramas
                     ).value.trim();
 
 
+                /*
+                 * IMPORTANTE:
+                 * Debe ser || y no &&.
+                 */
+
                 if (
                     !nombres ||
                     !apPaterno ||
@@ -1604,7 +1770,18 @@ Generador de Tramas
                     );
 
                     return;
+
                 }
+
+
+                /* =================================================
+                   VALIDAR TIPO DE TRABAJADOR
+                ================================================== */
+
+                const tipoTrabajador =
+                    document.getElementById(
+                        'TipoTrabajador'
+                    ).value.trim();
 
 
                 /* =================================================
@@ -1620,8 +1797,11 @@ Generador de Tramas
                 if (!sexo) {
 
                     alert(
+
                         'SEXO REQUERIDO\n\n' +
+
                         'Seleccione el sexo del cliente.'
+
                     );
 
                     document.getElementById(
@@ -1629,6 +1809,7 @@ Generador de Tramas
                     ).focus();
 
                     return;
+
                 }
 
 
@@ -1645,8 +1826,11 @@ Generador de Tramas
                 if (!fechaNacimiento) {
 
                     alert(
+
                         'FECHA DE NACIMIENTO REQUERIDA\n\n' +
+
                         'Ingrese la fecha de nacimiento.'
+
                     );
 
                     document.getElementById(
@@ -1654,6 +1838,7 @@ Generador de Tramas
                     ).focus();
 
                     return;
+
                 }
 
 
@@ -1670,8 +1855,11 @@ Generador de Tramas
                 if (!estadoCivil) {
 
                     alert(
+
                         'ESTADO CIVIL REQUERIDO\n\n' +
+
                         'Seleccione el estado civil.'
+
                     );
 
                     document.getElementById(
@@ -1679,6 +1867,39 @@ Generador de Tramas
                     ).focus();
 
                     return;
+
+                }
+
+
+                /* =================================================
+                   VALIDAR REMUNERACIÓN
+                ================================================== */
+
+                const remuneracion =
+                    document.getElementById(
+                        'Remuneracion'
+                    ).value.trim();
+
+
+                if (
+                    remuneracion === '' ||
+                    Number(remuneracion) < 0
+                ) {
+
+                    alert(
+
+                        'REMUNERACIÓN NO VÁLIDA\n\n' +
+
+                        'Ingrese una remuneración válida.'
+
+                    );
+
+                    document.getElementById(
+                        'Remuneracion'
+                    ).focus();
+
+                    return;
+
                 }
 
 
@@ -1689,6 +1910,22 @@ Generador de Tramas
                 const row =
                     tbody.insertRow();
 
+
+                /*
+                 * PRIMERA CELDA:
+                 * N°
+                 */
+
+                const numeroCell =
+                    row.insertCell();
+
+                numeroCell.className =
+                    'numero-registro';
+
+
+                /* =================================================
+                   CAMPOS
+                ================================================== */
 
                 const campos = [
 
@@ -1747,7 +1984,9 @@ Generador de Tramas
 
                             valor =
                                 `${dd}/${mm}/${yyyy}`;
+
                         }
+
                     }
 
 
@@ -1791,25 +2030,32 @@ Generador de Tramas
                     'click',
                     () => {
 
+                        /*
+                         * N° está en 0
+                         * Nombres está en 1
+                         * TipoIdent está en 6
+                         * NumIdent está en 7
+                         */
+
                         const nombre =
-                            row.cells[0]
+                            row.cells[1]
                                 ?.textContent || '';
 
 
                         const tipoDocumento =
-                            row.cells[5]
+                            row.cells[6]
                                 ?.textContent === '1'
                                 ? 'DNI'
                                 : 'RUC';
 
 
                         const numeroDocumento =
-                            row.cells[6]
+                            row.cells[7]
                                 ?.textContent || '';
 
 
                         const confirmar =
-                            confirm(
+                            window.confirm(
 
                                 'CONFIRMAR ELIMINACIÓN\n\n' +
 
@@ -1828,7 +2074,14 @@ Generador de Tramas
 
                             row.remove();
 
+                            /*
+                             * Reordenar N°
+                             */
+
+                            actualizarNumeracion();
+
                             actualizarContador();
+
                         }
 
                     }
@@ -1838,6 +2091,18 @@ Generador de Tramas
                 acciones.appendChild(
                     btnEliminar
                 );
+
+
+                /* =================================================
+                   ACTUALIZAR N°
+                   
+                   Ejemplo:
+                   Registro agregado -> 1
+                   Registro agregado -> 2
+                   Registro agregado -> 3
+                ================================================== */
+
+                actualizarNumeracion();
 
 
                 /* =================================================
@@ -1887,55 +2152,21 @@ Generador de Tramas
                 );
 
 
-                /* =================================================
-                   ACTUALIZAR CONTADOR
-                ================================================== */
-
                 actualizarContador();
-
-
-                /* =================================================
-                   AVISO AL LLEGAR A 10
-                ================================================== */
-
-                const totalActual =
-                    tbody.querySelectorAll(
-                        'tr'
-                    ).length;
-
-
-                if (
-                    totalActual ===
-                    MAX_REGISTROS_TRAMA
-                ) {
-
-                    alert(
-
-                        'MÁXIMO RECOMENDADO ALCANZADO\n\n' +
-
-                        'Se han registrado 10 personas.\n\n' +
-
-                        'Este es el máximo recomendado para la trama.\n\n' +
-
-                        'Si necesita registrar más personas, el sistema le pedirá confirmación.'
-
-                    );
-                }
 
             }
         );
 
 
-    /* ========================================================
+    /* =========================================================
        EXPORTAR EXCEL
-    ======================================================== */
+    ========================================================== */
 
     document
         .getElementById('btnExportarExcel')
         .addEventListener(
             'click',
             async () => {
-
 
                 const rows =
                     obtenerRegistrosTrama();
@@ -1945,16 +2176,12 @@ Generador de Tramas
                     obtenerRegistroActualFormulario();
 
 
-                /*
-                 * Si existe información en el formulario,
-                 * también se incluye en la exportación.
-                 */
-
                 if (currentRow) {
 
                     rows.push(
                         currentRow
                     );
+
                 }
 
 
@@ -1965,6 +2192,7 @@ Generador de Tramas
                     );
 
                     return;
+
                 }
 
 
@@ -1978,7 +2206,7 @@ Generador de Tramas
                 ) {
 
                     const continuar =
-                        confirm(
+                        window.confirm(
 
                             'TRAMA CON MÁS DE 10 REGISTROS\n\n' +
 
@@ -1986,15 +2214,19 @@ Generador de Tramas
 
                             'El máximo recomendado es de 10 registros.\n\n' +
 
-                            '¿Está seguro de que desea continuar con la exportación?'
+                            '¿Está seguro de que desea continuar con la exportación?\n\n' +
+
+                            'Aceptar = Exportar\n' +
+
+                            'Cancelar = No exportar'
 
                         );
 
 
                     if (!continuar) {
-
                         return;
                     }
+
                 }
 
 
@@ -2010,9 +2242,7 @@ Generador de Tramas
                         );
 
 
-                    btn.disabled =
-                        true;
-
+                    btn.disabled = true;
 
                     btn.textContent =
                         'Generando Excel...';
@@ -2025,7 +2255,8 @@ Generador de Tramas
 
                             {
 
-                                method: 'POST',
+                                method:
+                                    'POST',
 
                                 headers: {
 
@@ -2037,7 +2268,8 @@ Generador de Tramas
                                 body:
                                     JSON.stringify({
 
-                                        rows: rows
+                                        rows:
+                                            rows
 
                                     })
 
@@ -2062,6 +2294,7 @@ Generador de Tramas
                             'No se pudo generar el Excel.'
 
                         );
+
                     }
 
 
@@ -2094,6 +2327,7 @@ Generador de Tramas
                             decodeURIComponent(
                                 match[1]
                             ).trim();
+
                     }
 
 
@@ -2194,6 +2428,7 @@ Generador de Tramas
                             .revokeObjectURL(
                                 url
                             );
+
                     }
 
 
@@ -2207,9 +2442,8 @@ Generador de Tramas
 
                 } catch (error) {
 
-
                     /* =================================================
-                       CANCELAR SELECTOR DE ARCHIVO
+                       CANCELAR SELECTOR
                     ================================================== */
 
                     if (
@@ -2232,6 +2466,7 @@ Generador de Tramas
 
 
                         return;
+
                     }
 
 
@@ -2242,10 +2477,8 @@ Generador de Tramas
 
 
                     alert(
-
                         error.message ||
                         'No se pudo exportar la trama.'
-
                     );
 
 
@@ -2268,9 +2501,11 @@ Generador de Tramas
         );
 
 
-    /* ========================================================
+    /* =========================================================
        INICIALIZAR
-    ======================================================== */
+    ========================================================== */
+
+    actualizarNumeracion();
 
     actualizarContador();
 
