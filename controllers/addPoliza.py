@@ -505,12 +505,16 @@ def save_polizas(
             if session.get('user'):
                 c2 = cnx.cursor()
                 c2.execute("""
-                           SELECT e.nombre
-                           FROM usuarios u
-                                    LEFT JOIN ejecutivos e ON e.idEjecutivo = u.id_ejecutivo
-                           WHERE u.username COLLATE utf8mb4_0900_ai_ci = CAST(%s AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_0900_ai_ci
-                               LIMIT 1
-                           """, (session.get('user'),))
+                    SELECT e.nombre
+                    FROM usuarios u
+                    LEFT JOIN ejecutivos e
+                        ON e.idEjecutivo = u.id_ejecutivo
+                    AND e.activo = 1
+                    WHERE u.username COLLATE utf8mb4_0900_ai_ci =
+                        CAST(%s AS CHAR CHARACTER SET utf8mb4)
+                        COLLATE utf8mb4_0900_ai_ci
+                    LIMIT 1
+                """, (session.get('user'),))
                 r2 = c2.fetchone()
                 if r2 and r2[0]:
                     default_ejecutivo = r2[0]

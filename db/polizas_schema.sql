@@ -314,6 +314,9 @@ BEGIN
 END$$
 DELIMITER ;
 
+ALTER TABLE `ejecutivos`
+ADD COLUMN `activo` TINYINT(1) NOT NULL DEFAULT 1
+AFTER `grupo`;
 
 -- Table de ejecutivos
 CREATE TABLE ejecutivos (
