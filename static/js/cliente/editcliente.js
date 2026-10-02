@@ -414,7 +414,7 @@
         document.getElementById('edit_profesion').value = cliente.profesion || '';
 
         // Datos de contacto
-        document.getElementById('edit_telefono').value = cliente.telefono || '';
+        //document.getElementById('edit_telefono').value = cliente.telefono || '';
         document.getElementById('edit_celular').value = cliente.celular || '';
         document.getElementById('edit_telefono_sec').value = cliente.telefono_sec || '';
         document.getElementById('edit_email').value = cliente.email || '';
