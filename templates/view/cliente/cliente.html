@@ -36,6 +36,9 @@
                 <li><a class="dropdown-item" href="#" data-order="Dirección"><i class="bi-geo-alt"></i> Dirección</a></li>
             </ul>
         </div>
+        <button type="button" class="btn btn-outline-primary btn-sm btn-lift" data-bs-toggle="modal" data-bs-target="#clienteExportModal">
+            <i class="bi-download"></i> Exportar
+        </button>
         <div class="input-group input-group-sm search-round" style="width: 280px;">
             <span class="input-group-text border-end-0"><i class="bi-search"></i></span>
             <input id="searchInput" type="text" class="form-control border-start-0 ps-0" placeholder="Buscar">
@@ -146,6 +149,123 @@
     </div>
 </div>
 
+<div class="modal fade" id="clienteExportModal" tabindex="-1" aria-labelledby="clienteExportLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="clienteExportLabel"><i class="bi-download"></i> Exportar Datos</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <form id="clienteExportForm">
+          <div class="mb-3">
+            <label for="exportNombreFichero" class="form-label fw-semibold">Nombre Fichero</label>
+            <input type="text" class="form-control" id="exportNombreFichero">
+            <div class="form-text">Puedes renombrar el fichero como desees</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="exportMaxData" class="form-label fw-semibold">Max Data</label>
+            <input type="number" class="form-control" id="exportMaxData" min="1" max="100000" value="100">
+            <div class="form-text">Mínimo 1 y máximo 100,000 registros por sesión</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Columnas</label>
+            <div class="d-flex flex-wrap gap-3 border rounded p-3 bg-light">
+              <div class="form-check">
+                <input class="form-check-input export-col-check" type="checkbox" value="fec_reg" id="col_fec_reg" checked>
+                <label class="form-check-label" for="col_fec_reg">Fec.Reg</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input export-col-check" type="checkbox" value="razon_social" id="col_razon_social" checked>
+                <label class="form-check-label" for="col_razon_social">Nom. Razón Social</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input export-col-check" type="checkbox" value="tipo_documento" id="col_tipo_documento" checked>
+                <label class="form-check-label" for="col_tipo_documento">T.Doc</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input export-col-check" type="checkbox" value="numero_documento" id="col_numero_documento" checked>
+                <label class="form-check-label" for="col_numero_documento">N.Doc</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input export-col-check" type="checkbox" value="telefono" id="col_telefono" checked>
+                <label class="form-check-label" for="col_telefono">Tel1</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input export-col-check" type="checkbox" value="telefono2" id="col_telefono2" checked>
+                <label class="form-check-label" for="col_telefono2">Tel2</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input export-col-check" type="checkbox" value="subagente" id="col_subagente" checked>
+                <label class="form-check-label" for="col_subagente">S.Agent</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input export-col-check" type="checkbox" value="email" id="col_email" checked>
+                <label class="form-check-label" for="col_email">Email</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input export-col-check" type="checkbox" value="direccion" id="col_direccion" checked>
+                <label class="form-check-label" for="col_direccion">Direccion</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input export-col-check" type="checkbox" value="estado" id="col_estado" checked>
+                <label class="form-check-label" for="col_estado">Estado</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input export-col-check" type="checkbox" value="notificaciones" id="col_notificaciones" checked>
+                <label class="form-check-label" for="col_notificaciones">Notificaciones (1=SI, 0=NO)</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input export-col-check" type="checkbox" value="cumpleanios" id="col_cumpleanios" checked>
+                <label class="form-check-label" for="col_cumpleanios">Cumpleaños/Aniversario</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input export-col-check" type="checkbox" value="tipo_persona" id="col_tipo_persona" checked>
+                <label class="form-check-label" for="col_tipo_persona">Tipo de Persona</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="exportFormato" class="form-label fw-semibold">Formato Exportación</label>
+            <select class="form-select" id="exportFormato">
+              <option value="xlsx">Microsoft Excel (xlsx)</option>
+              <option value="pdf">Adobe PDF (pdf)</option>
+            </select>
+          </div>
+
+          <div class="mb-2">
+            <a href="javascript:void(0)" id="toggleExportAdvanced" class="text-decoration-none text-primary small">
+              <i class="bi-plus-square"></i> Muestra Exportaciones avanzadas
+            </a>
+          </div>
+
+          <div id="exportAdvancedSection" class="d-none border rounded p-3 bg-light mb-3">
+            <div class="small text-muted mb-2">Opciones adicionales (próximamente):</div>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="expAdvZipped" disabled>
+              <label class="form-check-label small" for="expAdvZipped">Comprimir en ZIP</label>
+            </div>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="expAdvHeaders" checked disabled>
+              <label class="form-check-label small" for="expAdvHeaders">Incluir cabeceras</label>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-primary" id="btnEnviarExport">
+          <span id="btnEnviarExportLabel">Enviar</span>
+          <span id="btnEnviarExportSpinner" class="d-none spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="voiceSearchModal" tabindex="-1" aria-labelledby="voiceSearchLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -224,7 +344,7 @@
 
 {% block extra_js_bottom %}
 {{ super() }}
-<script src="{{ url_for('static', filename='js/cliente/cliente.js', v='20260915-1') }}"></script>
+<script src="{{ url_for('static', filename='js/cliente/cliente.js', v='20261002-1') }}"></script>
 {% if page != 'clientes-anulados' %}
 <script src="{{ url_for('static', filename='js/cliente/addcliente.js', v='20260728-1') }}"></script>
 <script src="{{ url_for('static', filename='js/cliente/editcliente.js', v='20260727-2') }}"></script>

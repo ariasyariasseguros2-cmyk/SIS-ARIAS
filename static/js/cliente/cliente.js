@@ -509,5 +509,127 @@
                 }
             });
         }
+
+        // ============================================================
+        // MODAL EXPORTAR CLIENTES
+        // ============================================================
+        const exportModal = document.getElementById('clienteExportModal');
+        const exportNombreFichero = document.getElementById('exportNombreFichero');
+        const btnEnviarExport = document.getElementById('btnEnviarExport');
+        const btnEnviarExportLabel = document.getElementById('btnEnviarExportLabel');
+        const btnEnviarExportSpinner = document.getElementById('btnEnviarExportSpinner');
+        const toggleAdvanced = document.getElementById('toggleExportAdvanced');
+        const advancedSection = document.getElementById('exportAdvancedSection');
+
+        function formatDateForFilename(d) {
+            const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = meses[d.getMonth()];
+            const yyyy = d.getFullYear();
+            return `${dd} ${mm} ${yyyy}`;
+        }
+
+        if (exportModal) {
+            exportModal.addEventListener('shown.bs.modal', function () {
+                if (exportNombreFichero && !exportNombreFichero.value) {
+                    exportNombreFichero.value = `Report - ${formatDateForFilename(new Date())}`;
+                }
+            });
+        }
+
+        if (toggleAdvanced && advancedSection) {
+            toggleAdvanced.addEventListener('click', function () {
+                const isHidden = advancedSection.classList.contains('d-none');
+                advancedSection.classList.toggle('d-none');
+                const icon = toggleAdvanced.querySelector('i');
+                if (icon) {
+                    icon.className = isHidden ? 'bi-dash-square' : 'bi-plus-square';
+                }
+                toggleAdvanced.innerHTML = (isHidden
+                    ? '<i class="bi-dash-square"></i> Oculta Exportaciones avanzadas'
+                    : '<i class="bi-plus-square"></i> Muestra Exportaciones avanzadas');
+            });
+        }
+
+        function triggerBlobDownload(blob, filename) {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+        }
+
+        function setExportLoading(loading) {
+            if (!btnEnviarExport || !btnEnviarExportLabel || !btnEnviarExportSpinner) return;
+            btnEnviarExport.disabled = !!loading;
+            btnEnviarExportLabel.textContent = loading ? 'Procesando...' : 'Enviar';
+            btnEnviarExportSpinner.classList.toggle('d-none', !loading);
+        }
+
+        if (btnEnviarExport) {
+            btnEnviarExport.addEventListener('click', async function () {
+                const selectedCols = Array.from(document.querySelectorAll('.export-col-check:checked'))
+                    .map(cb => cb.value);
+
+                if (selectedCols.length === 0) {
+                    alert('Debes seleccionar al menos una columna para exportar.');
+                    return;
+                }
+
+                const maxDataRaw = parseInt(document.getElementById('exportMaxData').value || '0', 10);
+                const maxData = Math.max(1, Math.min(100000, isNaN(maxDataRaw) ? 100 : maxDataRaw));
+                const nombreFichero = (exportNombreFichero.value || 'Reporte_Clientes').trim();
+                const formato = document.getElementById('exportFormato').value || 'xlsx';
+                const pageContext = window.currentPage || 'clientes';
+                const searchTerm = document.getElementById('searchInput')?.value?.trim() || '';
+
+                setExportLoading(true);
+                try {
+                    const resp = await fetch('/clientes/export', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            columns: selectedCols,
+                            max_data: maxData,
+                            filename: nombreFichero,
+                            format: formato,
+                            page_context: pageContext,
+                            search: searchTerm
+                        })
+                    });
+
+                    if (!resp.ok) {
+                        let msg = 'Error en la exportación';
+                        try {
+                            const err = await resp.json();
+                            msg = err.error || err.message || msg;
+                        } catch (_) {}
+                        throw new Error(msg);
+                    }
+
+                    const disposition = resp.headers.get('Content-Disposition') || '';
+                    let serverFilename = null;
+                    const m = disposition.match(/filename\*?=UTF-8''([^;]+)|filename="?([^";]+)"?/);
+                    if (m) serverFilename = decodeURIComponent(m[1] || m[2] || '');
+
+                    const blob = await resp.blob();
+                    const ext = formato === 'pdf' ? '.pdf' : '.xlsx';
+                    const finalName = serverFilename || (nombreFichero.replace(/[\\/:*?"<>|]/g, '_') + ext);
+                    triggerBlobDownload(blob, finalName);
+
+                    if (window.bootstrap && exportModal) {
+                        bootstrap.Modal.getInstance(exportModal)?.hide();
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Error al exportar: ' + (err.message || err));
+                } finally {
+                    setExportLoading(false);
+                }
+            });
+        }
     });
 })();

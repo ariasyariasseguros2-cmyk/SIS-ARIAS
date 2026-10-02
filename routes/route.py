@@ -1557,6 +1557,309 @@ def search_clientes_route():
     data = search_clientes_data(query)
     return {'ok': True, 'rows': data['rows']}
 
+
+# ============================================================
+# EXPORTACIÓN DE CLIENTES (EXCEL / PDF)
+# ============================================================
+
+_CLIENTES_EXPORT_COLUMNS = {
+    "fec_reg":          ("Fec.Reg", lambda r: r.get("fec_reg") or r.get("fecha_registro") or ""),
+    "razon_social":     ("Nom. Razón Social", lambda r: r.get("razon_social") or r.get("nombre") or ""),
+    "tipo_documento":   ("T.Doc", lambda r: r.get("doc") or r.get("tipo_documento") or ""),
+    "numero_documento": ("N.Doc", lambda r: r.get("n_doc") or r.get("numero_documento") or ""),
+    "telefono":         ("Tel1", lambda r: r.get("tel") or r.get("telefono") or ""),
+    "telefono2":        ("Tel2", lambda r: r.get("tel2") or r.get("telefono2") or ""),
+    "subagente":        ("S.Agent", lambda r: r.get("subagente") or ""),
+    "email":            ("Email", lambda r: r.get("email") or ""),
+    "direccion":        ("Direccion", lambda r: r.get("direccion") or ""),
+    "estado":           ("Estado", lambda r: r.get("estado") or ""),
+    "notificaciones":   ("Notificaciones (1=SI, 0=NO)", lambda r: (
+        "1" if str(r.get("notificaciones") or r.get("notif") or "0") in ("1","True","true","SI","Si","si","S","s") else "0"
+    )),
+    "cumpleanios":      ("Cumpleaños/Aniversario", lambda r: r.get("cumpleanios") or r.get("cumpleaños") or r.get("fecha_nacimiento") or ""),
+    "tipo_persona":     ("Tipo de Persona", lambda r: r.get("tipo_persona") or r.get("tipoPersona") or ""),
+}
+
+
+def _get_clientes_rows_for_export(search=None, page_context="clientes", max_data=None):
+    """Obtiene filas de clientes (normales o anulados) con búsqueda opcional y límite."""
+    try:
+        from controllers.clientes.cliente import get_clientes_data, get_clientes_anulados_data, search_clientes_data
+    except Exception:
+        get_clientes_data = None
+        get_clientes_anulados_data = None
+        search_clientes_data = None
+
+    rows = []
+    if search:
+        if search_clientes_data:
+            try:
+                data = search_clientes_data(search)
+                rows = list(data.get("rows") or [])
+            except Exception:
+                rows = []
+        if not rows:
+            from models.db import get_connection
+            try:
+                cnx = get_connection()
+                cur = cnx.cursor(dictionary=True)
+                cur.execute("CALL sp_list_clientes()")
+                db_rows = cur.fetchall()
+                while cur.nextset():
+                    pass
+                cur.close()
+                cnx.close()
+                q = search.lower()
+                db_rows = [dr for dr in db_rows if q in " ".join(
+                    str(v).lower() for v in dr.values() if v is not None
+                )]
+                rows = db_rows
+            except Exception:
+                rows = []
+    else:
+        if page_context == "clientes-anulados" and get_clientes_anulados_data:
+            try:
+                data = get_clientes_anulados_data()
+                rows = list(data.get("rows") or [])
+            except Exception:
+                rows = []
+        elif get_clientes_data:
+            try:
+                data = get_clientes_data()
+                rows = list(data.get("rows") or [])
+            except Exception:
+                rows = []
+        else:
+            from models.db import get_connection
+            try:
+                cnx = get_connection()
+                cur = cnx.cursor(dictionary=True)
+                cur.execute("CALL sp_list_clientes()")
+                db_rows = cur.fetchall()
+                while cur.nextset():
+                    pass
+                cur.close()
+                cnx.close()
+                rows = db_rows
+            except Exception:
+                rows = []
+
+    # Normalizar fecha_registro → fec_reg si no viene
+    for r in rows:
+        if not r.get("fec_reg") and r.get("fecha_registro"):
+            fec = r.get("fecha_registro")
+            if hasattr(fec, "strftime"):
+                r["fec_reg"] = fec.strftime("%d-%m-%Y")
+            else:
+                r["fec_reg"] = str(fec) if fec else ""
+
+    if max_data and isinstance(max_data, int) and max_data > 0:
+        rows = rows[:max_data]
+    return rows
+
+
+def _build_export_table(rows, columns):
+    """Construye (headers, data_rows) según lista de columnas seleccionadas."""
+    selected = [c for c in columns if c in _CLIENTES_EXPORT_COLUMNS]
+    if not selected:
+        selected = list(_CLIENTES_EXPORT_COLUMNS.keys())
+    headers = [_CLIENTES_EXPORT_COLUMNS[c][0] for c in selected]
+    data_rows = []
+    for r in rows:
+        data_rows.append([_CLIENTES_EXPORT_COLUMNS[c][1](r) for c in selected])
+    return headers, data_rows
+
+
+def _sanitize_filename(name, default="Reporte_Clientes"):
+    import re
+    if not name:
+        name = default
+    name = re.sub(r'[\\/:*?"<>|]', "_", str(name)).strip().strip(".")
+    return name or default
+
+
+def export_clientes_xlsx(rows, columns, filename_hint=None):
+    headers, data_rows = _build_export_table(rows, columns)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Clientes"
+    ws.views.sheetView[0].showGridLines = True
+
+    font_header = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    fill_header = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+    border_thin = Border(
+        left=Side(style="thin", color="D9D9D9"),
+        right=Side(style="thin", color="D9D9D9"),
+        top=Side(style="thin", color="D9D9D9"),
+        bottom=Side(style="thin", color="D9D9D9"),
+    )
+    align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    align_left = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+    ws.row_dimensions[1].height = 28
+    for col_idx, header in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.font = font_header
+        cell.fill = fill_header
+        cell.alignment = align_center
+        cell.border = border_thin
+
+    for row_idx, values in enumerate(data_rows, start=2):
+        for col_idx, value in enumerate(values, start=1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border_thin
+            cell.alignment = align_left if col_idx in (2, 7, 8, 9) else align_center
+
+    for col_cells in ws.columns:
+        max_len = max(len(str(c.value or "")) for c in col_cells)
+        letter = get_column_letter(col_cells[0].column)
+        ws.column_dimensions[letter].width = max(max_len + 3, 12)
+
+    file_obj = io.BytesIO()
+    wb.save(file_obj)
+    file_obj.seek(0)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{_sanitize_filename(filename_hint, 'Clientes')}_{ts}.xlsx"
+    return file_obj, filename
+
+
+def export_clientes_pdf(rows, columns, filename_hint=None):
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import landscape, letter
+    from reportlab.lib.units import mm, inch
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
+    headers, data_rows = _build_export_table(rows, columns)
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(letter),
+        leftMargin=0.4 * inch,
+        rightMargin=0.4 * inch,
+        topMargin=0.5 * inch,
+        bottomMargin=0.5 * inch,
+        title="Reporte de Clientes",
+        author="SIS-ARIAS",
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "ExpTitle", parent=styles["Heading1"], fontSize=14, alignment=TA_CENTER,
+        textColor=colors.HexColor("#1F4E78"), spaceAfter=6,
+    )
+    subtitle_style = ParagraphStyle(
+        "ExpSub", parent=styles["Normal"], fontSize=9, alignment=TA_CENTER,
+        textColor=colors.grey, spaceAfter=10,
+    )
+    cell_wrap = ParagraphStyle(
+        "CellWrap", parent=styles["Normal"], fontSize=8, leading=10, alignment=TA_LEFT,
+    )
+    cell_center = ParagraphStyle(
+        "CellCenter", parent=styles["Normal"], fontSize=8, leading=10, alignment=TA_CENTER,
+    )
+
+    story = []
+    story.append(Paragraph("REPORTE DE CLIENTES - SIS-ARIAS", title_style))
+    story.append(Paragraph(
+        f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} &nbsp; | &nbsp; "
+        f"Registros: {len(data_rows)}",
+        subtitle_style,
+    ))
+    story.append(Spacer(1, 0.1 * inch))
+
+    table_data = [headers[:]]
+    for row in data_rows:
+        table_data.append(row[:])
+
+    col_count = max(len(r) for r in table_data) if table_data else 1
+    page_width_in = 11 - 0.8  # landscape letter width minus margins
+    col_width = (page_width_in * inch) / col_count
+    col_widths = [col_width] * col_count
+
+    # Convertir celdas a Paragraphs para que hagan wrap correctamente
+    for r_idx, row in enumerate(table_data):
+        for c_idx, val in enumerate(row):
+            text = "" if val is None else str(val)
+            if r_idx == 0:
+                table_data[r_idx][c_idx] = Paragraph(f"<b>{text}</b>", cell_center)
+            elif c_idx in (1, 6, 7, 8):
+                table_data[r_idx][c_idx] = Paragraph(text, cell_wrap)
+            else:
+                table_data[r_idx][c_idx] = Paragraph(text, cell_center)
+
+    tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F4E78")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#D9D9D9")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F4F7FB")]),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+
+    story.append(tbl)
+    doc.build(story)
+    buffer.seek(0)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{_sanitize_filename(filename_hint, 'Clientes')}_{ts}.pdf"
+    return buffer, filename
+
+
+@bp.route('/clientes/export', methods=['POST'])
+def exportar_clientes():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    payload = request.get_json(silent=True) or {}
+    columns = payload.get('columns') or []
+    max_data = payload.get('max_data')
+    try:
+        max_data = int(max_data) if max_data else None
+    except Exception:
+        max_data = None
+    filename_hint = payload.get('filename') or 'Reporte_Clientes'
+    fmt = (payload.get('format') or 'xlsx').lower()
+    page_context = payload.get('page_context') or 'clientes'
+    search = payload.get('search') or None
+
+    try:
+        rows = _get_clientes_rows_for_export(search=search, page_context=page_context, max_data=max_data)
+        if not rows:
+            return jsonify({'ok': False, 'error': 'No hay registros para exportar con los filtros actuales.'}), 400
+
+        if fmt in ('pdf',):
+            file_obj, filename = export_clientes_pdf(rows, columns, filename_hint=filename_hint)
+            mimetype = 'application/pdf'
+        else:
+            file_obj, filename = export_clientes_xlsx(rows, columns, filename_hint=filename_hint)
+            mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+        from urllib.parse import quote
+        from flask import make_response
+        ascii_name = filename.encode('ascii', 'replace').decode('ascii')
+        disposition = f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
+        resp = make_response(send_file(
+            file_obj,
+            as_attachment=True,
+            download_name=filename,
+            mimetype=mimetype,
+        ))
+        resp.headers["Content-Disposition"] = disposition
+        return resp
+    except Exception as e:
+        current_app.logger.exception("Error exportando clientes")
+        return jsonify({'ok': False, 'error': f'Error generando archivo: {str(e)}'}), 500
+
+
 @bp.route('/menu/<page>', methods=['GET', 'POST'])
 def menu_page(page):
     if 'user' not in session:
