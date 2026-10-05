@@ -1,0 +1,374 @@
+/* =========================================================
+   ESTILOS GENERALES
+========================================================== */
+
+.trama-page {
+    padding: 20px 10px 40px;
+}
+
+.trama-success-alert {
+    border: none;
+    border-radius: 4px;
+    background-color: #00a65a;
+    color: #ffffff;
+}
+
+.trama-duplicate-dialog {
+    max-width: 562px;
+    padding: 0 12px;
+}
+
+.trama-duplicate-modal {
+    overflow: hidden;
+    border: 0;
+    border-radius: 30px;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+}
+
+.trama-duplicate-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 96px;
+    padding: 24px 28px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.trama-duplicate-header .modal-title {
+    margin: 0;
+    color: #1f2937;
+    font-size: 21px;
+    font-weight: 600;
+}
+
+.trama-duplicate-close {
+    display: inline-flex;
+    width: 40px;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 40px;
+    margin-left: auto;
+    padding: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #64748b;
+    font-size: 16px;
+    transition:
+        background-color 0.15s ease,
+        color 0.15s ease,
+        transform 0.2s ease;
+}
+
+.trama-duplicate-close:hover {
+    background: #f8fafc;
+    color: #1f2937;
+    transform: rotate(90deg);
+}
+
+.trama-duplicate-body {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 12px;
+    padding: 36px 30px 32px;
+    color: #27324a;
+    font-size: 18px;
+    line-height: 1.55;
+    text-align: center;
+}
+
+.trama-duplicate-icon {
+    flex: 0 0 auto;
+    margin-top: 4px;
+    color: #f0ad4e;
+    font-size: 20px;
+}
+
+.trama-duplicate-footer {
+    justify-content: center;
+    padding: 0 28px 28px;
+    border-top: 0;
+}
+
+.btn.trama-duplicate-accept {
+    min-width: 141px;
+    height: 42px;
+    padding: 0 24px;
+    border: 0;
+    border-radius: 9999px;
+    background: linear-gradient(to right, #ef4444, #dc2626);
+    box-shadow: 0 6px 8px rgba(220, 38, 38, 0.2);
+    color: #ffffff;
+    font-weight: 700;
+    text-transform: uppercase;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.trama-duplicate-accept:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 12px rgba(220, 38, 38, 0.28);
+    color: #ffffff;
+}
+
+.trama-duplicate-accept:focus-visible,
+.trama-duplicate-close:focus-visible {
+    outline: 3px solid rgba(59, 130, 246, 0.45);
+    outline-offset: 2px;
+}
+
+@media (max-width: 575.98px) {
+    .trama-duplicate-header {
+        min-height: 76px;
+        padding: 18px 20px;
+    }
+
+    .trama-duplicate-body {
+        padding: 28px 20px 24px;
+        font-size: 16px;
+    }
+
+    .trama-duplicate-footer {
+        padding: 0 20px 22px;
+    }
+}
+
+.trama-header {
+    margin-bottom: 22px;
+}
+
+.trama-header h2 {
+    font-size: 25px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 5px;
+}
+
+.trama-header p {
+    color: #6b7280;
+    margin: 0;
+    font-size: 14px;
+}
+
+/* =========================================================
+   TARJETAS
+========================================================== */
+
+.trama-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.trama-card-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f8fafc;
+}
+
+.trama-card-header h5 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.trama-card-header small {
+    display: block;
+    color: #6b7280;
+    margin-top: 3px;
+}
+
+.trama-card-body {
+    padding: 20px;
+}
+
+/* =========================================================
+   LABELS
+========================================================== */
+
+.form-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+}
+
+.required {
+    color: #dc2626;
+}
+
+/* =========================================================
+   INPUTS
+========================================================== */
+
+.form-control,
+.form-select {
+    border-color: #d1d5db;
+    border-radius: 7px;
+    min-height: 39px;
+    font-size: 14px;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, .10);
+}
+
+.form-control[readonly] {
+    background-color: #f3f4f6;
+}
+
+/* =========================================================
+   BOTÓN BUSCAR
+========================================================== */
+
+.btn-buscar {
+    border-radius: 0 7px 7px 0;
+    min-width: 75px;
+}
+
+/* =========================================================
+   BOTONES
+========================================================== */
+
+.btn {
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.btn-agregar {
+    padding: 9px 18px;
+}
+
+.btn-exportar {
+    padding: 9px 18px;
+}
+
+/* =========================================================
+   TABLA
+========================================================== */
+
+.table-container {
+    padding: 0;
+}
+
+.table {
+    margin: 0;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.table thead th {
+    background: #f8fafc;
+    color: #374151;
+    font-weight: 600;
+    border-bottom: 1px solid #d1d5db;
+    padding: 11px 10px;
+    vertical-align: middle;
+}
+
+.table tbody td {
+    padding: 10px;
+    vertical-align: middle;
+}
+
+.table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+/* =========================================================
+   COLUMNA N°
+========================================================== */
+
+.col-numero {
+    width: 55px;
+    min-width: 55px;
+    max-width: 55px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.numero-registro {
+    text-align: center;
+    font-weight: 700;
+    color: #374151;
+}
+
+/* =========================================================
+   BOTÓN ELIMINAR
+========================================================== */
+
+.btn-eliminar {
+    font-size: 12px;
+    padding: 5px 9px;
+}
+
+/* =========================================================
+   CONTADOR
+========================================================== */
+
+.contador-registros {
+    background: #eef2ff;
+    color: #4338ca;
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.contador-registros.limite {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+/* =========================================================
+   MENSAJES API
+========================================================== */
+
+.api-hint {
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+/* =========================================================
+   ACCIONES TABLA
+========================================================== */
+
+.tabla-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================== */
+
+@media (max-width: 768px) {
+
+    .trama-page {
+        padding: 10px 5px 30px;
+    }
+
+    .trama-card-body {
+        padding: 15px;
+    }
+
+    .tabla-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .btn-exportar {
+        width: 100%;
+    }
+}
