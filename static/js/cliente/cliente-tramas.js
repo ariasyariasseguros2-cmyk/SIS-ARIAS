@@ -6,6 +6,12 @@
 
     const alertRegistroAgregado =
         document.getElementById('alertRegistroAgregado');
+    const documentoRequeridoModalEl =
+        document.getElementById('tramaDocumentoRequerido');
+    const documentoRequeridoModal =
+        documentoRequeridoModalEl && window.bootstrap
+            ? window.bootstrap.Modal.getOrCreateInstance(documentoRequeridoModalEl)
+            : null;
 
     let temporizadorAlertaRegistro = null;
 
@@ -44,6 +50,12 @@
                 }
             );
         }
+    }
+
+    if (documentoRequeridoModalEl) {
+        documentoRequeridoModalEl.addEventListener('hidden.bs.modal', () => {
+            document.getElementById('NumIdent')?.focus();
+        });
     }
 
 
@@ -758,15 +770,11 @@
 
 
                 if (!numIdent) {
-
-                    alert(
-                        'NÚMERO DE DOCUMENTO REQUERIDO\n\n' +
-                        'Ingrese el número de DNI o RUC antes de agregar el registro.'
-                    );
-
-                    document.getElementById(
-                        'NumIdent'
-                    ).focus();
+                    if (documentoRequeridoModal) {
+                        documentoRequeridoModal.show();
+                    } else {
+                        console.error('No se pudo abrir el aviso de documento requerido.');
+                    }
 
                     return;
 

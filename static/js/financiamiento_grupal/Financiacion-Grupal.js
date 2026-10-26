@@ -14,7 +14,6 @@ const FinanciacionGrupal = (() => {
   let convenioPdfStatusEl = null;
   let editIdInput = null;
   let modalTitleEl = null;
-  let formCardTitleEl = null;
   let isEditMode = false;
   let optionsLoaded = false;
   const searchableSelects = {};
@@ -27,7 +26,6 @@ const FinanciacionGrupal = (() => {
     convenioPdfStatusEl = document.getElementById('fgConvenioPdfStatus');
     editIdInput = document.getElementById('fgEditId');
     modalTitleEl = document.getElementById('addFinanciacionGrupalModalLabel');
-    formCardTitleEl = document.getElementById('fgFormCardTitle');
 
     if (tbody) {
       allRows = Array.from(tbody.querySelectorAll('tr')).filter((tr) => !tr.classList.contains('fg-empty-row'));
@@ -480,11 +478,6 @@ const FinanciacionGrupal = (() => {
       modalTitleEl.innerHTML = isEditMode
         ? '<i class="bi bi-pencil-square me-1"></i> Editar Financiamiento Grupal'
         : '<i class="bi bi-people-fill me-1"></i> Añadir Financiamiento Grupal';
-    }
-    if (formCardTitleEl) {
-      formCardTitleEl.innerHTML = isEditMode
-        ? '<i class="bi bi-pencil-square"></i> Editar Financiamiento Grupal'
-        : '<i class="bi bi-person-plus-fill"></i> Añadir Financiamiento Grupal';
     }
     const btnGuardarOtro = document.getElementById('btnGuardarYAgregarOtroFG');
     if (btnGuardarOtro) {

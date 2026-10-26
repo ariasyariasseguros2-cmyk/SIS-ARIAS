@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const ramoDropdownMenu = document.getElementById('ramoDropdownMenu');
     const ramoDropdownBtn = document.getElementById('ramoDropdownBtn');
     const ramoValue = document.getElementById('ramoValue');
+    const estadoDropdownMenu = document.getElementById('estadoDropdownMenu');
+    const estadoDropdownBtn = document.getElementById('estadoDropdownBtn');
+    const estadoValue = document.getElementById('estadoSelect');
 
     const searchQueryEl = document.getElementById('searchQuery');
     const submitButton = filterForm ? filterForm.querySelector('button[type="submit"]') : null;
@@ -76,6 +79,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const paginationControls = document.getElementById('paginationControls');
     const pageInfo = document.getElementById('pageInfo');
     const paginationContainer = document.getElementById('paginationContainer');
+
+    if (estadoDropdownMenu && estadoDropdownBtn && estadoValue) {
+        estadoDropdownMenu.addEventListener('click', function(event) {
+            const option = event.target.closest('[data-estado-value]');
+            if (!option) return;
+
+            estadoValue.value = option.dataset.estadoValue || '';
+            const selectedLabel = estadoDropdownBtn.querySelector('.estado-dropdown-label');
+            if (selectedLabel) selectedLabel.textContent = option.textContent.trim();
+
+            estadoDropdownMenu.querySelectorAll('[data-estado-value]').forEach((item) => {
+                item.classList.toggle('active', item === option);
+            });
+
+            window.bootstrap?.Dropdown.getOrCreateInstance(estadoDropdownBtn).hide();
+        });
+    }
 
     const cuotasOffcanvasEl = document.getElementById('cuotasOffcanvas');
     const cuotasOffcanvasContent = document.getElementById('cuotasOffcanvasContent');

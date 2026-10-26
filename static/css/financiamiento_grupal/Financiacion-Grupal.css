@@ -25,6 +25,20 @@
 
 .fg-add-btn {
   min-width: 120px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+  box-shadow: 0 4px 12px rgba(21, 128, 61, 0.25);
+}
+
+.fg-add-btn:hover {
+  background: linear-gradient(135deg, #16a34a 0%, #166534 100%);
+  box-shadow: 0 6px 16px rgba(21, 128, 61, 0.32);
+  transform: translateY(-1px);
+}
+
+.fg-add-btn:focus-visible {
+  box-shadow: 0 0 0 0.25rem rgba(34, 197, 94, 0.3);
 }
 
 .fg-summary-grid {
@@ -165,7 +179,6 @@
 }
 
 #addFinanciacionGrupalModal .modal-body {
-  max-height: calc(100vh - 220px);
   overflow-y: auto;
 }
 
@@ -179,13 +192,6 @@
   border-radius: 14px;
   padding: 1.25rem;
   background: #ffffff;
-}
-
-.fg-form-card-title {
-  font-weight: 700;
-  color: #111827;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid #eef2f7;
 }
 
 #addFinanciacionGrupalModal .form-label {
@@ -203,8 +209,382 @@
   padding: 1rem 1.25rem 1.25rem;
 }
 
+[data-theme='dark'] .fg-subtitle,
+[data-theme='dark'] .fg-summary-label {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .fg-summary-card,
+[data-theme='dark'] .fg-table-card,
+[data-theme='dark'] .fg-form-card {
+  background: var(--card-bg);
+  border-color: var(--card-border);
+}
+
+[data-theme='dark'] .fg-summary-value,
+[data-theme='dark'] #addFinanciacionGrupalModal .form-label {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .fg-toolbar,
+[data-theme='dark'] .fg-form-card-title,
+[data-theme='dark'] #addFinanciacionGrupalModal .modal-header,
+[data-theme='dark'] #addFinanciacionGrupalModal .modal-footer {
+  border-color: var(--card-border);
+}
+
+[data-theme='dark'] .fg-toolbar,
+[data-theme='dark'] #addFinanciacionGrupalModal .modal-header {
+  background: var(--card-bg);
+}
+
+[data-theme='dark'] .fg-filter-btn,
+[data-theme='dark'] .fg-search-box .form-control,
+[data-theme='dark'] .fg-search-box .input-group-text,
+[data-theme='dark'] .fg-page-size,
+[data-theme='dark'] #addFinanciacionGrupalModal .form-control,
+[data-theme='dark'] #addFinanciacionGrupalModal .form-select,
+[data-theme='dark'] #addFinanciacionGrupalModal .input-group-text {
+  color: var(--text-primary);
+  background-color: var(--layout-bg);
+  border-color: var(--card-border);
+}
+
+[data-theme='dark'] .fg-search-box .form-control::placeholder,
+[data-theme='dark'] #addFinanciacionGrupalModal .form-control::placeholder {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .fg-table {
+  --bs-table-bg: var(--card-bg);
+  --bs-table-color: var(--text-primary);
+  --bs-table-border-color: var(--card-border);
+  --bs-table-hover-bg: #334155;
+  --bs-table-hover-color: var(--text-primary);
+}
+
+[data-theme='dark'] .fg-table thead th {
+  background: var(--layout-bg);
+  color: var(--text-primary);
+  border-color: var(--card-border);
+}
+
+[data-theme='dark'] .fg-table tbody td {
+  color: var(--text-primary);
+  border-color: var(--card-border);
+}
+
+[data-theme='dark'] .fg-table tbody tr:hover,
+[data-theme='dark'] .fg-empty-row td {
+  background: var(--card-bg);
+}
+
+[data-theme='dark'] .fg-empty-row td {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme='dark'] #addFinanciacionGrupalModal .modal-content {
+  color: var(--text-primary);
+  background: var(--card-bg);
+}
+
+[data-theme='dark'] #addFinanciacionGrupalModal .form-text,
+[data-theme='dark'] #addFinanciacionGrupalModal .text-muted {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme='dark'] #addFinanciacionGrupalModal .modal-header .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+#addFinanciacionGrupalModal {
+  --fg-modal-surface: #ffffff;
+  --fg-modal-subtle: #f8fafc;
+  --fg-modal-border: #e2e8f0;
+  --fg-modal-text: #0f172a;
+  --fg-modal-muted: #64748b;
+  --fg-modal-accent: #2563eb;
+  --fg-modal-accent-soft: #eff6ff;
+}
+
+[data-theme='dark'] #addFinanciacionGrupalModal {
+  --fg-modal-surface: #1e293b;
+  --fg-modal-subtle: #0f172a;
+  --fg-modal-border: #334155;
+  --fg-modal-text: #f8fafc;
+  --fg-modal-muted: #94a3b8;
+  --fg-modal-accent: #60a5fa;
+  --fg-modal-accent-soft: rgba(59, 130, 246, 0.14);
+}
+
+#addFinanciacionGrupalModal .modal-dialog {
+  max-width: 1080px;
+}
+
+#addFinanciacionGrupalModal .modal-content {
+  color: var(--fg-modal-text);
+  background: var(--fg-modal-surface);
+  border: 1px solid var(--fg-modal-border);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+}
+
+#addFinanciacionGrupalModal .modal-content > form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#addFinanciacionGrupalModal .modal-header,
+#addFinanciacionGrupalModal .modal-footer {
+  flex: 0 0 auto;
+}
+
+#addFinanciacionGrupalModal .fg-modal-header {
+  padding: 1.25rem 1.5rem;
+  background: var(--fg-modal-surface);
+  border-bottom: 1px solid var(--fg-modal-border);
+}
+
+#addFinanciacionGrupalModal .fg-modal-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  color: var(--fg-modal-accent);
+  background: var(--fg-modal-accent-soft);
+  font-size: 1.25rem;
+}
+
+#addFinanciacionGrupalModal .fg-modal-subtitle {
+  max-width: 760px;
+  color: var(--fg-modal-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+#addFinanciacionGrupalModal .modal-title {
+  color: var(--fg-modal-text);
+  font-weight: 700;
+}
+
+#addFinanciacionGrupalModal .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  padding: 1.5rem;
+  overflow-y: auto;
+  background: var(--fg-modal-subtle);
+}
+
+#addFinanciacionGrupalModal .fg-section-heading p {
+  margin-top: 0.2rem;
+  color: var(--fg-modal-muted);
+  font-size: 0.84rem;
+}
+
+#addFinanciacionGrupalModal .fg-form-sections {
+  display: grid;
+  gap: 1rem;
+}
+
+#addFinanciacionGrupalModal .fg-form-section {
+  padding: 1.25rem;
+  border: 1px solid var(--fg-modal-border);
+  border-radius: 14px;
+  background: var(--fg-modal-surface);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#addFinanciacionGrupalModal .fg-form-section:focus-within {
+  border-color: var(--fg-modal-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+#addFinanciacionGrupalModal .fg-section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+#addFinanciacionGrupalModal .fg-section-number {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: var(--fg-modal-accent);
+  background: var(--fg-modal-accent-soft);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+#addFinanciacionGrupalModal .fg-section-heading h6 {
+  margin: 0;
+  color: var(--fg-modal-text);
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+#addFinanciacionGrupalModal .fg-section-heading p {
+  margin-bottom: 0;
+}
+
+#addFinanciacionGrupalModal .form-label {
+  margin-bottom: 0.4rem;
+  color: var(--fg-modal-text);
+  font-size: 0.87rem;
+  font-weight: 600;
+}
+
+#addFinanciacionGrupalModal .fg-optional-label {
+  margin-left: 0.35rem;
+  color: var(--fg-modal-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+#addFinanciacionGrupalModal .form-control,
+#addFinanciacionGrupalModal .form-select {
+  min-height: 44px;
+  color: var(--fg-modal-text);
+  background-color: var(--fg-modal-surface);
+  border-color: var(--fg-modal-border);
+  border-radius: 9px;
+}
+
+#addFinanciacionGrupalModal .form-control::placeholder {
+  color: var(--fg-modal-muted);
+  opacity: 0.8;
+}
+
+#addFinanciacionGrupalModal .form-control:focus,
+#addFinanciacionGrupalModal .form-select:focus {
+  border-color: var(--fg-modal-accent);
+  box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.18);
+}
+
+#addFinanciacionGrupalModal .fg-search-input .input-group-text {
+  color: var(--fg-modal-muted);
+  background: var(--fg-modal-subtle);
+  border-color: var(--fg-modal-border);
+  border-radius: 9px 0 0 9px;
+}
+
+#addFinanciacionGrupalModal .fg-search-input .form-control {
+  border-radius: 0 9px 9px 0;
+}
+
+#addFinanciacionGrupalModal .fg-file-upload {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px dashed var(--fg-modal-border);
+  border-radius: 12px;
+  background: var(--fg-modal-subtle);
+}
+
+#addFinanciacionGrupalModal .fg-file-upload-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  color: var(--fg-modal-accent);
+  background: var(--fg-modal-accent-soft);
+  font-size: 1.1rem;
+}
+
+#addFinanciacionGrupalModal .fg-file-upload-content {
+  min-width: 0;
+  flex: 1;
+}
+
+#addFinanciacionGrupalModal .fg-file-upload .form-control {
+  min-height: auto;
+  padding: 0.45rem;
+  border: 0;
+  background: transparent;
+}
+
+#addFinanciacionGrupalModal .fg-file-upload .form-text {
+  color: var(--fg-modal-muted);
+}
+
+#addFinanciacionGrupalModal .fg-modal-footer {
+  gap: 0.65rem;
+  padding: 1rem 1.5rem;
+  background: var(--fg-modal-surface);
+  border-top: 1px solid var(--fg-modal-border);
+}
+
+#addFinanciacionGrupalModal .fg-modal-footer .btn {
+  min-height: 42px;
+  border-radius: 999px;
+  padding-right: 1.25rem;
+  padding-left: 1.25rem;
+  font-weight: 600;
+}
+
+#addFinanciacionGrupalModal .fg-save-btn {
+  min-width: 130px;
+  border: 0;
+  background: linear-gradient(135deg, #22c55e, #15803d);
+}
+
+#addFinanciacionGrupalModal .fg-save-btn:hover {
+  background: linear-gradient(135deg, #16a34a, #166534);
+}
+
+[data-theme='dark'] #addFinanciacionGrupalModal .btn-outline-secondary {
+  color: var(--text-secondary);
+  border-color: var(--card-border);
+}
+
+[data-theme='dark'] #addFinanciacionGrupalModal .btn-outline-secondary:hover {
+  color: var(--text-primary);
+  background: var(--card-border);
+}
+
+[data-theme='dark'] #addFinanciacionGrupalModal .btn-outline-success {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.55);
+}
+
+[data-theme='dark'] #addFinanciacionGrupalModal .btn-outline-success:hover {
+  color: #052e16;
+  background: #4ade80;
+}
+
 @media (max-width: 576px) {
+  #addFinanciacionGrupalModal .fg-modal-header,
   #addFinanciacionGrupalModal .modal-body {
-    max-height: calc(100vh - 180px);
+    padding: 1rem;
+  }
+
+  #addFinanciacionGrupalModal .fg-form-section {
+    padding: 1rem;
+  }
+
+  #addFinanciacionGrupalModal .fg-modal-footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 1rem;
+  }
+
+  #addFinanciacionGrupalModal .fg-modal-footer .fg-save-btn {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  #addFinanciacionGrupalModal .fg-modal-footer #btnGuardarYAgregarOtroFG {
+    grid-column: 1 / -1;
   }
 }

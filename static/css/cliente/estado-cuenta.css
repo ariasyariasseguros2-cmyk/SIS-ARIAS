@@ -193,3 +193,166 @@
     width: 3rem;
     height: 3rem;
 }
+
+.estado-cuenta-actions .btn {
+    border-radius: 999px;
+    font-weight: 600;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.estado-cuenta-actions .btn-secondary {
+    border: 0;
+    background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+}
+
+.estado-cuenta-actions .btn-secondary:hover {
+    background: linear-gradient(135deg, #475569 0%, #334155 100%);
+    box-shadow: 0 4px 12px rgba(51, 65, 85, 0.28);
+    transform: translateY(-1px);
+}
+
+.estado-cuenta-actions .btn-success {
+    border: 0;
+    background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+}
+
+.estado-cuenta-actions .btn-success:hover {
+    background: linear-gradient(135deg, #16a34a 0%, #166534 100%);
+    box-shadow: 0 4px 12px rgba(21, 128, 61, 0.28);
+    transform: translateY(-1px);
+}
+
+.estado-cuenta-actions .btn-outline-primary:hover {
+    transform: translateY(-1px);
+}
+
+.estado-cuenta-back-link {
+    color: var(--accent-blue);
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.estado-cuenta-back-link:hover {
+    color: var(--nav-active-text);
+    text-decoration: underline;
+}
+
+[data-theme='dark'] .estado-cuenta-back-link {
+    color: #60a5fa;
+}
+
+[data-theme='dark'] .estado-cuenta-back-link:hover {
+    color: #93c5fd;
+}
+
+[data-theme='dark'] .estado-cuenta-page {
+    color: var(--text-primary);
+}
+
+[data-theme='dark'] .estado-cuenta-page .form-label,
+[data-theme='dark'] .estado-cuenta-page .form-check-label,
+[data-theme='dark'] .estado-cuenta-page strong,
+[data-theme='dark'] .estado-cuenta-page .table-custom-font tbody td,
+[data-theme='dark'] .estado-cuenta-page .table-totales td {
+    color: var(--text-primary) !important;
+}
+
+[data-theme='dark'] .estado-cuenta-page .text-muted,
+[data-theme='dark'] .estado-cuenta-page .text-secondary,
+[data-theme='dark'] .estado-cuenta-page .fg-poliza-rel {
+    color: var(--text-secondary) !important;
+}
+
+[data-theme='dark'] .estado-cuenta-page .form-control,
+[data-theme='dark'] .estado-cuenta-page .form-select {
+    color: var(--text-primary) !important;
+    color-scheme: dark;
+    background-color: var(--layout-bg) !important;
+    border-color: var(--card-border) !important;
+}
+
+[data-theme='dark'] .estado-cuenta-page .form-control::placeholder {
+    color: var(--text-tertiary) !important;
+}
+
+[data-theme='dark'] .estado-cuenta-page .form-control:focus,
+[data-theme='dark'] .estado-cuenta-page .form-select:focus {
+    border-color: var(--accent-blue) !important;
+    box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.2) !important;
+}
+
+[data-theme='dark'] #clienteSearchResults {
+    color: var(--text-primary);
+    background: var(--card-bg);
+    border-color: var(--card-border);
+}
+
+[data-theme='dark'] #clienteSearchResults .list-group-item {
+    color: var(--text-primary);
+    background: var(--card-bg);
+    border-color: var(--card-border);
+}
+
+[data-theme='dark'] #clienteSearchResults .list-group-item:hover,
+[data-theme='dark'] #clienteSearchResults .list-group-item:focus {
+    color: var(--text-primary);
+    background: #334155;
+}
+
+[data-theme='dark'] .estado-cuenta-page .estado-cuenta-table-responsive .table-custom-font thead,
+[data-theme='dark'] .estado-cuenta-page .estado-cuenta-table-responsive .table-custom-font thead tr,
+[data-theme='dark'] .estado-cuenta-page .estado-cuenta-table-responsive .table-custom-font thead th {
+    color: var(--text-primary) !important;
+    background-color: #1e293b !important;
+    border-color: var(--card-border) !important;
+}
+
+[data-theme='dark'] .estado-cuenta-page .table-custom-font tbody tr > *,
+[data-theme='dark'] .estado-cuenta-page .table-totales > * {
+    color: var(--text-primary) !important;
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+}
+
+[data-theme='dark'] .estado-cuenta-page .table-custom-font tbody tr:hover > * {
+    background-color: #263449 !important;
+}
+
+[data-theme='dark'] .estado-cuenta-page .table-totales .subtotal-cobrar {
+    color: #bfdbfe !important;
+    background-color: rgba(37, 99, 235, 0.18) !important;
+}
+
+[data-theme='dark'] .estado-cuenta-page .table-totales .subtotal-cobrar .currency {
+    color: #bfdbfe !important;
+}
+
+[data-theme='dark'] .estado-cuenta-page .table-totales .subtotal-pagar {
+    color: #fde68a !important;
+    background-color: rgba(217, 119, 6, 0.18) !important;
+}
+
+[data-theme='dark'] .estado-cuenta-page .table-totales .subtotal-pagar .currency {
+    color: #fde68a !important;
+}
+
+[data-theme='dark'] .estado-cuenta-page .por-pagar-label {
+    color: #fca5a5 !important;
+}
+
+[data-theme='dark'] .estado-cuenta-page .alert-info {
+    color: #bae6fd;
+    background-color: rgba(14, 116, 144, 0.2);
+    border-color: rgba(56, 189, 248, 0.35);
+}
+
+[data-theme='dark'] .estado-cuenta-page .btn-outline-primary {
+    color: #93c5fd;
+    border-color: #3b82f6;
+}
+
+[data-theme='dark'] .estado-cuenta-page .btn-outline-primary:hover {
+    color: #ffffff;
+    background-color: #2563eb;
+}

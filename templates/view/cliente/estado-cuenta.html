@@ -1,6 +1,6 @@
 {% extends 'view/layout_dashboard.html' %}
 
-{% block page_title %}Estado de Cuenta{% endblock %}
+{% block page_title %}{% endblock %}
 
 {% block before_js %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cliente/estado-cuenta.css') }}">
@@ -10,10 +10,12 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="d-flex align-items-center gap-3 mb-4">
-        <a class="btn btn-primary btn-lg" href="{{ url_for('main.menu_page', page='clientes') }}">&larr; Regresar</a>
+<div class="container-fluid py-4 estado-cuenta-page">
+    <div class="d-flex flex-column align-items-start gap-2 mb-4">
         <h2 class="h4 m-0">Estado de Cuenta</h2>
+        <a class="estado-cuenta-back-link" href="{{ url_for('main.menu_page', page='clientes') }}">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i> Regresar
+        </a>
     </div>
 
     <!-- Filtros de Búsqueda -->
@@ -119,7 +121,7 @@
                     </div>
 
                     <!-- Botones -->
-                    <div class="col-md-12 d-flex gap-2 justify-content-end mt-2 flex-wrap">
+                    <div class="col-md-12 d-flex gap-2 justify-content-end mt-2 flex-wrap estado-cuenta-actions">
                         <a href="{{ url_for('main.menu_page', page='clientes-estado-cuenta') }}" class="btn btn-sm btn-secondary">
                             <i class="bi bi-x-circle"></i> Limpiar
                         </a>

@@ -1,6 +1,6 @@
 {% extends "view/layout_dashboard.html" %}
 
-{% block page_title %}Vencimientos y Renovaciones{% endblock %}
+{% block page_title %}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/reportes/vencimientos-renovaciones.css') }}">
@@ -25,7 +25,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid pt-2 pb-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="h4 m-0">Vencimientos & Renovaciones</h2>
     </div>
@@ -41,7 +41,7 @@
                 <div class="col-md-2">
                     <label class="form-label fw-bold">Usuarios</label>
                     <div class="dropdown" id="usuarioDropdownContainer">
-                        <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start text-truncate" type="button" id="usuarioDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                        <button class="form-control report-filter-control dropdown-toggle d-flex align-items-center w-100 text-start text-truncate" type="button" id="usuarioDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
                             Cargando...
                         </button>
                         <ul class="dropdown-menu w-100 p-2" aria-labelledby="usuarioDropdownBtn" id="usuarioDropdownMenu" style="max-height: 300px; overflow-y: auto;">
@@ -53,7 +53,7 @@
                 <div class="col-md-2">
                     <label class="form-label fw-bold">Ejecutivo</label>
                     <div class="dropdown" id="ejecutivoDropdownContainer">
-                        <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start text-truncate" type="button" id="ejecutivoDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                        <button class="form-control report-filter-control dropdown-toggle d-flex align-items-center w-100 text-start text-truncate" type="button" id="ejecutivoDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
                             Cargando...
                         </button>
                         <ul class="dropdown-menu w-100 p-2" aria-labelledby="ejecutivoDropdownBtn" id="ejecutivoDropdownMenu" style="max-height: 300px; overflow-y: auto;">
@@ -65,7 +65,7 @@
                 <div class="col-md-2">
                     <label class="form-label fw-bold">Ramo</label>
                     <div class="dropdown" id="ramoDropdownContainer">
-                        <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start text-truncate" type="button" id="ramoDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                        <button class="form-control report-filter-control dropdown-toggle d-flex align-items-center w-100 text-start text-truncate" type="button" id="ramoDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
                             Cargando...
                         </button>
                         <ul class="dropdown-menu w-100 p-2" aria-labelledby="ramoDropdownBtn" id="ramoDropdownMenu" style="max-height: 300px; overflow-y: auto;">
@@ -75,23 +75,29 @@
                     </div>
                 </div>
                 <div class="col-md-2">
-                    <label for="estadoSelect" class="form-label fw-bold">Estado</label>
-                    <select class="form-select" id="estadoSelect" name="estado">
-                        <option value="">Todos los estados</option>
-                        <option value="PENDIENTE">Pendiente</option>
-                        <option value="CANCELADO">Cancelado</option>
-                        <option value="SIN PRIMA">Sin Prima</option>
-                        <option value="VIGENTE">Vigente</option>
-                        <option value="ANULADO">Anulado</option>
-                    </select>
+                    <label for="estadoDropdownBtn" class="form-label fw-bold">Estado</label>
+                    <div class="dropdown" id="estadoDropdownContainer">
+                        <button class="form-control report-filter-control dropdown-toggle d-flex align-items-center w-100 text-start" type="button" id="estadoDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="estado-dropdown-label">Todos los estados</span>
+                        </button>
+                        <ul class="dropdown-menu w-100" aria-labelledby="estadoDropdownBtn" id="estadoDropdownMenu">
+                            <li><button class="dropdown-item active" type="button" data-estado-value="">Todos los estados</button></li>
+                            <li><button class="dropdown-item" type="button" data-estado-value="PENDIENTE">Pendiente</button></li>
+                            <li><button class="dropdown-item" type="button" data-estado-value="CANCELADO">Cancelado</button></li>
+                            <li><button class="dropdown-item" type="button" data-estado-value="SIN PRIMA">Sin Prima</button></li>
+                            <li><button class="dropdown-item" type="button" data-estado-value="VIGENTE">Vigente</button></li>
+                            <li><button class="dropdown-item" type="button" data-estado-value="ANULADO">Anulado</button></li>
+                        </ul>
+                        <input type="hidden" id="estadoSelect" name="estado" value="">
+                    </div>
                 </div>
                 <div class="col-md-2">
                     <label for="fechaDesde" class="form-label fw-bold">Desde</label>
-                    <input type="date" class="form-control" id="fechaDesde" name="fecha_desde">
+                    <input type="date" class="form-control report-filter-control" id="fechaDesde" name="fecha_desde">
                 </div>
                 <div class="col-md-2"> 
                     <label for="fechaHasta" class="form-label fw-bold">Hasta</label>
-                    <input type="date" class="form-control" id="fechaHasta" name="fecha_hasta">
+                    <input type="date" class="form-control report-filter-control" id="fechaHasta" name="fecha_hasta">
                 </div>
                 <div class="w-100"></div>
                 <div class="col-md-10">
@@ -103,7 +109,7 @@
                            placeholder="Buscar por póliza, recibo/aviso o cupón">
                 </div>
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-success text-white w-100">
+                    <button type="submit" class="btn btn-success text-white w-100 report-process-btn">
                         Procesar Archivo
                     </button>
                 </div>

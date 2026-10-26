@@ -142,103 +142,130 @@
     <div class="modal-content">
       <form id="addFinanciacionGrupalForm" autocomplete="off" novalidate>
         <input type="hidden" id="fgEditId" value="">
-        <div class="modal-header">
-          <h5 class="modal-title" id="addFinanciacionGrupalModalLabel">
-            <i class="bi bi-people-fill me-1"></i> Añadir Financiamiento Grupal
-          </h5>
+        <div class="modal-header fg-modal-header">
+          <div class="d-flex align-items-center gap-3">
+            <span class="fg-modal-icon"><i class="bi bi-people-fill"></i></span>
+            <div>
+              <h5 class="modal-title mb-1" id="addFinanciacionGrupalModalLabel">
+                Añadir Financiamiento Grupal
+              </h5>
+              <p class="fg-modal-subtitle mb-0">
+                Registra el convenio y configura su cronograma de pagos. Completa la información en orden,
+                los campos con <span class="text-danger">*</span> son obligatorios.
+              </p>
+            </div>
+          </div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
 
         <div class="modal-body">
-          <div class="mb-4">
-            <a href="#" class="text-decoration-none text-muted small fw-bold" data-bs-dismiss="modal">
-              <i class="bi bi-arrow-left"></i> Volver al listado Financiamiento Grupal
-            </a>
-          </div>
-
-          <div class="fg-form-card">
-            <div class="fg-form-card-title" id="fgFormCardTitle">
-              <i class="bi bi-person-plus-fill"></i> Añadir Financiamiento Grupal
-            </div>
-
-            <div class="row g-4 pt-3">
-              <div class="col-md-12">
-                <label for="fgNombre" class="form-label">Financiacion Grupal <span class="text-danger">*</span></label>
+          <div class="fg-form-sections">
+            <section class="fg-form-section" aria-labelledby="fgAgreementHeading">
+              <div class="fg-section-heading">
+                <span class="fg-section-number">1</span>
+                <div>
+                  <h6 id="fgAgreementHeading">Datos del convenio</h6>
+                  <p>Identifica el financiamiento y, si lo tienes, importa sus datos desde un PDF.</p>
+                </div>
+              </div>
+              <div class="row g-3">
+                <div class="col-12">
+                <label for="fgNombre" class="form-label">Nombre del financiamiento <span class="text-danger">*</span></label>
                 <input type="text" id="fgNombre" name="nombre" class="form-control" required>
-              </div>
-
-              <div class="col-md-12">
-                <label for="fgConvenioPdf" class="form-label">Convenio / Cronograma PDF</label>
-                <input type="file" id="fgConvenioPdf" name="convenio_pdf" class="form-control" accept=".pdf,application/pdf">
-                <div class="form-text">Selecciona el PDF y el sistema completara los datos automaticamente.</div>
-                <div class="small text-muted mt-1" id="fgConvenioPdfStatus"></div>
-              </div>
-
-              <div class="col-md-12">
-                <label for="fgCliente" class="form-label">Cliente <span class="text-danger">*</span></label>
-                <div class="input-group input-group-sm mb-2">
-                  <span class="input-group-text">
-                    <i class="bi bi-search"></i>
-                  </span>
-                  <input type="text" id="fgClienteSearch" class="form-control" placeholder="Buscar cliente...">
                 </div>
-                <select id="fgCliente" name="cliente_id" class="form-select" required>
-                  <option value="">** Selecciona un Cliente</option>
-                </select>
-              </div>
 
-              <div class="col-md-12">
-                <label for="fgCompania" class="form-label">Compañía <span class="text-danger">*</span></label>
-                <div class="input-group input-group-sm mb-2">
-                  <span class="input-group-text">
-                    <i class="bi bi-search"></i>
-                  </span>
-                  <input type="text" id="fgCompaniaSearch" class="form-control" placeholder="Buscar compania...">
+                <div class="col-12">
+                  <label for="fgConvenioPdf" class="form-label">Convenio o cronograma en PDF <span class="fg-optional-label">Opcional</span></label>
+                  <div class="fg-file-upload">
+                    <span class="fg-file-upload-icon"><i class="bi bi-cloud-arrow-up"></i></span>
+                    <div class="fg-file-upload-content">
+                      <input type="file" id="fgConvenioPdf" name="convenio_pdf" class="form-control" accept=".pdf,application/pdf">
+                      <div class="form-text">Selecciona un PDF para completar automáticamente moneda, importe y cuotas.</div>
+                      <div class="small mt-1" id="fgConvenioPdfStatus"></div>
+                    </div>
+                  </div>
                 </div>
-                <select id="fgCompania" name="compania_id" class="form-select" required>
-                  <option value="">** Selecciona un Compañía</option>
-                </select>
               </div>
+            </section>
 
-              <div class="col-md-8">
-                <label for="fgMoneda" class="form-label">Moneda <span class="text-danger">*</span></label>
-                <select id="fgMoneda" name="moneda" class="form-select" required>
-                  <option value="">** Selecciona un Moneda</option>
-                </select>
+            <section class="fg-form-section" aria-labelledby="fgPartiesHeading">
+              <div class="fg-section-heading">
+                <span class="fg-section-number">2</span>
+                <div>
+                  <h6 id="fgPartiesHeading">Participantes</h6>
+                  <p>Selecciona el cliente y la compañía relacionados con el convenio.</p>
+                </div>
               </div>
+              <div class="row g-3">
+                <div class="col-lg-6">
+                  <label for="fgCliente" class="form-label">Cliente <span class="text-danger">*</span></label>
+                  <div class="input-group fg-search-input">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" id="fgClienteSearch" class="form-control" placeholder="Buscar cliente..." autocomplete="off">
+                  </div>
+                  <select id="fgCliente" name="cliente_id" class="form-select mt-2" required>
+                    <option value="">Selecciona un cliente</option>
+                  </select>
+                </div>
 
-              <div class="col-md-6">
-                <label for="fgNumeroCupones" class="form-label">Numero Cupones <span class="text-danger">*</span></label>
-                <input type="number" min="1" id="fgNumeroCupones" name="numero_cupones" class="form-control" required>
+                <div class="col-lg-6">
+                  <label for="fgCompania" class="form-label">Compañía <span class="text-danger">*</span></label>
+                  <div class="input-group fg-search-input">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" id="fgCompaniaSearch" class="form-control" placeholder="Buscar compañía..." autocomplete="off">
+                  </div>
+                  <select id="fgCompania" name="compania_id" class="form-select mt-2" required>
+                    <option value="">Selecciona una compañía</option>
+                  </select>
+                </div>
               </div>
+            </section>
 
-              <div class="col-md-8">
-                <label for="fgPrimerCupon" class="form-label">No. Primer Cupón <span class="text-danger">*</span></label>
-                <input type="text" id="fgPrimerCupon" name="primer_cupon" class="form-control" required>
+            <section class="fg-form-section" aria-labelledby="fgScheduleHeading">
+              <div class="fg-section-heading">
+                <span class="fg-section-number">3</span>
+                <div>
+                  <h6 id="fgScheduleHeading">Importe y cronograma</h6>
+                  <p>Define el monto total y los datos de inicio de las cuotas.</p>
+                </div>
               </div>
-
-              <div class="col-md-8">
-                <label for="fgImporte" class="form-label">Importe <span class="text-danger">*</span></label>
-                <input type="number" min="0" step="0.01" id="fgImporte" name="importe" class="form-control" required>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label for="fgMoneda" class="form-label">Moneda <span class="text-danger">*</span></label>
+                  <select id="fgMoneda" name="moneda" class="form-select" required>
+                    <option value="">Selecciona una moneda</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label for="fgImporte" class="form-label">Importe total <span class="text-danger">*</span></label>
+                  <input type="number" min="0" step="0.01" id="fgImporte" name="importe" class="form-control" placeholder="0.00" required>
+                </div>
+                <div class="col-md-4">
+                  <label for="fgNumeroCupones" class="form-label">Número de cuotas <span class="text-danger">*</span></label>
+                  <input type="number" min="1" id="fgNumeroCupones" name="numero_cupones" class="form-control" placeholder="Ej. 12" required>
+                </div>
+                <div class="col-md-6">
+                  <label for="fgPrimerCupon" class="form-label">Número del primer cupón <span class="text-danger">*</span></label>
+                  <input type="text" id="fgPrimerCupon" name="primer_cupon" class="form-control" placeholder="Ej. 001" required>
+                </div>
+                <div class="col-md-6">
+                  <label for="fgFechaPrimerVencimiento" class="form-label">Fecha del primer vencimiento <span class="text-danger">*</span></label>
+                  <input type="date" id="fgFechaPrimerVencimiento" name="fecha_primer_vencimiento" class="form-control" required>
+                </div>
               </div>
-
-              <div class="col-md-8">
-                <label for="fgFechaPrimerVencimiento" class="form-label">Fecha Primer Vencimiento <span class="text-danger">*</span></label>
-                <input type="date" id="fgFechaPrimerVencimiento" name="fecha_primer_vencimiento" class="form-control" required>
-              </div>
-            </div>
+            </section>
           </div>
         </div>
 
-        <div class="modal-footer justify-content-start">
+        <div class="modal-footer fg-modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-            <i class="bi bi-arrow-counterclockwise"></i> Volver
+            Cancelar
           </button>
-          <button type="button" class="btn btn-success" id="btnGuardarYAgregarOtroFG">
-            Guardar y Añadir otro
+          <button type="button" class="btn btn-outline-success" id="btnGuardarYAgregarOtroFG">
+            <i class="bi bi-plus-circle me-1"></i> Guardar y añadir otro
           </button>
-          <button type="submit" class="btn btn-success" id="btnGuardarFG">
-            Guardar
+          <button type="submit" class="btn btn-success fg-save-btn" id="btnGuardarFG">
+            <i class="bi bi-check2-circle me-1"></i> Guardar
           </button>
         </div>
       </form>

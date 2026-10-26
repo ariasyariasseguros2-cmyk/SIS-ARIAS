@@ -626,6 +626,49 @@
 
 <div
     class="modal fade"
+    id="tramaDocumentoRequerido"
+    tabindex="-1"
+    aria-labelledby="tramaDocumentoRequeridoTitulo"
+    aria-describedby="tramaDocumentoRequeridoMensaje"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-dialog-centered trama-validation-dialog">
+        <div class="modal-content trama-validation-modal">
+            <div class="modal-header trama-validation-header">
+                <span class="trama-validation-icon" aria-hidden="true">
+                    <i class="bi bi-card-text"></i>
+                </span>
+                <div>
+                    <h5 class="modal-title" id="tramaDocumentoRequeridoTitulo">
+                        Falta el número de documento
+                    </h5>
+                    <p class="trama-validation-subtitle mb-0">Completa este dato para agregar el registro.</p>
+                </div>
+                <button
+                    type="button"
+                    class="trama-duplicate-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Cerrar"
+                >
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="modal-body trama-validation-body">
+                <p id="tramaDocumentoRequeridoMensaje" class="mb-0">
+                    Ingresa el número de DNI o RUC antes de continuar.
+                </p>
+            </div>
+            <div class="modal-footer trama-validation-footer">
+                <button type="button" class="btn trama-validation-accept" data-bs-dismiss="modal">
+                    Entendido
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div
+    class="modal fade"
     id="tramaDocumentoDuplicado"
     tabindex="-1"
     aria-labelledby="tramaDocumentoDuplicadoTitulo"
