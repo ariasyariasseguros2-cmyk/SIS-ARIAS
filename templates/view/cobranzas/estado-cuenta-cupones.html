@@ -2,36 +2,23 @@
 {% set page = 'cobranzas-estado-cuenta' %}
 
 {% block html_title %}Estado de Cuenta de Cupones{% endblock %}
-{% block page_title %}Estado de Cuenta de Cupones{% endblock %}
+{% block page_title %}{% endblock %}
+
+{% block extra_css %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cobranzas/estado-cuenta-cupones.css') }}">
+{% endblock %}
 
 {% block content %}
-<style>
-    .fg-poliza {
-        line-height: 1.2;
-    }
-    .fg-poliza-numero {
-        color: #7a3db8;
-        font-weight: 700;
-    }
-    .fg-poliza-rel {
-        display: block;
-        margin-top: 2px;
-        font-size: 0.78rem;
-        color: #6c757d;
-        white-space: normal;
-    }
-    #estadoCuentaCuponesTable tbody tr.estado-anulado-row > td,
-    #estadoCuentaCuponesTableFull tbody tr.estado-anulado-row > td {
-        background-color: #f8d7da !important;
-    }
-    #estadoCuentaCuponesTable tbody tr.estado-anulado-row:hover > td,
-    #estadoCuentaCuponesTableFull tbody tr.estado-anulado-row:hover > td {
-        background-color: #f5c2c7 !important;
-    }
-</style>
-<div class="container-fluid py-4">
+<div class="container-fluid py-4 estado-cuenta-cupones">
     <div class="card mb-4">
-        <div class="card-header">Estado de Cuenta de Cupones</div>
+        <div class="card-header d-flex align-items-center gap-3">
+            <span class="estado-cuenta-heading-icon"><i class="bi bi-funnel"></i></span>
+            <div>
+                <h1 class="estado-cuenta-heading-title">Estado de Cuenta de Cupones</h1>
+                <p class="estado-cuenta-heading-subtitle mb-0">Filtra y consulta el estado de tus cuotas</p>
+            </div>
+        </div>
         <div class="card-body">
             <div id="estadoCuentaCuponesAlert"></div>
             <form id="formEstadoCuentaCupones" class="row g-3">
@@ -195,11 +182,11 @@
 
     <div class="card shadow-sm">
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <span>Resultados</span>
-            <div class="d-flex align-items-center gap-2">
-                <div class="input-group input-group-sm" style="width: 280px;">
+            <span class="estado-cuenta-results-title"><i class="bi bi-table"></i> Resultados</span>
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <div class="input-group input-group-sm estado-cuenta-quick-search">
                     <span class="input-group-text">Buscar</span>
-                    <input type="text" class="form-control" id="quickSearchCupones" placeholder="Póliza / Cupón" autocomplete="off">
+                    <input type="text" class="form-control" id="quickSearchCupones" placeholder="Póliza / Cupón" autocomplete="off" aria-label="Buscar póliza o cupón en resultados">
                     <button type="button" class="btn btn-outline-secondary" id="btnClearQuickSearchCupones">Limpiar</button>
                 </div>
                 <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalEstadoCuentaCuponesFull">
@@ -243,9 +230,9 @@
         <div class="modal-content">
             <div class="modal-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h5 class="modal-title" id="modalEstadoCuentaCuponesFullLabel">Estado de Cuenta de Cupones - Pantalla Completa</h5>
-                <div class="input-group input-group-sm" style="width: 340px;">
+                <div class="input-group input-group-sm estado-cuenta-quick-search-full">
                     <span class="input-group-text">Buscar</span>
-                    <input type="text" class="form-control" id="quickSearchCuponesFull" placeholder="Póliza / Cupón" autocomplete="off">
+                    <input type="text" class="form-control" id="quickSearchCuponesFull" placeholder="Póliza / Cupón" autocomplete="off" aria-label="Buscar póliza o cupón en pantalla completa">
                     <button type="button" class="btn btn-outline-secondary" id="btnClearQuickSearchCuponesFull">Limpiar</button>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>

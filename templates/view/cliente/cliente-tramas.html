@@ -715,6 +715,56 @@
     </div>
 </div>
 
+<div
+    class="modal fade"
+    id="tramaDialogo"
+    tabindex="-1"
+    aria-labelledby="tramaDialogoTitulo"
+    aria-describedby="tramaDialogoMensaje"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-dialog-centered trama-dialog-dialog">
+        <div class="modal-content trama-dialog-modal">
+            <div class="modal-header trama-dialog-header">
+                <span class="trama-dialog-icon" aria-hidden="true">
+                    <i class="bi bi-info-circle-fill"></i>
+                </span>
+                <h5 class="modal-title" id="tramaDialogoTitulo"></h5>
+                <button
+                    type="button"
+                    class="trama-duplicate-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Cerrar"
+                >
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="modal-body trama-dialog-body">
+                <p id="tramaDialogoMensaje" class="mb-0"></p>
+            </div>
+            <div class="modal-footer trama-dialog-footer">
+                <button
+                    type="button"
+                    class="btn trama-dialog-cancel d-none"
+                    id="tramaDialogoCancelar"
+                    data-trama-dialog-result="cancel"
+                    data-bs-dismiss="modal"
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="button"
+                    class="btn trama-dialog-accept"
+                    id="tramaDialogoAceptar"
+                    data-trama-dialog-result="accept"
+                    data-bs-dismiss="modal"
+                >
+                    Entendido
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 
 

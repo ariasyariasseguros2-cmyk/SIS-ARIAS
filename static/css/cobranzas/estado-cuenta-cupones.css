@@ -1,0 +1,235 @@
+.fg-poliza {
+    line-height: 1.2;
+}
+
+.fg-poliza-numero {
+    color: #7a3db8;
+    font-weight: 700;
+}
+
+.fg-poliza-rel {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.78rem;
+    color: #6c757d;
+    white-space: normal;
+}
+
+#estadoCuentaCuponesTable tbody tr.estado-anulado-row > td,
+#estadoCuentaCuponesTableFull tbody tr.estado-anulado-row > td {
+    background-color: #f8d7da !important;
+}
+
+#estadoCuentaCuponesTable tbody tr.estado-anulado-row:hover > td,
+#estadoCuentaCuponesTableFull tbody tr.estado-anulado-row:hover > td {
+    background-color: #f5c2c7 !important;
+}
+
+#estadoCuentaCuponesTable thead th:nth-child(1),
+#estadoCuentaCuponesTable thead th:nth-child(2),
+#estadoCuentaCuponesTableFull thead th:nth-child(4),
+#estadoCuentaCuponesTableFull thead th:nth-child(5) {
+    background-color: rgba(14, 165, 233, 0.2) !important;
+    border-bottom-color: #0ea5e9 !important;
+    color: #7dd3fc !important;
+}
+
+#estadoCuentaCuponesTable thead th:nth-child(5),
+#estadoCuentaCuponesTableFull thead th:nth-child(8) {
+    background-color: rgba(34, 197, 94, 0.2) !important;
+    border-bottom-color: #22c55e !important;
+    color: #86efac !important;
+}
+
+#estadoCuentaCuponesTable thead th:nth-child(6),
+#estadoCuentaCuponesTableFull thead th:nth-child(11) {
+    background-color: rgba(217, 70, 239, 0.2) !important;
+    border-bottom-color: #d946ef !important;
+    color: #f0abfc !important;
+}
+
+.estado-cuenta-heading-title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.estado-cuenta-heading-subtitle {
+    margin-top: 0.2rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.estado-cuenta-heading-icon {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 0.85rem;
+    background: rgba(14, 165, 233, 0.14);
+    color: #38bdf8;
+    font-size: 1.25rem;
+}
+
+.estado-cuenta-results-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-weight: 700;
+}
+
+.estado-cuenta-quick-search {
+    width: 280px;
+}
+
+.estado-cuenta-quick-search-full {
+    width: 340px;
+}
+
+[data-theme='dark'] .estado-cuenta-cupones .card {
+    border-color: rgba(148, 163, 184, 0.16) !important;
+    box-shadow: 0 14px 36px rgba(2, 6, 23, 0.2);
+}
+
+[data-theme='dark'] .estado-cuenta-cupones .card-header {
+    background: linear-gradient(110deg, rgba(30, 58, 138, 0.34), rgba(30, 41, 59, 0.86)) !important;
+}
+
+[data-theme='dark'] #formEstadoCuentaCupones .form-label {
+    margin-bottom: 0.45rem;
+    color: #dbeafe;
+    font-size: 0.9rem;
+    letter-spacing: 0.01em;
+}
+
+[data-theme='dark'] #formEstadoCuentaCupones .form-control,
+[data-theme='dark'] #formEstadoCuentaCupones .form-select,
+[data-theme='dark'] .estado-cuenta-cupones .estado-cuenta-quick-search .form-control,
+[data-theme='dark'] .estado-cuenta-cupones .estado-cuenta-quick-search-full .form-control {
+    background-color: #111c30 !important;
+    border-color: #3a4b64 !important;
+    color: #f1f5f9 !important;
+}
+
+[data-theme='dark'] #formEstadoCuentaCupones input[type='date'] {
+    color-scheme: dark;
+}
+
+[data-theme='dark'] .estado-cuenta-cupones .form-control::placeholder {
+    color: #94a3b8 !important;
+    opacity: 1;
+}
+
+[data-theme='dark'] .estado-cuenta-cupones .form-control:focus,
+[data-theme='dark'] .estado-cuenta-cupones .form-select:focus {
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18) !important;
+}
+
+[data-theme='dark'] .estado-cuenta-cupones .dropdown-menu,
+[data-theme='dark'] #contratanteResults {
+    background-color: #172338 !important;
+    border: 1px solid #3a4b64 !important;
+    box-shadow: 0 16px 36px rgba(2, 6, 23, 0.42);
+}
+
+[data-theme='dark'] .estado-cuenta-cupones .dropdown-menu .form-check,
+[data-theme='dark'] #contratanteResults .list-group-item {
+    color: #e2e8f0;
+}
+
+[data-theme='dark'] .estado-cuenta-cupones .dropdown-menu .form-check:hover,
+[data-theme='dark'] #contratanteResults .list-group-item:hover {
+    background-color: rgba(56, 189, 248, 0.1);
+}
+
+[data-theme='dark'] .estado-cuenta-cupones .form-check-input {
+    background-color: #0f172a;
+    border-color: #64748b;
+}
+
+[data-theme='dark'] .estado-cuenta-cupones .form-check-input:checked {
+    background-color: #0284c7;
+    border-color: #38bdf8;
+}
+
+[data-theme='dark'] .estado-cuenta-cupones #contratanteSelected .badge {
+    padding: 0.45rem 0.65rem;
+    border: 1px solid rgba(125, 211, 252, 0.28);
+    background: rgba(14, 165, 233, 0.18) !important;
+    color: #bae6fd;
+}
+
+[data-theme='dark'] .estado-cuenta-cupones #btnContratanteToggle,
+[data-theme='dark'] .estado-cuenta-cupones .btn-outline-secondary {
+    border-color: #52647e;
+    color: #cbd5e1;
+}
+
+[data-theme='dark'] .estado-cuenta-cupones #btnContratanteToggle:hover,
+[data-theme='dark'] .estado-cuenta-cupones .btn-outline-secondary:hover {
+    background-color: #334155;
+    color: #fff;
+}
+
+[data-theme='dark'] .estado-cuenta-cupones .btn-success {
+    background: linear-gradient(135deg, #059669, #047857);
+    border-color: #10b981;
+}
+
+[data-theme='dark'] .estado-cuenta-cupones .btn-primary {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border-color: #3b82f6;
+}
+
+[data-theme='dark'] .estado-cuenta-cupones .btn-outline-primary {
+    border-color: #3b82f6;
+    color: #93c5fd;
+}
+
+[data-theme='dark'] .estado-cuenta-cupones .btn-outline-primary:hover {
+    background-color: rgba(59, 130, 246, 0.16);
+    color: #dbeafe;
+}
+
+[data-theme='dark'] #estadoCuentaCuponesTable tbody tr:nth-child(even) > td,
+[data-theme='dark'] #estadoCuentaCuponesTableFull tbody tr:nth-child(even) > td {
+    background-color: rgba(148, 163, 184, 0.045) !important;
+}
+
+[data-theme='dark'] #estadoCuentaCuponesTable tbody tr:hover > td,
+[data-theme='dark'] #estadoCuentaCuponesTableFull tbody tr:hover > td {
+    background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+[data-theme='dark'] #estadoCuentaCuponesTable tbody tr.estado-anulado-row > td,
+[data-theme='dark'] #estadoCuentaCuponesTableFull tbody tr.estado-anulado-row > td {
+    background-color: rgba(127, 29, 29, 0.3) !important;
+}
+
+[data-theme='dark'] #estadoCuentaCuponesTable tbody tr.estado-anulado-row:hover > td,
+[data-theme='dark'] #estadoCuentaCuponesTableFull tbody tr.estado-anulado-row:hover > td {
+    background-color: rgba(153, 27, 27, 0.42) !important;
+}
+
+[data-theme='dark'] #estadoCuentaCuponesTable .badge.bg-warning {
+    background-color: #fbbf24 !important;
+    color: #422006 !important;
+}
+
+[data-theme='dark'] #modalEstadoCuentaCuponesFull .modal-header,
+[data-theme='dark'] #modalEstadoCuentaCuponesFull .modal-footer {
+    border-color: #334155;
+}
+
+@media (max-width: 767.98px) {
+    .estado-cuenta-quick-search,
+    .estado-cuenta-quick-search-full {
+        width: min(100%, 340px);
+    }
+
+    .estado-cuenta-cupones .card-header > .d-flex {
+        width: 100%;
+    }
+}

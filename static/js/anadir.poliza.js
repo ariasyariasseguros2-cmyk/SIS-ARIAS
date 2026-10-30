@@ -223,12 +223,12 @@
       Swal.fire({
         title: msg || 'Procesando PDF…',
         html,
+        customClass: { popup: 'anadir-poliza-loading-swal' },
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,
         didOpen: () => {
           const start = performance.now();
-          Swal.showLoading();
           clearInterval(swalInterval);
           swalInterval = setInterval(() => {
             const secs = ((performance.now() - start) / 1000).toFixed(1);
@@ -3206,7 +3206,10 @@
         icon: 'warning',
         showCancelButton: true,
         confirmButtonText: 'Sí, eliminar todo',
-        cancelButtonText: 'Cancelar'
+        cancelButtonText: 'Cancelar',
+        background: getComputedStyle(document.documentElement).getPropertyValue('--card-bg').trim() || '#ffffff',
+        color: getComputedStyle(document.documentElement).getPropertyValue('--text-main').trim() || '#374151',
+        customClass: { popup: 'anadir-poliza-clear-swal' }
       });
       if (!res.isConfirmed) return;
     } else {

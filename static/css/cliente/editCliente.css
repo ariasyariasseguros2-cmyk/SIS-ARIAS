@@ -184,6 +184,12 @@ body.modal-backdrop-strong #editClienteModal {
     border-color: var(--text-muted-edit);
 }
 
+#editClienteModal .system-info-value {
+    background-color: var(--layout-bg);
+    border-color: var(--border-light);
+    color: var(--text-main);
+}
+
 /* Checkbox */
 #editClienteModal .form-check {
     display: flex;

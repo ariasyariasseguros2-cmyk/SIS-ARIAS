@@ -73,6 +73,74 @@
     --chevron-svg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
 }
 
+.swal2-popup {
+    background: var(--card-bg) !important;
+    color: var(--text-main) !important;
+    border: 1px solid var(--card-border) !important;
+    border-radius: 20px !important;
+}
+
+.swal2-popup .swal2-title,
+.swal2-popup .swal2-html-container {
+    color: var(--text-main) !important;
+}
+
+.swal2-popup .swal2-html-container .text-muted {
+    color: var(--text-muted) !important;
+}
+
+.swal2-popup .swal2-input,
+.swal2-popup .swal2-select,
+.swal2-popup .swal2-textarea {
+    background: var(--bg-body) !important;
+    border-color: var(--card-border-strong) !important;
+    color: var(--text-main) !important;
+}
+
+.swal2-popup .swal2-input::placeholder,
+.swal2-popup .swal2-textarea::placeholder {
+    color: var(--text-muted) !important;
+}
+
+.swal2-popup .swal2-validation-message {
+    background: var(--bg-body) !important;
+    color: var(--text-main) !important;
+}
+
+.swal2-popup .swal2-styled {
+    border-radius: 999px !important;
+}
+
+.anadir-poliza-loading-swal {
+    background: var(--card-bg) !important;
+    color: var(--text-main) !important;
+}
+
+.anadir-poliza-loading-swal .swal2-title,
+.anadir-poliza-loading-swal .swal2-html-container {
+    color: var(--text-main) !important;
+}
+
+.anadir-poliza-loading-swal .text-muted {
+    color: var(--text-muted) !important;
+}
+
+.anadir-poliza-clear-swal {
+    background: var(--card-bg) !important;
+    color: var(--text-main) !important;
+    border-radius: 20px !important;
+}
+
+.anadir-poliza-clear-swal .swal2-title,
+.anadir-poliza-clear-swal .swal2-html-container {
+    color: var(--text-main) !important;
+}
+
+.anadir-poliza-clear-swal .swal2-confirm,
+.anadir-poliza-clear-swal .swal2-cancel {
+    border-radius: 999px !important;
+}
+
 * {
     box-sizing: border-box;
 }
@@ -1582,7 +1650,7 @@ body {
 .actions-pane .action-add-cuota {
     border: 1.5px solid var(--primary) !important;
     color: var(--primary) !important;
-    background: #fff !important;
+    background: var(--card-bg) !important;
     font-weight: 700 !important;
     border-radius: 6px !important;
     padding: 0.4rem 0.9rem !important;

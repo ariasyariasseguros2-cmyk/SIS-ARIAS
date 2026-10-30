@@ -220,6 +220,21 @@
     }
 }
 
+.trama-duplicate-dialog,
+.trama-validation-dialog,
+.trama-dialog-dialog {
+    width: fit-content;
+    max-width: min(520px, calc(100vw - 24px));
+}
+
+.trama-duplicate-modal,
+.trama-validation-modal,
+.trama-dialog-modal {
+    width: max-content;
+    min-width: min(320px, calc(100vw - 48px));
+    max-width: 100%;
+}
+
 .trama-header {
     margin-bottom: 22px;
 }
@@ -686,4 +701,154 @@
 [data-theme='dark'] #tramaDocumentoRequerido .trama-validation-icon {
     color: #fcd34d;
     background: rgba(245, 158, 11, 0.16);
+}
+
+.trama-dialog-dialog {
+    max-width: 520px;
+    padding: 0 12px;
+}
+
+.trama-dialog-modal {
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 22px;
+    background: #ffffff;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+}
+
+.trama-dialog-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.trama-dialog-icon {
+    display: grid;
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    border-radius: 13px;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: 1.15rem;
+}
+
+.trama-dialog-header .modal-title {
+    flex: 1;
+    margin: 0;
+    color: #0f172a;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.trama-dialog-body {
+    padding: 24px 28px;
+    color: #334155;
+    line-height: 1.6;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.trama-dialog-footer {
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 0 24px 22px;
+    border-top: 0;
+}
+
+.btn.trama-dialog-accept,
+.btn.trama-dialog-cancel {
+    min-width: 120px;
+    padding: 9px 22px;
+    border-radius: 999px;
+    font-weight: 700;
+}
+
+.btn.trama-dialog-accept {
+    border: 0;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: #ffffff;
+}
+
+.btn.trama-dialog-accept:hover {
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.btn.trama-dialog-accept.is-danger {
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+}
+
+.btn.trama-dialog-accept.is-danger:hover {
+    background: linear-gradient(135deg, #dc2626, #991b1b);
+}
+
+.btn.trama-dialog-cancel {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #475569;
+}
+
+.btn.trama-dialog-cancel:hover {
+    border-color: #94a3b8;
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+.trama-dialog-accept:focus-visible,
+.trama-dialog-cancel:focus-visible {
+    outline: 3px solid rgba(59, 130, 246, 0.4);
+    outline-offset: 2px;
+}
+
+[data-theme='dark'] #tramaDialogo .trama-dialog-modal {
+    border-color: #334155;
+    background: #1e293b;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme='dark'] #tramaDialogo .trama-dialog-header,
+[data-theme='dark'] #tramaDialogo .trama-dialog-footer {
+    border-color: #334155;
+    background: #1e293b;
+}
+
+[data-theme='dark'] #tramaDialogo .trama-dialog-header .modal-title,
+[data-theme='dark'] #tramaDialogo .trama-dialog-body {
+    color: #f8fafc;
+}
+
+[data-theme='dark'] #tramaDialogo .trama-dialog-icon {
+    background: rgba(59, 130, 246, 0.18);
+    color: #93c5fd;
+}
+
+[data-theme='dark'] #tramaDialogo .trama-dialog-cancel {
+    border-color: #475569;
+    background: #0f172a;
+    color: #e2e8f0;
+}
+
+[data-theme='dark'] #tramaDialogo .trama-dialog-cancel:hover {
+    background: #334155;
+    color: #ffffff;
+}
+
+@media (max-width: 575.98px) {
+    .trama-dialog-header {
+        padding: 18px;
+    }
+
+    .trama-dialog-body {
+        padding: 20px;
+    }
+
+    .trama-dialog-footer {
+        padding: 0 18px 18px;
+    }
 }

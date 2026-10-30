@@ -12,6 +12,60 @@
         documentoRequeridoModalEl && window.bootstrap
             ? window.bootstrap.Modal.getOrCreateInstance(documentoRequeridoModalEl)
             : null;
+    const dialogoTramaEl = document.getElementById('tramaDialogo');
+    const dialogoTramaModal =
+        dialogoTramaEl && window.bootstrap
+            ? window.bootstrap.Modal.getOrCreateInstance(dialogoTramaEl)
+            : null;
+    const dialogoTramaTitulo = document.getElementById('tramaDialogoTitulo');
+    const dialogoTramaMensaje = document.getElementById('tramaDialogoMensaje');
+    const dialogoTramaAceptar = document.getElementById('tramaDialogoAceptar');
+    const dialogoTramaCancelar = document.getElementById('tramaDialogoCancelar');
+
+    function mostrarDialogoTrama({
+        titulo,
+        mensaje,
+        confirmar = false,
+        textoAceptar = 'Entendido',
+        textoCancelar = 'Cancelar',
+        destructivo = false,
+        elementoEnfoque = null
+    }) {
+        if (!dialogoTramaEl || !dialogoTramaModal) {
+            console.error('No se pudo abrir el diálogo de la trama.');
+            return Promise.resolve(false);
+        }
+
+        dialogoTramaTitulo.textContent = titulo;
+        dialogoTramaMensaje.textContent = mensaje;
+        dialogoTramaAceptar.textContent = textoAceptar;
+        dialogoTramaAceptar.classList.toggle('is-danger', destructivo);
+        dialogoTramaCancelar.classList.toggle('d-none', !confirmar);
+        dialogoTramaCancelar.textContent = textoCancelar;
+
+        return new Promise(resolve => {
+            let aceptado = false;
+            const registrarResultado = event => {
+                const button = event.target instanceof Element
+                    ? event.target.closest('[data-trama-dialog-result]')
+                    : null;
+                if (button) {
+                    aceptado = button.dataset.tramaDialogResult === 'accept';
+                }
+            };
+            const finalizar = () => {
+                dialogoTramaEl.removeEventListener('click', registrarResultado);
+                if (elementoEnfoque) {
+                    elementoEnfoque.focus();
+                }
+                resolve(aceptado);
+            };
+
+            dialogoTramaEl.addEventListener('click', registrarResultado);
+            dialogoTramaEl.addEventListener('hidden.bs.modal', finalizar, { once: true });
+            dialogoTramaModal.show();
+        });
+    }
 
     let temporizadorAlertaRegistro = null;
 
@@ -503,14 +557,11 @@
 
                 if (!numero) {
 
-                    alert(
-                        'Número de documento requerido.\n\n' +
-                        'Ingrese el DNI o RUC para realizar la consulta.'
-                    );
-
-                    document.getElementById(
-                        'NumIdent'
-                    ).focus();
+                    mostrarDialogoTrama({
+                        titulo: 'Documento requerido',
+                        mensaje: 'Ingrese el DNI o RUC para realizar la consulta.',
+                        elementoEnfoque: document.getElementById('NumIdent')
+                    });
 
                     return;
 
@@ -652,10 +703,10 @@
 
                     } else {
 
-                        alert(
-                            result.error ||
-                            'No se encontraron datos para el documento.'
-                        );
+                        mostrarDialogoTrama({
+                            titulo: 'Consulta sin resultados',
+                            mensaje: result.error || 'No se encontraron datos para el documento.'
+                        });
 
                     }
 
@@ -686,10 +737,10 @@
                         'Buscar';
 
 
-                    alert(
-                        'No se pudo realizar la consulta.\n\n' +
-                        'Verifique su conexión e inténtelo nuevamente.'
-                    );
+                    mostrarDialogoTrama({
+                        titulo: 'No se pudo realizar la consulta',
+                        mensaje: 'Verifique su conexión e inténtelo nuevamente.'
+                    });
 
                 }
 
@@ -705,7 +756,7 @@
         .getElementById('btnAgregar')
         .addEventListener(
             'click',
-            () => {
+            async () => {
 
                 const tbody =
                     document.querySelector(
@@ -728,22 +779,14 @@
                     MAX_REGISTROS_TRAMA
                 ) {
 
-                    const continuar =
-                        window.confirm(
-
-                            'MÁXIMO RECOMENDADO ALCANZADO\n\n' +
-
+                    const continuar = await mostrarDialogoTrama({
+                        titulo: 'Máximo recomendado alcanzado',
+                        mensaje:
                             `La trama tiene actualmente ${cantidadRegistros} registros.\n\n` +
-
-                            'El máximo recomendado es de 10 registros.\n\n' +
-
-                            '¿Está seguro de que desea registrar una persona adicional?\n\n' +
-
-                            'Aceptar = Registrar\n' +
-
-                            'Cancelar = No registrar'
-
-                        );
+                            'El máximo recomendado es de 10 registros. ¿Desea registrar una persona adicional?',
+                        confirmar: true,
+                        textoAceptar: 'Registrar'
+                    });
 
 
                     if (!continuar) {
@@ -792,14 +835,11 @@
                     )
                 ) {
 
-                    alert(
-                        'DNI NO VÁLIDO\n\n' +
-                        'El DNI debe contener exactamente 8 dígitos.'
-                    );
-
-                    document.getElementById(
-                        'NumIdent'
-                    ).focus();
+                    mostrarDialogoTrama({
+                        titulo: 'DNI no válido',
+                        mensaje: 'El DNI debe contener exactamente 8 dígitos.',
+                        elementoEnfoque: document.getElementById('NumIdent')
+                    });
 
                     return;
 
@@ -817,14 +857,11 @@
                     )
                 ) {
 
-                    alert(
-                        'RUC NO VÁLIDO\n\n' +
-                        'El RUC debe contener exactamente 11 dígitos.'
-                    );
-
-                    document.getElementById(
-                        'NumIdent'
-                    ).focus();
+                    mostrarDialogoTrama({
+                        titulo: 'RUC no válido',
+                        mensaje: 'El RUC debe contener exactamente 11 dígitos.',
+                        elementoEnfoque: document.getElementById('NumIdent')
+                    });
 
                     return;
 
@@ -964,13 +1001,10 @@
                     !apMaterno
                 ) {
 
-                    alert(
-
-                        'DATOS INCOMPLETOS\n\n' +
-
-                        'Complete los nombres, apellido paterno y apellido materno antes de agregar el registro.'
-
-                    );
+                    mostrarDialogoTrama({
+                        titulo: 'Datos incompletos',
+                        mensaje: 'Complete los nombres, apellido paterno y apellido materno antes de agregar el registro.'
+                    });
 
                     return;
 
@@ -999,17 +1033,11 @@
 
                 if (!sexo) {
 
-                    alert(
-
-                        'SEXO REQUERIDO\n\n' +
-
-                        'Seleccione el sexo del cliente.'
-
-                    );
-
-                    document.getElementById(
-                        'Sexo'
-                    ).focus();
+                    mostrarDialogoTrama({
+                        titulo: 'Sexo requerido',
+                        mensaje: 'Seleccione el sexo del cliente.',
+                        elementoEnfoque: document.getElementById('Sexo')
+                    });
 
                     return;
 
@@ -1028,17 +1056,11 @@
 
                 if (!fechaNacimiento) {
 
-                    alert(
-
-                        'FECHA DE NACIMIENTO REQUERIDA\n\n' +
-
-                        'Ingrese la fecha de nacimiento.'
-
-                    );
-
-                    document.getElementById(
-                        'FecNacimiento'
-                    ).focus();
+                    mostrarDialogoTrama({
+                        titulo: 'Fecha de nacimiento requerida',
+                        mensaje: 'Ingrese la fecha de nacimiento.',
+                        elementoEnfoque: document.getElementById('FecNacimiento')
+                    });
 
                     return;
 
@@ -1057,17 +1079,11 @@
 
                 if (!estadoCivil) {
 
-                    alert(
-
-                        'ESTADO CIVIL REQUERIDO\n\n' +
-
-                        'Seleccione el estado civil.'
-
-                    );
-
-                    document.getElementById(
-                        'EstadoCivil'
-                    ).focus();
+                    mostrarDialogoTrama({
+                        titulo: 'Estado civil requerido',
+                        mensaje: 'Seleccione el estado civil.',
+                        elementoEnfoque: document.getElementById('EstadoCivil')
+                    });
 
                     return;
 
@@ -1089,17 +1105,11 @@
                     Number(remuneracion) < 0
                 ) {
 
-                    alert(
-
-                        'REMUNERACIÓN NO VÁLIDA\n\n' +
-
-                        'Ingrese una remuneración válida.'
-
-                    );
-
-                    document.getElementById(
-                        'Remuneracion'
-                    ).focus();
+                    mostrarDialogoTrama({
+                        titulo: 'Remuneración no válida',
+                        mensaje: 'Ingrese una remuneración válida.',
+                        elementoEnfoque: document.getElementById('Remuneracion')
+                    });
 
                     return;
 
@@ -1231,7 +1241,7 @@
 
                 btnEliminar.addEventListener(
                     'click',
-                    () => {
+                    async () => {
 
                         /*
                          * N° está en 0
@@ -1257,20 +1267,17 @@
                                 ?.textContent || '';
 
 
-                        const confirmar =
-                            window.confirm(
-
-                                'CONFIRMAR ELIMINACIÓN\n\n' +
-
-                                '¿Está seguro de eliminar este registro?\n\n' +
-
+                        const confirmar = await mostrarDialogoTrama({
+                            titulo: 'Confirmar eliminación',
+                            mensaje:
+                                `¿Está seguro de eliminar este registro?\n\n` +
                                 `Nombre: ${nombre}\n` +
-
                                 `${tipoDocumento}: ${numeroDocumento}\n\n` +
-
-                                'Esta acción no se puede deshacer.'
-
-                            );
+                                'Esta acción no se puede deshacer.',
+                            confirmar: true,
+                            textoAceptar: 'Eliminar',
+                            destructivo: true
+                        });
 
 
                         if (confirmar) {
@@ -1392,9 +1399,10 @@
 
                 if (!rows.length) {
 
-                    alert(
-                        'No hay registros para exportar.'
-                    );
+                    mostrarDialogoTrama({
+                        titulo: 'Sin registros',
+                        mensaje: 'No hay registros para exportar.'
+                    });
 
                     return;
 
@@ -1410,22 +1418,14 @@
                     MAX_REGISTROS_TRAMA
                 ) {
 
-                    const continuar =
-                        window.confirm(
-
-                            'TRAMA CON MÁS DE 10 REGISTROS\n\n' +
-
+                    const continuar = await mostrarDialogoTrama({
+                        titulo: 'Más de 10 registros',
+                        mensaje:
                             `La trama contiene ${rows.length} registros.\n\n` +
-
-                            'El máximo recomendado es de 10 registros.\n\n' +
-
-                            '¿Está seguro de que desea continuar con la exportación?\n\n' +
-
-                            'Aceptar = Exportar\n' +
-
-                            'Cancelar = No exportar'
-
-                        );
+                            'El máximo recomendado es de 10 registros. ¿Desea continuar con la exportación?',
+                        confirmar: true,
+                        textoAceptar: 'Exportar'
+                    });
 
 
                     if (!continuar) {
@@ -1590,9 +1590,10 @@
                         await writable.close();
 
 
-                        alert(
-                            'Excel guardado correctamente.'
-                        );
+                        mostrarDialogoTrama({
+                            titulo: 'Exportación completada',
+                            mensaje: 'Excel guardado correctamente.'
+                        });
 
 
                     } else {
@@ -1681,10 +1682,10 @@
                     );
 
 
-                    alert(
-                        error.message ||
-                        'No se pudo exportar la trama.'
-                    );
+                    mostrarDialogoTrama({
+                        titulo: 'No se pudo exportar',
+                        mensaje: error.message || 'No se pudo exportar la trama.'
+                    });
 
 
                     const btn =

@@ -1,5 +1,5 @@
 <!-- Modal Editar Cliente -->
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cliente/editCliente.css', v='20260420-1') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cliente/editCliente.css', v='20261028-1') }}">
 
 <div class="modal fade" id="editClienteModal" tabindex="-1" aria-labelledby="editClienteModalLabel" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-xl">
@@ -245,18 +245,18 @@
                     <!-- Eliminada: campos siniestros_reportados y detalle_siniestros -->
 
                     <!-- Sección 9: Información de Auditoría -->
-                    <div class="section-card border-0 bg-light">
+                    <div class="section-card border-0">
                         <h6 class="section-title">
                             <i class="bi-info-circle"></i> Información del Sistema
                         </h6>
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label text-muted mb-1">Registrado por</label>
-                                <div id="edit_usuario_registro" class="value fw-semibold bg-white border rounded p-2 user-badge"></div>
+                                <div id="edit_usuario_registro" class="value fw-semibold border rounded p-2 user-badge system-info-value"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label text-muted mb-1">Fecha y hora de registro</label>
-                                <div id="edit_fecha_registro" class="value fw-semibold bg-white border rounded p-2"></div>
+                                <div id="edit_fecha_registro" class="value fw-semibold border rounded p-2 system-info-value"></div>
                             </div>
                         </div>
                     </div>
