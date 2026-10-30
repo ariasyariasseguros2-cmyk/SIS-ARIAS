@@ -214,6 +214,7 @@
                     <li class="{% if page in ('maestros-ajustadores','maestros-ajustador') %}active{% endif %}"><a data-page="maestros-ajustadores" href="{{ url_for('main.menu_page', page='maestros-ajustadores') }}"><i class="bi-person-badge"></i> Ajustadores</a></li>
                     <li class="{% if page == 'maestros-companias' %}active{% endif %}"><a data-page="maestros-companias" href="{{ url_for('main.menu_page', page='maestros-companias') }}"><i class="bi-building"></i> Compañías</a></li>
                     <li class="{% if page == 'maestros-clases' %}active{% endif %}"><a data-page="maestros-clases" href="{{ url_for('main.menu_maestros_clases') }}"><i class="bi-tags"></i> Clases</a></li>
+                    <li class="{% if page == 'maestros-cumpleanos-colaboradores' %}active{% endif %}"><a data-page="maestros-cumpleanos-colaboradores" href="{{ url_for('main.menu_page', page='maestros-cumpleanos-colaboradores') }}"><i class="bi bi-calendar-heart"></i> Cumpleaños de Colaboradores</a></li>
                     <li class="{% if page == 'maestros-ejecutivos' %}active{% endif %}"><a data-page="maestros-ejecutivos" href="{{ url_for('main.menu_page', page='maestros-ejecutivos') }}"><i class="bi-people"></i> Ejecutivos del Broker</a></li>
                     <li class="{% if page == 'maestros-endosatarios' %}active{% endif %}"><a data-page="maestros-endosatarios" href="{{ url_for('main.menu_page', page='maestros-endosatarios') }}"><i class="bi-person-bounding-box"></i> Endosatarios</a></li>
                     <li class="{% if page == 'maestros-grupos' %}active{% endif %}"><a data-page="maestros-grupos" href="{{ url_for('main.menu_page', page='maestros-grupos') }}"><i class="bi-people-fill"></i> Grupos Economicos</a></li>
@@ -248,6 +249,23 @@
             </nav>
 
             <section class="page">
+                {% if cumpleanos_hoy %}
+                <div class="birthday-layout-notice" role="status" aria-live="polite">
+                    <span class="birthday-layout-notice-icon" aria-hidden="true"><i class="bi bi-balloon-heart-fill"></i></span>
+                    <span class="birthday-layout-notice-copy">
+                        {% if usuario_es_cumpleanero %}
+                            <strong class="birthday-layout-notice-title">¡Feliz cumpleaños, {{ session.get('user_display_name') }}!</strong>
+                            <span class="birthday-layout-notice-subtitle">Que tu día esté lleno de alegría, cariño y momentos especiales. ¡Disfrútalo mucho!</span>
+                        {% elif cumpleanos_hoy|length == 1 %}
+                            <strong class="birthday-layout-notice-title">Hoy es el cumpleaños de {{ cumpleanos_hoy[0] }}</strong>
+                            <span class="birthday-layout-notice-subtitle">Salúdalo en su día.</span>
+                        {% else %}
+                            <strong class="birthday-layout-notice-title">Hoy están de cumpleaños {{ cumpleanos_hoy|join(', ') }}</strong>
+                            <span class="birthday-layout-notice-subtitle">Salúdalos en su día.</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% endif %}
                 <div class="page-header d-none d-lg-block mb-3">
                     {% block page_title %}{% endblock %}
                 </div>

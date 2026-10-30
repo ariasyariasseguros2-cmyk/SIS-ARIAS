@@ -2353,6 +2353,28 @@ def menu_page(page):
         rows = get_ajustadores() or []
         return render_template('view/ajustadores/ajustadores.html', page='maestros-ajustadores', title='Ajustadores', rows=rows)
 
+    # Cumpleaños de colaboradores (Maestros)
+    if page == 'maestros-cumpleanos-colaboradores':
+        if not can_view_maestros(session.get('role_name')):
+            return redirect(url_for('main.home'))
+        from controllers.maestros.cumpleanos_colaboradores import listar_cumpleanos_colaboradores
+        try:
+            cumpleanos_colaboradores = listar_cumpleanos_colaboradores()
+            error_cumpleanos = None
+        except Exception:
+            current_app.logger.exception("No se pudieron cargar los cumpleaños de colaboradores")
+            cumpleanos_colaboradores = []
+            error_cumpleanos = (
+                'No se encontró la tabla de cumpleaños. Aplica db/cumpleanos_colaboradores_schema.sql '
+                'en la base de datos de la aplicación y vuelve a cargar esta página.'
+            )
+        return render_template(
+            'view/maestros/cumpleaños-colaboradores.html',
+            page='maestros-cumpleanos-colaboradores',
+            cumpleanos_colaboradores=cumpleanos_colaboradores,
+            error_cumpleanos=error_cumpleanos,
+        )
+
     # Soporte para Productos (slug correcto y con typo del menú)
     if page in ('maestros-productos', 'maestros-prodcutos'):
         if not can_view_maestros(session.get('role_name')):
@@ -7674,6 +7696,44 @@ def menu_maestros_usuarios():
     ejecutivos = get_ejecutivos() or []
     return render_template('view/maestros/usuarios.html', page='maestros-usuarios', usuarios=usuarios, roles=roles, ejecutivos=ejecutivos)
 
+@bp.route('/api/maestros/cumpleanos-colaboradores', methods=['POST'])
+@require_permission(can_view_maestros, response_mode='json')
+def api_crear_cumpleanos_colaborador():
+    if 'user' not in session:
+        return jsonify({'ok': False, 'error': 'No autenticado'}), 401
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'ok': False, 'error': 'Envía los datos del colaborador.'}), 400
+
+    nombre = data.get('nombre')
+    area = data.get('area')
+    fecha_nacimiento = data.get('fecha_nacimiento')
+    if not isinstance(nombre, str) or not isinstance(area, str) or not isinstance(fecha_nacimiento, str):
+        return jsonify({'ok': False, 'error': 'Completa el nombre, el área y la fecha.'}), 400
+
+    from controllers.maestros.cumpleanos_colaboradores import (
+        crear_cumpleanos_colaborador,
+        validar_datos_cumpleanos,
+    )
+    try:
+        nombre, area, fecha = validar_datos_cumpleanos(nombre, area, fecha_nacimiento)
+    except ValueError as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+
+    try:
+        colaborador = crear_cumpleanos_colaborador(
+            nombre,
+            area,
+            fecha,
+        )
+    except Exception:
+        current_app.logger.exception("Error guardando cumpleaños de colaborador")
+        return jsonify({'ok': False, 'error': 'No se pudo guardar el cumpleaños. Inténtalo nuevamente.'}), 500
+
+    colaborador['fecha_nacimiento'] = colaborador['fecha_nacimiento'].isoformat()
+    return jsonify({'ok': True, 'colaborador': colaborador}), 201
+
 @bp.route('/api/maestros/usuarios/rol', methods=['POST'])
 @require_permission(can_access_maestros, response_mode='json')
 def api_maestros_usuarios_rol():
@@ -8572,7 +8632,3 @@ def delete_vendedor(id):
 @bp.route('/FacturaVentas')
 def factura_ventas():
     return render_template('view/FacturaVentas.html')
-
-
-
-

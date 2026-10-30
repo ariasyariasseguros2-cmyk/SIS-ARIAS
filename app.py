@@ -2,6 +2,7 @@ import os
 import time
 import glob
 import threading
+import unicodedata
 from datetime import timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from routes.route import bp as main_bp
@@ -67,12 +68,35 @@ try:
             return parts[0][0].upper()
 
         notifications = []
+        cumpleanos_hoy = []
+        usuario_es_cumpleanero = False
         if session.get('user'):
             try:
                 from controllers.dashboard import get_expired_policy_notifications
                 notifications = get_expired_policy_notifications(limit=10)
             except Exception as e:
                 print(f"[context.notifications] {e}")
+            try:
+                from controllers.maestros.cumpleanos_colaboradores import obtener_cumpleanos_de_hoy
+                cumpleanos_hoy = obtener_cumpleanos_de_hoy()
+            except Exception:
+                app.logger.exception("No se pudieron cargar los cumpleaños de hoy")
+
+            nombre_usuario = session.get('user_display_name') or ''
+            if nombre_usuario:
+                def normalizar_nombre(nombre):
+                    sin_tildes = unicodedata.normalize('NFKD', nombre)
+                    return ''.join(
+                        caracter.casefold()
+                        for caracter in sin_tildes
+                        if caracter.isalnum()
+                    )
+
+                nombre_usuario_normalizado = normalizar_nombre(nombre_usuario)
+                usuario_es_cumpleanero = any(
+                    normalizar_nombre(nombre) == nombre_usuario_normalizado
+                    for nombre in cumpleanos_hoy
+                )
 
         return {
             'Roles': Roles,
@@ -88,6 +112,8 @@ try:
             'can_view_dashboard_charts': can_view_dashboard_charts,
             'get_initials': get_initials,
             'notifications': notifications,
+            'cumpleanos_hoy': cumpleanos_hoy,
+            'usuario_es_cumpleanero': usuario_es_cumpleanero,
         }
 except Exception:
     # Si falla la importación, seguimos sin inyectar (evita romper arranque)

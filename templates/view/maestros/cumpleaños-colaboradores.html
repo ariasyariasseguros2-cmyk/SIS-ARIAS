@@ -1,0 +1,192 @@
+{% extends "view/layout_dashboard.html" %}
+
+{% block html_title %}Cumpleaños del equipo{% endblock %}
+{% block page_title %}{% endblock %}
+
+{% block extra_css %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/maestros/cumpleaños-colaboradores.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="container-fluid birthday-page">
+    <section class="birthday-hero" aria-labelledby="birthday-title">
+        <div class="birthday-hero-copy">
+            <span class="birthday-eyebrow"><i class="bi bi-stars" aria-hidden="true"></i> Un buen motivo para celebrar</span>
+            <h1 id="birthday-title">Cumpleaños del equipo</h1>
+            <p>Ten a la mano las fechas especiales de quienes hacen grande nuestro equipo.</p>
+        </div>
+        <div class="birthday-hero-art" aria-hidden="true">
+            <span class="birthday-art-spark birthday-art-spark-one">✦</span>
+            <span class="birthday-art-spark birthday-art-spark-two">✦</span>
+            <i class="bi bi-cake2-fill"></i>
+        </div>
+    </section>
+
+    {% if error_cumpleanos %}
+    <div class="birthday-preview-note birthday-error-note" role="alert">
+        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+        <span>{{ error_cumpleanos }}</span>
+    </div>
+    {% else %}
+    <div class="birthday-preview-note" role="note">
+        <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+        <span><strong>Registro compartido:</strong> al guardar, el cumpleaños quedará disponible para el equipo y podrá mostrarse en el layout el día correspondiente.</span>
+    </div>
+    {% endif %}
+
+    <section class="birthday-stats" aria-label="Resumen de cumpleaños">
+        <article class="birthday-stat-card">
+            <span class="birthday-stat-icon birthday-stat-icon-blue"><i class="bi bi-people-fill" aria-hidden="true"></i></span>
+            <div>
+                <span class="birthday-stat-label">En el equipo</span>
+                <strong class="birthday-stat-value" id="birthday-total">0</strong>
+            </div>
+        </article>
+        <article class="birthday-stat-card">
+            <span class="birthday-stat-icon birthday-stat-icon-purple"><i class="bi bi-calendar-heart-fill" aria-hidden="true"></i></span>
+            <div>
+                <span class="birthday-stat-label">Cumplen este mes</span>
+                <strong class="birthday-stat-value" id="birthday-month-total">0</strong>
+            </div>
+        </article>
+        <article class="birthday-stat-card">
+            <span class="birthday-stat-icon birthday-stat-icon-orange"><i class="bi bi-gift-fill" aria-hidden="true"></i></span>
+            <div>
+                <span class="birthday-stat-label">En los próximos 30 días</span>
+                <strong class="birthday-stat-value" id="birthday-soon-total">0</strong>
+            </div>
+        </article>
+    </section>
+
+    <div class="birthday-layout">
+        <section class="birthday-panel birthday-form-panel" aria-labelledby="birthday-form-title">
+            <div class="birthday-panel-heading">
+                <span class="birthday-heading-icon"><i class="bi bi-person-plus-fill" aria-hidden="true"></i></span>
+                <div>
+                    <h2 id="birthday-form-title">Agregar cumpleaños</h2>
+                    <p>Completa los datos para compartir esta fecha con el equipo.</p>
+                </div>
+            </div>
+
+            <form id="birthday-form" data-save-url="{{ url_for('main.api_crear_cumpleanos_colaborador') }}" novalidate>
+                {% if error_cumpleanos %}
+                <fieldset disabled>
+                {% endif %}
+                <div class="birthday-field">
+                    <label for="birthday-name">Nombre del colaborador <span aria-hidden="true">*</span></label>
+                    <input id="birthday-name" name="nombre" type="text" class="form-control" placeholder="Ej. Andrea García" maxlength="150" autocomplete="name" required>
+                    <small>Escribe el nombre como quieres verlo en la lista.</small>
+                </div>
+
+                <div class="birthday-field">
+                    <label for="birthday-area">Área o cargo <span class="birthday-optional">Opcional</span></label>
+                    <input id="birthday-area" name="area" type="text" class="form-control" placeholder="Ej. Administración" maxlength="100">
+                </div>
+
+                <div class="birthday-field">
+                    <label for="birthday-date">Fecha de nacimiento <span aria-hidden="true">*</span></label>
+                    <input id="birthday-date" name="fecha_nacimiento" type="date" class="form-control" required>
+                    <small>Usaremos el día y el mes para recordar su cumpleaños cada año.</small>
+                </div>
+
+                <div class="birthday-date-preview" id="birthday-date-preview" aria-live="polite">
+                    <i class="bi bi-calendar-event" aria-hidden="true"></i>
+                    <span>Elige una fecha para ver cómo se mostrará.</span>
+                </div>
+
+                <button class="birthday-submit-btn" type="submit">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    Guardar cumpleaños
+                </button>
+                {% if error_cumpleanos %}
+                </fieldset>
+                {% endif %}
+            </form>
+        </section>
+
+        <section class="birthday-panel birthday-list-panel" aria-labelledby="birthday-list-title">
+            <div class="birthday-list-heading">
+                <div class="birthday-panel-heading">
+                    <span class="birthday-heading-icon birthday-heading-icon-pink"><i class="bi bi-balloon-heart-fill" aria-hidden="true"></i></span>
+                    <div>
+                        <h2 id="birthday-list-title">Fechas para celebrar</h2>
+                        <p id="birthday-list-subtitle">Encuentra rápido el próximo cumpleaños.</p>
+                    </div>
+                </div>
+                <span class="birthday-count-pill" id="birthday-count-pill">0 personas</span>
+            </div>
+
+            <div class="birthday-filters">
+                <label class="birthday-search">
+                    <i class="bi bi-search" aria-hidden="true"></i>
+                    <span class="visually-hidden">Buscar colaborador</span>
+                    <input id="birthday-search" type="search" placeholder="Buscar por nombre o área..." autocomplete="off">
+                    <button id="birthday-clear-search" type="button" aria-label="Limpiar búsqueda" hidden><i class="bi bi-x-circle-fill" aria-hidden="true"></i></button>
+                </label>
+                <label class="birthday-month-filter">
+                    <span class="visually-hidden">Filtrar por mes</span>
+                    <i class="bi bi-calendar3" aria-hidden="true"></i>
+                    <select id="birthday-month">
+                        <option value="">Todos los meses</option>
+                        <option value="1">Enero</option>
+                        <option value="2">Febrero</option>
+                        <option value="3">Marzo</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Mayo</option>
+                        <option value="6">Junio</option>
+                        <option value="7">Julio</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Septiembre</option>
+                        <option value="10">Octubre</option>
+                        <option value="11">Noviembre</option>
+                        <option value="12">Diciembre</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="birthday-table-wrap">
+                <table class="birthday-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Colaborador</th>
+                            <th scope="col">Área o cargo</th>
+                            <th scope="col">Cumpleaños</th>
+                            <th scope="col">Falta</th>
+                        </tr>
+                    </thead>
+                    <tbody id="birthday-rows">
+                        {% for colaborador in cumpleanos_colaboradores|default([], true) %}
+                        <tr class="birthday-row" data-date="{{ colaborador.fecha_nacimiento }}">
+                            <td class="birthday-person-cell">
+                                <span class="birthday-avatar" aria-hidden="true"></span>
+                                <span class="birthday-person-name">{{ colaborador.nombre }}</span>
+                            </td>
+                            <td class="birthday-area-cell">{{ colaborador.area or 'Sin área' }}</td>
+                            <td class="birthday-date-cell">{{ colaborador.fecha_nacimiento }}</td>
+                            <td class="birthday-countdown-cell"></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="birthday-empty-state" id="birthday-empty-state" hidden>
+                    <span class="birthday-empty-icon"><i class="bi bi-calendar2-heart" aria-hidden="true"></i></span>
+                    <h3 id="birthday-empty-title">Aún no hay cumpleaños en la lista</h3>
+                    <p id="birthday-empty-copy">Agrega el primero con el formulario y aquí aparecerán las fechas para celebrar.</p>
+                </div>
+                <p class="birthday-no-results" id="birthday-no-results" hidden>No encontramos cumpleaños con esos filtros. Prueba otra búsqueda.</p>
+            </div>
+            <div class="birthday-table-footer">
+                <span id="birthday-results-count" aria-live="polite">Mostrando 0 personas</span>
+                <span><i class="bi bi-arrow-up-short" aria-hidden="true"></i> Próximos cumpleaños primero</span>
+            </div>
+        </section>
+    </div>
+</main>
+<div class="birthday-toast" id="birthday-toast" role="status" aria-live="polite" hidden></div>
+{% endblock %}
+
+{% block extra_js_bottom %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/maestros/cumpleaños-colaboradores.js') }}" defer></script>
+{% endblock %}

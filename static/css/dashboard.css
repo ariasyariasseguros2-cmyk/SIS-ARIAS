@@ -590,6 +590,58 @@ a { text-decoration: none; }
   margin-bottom: 20px;
 }
 
+.birthday-layout-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 13px 18px;
+  border: 1px solid #f3c9d6;
+  border-radius: 14px;
+  background: linear-gradient(100deg, #fff4f7, #fffaf0);
+  color: #71394c;
+  box-shadow: 0 5px 16px rgba(190, 72, 111, .08);
+}
+
+.birthday-layout-notice-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.birthday-layout-notice-title {
+  font-size: .94rem;
+  font-weight: 700;
+}
+
+.birthday-layout-notice-subtitle {
+  font-size: .79rem;
+  opacity: .82;
+}
+
+.birthday-layout-notice-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 12px;
+  background: #ffe3ec;
+  color: #ce527a;
+  font-size: 1.1rem;
+}
+
+[data-theme='dark'] .birthday-layout-notice {
+  border-color: #63394c;
+  background: linear-gradient(100deg, #352334, #332c25);
+  color: #f8d7e2;
+}
+
+[data-theme='dark'] .birthday-layout-notice-icon {
+  background: #533044;
+  color: #ffadc5;
+}
+
 /* ================= DASHBOARD HEADER (title area) ================= */
 .welcome-title {
   font-size: 2rem;

@@ -14,6 +14,17 @@ CREATE TABLE IF NOT EXISTS usuarios (
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS cumpleanos_colaboradores (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(150) NOT NULL,
+    area VARCHAR(100) NULL,
+    fecha_nacimiento DATE NOT NULL,
+    creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_cumpleanos_fecha (fecha_nacimiento)
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
 DELIMITER $$
 DROP PROCEDURE IF EXISTS sp_login_usuario $$
 CREATE PROCEDURE sp_login_usuario(IN p_username VARCHAR(50))
