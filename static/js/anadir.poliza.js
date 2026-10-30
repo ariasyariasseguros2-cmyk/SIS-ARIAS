@@ -489,6 +489,20 @@
   function isDevolucionSelected() {
     return normalizeTipoDocKey(tipoDocTopEl?.value || '') === 'DEVOLUCION';
   }
+  function __itemSinPrimaFlag(it) {
+    const est = String((it && it.estado) || '').trim().toUpperCase();
+    const fp = String((it && it.forma_pago) || '').trim().toUpperCase();
+    return est === 'SIN PRIMA' || fp === 'SIN PRIMA';
+  }
+  function isNeteoTipoDoc(val) {
+    const k = normalizeTipoDocKey(val || (tipoDocTopEl?.value || ''));
+    return k === 'NETEO' || k.startsWith('NETEO');
+  }
+  function isNeteoOrSinPrima(it) {
+    if (isNeteoTipoDoc(tipoDocTopEl?.value || '')) return true;
+    if (__itemSinPrimaFlag(it)) return true;
+    return false;
+  }
   function formatSignedAmount(value, digits = 2) {
     const num = parseNumber(value);
     if (!Number.isFinite(num)) return '';
@@ -1709,12 +1723,20 @@
     tbody.innerHTML = '';
     items.forEach((it, idx) => {
       const totalVal = firstFilledValue(it.prima_comercial_igv, it.prima_total, it.monto);
-      if (!hasValue(it.prima_comercial) && hasValue(totalVal)) {
-        const comercial = computePrimaComercialFromTotal(totalVal);
-        if (comercial !== '') {
-          it.prima_comercial = comercial;
-          it.prima_neta = computePrimaNetaFromComercial(comercial);
+      if (!isNeteoOrSinPrima(it)) {
+        if (!hasValue(it.prima_comercial) && hasValue(totalVal)) {
+          const comercial = computePrimaComercialFromTotal(totalVal);
+          if (comercial !== '') {
+            it.prima_comercial = comercial;
+            it.prima_neta = computePrimaNetaFromComercial(comercial);
+          }
         }
+      } else {
+        if (!hasValue(it.prima_neta)) it.prima_neta = 0;
+        if (!hasValue(it.prima_comercial)) it.prima_comercial = 0;
+        if (!hasValue(it.prima_comercial_igv)) it.prima_comercial_igv = 0;
+        if (!hasValue(it.prima_total)) it.prima_total = 0;
+        if (!hasValue(it.monto)) it.monto = 0;
       }
       if (it.moneda) {
         it.moneda = mapCurrencySymbol(it.moneda);
@@ -3439,22 +3461,57 @@
     const pctSA    = pctComSubAgenteEl?.value || '100';
     const impSA    = impComSubAgenteEl?.value || '';
     const defaultProducto = (window.selectedCliente && window.selectedCliente.ramos_producto) || '';
+    const globalSinPrima = isNeteoTipoDoc(tipoDocTopEl?.value || '')
+      || String(tipoPago || '').trim().toUpperCase() === 'SIN PRIMA'
+      || String(estado || '').trim().toUpperCase() === 'SIN PRIMA';
     return items.map(it => {
-      const pctCCFinal = pctCC || (it.comision_compania_pct || '');
-      const importeCC = pctCCFinal ? computeCommissionAmount(it.prima_neta, pctCCFinal) : (it.comision_compania_importe || '');
-      const pctSAFinal = (it.comision_subagente_pct && it.comision_subagente_pct.toString().trim() !== '') ? it.comision_subagente_pct : pctSA;
-      const importeSA = (pctSAFinal && importeCC) ? computeSubAgentCommissionAmount(importeCC, pctSAFinal) : (it.comision_subagente_importe || impSA);
+      const sinPrima = globalSinPrima || __itemSinPrimaFlag(it);
+      const pctCCFinal = sinPrima ? 0 : (pctCC || (it.comision_compania_pct || ''));
+      let primaNeta = it.prima_neta;
+      let primaComercial = it.prima_comercial;
+      let primaComercialIgv = firstFilledValue(it.prima_comercial_igv, it.prima_total, it.monto);
+      let monto = it.monto;
+      let primaTotal = it.prima_total;
+      let importeCC = 0;
+      if (sinPrima) {
+        primaNeta = 0;
+        primaComercial = 0;
+        primaComercialIgv = 0;
+        primaTotal = 0;
+        monto = 0;
+      } else {
+        importeCC = pctCCFinal ? computeCommissionAmount(primaNeta, pctCCFinal) : (it.comision_compania_importe || '');
+      }
+      const pctSAFinal = sinPrima
+        ? 0
+        : ((it.comision_subagente_pct && it.comision_subagente_pct.toString().trim() !== '') ? it.comision_subagente_pct : pctSA);
+      const importeSA = sinPrima
+        ? 0
+        : ((pctSAFinal && importeCC) ? computeSubAgentCommissionAmount(importeCC, pctSAFinal) : (it.comision_subagente_importe || impSA));
       const rProd = (it.ramos_producto && it.ramos_producto.trim()) ? it.ramos_producto : defaultProducto;
-      return {
+      const out = {
         ...it,
         ramos_producto: rProd,
-        forma_pago: tipoPago || it.forma_pago || '',
-        estado: estado || it.estado || 'PENDIENTE',
+        forma_pago: (sinPrima ? 'SIN PRIMA' : (tipoPago || it.forma_pago || '')),
+        estado: (sinPrima ? 'SIN PRIMA' : (estado || it.estado || 'PENDIENTE')),
+        prima_neta: primaNeta,
+        prima_comercial: primaComercial,
+        prima_comercial_igv: primaComercialIgv,
+        prima_total: primaTotal,
+        monto: monto,
         comision_compania_pct: pctCCFinal,
         comision_compania_importe: importeCC,
         comision_subagente_pct: pctSAFinal,
-        comision_subagente_importe: importeSA
+        comision_subagente_importe: importeSA,
       };
+      if (sinPrima) {
+        out.factura = '';
+        out.fecha_pago = '';
+        out.fecha_factura = '';
+        out.ultimo_dia_pago = '';
+        out.cuotas = [];
+      }
+      return out;
     });
   }
   async function inferIssuerForItems(items, providerHint) {
@@ -4244,35 +4301,38 @@
       const abbrs = (window.ramosAbbrs || []).map(s => (s || '').trim());
       const nroOpTopSave = (nroOperacionTopEl?.value || '').trim(); // NUEVO: leer valor al guardar
 
-      const isNETEO = ((tipoDocSel || '').toString().trim().toUpperCase() === 'NETEO');
+      const isNETEO = isNeteoTipoDoc(tipoDocSel || '');
       const itemsForAuto = (extractedItems || []).map(it => {
         const copy = { ...it };
         if (copy.colectivo_asegurado && !copy.asegurado) {
           copy.asegurado = copy.colectivo_asegurado;
         }
-        // Alinear fecha de pago con ultimo_dia_pago para el backend
         if (!copy.ultimo_dia_pago && copy.fecha_pago) {
           copy.ultimo_dia_pago = copy.fecha_pago;
         }
-        // Alinear factura con recibo si procede
-        //if (!copy.recibo && copy.factura) {
-          //copy.recibo = copy.factura;
-        //}
         const r = (copy.ramo || '').trim();
         if (r && !abbrs.includes(r)) {
           copy.ramo = '';
         }
-        // const rpTop = (selected.ramos_producto || '').trim(); // REMOVED
-        // if (rpTop) {
-        //   copy.ramos_producto = rpTop;
-        // }
-        // NUEVO: aplicar nro operación global si existe (sobrescribe o rellena)
         if (nroOpTopSave) {
           copy.nro = nroOpTopSave;
         }
-        if (isNETEO) {
+        const isSinPrima = isNETEO || isNeteoOrSinPrima(copy);
+        if (isSinPrima) {
           copy.estado = 'SIN PRIMA';
           copy.forma_pago = 'SIN PRIMA';
+          copy.prima_neta = 0;
+          copy.prima_comercial = 0;
+          copy.prima_comercial_igv = 0;
+          copy.prima_total = 0;
+          copy.monto = 0;
+          copy.comision_compania_importe = 0;
+          copy.comision_subagente_importe = 0;
+          copy.factura = '';
+          copy.fecha_pago = '';
+          copy.fecha_factura = '';
+          copy.ultimo_dia_pago = '';
+          copy.cuotas = [];
         }
         return normalizeFinancialSigns(copy);
       });
@@ -4290,35 +4350,37 @@
           formData.append('anexos', file);
         });
       }
-      const cuotaFileKeys = new Set(
-        Array.from(cuotaFacturaFileMap.values()).map(file => keyForFile(file))
-      );
-      const hasRowFacturas = rowFacturasMap && rowFacturasMap.size > 0;
-      if (hasRowFacturas) {
-        Array.from(rowFacturasMap.entries()).forEach(([i, files]) => {
-          (files || []).forEach(file => {
-            // Los archivos ya asignados a una cuota se envían con una clave específica.
-            if (!cuotaFileKeys.has(keyForFile(file))) {
-              formData.append(`facturas_${i}`, file);
-            }
+      const anySinPrima = isNETEO || itemsForAuto.some(it => isNeteoOrSinPrima(it));
+      if (!anySinPrima) {
+        const cuotaFileKeys = new Set(
+          Array.from(cuotaFacturaFileMap.values()).map(file => keyForFile(file))
+        );
+        const hasRowFacturas = rowFacturasMap && rowFacturasMap.size > 0;
+        if (hasRowFacturas) {
+          Array.from(rowFacturasMap.entries()).forEach(([i, files]) => {
+            (files || []).forEach(file => {
+              if (!cuotaFileKeys.has(keyForFile(file))) {
+                formData.append(`facturas_${i}`, file);
+              }
+            });
           });
-        });
-      }
-      if (cuotaFacturaFileMap && cuotaFacturaFileMap.size > 0) {
-        (extractedItems || []).forEach((it, rowIdx) => {
-          const cuotas = Array.isArray(it?.cuotas) ? it.cuotas : [];
-          cuotas.forEach((c, ci) => {
-            const k = getCuotaFileMapKey(rowIdx, c);
-            const file = cuotaFacturaFileMap.get(k);
-            if (!file) return;
-            formData.append(`facturas_cuota_${rowIdx}_${ci}`, file);
+        }
+        if (cuotaFacturaFileMap && cuotaFacturaFileMap.size > 0) {
+          (extractedItems || []).forEach((it, rowIdx) => {
+            const cuotas = Array.isArray(it?.cuotas) ? it.cuotas : [];
+            cuotas.forEach((c, ci) => {
+              const k = getCuotaFileMapKey(rowIdx, c);
+              const file = cuotaFacturaFileMap.get(k);
+              if (!file) return;
+              formData.append(`facturas_cuota_${rowIdx}_${ci}`, file);
+            });
           });
-        });
-      } else {
-        if (allFacturas && allFacturas.length > 0) {
-          allFacturas.forEach(file => {
-            formData.append('facturas', file);
-          });
+        } else {
+          if (allFacturas && allFacturas.length > 0) {
+            allFacturas.forEach(file => {
+              formData.append('facturas', file);
+            });
+          }
         }
       }
 
@@ -4364,9 +4426,39 @@
     render(extractedItems);
   });
 
+  function __sanitizeItemsForSinPrima(items) {
+    if (!Array.isArray(items)) return items;
+    return items.map(it => {
+      if (!isNeteoOrSinPrima(it)) return it;
+      return {
+        ...it,
+        estado: 'SIN PRIMA',
+        forma_pago: 'SIN PRIMA',
+        prima_neta: 0,
+        prima_comercial: 0,
+        prima_comercial_igv: 0,
+        prima_total: 0,
+        monto: 0,
+        comision_compania_importe: 0,
+        comision_subagente_importe: 0,
+        factura: '',
+        fecha_pago: '',
+        fecha_factura: '',
+        ultimo_dia_pago: '',
+        cuotas: []
+      };
+    });
+  }
+
   tipoPagoTopEl?.addEventListener('change', () => {
     const val = (tipoPagoTopEl?.value || '').trim();
     extractedItems = (extractedItems || []).map(it => ({ ...it, forma_pago: val }));
+    if (String(val || '').trim().toUpperCase() === 'SIN PRIMA') {
+      extractedItems = __sanitizeItemsForSinPrima(extractedItems);
+      if (typeof rowFacturasMap !== 'undefined' && rowFacturasMap) rowFacturasMap.clear();
+      if (typeof cuotaFacturaFileMap !== 'undefined' && cuotaFacturaFileMap) cuotaFacturaFileMap.clear();
+      if (typeof allFacturas !== 'undefined') allFacturas = [];
+    }
     render(extractedItems);
     if (btnSave) {
       btnSave.disabled = (extractedItems || []).length === 0;
@@ -4376,13 +4468,18 @@
   estadoTopEl?.addEventListener('change', () => {
     const val = (estadoTopEl?.value || '').trim();
     extractedItems = (extractedItems || []).map(it => ({ ...it, estado: val }));
+    if (String(val || '').trim().toUpperCase() === 'SIN PRIMA') {
+      extractedItems = __sanitizeItemsForSinPrima(extractedItems);
+      if (typeof rowFacturasMap !== 'undefined' && rowFacturasMap) rowFacturasMap.clear();
+      if (typeof cuotaFacturaFileMap !== 'undefined' && cuotaFacturaFileMap) cuotaFacturaFileMap.clear();
+      if (typeof allFacturas !== 'undefined') allFacturas = [];
+    }
     render(extractedItems);
   });
 
   tipoDocTopEl?.addEventListener('change', () => {
-    const val = (tipoDocTopEl?.value || '').trim().toUpperCase();
-    if (val === 'NETEO') {
-      resetAddPolizaView(true);
+    const valRaw = (tipoDocTopEl?.value || '');
+    if (isNeteoTipoDoc(valRaw)) {
       if (tipoPagoTopEl) {
         tipoPagoTopEl.value = 'SIN PRIMA';
         tipoPagoTopEl.dispatchEvent(new Event('change'));
@@ -4391,10 +4488,10 @@
         estadoTopEl.value = 'SIN PRIMA';
         estadoTopEl.dispatchEvent(new Event('change'));
       } else {
-        // Forzar estado en el modelo aunque no exista el campo en UI
         extractedItems = (extractedItems || []).map(it => ({ ...it, estado: 'SIN PRIMA' }));
-        render(extractedItems);
       }
+      extractedItems = __sanitizeItemsForSinPrima(extractedItems || []);
+      render(extractedItems);
     } else {
       if (tipoPagoTopEl) {
         tipoPagoTopEl.value = '';
@@ -4407,7 +4504,6 @@
         }
         estadoTopEl.dispatchEvent(new Event('change'));
       } else {
-        // Limpiar estado en el modelo si no hay campo de UI
         extractedItems = (extractedItems || []).map(it => {
           const copy = { ...it };
           delete copy.estado;

@@ -701,6 +701,41 @@ def save_polizas(
             if is_devolucion_selected:
                 normalize_devolucion_amount_fields(row)
 
+            tdoc_row_or_selected_raw = (
+                U((selected or {}).get("tipo_doc") or (selected or {}).get("tipo_documento") or "")
+            )
+            tdoc_row_or_selected = (
+                tdoc_row_or_selected_raw
+                .replace("Á", "A").replace("É", "E").replace("Í", "I")
+                .replace("Ó", "O").replace("Ú", "U").replace("Ñ", "N")
+                .replace(" ", "").replace("-", "").replace("_", "")
+            )
+            est_row = U(row.get("estado") or "").strip().upper()
+            forma_pago_row = U(row.get("forma_pago") or "").strip().upper()
+            is_sin_prima_row = (
+                tdoc_row_or_selected.startswith("NETEO")
+                or est_row == "SIN PRIMA"
+                or forma_pago_row == "SIN PRIMA"
+            )
+            if is_sin_prima_row:
+                row["estado"] = "SIN PRIMA"
+                row["forma_pago"] = "SIN PRIMA"
+                for f in (
+                    "prima_neta",
+                    "prima_comercial",
+                    "prima_comercial_igv",
+                    "prima_total",
+                    "monto",
+                ):
+                    row[f] = 0.0
+                for f in ("comision_compania_importe", "comision_subagente_importe"):
+                    row[f] = 0.0
+                row["factura"] = ""
+                row["fecha_pago"] = ""
+                row["fecha_factura"] = None
+                row["ultimo_dia_pago"] = ""
+                row["cuotas"] = []
+
             # VALIDACION: evitar duplicado por cia + poliza + recibo
             try:
                 if dup_sig:
@@ -1079,7 +1114,9 @@ def save_polizas(
                 try:
                     row_cuotas = row.get("cuotas") or []
                     inserted_cuotas = {}
-                    if not row_cuotas:
+                    if is_sin_prima_row:
+                        row_cuotas = []
+                    elif not row_cuotas:
                         # Fallback: crear una cuota automática con los campos de la fila si no hay array de cuotas
                         row_cuotas = [{
                             "cupon": U(row.get("recibo") or ""),
@@ -1314,8 +1351,12 @@ def save_polizas(
                     print(f"[WARNING] Error procesando cuotas: {ex_cuota}")
                     pass
                 try:
-                    files_for_row = saved_facturas_by_index.get(i, saved_facturas)
-                    files_for_cuota = saved_facturas_by_cuota.get(i, {})
+                    if is_sin_prima_row:
+                        files_for_row = None
+                        files_for_cuota = None
+                    else:
+                        files_for_row = saved_facturas_by_index.get(i, saved_facturas)
+                        files_for_cuota = saved_facturas_by_cuota.get(i, {})
                     if files_for_row or files_for_cuota:
                         pid_for_files = real_poliza_id
                         if not pid_for_files:
