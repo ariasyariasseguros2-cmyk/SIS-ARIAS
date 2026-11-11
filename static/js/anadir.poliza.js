@@ -2129,9 +2129,8 @@
     return val.includes('positiva') || txt.includes('positiva') || val.includes('lpv');
   }
   function sanitizeDateInCell(td) {
-    const masked = maskDate(td.textContent || '');
-    if (td.textContent !== masked) td.textContent = masked;
-    return masked;
+    // No reconstruir la fecha mientras el usuario edita: preserva el cursor.
+    return (td.textContent || '').trim();
   }
   function getDigitsFromCell(td) {
     return (td.textContent || '').replace(/[^\d]/g, '');
@@ -2206,52 +2205,32 @@
     }
   }
 
-  // Filtro de teclado: fechas solo números y '/'
+  // Fechas: edición natural en la posición del cursor, sin reordenar dígitos.
   tbody.addEventListener('keydown', (e) => {
     const td = e.target.closest('td.editable');
-    if (!td) return;
-    const field = td.dataset.field;
-    if (!isDateField(field)) return;
-
-    // Control fino: escribir dígitos paso a paso DD/MM/AAAA, sin correr
-    const nav = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End'];
-    if (nav.includes(e.key) || e.ctrlKey || e.metaKey) return;
-
-    if (e.key === 'Backspace' || e.key === 'Delete') {
-      e.preventDefault();
-      const idx = Number(td.dataset.index);
-      const digits = getDigitsFromCell(td);
-      const newDigits = digits.slice(0, Math.max(0, digits.length - 1));
-      const masked = setDateByDigits(td, newDigits);
-      if (Number.isFinite(idx)) extractedItems[idx][field] = masked;
-      return;
-    }
-
-    if (/\d/.test(e.key)) {
-      e.preventDefault();
-      const idx = Number(td.dataset.index);
-      const digits = getDigitsFromCell(td);
-      if (digits.length >= 8) return; // máx 8 dígitos
-      const newDigits = digits + e.key;
-      const masked = setDateByDigits(td, newDigits);
-      if (Number.isFinite(idx)) extractedItems[idx][field] = masked;
-      return;
-    }
-
-    // Bloquear cualquier otra tecla, incluso '/'
-    e.preventDefault();
+    if (!td || !isDateField(td.dataset.field)) return;
+    if (e.key === 'Enter') { e.preventDefault(); td.blur(); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return;
+    if (!/^[0-9/]$/.test(e.key)) e.preventDefault();
   });
 
-  // Filtro de pegado: fechas al patrón DD/MM/AAAA
+  // Pegar una fecha completa reemplaza el contenido de la celda.
   tbody.addEventListener('paste', (e) => {
     const td = e.target.closest('td.editable');
-    if (!td) return;
-    const field = td.dataset.field;
-    if (!isDateField(field)) return;
+    if (!td || !isDateField(td.dataset.field)) return;
     const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
     e.preventDefault();
-    const masked = maskDate(text);
-    document.execCommand('insertText', false, masked);
+    const value = text.trim();
+    const sel = window.getSelection();
+    const wholeCellSelected = sel && sel.rangeCount &&
+      sel.toString().length === (td.textContent || '').length;
+    if (wholeCellSelected || /^\d{1,2}[/\-]\d{1,2}[/\-]\d{4}$/.test(value)) {
+      td.textContent = value.replace(/-/g, '/');
+      setCaretToEnd(td);
+      td.dispatchEvent(new Event('input', { bubbles: true }));
+    } else {
+      insertTextAtCursor(value.replace(/[^\d/]/g, ''));
+    }
   });
 
   // Filtro de teclado: numéricos solo dígitos, separador decimal y signo inicial
@@ -2308,8 +2287,7 @@
     if (!Number.isFinite(idx) || !field) return;
 
     if (isDateField(field)) {
-      const masked = sanitizeDateInCell(td);
-      extractedItems[idx][field] = masked;
+      extractedItems[idx][field] = (td.textContent || '').trim();
     } else if (isNumericField(field)) {
       const cur = td.textContent || '';
       const cleaned = normalizeSignedEditableText(cur);
@@ -2354,6 +2332,14 @@
     const idx = Number(td.dataset.index);
     const field = td.dataset.field;
     if (!Number.isFinite(idx) || !field) return;
+
+    if (isDateField(field)) {
+      const fecha = (td.textContent || '').trim();
+      const valida = !fecha || !!parseDMYDateStrict(fecha);
+      td.style.outline = valida ? '' : '2px solid #dc3545';
+      td.title = valida ? '' : 'Fecha inválida: usa DD/MM/AAAA';
+      extractedItems[idx][field] = fecha;
+    }
 
     if (field === 'prima_comercial' || field === 'prima_neta' || field === 'prima_comercial_igv') {
       const formatted = formatSignedAmount(td.textContent);

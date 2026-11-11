@@ -3041,6 +3041,7 @@ def upload():
             "vencimiento": it.get("vencimiento") or it.get("vigencia_hasta") or it.get("hasta"),
             "moneda": it.get("moneda"),
             "fecha_emision": it.get("fecha_emision") or it.get("emision"),
+            "fecha_vencimiento_prima": it.get("fecha_vencimiento_prima"),
             "forma_pago": it.get("forma_pago"),
             "ultimo_dia_pago": it.get("ultimo_dia_pago"),
             "prima_comercial": it.get("prima_comercial"),
@@ -3878,10 +3879,41 @@ def upload():
             LOG(f"[upload] cronograma parse error: {e}")
         LOG(f"[upload] fechas normalizadas: {[(x.get('ultimo_dia_pago'), x.get('vencimiento')) for x in items_ui]}")
 
-        # Regla final: SIEMPRE recalcular fecha_vencimiento (pago) = fecha_emision + 15.
-        # Nunca usar vencimiento (fin cobertura) como fecha de pago.
+        # Regla final de vencimiento del recibo.
+        # LA POSITIVA: usar la fecha del PDF o del primer recibo del cronograma,
+        # y NO sobreescribirla con fecha de emisión + 15 días.
         try:
+            es_positiva = (
+                'positiva' in str(detected_provider or issuer or '').lower()
+                or 'la positiva' in (pdf_text_full or '').lower()
+            )
             for it in items_ui:
+                if es_positiva:
+                    cuotas = it.get('cuotas') or []
+                    primera_cuota = next(
+                        (
+                            cuota for cuota in cuotas
+                            if isinstance(cuota, dict)
+                            and str(cuota.get('numero_cuota')) == '1'
+                            and cuota.get('fecha_vencimiento')
+                        ),
+                        None
+                    )
+                    fecha_prima = str(
+                        it.get('fecha_vencimiento_prima')
+                        or (primera_cuota or {}).get('fecha_vencimiento')
+                        or ''
+                    ).strip()
+                    if fecha_prima:
+                        it['fecha_vencimiento_prima'] = fecha_prima
+                        it['fecha_vencimiento'] = fecha_prima
+                        it['fecha_vecimiento'] = fecha_prima
+                        it['ultimo_dia_pago'] = fecha_prima
+                        LOG(f"[upload] POSITIVA fecha de prima conservada: {fecha_prima}")
+                    # Si no existe una fecha comprobada, no inventar +15 días.
+                    continue
+
+                # Conservar la regla anterior para las otras aseguradoras.
                 fe_val = (it.get('fecha_emision') or '').strip()
                 iv_val = (it.get('inicio_vigencia') or '').strip()
                 udp_val = (it.get('ultimo_dia_pago') or '').strip()
@@ -3893,8 +3925,8 @@ def upload():
                         it['fecha_vecimiento'] = pago_calc
                     if not udp_val:
                         it['ultimo_dia_pago'] = pago_calc
-        except Exception:
-            pass
+        except Exception as exc:
+            LOG(f"[upload] Error al resolver vencimiento de la prima: {exc}")
 
         # Dedupe por combinación clave y descartar muy vacíos
         unique = []
