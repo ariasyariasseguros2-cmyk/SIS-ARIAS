@@ -1,1716 +1,1144 @@
+
 /* =========================================================
-       CONFIGURACIÓN
-    ========================================================== */
+   SIS-ARIAS - GENERADOR DE TRAMAS
+   ConsultaPE DNI / RUC
+   ========================================================= */
+
+(() => {
+    'use strict';
 
     const MAX_REGISTROS_TRAMA = 10;
 
-    const alertRegistroAgregado =
-        document.getElementById('alertRegistroAgregado');
-    const documentoRequeridoModalEl =
-        document.getElementById('tramaDocumentoRequerido');
-    const documentoRequeridoModal =
-        documentoRequeridoModalEl && window.bootstrap
-            ? window.bootstrap.Modal.getOrCreateInstance(documentoRequeridoModalEl)
-            : null;
-    const dialogoTramaEl = document.getElementById('tramaDialogo');
-    const dialogoTramaModal =
-        dialogoTramaEl && window.bootstrap
-            ? window.bootstrap.Modal.getOrCreateInstance(dialogoTramaEl)
-            : null;
-    const dialogoTramaTitulo = document.getElementById('tramaDialogoTitulo');
-    const dialogoTramaMensaje = document.getElementById('tramaDialogoMensaje');
-    const dialogoTramaAceptar = document.getElementById('tramaDialogoAceptar');
-    const dialogoTramaCancelar = document.getElementById('tramaDialogoCancelar');
+    const $ = id => document.getElementById(id);
+
+    const btnConsultar = $('btnConsultar');
+    const btnAgregar = $('btnAgregar');
+    const btnExportar = $('btnExportarExcel');
+    const formulario = $('tramaForm');
+    const tabla = $('tablaTramas');
+
+    if (!btnConsultar || !formulario || !tabla) {
+        console.error('No se encontraron los elementos de Tramas.');
+        return;
+    }
+
+    /* =====================================================
+       MODALES Y MENSAJES
+       ===================================================== */
+
+    function mostrarModal(id) {
+        const elemento = $(id);
+
+        if (elemento && window.bootstrap) {
+            bootstrap.Modal
+                .getOrCreateInstance(elemento)
+                .show();
+            return true;
+        }
+
+        return false;
+    }
 
     function mostrarDialogoTrama({
-        titulo,
-        mensaje,
+        titulo = 'Información',
+        mensaje = '',
         confirmar = false,
         textoAceptar = 'Entendido',
         textoCancelar = 'Cancelar',
         destructivo = false,
         elementoEnfoque = null
-    }) {
-        if (!dialogoTramaEl || !dialogoTramaModal) {
-            console.error('No se pudo abrir el diálogo de la trama.');
-            return Promise.resolve(false);
+    } = {}) {
+        const modalEl = $('tramaDialogo');
+
+        if (!modalEl || !window.bootstrap) {
+            return Promise.resolve(
+                confirmar
+                    ? window.confirm(mensaje)
+                    : (window.alert(mensaje), true)
+            );
         }
 
-        dialogoTramaTitulo.textContent = titulo;
-        dialogoTramaMensaje.textContent = mensaje;
-        dialogoTramaAceptar.textContent = textoAceptar;
-        dialogoTramaAceptar.classList.toggle('is-danger', destructivo);
-        dialogoTramaCancelar.classList.toggle('d-none', !confirmar);
-        dialogoTramaCancelar.textContent = textoCancelar;
+        const tituloEl = $('tramaDialogoTitulo');
+        const mensajeEl = $('tramaDialogoMensaje');
+        const aceptarEl = $('tramaDialogoAceptar');
+        const cancelarEl = $('tramaDialogoCancelar');
+
+        tituloEl.textContent = titulo;
+        mensajeEl.textContent = mensaje;
+        aceptarEl.textContent = textoAceptar;
+        cancelarEl.textContent = textoCancelar;
+
+        aceptarEl.classList.toggle(
+            'is-danger',
+            destructivo
+        );
+
+        cancelarEl.classList.toggle(
+            'd-none',
+            !confirmar
+        );
 
         return new Promise(resolve => {
             let aceptado = false;
-            const registrarResultado = event => {
-                const button = event.target instanceof Element
-                    ? event.target.closest('[data-trama-dialog-result]')
-                    : null;
-                if (button) {
-                    aceptado = button.dataset.tramaDialogResult === 'accept';
+
+            const manejarClick = event => {
+                const boton = event.target.closest(
+                    '[data-trama-dialog-result]'
+                );
+
+                if (boton) {
+                    aceptado =
+                        boton.dataset.tramaDialogResult ===
+                        'accept';
                 }
             };
+
             const finalizar = () => {
-                dialogoTramaEl.removeEventListener('click', registrarResultado);
+                modalEl.removeEventListener(
+                    'click',
+                    manejarClick
+                );
+
                 if (elementoEnfoque) {
                     elementoEnfoque.focus();
                 }
+
                 resolve(aceptado);
             };
 
-            dialogoTramaEl.addEventListener('click', registrarResultado);
-            dialogoTramaEl.addEventListener('hidden.bs.modal', finalizar, { once: true });
-            dialogoTramaModal.show();
+            modalEl.addEventListener(
+                'click',
+                manejarClick
+            );
+
+            modalEl.addEventListener(
+                'hidden.bs.modal',
+                finalizar,
+                { once: true }
+            );
+
+            bootstrap.Modal
+                .getOrCreateInstance(modalEl)
+                .show();
         });
     }
 
-    let temporizadorAlertaRegistro = null;
+    function actualizarAyudaCampo(id, mensaje) {
+        const elemento = $(id);
+
+        if (elemento) {
+            elemento.textContent = mensaje || '';
+        }
+    }
+
+    let temporizadorAlerta = null;
 
     function ocultarAlertaRegistroAgregado() {
-        if (!alertRegistroAgregado) {
-            return;
-        }
+        $('alertRegistroAgregado')
+            ?.classList.add('d-none');
 
-        alertRegistroAgregado.classList.add('d-none');
-        temporizadorAlertaRegistro = null;
+        if (temporizadorAlerta) {
+            clearTimeout(temporizadorAlerta);
+            temporizadorAlerta = null;
+        }
     }
 
     function mostrarAlertaRegistroAgregado() {
-        if (!alertRegistroAgregado) {
-            return;
-        }
+        const alerta = $('alertRegistroAgregado');
 
-        window.clearTimeout(temporizadorAlertaRegistro);
-        alertRegistroAgregado.classList.remove('d-none');
-        temporizadorAlertaRegistro = window.setTimeout(
+        if (!alerta) return;
+
+        alerta.classList.remove('d-none');
+
+        clearTimeout(temporizadorAlerta);
+
+        temporizadorAlerta = setTimeout(
             ocultarAlertaRegistroAgregado,
             3000
         );
     }
 
-    if (alertRegistroAgregado) {
-        const btnCerrarAlerta =
-            alertRegistroAgregado.querySelector('.btn-close');
+    const cerrarAlerta = document.querySelector(
+        '#alertRegistroAgregado .btn-close'
+    );
 
-        if (btnCerrarAlerta) {
-            btnCerrarAlerta.addEventListener(
-                'click',
-                () => {
-                    window.clearTimeout(temporizadorAlertaRegistro);
-                    ocultarAlertaRegistroAgregado();
-                }
-            );
-        }
-    }
+    cerrarAlerta?.addEventListener(
+        'click',
+        ocultarAlertaRegistroAgregado
+    );
 
-    if (documentoRequeridoModalEl) {
-        documentoRequeridoModalEl.addEventListener('hidden.bs.modal', () => {
-            document.getElementById('NumIdent')?.focus();
-        });
-    }
-
-
-    /* =========================================================
-       ACTUALIZAR NUMERACIÓN N°
-       
-       Esta función vuelve a numerar todas las filas:
-       1
-       2
-       3
-       4
-       ...
-       
-       Si se elimina la fila 2:
-       1
-       2
-       3
-       
-       Así nunca quedan saltos.
-    ========================================================== */
-
-    function actualizarNumeracion() {
-
-        const filas = Array.from(
-            document.querySelectorAll(
-                '#tablaTramas tbody tr'
-            )
-        );
-
-        filas.forEach((row, index) => {
-
-            if (row.cells[0]) {
-
-                row.cells[0].textContent =
-                    index + 1;
-
-                row.cells[0].classList.add(
-                    'numero-registro'
-                );
-
-            }
-
-        });
-
-    }
-
-
-    /* =========================================================
-       ACTUALIZAR CONTADOR
-    ========================================================== */
-
-    function actualizarContador() {
-
-        const cantidad =
-            document.querySelectorAll(
-                '#tablaTramas tbody tr'
-            ).length;
-
-        const contador =
-            document.getElementById(
-                'contadorRegistros'
-            );
-
-        if (!contador) {
-            return;
-        }
-
-        contador.textContent =
-            cantidad === 1
-                ? '1 registro'
-                : `${cantidad} registros`;
-
-        if (cantidad >= MAX_REGISTROS_TRAMA) {
-
-            contador.classList.add(
-                'limite'
-            );
-
-        } else {
-
-            contador.classList.remove(
-                'limite'
-            );
-
-        }
-
-    }
-
-
-    /* =========================================================
-       NORMALIZAR FECHA
-    ========================================================== */
+    /* =====================================================
+       FECHA DE NACIMIENTO
+       ===================================================== */
 
     function normalizarFechaInput(valor) {
+        if (valor === null || valor === undefined) {
+            return '';
+        }
 
-        const texto =
-            (valor || '').trim();
+        const texto = String(valor).trim();
 
-        if (!texto) {
+        if (!texto) return '';
+
+        let anio, mes, dia;
+
+        // AAAA-MM-DD, incluso con hora ISO
+        let coincidencia = texto.match(
+            /^(\d{4})-(\d{1,2})-(\d{1,2})/
+        );
+
+        if (coincidencia) {
+            anio = coincidencia[1];
+            mes = coincidencia[2].padStart(2, '0');
+            dia = coincidencia[3].padStart(2, '0');
+        } else {
+            // DD/MM/AAAA o DD-MM-AAAA
+            coincidencia = texto.match(
+                /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/
+            );
+
+            if (!coincidencia) return '';
+
+            dia = coincidencia[1].padStart(2, '0');
+            mes = coincidencia[2].padStart(2, '0');
+            anio = coincidencia[3];
+        }
+
+        const fecha = `${anio}-${mes}-${dia}`;
+
+        const comprobacion = new Date(
+            `${fecha}T12:00:00`
+        );
+
+        if (Number.isNaN(comprobacion.getTime())) {
             return '';
         }
 
         if (
-            /^\d{4}-\d{2}-\d{2}$/.test(texto)
+            comprobacion.getFullYear() !== Number(anio) ||
+            comprobacion.getMonth() + 1 !== Number(mes) ||
+            comprobacion.getDate() !== Number(dia)
         ) {
-
-            return texto;
-
-        }
-
-        const match =
-            texto.match(
-                /^(\d{2})[\/-](\d{2})[\/-](\d{4})$/
-            );
-
-        if (match) {
-
-            const [
-                ,
-                dd,
-                mm,
-                yyyy
-            ] = match;
-
-            return `${yyyy}-${mm}-${dd}`;
-
-        }
-
-        return '';
-
-    }
-
-
-    /* =========================================================
-       NORMALIZAR ESTADO CIVIL
-    ========================================================== */
-
-    function normalizarEstadoCivil(valor) {
-
-        const texto =
-            (valor || '')
-                .trim()
-                .toUpperCase();
-
-        if (!texto) {
             return '';
         }
 
-        if (texto.startsWith('S')) {
-            return 'S';
-        }
-
-        if (texto.startsWith('C')) {
-            return 'C';
-        }
-
-        return '';
-
+        return fecha;
     }
 
+    function fechaParaExcel(fecha) {
+        const fechaNormalizada =
+            normalizarFechaInput(fecha);
 
-    /* =========================================================
+        if (!fechaNormalizada) return '';
+
+        const [anio, mes, dia] =
+            fechaNormalizada.split('-');
+
+        return `${dia}/${mes}/${anio}`;
+    }
+
+    function obtenerAvisoFecha() {
+        let aviso = $('FecNacimientoApiHint');
+
+        if (!aviso) {
+            const campo = $('FecNacimiento');
+
+            if (!campo) return null;
+
+            aviso = document.createElement('div');
+
+            aviso.id = 'FecNacimientoApiHint';
+            aviso.className = 'api-hint text-muted';
+
+            campo.insertAdjacentElement(
+                'afterend',
+                aviso
+            );
+        }
+
+        return aviso;
+    }
+
+    const mensajesFecha = {
+        obtenida:
+            'Fecha obtenida desde ConsultaPE',
+
+        obtenida_consulta_dni:
+            'Fecha obtenida desde ConsultaPE',
+
+        no_disponible_en_fuente:
+            'ConsultaPE no encontró la fecha para este DNI.',
+
+        sin_campo_fecha:
+            'ConsultaPE no devolvió una fecha reconocible.',
+
+        error_http_401:
+            'Token no autorizado para consultar la fecha.',
+
+        error_http_403:
+            'El módulo de fecha está bloqueado o sin permiso.',
+
+        error_http_429:
+            'Se alcanzó el límite de consultas.',
+
+        error_conexion:
+            'No se pudo conectar al módulo de fecha.',
+
+        error_interno:
+            'No se pudo procesar la fecha de nacimiento.',
+
+        respuesta_invalida:
+            'Respuesta de fecha inválida.'
+    };
+
+    /* =====================================================
        NORMALIZAR SEXO
-    ========================================================== */
+       ===================================================== */
 
     function normalizarSexo(valor) {
-
-        const texto =
-            (valor || '')
-                .trim()
-                .toUpperCase();
-
-        if (!texto) {
-            return '';
-        }
+        const texto = String(valor || '')
+            .trim()
+            .toUpperCase();
 
         if (
             texto === 'M' ||
             texto.startsWith('MASC')
         ) {
-
             return 'M';
-
         }
 
         if (
             texto === 'F' ||
             texto.startsWith('FEM')
         ) {
-
             return 'F';
-
         }
 
         return '';
-
     }
 
+    /* =====================================================
+       NORMALIZAR ESTADO CIVIL
+       ===================================================== */
 
-    /* =========================================================
-       AYUDA CAMPOS
-    ========================================================== */
+    function normalizarEstadoCivil(valor) {
+        const texto = String(valor || '')
+            .trim()
+            .toLowerCase();
 
-    function actualizarAyudaCampo(
-        id,
-        mensaje
-    ) {
+        if (!texto) return '';
 
-        const el =
-            document.getElementById(id);
+        const opciones = Array.from(
+            $('EstadoCivil')?.options || []
+        );
 
-        if (!el) {
+        const opcion = opciones.find(item => {
+            return (
+                item.value.toLowerCase() === texto ||
+                item.textContent
+                    .trim()
+                    .toLowerCase() === texto
+            );
+        });
+
+        if (opcion) return opcion.value;
+
+        const equivalencias = {
+            s: 'Soltero',
+            c: 'Casado',
+            d: 'Divorciado',
+            v: 'Viudo'
+        };
+
+        return equivalencias[texto] || '';
+    }
+
+    /* =====================================================
+       CONSULTAR DNI Y RUC - CONSULTAPE
+       ===================================================== */
+
+    async function consultarDocumento() {
+        const tipo = $('TipoIdent').value === '1'
+            ? 'DNI'
+            : 'RUC';
+
+        const numero = $('NumIdent')
+            .value
+            .trim();
+
+        const longitud = tipo === 'DNI' ? 8 : 11;
+
+        const patron = new RegExp(
+            `^\\d{${longitud}}$`
+        );
+
+        if (!patron.test(numero)) {
+            await mostrarDialogoTrama({
+                titulo: 'Documento incorrecto',
+                mensaje:
+                    `El ${tipo} debe contener exactamente ` +
+                    `${longitud} dígitos.`,
+                elementoEnfoque: $('NumIdent')
+            });
             return;
         }
 
-        el.textContent =
-            mensaje || '';
+        const textoOriginal = btnConsultar.textContent;
+        const avisoFecha = obtenerAvisoFecha();
 
-    }
+        btnConsultar.disabled = true;
+        btnConsultar.textContent = 'Buscando...';
 
+        actualizarAyudaCampo(
+            'SexoApiHint',
+            ''
+        );
 
-    /* =========================================================
-       OBTENER REGISTROS DE TABLA
+        actualizarAyudaCampo(
+            'EstadoCivilApiHint',
+            ''
+        );
 
-       IMPORTANTE:
-       La columna N° NO se envía al Excel.
-
-       Por eso los índices se manejan desde la
-       posición 1 de la tabla.
-    ========================================================== */
-
-    function obtenerRegistrosTrama() {
-
-        const headers = [
-
-            'Nombres',
-            'ApPaterno',
-            'ApMaterno',
-            'TipoTrabajador',
-            'PaisNacimiento',
-            'TipoIdent',
-            'NumIdent',
-            'Sexo',
-            'FecNacimiento',
-            'Moneda',
-            'Remuneracion',
-            'EstadoCivil',
-            'Sede'
-
-        ];
-
-        const rows =
-            Array.from(
-                document.querySelectorAll(
-                    '#tablaTramas tbody tr'
-                )
-            );
-
-        return rows.map(row => {
-
-            const cells =
-                Array.from(row.cells);
-
-            const item = {};
-
-            headers.forEach(
-                (header, index) => {
-
-                    item[header] =
-                        (
-                            cells[index + 1]
-                                ?.textContent || ''
-                        ).trim();
-
-                }
-            );
-
-            return item;
-
-        });
-
-    }
-
-
-    /* =========================================================
-       OBTENER REGISTRO ACTUAL DEL FORMULARIO
-    ========================================================== */
-
-    function obtenerRegistroActualFormulario() {
-
-        const nombres =
-            (
-                document.getElementById(
-                    'Nombres'
-                ).value || ''
-            ).trim();
-
-        const apPaterno =
-            (
-                document.getElementById(
-                    'ApPaterno'
-                ).value || ''
-            ).trim();
-
-        const apMaterno =
-            (
-                document.getElementById(
-                    'ApMaterno'
-                ).value || ''
-            ).trim();
-
-
-        /*
-         * Si NO hay ningún dato del formulario,
-         * no agregamos un registro al exportar.
-         */
-
-        if (
-            !nombres &&
-            !apPaterno &&
-            !apMaterno
-        ) {
-
-            return null;
-
+        if (avisoFecha) {
+            avisoFecha.textContent =
+                tipo === 'DNI'
+                    ? 'Consultando fecha de nacimiento...'
+                    : '';
         }
 
+        try {
+            const parametros = new URLSearchParams({
+                tipo_documento: tipo,
+                numero_documento: numero,
+                modo: 'basico'
+            });
 
-        const fechaInput =
-            (
-                document.getElementById(
-                    'FecNacimiento'
-                ).value || ''
-            ).trim();
+            const url =
+                '/api/clientes/documento-lookup?' +
+                parametros.toString();
 
-        let fecha = fechaInput;
+            const response = await fetch(url, {
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
 
-        if (fechaInput) {
+            const result = await response.json();
 
-            const partes =
-                fechaInput.split('-');
-
-            if (partes.length === 3) {
-
-                const [
-                    yyyy,
-                    mm,
-                    dd
-                ] = partes;
-
-                fecha =
-                    `${dd}/${mm}/${yyyy}`;
-
+            if (
+                !response.ok ||
+                !result.ok ||
+                !result.data
+            ) {
+                throw new Error(
+                    result.error ||
+                    'No se encontraron datos.'
+                );
             }
 
+            const data = result.data;
+
+            /* ============================================
+               1. NOMBRES
+               ============================================ */
+
+            $('Nombres').value =
+                data.nombres || '';
+
+            /* ============================================
+               2. APELLIDO PATERNO
+               ============================================ */
+
+            $('ApPaterno').value =
+                data.apellido_paterno || '';
+
+            /* ============================================
+               3. APELLIDO MATERNO
+               ============================================ */
+
+            $('ApMaterno').value =
+                data.apellido_materno || '';
+
+            /* ============================================
+               4. FECHA DE NACIMIENTO
+               ============================================ */
+
+            const fechaRecibida =
+                data.fecha_nacimiento ||
+                data.fechaNacimiento ||
+                data.fecha_nac ||
+                '';
+
+            const fechaNormalizada =
+                normalizarFechaInput(
+                    fechaRecibida
+                );
+
+            const campoFecha = $('FecNacimiento');
+
+            campoFecha.value = fechaNormalizada;
+
+            if (avisoFecha) {
+                if (tipo === 'RUC') {
+                    avisoFecha.textContent =
+                        'No aplica para RUC';
+                } else if (campoFecha.value) {
+                    avisoFecha.textContent =
+                        'Fecha obtenida desde ConsultaPE';
+                } else {
+                    avisoFecha.textContent =
+                        mensajesFecha[result.estado_fecha] ||
+                        'Fecha no disponible. Ingrésala manualmente.';
+                }
+            }
+
+            /* ============================================
+               SEXO (SI LA API LO PROPORCIONA)
+               ============================================ */
+
+            const sexo = normalizarSexo(
+                data.sexo
+            );
+
+            $('Sexo').value = sexo;
+
+            actualizarAyudaCampo(
+                'SexoApiHint',
+                sexo
+                    ? 'Dato obtenido'
+                    : 'Dato no disponible'
+            );
+
+            /* ============================================
+               ESTADO CIVIL
+               ============================================ */
+
+            const estadoCivil =
+                normalizarEstadoCivil(
+                    data.estado_civil
+                );
+
+            $('EstadoCivil').value =
+                estadoCivil;
+
+            actualizarAyudaCampo(
+                'EstadoCivilApiHint',
+                estadoCivil
+                    ? 'Dato obtenido'
+                    : 'Dato no disponible'
+            );
+
+            /* ============================================
+               DIAGNÓSTICO
+               ============================================ */
+
+            console.info(
+                '[ConsultaPE] Consulta correcta:',
+                tipo
+            );
+
+            console.info(
+                '[ConsultaPE] Estado de fecha:',
+                result.estado_fecha
+            );
+
+            console.info(
+                '[ConsultaPE] Fecha presente:',
+                Boolean(fechaRecibida)
+            );
+
+            console.info(
+                '[ConsultaPE] Fecha válida:',
+                Boolean(campoFecha.value)
+            );
+
+        } catch (error) {
+            console.error(
+                '[ConsultaPE] Error:',
+                error
+            );
+
+            if (avisoFecha) {
+                avisoFecha.textContent = '';
+            }
+
+            await mostrarDialogoTrama({
+                titulo: 'No se pudo realizar la consulta',
+                mensaje:
+                    error.message ||
+                    'Comprueba la conexión e inténtalo nuevamente.'
+            });
+
+        } finally {
+            btnConsultar.disabled = false;
+            btnConsultar.textContent = textoOriginal;
         }
-
-
-        return {
-
-            Nombres:
-                nombres,
-
-            ApPaterno:
-                apPaterno,
-
-            ApMaterno:
-                apMaterno,
-
-            TipoTrabajador:
-                document.getElementById(
-                    'TipoTrabajador'
-                ).value.trim(),
-
-            PaisNacimiento:
-                document.getElementById(
-                    'PaisNacimiento'
-                ).value.trim(),
-
-            TipoIdent:
-                document.getElementById(
-                    'TipoIdent'
-                ).value.trim(),
-
-            NumIdent:
-                document.getElementById(
-                    'NumIdent'
-                ).value.trim(),
-
-            Sexo:
-                document.getElementById(
-                    'Sexo'
-                ).value.trim(),
-
-            FecNacimiento:
-                fecha,
-
-            Moneda:
-                document.getElementById(
-                    'Moneda'
-                ).value.trim(),
-
-            Remuneracion:
-                document.getElementById(
-                    'Remuneracion'
-                ).value.trim(),
-
-            EstadoCivil:
-                document.getElementById(
-                    'EstadoCivil'
-                ).value.trim(),
-
-            Sede:
-                document.getElementById(
-                    'Sede'
-                ).value.trim()
-
-        };
-
     }
 
+    btnConsultar.addEventListener(
+        'click',
+        consultarDocumento
+    );
 
-    /* =========================================================
-       CONSULTAR DNI / RUC
-    ========================================================== */
+    /* =====================================================
+       TABLA DE REGISTROS
+       ===================================================== */
 
-    document
-        .getElementById('btnConsultar')
-        .addEventListener(
+    const CAMPOS_TRAMA = [
+        'Nombres',
+        'ApPaterno',
+        'ApMaterno',
+        'TipoTrabajador',
+        'PaisNacimiento',
+        'TipoIdent',
+        'NumIdent',
+        'Sexo',
+        'FecNacimiento',
+        'Moneda',
+        'Remuneracion',
+        'EstadoCivil',
+        'Sede'
+    ];
+
+    function obtenerFilas() {
+        return Array.from(
+            tabla.querySelectorAll('tbody tr')
+        );
+    }
+
+    function actualizarNumeracion() {
+        obtenerFilas().forEach((fila, indice) => {
+            if (fila.cells[0]) {
+                fila.cells[0].textContent =
+                    indice + 1;
+
+                fila.cells[0].classList.add(
+                    'numero-registro'
+                );
+            }
+        });
+    }
+
+    function actualizarContador() {
+        const cantidad = obtenerFilas().length;
+
+        const contador = $('contadorRegistros');
+
+        if (!contador) return;
+
+        contador.textContent =
+            cantidad === 1
+                ? '1 registro'
+                : `${cantidad} registros`;
+
+        contador.classList.toggle(
+            'limite',
+            cantidad >= MAX_REGISTROS_TRAMA
+        );
+    }
+
+    /* =====================================================
+       OBTENER DATOS DEL FORMULARIO
+       ===================================================== */
+
+    function obtenerRegistroActualFormulario() {
+        const nombres = $('Nombres').value.trim();
+        const paterno = $('ApPaterno').value.trim();
+        const materno = $('ApMaterno').value.trim();
+
+        if (!nombres && !paterno && !materno) {
+            return null;
+        }
+
+        const registro = {};
+
+        CAMPOS_TRAMA.forEach(id => {
+            const elemento = $(id);
+
+            registro[id] = elemento
+                ? String(elemento.value || '').trim()
+                : '';
+        });
+
+        registro.FecNacimiento = fechaParaExcel(
+            $('FecNacimiento').value
+        );
+
+        return registro;
+    }
+
+    function obtenerRegistrosTrama() {
+        return obtenerFilas().map(fila => {
+            const registro = {};
+
+            CAMPOS_TRAMA.forEach((campo, indice) => {
+                registro[campo] = (
+                    fila.cells[indice + 1]
+                        ?.textContent || ''
+                ).trim();
+            });
+
+            return registro;
+        });
+    }
+
+    /* =====================================================
+       VALIDACIONES DEL FORMULARIO
+       ===================================================== */
+
+    async function validarRegistro() {
+        const tipo = $('TipoIdent').value.trim();
+        const numero = $('NumIdent').value.trim();
+
+        if (!numero) {
+            if (!mostrarModal('tramaDocumentoRequerido')) {
+                await mostrarDialogoTrama({
+                    titulo: 'Documento requerido',
+                    mensaje:
+                        'Ingrese el número de DNI o RUC.',
+                    elementoEnfoque: $('NumIdent')
+                });
+            }
+            return false;
+        }
+
+        if (
+            tipo === '1' &&
+            !/^\d{8}$/.test(numero)
+        ) {
+            await mostrarDialogoTrama({
+                titulo: 'DNI no válido',
+                mensaje:
+                    'El DNI debe tener exactamente 8 dígitos.',
+                elementoEnfoque: $('NumIdent')
+            });
+            return false;
+        }
+
+        if (
+            tipo === '6' &&
+            !/^\d{11}$/.test(numero)
+        ) {
+            await mostrarDialogoTrama({
+                titulo: 'RUC no válido',
+                mensaje:
+                    'El RUC debe tener exactamente 11 dígitos.',
+                elementoEnfoque: $('NumIdent')
+            });
+            return false;
+        }
+
+        const duplicado = obtenerFilas().some(fila => {
+            return (
+                fila.cells[6]?.textContent.trim() === tipo &&
+                fila.cells[7]?.textContent.trim() === numero
+            );
+        });
+
+        if (duplicado) {
+            const tipoTexto = tipo === '1'
+                ? 'DNI'
+                : 'RUC';
+
+            const mensaje =
+                `El ${tipoTexto} N.º ${numero} ya ` +
+                'se encuentra registrado en esta trama.';
+
+            if ($('tramaDocumentoDuplicadoMensaje')) {
+                $('tramaDocumentoDuplicadoMensaje')
+                    .textContent = mensaje;
+            }
+
+            if (!mostrarModal('tramaDocumentoDuplicado')) {
+                await mostrarDialogoTrama({
+                    titulo: 'Documento duplicado',
+                    mensaje
+                });
+            }
+
+            return false;
+        }
+
+        if (
+            !$('Nombres').value.trim() ||
+            !$('ApPaterno').value.trim() ||
+            !$('ApMaterno').value.trim()
+        ) {
+            await mostrarDialogoTrama({
+                titulo: 'Datos incompletos',
+                mensaje:
+                    'Complete nombres, apellido paterno ' +
+                    'y apellido materno.'
+            });
+            return false;
+        }
+
+        if (!$('Sexo').value.trim()) {
+            await mostrarDialogoTrama({
+                titulo: 'Sexo requerido',
+                mensaje: 'Seleccione el sexo del cliente.',
+                elementoEnfoque: $('Sexo')
+            });
+            return false;
+        }
+
+        if (!$('FecNacimiento').value.trim()) {
+            await mostrarDialogoTrama({
+                titulo: 'Fecha de nacimiento requerida',
+                mensaje:
+                    'Ingrese la fecha de nacimiento.',
+                elementoEnfoque: $('FecNacimiento')
+            });
+            return false;
+        }
+
+        if (!$('EstadoCivil').value.trim()) {
+            await mostrarDialogoTrama({
+                titulo: 'Estado civil requerido',
+                mensaje:
+                    'Seleccione el estado civil del cliente.',
+                elementoEnfoque: $('EstadoCivil')
+            });
+            return false;
+        }
+
+        const remuneracion =
+            $('Remuneracion').value.trim();
+
+        if (
+            remuneracion === '' ||
+            !Number.isFinite(Number(remuneracion)) ||
+            Number(remuneracion) < 0
+        ) {
+            await mostrarDialogoTrama({
+                titulo: 'Remuneración no válida',
+                mensaje:
+                    'Ingrese una remuneración válida.',
+                elementoEnfoque: $('Remuneracion')
+            });
+            return false;
+        }
+
+        return true;
+    }
+
+    /* =====================================================
+       AGREGAR REGISTRO
+       ===================================================== */
+
+    async function agregarRegistro() {
+        const filas = obtenerFilas();
+
+        if (filas.length >= MAX_REGISTROS_TRAMA) {
+            const continuar = await mostrarDialogoTrama({
+                titulo: 'Máximo recomendado alcanzado',
+                mensaje:
+                    `La trama tiene ${filas.length} registros.\n\n` +
+                    'El máximo recomendado es 10. ' +
+                    '¿Desea continuar?',
+                confirmar: true,
+                textoAceptar: 'Registrar'
+            });
+
+            if (!continuar) return;
+        }
+
+        const valido = await validarRegistro();
+
+        if (!valido) return;
+
+        const tbody = tabla.querySelector('tbody');
+
+        const fila = tbody.insertRow();
+
+        const celdaNumero = fila.insertCell();
+
+        celdaNumero.className = 'numero-registro';
+
+        CAMPOS_TRAMA.forEach(campo => {
+            const celda = fila.insertCell();
+
+            let valor = $(campo).value;
+
+            if (campo === 'FecNacimiento') {
+                valor = fechaParaExcel(valor);
+            }
+
+            celda.textContent = valor;
+        });
+
+        /* BOTÓN ELIMINAR */
+
+        const celdaAcciones = fila.insertCell();
+
+        celdaAcciones.className = 'text-center';
+
+        const botonEliminar =
+            document.createElement('button');
+
+        botonEliminar.type = 'button';
+
+        botonEliminar.className =
+            'btn btn-outline-danger btn-sm btn-eliminar';
+
+        botonEliminar.textContent = 'Eliminar';
+
+        botonEliminar.addEventListener(
             'click',
             async () => {
+                const nombre =
+                    fila.cells[1]?.textContent || '';
 
                 const tipo =
-                    document.getElementById(
-                        'TipoIdent'
-                    ).value === '1'
+                    fila.cells[6]?.textContent === '1'
                         ? 'DNI'
                         : 'RUC';
 
                 const numero =
-                    document.getElementById(
-                        'NumIdent'
-                    ).value.trim();
-
-
-                if (!numero) {
-
-                    mostrarDialogoTrama({
-                        titulo: 'Documento requerido',
-                        mensaje: 'Ingrese el DNI o RUC para realizar la consulta.',
-                        elementoEnfoque: document.getElementById('NumIdent')
-                    });
-
-                    return;
-
-                }
-
-
-                try {
-
-                    actualizarAyudaCampo(
-                        'SexoApiHint',
-                        ''
-                    );
-
-                    actualizarAyudaCampo(
-                        'EstadoCivilApiHint',
-                        ''
-                    );
-
-
-                    const btn =
-                        document.getElementById(
-                            'btnConsultar'
-                        );
-
-                    const textoOriginal =
-                        btn.textContent;
-
-
-                    btn.disabled = true;
-
-                    btn.textContent =
-                        'Buscando...';
-
-
-                    const qs =
-                        new URLSearchParams({
-
-                            tipo_documento:
-                                tipo,
-
-                            numero_documento:
-                                numero,
-
-                            modo:
-                                'basico'
-
-                        });
-
-
-                    const response =
-                        await fetch(
-                            `/api/clientes/documento-lookup?${qs.toString()}`
-                        );
-
-
-                    const result =
-                        await response.json();
-
-
-                    if (
-                        response.ok &&
-                        result.ok &&
-                        result.data
-                    ) {
-
-                        const data =
-                            result.data || {};
-
-
-                        document.getElementById(
-                            'ApPaterno'
-                        ).value =
-                            data.apellido_paterno || '';
-
-
-                        document.getElementById(
-                            'ApMaterno'
-                        ).value =
-                            data.apellido_materno || '';
-
-
-                        document.getElementById(
-                            'Nombres'
-                        ).value =
-                            data.nombres || '';
-
-
-                        const fecha =
-                            normalizarFechaInput(
-                                data.fecha_nacimiento
-                            );
-
-
-                        document.getElementById(
-                            'FecNacimiento'
-                        ).value =
-                            fecha;
-
-
-                        const sexo =
-                            normalizarSexo(
-                                data.sexo
-                            );
-
-
-                        document.getElementById(
-                            'Sexo'
-                        ).value =
-                            sexo;
-
-
-                        const estadoCivil =
-                            normalizarEstadoCivil(
-                                data.estado_civil
-                            );
-
-
-                        document.getElementById(
-                            'EstadoCivil'
-                        ).value =
-                            estadoCivil;
-
-
-                        actualizarAyudaCampo(
-                            'SexoApiHint',
-                            sexo
-                                ? 'Dato obtenido'
-                                : 'Dato no disponible'
-                        );
-
-
-                        actualizarAyudaCampo(
-                            'EstadoCivilApiHint',
-                            estadoCivil
-                                ? 'Dato obtenido'
-                                : 'Dato no disponible'
-                        );
-
-
-                    } else {
-
-                        mostrarDialogoTrama({
-                            titulo: 'Consulta sin resultados',
-                            mensaje: result.error || 'No se encontraron datos para el documento.'
-                        });
-
-                    }
-
-
-                    btn.disabled = false;
-
-                    btn.textContent =
-                        textoOriginal;
-
-
-                } catch (error) {
-
-                    console.error(
-                        'Error al consultar:',
-                        error
-                    );
-
-
-                    const btn =
-                        document.getElementById(
-                            'btnConsultar'
-                        );
-
-
-                    btn.disabled = false;
-
-                    btn.textContent =
-                        'Buscar';
-
-
-                    mostrarDialogoTrama({
-                        titulo: 'No se pudo realizar la consulta',
-                        mensaje: 'Verifique su conexión e inténtelo nuevamente.'
-                    });
-
-                }
-
-            }
-        );
-
-
-    /* =========================================================
-       AGREGAR REGISTRO
-    ========================================================== */
-
-    document
-        .getElementById('btnAgregar')
-        .addEventListener(
-            'click',
-            async () => {
-
-                const tbody =
-                    document.querySelector(
-                        '#tablaTramas tbody'
-                    );
-
-
-                const cantidadRegistros =
-                    tbody.querySelectorAll(
-                        'tr'
-                    ).length;
-
-
-                /* =================================================
-                   DESDE EL REGISTRO 11 PREGUNTAR
-                ================================================== */
-
-                if (
-                    cantidadRegistros >=
-                    MAX_REGISTROS_TRAMA
-                ) {
-
-                    const continuar = await mostrarDialogoTrama({
-                        titulo: 'Máximo recomendado alcanzado',
+                    fila.cells[7]?.textContent || '';
+
+                const confirmar =
+                    await mostrarDialogoTrama({
+                        titulo: 'Confirmar eliminación',
                         mensaje:
-                            `La trama tiene actualmente ${cantidadRegistros} registros.\n\n` +
-                            'El máximo recomendado es de 10 registros. ¿Desea registrar una persona adicional?',
+                            '¿Está seguro de eliminar este registro?\n\n' +
+                            `Nombre: ${nombre}\n` +
+                            `${tipo}: ${numero}\n\n` +
+                            'Esta acción no se puede deshacer.',
                         confirmar: true,
-                        textoAceptar: 'Registrar'
+                        textoAceptar: 'Eliminar',
+                        destructivo: true
                     });
 
+                if (!confirmar) return;
 
-                    if (!continuar) {
-                        return;
-                    }
-
-                }
-
-
-                /* =================================================
-                   DOCUMENTO
-                ================================================== */
-
-                const tipoIdent =
-                    document.getElementById(
-                        'TipoIdent'
-                    ).value.trim();
-
-
-                const numIdent =
-                    document.getElementById(
-                        'NumIdent'
-                    ).value.trim();
-
-
-                if (!numIdent) {
-                    if (documentoRequeridoModal) {
-                        documentoRequeridoModal.show();
-                    } else {
-                        console.error('No se pudo abrir el aviso de documento requerido.');
-                    }
-
-                    return;
-
-                }
-
-
-                /* =================================================
-                   VALIDAR DNI
-                ================================================== */
-
-                if (
-                    tipoIdent === '1' &&
-                    !/^\d{8}$/.test(
-                        numIdent.replace(/\s+/g, '')
-                    )
-                ) {
-
-                    mostrarDialogoTrama({
-                        titulo: 'DNI no válido',
-                        mensaje: 'El DNI debe contener exactamente 8 dígitos.',
-                        elementoEnfoque: document.getElementById('NumIdent')
-                    });
-
-                    return;
-
-                }
-
-
-                /* =================================================
-                   VALIDAR RUC
-                ================================================== */
-
-                if (
-                    tipoIdent === '6' &&
-                    !/^\d{11}$/.test(
-                        numIdent.replace(/\s+/g, '')
-                    )
-                ) {
-
-                    mostrarDialogoTrama({
-                        titulo: 'RUC no válido',
-                        mensaje: 'El RUC debe contener exactamente 11 dígitos.',
-                        elementoEnfoque: document.getElementById('NumIdent')
-                    });
-
-                    return;
-
-                }
-
-
-                /* =================================================
-                   NORMALIZAR DOCUMENTO
-                ================================================== */
-
-                const documentoNuevo =
-                    numIdent
-                        .replace(/\s+/g, '')
-                        .toUpperCase();
-
-
-                /* =================================================
-                   VALIDAR DOCUMENTO DUPLICADO
-                ================================================== */
-
-                const filas =
-                    Array.from(
-                        tbody.querySelectorAll(
-                            'tr'
-                        )
-                    );
-
-
-                const documentoDuplicado =
-                    filas.some(row => {
-
-                        /*
-                         * Ahora la columna N° ocupa
-                         * la posición 0.
-                         *
-                         * TipoIdent = posición 6
-                         * NumIdent  = posición 7
-                         */
-
-                        const tipo =
-                            (
-                                row.cells[6]
-                                    ?.textContent || ''
-                            ).trim();
-
-
-                        const numero =
-                            (
-                                row.cells[7]
-                                    ?.textContent || ''
-                            )
-                                .trim()
-                                .replace(
-                                    /\s+/g,
-                                    ''
-                                )
-                                .toUpperCase();
-
-
-                        return (
-                            tipo === tipoIdent &&
-                            numero === documentoNuevo
-                        );
-
-                    });
-
-
-                if (documentoDuplicado) {
-
-                    const tipoTexto =
-                        tipoIdent === '1'
-                            ? 'DNI'
-                            : 'RUC';
-
-                    const modalElement =
-                        document.getElementById(
-                            'tramaDocumentoDuplicado'
-                        );
-
-                    const modalMessage =
-                        document.getElementById(
-                            'tramaDocumentoDuplicadoMensaje'
-                        );
-
-                    modalMessage.textContent =
-                        `El ${tipoTexto} N.º ${numIdent} ya se encuentra registrado en esta trama.`;
-
-                    modalElement.addEventListener(
-                        'hidden.bs.modal',
-                        () => {
-                            document.getElementById(
-                                'NumIdent'
-                            ).focus();
-                        },
-                        { once: true }
-                    );
-
-                    window.bootstrap.Modal
-                        .getOrCreateInstance(modalElement)
-                        .show();
-
-                    return;
-
-                }
-
-
-                /* =================================================
-                   VALIDAR NOMBRES Y APELLIDOS
-                ================================================== */
-
-                const nombres =
-                    document.getElementById(
-                        'Nombres'
-                    ).value.trim();
-
-
-                const apPaterno =
-                    document.getElementById(
-                        'ApPaterno'
-                    ).value.trim();
-
-
-                const apMaterno =
-                    document.getElementById(
-                        'ApMaterno'
-                    ).value.trim();
-
-
-                /*
-                 * IMPORTANTE:
-                 * Debe ser || y no &&.
-                 */
-
-                if (
-                    !nombres ||
-                    !apPaterno ||
-                    !apMaterno
-                ) {
-
-                    mostrarDialogoTrama({
-                        titulo: 'Datos incompletos',
-                        mensaje: 'Complete los nombres, apellido paterno y apellido materno antes de agregar el registro.'
-                    });
-
-                    return;
-
-                }
-
-
-                /* =================================================
-                   VALIDAR TIPO DE TRABAJADOR
-                ================================================== */
-
-                const tipoTrabajador =
-                    document.getElementById(
-                        'TipoTrabajador'
-                    ).value.trim();
-
-
-                /* =================================================
-                   VALIDAR SEXO
-                ================================================== */
-
-                const sexo =
-                    document.getElementById(
-                        'Sexo'
-                    ).value.trim();
-
-
-                if (!sexo) {
-
-                    mostrarDialogoTrama({
-                        titulo: 'Sexo requerido',
-                        mensaje: 'Seleccione el sexo del cliente.',
-                        elementoEnfoque: document.getElementById('Sexo')
-                    });
-
-                    return;
-
-                }
-
-
-                /* =================================================
-                   VALIDAR FECHA
-                ================================================== */
-
-                const fechaNacimiento =
-                    document.getElementById(
-                        'FecNacimiento'
-                    ).value.trim();
-
-
-                if (!fechaNacimiento) {
-
-                    mostrarDialogoTrama({
-                        titulo: 'Fecha de nacimiento requerida',
-                        mensaje: 'Ingrese la fecha de nacimiento.',
-                        elementoEnfoque: document.getElementById('FecNacimiento')
-                    });
-
-                    return;
-
-                }
-
-
-                /* =================================================
-                   VALIDAR ESTADO CIVIL
-                ================================================== */
-
-                const estadoCivil =
-                    document.getElementById(
-                        'EstadoCivil'
-                    ).value.trim();
-
-
-                if (!estadoCivil) {
-
-                    mostrarDialogoTrama({
-                        titulo: 'Estado civil requerido',
-                        mensaje: 'Seleccione el estado civil.',
-                        elementoEnfoque: document.getElementById('EstadoCivil')
-                    });
-
-                    return;
-
-                }
-
-
-                /* =================================================
-                   VALIDAR REMUNERACIÓN
-                ================================================== */
-
-                const remuneracion =
-                    document.getElementById(
-                        'Remuneracion'
-                    ).value.trim();
-
-
-                if (
-                    remuneracion === '' ||
-                    Number(remuneracion) < 0
-                ) {
-
-                    mostrarDialogoTrama({
-                        titulo: 'Remuneración no válida',
-                        mensaje: 'Ingrese una remuneración válida.',
-                        elementoEnfoque: document.getElementById('Remuneracion')
-                    });
-
-                    return;
-
-                }
-
-
-                /* =================================================
-                   CREAR FILA
-                ================================================== */
-
-                const row =
-                    tbody.insertRow();
-
-
-                /*
-                 * PRIMERA CELDA:
-                 * N°
-                 */
-
-                const numeroCell =
-                    row.insertCell();
-
-                numeroCell.className =
-                    'numero-registro';
-
-
-                /* =================================================
-                   CAMPOS
-                ================================================== */
-
-                const campos = [
-
-                    'Nombres',
-                    'ApPaterno',
-                    'ApMaterno',
-                    'TipoTrabajador',
-                    'PaisNacimiento',
-                    'TipoIdent',
-                    'NumIdent',
-                    'Sexo',
-                    'FecNacimiento',
-                    'Moneda',
-                    'Remuneracion',
-                    'EstadoCivil',
-                    'Sede'
-
-                ];
-
-
-                campos.forEach(id => {
-
-                    const cell =
-                        row.insertCell();
-
-
-                    let valor =
-                        document.getElementById(
-                            id
-                        ).value;
-
-
-                    /* =================================================
-                       FECHA DD/MM/YYYY
-                    ================================================== */
-
-                    if (
-                        id === 'FecNacimiento' &&
-                        valor
-                    ) {
-
-                        const partes =
-                            valor.split('-');
-
-
-                        if (
-                            partes.length === 3
-                        ) {
-
-                            const [
-                                yyyy,
-                                mm,
-                                dd
-                            ] = partes;
-
-
-                            valor =
-                                `${dd}/${mm}/${yyyy}`;
-
-                        }
-
-                    }
-
-
-                    cell.textContent =
-                        valor;
-
-                });
-
-
-                /* =================================================
-                   ACCIONES
-                ================================================== */
-
-                const acciones =
-                    row.insertCell();
-
-
-                acciones.className =
-                    'text-center';
-
-
-                const btnEliminar =
-                    document.createElement(
-                        'button'
-                    );
-
-
-                btnEliminar.type =
-                    'button';
-
-
-                btnEliminar.className =
-                    'btn btn-outline-danger btn-sm btn-eliminar';
-
-
-                btnEliminar.innerHTML =
-                    'Eliminar';
-
-
-                btnEliminar.addEventListener(
-                    'click',
-                    async () => {
-
-                        /*
-                         * N° está en 0
-                         * Nombres está en 1
-                         * TipoIdent está en 6
-                         * NumIdent está en 7
-                         */
-
-                        const nombre =
-                            row.cells[1]
-                                ?.textContent || '';
-
-
-                        const tipoDocumento =
-                            row.cells[6]
-                                ?.textContent === '1'
-                                ? 'DNI'
-                                : 'RUC';
-
-
-                        const numeroDocumento =
-                            row.cells[7]
-                                ?.textContent || '';
-
-
-                        const confirmar = await mostrarDialogoTrama({
-                            titulo: 'Confirmar eliminación',
-                            mensaje:
-                                `¿Está seguro de eliminar este registro?\n\n` +
-                                `Nombre: ${nombre}\n` +
-                                `${tipoDocumento}: ${numeroDocumento}\n\n` +
-                                'Esta acción no se puede deshacer.',
-                            confirmar: true,
-                            textoAceptar: 'Eliminar',
-                            destructivo: true
-                        });
-
-
-                        if (confirmar) {
-
-                            row.remove();
-
-                            /*
-                             * Reordenar N°
-                             */
-
-                            actualizarNumeracion();
-
-                            actualizarContador();
-
-                        }
-
-                    }
-                );
-
-
-                acciones.appendChild(
-                    btnEliminar
-                );
-
-                mostrarAlertaRegistroAgregado();
-
-
-                /* =================================================
-                   ACTUALIZAR N°
-                   
-                   Ejemplo:
-                   Registro agregado -> 1
-                   Registro agregado -> 2
-                   Registro agregado -> 3
-                ================================================== */
+                fila.remove();
 
                 actualizarNumeracion();
-
-
-                /* =================================================
-                   LIMPIAR FORMULARIO
-                ================================================== */
-
-                document
-                    .getElementById(
-                        'tramaForm'
-                    )
-                    .reset();
-
-
-                document.getElementById(
-                    'PaisNacimiento'
-                ).value =
-                    'Perú';
-
-
-                document.getElementById(
-                    'Moneda'
-                ).value =
-                    'S/.';
-
-
-                document.getElementById(
-                    'Remuneracion'
-                ).value =
-                    '0';
-
-
-                document.getElementById(
-                    'Sede'
-                ).value =
-                    'Principal';
-
-
-                actualizarAyudaCampo(
-                    'SexoApiHint',
-                    ''
-                );
-
-
-                actualizarAyudaCampo(
-                    'EstadoCivilApiHint',
-                    ''
-                );
-
-
                 actualizarContador();
-
             }
         );
 
+        celdaAcciones.appendChild(botonEliminar);
 
-    /* =========================================================
+        actualizarNumeracion();
+        actualizarContador();
+
+        mostrarAlertaRegistroAgregado();
+
+        /* LIMPIAR FORMULARIO */
+
+        formulario.reset();
+
+        $('PaisNacimiento').value = 'Perú';
+        $('Moneda').value = 'S/.';
+        $('Remuneracion').value = '0';
+        $('Sede').value = 'Principal';
+
+        actualizarAyudaCampo(
+            'SexoApiHint',
+            ''
+        );
+
+        actualizarAyudaCampo(
+            'EstadoCivilApiHint',
+            ''
+        );
+
+        const avisoFecha = obtenerAvisoFecha();
+
+        if (avisoFecha) {
+            avisoFecha.textContent = '';
+        }
+    }
+
+    btnAgregar?.addEventListener(
+        'click',
+        agregarRegistro
+    );
+
+    /* =====================================================
        EXPORTAR EXCEL
-    ========================================================== */
+       ===================================================== */
 
-    document
-        .getElementById('btnExportarExcel')
-        .addEventListener(
-            'click',
-            async () => {
+    async function exportarExcel() {
+        const registros = obtenerRegistrosTrama();
 
-                const rows =
-                    obtenerRegistrosTrama();
+        const registroActual =
+            obtenerRegistroActualFormulario();
 
+        if (registroActual) {
+            registros.push(registroActual);
+        }
 
-                const currentRow =
-                    obtenerRegistroActualFormulario();
+        if (registros.length === 0) {
+            await mostrarDialogoTrama({
+                titulo: 'Sin registros',
+                mensaje:
+                    'No hay registros para exportar.'
+            });
+            return;
+        }
 
+        if (registros.length > MAX_REGISTROS_TRAMA) {
+            const continuar = await mostrarDialogoTrama({
+                titulo: 'Más de 10 registros',
+                mensaje:
+                    `La trama contiene ${registros.length} registros.\n\n` +
+                    '¿Desea continuar con la exportación?',
+                confirmar: true,
+                textoAceptar: 'Exportar'
+            });
 
-                if (currentRow) {
+            if (!continuar) return;
+        }
 
-                    rows.push(
-                        currentRow
-                    );
+        const textoOriginal = btnExportar.textContent;
 
+        btnExportar.disabled = true;
+        btnExportar.textContent =
+            'Generando Excel...';
+
+        try {
+            const respuesta = await fetch(
+                '/clientes/trama/export',
+                {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type':
+                            'application/json'
+                    },
+                    body: JSON.stringify({
+                        rows: registros
+                    })
                 }
-
-
-                if (!rows.length) {
-
-                    mostrarDialogoTrama({
-                        titulo: 'Sin registros',
-                        mensaje: 'No hay registros para exportar.'
-                    });
-
-                    return;
-
-                }
-
-
-                /* =================================================
-                   CONFIRMAR EXPORTACIÓN SI SUPERA 10
-                ================================================== */
-
-                if (
-                    rows.length >
-                    MAX_REGISTROS_TRAMA
-                ) {
-
-                    const continuar = await mostrarDialogoTrama({
-                        titulo: 'Más de 10 registros',
-                        mensaje:
-                            `La trama contiene ${rows.length} registros.\n\n` +
-                            'El máximo recomendado es de 10 registros. ¿Desea continuar con la exportación?',
-                        confirmar: true,
-                        textoAceptar: 'Exportar'
-                    });
-
-
-                    if (!continuar) {
-                        return;
-                    }
-
-                }
-
-
-                /* =================================================
-                   GENERAR EXCEL
-                ================================================== */
-
-                try {
-
-                    const btn =
-                        document.getElementById(
-                            'btnExportarExcel'
-                        );
-
-
-                    btn.disabled = true;
-
-                    btn.textContent =
-                        'Generando Excel...';
-
-
-                    const response =
-                        await fetch(
-
-                            '/clientes/trama/export',
-
-                            {
-
-                                method:
-                                    'POST',
-
-                                headers: {
-
-                                    'Content-Type':
-                                        'application/json'
-
-                                },
-
-                                body:
-                                    JSON.stringify({
-
-                                        rows:
-                                            rows
-
-                                    })
-
-                            }
-
-                        );
-
-
-                    if (!response.ok) {
-
-                        const result =
-                            await response
-                                .json()
-                                .catch(
-                                    () => ({})
-                                );
-
-
-                        throw new Error(
-
-                            result.error ||
-                            'No se pudo generar el Excel.'
-
-                        );
-
-                    }
-
-
-                    const blob =
-                        await response.blob();
-
-
-                    const disposition =
-                        response.headers.get(
-                            'Content-Disposition'
-                        ) || '';
-
-
-                    let filename =
-                        'Trama_Clientes.xlsx';
-
-
-                    const match =
-                        disposition.match(
-                            /filename\*?=["']?(?:UTF-8'')?([^;"']+)["']?/i
-                        );
-
-
-                    if (
-                        match &&
-                        match[1]
-                    ) {
-
-                        filename =
-                            decodeURIComponent(
-                                match[1]
-                            ).trim();
-
-                    }
-
-
-                    /* =================================================
-                       GUARDAR ARCHIVO
-                    ================================================== */
-
-                    if (
-                        'showSaveFilePicker'
-                        in window
-                    ) {
-
-                        const fileHandle =
-                            await window
-                                .showSaveFilePicker(
-
-                                    {
-
-                                        suggestedName:
-                                            filename,
-
-                                        types: [
-
-                                            {
-
-                                                description:
-                                                    'Archivo Excel',
-
-                                                accept: {
-
-                                                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-                                                        ['.xlsx']
-
-                                                }
-
-                                            }
-
-                                        ]
-
-                                    }
-
-                                );
-
-
-                        const writable =
-                            await fileHandle
-                                .createWritable();
-
-
-                        await writable.write(
-                            blob
-                        );
-
-
-                        await writable.close();
-
-
-                        mostrarDialogoTrama({
-                            titulo: 'Exportación completada',
-                            mensaje: 'Excel guardado correctamente.'
-                        });
-
-
-                    } else {
-
-                        const url =
-                            window.URL
-                                .createObjectURL(
-                                    blob
-                                );
-
-
-                        const link =
-                            document.createElement(
-                                'a'
-                            );
-
-
-                        link.href =
-                            url;
-
-
-                        link.download =
-                            filename;
-
-
-                        document.body.appendChild(
-                            link
-                        );
-
-
-                        link.click();
-
-
-                        link.remove();
-
-
-                        window.URL
-                            .revokeObjectURL(
-                                url
-                            );
-
-                    }
-
-
-                    btn.disabled =
-                        false;
-
-
-                    btn.textContent =
-                        'Exportar a Excel';
-
-
-                } catch (error) {
-
-                    /* =================================================
-                       CANCELAR SELECTOR
-                    ================================================== */
-
-                    if (
-                        error.name ===
-                        'AbortError'
-                    ) {
-
-                        const btn =
-                            document.getElementById(
-                                'btnExportarExcel'
-                            );
-
-
-                        btn.disabled =
-                            false;
-
-
-                        btn.textContent =
-                            'Exportar a Excel';
-
-
-                        return;
-
-                    }
-
-
-                    console.error(
-                        'Error exportando:',
-                        error
-                    );
-
-
-                    mostrarDialogoTrama({
-                        titulo: 'No se pudo exportar',
-                        mensaje: error.message || 'No se pudo exportar la trama.'
-                    });
-
-
-                    const btn =
-                        document.getElementById(
-                            'btnExportarExcel'
-                        );
-
-
-                    btn.disabled =
-                        false;
-
-
-                    btn.textContent =
-                        'Exportar a Excel';
-
-                }
-
+            );
+
+            if (!respuesta.ok) {
+                const error = await respuesta
+                    .json()
+                    .catch(() => ({}));
+
+                throw new Error(
+                    error.error ||
+                    'No se pudo generar el Excel.'
+                );
             }
-        );
 
+            const blob = await respuesta.blob();
 
-    /* =========================================================
-       INICIALIZAR
-    ========================================================== */
+            const disposition =
+                respuesta.headers.get(
+                    'Content-Disposition'
+                ) || '';
+
+            let nombreArchivo =
+                'Trama_Clientes.xlsx';
+
+            const coincidencia = disposition.match(
+                /filename\*?=["']?(?:UTF-8'')?([^;"']+)/i
+            );
+
+            if (coincidencia?.[1]) {
+                try {
+                    nombreArchivo = decodeURIComponent(
+                        coincidencia[1].trim()
+                    );
+                } catch {
+                    nombreArchivo =
+                        coincidencia[1].trim();
+                }
+            }
+
+            /* GUARDAR ARCHIVO */
+
+            if ('showSaveFilePicker' in window) {
+                const archivo = await window
+                    .showSaveFilePicker({
+                        suggestedName: nombreArchivo,
+                        types: [{
+                            description: 'Archivo Excel',
+                            accept: {
+                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+                                    ['.xlsx']
+                            }
+                        }]
+                    });
+
+                const writable =
+                    await archivo.createWritable();
+
+                await writable.write(blob);
+                await writable.close();
+
+                await mostrarDialogoTrama({
+                    titulo: 'Exportación completada',
+                    mensaje:
+                        'Excel guardado correctamente.'
+                });
+
+            } else {
+                const urlArchivo =
+                    URL.createObjectURL(blob);
+
+                const enlace =
+                    document.createElement('a');
+
+                enlace.href = urlArchivo;
+                enlace.download = nombreArchivo;
+
+                document.body.appendChild(enlace);
+                enlace.click();
+                enlace.remove();
+
+                setTimeout(
+                    () => URL.revokeObjectURL(urlArchivo),
+                    1000
+                );
+            }
+
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                return;
+            }
+
+            console.error(
+                'Error exportando Excel:',
+                error
+            );
+
+            await mostrarDialogoTrama({
+                titulo: 'No se pudo exportar',
+                mensaje:
+                    error.message ||
+                    'No se pudo exportar la trama.'
+            });
+
+        } finally {
+            btnExportar.disabled = false;
+            btnExportar.textContent = textoOriginal;
+        }
+    }
+
+    btnExportar?.addEventListener(
+        'click',
+        exportarExcel
+    );
+
+    /* =====================================================
+       INICIALIZACIÓN
+       ===================================================== */
 
     actualizarNumeracion();
-
     actualizarContador();
+    obtenerAvisoFecha();
+
+    console.info(
+        '[SIS-ARIAS] Generador de Tramas inicializado.'
+    );
+
+})();
