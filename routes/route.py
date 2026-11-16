@@ -3056,6 +3056,8 @@ def upload():
             "fecha_vencimiento": fecha_vencimiento_ui,
             "ramos_producto": it.get("ramos_producto") or it.get("producto"),
             "fecha_vecimiento": it.get("fecha_vecimiento"),
+            # Marcador interno para respetar el fin de vigencia de Pacífico Generales.
+            "_pacifico_generales_vencimiento_por_fin": bool(it.get("_pacifico_generales_vencimiento_por_fin")),
             "numero_documento_extracted": it.get("numero_documento_extracted"),
             # Campos extra para validación de cliente
             "contratante": it.get("contratante"),
@@ -3888,6 +3890,18 @@ def upload():
                 or 'la positiva' in (pdf_text_full or '').lower()
             )
             for it in items_ui:
+                # PACÍFICO GENERALES: la tarjeta utiliza el FIN DE VIGENCIA.
+                # Evita recalcular este campo como emisión + 15 días.
+                if it.get('_pacifico_generales_vencimiento_por_fin'):
+                    fecha_fin_pacifico = str(it.get('vencimiento') or '').strip()
+                    if fecha_fin_pacifico:
+                        it['fecha_vencimiento'] = fecha_fin_pacifico
+                        it['fecha_vecimiento'] = fecha_fin_pacifico
+                        it['fecha_vencimiento_prima'] = fecha_fin_pacifico
+                        print(f"[upload] Pacífico Generales vencimiento UI={fecha_fin_pacifico}, póliza={it.get('numero_poliza')}")
+                        # ultimo_dia_pago se mantiene independiente del fin de vigencia.
+                        continue
+
                 if es_positiva:
                     cuotas = it.get('cuotas') or []
                     primera_cuota = next(
@@ -3941,6 +3955,8 @@ def upload():
                 LOG(f"[upload] item duplicado (clave={key}) descartado")
                 continue
             seen.add(key)
+            # El marcador es privado y no forma parte de la respuesta JSON.
+            it.pop('_pacifico_generales_vencimiento_por_fin', None)
             unique.append(it)
 
         provider_final = detected_provider
@@ -6330,8 +6346,12 @@ def parse_pdf_items_provider(path: str, issuer: str | None = None, pdf_password:
                         'inicio_vigencia': data.get('inicio'),
                         'vencimiento': data.get('fin'),
                         'fecha_emision': data.get('emision'),  # Added field
-                        'ultimo_dia_pago': data.get('fecha_pago'), # Added field
-                        'fecha_vencimiento': data.get('fecha_pago'), # Added field
+                        # No confundir vencimiento de póliza con plazo de pago.
+                        'ultimo_dia_pago': data.get('fecha_pago'),
+                        'fecha_vencimiento': data.get('fin') or data.get('fecha_vencimiento') or data.get('fecha_pago'),
+                        'fecha_vecimiento': data.get('fin') or data.get('fecha_vecimiento'),
+                        'fecha_vencimiento_prima': data.get('fecha_vencimiento_prima') or data.get('fin'),
+                        '_pacifico_generales_vencimiento_por_fin': bool(data.get('fin')),
                         'prima_neta': str(data.get('prima_neta', '')),
                         'prima_total': str(data.get('total', '')),
                         'prima_comercial_igv': str(data.get('total', '')),

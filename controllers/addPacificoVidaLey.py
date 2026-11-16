@@ -1205,7 +1205,7 @@ def parse_pacifico_vidaley(
 
         "recibo": _clean(recibo),
         "recibo_original": _clean(documentos["recibo_original"]),
-        "proforma_recibo": _clean(documentos["proforma_recibo"]),
+        "proforma_recibo": _clean(documentos["proforma_rec-ibo"]),
         "documento_ajuste": _clean(documentos["documento_ajuste"]),
         "numero_proforma": _clean(documentos["numero_proforma"]),
         "tipo_movimiento": documentos["tipo_movimiento"],
